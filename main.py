@@ -73,6 +73,10 @@ Base.metadata.create_all(
     bind=engine
 )
 
+from update_db_schema import migrate_db
+migrate_db()
+
+
 
 # ==================================================
 # Dashboard

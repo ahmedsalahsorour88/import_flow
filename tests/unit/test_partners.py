@@ -60,15 +60,22 @@ class TestExternalServiceProviderService(unittest.TestCase):
     def test_filter_by_partner_type(self):
         self.service.create_partner(PartnerCreate(partner_name="Bank 1", partner_type="Bank", swift_code="BNK1"))
         self.service.create_partner(PartnerCreate(partner_name="Shipping Line 1", partner_type="Shipping Line", scac_code="LINE1"))
+        self.service.create_partner(PartnerCreate(partner_name="Combined Provider", partner_type="Customs Broker, Freight Forwarder"))
 
         all_partners = self.service.get_all_partners()
         banks_only = self.service.get_all_partners(partner_type="Bank")
         shipping_only = self.service.get_all_partners(partner_type="Shipping Line")
+        broker_only = self.service.get_all_partners(partner_type="Customs Broker")
+        freight_only = self.service.get_all_partners(partner_type="Freight Forwarder")
 
-        self.assertEqual(len(all_partners), 2)
+        self.assertEqual(len(all_partners), 3)
         self.assertEqual(len(banks_only), 1)
         self.assertEqual(banks_only[0].partner_name, "Bank 1")
         self.assertEqual(len(shipping_only), 1)
+        self.assertEqual(len(broker_only), 1)
+        self.assertEqual(broker_only[0].partner_name, "Combined Provider")
+        self.assertEqual(len(freight_only), 1)
+        self.assertEqual(freight_only[0].partner_name, "Combined Provider")
         self.assertEqual(shipping_only[0].partner_name, "Shipping Line 1")
 
     def test_soft_delete_and_restore_partner(self):

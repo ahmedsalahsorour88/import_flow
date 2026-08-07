@@ -14,7 +14,7 @@ class ExternalServiceProviderRepository:
         if not include_inactive:
             query = query.filter(ExternalServiceProvider.is_active.is_(True))
         if partner_type and partner_type.strip().lower() != 'all':
-            query = query.filter(func.lower(ExternalServiceProvider.partner_type) == partner_type.strip().lower())
+            query = query.filter(func.lower(ExternalServiceProvider.partner_type).contains(partner_type.strip().lower()))
         return query.order_by(ExternalServiceProvider.provider_id.desc()).all()
 
     def get_by_id(self, provider_id: int) -> Optional[ExternalServiceProvider]:

@@ -23,6 +23,13 @@ class PartnerModel {
   final String? notes;
   final bool isActive;
 
+  List<String> get categoriesList => partnerType
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+
   PartnerModel({
     this.providerId,
     required this.partnerCode,

@@ -57,7 +57,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'Centralized Master for Commercial Banks, Shipping Lines, Customs Brokers, Freight Forwarders & Logistics Providers',
+                        'Centralized Master for Commercial Banks, Shipping Lines, Customs Brokers, Freight Forwarders & Multi-Category Logistics Providers',
                         style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
@@ -169,6 +169,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   final filtered = partners.where((p) {
                     return p.partnerName.toLowerCase().contains(_searchQuery) ||
                         p.partnerCode.toLowerCase().contains(_searchQuery) ||
+                        p.partnerType.toLowerCase().contains(_searchQuery) ||
                         (p.swiftCode ?? '').toLowerCase().contains(_searchQuery) ||
                         (p.scacCode ?? '').toLowerCase().contains(_searchQuery) ||
                         (p.clearanceLicenseNumber ?? '').toLowerCase().contains(_searchQuery);
@@ -213,30 +214,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
   Widget _buildPartnerRow(PartnerModel partner) {
     final isActive = partner.isActive;
-    IconData icon;
-    Color color;
-
-    switch (partner.partnerType) {
-      case 'Bank':
-        icon = Icons.account_balance;
-        color = AppTheme.emerald;
-        break;
-      case 'Shipping Line':
-        icon = Icons.directions_boat;
-        color = AppTheme.cobalt;
-        break;
-      case 'Customs Broker':
-        icon = Icons.assignment_ind;
-        color = AppTheme.orange;
-        break;
-      case 'Freight Forwarder':
-        icon = Icons.local_shipping;
-        color = AppTheme.charcoal;
-        break;
-      default:
-        icon = Icons.domain;
-        color = AppTheme.cobalt;
-    }
+    final categories = partner.categoriesList;
 
     return Opacity(
       opacity: isActive ? 1.0 : 0.6,
@@ -249,14 +227,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
               width: 48,
               height: 48,
               decoration: BoxDecoration(
-                color: (isActive ? color : Colors.grey).withOpacity(0.1),
+                color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, color: isActive ? color : Colors.grey),
+              child: Icon(_getIconForCategory(categories.firstOrNull ?? ''), color: isActive ? AppTheme.cobalt : Colors.grey),
             ),
             const SizedBox(width: 16),
 
-            // Code & Name
+            // Code & Name & Multi-Category Badges
             Expanded(
               flex: 3,
               child: Column(
@@ -304,9 +282,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       ),
                     ],
                   ),
+                  const SizedBox(height: 6),
+                  // Multiple Category Badges
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: categories.map((cat) => _buildCategoryBadge(cat)).toList(),
+                  ),
                   const SizedBox(height: 4),
                   Text(
-                    '${partner.partnerType} • ${partner.country} • ${partner.address ?? "No address"}',
+                    '${partner.country} • ${partner.address ?? "No address"}',
                     style: const TextStyle(color: Colors.grey, fontSize: 12),
                   ),
                 ],
@@ -320,13 +305,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
-                    Text('SWIFT: ${partner.swiftCode}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.emerald))
-                  else if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
-                    Text('SCAC: ${partner.scacCode}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.cobalt))
-                  else if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
-                    Text('License: ${partner.clearanceLicenseNumber}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.orange))
-                  else
-                    Text('Reg: ${partner.commercialRegister ?? "N/A"}', style: const TextStyle(fontSize: 13)),
+                    Text('SWIFT: ${partner.swiftCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                  if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
+                    Text('SCAC: ${partner.scacCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                  if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
+                    Text('License: ${partner.clearanceLicenseNumber}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                  if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
+                    Text('Reg: ${partner.commercialRegister}', style: const TextStyle(fontSize: 12)),
                   const SizedBox(height: 2),
                   Text('Terms: ${partner.paymentType}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
@@ -366,10 +351,68 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     );
   }
 
+  Widget _buildCategoryBadge(String cat) {
+    Color color;
+    switch (cat) {
+      case 'Bank':
+        color = AppTheme.emerald;
+        break;
+      case 'Shipping Line':
+        color = AppTheme.cobalt;
+        break;
+      case 'Customs Broker':
+        color = AppTheme.orange;
+        break;
+      case 'Freight Forwarder':
+        color = AppTheme.charcoal;
+        break;
+      default:
+        color = Colors.purple;
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3), width: 0.5),
+      ),
+      child: Text(
+        cat,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  IconData _getIconForCategory(String cat) {
+    switch (cat) {
+      case 'Bank':
+        return Icons.account_balance;
+      case 'Shipping Line':
+        return Icons.directions_boat;
+      case 'Customs Broker':
+        return Icons.assignment_ind;
+      case 'Freight Forwarder':
+        return Icons.local_shipping;
+      default:
+        return Icons.business;
+    }
+  }
+
   void _showAddPartnerDialog(BuildContext context) {
     final formKey = GlobalKey<FormState>();
 
-    String partnerType = 'Bank';
+    final availableCategories = [
+      'Bank',
+      'Shipping Line',
+      'Customs Broker',
+      'Freight Forwarder',
+      'Inland Transport',
+      'Inspection Agency',
+    ];
+
+    final Set<String> selectedCategories = {'Customs Broker'};
+
     final nameCtrl = TextEditingController();
     final taxIdCtrl = TextEditingController();
     final regCtrl = TextEditingController();
@@ -389,10 +432,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final isBank = selectedCategories.contains('Bank');
+            final isShippingLine = selectedCategories.contains('Shipping Line');
+            final isCustomsBroker = selectedCategories.contains('Customs Broker');
+
             return Dialog(
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               child: SizedBox(
-                width: 620,
+                width: 640,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -424,29 +471,43 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // Partner Type Dropdown
-                              const Text('Partner Category *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal)),
-                              const SizedBox(height: 6),
-                              DropdownButtonFormField<String>(
-                                value: partnerType,
-                                decoration: const InputDecoration(
-                                  prefixIcon: Icon(Icons.category, size: 20, color: AppTheme.charcoal),
-                                ),
-                                items: [
-                                  'Bank',
-                                  'Shipping Line',
-                                  'Customs Broker',
-                                  'Freight Forwarder',
-                                  'Inland Transport',
-                                  'Inspection Agency',
-                                ].map((type) => DropdownMenuItem(value: type, child: Text(type))).toList(),
-                                onChanged: (val) {
-                                  if (val != null) {
-                                    setDialogState(() {
-                                      partnerType = val;
-                                    });
-                                  }
-                                },
+                              // Multi-Select Partner Categories
+                              Row(
+                                children: const [
+                                  Text(
+                                    'Partner Categories (Select one or multiple) *',
+                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: availableCategories.map((cat) {
+                                  final isChecked = selectedCategories.contains(cat);
+                                  return FilterChip(
+                                    label: Text(cat),
+                                    selected: isChecked,
+                                    selectedColor: AppTheme.cobalt.withOpacity(0.2),
+                                    checkmarkColor: AppTheme.cobalt,
+                                    labelStyle: TextStyle(
+                                      color: isChecked ? AppTheme.cobalt : AppTheme.charcoal,
+                                      fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                                    ),
+                                    onSelected: (bool selected) {
+                                      setDialogState(() {
+                                        if (selected) {
+                                          selectedCategories.add(cat);
+                                        } else {
+                                          if (selectedCategories.length > 1) {
+                                            selectedCategories.remove(cat);
+                                          }
+                                        }
+                                      });
+                                    },
+                                  );
+                                }).toList(),
                               ),
                               const SizedBox(height: 16),
 
@@ -455,73 +516,122 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 label: 'Partner / Company Name',
                                 icon: Icons.business,
                                 isRequired: true,
-                                hint: 'e.g. National Bank of Egypt / Maersk Line',
+                                hint: 'e.g. National Bank of Egypt / Maersk Line / Cargo Logistics LLC',
                               ),
                               const SizedBox(height: 16),
 
                               // Dynamic Category Fields
-                              if (partnerType == 'Bank') ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: swiftCtrl,
-                                        label: 'SWIFT Code',
-                                        icon: Icons.code,
+                              if (isBank) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emerald.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.emerald.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('🏦 Banking Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: swiftCtrl,
+                                              label: 'SWIFT Code',
+                                              icon: Icons.code,
+                                              isRequired: true,
+                                              hint: 'NBEGEGXCAXXX',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: bankCodeCtrl,
+                                              label: 'Bank Code',
+                                              icon: Icons.account_balance,
+                                              hint: 'NBE',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: branchCtrl,
+                                        label: 'Branch Name',
+                                        icon: Icons.location_city,
+                                        hint: 'Main Branch, Cairo',
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isShippingLine) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cobalt.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('🚢 Shipping Line Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: scacCtrl,
+                                              label: 'SCAC / Carrier Code',
+                                              icon: Icons.code,
+                                              isRequired: true,
+                                              hint: 'MAEU / MSKU',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 12),
+                                          Expanded(
+                                            child: CustomTextField(
+                                              controller: trackingCtrl,
+                                              label: 'Tracking Web URL',
+                                              icon: Icons.link,
+                                              hint: 'https://www.maersk.com/tracking/',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                              ],
+
+                              if (isCustomsBroker) ...[
+                                Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.orange.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: AppTheme.orange.withOpacity(0.2)),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('🛂 Customs Broker License', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                                      const SizedBox(height: 10),
+                                      CustomTextField(
+                                        controller: licenseCtrl,
+                                        label: 'Customs Clearance License #',
+                                        icon: Icons.assignment_ind,
                                         isRequired: true,
-                                        hint: 'NBEGEGXCAXXX',
+                                        hint: 'LIC-CAI-9988',
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: bankCodeCtrl,
-                                        label: 'Bank Code',
-                                        icon: Icons.account_balance,
-                                        hint: 'NBE',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                CustomTextField(
-                                  controller: branchCtrl,
-                                  label: 'Branch Name',
-                                  icon: Icons.location_city,
-                                  hint: 'Main Branch, Cairo',
-                                ),
-                                const SizedBox(height: 16),
-                              ] else if (partnerType == 'Shipping Line') ...[
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: scacCtrl,
-                                        label: 'SCAC / Carrier Code',
-                                        icon: Icons.code,
-                                        isRequired: true,
-                                        hint: 'MAEU / MSKU',
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: trackingCtrl,
-                                        label: 'Tracking Web URL',
-                                        icon: Icons.link,
-                                        hint: 'https://www.maersk.com/tracking/',
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                              ] else if (partnerType == 'Customs Broker') ...[
-                                CustomTextField(
-                                  controller: licenseCtrl,
-                                  label: 'Customs Clearance License #',
-                                  icon: Icons.assignment_ind,
-                                  isRequired: true,
-                                  hint: 'LIC-CAI-9988',
+                                    ],
+                                  ),
                                 ),
                                 const SizedBox(height: 16),
                               ],
@@ -618,14 +728,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                             icon: const Icon(Icons.check, size: 18),
                             label: const Text('Save External Partner'),
                             onPressed: () async {
-                              if (!formKey.currentState!.validate()) {
+                              if (!formKey.currentState!.validate() || selectedCategories.isEmpty) {
                                 return;
                               }
+
+                              final partnerTypeJoined = selectedCategories.join(', ');
 
                               final partner = PartnerModel(
                                 partnerCode: '',
                                 partnerName: nameCtrl.text.trim(),
-                                partnerType: partnerType,
+                                partnerType: partnerTypeJoined,
                                 taxId: taxIdCtrl.text.trim().isEmpty ? null : taxIdCtrl.text.trim(),
                                 commercialRegister: regCtrl.text.trim().isEmpty ? null : regCtrl.text.trim(),
                                 clearanceLicenseNumber: licenseCtrl.text.trim().isEmpty ? null : licenseCtrl.text.trim(),

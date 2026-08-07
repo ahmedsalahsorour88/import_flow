@@ -18,6 +18,14 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final suppliersAsync = ref.watch(suppliersProvider);
     final showInactive = ref.watch(showInactiveSuppliersProvider);

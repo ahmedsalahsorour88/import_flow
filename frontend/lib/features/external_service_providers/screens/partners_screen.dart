@@ -28,6 +28,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final partnersAsync = ref.watch(partnersProvider);
     final selectedCategory = ref.watch(selectedPartnerCategoryProvider);

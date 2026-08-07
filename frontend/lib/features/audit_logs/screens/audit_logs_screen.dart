@@ -34,6 +34,14 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.invalidate(systemAuditLogsProvider);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final logsAsync = ref.watch(systemAuditLogsProvider);
 

@@ -18,6 +18,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   String _searchQuery = '';
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final companiesAsync = ref.watch(importCompaniesProvider);
     final showInactive = ref.watch(showInactiveCompaniesProvider);

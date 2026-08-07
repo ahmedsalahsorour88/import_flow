@@ -46,6 +46,16 @@ class ExternalServiceProviderRepository:
         self.db.add(db_obj)
         self.db.commit()
         self.db.refresh(db_obj)
+
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(self.db).log_activity(
+            entity_type="ExternalServiceProvider",
+            entity_id=db_obj.provider_id,
+            entity_code=db_obj.partner_code,
+            action="CREATE",
+            new_data={"partner_name": db_obj.partner_name, "partner_type": db_obj.partner_type}
+        )
+
         return db_obj
 
     def update(self, provider_id: int, partner_data: PartnerUpdate) -> Optional[ExternalServiceProvider]:
@@ -53,10 +63,25 @@ class ExternalServiceProviderRepository:
         if not db_obj:
             return None
         update_data = partner_data.model_dump(exclude_unset=True)
+        old_data = {
+            k: getattr(db_obj, k, None)
+            for k in update_data.keys()
+        }
         for key, value in update_data.items():
             setattr(db_obj, key, value)
         self.db.commit()
         self.db.refresh(db_obj)
+
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(self.db).log_activity(
+            entity_type="ExternalServiceProvider",
+            entity_id=db_obj.provider_id,
+            entity_code=db_obj.partner_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+        )
+
         return db_obj
 
     def soft_delete(self, provider_id: int) -> bool:
@@ -65,6 +90,15 @@ class ExternalServiceProviderRepository:
             return False
         db_obj.is_active = False
         self.db.commit()
+
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(self.db).log_activity(
+            entity_type="ExternalServiceProvider",
+            entity_id=db_obj.provider_id,
+            entity_code=db_obj.partner_code,
+            action="DELETE",
+        )
+
         return True
 
     def restore(self, provider_id: int) -> bool:
@@ -73,4 +107,13 @@ class ExternalServiceProviderRepository:
             return False
         db_obj.is_active = True
         self.db.commit()
+
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(self.db).log_activity(
+            entity_type="ExternalServiceProvider",
+            entity_id=db_obj.provider_id,
+            entity_code=db_obj.partner_code,
+            action="RESTORE",
+        )
+
         return True

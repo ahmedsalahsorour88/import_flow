@@ -14,6 +14,16 @@ def create_supplier(db: Session, supplier_data: dict) -> Supplier:
     db.add(supplier)
     db.commit()
     db.refresh(supplier)
+
+    from modules.audit_logs.service import AuditLogService
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=supplier.supplier_id,
+        entity_code=supplier.supplier_code,
+        action="CREATE",
+        new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id}
+    )
+
     return supplier
 
 
@@ -90,6 +100,11 @@ def count_suppliers(db: Session) -> int:
 
 def update_supplier(db: Session, supplier: Supplier, supplier_data: SupplierUpdate) -> Supplier:
     update_data = supplier_data.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {
+        k: getattr(supplier, k, None)
+        for k in update_data.keys()
+    }
+
     for field, value in update_data.items():
         if field == "email" and value is not None:
             value = str(value)
@@ -98,6 +113,15 @@ def update_supplier(db: Session, supplier: Supplier, supplier_data: SupplierUpda
     try:
         db.commit()
         db.refresh(supplier)
+        from modules.audit_logs.service import AuditLogService
+        AuditLogService(db).log_activity(
+            entity_type="Supplier",
+            entity_id=supplier.supplier_id,
+            entity_code=supplier.supplier_code,
+            action="UPDATE",
+            old_data=old_data,
+            new_data=update_data,
+        )
     except Exception:
         db.rollback()
         raise
@@ -113,6 +137,15 @@ def soft_delete_supplier(db: Session, supplier: Supplier) -> Supplier:
     supplier.is_active = False
     db.commit()
     db.refresh(supplier)
+
+    from modules.audit_logs.service import AuditLogService
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=supplier.supplier_id,
+        entity_code=supplier.supplier_code,
+        action="DELETE",
+    )
+
     return supplier
 
 
@@ -124,4 +157,13 @@ def restore_supplier(db: Session, supplier: Supplier) -> Supplier:
     supplier.is_active = True
     db.commit()
     db.refresh(supplier)
+
+    from modules.audit_logs.service import AuditLogService
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=supplier.supplier_id,
+        entity_code=supplier.supplier_code,
+        action="RESTORE",
+    )
+
     return supplier

@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
+import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class ImportCompaniesScreen extends ConsumerStatefulWidget {
   const ImportCompaniesScreen({super.key});
@@ -272,10 +273,24 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
               ),
             ),
 
-            // Action Buttons: Edit & Toggle Active
+            // Action Buttons: Edit, History Log & Toggle Active
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
+                  tooltip: 'View Change History Logs',
+                  onPressed: () {
+                    if (company.companyId != null) {
+                      RowHistoryDialog.show(
+                        context,
+                        entityType: 'ImportCompany',
+                        entityId: company.companyId!,
+                        entityTitle: company.importerName,
+                      );
+                    }
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
                   tooltip: 'Edit Importer Details',

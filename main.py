@@ -30,6 +30,7 @@ from modules.external_service_providers.model import (
 from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
+from modules.audit_logs.router import router as audit_router
 
 
 # ==================================================
@@ -63,6 +64,8 @@ app.include_router(import_router)
 app.include_router(supplier_router)
 
 app.include_router(provider_router)
+
+app.include_router(audit_router)
 
 
 # ==================================================

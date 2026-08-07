@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
+import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
   const PartnersScreen({super.key});
@@ -331,10 +332,24 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
               ),
             ),
 
-            // Actions: Edit & Switch
+            // Actions: Edit, History Log & Switch
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
+                  tooltip: 'View Change History Logs',
+                  onPressed: () {
+                    if (partner.providerId != null) {
+                      RowHistoryDialog.show(
+                        context,
+                        entityType: 'ExternalServiceProvider',
+                        entityId: partner.providerId!,
+                        entityTitle: partner.partnerName,
+                      );
+                    }
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
                   tooltip: 'Edit Partner Details',

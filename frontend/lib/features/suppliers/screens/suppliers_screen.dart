@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
+import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class SuppliersScreen extends ConsumerStatefulWidget {
   const SuppliersScreen({super.key});
@@ -301,10 +302,24 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
               ),
             ),
 
-            // Actions: Edit & Switch
+            // Actions: Edit, History Log & Switch
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                IconButton(
+                  icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
+                  tooltip: 'View Change History Logs',
+                  onPressed: () {
+                    if (supplier.supplierId != null) {
+                      RowHistoryDialog.show(
+                        context,
+                        entityType: 'Supplier',
+                        entityId: supplier.supplierId!,
+                        entityTitle: supplier.companyName,
+                      );
+                    }
+                  },
+                ),
                 IconButton(
                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
                   tooltip: 'Edit Foreign Supplier',

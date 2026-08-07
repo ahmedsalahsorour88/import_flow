@@ -1,16 +1,21 @@
 import sqlite3
+from database.database import Base, engine
+from modules.audit_logs.model import AuditLog  # Register AuditLog model
+
 
 def migrate_db():
+    # 1. Create any missing tables (like audit_logs)
+    Base.metadata.create_all(bind=engine)
+
+    # 2. Migration for columns
     db_path = 'importflow.db'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Check if external_service_providers table exists
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='external_service_providers'")
     table_exists = cursor.fetchone()
 
     if table_exists:
-        # Get existing columns
         cursor.execute("PRAGMA table_info(external_service_providers)")
         existing_cols = [info[1] for info in cursor.fetchall()]
 
@@ -37,6 +42,7 @@ def migrate_db():
     conn.commit()
     conn.close()
     print("Database migration completed successfully.")
+
 
 if __name__ == "__main__":
     migrate_db()

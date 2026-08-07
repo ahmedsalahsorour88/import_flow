@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.sqlite3
+*.db
+.pytest_cache/
+venv/
+env/
+
+# Flutter / Dart
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/build/
+frontend/.pub-cache/
+frontend/.pub/
+
+# IDE / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

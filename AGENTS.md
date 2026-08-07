@@ -666,30 +666,44 @@ API
 
 ---
 
-# 16. 🧪 Testing Rules
+# 16. 🧪 Testing & Unit Test Rules (إلزامي)
 
-كل Business Logic مهم يجب أن يكون قابلًا للااختبار.
+كل Business Logic وموديول يتم إنشاؤه أو تعديله **يجب** أن يحتوي على Unit Tests إلكزامية لضمان سلامة العمليات وموثوقيتها (كود بدون اختبارات غير مقبول).
 
-خصوصًا:
+⚡ **قاعدة إغلاق التاسك الإلزامية (Mandatory Test Execution Rule):**
+عند الانتهاء من أي موديول أو مهمة جديدة، يُحظر إغلاق المهمة أو تسليمها للمستخدم إلا بعد تشغيل كافة الـ Unit Tests الـ (Backend & Frontend) آلياً والتأكد من نجاح جميع الاختبارات بنسبة 100% ورؤية نتيجة الاختبارات الخضراء (Passing).
 
+
+### 🎯 المتطلبات الإلزامية للاختبارات (Mandatory Unit Testing):
+1. **الـ Backend (FastAPI / pytest):**
+   - إنشاء اختبارات وحدة لكل Service و Validator داخل مجلد `tests/unit/`.
+   - اختبار الحالات الناجحة (Happy Path) وحالات الخطأ والـ Edge Cases.
+2. **الـ Frontend (Flutter / flutter test):**
+   - كتابة اختبارات للموديول والـ Providers وحسابات الأرقام والـ Models.
+
+### 📐 العمليات الواجب اختبارها بدقة:
 ```text
 CBM Calculations
 Volumetric Weight
 Chargeable Weight
-Customs Calculations
-Landed Cost
-Stage Validation
-Duplicate Detection
+Customs Calculations & Landed Cost
+Stage-Based Validation
+Duplicate Detection & Soft Delete Rules
+Unit Conversions & Tax Calculations
 ```
 
-يفضل وجود:
-
+### 📁 هيكل مجلد الاختبارات الإلزامي:
 ```text
 tests/
 ├── unit/
+│   ├── test_cbm_calculator.py
+│   ├── test_customs_engine.py
+│   ├── test_import_companies.py
+│   └── test_suppliers.py
 ├── integration/
 └── api/
 ```
+
 
 ---
 

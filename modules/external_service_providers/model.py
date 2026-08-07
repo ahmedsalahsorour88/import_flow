@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean
 from sqlalchemy import Column
@@ -8,6 +8,7 @@ from sqlalchemy import Integer
 from sqlalchemy import String
 
 from database.database import Base
+
 
 
 class ExternalServiceProvider(Base):
@@ -114,16 +115,17 @@ class ExternalServiceProvider(Base):
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+
 
     created_by = Column(
         String(100)

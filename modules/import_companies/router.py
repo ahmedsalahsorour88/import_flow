@@ -12,6 +12,7 @@ from .schemas import ImportCompanyResponse
 
 from .service import create_import_company
 from .service import get_all_companies
+from .service import get_all_companies_admin_service
 from .service import get_company_by_id
 from .service import update_import_company
 from .service import delete_import_company
@@ -48,7 +49,7 @@ def create_company(
 
 
 # ==================================================
-# Get Active Companies
+# Get Companies (Active or All)
 # ==================================================
 
 @import_router.get(
@@ -56,12 +57,17 @@ def create_company(
     response_model=list[ImportCompanyResponse]
 )
 def get_companies(
+    include_inactive: bool = False,
     db: Session = Depends(get_db)
 ):
+
+    if include_inactive:
+        return get_all_companies_admin_service(db)
 
     return get_all_companies(
         db
     )
+
 
 
 # ==================================================

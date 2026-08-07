@@ -100,8 +100,10 @@ def get_company_by_importer_id(
     )
 
 
+from sqlalchemy import exists
+
 # ==================================================
-# Check Importer ID Exists
+# Check Importer ID Exists (Optimized SQL)
 # ==================================================
 
 def importer_id_exists(
@@ -109,16 +111,13 @@ def importer_id_exists(
     importer_id: str
 ) -> bool:
 
-    return (
-        db.query(ImportCompany)
-        .filter(ImportCompany.importer_id == importer_id)
-        .first()
-        is not None
-    )
+    return db.query(
+        exists().where(ImportCompany.importer_id == importer_id)
+    ).scalar()
 
 
 # ==================================================
-# Check VAT ID Exists
+# Check VAT ID Exists (Optimized SQL)
 # ==================================================
 
 def vat_id_exists(
@@ -126,16 +125,13 @@ def vat_id_exists(
     vat_id: str
 ) -> bool:
 
-    return (
-        db.query(ImportCompany)
-        .filter(ImportCompany.vat_id == vat_id)
-        .first()
-        is not None
-    )
+    return db.query(
+        exists().where(ImportCompany.vat_id == vat_id)
+    ).scalar()
 
 
 # ==================================================
-# Check Registration Number Exists
+# Check Registration Number Exists (Optimized SQL)
 # ==================================================
 
 def registration_number_exists(
@@ -143,29 +139,35 @@ def registration_number_exists(
     registration_number: str
 ) -> bool:
 
-    return (
-        db.query(ImportCompany)
-        .filter(
-            ImportCompany.registration_number == registration_number
-        )
-        .first()
-        is not None
-    )
+    return db.query(
+        exists().where(ImportCompany.registration_number == registration_number)
+    ).scalar()
 
 
 # ==================================================
 # Save Updates
 # ==================================================
 
-def update_company(
+def update_company_data(
     db: Session,
-    company: ImportCompany
+    company: ImportCompany,
+    update_data: dict
 ) -> ImportCompany:
 
-    db.commit()
-    db.refresh(company)
+    for field, value in update_data.items():
+        if field == "email" and value is not None:
+            value = str(value)
+        setattr(company, field, value)
+
+    try:
+        db.commit()
+        db.refresh(company)
+    except Exception:
+        db.rollback()
+        raise
 
     return company
+
 
 
 # ==================================================

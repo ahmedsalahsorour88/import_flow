@@ -36,10 +36,21 @@ from modules.external_service_providers.router import provider_router
 # Create FastAPI Application
 # ==================================================
 
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI(
     title="ImportFlow ERP",
     version="1.0.0",
     description="ERP System for Import, Customs and Logistics Management",
+)
+
+# Enable CORS for Flutter Web / Desktop
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

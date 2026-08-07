@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Boolean
 from sqlalchemy import Column
@@ -11,6 +11,7 @@ from database.database import Base
 
 
 class ImportCompany(Base):
+
 
     __tablename__ = "import_companies"
 
@@ -110,16 +111,17 @@ class ImportCompany(Base):
 
     created_at = Column(
         DateTime,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
 
     updated_at = Column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
         nullable=False
     )
+
 
     created_by = Column(
         String(100)

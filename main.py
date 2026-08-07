@@ -76,6 +76,10 @@ Base.metadata.create_all(
 from update_db_schema import migrate_db
 migrate_db()
 
+from seed import seed_data
+seed_data()
+
+
 
 
 # ==================================================

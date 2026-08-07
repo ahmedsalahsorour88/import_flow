@@ -1,20 +1,22 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/import_company_model.dart';
 
 final showInactiveCompaniesProvider = StateProvider<bool>((ref) => true);
 
 final importCompaniesProvider = StateNotifierProvider<ImportCompaniesNotifier, AsyncValue<List<ImportCompanyModel>>>((ref) {
   final showInactive = ref.watch(showInactiveCompaniesProvider);
-  return ImportCompaniesNotifier(showInactive: showInactive);
+  return ImportCompaniesNotifier(ref: ref, showInactive: showInactive);
 });
 
 class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompanyModel>>> {
+  final Ref? ref;
   final Dio _dio = Dio();
   final bool showInactive;
 
-  ImportCompaniesNotifier({required this.showInactive}) : super(const AsyncValue.loading()) {
+  ImportCompaniesNotifier({this.ref, required this.showInactive}) : super(const AsyncValue.loading()) {
     fetchCompanies();
   }
 
@@ -39,6 +41,7 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
         '${ApiConstants.baseUrl}/import-companies/',
         data: company.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
       await fetchCompanies();
       return null; // Success
     } on DioException catch (e) {
@@ -57,6 +60,8 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
         '${ApiConstants.baseUrl}/import-companies/$companyId',
         data: company.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'ImportCompany', entityId: companyId)));
       await fetchCompanies();
       return null; // Success
     } on DioException catch (e) {
@@ -76,6 +81,8 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
       } else {
         await _dio.patch('${ApiConstants.baseUrl}/import-companies/$companyId/restore');
       }
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'ImportCompany', entityId: companyId)));
       await fetchCompanies();
       return true;
     } catch (e) {

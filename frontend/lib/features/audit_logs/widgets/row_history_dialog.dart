@@ -4,7 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../models/audit_log_model.dart';
 import '../providers/audit_logs_provider.dart';
 
-class RowHistoryDialog extends ConsumerWidget {
+class RowHistoryDialog extends ConsumerStatefulWidget {
   final String entityType;
   final int entityId;
   final String entityTitle;
@@ -28,8 +28,22 @@ class RowHistoryDialog extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final timelineAsync = ref.watch(entityAuditTimelineProvider((entityType: entityType, entityId: entityId)));
+  ConsumerState<RowHistoryDialog> createState() => _RowHistoryDialogState();
+}
+
+class _RowHistoryDialogState extends ConsumerState<RowHistoryDialog> {
+  @override
+  void initState() {
+    super.initState();
+    // Force instant live refetch from API when dialog opens!
+    Future.microtask(() {
+      ref.invalidate(entityAuditTimelineProvider((entityType: widget.entityType, entityId: widget.entityId)));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final timelineAsync = ref.watch(entityAuditTimelineProvider((entityType: widget.entityType, entityId: widget.entityId)));
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -58,11 +72,18 @@ class RowHistoryDialog extends ConsumerWidget {
                           style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
-                          '$entityType: $entityTitle',
+                          '${widget.entityType}: ${widget.entityTitle}',
                           style: const TextStyle(color: Colors.white70, fontSize: 13),
                         ),
                       ],
                     ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    tooltip: 'Refresh Live History',
+                    onPressed: () {
+                      ref.invalidate(entityAuditTimelineProvider((entityType: widget.entityType, entityId: widget.entityId)));
+                    },
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white),
@@ -75,7 +96,16 @@ class RowHistoryDialog extends ConsumerWidget {
             // Timeline Body
             Expanded(
               child: timelineAsync.when(
-                loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
+                loading: () => const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.cobalt),
+                      SizedBox(height: 12),
+                      Text('Fetching live audit logs from API...', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                    ],
+                  ),
+                ),
                 error: (err, stack) => Center(
                   child: Text('Error loading history logs: $err', style: const TextStyle(color: AppTheme.crimson)),
                 ),

@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/partner_model.dart';
 
 final selectedPartnerCategoryProvider = StateProvider<String>((ref) => 'All');
@@ -9,15 +10,16 @@ final showInactivePartnersProvider = StateProvider<bool>((ref) => true);
 final partnersProvider = StateNotifierProvider<PartnersNotifier, AsyncValue<List<PartnerModel>>>((ref) {
   final category = ref.watch(selectedPartnerCategoryProvider);
   final showInactive = ref.watch(showInactivePartnersProvider);
-  return PartnersNotifier(category: category, showInactive: showInactive);
+  return PartnersNotifier(ref: ref, category: category, showInactive: showInactive);
 });
 
 class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
+  final Ref? ref;
   final Dio _dio = Dio();
   final String category;
   final bool showInactive;
 
-  PartnersNotifier({required this.category, required this.showInactive}) : super(const AsyncValue.loading()) {
+  PartnersNotifier({this.ref, required this.category, required this.showInactive}) : super(const AsyncValue.loading()) {
     fetchPartners();
   }
 
@@ -47,6 +49,7 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
         '${ApiConstants.baseUrl}/external-service-providers/',
         data: partner.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
       await fetchPartners();
       return null; // Success
     } on DioException catch (e) {
@@ -65,6 +68,8 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
         '${ApiConstants.baseUrl}/external-service-providers/$providerId',
         data: partner.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'ExternalServiceProvider', entityId: providerId)));
       await fetchPartners();
       return null; // Success
     } on DioException catch (e) {
@@ -84,6 +89,8 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       } else {
         await _dio.patch('${ApiConstants.baseUrl}/external-service-providers/$providerId/restore');
       }
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'ExternalServiceProvider', entityId: providerId)));
       await fetchPartners();
       return true;
     } catch (e) {

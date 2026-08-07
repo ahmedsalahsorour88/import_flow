@@ -460,6 +460,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            bool isSubmitting = false;
             final isBank = selectedCategories.contains('Bank');
             final isShippingLine = selectedCategories.contains('Shipping Line');
             final isCustomsBroker = selectedCategories.contains('Customs Broker');
@@ -748,17 +749,23 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           OutlinedButton(
-                            onPressed: () => Navigator.pop(dialogCtx),
+                            onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
                             child: const Text('Cancel'),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            icon: const Icon(Icons.check, size: 18),
-                            label: Text(isEditing ? 'Update Partner' : 'Save External Partner'),
-                            onPressed: () async {
+                            icon: isSubmitting
+                                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.check, size: 18),
+                            label: Text(isSubmitting ? 'Saving Changes...' : (isEditing ? 'Update Partner' : 'Save External Partner')),
+                            onPressed: isSubmitting ? null : () async {
                               if (!formKey.currentState!.validate() || selectedCategories.isEmpty) {
                                 return;
                               }
+
+                              setDialogState(() {
+                                isSubmitting = true;
+                              });
 
                               final partnerTypeJoined = selectedCategories.join(', ');
 
@@ -794,6 +801,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Navigator.pop(dialogCtx);
                                 }
                               } else {
+                                setDialogState(() {
+                                  isSubmitting = false;
+                                });
                                 if (context.mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(

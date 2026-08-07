@@ -1,20 +1,22 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/supplier_model.dart';
 
 final showInactiveSuppliersProvider = StateProvider<bool>((ref) => true);
 
 final suppliersProvider = StateNotifierProvider<SuppliersNotifier, AsyncValue<List<SupplierModel>>>((ref) {
   final showInactive = ref.watch(showInactiveSuppliersProvider);
-  return SuppliersNotifier(showInactive: showInactive);
+  return SuppliersNotifier(ref: ref, showInactive: showInactive);
 });
 
 class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
+  final Ref? ref;
   final Dio _dio = Dio();
   final bool showInactive;
 
-  SuppliersNotifier({required this.showInactive}) : super(const AsyncValue.loading()) {
+  SuppliersNotifier({this.ref, required this.showInactive}) : super(const AsyncValue.loading()) {
     fetchSuppliers();
   }
 
@@ -39,6 +41,7 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
         '${ApiConstants.baseUrl}/suppliers/',
         data: supplier.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
       await fetchSuppliers();
       return null; // Success
     } on DioException catch (e) {
@@ -57,6 +60,8 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
         '${ApiConstants.baseUrl}/suppliers/$supplierId',
         data: supplier.toJson(),
       );
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'Supplier', entityId: supplierId)));
       await fetchSuppliers();
       return null; // Success
     } on DioException catch (e) {
@@ -76,6 +81,8 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
       } else {
         await _dio.patch('${ApiConstants.baseUrl}/suppliers/$supplierId/restore');
       }
+      ref?.invalidate(systemAuditLogsProvider);
+      ref?.invalidate(entityAuditTimelineProvider((entityType: 'Supplier', entityId: supplierId)));
       await fetchSuppliers();
       return true;
     } catch (e) {

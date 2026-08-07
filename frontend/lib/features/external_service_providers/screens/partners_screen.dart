@@ -252,7 +252,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
           context: context,
           globalPosition: details.globalPosition,
           codeToCopy: partner.partnerCode,
-          onEdit: () => _showPartnerDialog(context, partnerToEdit: partner),
+          onEdit: () => _showPartnerDialog(context, partner),
           onHistory: () => RowHistoryDialog.show(
             context,
             entityType: 'ExternalServiceProvider',
@@ -396,7 +396,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   IconButton(
                     icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
                     tooltip: 'Edit External Partner',
-                    onPressed: () => _showPartnerDialog(context, partnerToEdit: partner),
+                    onPressed: () => _showPartnerDialog(context, partner),
                   ),
                   Tooltip(
                     message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',

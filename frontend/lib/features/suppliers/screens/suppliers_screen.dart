@@ -158,9 +158,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     return q.isEmpty ||
                         s.companyName.toLowerCase().contains(q) ||
                         s.supplierCode.toLowerCase().contains(q) ||
+                        s.foreignExporterId.toLowerCase().contains(q) ||
                         s.foreignExporterCountry.toLowerCase().contains(q) ||
-                        (s.cargoxId?.toLowerCase().contains(q) ?? false) ||
-                        (s.registrationNumber?.toLowerCase().contains(q) ?? false);
+                        (s.brands?.toLowerCase().contains(q) ?? false);
                   }).toList();
 
                   if (filtered.isEmpty) {
@@ -291,7 +291,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Reg #: ${supplier.registrationNumber ?? 'N/A'} | Tax ID: ${supplier.taxId ?? 'N/A'} | CargoX: ${supplier.cargoxId ?? 'N/A'}',
+                      'Exporter ID: ${supplier.foreignExporterId} | Address: ${supplier.address} | Brands: ${supplier.brands ?? "N/A"}',
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],

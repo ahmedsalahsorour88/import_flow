@@ -1,0 +1,85 @@
+from fastapi import FastAPI
+
+# ==================================================
+# Database
+# ==================================================
+
+from database.database import Base
+from database.database import engine
+
+
+# ==================================================
+# Import Models
+# ==================================================
+
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.external_service_providers.model import (
+    ExternalServiceProvider,
+)
+
+
+# ==================================================
+# Import Routers
+# ==================================================
+
+from modules.import_companies.router import import_router
+from modules.suppliers.router import supplier_router
+from modules.external_service_providers.router import provider_router
+
+
+# ==================================================
+# Create FastAPI Application
+# ==================================================
+
+app = FastAPI(
+    title="ImportFlow ERP",
+    version="1.0.0",
+    description="ERP System for Import, Customs and Logistics Management",
+)
+
+
+# ==================================================
+# Register Routers
+# ==================================================
+
+app.include_router(import_router)
+
+app.include_router(supplier_router)
+
+app.include_router(provider_router)
+
+
+# ==================================================
+# Create Database Tables
+# ==================================================
+
+Base.metadata.create_all(
+    bind=engine
+)
+
+
+# ==================================================
+# Dashboard
+# ==================================================
+
+@app.get("/")
+def dashboard():
+
+    return {
+        "system": "ImportFlow ERP",
+        "version": "1.0.0",
+        "status": "running",
+    }
+
+
+# ==================================================
+# Health Check
+# ==================================================
+
+@app.get("/health")
+def health_check():
+
+    return {
+        "status": "OK",
+    }

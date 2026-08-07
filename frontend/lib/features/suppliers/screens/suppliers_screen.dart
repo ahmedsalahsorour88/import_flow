@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/row_context_menu.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -46,7 +47,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: const [
                       Text(
-                        'Foreign Exporters & Suppliers (MD-002)',
+                        'Foreign Suppliers Directory (MD-002)',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -55,75 +56,94 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'Manage International Suppliers, Foreign Exporter Registration & Nafeza Compliance',
+                        'Manage Exporter Profile, Foreign Registration ID, CargoX / Nafeza ID & Origin Country',
                         style: TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
                 ),
-                Row(
-                  children: [
-                    // Show Deactivated Filter Switch
-                    Row(
-                      children: [
-                        const Text('Include Deactivated:', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
-                        const SizedBox(width: 8),
-                        Switch(
-                          value: showInactive,
-                          activeColor: AppTheme.cobalt,
-                          onChanged: (val) {
-                            ref.read(showInactiveSuppliersProvider.notifier).state = val;
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    ElevatedButton.icon(
-                      icon: const Icon(Icons.public, size: 18),
-                      label: const Text('Add Foreign Supplier'),
-                      onPressed: () => _showSupplierDialog(context),
-                    ),
-                  ],
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Foreign Supplier'),
+                  onPressed: () => _showSupplierDialog(context),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                style: const TextStyle(fontSize: 14),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                  hintText: 'Search by supplier name, code, foreign exporter ID or country...',
-                  filled: false,
-                  border: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
+            // Search Bar & Filter Switch
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.03),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      style: const TextStyle(fontSize: 14),
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
+                        hintText: 'Search by Supplier Name, Code, CargoX ID, Registration #, or Country...',
+                        filled: false,
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
+                        ),
+                      ),
+                      onChanged: (val) {
+                        setState(() {
+                          _searchQuery = val.toLowerCase();
+                        });
+                      },
+                    ),
                   ),
                 ),
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val.toLowerCase();
-                  });
-                },
-              ),
+                const SizedBox(width: 16),
+
+                // Show Inactive Toggle Switch
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Text(
+                        'Show Inactive:',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      ),
+                      Switch(
+                        value: showInactive,
+                        activeColor: AppTheme.cobalt,
+                        onChanged: (val) {
+                          ref.read(showInactiveSuppliersProvider.notifier).state = val;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 24),
 
             // Data Table Content
             Expanded(
@@ -134,10 +154,13 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
                 data: (suppliers) {
                   final filtered = suppliers.where((s) {
-                    return s.companyName.toLowerCase().contains(_searchQuery) ||
-                        s.supplierCode.toLowerCase().contains(_searchQuery) ||
-                        s.foreignExporterId.toLowerCase().contains(_searchQuery) ||
-                        s.foreignExporterCountry.toLowerCase().contains(_searchQuery);
+                    final q = _searchQuery;
+                    return q.isEmpty ||
+                        s.companyName.toLowerCase().contains(q) ||
+                        s.supplierCode.toLowerCase().contains(q) ||
+                        s.foreignExporterCountry.toLowerCase().contains(q) ||
+                        (s.cargoxId?.toLowerCase().contains(q) ?? false) ||
+                        (s.registrationNumber?.toLowerCase().contains(q) ?? false);
                   }).toList();
 
                   if (filtered.isEmpty) {
@@ -180,181 +203,176 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   Widget _buildSupplierRow(SupplierModel supplier) {
     final isActive = supplier.isActive;
 
-    return Opacity(
-      opacity: isActive ? 1.0 : 0.6,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Row(
-          children: [
-            // Icon Avatar
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        RowContextMenuHelper.showContextMenu(
+          context: context,
+          globalPosition: details.globalPosition,
+          codeToCopy: supplier.supplierCode,
+          onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+          onHistory: () => RowHistoryDialog.show(
+            context,
+            entityType: 'Supplier',
+            entityId: supplier.supplierId!,
+            entityTitle: supplier.companyName,
+          ),
+          isActive: isActive,
+          onToggleActive: () async {
+            if (supplier.supplierId != null) {
+              await ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+            }
+          },
+        );
+      },
+      child: Opacity(
+        opacity: isActive ? 1.0 : 0.6,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            children: [
+              // Icon Avatar
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.factory, color: isActive ? AppTheme.cobalt : Colors.grey),
               ),
-              child: Icon(Icons.factory, color: isActive ? AppTheme.cobalt : Colors.grey),
-            ),
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
 
-            // Supplier Code & Name
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.charcoal.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(4),
-                        ),
-                        child: Text(
-                          supplier.supplierCode,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        supplier.companyName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                          decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Active/Deactive Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          isActive ? 'Active' : 'Deactivated',
-                          style: TextStyle(
-                            color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
+              // Supplier Code & Name
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.charcoal.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            supplier.supplierCode,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${supplier.address} • Brands: ${supplier.brands ?? "N/A"}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-
-            // Exporter ID
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Exporter ID:', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                  const SizedBox(height: 2),
-                  Text(supplier.foreignExporterId, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                ],
-              ),
-            ),
-
-            // Country & Code Badge
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AppTheme.orange.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(4),
+                        const SizedBox(width: 8),
+                        Text(
+                          supplier.companyName,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                          ),
                         ),
-                        child: Text(
-                          supplier.foreignExporterCountryCode.toUpperCase(),
-                          style: const TextStyle(color: AppTheme.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: TextStyle(
+                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(supplier.foreignExporterCountry, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text('Type: ${supplier.supplierType} (${supplier.registrationType})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Reg #: ${supplier.registrationNumber ?? 'N/A'} | Tax ID: ${supplier.taxId ?? 'N/A'} | CargoX: ${supplier.cargoxId ?? 'N/A'}',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // Contact Info
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // Country & Code Badge
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.orange.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            supplier.foreignExporterCountryCode.toUpperCase(),
+                            style: const TextStyle(color: AppTheme.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(supplier.foreignExporterCountry, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text('Type: ${supplier.supplierType} (${supplier.registrationType})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                ),
+              ),
+
+              // Actions: Edit, History Log & Switch
+              Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(supplier.email ?? 'No email', style: const TextStyle(fontSize: 12)),
-                  const SizedBox(height: 2),
-                  Text(supplier.phone ?? 'No phone', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ),
-
-            // Actions: Edit, History Log & Switch
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
-                  tooltip: 'View Change History Logs',
-                  onPressed: () {
-                    if (supplier.supplierId != null) {
-                      RowHistoryDialog.show(
-                        context,
-                        entityType: 'Supplier',
-                        entityId: supplier.supplierId!,
-                        entityTitle: supplier.companyName,
-                      );
-                    }
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                  tooltip: 'Edit Foreign Supplier',
-                  onPressed: () => _showSupplierDialog(context, supplier),
-                ),
-                Tooltip(
-                  message: isActive ? 'Deactivate Supplier' : 'Reactivate Supplier',
-                  child: Switch(
-                    value: isActive,
-                    activeColor: AppTheme.emerald,
-                    inactiveThumbColor: AppTheme.crimson,
-                    onChanged: (newStatus) {
+                  IconButton(
+                    icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
+                    tooltip: 'View Change History Logs',
+                    onPressed: () {
                       if (supplier.supplierId != null) {
-                        ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+                        RowHistoryDialog.show(
+                          context,
+                          entityType: 'Supplier',
+                          entityId: supplier.supplierId!,
+                          entityTitle: supplier.companyName,
+                        );
                       }
                     },
                   ),
-                ),
-              ],
-            ),
-          ],
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
+                    tooltip: 'Edit Foreign Supplier',
+                    onPressed: () => _showSupplierDialog(context, supplierToEdit: supplier),
+                  ),
+                  Tooltip(
+                    message: isActive ? 'Deactivate Supplier' : 'Reactivate Supplier',
+                    child: Switch(
+                      value: isActive,
+                      activeColor: AppTheme.emerald,
+                      inactiveThumbColor: AppTheme.crimson,
+                      onChanged: (newStatus) {
+                        if (supplier.supplierId != null) {
+                          ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showSupplierDialog(BuildContext context, [SupplierModel? supplierToEdit]) {
+  void _showSupplierDialog(BuildContext context, {SupplierModel? supplierToEdit}) {
     final isEditing = supplierToEdit != null;
     final formKey = GlobalKey<FormState>();
 

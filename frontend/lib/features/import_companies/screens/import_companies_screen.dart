@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/row_context_menu.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -179,147 +180,143 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   Widget _buildCompanyRow(ImportCompanyModel company) {
     final isActive = company.isActive;
 
-    return Opacity(
-      opacity: isActive ? 1.0 : 0.6,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Row(
-          children: [
-            // Icon Avatar
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+    return GestureDetector(
+      onSecondaryTapDown: (details) {
+        RowContextMenuHelper.showContextMenu(
+          context: context,
+          globalPosition: details.globalPosition,
+          codeToCopy: company.importerId,
+          onEdit: () => _showCompanyDialog(context, company),
+          onHistory: () => RowHistoryDialog.show(
+            context,
+            entityType: 'ImportCompany',
+            entityId: company.companyId!,
+            entityTitle: company.importerName,
+          ),
+          isActive: isActive,
+          onToggleActive: () async {
+            if (company.companyId != null) {
+              await ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+            }
+          },
+        );
+      },
+      child: Opacity(
+        opacity: isActive ? 1.0 : 0.6,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12.0),
+          child: Row(
+            children: [
+              // Icon Avatar
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(Icons.business, color: isActive ? AppTheme.cobalt : Colors.grey),
               ),
-              child: Icon(Icons.business, color: isActive ? AppTheme.cobalt : Colors.grey),
-            ),
-            const SizedBox(width: 16),
+              const SizedBox(width: 16),
 
-            // Name & Status Badge
-            Expanded(
-              flex: 3,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        company.importerName,
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                          color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                          decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      // Active/Deactive Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          isActive ? 'Active' : 'Deactivated',
+              // Name & Status Badge
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          company.importerName,
                           style: TextStyle(
-                            color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                            fontSize: 11,
                             fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${company.country} • ${company.address}',
-                    style: const TextStyle(color: Colors.grey, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-
-            // Importer ID & Badge
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Importer ID: ${company.importerId}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  _buildExpiryBadge(company.daysUntilImporterIdExpiry, 'Importer Card'),
-                ],
-              ),
-            ),
-
-            // VAT & Badge
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('VAT ID: ${company.vatId}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  _buildExpiryBadge(company.daysUntilVatExpiry, 'VAT'),
-                ],
-              ),
-            ),
-
-            // Reg Number & Badge
-            Expanded(
-              flex: 2,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Reg #: ${company.registrationNumber}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: 4),
-                  _buildExpiryBadge(company.daysUntilRegExpiry, 'Com. Reg'),
-                ],
-              ),
-            ),
-
-            // Action Buttons: Edit, History Log & Toggle Active
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
-                  tooltip: 'View Change History Logs',
-                  onPressed: () {
-                    if (company.companyId != null) {
-                      RowHistoryDialog.show(
-                        context,
-                        entityType: 'ImportCompany',
-                        entityId: company.companyId!,
-                        entityTitle: company.importerName,
-                      );
-                    }
-                  },
+                        const SizedBox(width: 8),
+                        // Active/Deactive Badge
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: TextStyle(
+                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Importer ID: ${company.importerId} | VAT: ${company.vatId} | Reg #: ${company.registrationNumber}',
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
+                    ),
+                  ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                  tooltip: 'Edit Importer Details',
-                  onPressed: () => _showCompanyDialog(context, company),
+              ),
+
+              // Expiry Cards
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildExpiryBadge(company.daysUntilVatExpiry, 'VAT Expiry'),
+                    const SizedBox(height: 4),
+                    _buildExpiryBadge(company.daysUntilRegExpiry, 'Com. Reg'),
+                  ],
                 ),
-                Tooltip(
-                  message: isActive ? 'Deactivate Company' : 'Reactivate Company',
-                  child: Switch(
-                    value: isActive,
-                    activeColor: AppTheme.emerald,
-                    inactiveThumbColor: AppTheme.crimson,
-                    onChanged: (newStatus) {
+              ),
+
+              // Action Buttons: Edit, History Log & Toggle Active
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
+                    tooltip: 'View Change History Logs',
+                    onPressed: () {
                       if (company.companyId != null) {
-                        ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+                        RowHistoryDialog.show(
+                          context,
+                          entityType: 'ImportCompany',
+                          entityId: company.companyId!,
+                          entityTitle: company.importerName,
+                        );
                       }
                     },
                   ),
-                ),
-              ],
-            ),
-          ],
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
+                    tooltip: 'Edit Importer Details',
+                    onPressed: () => _showCompanyDialog(context, company),
+                  ),
+                  Tooltip(
+                    message: isActive ? 'Deactivate Company' : 'Reactivate Company',
+                    child: Switch(
+                      value: isActive,
+                      activeColor: AppTheme.emerald,
+                      inactiveThumbColor: AppTheme.crimson,
+                      onChanged: (newStatus) {
+                        if (company.companyId != null) {
+                          ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

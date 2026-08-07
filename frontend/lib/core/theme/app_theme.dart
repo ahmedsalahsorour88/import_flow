@@ -11,20 +11,90 @@ class AppTheme {
 
   static ThemeData get lightTheme {
     return ThemeData(
+      useMaterial3: true,
       primaryColor: cobalt,
       scaffoldBackgroundColor: cloudWhite,
+      fontFamily: 'Segoe UI',
+
+      // App Bar Theme
       appBarTheme: const AppBarTheme(
         backgroundColor: charcoal,
         foregroundColor: cloudWhite,
         elevation: 0,
       ),
+
+      // Color Scheme
       colorScheme: const ColorScheme.light(
         primary: cobalt,
         secondary: emerald,
         error: crimson,
         surface: Colors.white,
+        onSurface: charcoal,
       ),
-      fontFamily: 'Segoe UI', // Good standard for Windows desktop
+
+      // Dialog Theme
+      dialogTheme: DialogTheme(
+        backgroundColor: Colors.white,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titleTextStyle: const TextStyle(
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+          color: charcoal,
+        ),
+      ),
+
+      // Input Decoration Theme (Forms & Inputs)
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Colors.grey.shade50,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        labelStyle: TextStyle(color: Colors.grey.shade700, fontSize: 14, fontWeight: FontWeight.w500),
+        hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 13),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.grey.shade300),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: cobalt, width: 2),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: crimson, width: 1.5),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: crimson, width: 2),
+        ),
+      ),
+
+      // Elevated Button Theme
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: cobalt,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        ),
+      ),
+
+      // Outlined Button Theme
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: charcoal,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          side: BorderSide(color: Colors.grey.shade300),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          textStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+        ),
+      ),
     );
   }
 }

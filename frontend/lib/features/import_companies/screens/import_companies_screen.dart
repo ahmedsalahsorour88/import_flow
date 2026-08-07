@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/custom_text_field.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
 
@@ -51,7 +52,6 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ],
                   ),
                 ),
-
                 Row(
                   children: [
                     // Show Deactivated Filter Switch
@@ -70,36 +70,42 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.cobalt,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: const Icon(Icons.add_business),
-                      label: const Text('Add Importer Company', style: TextStyle(fontWeight: FontWeight.bold)),
+                      icon: const Icon(Icons.add_business, size: 18),
+                      label: const Text('Add Importer Company'),
                       onPressed: () => _showAddCompanyDialog(context),
                     ),
                   ],
                 ),
               ],
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Search Bar
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: TextField(
                 controller: _searchController,
-                decoration: const InputDecoration(
-                  icon: Icon(Icons.search, color: AppTheme.charcoal),
-                  hintText: 'Search by importer name, reg number, or VAT ID...',
+                style: const TextStyle(fontSize: 14),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
+                  hintText: 'Search by importer name, registration number, or VAT ID...',
+                  filled: false,
                   border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: AppTheme.cobalt, width: 2),
+                  ),
                 ),
                 onChanged: (val) {
                   setState(() {
@@ -108,7 +114,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 },
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
             // Data Table Content
             Expanded(
@@ -266,7 +272,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
               ),
             ),
 
-            // Active / Deactive Toggle Button Action
+            // Active / Deactive Toggle Switch
             Tooltip(
               message: isActive ? 'Deactivate Company' : 'Reactivate Company',
               child: Switch(
@@ -316,6 +322,8 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   }
 
   void _showAddCompanyDialog(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+
     final nameCtrl = TextEditingController();
     final addressCtrl = TextEditingController();
     final countryCtrl = TextEditingController(text: 'Egypt');
@@ -331,70 +339,170 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) {
-        return AlertDialog(
-          title: const Text('Add Egyptian Import Company', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-          content: SizedBox(
-            width: 500,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Company Name *')),
-                  TextField(controller: addressCtrl, decoration: const InputDecoration(labelText: 'Address *')),
-                  TextField(controller: countryCtrl, decoration: const InputDecoration(labelText: 'Country *')),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: TextField(controller: impIdCtrl, decoration: const InputDecoration(labelText: 'Importer Card ID *'))),
-                      const SizedBox(width: 12),
-                      Expanded(child: TextField(controller: vatIdCtrl, decoration: const InputDecoration(labelText: 'VAT Registration ID *'))),
+        return Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: SizedBox(
+            width: 580,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Dialog Header Banner
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.charcoal,
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.add_business, color: Colors.white, size: 22),
+                      SizedBox(width: 12),
+                      Text(
+                        'Add Egyptian Import Company (MD-001)',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 12),
-                  Row(
+                ),
+
+                // Dialog Form Body
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Form(
+                    key: formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        CustomTextField(
+                          controller: nameCtrl,
+                          label: 'Company Name',
+                          icon: Icons.business,
+                          isRequired: true,
+                          hint: 'e.g. Pharaohs Import & Export LLC',
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: addressCtrl,
+                                label: 'Address',
+                                icon: Icons.location_on,
+                                isRequired: true,
+                                hint: 'e.g. 12 Ramses St, Cairo',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: countryCtrl,
+                                label: 'Country',
+                                icon: Icons.flag,
+                                isRequired: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: impIdCtrl,
+                                label: 'Importer Card ID',
+                                icon: Icons.badge,
+                                isRequired: true,
+                                hint: 'IMP-100200',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: vatIdCtrl,
+                                label: 'VAT Registration ID',
+                                icon: Icons.receipt_long,
+                                isRequired: true,
+                                hint: 'VAT-998877',
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: CustomTextField(
+                                controller: regNumCtrl,
+                                label: 'Commercial Reg #',
+                                icon: Icons.app_registration,
+                                isRequired: true,
+                                hint: 'REG-554433',
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: CustomTextField(
+                                controller: phoneCtrl,
+                                label: 'Phone Number',
+                                icon: Icons.phone,
+                                hint: '+20 100 000 0000',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Dialog Action Buttons
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(bottomLeft: Radius.circular(16), bottomRight: Radius.circular(16)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      Expanded(child: TextField(controller: regNumCtrl, decoration: const InputDecoration(labelText: 'Commercial Reg Number *'))),
+                      OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogCtx),
+                        child: const Text('Cancel'),
+                      ),
                       const SizedBox(width: 12),
-                      Expanded(child: TextField(controller: phoneCtrl, decoration: const InputDecoration(labelText: 'Phone Number'))),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('Save Importer Company'),
+                        onPressed: () async {
+                          if (nameCtrl.text.isEmpty || impIdCtrl.text.isEmpty || vatIdCtrl.text.isEmpty || regNumCtrl.text.isEmpty) {
+                            return;
+                          }
+
+                          final newCompany = ImportCompanyModel(
+                            importerName: nameCtrl.text,
+                            address: addressCtrl.text,
+                            country: countryCtrl.text,
+                            importerId: impIdCtrl.text,
+                            importerIdExpiry: impExpiry,
+                            vatId: vatIdCtrl.text,
+                            vatIdExpiry: vatExpiry,
+                            registrationNumber: regNumCtrl.text,
+                            registrationExpiry: regExpiry,
+                            phone: phoneCtrl.text,
+                          );
+
+                          final success = await ref.read(importCompaniesProvider.notifier).createCompany(newCompany);
+                          if (success && context.mounted) {
+                            Navigator.pop(dialogCtx);
+                          }
+                        },
+                      ),
                     ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-              onPressed: () async {
-                if (nameCtrl.text.isEmpty || impIdCtrl.text.isEmpty || vatIdCtrl.text.isEmpty || regNumCtrl.text.isEmpty) {
-                  return;
-                }
-
-                final newCompany = ImportCompanyModel(
-                  importerName: nameCtrl.text,
-                  address: addressCtrl.text,
-                  country: countryCtrl.text,
-                  importerId: impIdCtrl.text,
-                  importerIdExpiry: impExpiry,
-                  vatId: vatIdCtrl.text,
-                  vatIdExpiry: vatExpiry,
-                  registrationNumber: regNumCtrl.text,
-                  registrationExpiry: regExpiry,
-                  phone: phoneCtrl.text,
-                );
-
-                final success = await ref.read(importCompaniesProvider.notifier).createCompany(newCompany);
-                if (success && context.mounted) {
-                  Navigator.pop(dialogCtx);
-                }
-              },
-              child: const Text('Save Company', style: TextStyle(color: Colors.white)),
-            ),
-          ],
         );
       },
     );

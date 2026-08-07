@@ -33,16 +33,21 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
     }
   }
 
-  Future<bool> createSupplier(SupplierModel supplier) async {
+  Future<String?> createSupplier(SupplierModel supplier) async {
     try {
       await _dio.post(
         '${ApiConstants.baseUrl}/suppliers/',
         data: supplier.toJson(),
       );
       await fetchSuppliers();
-      return true;
+      return null; // Success
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null && e.response?.data['detail'] != null) {
+        return e.response?.data['detail'].toString();
+      }
+      return 'Failed to create supplier. Please check inputs.';
     } catch (e) {
-      return false;
+      return 'An unexpected error occurred.';
     }
   }
 

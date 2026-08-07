@@ -25,6 +25,16 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Default validation if isRequired is true and no custom validator provided
+    final effectiveValidator = validator ?? (isRequired
+        ? (value) {
+            if (value == null || value.trim().isEmpty) {
+              return '$label is required';
+            }
+            return null;
+          }
+        : null);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -50,7 +60,8 @@ class CustomTextField extends StatelessWidget {
           controller: controller,
           keyboardType: keyboardType,
           maxLines: maxLines,
-          validator: validator,
+          validator: effectiveValidator,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           style: const TextStyle(fontSize: 14, color: AppTheme.charcoal),
           decoration: InputDecoration(
             hintText: hint ?? 'Enter $label...',

@@ -474,26 +474,39 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Save Importer Company'),
                         onPressed: () async {
-                          if (nameCtrl.text.isEmpty || impIdCtrl.text.isEmpty || vatIdCtrl.text.isEmpty || regNumCtrl.text.isEmpty) {
+                          // Validate form fields
+                          if (!formKey.currentState!.validate()) {
                             return;
                           }
 
                           final newCompany = ImportCompanyModel(
-                            importerName: nameCtrl.text,
-                            address: addressCtrl.text,
-                            country: countryCtrl.text,
-                            importerId: impIdCtrl.text,
+                            importerName: nameCtrl.text.trim(),
+                            address: addressCtrl.text.trim(),
+                            country: countryCtrl.text.trim(),
+                            importerId: impIdCtrl.text.trim(),
                             importerIdExpiry: impExpiry,
-                            vatId: vatIdCtrl.text,
+                            vatId: vatIdCtrl.text.trim(),
                             vatIdExpiry: vatExpiry,
-                            registrationNumber: regNumCtrl.text,
+                            registrationNumber: regNumCtrl.text.trim(),
                             registrationExpiry: regExpiry,
-                            phone: phoneCtrl.text,
+                            phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
                           );
 
-                          final success = await ref.read(importCompaniesProvider.notifier).createCompany(newCompany);
-                          if (success && context.mounted) {
-                            Navigator.pop(dialogCtx);
+                          final errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(newCompany);
+                          if (errorMessage == null) {
+                            if (context.mounted) {
+                              Navigator.pop(dialogCtx);
+                            }
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  backgroundColor: AppTheme.crimson,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
                           }
                         },
                       ),

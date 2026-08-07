@@ -494,27 +494,39 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                         icon: const Icon(Icons.check, size: 18),
                         label: const Text('Save Foreign Supplier'),
                         onPressed: () async {
-                          if (nameCtrl.text.isEmpty || expIdCtrl.text.isEmpty || countryCtrl.text.isEmpty || countryCodeCtrl.text.isEmpty) {
+                          if (!formKey.currentState!.validate()) {
                             return;
                           }
 
                           final newSupplier = SupplierModel(
                             supplierCode: '',
-                            companyName: nameCtrl.text,
-                            supplierType: typeCtrl.text,
-                            registrationType: regTypeCtrl.text,
-                            foreignExporterId: expIdCtrl.text,
-                            foreignExporterCountry: countryCtrl.text,
-                            foreignExporterCountryCode: countryCodeCtrl.text,
-                            address: addressCtrl.text,
-                            phone: phoneCtrl.text.isEmpty ? null : phoneCtrl.text,
-                            email: emailCtrl.text.isEmpty ? null : emailCtrl.text,
-                            brands: brandsCtrl.text.isEmpty ? null : brandsCtrl.text,
+                            companyName: nameCtrl.text.trim(),
+                            supplierType: typeCtrl.text.trim(),
+                            registrationType: regTypeCtrl.text.trim(),
+                            foreignExporterId: expIdCtrl.text.trim(),
+                            foreignExporterCountry: countryCtrl.text.trim(),
+                            foreignExporterCountryCode: countryCodeCtrl.text.trim(),
+                            address: addressCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                            email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                            brands: brandsCtrl.text.trim().isEmpty ? null : brandsCtrl.text.trim(),
                           );
 
-                          final success = await ref.read(suppliersProvider.notifier).createSupplier(newSupplier);
-                          if (success && context.mounted) {
-                            Navigator.pop(dialogCtx);
+                          final errorMessage = await ref.read(suppliersProvider.notifier).createSupplier(newSupplier);
+                          if (errorMessage == null) {
+                            if (context.mounted) {
+                              Navigator.pop(dialogCtx);
+                            }
+                          } else {
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(errorMessage, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  backgroundColor: AppTheme.crimson,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
                           }
                         },
                       ),

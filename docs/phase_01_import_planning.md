@@ -43,12 +43,22 @@
 - **الغرض**: مراجعة بنود HS Code الخاصة بالشحنة مع المستخلص الجمركي والتأكد من المستندات والموافقات الاستيرادية المطلوبة (عرض ميزان، عرض هيئة صادرات وواردات، موافقة اتصالات، إلخ).
 
 ### BP-010: Estimate Customs Duties & Taxes (تقدير الرسوم والضرائب الجمركية)
-- **الغرض**: حساب إجمالي الرسوم الجمركية والضرائب المتوقعة مبدئيًا بناءً على جدول التعريفة (MD-008) وقيمة الفاتورة والنولون والتأمين.
-- **المعادلة الجمركية**:
+- **الغرض**: حساب إجمالي الضرائب والرسوم الجمركية المتوقعة مبدئيًا بناءً على بند التعريفة الجمركية (HS Code - MD-008).
+- **قاعدة أساسية**: كل **HS Code** له نسب ضرائب ورسوم مختلفة. لا يجوز افتراض نسبة ثابتة لأي بند.
+- **بنود الحساب الجمركي المصري**:
+  - ضريبة الوارد (Import Duty) — نسبة من القيمة الجمركية (CIF) حسب HS Code
+  - ضريبة القيمة المضافة (VAT) — نسبة من الوعاء الضريبي حسب HS Code (ليست دائماً 14%)
+  - ضريبة الجدول (Schedule Tax) — نسبة إضافية حسب بند التعريفة (إن وجدت)
+  - رسم الوارد (Import Fee) — إن وجد
+  - رسوم الخدمات الجمركية (Customs Service Fees)
+  - رسوم أساسية (Basic Fees)
+  - رسم التنمية (Development Fee) — إن وجد
+- **تسلسل الحساب**:
   $$\text{CIF Base} = \text{FOB Value} + \text{Freight} + \text{Insurance}$$
-  $$\text{Customs Duty} = \text{CIF Base} \times \text{Duty Rate \%}$$
-  $$\text{VAT Base} = \text{CIF Base} + \text{Customs Duty} + \text{Other Fees}$$
-  $$\text{VAT Amount} = \text{VAT Base} \times 14\%$$
+  $$\text{Import Duty} = \text{CIF Base} \times \text{HS Code Duty Rate \%}$$
+  $$\text{VAT Base} = \text{CIF Base} + \text{Import Duty} + \text{Freight} + \text{Other Applicable Fees}$$
+  $$\text{VAT} = \text{VAT Base} \times \text{HS Code VAT Rate \%}$$
+  $$\text{Total} = \text{Import Duty} + \text{VAT} + \text{Schedule Tax} + \text{Service Fees} + \text{Basic Fees} + \text{Development Fee}$$
 
 ### BP-011: Assess Import Requirements (تقييم متطلبات ومستندات الاستيراد)
 - **الغرض**: حصر جميع الشهادات المتطلبة (شهادة المنشأ COO، شهادة الفحص، الفاتورة الموثقة، موافقات الجهات العرض) قبل البدء في السير في إجراءات الشحن الفعلية.

@@ -339,44 +339,74 @@ lb
 
 ---
 
-# 7.2 Customs Calculation Engine
+# 7.2 Customs Calculation Engine (محرك الحساب الجمركي المصري)
 
-يشمل:
+> **قاعدة أساسية:** كل بند تعريفة جمركية (**HS Code**) له نسب ضرائب ورسوم مختلفة.
+> لا يجوز افتراض نسبة ثابتة لأي ضريبة أو رسم — كل النسب يجب أن تُستخرج من جدول التعريفة الجمركية (MD-008) المرتبط بالـ HS Code.
 
-```text
-Customs Valuation
-CIF
-Customs Duty
-VAT
-WHT
-Exchange Rate
-Customs Fees
-Government Fees
-Other Charges
-```
+## بنود الحساب الجمركي (Customs Charge Items)
 
-> **ملاحظة:** نسب الضرائب والرسوم لا يجب Hard-Code داخل Business Logic إذا كانت قابلة للتغيير تشريعيًا.
-
-بدلًا من:
-
-```python
-VAT_RATE = 0.14
-```
-
-يفضل أن تكون البيانات قابلة للإدارة من:
+يتكون الحساب الجمركي المصري من البنود التالية (كلها مرتبطة بالـ HS Code):
 
 ```text
-Tax Rules
-Customs Rules
-Duty Rates
-Government Fees
+1. ضريبة الوارد (Import Duty / Customs Duty)        → نسبة من القيمة الجمركية (CIF)
+2. ضريبة القيمة المضافة (VAT)                       → نسبة من الوعاء الضريبي
+3. ضريبة الجدول (Schedule Tax)                       → نسبة إضافية حسب بند التعريفة (إن وجدت)
+4. رسم الوارد (Import Fee)                           → رسم ثابت أو نسبة (إن وجد)
+5. رسوم الخدمات الجمركية (Customs Service Fees)      → رسوم متعددة
+6. رسوم أساسية (Basic Fees)                          → رسوم ثابتة
+7. رسم التنمية (Development Fee)                     → نسبة إن وجدت حسب البند
 ```
 
-مع حفظ تاريخ سريان القاعدة:
+## تسلسل الحساب (Calculation Flow)
 
 ```text
-effective_from
-effective_to
+Step 1: حساب القيمة الجمركية (Customs Value / CIF Base)
+        CIF = FOB Value + Freight + Insurance
+
+Step 2: حساب ضريبة الوارد (Import Duty)
+        Import Duty = CIF × Import Duty Rate % (من HS Code)
+
+Step 3: حساب الوعاء الضريبي لضريبة القيمة المضافة
+        VAT Base = CIF + Import Duty + Freight + Other Applicable Fees
+
+Step 4: حساب ضريبة القيمة المضافة
+        VAT = VAT Base × VAT Rate % (من HS Code، وليست دائماً 14%)
+
+Step 5: حساب ضريبة الجدول (إن وجدت)
+        Schedule Tax = CIF × Schedule Tax Rate % (من HS Code)
+
+Step 6: حساب رسوم الخدمات الجمركية والرسوم الأساسية
+        Customs Service Fees = حسب جدول الرسوم المعتمد
+
+Step 7: إجمالي الضرائب والرسوم
+        Total = Import Duty + VAT + Schedule Tax + Import Fee
+              + Customs Service Fees + Basic Fees + Development Fee
+```
+
+## قواعد حرجة
+
+```text
+❌ لا يجوز Hard-Code أي نسبة ضريبية (VAT ≠ 14% دائماً)
+❌ لا يجوز افتراض أن كل البنود تنطبق على كل شحنة
+✅ كل HS Code يحدد أي بنود تنطبق وبأي نسب
+✅ يجب حفظ تاريخ سريان كل قاعدة (effective_from / effective_to)
+✅ يجب استخدام سعر صرف الجمارك الرسمي في تاريخ الإقرار
+✅ يجب حفظ تفاصيل كل بند منفصلاً (وليس مجرد رقم إجمالي)
+```
+
+## مثال عملي
+
+```text
+قيمة الفاتورة (FOB):              623,000 جنيه
+ضريبة الوارد (10% من CIF):         62,300 جنيه
+ضريبة القيمة المضافة:              95,942 جنيه
+ضريبة الجدول:                       6,230 جنيه
+رسم الوارد:                             0 جنيه
+رسوم الخدمات الجمركية:             78,286.90 جنيه
+رسوم أساسية:                        1,329.50 جنيه
+─────────────────────────────────────────────
+إجمالي الضرائب والرسوم:           165,801.50 جنيه
 ```
 
 ---
@@ -386,17 +416,19 @@ effective_to
 يجب أن يستطيع النظام حساب:
 
 ```text
-Purchase Cost
-+ Freight
-+ Insurance
-+ Customs Duty
-+ VAT
-+ WHT
-+ Customs Fees
-+ Clearance Fees
-+ Local Charges
-+ Other Import Costs
-= Landed Cost
+Purchase Cost (قيمة الفاتورة FOB/CIF)
++ Freight (النولون)
++ Insurance (التأمين)
++ Import Duty (ضريبة الوارد / الجمارك)
++ VAT (ضريبة القيمة المضافة)
++ Schedule Tax (ضريبة الجدول)
++ Development Fee (رسم التنمية)
++ Customs Service Fees (رسوم الخدمات الجمركية)
++ Basic Fees (رسوم أساسية)
++ Clearance Fees (أتعاب التخليص الجمركي)
++ Local Transport (النقل الداخلي)
++ Other Import Costs (مصاريف أخرى)
+= Landed Cost (تكلفة الوصول الشاملة)
 ```
 
 ويجب الاحتفاظ بتفاصيل مكونات التكلفة، وليس فقط تخزين رقم نهائي.

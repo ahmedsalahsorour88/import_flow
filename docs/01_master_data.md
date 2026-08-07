@@ -29,9 +29,8 @@
 | :--- | :--- | :--- | :--- |
 | **MD-001** | **Company (Egyptian Importers)** | إدارة الشركات المصرية المستوردة | Name, Address, Importer ID & Expiry, VAT ID & Expiry, Commercial Reg No & Expiry. يتم حساب الأيام المتبقية للتجديد ديناميكيًا. |
 | **MD-002** | **Supplier (Foreign Exporters)** | إدارة الموردين الأجانب والمصدرين | Company Name, Registration Type, Foreign Exporter ID, Country Code, Address, Email, Brands. |
-| **MD-003** | **External Service Providers** | المستخلصين الجمركيين وشركات الشحن | Service Provider Type, Commercial Reg, License Expiry, Service Rating, Tax ID. |
-| **MD-004** | **Shipping Lines** | خطوط الشحن البحرية والجوية | Line Code, Name, SCAC Code, Tracking URL, Local Agent Details. |
-| **MD-005** | **Currency Master** | العملات وأسعار الصرف | Currency Code (USD, EUR, EGP, etc.), Exchange Rates vs EGP, Effective Dates. |
+| **MD-003** | **External Service Providers & Partners** | سجل الشركاء ومزودي الخدمات الخارجيين والخطوط والبنوك | شاشات وتكود كلي لجميع الجهات الخدمية والمالية: مستخلصين جمركيين (Customs Brokers), وكلاء شحن (Freight Forwarders), خطوط ملاحية وجوية (Shipping/Air Lines - SCAC Code & Tracking), بنوك ومؤسسات مالية (Commercial Banks - SWIFT Code & Accounts), شركات نقل بري ومعاينة. |
+| **MD-004** | **Currency Master** | العملات وأسعار الصرف | Currency Code (USD, EUR, EGP, etc.), Exchange Rates vs EGP, Effective Dates. |
 | **MD-006** | **Incoterms Master** | شروط التجارة الدولية (FOB, CIF, CFR...) | Incoterm Code, Description, Risk Transfer Point, Freight/Insurance Responsibility Matrix (**MD-006A & MD-006B**). |
 | **MD-007** | **Projects Master** | المشروعات ومراكز التكلفة المرتبطة | Project Code, Project Name, Budget, Client Name, Associated Import Files. |
 | **MD-008** | **Customs Tariff (HS Code Master)** | التعريفة الجمركية وبنود HS Code | HS Code (10 digits), Duty Rate %, VAT %, Excise Duty %, Regulatory Inspection Requirements. |

@@ -1,193 +1,76 @@
+from typing import List, Optional
+from sqlalchemy import exists, func
 from sqlalchemy.orm import Session
-
 from .model import ExternalServiceProvider
-from .schemas import ExternalServiceProviderCreate
+from .schemas import PartnerCreate, PartnerUpdate
 
 
-# ==================================================
-# Create Provider
-# ==================================================
+class ExternalServiceProviderRepository:
+    def __init__(self, db: Session):
+        self.db = db
 
-def create_provider(
-    db: Session,
-    provider_data: ExternalServiceProviderCreate
-) -> ExternalServiceProvider:
+    def get_all(self, partner_type: Optional[str] = None, include_inactive: bool = False) -> List[ExternalServiceProvider]:
+        query = self.db.query(ExternalServiceProvider)
+        if not include_inactive:
+            query = query.filter(ExternalServiceProvider.is_active.is_(True))
+        if partner_type and partner_type.strip().lower() != 'all':
+            query = query.filter(func.lower(ExternalServiceProvider.partner_type) == partner_type.strip().lower())
+        return query.order_by(ExternalServiceProvider.provider_id.desc()).all()
 
-    provider = ExternalServiceProvider(
+    def get_by_id(self, provider_id: int) -> Optional[ExternalServiceProvider]:
+        return self.db.query(ExternalServiceProvider).filter(ExternalServiceProvider.provider_id == provider_id).first()
 
-        partner_name=provider_data.partner_name,
+    def get_by_code(self, partner_code: str) -> Optional[ExternalServiceProvider]:
+        return self.db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_code == partner_code).first()
 
-        partner_type=provider_data.partner_type,
+    def exists_by_code(self, partner_code: str) -> bool:
+        return self.db.query(exists().where(ExternalServiceProvider.partner_code == partner_code)).scalar()
 
-        contact_person=provider_data.contact_person,
+    def exists_by_swift_code(self, swift_code: str, exclude_id: Optional[int] = None) -> bool:
+        if not swift_code or not swift_code.strip():
+            return False
+        stmt = exists().where(func.lower(ExternalServiceProvider.swift_code) == swift_code.strip().lower())
+        if exclude_id:
+            stmt = stmt.where(ExternalServiceProvider.provider_id != exclude_id)
+        return self.db.query(stmt).scalar()
 
-        phone=provider_data.phone,
+    def get_last_partner_id(self) -> int:
+        last = self.db.query(ExternalServiceProvider.provider_id).order_by(ExternalServiceProvider.provider_id.desc()).first()
+        return last[0] if last else 0
 
-        mobile=provider_data.mobile,
-
-        email=(
-            str(provider_data.email)
-            if provider_data.email
-            else None
-        ),
-
-        address=provider_data.address,
-
-        country=provider_data.country,
-
-        payment_type=provider_data.payment_type,
-
-        credit_limit=provider_data.credit_limit,
-
-        notes=provider_data.notes,
-
-        created_by=provider_data.created_by
-    )
-
-    db.add(provider)
-
-    db.commit()
-
-    db.refresh(provider)
-
-    # ==============================================
-    # Generate Partner Code
-    # ==============================================
-
-    provider.partner_code = (
-        f"ESP-{provider.provider_id:06d}"
-    )
-
-    db.commit()
-
-    db.refresh(provider)
-
-    return provider
-
-
-# ==================================================
-# Get Active Providers
-# ==================================================
-
-def get_providers(
-    db: Session
-) -> list[ExternalServiceProvider]:
-
-    return (
-        db.query(ExternalServiceProvider)
-        .filter(
-            ExternalServiceProvider.is_active == True
+    def create(self, partner_data: PartnerCreate, partner_code: str) -> ExternalServiceProvider:
+        db_obj = ExternalServiceProvider(
+            partner_code=partner_code,
+            **partner_data.model_dump()
         )
-        .order_by(
-            ExternalServiceProvider.provider_id
-        )
-        .all()
-    )
+        self.db.add(db_obj)
+        self.db.commit()
+        self.db.refresh(db_obj)
+        return db_obj
 
+    def update(self, provider_id: int, partner_data: PartnerUpdate) -> Optional[ExternalServiceProvider]:
+        db_obj = self.get_by_id(provider_id)
+        if not db_obj:
+            return None
+        update_data = partner_data.model_dump(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_obj, key, value)
+        self.db.commit()
+        self.db.refresh(db_obj)
+        return db_obj
 
-# ==================================================
-# Get All Providers
-# ==================================================
+    def soft_delete(self, provider_id: int) -> bool:
+        db_obj = self.get_by_id(provider_id)
+        if not db_obj:
+            return False
+        db_obj.is_active = False
+        self.db.commit()
+        return True
 
-def get_all_providers(
-    db: Session
-) -> list[ExternalServiceProvider]:
-
-    return (
-        db.query(ExternalServiceProvider)
-        .order_by(
-            ExternalServiceProvider.provider_id
-        )
-        .all()
-    )
-
-
-# ==================================================
-# Get Provider By ID
-# ==================================================
-
-def get_provider_by_id(
-    db: Session,
-    provider_id: int
-) -> ExternalServiceProvider | None:
-
-    return (
-        db.query(ExternalServiceProvider)
-        .filter(
-            ExternalServiceProvider.provider_id == provider_id
-        )
-        .first()
-    )
-
-
-# ==================================================
-# Check Partner Name Exists
-# ==================================================
-
-def partner_name_exists(
-    db: Session,
-    partner_name: str,
-    partner_type: str
-) -> bool:
-
-    return (
-        db.query(ExternalServiceProvider)
-        .filter(
-            ExternalServiceProvider.partner_name == partner_name,
-            ExternalServiceProvider.partner_type == partner_type
-        )
-        .first()
-        is not None
-    )
-
-
-# ==================================================
-# Save Updates
-# ==================================================
-
-def update_provider(
-    db: Session,
-    provider: ExternalServiceProvider
-) -> ExternalServiceProvider:
-
-    db.commit()
-
-    db.refresh(provider)
-
-    return provider
-
-
-# ==================================================
-# Soft Delete
-# ==================================================
-
-def delete_provider(
-    db: Session,
-    provider: ExternalServiceProvider
-) -> ExternalServiceProvider:
-
-    provider.is_active = False
-
-    db.commit()
-
-    db.refresh(provider)
-
-    return provider
-
-
-# ==================================================
-# Restore Provider
-# ==================================================
-
-def restore_provider(
-    db: Session,
-    provider: ExternalServiceProvider
-) -> ExternalServiceProvider:
-
-    provider.is_active = True
-
-    db.commit()
-
-    db.refresh(provider)
-
-    return provider
+    def restore(self, provider_id: int) -> bool:
+        db_obj = self.get_by_id(provider_id)
+        if not db_obj:
+            return False
+        db_obj.is_active = True
+        self.db.commit()
+        return True

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
+import '../external_service_providers/screens/partners_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 
@@ -17,6 +18,7 @@ class _HomeScreenState extends State<HomeScreen> {
     DashboardTab(),
     ImportCompaniesScreen(),
     SuppliersScreen(),
+    PartnersScreen(),
     Center(child: Text('Customs & Cost - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
   ];
 
@@ -48,7 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 _buildMenuItem(Icons.dashboard, 'Dashboard', 0),
                 _buildMenuItem(Icons.domain, 'Import Companies', 1),
                 _buildMenuItem(Icons.business, 'Suppliers', 2),
-                _buildMenuItem(Icons.calculate, 'Customs & Cost', 3),
+                _buildMenuItem(Icons.account_balance, 'Partners & Banks', 3),
+                _buildMenuItem(Icons.calculate, 'Customs & Cost', 4),
               ],
             ),
           ),

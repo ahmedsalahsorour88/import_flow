@@ -29,7 +29,7 @@ from modules.external_service_providers.model import (
 
 from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
-from modules.external_service_providers.router import provider_router
+from modules.external_service_providers.router import router as provider_router
 
 
 # ==================================================

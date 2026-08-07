@@ -59,6 +59,24 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
     }
   }
 
+  Future<String?> updatePartner(int providerId, PartnerModel partner) async {
+    try {
+      await _dio.put(
+        '${ApiConstants.baseUrl}/external-service-providers/$providerId',
+        data: partner.toJson(),
+      );
+      await fetchPartners();
+      return null; // Success
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null && e.response?.data['detail'] != null) {
+        return e.response?.data['detail'].toString();
+      }
+      return 'Failed to update partner. Please check inputs.';
+    } catch (e) {
+      return 'An unexpected error occurred.';
+    }
+  }
+
   Future<bool> toggleActiveStatus(int providerId, bool currentlyActive) async {
     try {
       if (currentlyActive) {

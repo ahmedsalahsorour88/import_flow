@@ -72,7 +72,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.public, size: 18),
                       label: const Text('Add Foreign Supplier'),
-                      onPressed: () => _showAddSupplierDialog(context),
+                      onPressed: () => _showSupplierDialog(context),
                     ),
                   ],
                 ),
@@ -301,19 +301,29 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
               ),
             ),
 
-            // Active / Deactive Toggle Button Action
-            Tooltip(
-              message: isActive ? 'Deactivate Supplier' : 'Reactivate Supplier',
-              child: Switch(
-                value: isActive,
-                activeColor: AppTheme.emerald,
-                inactiveThumbColor: AppTheme.crimson,
-                onChanged: (newStatus) {
-                  if (supplier.supplierId != null) {
-                    ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
-                  }
-                },
-              ),
+            // Actions: Edit & Switch
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
+                  tooltip: 'Edit Foreign Supplier',
+                  onPressed: () => _showSupplierDialog(context, supplier),
+                ),
+                Tooltip(
+                  message: isActive ? 'Deactivate Supplier' : 'Reactivate Supplier',
+                  child: Switch(
+                    value: isActive,
+                    activeColor: AppTheme.emerald,
+                    inactiveThumbColor: AppTheme.crimson,
+                    onChanged: (newStatus) {
+                      if (supplier.supplierId != null) {
+                        ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -321,19 +331,20 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     );
   }
 
-  void _showAddSupplierDialog(BuildContext context) {
+  void _showSupplierDialog(BuildContext context, [SupplierModel? supplierToEdit]) {
+    final isEditing = supplierToEdit != null;
     final formKey = GlobalKey<FormState>();
 
-    final nameCtrl = TextEditingController();
-    final typeCtrl = TextEditingController(text: 'Manufacturer');
-    final regTypeCtrl = TextEditingController(text: 'Factory');
-    final expIdCtrl = TextEditingController();
-    final countryCtrl = TextEditingController();
-    final countryCodeCtrl = TextEditingController();
-    final addressCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final brandsCtrl = TextEditingController();
+    final nameCtrl = TextEditingController(text: supplierToEdit?.companyName ?? '');
+    final typeCtrl = TextEditingController(text: supplierToEdit?.supplierType ?? 'Manufacturer');
+    final regTypeCtrl = TextEditingController(text: supplierToEdit?.registrationType ?? 'Factory');
+    final expIdCtrl = TextEditingController(text: supplierToEdit?.foreignExporterId ?? '');
+    final countryCtrl = TextEditingController(text: supplierToEdit?.foreignExporterCountry ?? '');
+    final countryCodeCtrl = TextEditingController(text: supplierToEdit?.foreignExporterCountryCode ?? '');
+    final addressCtrl = TextEditingController(text: supplierToEdit?.address ?? '');
+    final phoneCtrl = TextEditingController(text: supplierToEdit?.phone ?? '');
+    final emailCtrl = TextEditingController(text: supplierToEdit?.email ?? '');
+    final brandsCtrl = TextEditingController(text: supplierToEdit?.brands ?? '');
 
     showDialog(
       context: context,
@@ -353,12 +364,12 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.public, color: Colors.white, size: 22),
-                      SizedBox(width: 12),
+                    children: [
+                      Icon(isEditing ? Icons.edit : Icons.public, color: Colors.white, size: 22),
+                      const SizedBox(width: 12),
                       Text(
-                        'Add Foreign Exporter & Supplier (MD-002)',
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        isEditing ? 'Edit Foreign Exporter & Supplier (MD-002)' : 'Add Foreign Exporter & Supplier (MD-002)',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -492,14 +503,15 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Save Foreign Supplier'),
+                        label: Text(isEditing ? 'Update Supplier' : 'Save Foreign Supplier'),
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) {
                             return;
                           }
 
-                          final newSupplier = SupplierModel(
-                            supplierCode: '',
+                          final supplier = SupplierModel(
+                            supplierId: supplierToEdit?.supplierId,
+                            supplierCode: supplierToEdit?.supplierCode ?? '',
                             companyName: nameCtrl.text.trim(),
                             supplierType: typeCtrl.text.trim(),
                             registrationType: regTypeCtrl.text.trim(),
@@ -510,9 +522,16 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                             phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
                             email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
                             brands: brandsCtrl.text.trim().isEmpty ? null : brandsCtrl.text.trim(),
+                            isActive: supplierToEdit?.isActive ?? true,
                           );
 
-                          final errorMessage = await ref.read(suppliersProvider.notifier).createSupplier(newSupplier);
+                          String? errorMessage;
+                          if (isEditing && supplierToEdit.supplierId != null) {
+                            errorMessage = await ref.read(suppliersProvider.notifier).updateSupplier(supplierToEdit.supplierId!, supplier);
+                          } else {
+                            errorMessage = await ref.read(suppliersProvider.notifier).createSupplier(supplier);
+                          }
+
                           if (errorMessage == null) {
                             if (context.mounted) {
                               Navigator.pop(dialogCtx);

@@ -83,7 +83,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add_business, size: 18),
                       label: const Text('Add External Partner'),
-                      onPressed: () => _showAddPartnerDialog(context),
+                      onPressed: () => _showPartnerDialog(context),
                     ),
                   ],
                 ),
@@ -331,19 +331,29 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
               ),
             ),
 
-            // Active / Deactive Switch
-            Tooltip(
-              message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',
-              child: Switch(
-                value: isActive,
-                activeColor: AppTheme.emerald,
-                inactiveThumbColor: AppTheme.crimson,
-                onChanged: (newStatus) {
-                  if (partner.providerId != null) {
-                    ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                  }
-                },
-              ),
+            // Actions: Edit & Switch
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
+                  tooltip: 'Edit Partner Details',
+                  onPressed: () => _showPartnerDialog(context, partner),
+                ),
+                Tooltip(
+                  message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',
+                  child: Switch(
+                    value: isActive,
+                    activeColor: AppTheme.emerald,
+                    inactiveThumbColor: AppTheme.crimson,
+                    onChanged: (newStatus) {
+                      if (partner.providerId != null) {
+                        ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -399,7 +409,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     }
   }
 
-  void _showAddPartnerDialog(BuildContext context) {
+  void _showPartnerDialog(BuildContext context, [PartnerModel? partnerToEdit]) {
+    final isEditing = partnerToEdit != null;
     final formKey = GlobalKey<FormState>();
 
     final availableCategories = [
@@ -411,21 +422,23 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       'Inspection Agency',
     ];
 
-    final Set<String> selectedCategories = {'Customs Broker'};
+    final Set<String> selectedCategories = partnerToEdit != null
+        ? partnerToEdit.categoriesList.toSet()
+        : {'Customs Broker'};
 
-    final nameCtrl = TextEditingController();
-    final taxIdCtrl = TextEditingController();
-    final regCtrl = TextEditingController();
-    final licenseCtrl = TextEditingController();
-    final scacCtrl = TextEditingController();
-    final trackingCtrl = TextEditingController();
-    final swiftCtrl = TextEditingController();
-    final bankCodeCtrl = TextEditingController();
-    final branchCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
-    final emailCtrl = TextEditingController();
-    final addressCtrl = TextEditingController();
-    final countryCtrl = TextEditingController(text: 'Egypt');
+    final nameCtrl = TextEditingController(text: partnerToEdit?.partnerName ?? '');
+    final taxIdCtrl = TextEditingController(text: partnerToEdit?.taxId ?? '');
+    final regCtrl = TextEditingController(text: partnerToEdit?.commercialRegister ?? '');
+    final licenseCtrl = TextEditingController(text: partnerToEdit?.clearanceLicenseNumber ?? '');
+    final scacCtrl = TextEditingController(text: partnerToEdit?.scacCode ?? '');
+    final trackingCtrl = TextEditingController(text: partnerToEdit?.trackingUrl ?? '');
+    final swiftCtrl = TextEditingController(text: partnerToEdit?.swiftCode ?? '');
+    final bankCodeCtrl = TextEditingController(text: partnerToEdit?.bankCode ?? '');
+    final branchCtrl = TextEditingController(text: partnerToEdit?.branchName ?? '');
+    final phoneCtrl = TextEditingController(text: partnerToEdit?.phone ?? '');
+    final emailCtrl = TextEditingController(text: partnerToEdit?.email ?? '');
+    final addressCtrl = TextEditingController(text: partnerToEdit?.address ?? '');
+    final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? 'Egypt');
 
     showDialog(
       context: context,
@@ -451,12 +464,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                       ),
                       child: Row(
-                        children: const [
-                          Icon(Icons.add_business, color: Colors.white, size: 22),
-                          SizedBox(width: 12),
+                        children: [
+                          Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
+                          const SizedBox(width: 12),
                           Text(
-                            'Add External Partner & Bank (MD-003)',
-                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            isEditing ? 'Edit External Partner & Bank (MD-003)' : 'Add External Partner & Bank (MD-003)',
+                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
@@ -726,7 +739,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.check, size: 18),
-                            label: const Text('Save External Partner'),
+                            label: Text(isEditing ? 'Update Partner' : 'Save External Partner'),
                             onPressed: () async {
                               if (!formKey.currentState!.validate() || selectedCategories.isEmpty) {
                                 return;
@@ -735,7 +748,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                               final partnerTypeJoined = selectedCategories.join(', ');
 
                               final partner = PartnerModel(
-                                partnerCode: '',
+                                providerId: partnerToEdit?.providerId,
+                                partnerCode: partnerToEdit?.partnerCode ?? '',
                                 partnerName: nameCtrl.text.trim(),
                                 partnerType: partnerTypeJoined,
                                 taxId: taxIdCtrl.text.trim().isEmpty ? null : taxIdCtrl.text.trim(),
@@ -750,9 +764,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
                                 address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
                                 country: countryCtrl.text.trim(),
+                                isActive: partnerToEdit?.isActive ?? true,
                               );
 
-                              final errorMessage = await ref.read(partnersProvider.notifier).createPartner(partner);
+                              String? errorMessage;
+                              if (isEditing && partnerToEdit.providerId != null) {
+                                errorMessage = await ref.read(partnersProvider.notifier).updatePartner(partnerToEdit.providerId!, partner);
+                              } else {
+                                errorMessage = await ref.read(partnersProvider.notifier).createPartner(partner);
+                              }
+
                               if (errorMessage == null) {
                                 if (context.mounted) {
                                   Navigator.pop(dialogCtx);

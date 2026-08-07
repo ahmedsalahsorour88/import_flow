@@ -51,6 +51,24 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
     }
   }
 
+  Future<String?> updateSupplier(int supplierId, SupplierModel supplier) async {
+    try {
+      await _dio.put(
+        '${ApiConstants.baseUrl}/suppliers/$supplierId',
+        data: supplier.toJson(),
+      );
+      await fetchSuppliers();
+      return null; // Success
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null && e.response?.data['detail'] != null) {
+        return e.response?.data['detail'].toString();
+      }
+      return 'Failed to update supplier. Please check inputs.';
+    } catch (e) {
+      return 'An unexpected error occurred.';
+    }
+  }
+
   Future<bool> toggleActiveStatus(int supplierId, bool currentlyActive) async {
     try {
       if (currentlyActive) {

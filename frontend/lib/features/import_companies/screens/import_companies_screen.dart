@@ -72,7 +72,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add_business, size: 18),
                       label: const Text('Add Importer Company'),
-                      onPressed: () => _showAddCompanyDialog(context),
+                      onPressed: () => _showCompanyDialog(context),
                     ),
                   ],
                 ),
@@ -272,19 +272,29 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
               ),
             ),
 
-            // Active / Deactive Toggle Switch
-            Tooltip(
-              message: isActive ? 'Deactivate Company' : 'Reactivate Company',
-              child: Switch(
-                value: isActive,
-                activeColor: AppTheme.emerald,
-                inactiveThumbColor: AppTheme.crimson,
-                onChanged: (newStatus) {
-                  if (company.companyId != null) {
-                    ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
-                  }
-                },
-              ),
+            // Action Buttons: Edit & Toggle Active
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
+                  tooltip: 'Edit Importer Details',
+                  onPressed: () => _showCompanyDialog(context, company),
+                ),
+                Tooltip(
+                  message: isActive ? 'Deactivate Company' : 'Reactivate Company',
+                  child: Switch(
+                    value: isActive,
+                    activeColor: AppTheme.emerald,
+                    inactiveThumbColor: AppTheme.crimson,
+                    onChanged: (newStatus) {
+                      if (company.companyId != null) {
+                        ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+                      }
+                    },
+                  ),
+                ),
+              ],
             ),
           ],
         ),
@@ -321,20 +331,21 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     );
   }
 
-  void _showAddCompanyDialog(BuildContext context) {
+  void _showCompanyDialog(BuildContext context, [ImportCompanyModel? companyToEdit]) {
+    final isEditing = companyToEdit != null;
     final formKey = GlobalKey<FormState>();
 
-    final nameCtrl = TextEditingController();
-    final addressCtrl = TextEditingController();
-    final countryCtrl = TextEditingController(text: 'Egypt');
-    final impIdCtrl = TextEditingController();
-    final vatIdCtrl = TextEditingController();
-    final regNumCtrl = TextEditingController();
-    final phoneCtrl = TextEditingController();
+    final nameCtrl = TextEditingController(text: companyToEdit?.importerName ?? '');
+    final addressCtrl = TextEditingController(text: companyToEdit?.address ?? '');
+    final countryCtrl = TextEditingController(text: companyToEdit?.country ?? 'Egypt');
+    final impIdCtrl = TextEditingController(text: companyToEdit?.importerId ?? '');
+    final vatIdCtrl = TextEditingController(text: companyToEdit?.vatId ?? '');
+    final regNumCtrl = TextEditingController(text: companyToEdit?.registrationNumber ?? '');
+    final phoneCtrl = TextEditingController(text: companyToEdit?.phone ?? '');
 
-    DateTime impExpiry = DateTime.now().add(const Duration(days: 365));
-    DateTime vatExpiry = DateTime.now().add(const Duration(days: 365));
-    DateTime regExpiry = DateTime.now().add(const Duration(days: 365));
+    DateTime impExpiry = companyToEdit?.importerIdExpiry ?? DateTime.now().add(const Duration(days: 365));
+    DateTime vatExpiry = companyToEdit?.vatIdExpiry ?? DateTime.now().add(const Duration(days: 365));
+    DateTime regExpiry = companyToEdit?.registrationExpiry ?? DateTime.now().add(const Duration(days: 365));
 
     showDialog(
       context: context,
@@ -354,12 +365,12 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.add_business, color: Colors.white, size: 22),
-                      SizedBox(width: 12),
+                    children: [
+                      Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
+                      const SizedBox(width: 12),
                       Text(
-                        'Add Egyptian Import Company (MD-001)',
-                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        isEditing ? 'Edit Egyptian Import Company (MD-001)' : 'Add Egyptian Import Company (MD-001)',
+                        style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
@@ -472,14 +483,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Save Importer Company'),
+                        label: Text(isEditing ? 'Update Company' : 'Save Importer Company'),
                         onPressed: () async {
-                          // Validate form fields
                           if (!formKey.currentState!.validate()) {
                             return;
                           }
 
-                          final newCompany = ImportCompanyModel(
+                          final company = ImportCompanyModel(
+                            companyId: companyToEdit?.companyId,
                             importerName: nameCtrl.text.trim(),
                             address: addressCtrl.text.trim(),
                             country: countryCtrl.text.trim(),
@@ -490,9 +501,16 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                             registrationNumber: regNumCtrl.text.trim(),
                             registrationExpiry: regExpiry,
                             phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                            isActive: companyToEdit?.isActive ?? true,
                           );
 
-                          final errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(newCompany);
+                          String? errorMessage;
+                          if (isEditing && companyToEdit.companyId != null) {
+                            errorMessage = await ref.read(importCompaniesProvider.notifier).updateCompany(companyToEdit.companyId!, company);
+                          } else {
+                            errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(company);
+                          }
+
                           if (errorMessage == null) {
                             if (context.mounted) {
                               Navigator.pop(dialogCtx);

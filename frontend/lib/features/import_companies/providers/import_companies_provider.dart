@@ -51,6 +51,24 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
     }
   }
 
+  Future<String?> updateCompany(int companyId, ImportCompanyModel company) async {
+    try {
+      await _dio.put(
+        '${ApiConstants.baseUrl}/import-companies/$companyId',
+        data: company.toJson(),
+      );
+      await fetchCompanies();
+      return null; // Success
+    } on DioException catch (e) {
+      if (e.response != null && e.response?.data != null && e.response?.data['detail'] != null) {
+        return e.response?.data['detail'].toString();
+      }
+      return 'Failed to update company. Please try again.';
+    } catch (e) {
+      return 'An unexpected error occurred.';
+    }
+  }
+
   Future<bool> toggleActiveStatus(int companyId, bool currentlyActive) async {
     try {
       if (currentlyActive) {

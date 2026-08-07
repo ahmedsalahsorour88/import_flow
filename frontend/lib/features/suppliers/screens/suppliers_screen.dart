@@ -353,8 +353,8 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: SizedBox(
             width: 600,
+            height: MediaQuery.of(context).size.height * 0.85,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 // Header Banner
                 Container(
@@ -376,9 +376,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
 
                 // Form Body
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
                     key: formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -485,6 +486,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ),
                   ),
                 ),
+              ),
 
                 // Dialog Action Buttons
                 Container(

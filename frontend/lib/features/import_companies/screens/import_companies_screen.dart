@@ -354,8 +354,8 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: SizedBox(
             width: 580,
+            height: MediaQuery.of(context).size.height * 0.85,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               children: [
                 // Dialog Header Banner
                 Container(
@@ -377,9 +377,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 ),
 
                 // Dialog Form Body
-                Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Form(
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Form(
                     key: formKey,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -465,6 +466,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ),
                   ),
                 ),
+              ),
 
                 // Dialog Action Buttons
                 Container(

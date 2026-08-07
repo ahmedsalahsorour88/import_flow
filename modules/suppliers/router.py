@@ -1,38 +1,30 @@
-from fastapi import APIRouter
-from fastapi import Depends
-from fastapi import HTTPException
-from fastapi import status
-
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-
-from .schemas import SupplierCreate
-from .schemas import SupplierUpdate
-from .schemas import SupplierResponse
-
-from .service import create_supplier_service
-from .service import get_all_suppliers_service
-from .service import get_supplier_by_id_service
-from .service import update_supplier_service
-from .service import delete_supplier_service
-from .service import restore_supplier_service
-
-
+from .schemas import SupplierCreate, SupplierUpdate, SupplierResponse
+from .service import (
+    create_supplier_service,
+    get_all_suppliers_service,
+    get_all_suppliers_admin_service,
+    get_supplier_by_id_service,
+    update_supplier_service,
+    delete_supplier_service,
+    restore_supplier_service,
+)
 
 # ==================================================
-# Router
+# Router Setup
 # ==================================================
 
 supplier_router = APIRouter(
     prefix="/suppliers",
-    tags=["Suppliers"]
+    tags=["Suppliers & Foreign Exporters"]
 )
 
 
-
 # ==================================================
-# Create Supplier
+# Create Supplier Endpoint
 # ==================================================
 
 @supplier_router.post(
@@ -40,84 +32,50 @@ supplier_router = APIRouter(
     response_model=SupplierResponse,
     status_code=status.HTTP_201_CREATED
 )
-def create_supplier(
-    supplier: SupplierCreate,
-    db: Session = Depends(get_db)
-):
-
-    new_supplier = create_supplier_service(
-        db,
-        supplier
-    )
-
-
-    if not new_supplier:
-
+def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
+    created = create_supplier_service(db, supplier)
+    if not created:
         raise HTTPException(
-            status_code=400,
-            detail="Supplier already exists"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Foreign Exporter ID '{supplier.foreign_exporter_id}' already exists."
         )
-
-
-    return new_supplier
-
+    return created
 
 
 # ==================================================
-# Get All Suppliers
+# Get Suppliers Endpoint (Active or All)
 # ==================================================
 
 @supplier_router.get(
     "/",
     response_model=list[SupplierResponse]
 )
-def get_suppliers(
-    skip: int = 0,
-    limit: int = 50,
-    db: Session = Depends(get_db)
-):
-
-    return get_all_suppliers_service(
-        db,
-        skip,
-        limit
-    )
-
+def get_suppliers(include_inactive: bool = False, db: Session = Depends(get_db)):
+    if include_inactive:
+        return get_all_suppliers_admin_service(db)
+    return get_all_suppliers_service(db)
 
 
 # ==================================================
-# Get Supplier By ID
+# Get Supplier By ID Endpoint
 # ==================================================
 
 @supplier_router.get(
     "/{supplier_id}",
     response_model=SupplierResponse
 )
-def get_supplier(
-    supplier_id: int,
-    db: Session = Depends(get_db)
-):
-
-    supplier = get_supplier_by_id_service(
-        db,
-        supplier_id
-    )
-
-
+def get_supplier_by_id(supplier_id: int, db: Session = Depends(get_db)):
+    supplier = get_supplier_by_id_service(db, supplier_id)
     if not supplier:
-
         raise HTTPException(
-            status_code=404,
-            detail="Supplier not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
         )
-
-
     return supplier
 
 
-
 # ==================================================
-# Update Supplier
+# Update Supplier Endpoint
 # ==================================================
 
 @supplier_router.put(
@@ -126,85 +84,49 @@ def get_supplier(
 )
 def update_supplier(
     supplier_id: int,
-    supplier: SupplierUpdate,
+    supplier_data: SupplierUpdate,
     db: Session = Depends(get_db)
 ):
-
-    updated_supplier = update_supplier_service(
-        db,
-        supplier_id,
-        supplier
-    )
-
-
-    if not updated_supplier:
-
+    updated = update_supplier_service(db, supplier_id, supplier_data)
+    if not updated:
         raise HTTPException(
-            status_code=404,
-            detail="Supplier not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
         )
-
-
-    return updated_supplier
-
+    return updated
 
 
 # ==================================================
-# Soft Delete Supplier
+# Soft Delete Supplier Endpoint
 # ==================================================
 
 @supplier_router.delete(
     "/{supplier_id}",
     response_model=SupplierResponse
 )
-def delete_supplier(
-    supplier_id: int,
-    db: Session = Depends(get_db)
-):
-
-    supplier = delete_supplier_service(
-        db,
-        supplier_id
-    )
-
-
-    if not supplier:
-
+def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    deleted = delete_supplier_service(db, supplier_id)
+    if not deleted:
         raise HTTPException(
-            status_code=404,
-            detail="Supplier not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
         )
-
-
-    return supplier
-
+    return deleted
 
 
 # ==================================================
-# Restore Supplier
+# Restore Supplier Endpoint
 # ==================================================
 
 @supplier_router.patch(
     "/{supplier_id}/restore",
     response_model=SupplierResponse
 )
-def restore_supplier(
-    supplier_id: int,
-    db: Session = Depends(get_db)
-):
-
-    supplier = restore_supplier_service(
-        db,
-        supplier_id
-    )
-
-
-    if not supplier:
-
+def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    restored = restore_supplier_service(db, supplier_id)
+    if not restored:
         raise HTTPException(
-            status_code=404,
-            detail="Supplier not found"
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
         )
-
-
-    return supplier
+    return restored

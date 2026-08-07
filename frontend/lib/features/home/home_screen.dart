@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/theme/app_theme.dart';
 import '../import_companies/screens/import_companies_screen.dart';
+import '../suppliers/screens/suppliers_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,9 +16,10 @@ class _HomeScreenState extends State<HomeScreen> {
   final List<Widget> _screens = const [
     DashboardTab(),
     ImportCompaniesScreen(),
-    Center(child: Text('Suppliers (MD-002) - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
+    SuppliersScreen(),
     Center(child: Text('Customs & Cost - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
   ];
+
 
   @override
   Widget build(BuildContext context) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../auth/providers/auth_provider.dart';
+import '../audit_logs/screens/audit_logs_screen.dart';
 import '../external_service_providers/screens/partners_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
@@ -21,6 +22,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ImportCompaniesScreen(),
     SuppliersScreen(),
     PartnersScreen(),
+    AuditLogsScreen(),
     Center(child: Text('Customs & Cost - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
   ];
 
@@ -59,7 +61,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.domain, 'Import Companies', 1),
                       _buildMenuItem(Icons.business, 'Suppliers', 2),
                       _buildMenuItem(Icons.account_balance, 'Partners & Banks', 3),
-                      _buildMenuItem(Icons.calculate, 'Customs & Cost', 4),
+                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 4),
+                      _buildMenuItem(Icons.calculate, 'Customs & Cost', 5),
                     ],
                   ),
                 ),

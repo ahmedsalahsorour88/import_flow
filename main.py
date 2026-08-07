@@ -14,13 +14,9 @@ from database.database import engine
 
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
-from modules.external_service_providers.model import (
-    ExternalServiceProvider,
-)
-
-
-
-
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.users.model import User
+from modules.audit_logs.model import AuditLog
 
 
 # ==================================================
@@ -31,6 +27,7 @@ from modules.import_companies.router import import_router
 from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
 from modules.audit_logs.router import router as audit_router
+from modules.auth.router import router as auth_router
 
 
 # ==================================================
@@ -66,6 +63,8 @@ app.include_router(supplier_router)
 app.include_router(provider_router)
 
 app.include_router(audit_router)
+
+app.include_router(auth_router)
 
 
 # ==================================================

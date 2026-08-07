@@ -6,6 +6,8 @@ from update_db_schema import migrate_db
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
+from modules.users.model import User
+from modules.auth.security import hash_password
 
 
 def seed_data():
@@ -15,6 +17,48 @@ def seed_data():
     db = SessionLocal()
 
     try:
+        # ==================================================
+        # 0. Seed System Users & Roles (RBAC)
+        # ==================================================
+        if db.query(User).count() == 0:
+            print("Seeding System Users & Roles...")
+            users = [
+                User(
+                    username="admin",
+                    email="admin@importflow.com",
+                    full_name="System Admin",
+                    hashed_password=hash_password("admin123"),
+                    role="ADMIN",
+                    is_active=True,
+                ),
+                User(
+                    username="manager",
+                    email="manager@importflow.com",
+                    full_name="General Logistics Manager",
+                    hashed_password=hash_password("manager123"),
+                    role="MANAGER",
+                    is_active=True,
+                ),
+                User(
+                    username="operator1",
+                    email="operator1@importflow.com",
+                    full_name="Ahmed Import Specialist",
+                    hashed_password=hash_password("operator123"),
+                    role="OPERATOR",
+                    is_active=True,
+                ),
+                User(
+                    username="operator2",
+                    email="operator2@importflow.com",
+                    full_name="Sara Customs Operator",
+                    hashed_password=hash_password("operator123"),
+                    role="OPERATOR",
+                    is_active=True,
+                ),
+            ]
+            db.add_all(users)
+            db.commit()
+            print("System Users seeded successfully.")
         # ==================================================
         # 1. Seed Egyptian Import Companies (MD-001)
         # ==================================================

@@ -1,17 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
+import '../auth/providers/auth_provider.dart';
 import '../external_service_providers/screens/partners_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _selectedIndex = 0;
 
   final List<Widget> _screens = const [
@@ -22,15 +24,17 @@ class _HomeScreenState extends State<HomeScreen> {
     Center(child: Text('Customs & Cost - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
   ];
 
-
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authProvider);
+    final user = authState.user;
+
     return Scaffold(
       body: Row(
         children: [
           // Sidebar
           Container(
-            width: 250,
+            width: 260,
             color: AppTheme.charcoal,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -46,12 +50,79 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-                const Divider(color: AppTheme.cloudWhite, height: 1),
-                _buildMenuItem(Icons.dashboard, 'Dashboard', 0),
-                _buildMenuItem(Icons.domain, 'Import Companies', 1),
-                _buildMenuItem(Icons.business, 'Suppliers', 2),
-                _buildMenuItem(Icons.account_balance, 'Partners & Banks', 3),
-                _buildMenuItem(Icons.calculate, 'Customs & Cost', 4),
+                const Divider(color: Colors.white24, height: 1),
+                Expanded(
+                  child: ListView(
+                    padding: EdgeInsets.zero,
+                    children: [
+                      _buildMenuItem(Icons.dashboard, 'Dashboard', 0),
+                      _buildMenuItem(Icons.domain, 'Import Companies', 1),
+                      _buildMenuItem(Icons.business, 'Suppliers', 2),
+                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 3),
+                      _buildMenuItem(Icons.calculate, 'Customs & Cost', 4),
+                    ],
+                  ),
+                ),
+                const Divider(color: Colors.white24, height: 1),
+
+                // User Profile & Role Switcher Footer (RBAC Demo)
+                if (user != null)
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    color: Colors.black.withOpacity(0.15),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+                              radius: 18,
+                              child: Icon(Icons.person, color: _getRoleColor(user.role), size: 20),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    user.fullName,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                                    decoration: BoxDecoration(
+                                      color: _getRoleColor(user.role).withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      user.role,
+                                      style: TextStyle(color: _getRoleColor(user.role), fontSize: 10, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Quick Role Switcher (RBAC):', style: TextStyle(color: Colors.white54, fontSize: 10, fontWeight: FontWeight.w600)),
+                        const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            _buildRoleChip('MANAGER', 'Manager'),
+                            const SizedBox(width: 4),
+                            _buildRoleChip('OPERATOR', 'Operator'),
+                            const SizedBox(width: 4),
+                            _buildRoleChip('ADMIN', 'Admin'),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -67,28 +138,68 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final isSelected = _selectedIndex == index;
-    return Container(
-      color: isSelected ? AppTheme.cobalt.withOpacity(0.2) : Colors.transparent,
-      child: ListTile(
-        leading: Icon(
-          icon,
-          color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
-        ),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+  Widget _buildRoleChip(String roleKey, String label) {
+    final activeUser = ref.watch(authProvider).user;
+    final isSelected = activeUser?.role == roleKey;
+
+    return Expanded(
+      child: InkWell(
+        onTap: () {
+          ref.read(authProvider.notifier).switchDemoRole(roleKey);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: isSelected ? _getRoleColor(roleKey) : Colors.white10,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.white70,
+              fontSize: 10,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ),
-        onTap: () {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
       ),
+    );
+  }
+
+  Color _getRoleColor(String role) {
+    switch (role.toUpperCase()) {
+      case 'ADMIN':
+        return AppTheme.crimson;
+      case 'MANAGER':
+        return AppTheme.cobalt;
+      case 'OPERATOR':
+        return AppTheme.emerald;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildMenuItem(IconData icon, String title, int index) {
+    final isSelected = _selectedIndex == index;
+    return ListTile(
+      leading: Icon(
+        icon,
+        color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
+      ),
+      title: Text(
+        title,
+        style: TextStyle(
+          color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      selected: isSelected,
+      onTap: () {
+        setState(() {
+          _selectedIndex = index;
+        });
+      },
     );
   }
 }
@@ -98,117 +209,66 @@ class DashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: AppTheme.cloudWhite,
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // App Bar Header
-          Container(
-            height: 60,
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Dashboard Overview',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w600,
-                    color: AppTheme.charcoal,
-                  ),
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.notifications, color: AppTheme.charcoal),
-                      onPressed: () {},
-                    ),
-                    const SizedBox(width: 16),
-                    const CircleAvatar(
-                      backgroundColor: AppTheme.cobalt,
-                      child: Text('AF', style: TextStyle(color: Colors.white)),
-                    ),
-                  ],
-                ),
-              ],
+          const Text(
+            'Executive Overview',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.charcoal,
             ),
           ),
-          // Content
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Welcome to ImportFlow ERP',
-                    style: TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.charcoal,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      _buildStatCard('Active Imports', '12', AppTheme.cobalt),
-                      const SizedBox(width: 24),
-                      _buildStatCard('Pending Clearance', '4', AppTheme.orange),
-                      const SizedBox(width: 24),
-                      _buildStatCard('Completed', '89', AppTheme.emerald),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              _buildStatCard('Active Shipments', '12', Icons.local_shipping, AppTheme.cobalt),
+              const SizedBox(width: 16),
+              _buildStatCard('Customs Clearance', '5 Pending', Icons.assignment, AppTheme.orange),
+              const SizedBox(width: 16),
+              _buildStatCard('Est. Landed Cost', '\$45,200', Icons.attach_money, AppTheme.emerald),
+              const SizedBox(width: 16),
+              _buildStatCard('Pending Documents', '3 Action Req.', Icons.description, AppTheme.crimson),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, Color color) {
+  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20.0),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border(left: BorderSide(color: color, width: 4)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
+          color: AppTheme.cloudWhite,
+          borderRadius: BorderRadius.circular(8.0),
+          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: AppTheme.charcoal,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Icon(icon, color: color),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               value,
               style: TextStyle(
-                fontSize: 32,
+                fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: color,
               ),

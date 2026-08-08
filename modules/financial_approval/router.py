@@ -1,0 +1,154 @@
+"""
+FastAPI Router for Financial & Management Approval (BP-012 & BP-013)
+"""
+
+from typing import List, Optional
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from database.database import get_db
+from modules.financial_approval.schemas import (
+    PaymentRequestCreate,
+    PaymentRequestUpdate,
+    PaymentRequestResponse,
+    ImportBudgetCreate,
+    ImportBudgetUpdate,
+    ImportBudgetResponse,
+)
+import modules.financial_approval.service as service
+import modules.financial_approval.repository as repo
+
+router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"])
+
+
+# --- PAYMENT REQUEST ENDPOINTS (BP-012) ---
+@router.post(
+    "/payment-requests",
+    response_model=PaymentRequestResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_payment_request(
+    payload: PaymentRequestCreate, db: Session = Depends(get_db)
+):
+    return service.create_payment_request_service(db, payload)
+
+
+@router.get("/payment-requests", response_model=List[PaymentRequestResponse])
+def list_payment_requests(
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_all_payment_requests(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        supplier_id=supplier_id,
+        status=status,
+    )
+
+
+@router.get(
+    "/payment-requests/{payment_id}", response_model=PaymentRequestResponse
+)
+def get_payment_request(payment_id: int, db: Session = Depends(get_db)):
+    item = repo.get_payment_request_by_id(db, payment_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payment_id} not found.",
+        )
+    return item
+
+
+@router.put(
+    "/payment-requests/{payment_id}", response_model=PaymentRequestResponse
+)
+def update_payment_request(
+    payment_id: int,
+    payload: PaymentRequestUpdate,
+    db: Session = Depends(get_db),
+):
+    return service.update_payment_request_service(db, payment_id, payload)
+
+
+@router.post(
+    "/payment-requests/{payment_id}/approve",
+    response_model=PaymentRequestResponse,
+)
+def approve_payment_request(payment_id: int, db: Session = Depends(get_db)):
+    return service.approve_payment_request_service(db, payment_id)
+
+
+@router.post(
+    "/payment-requests/{payment_id}/pay", response_model=PaymentRequestResponse
+)
+def execute_payment(
+    payment_id: int,
+    swift_reference_no: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return service.execute_payment_service(db, payment_id, swift_reference_no)
+
+
+@router.delete("/payment-requests/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
+def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db)):
+    success = repo.soft_delete_payment_request(db, payment_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payment_id} not found.",
+        )
+
+
+@router.post("/payment-requests/{payment_id}/restore")
+def restore_payment_request(payment_id: int, db: Session = Depends(get_db)):
+    success = repo.restore_payment_request(db, payment_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payment_id} not found or active.",
+        )
+    return {"message": "Payment Request restored successfully"}
+
+
+# --- IMPORT BUDGET ENDPOINTS (BP-013) ---
+@router.post(
+    "/import-budgets",
+    response_model=ImportBudgetResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_import_budget(payload: ImportBudgetCreate, db: Session = Depends(get_db)):
+    return service.create_import_budget_service(db, payload)
+
+
+@router.get("/import-budgets", response_model=List[ImportBudgetResponse])
+def list_import_budgets(
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    po_id: Optional[int] = None,
+    budget_status: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_all_import_budgets(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        po_id=po_id,
+        budget_status=budget_status,
+    )
+
+
+@router.post(
+    "/import-budgets/{budget_id}/approve", response_model=ImportBudgetResponse
+)
+def approve_import_budget(
+    budget_id: int,
+    approved_by: str = "Finance Manager",
+    db: Session = Depends(get_db),
+):
+    return service.approve_import_budget_service(db, budget_id, approved_by)

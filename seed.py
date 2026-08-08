@@ -1165,6 +1165,53 @@ def seed_data():
             db.commit()
             print("Freight RFQ Requests seeded successfully.")
 
+        # ==================================================
+        # 16. Seed Phase 2 Financial Approval (BP-012 & BP-013)
+        # ==================================================
+        from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+
+        if db.query(PaymentRequestSession).count() == 0:
+            print("Seeding Payment Requests & Import Budgets (BP-012 & BP-013)...")
+            pay1 = PaymentRequestSession(
+                payment_code="PAY-2026-001",
+                title="طلب صرف دفعة مقدمة (Advance Payment 30%) للمورد الأجنبي",
+                supplier_name="Shanghai Machinery & Textile Exports Ltd.",
+                payment_type="Advance Payment",
+                requested_amount=18690.0,
+                currency_code="USD",
+                exchange_rate=50.0,
+                requested_amount_egp=934500.0,
+                due_date=date(2026, 8, 20),
+                request_date=date(2026, 8, 8),
+                status="Approved",
+                beneficiary_name="Shanghai Machinery Exports Ltd.",
+                bank_name="Bank of China Shanghai Branch",
+                swift_code="BKCHCN2SXXX",
+                iban_account_no="CN980100987654321",
+                bank_country="China",
+                notes="دفعة مقدمة 30% لبدء تجهيز الشحنة وتثبيت طلب الشراء.",
+                is_active=True,
+            )
+            db.add(pay1)
+
+            bgt1 = ImportBudgetApproval(
+                budget_code="BGT-2026-001",
+                title="اعتماد الميزانية الاستيرادية الكلية لشحنة آلات ومعدات النسيج",
+                invoice_amount_egp=3115000.0,
+                freight_cost_egp=207500.0,
+                customs_duties_egp=829000.0,
+                clearance_inland_egp=75000.0,
+                total_budget_egp=4226500.0,
+                budget_status="Budget Approved",
+                approved_by="Finance Director",
+                approved_date=date(2026, 8, 8),
+                notes="اعتماد كافة مكونات التكلفة وتغطية السيولة النقدية بالشامل.",
+                is_active=True,
+            )
+            db.add(bgt1)
+            db.commit()
+            print("Phase 2 Financial Approval seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

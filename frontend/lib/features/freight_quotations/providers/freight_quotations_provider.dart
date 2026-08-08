@@ -40,7 +40,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/api/v1/freight-quotations',
+        '${ApiConstants.baseUrl}/freight-quotations',
         queryParameters: queryParams,
       );
 
@@ -55,7 +55,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
   Future<FreightRFQRequestModel?> createRFQ(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/freight-quotations',
+        '${ApiConstants.baseUrl}/freight-quotations',
         data: payload,
       );
       final newRfq = FreightRFQRequestModel.fromJson(response.data);
@@ -69,7 +69,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
   Future<FreightRFQRequestModel?> awardQuotation(int rfqId, int quotationId) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/freight-quotations/$rfqId/award/$quotationId',
+        '${ApiConstants.baseUrl}/freight-quotations/$rfqId/award/$quotationId',
       );
       final awarded = FreightRFQRequestModel.fromJson(response.data);
       await fetchRFQs();
@@ -81,7 +81,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
 
   Future<void> softDeleteRFQ(int rfqId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/api/v1/freight-quotations/$rfqId');
+      await _dio.delete('${ApiConstants.baseUrl}/freight-quotations/$rfqId');
       await fetchRFQs();
     } catch (e) {
       rethrow;
@@ -90,7 +90,7 @@ class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQ
 
   Future<void> restoreRFQ(int rfqId) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/api/v1/freight-quotations/$rfqId/restore');
+      await _dio.post('${ApiConstants.baseUrl}/freight-quotations/$rfqId/restore');
       await fetchRFQs();
     } catch (e) {
       rethrow;

@@ -32,7 +32,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/api/v1/import-documentation/acid-sessions',
+        '${ApiConstants.baseUrl}/import-documentation/acid-sessions',
         queryParameters: queryParams,
       );
 
@@ -47,7 +47,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
   Future<AcidRegistrationModel?> createAcidSession(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/import-documentation/acid-sessions',
+        '${ApiConstants.baseUrl}/import-documentation/acid-sessions',
         data: payload,
       );
       final created = AcidRegistrationModel.fromJson(response.data);
@@ -60,7 +60,7 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
 
   Future<void> softDeleteAcidSession(int acidId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/api/v1/import-documentation/acid-sessions/$acidId');
+      await _dio.delete('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId');
       await fetchAcidSessions();
     } catch (e) {
       rethrow;
@@ -86,7 +86,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
   Future<void> fetchBankingDocuments() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/api/v1/import-documentation/banking-documents');
+      final response = await _dio.get('${ApiConstants.baseUrl}/import-documentation/banking-documents');
       final List<dynamic> data = response.data;
       final docs = data.map((json) => BankingDocumentModel.fromJson(json)).toList();
       state = AsyncValue.data(docs);
@@ -98,7 +98,7 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
   Future<BankingDocumentModel?> createBankingDocument(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/import-documentation/banking-documents',
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents',
         data: payload,
       );
       final created = BankingDocumentModel.fromJson(response.data);
@@ -128,7 +128,7 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
   Future<void> fetchShipmentDocuments() async {
     state = const AsyncValue.loading();
     try {
-      final response = await _dio.get('${ApiConstants.baseUrl}/api/v1/import-documentation/shipment-documents');
+      final response = await _dio.get('${ApiConstants.baseUrl}/import-documentation/shipment-documents');
       final List<dynamic> data = response.data;
       final docs = data.map((json) => ShipmentDocumentModel.fromJson(json)).toList();
       state = AsyncValue.data(docs);
@@ -140,7 +140,7 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
   Future<ShipmentDocumentModel?> createShipmentDocument(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/import-documentation/shipment-documents',
+        '${ApiConstants.baseUrl}/import-documentation/shipment-documents',
         data: payload,
       );
       final created = ShipmentDocumentModel.fromJson(response.data);
@@ -154,7 +154,7 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
   Future<ShipmentDocumentModel?> updateCargoXAndBLEndorsement(int docId, {String? cargoxEnvId, String? endorsementNum}) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/import-documentation/shipment-documents/$docId/cargox-bl',
+        '${ApiConstants.baseUrl}/import-documentation/shipment-documents/$docId/cargox-bl',
         queryParameters: {
           if (cargoxEnvId != null) 'cargox_envelope_id': cargoxEnvId,
           if (endorsementNum != null) 'endorsement_number': endorsementNum,

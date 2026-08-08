@@ -36,7 +36,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/payment-requests',
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests',
         queryParameters: queryParams,
       );
 
@@ -51,7 +51,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
   Future<PaymentRequestModel?> createPaymentRequest(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/payment-requests',
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests',
         data: payload,
       );
       final created = PaymentRequestModel.fromJson(response.data);
@@ -65,7 +65,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
   Future<PaymentRequestModel?> approvePaymentRequest(int paymentId) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/payment-requests/$paymentId/approve',
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/approve',
       );
       final approved = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
@@ -78,7 +78,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
   Future<PaymentRequestModel?> executePayment(int paymentId, {String? swiftRef}) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/payment-requests/$paymentId/pay',
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/pay',
         queryParameters: swiftRef != null ? {'swift_reference_no': swiftRef} : null,
       );
       final paid = PaymentRequestModel.fromJson(response.data);
@@ -91,7 +91,7 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
 
   Future<void> softDeletePaymentRequest(int paymentId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/api/v1/financial-approval/payment-requests/$paymentId');
+      await _dio.delete('${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId');
       await fetchPaymentRequests();
     } catch (e) {
       rethrow;
@@ -132,7 +132,7 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       }
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/import-budgets',
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets',
         queryParameters: queryParams,
       );
 
@@ -147,7 +147,7 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
   Future<ImportBudgetModel?> createImportBudget(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/import-budgets',
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets',
         data: payload,
       );
       final created = ImportBudgetModel.fromJson(response.data);
@@ -161,7 +161,7 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
   Future<ImportBudgetModel?> approveImportBudget(int budgetId, {String approvedBy = 'Finance Manager'}) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/financial-approval/import-budgets/$budgetId/approve',
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/approve',
         queryParameters: {'approved_by': approvedBy},
       );
       final approved = ImportBudgetModel.fromJson(response.data);

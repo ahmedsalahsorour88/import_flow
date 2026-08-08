@@ -38,7 +38,7 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
       if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/api/v1/customs-consultations',
+        '${ApiConstants.baseUrl}/customs-consultations',
         queryParameters: queryParams,
       );
 
@@ -53,7 +53,7 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
   Future<CustomsConsultationModel?> createConsultation(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
-        '${ApiConstants.baseUrl}/api/v1/customs-consultations',
+        '${ApiConstants.baseUrl}/customs-consultations',
         data: payload,
       );
       final newConsultation = CustomsConsultationModel.fromJson(response.data);
@@ -67,7 +67,7 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
   Future<CustomsConsultationModel?> updateConsultation(int consultationId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.put(
-        '${ApiConstants.baseUrl}/api/v1/customs-consultations/$consultationId',
+        '${ApiConstants.baseUrl}/customs-consultations/$consultationId',
         data: payload,
       );
       final updated = CustomsConsultationModel.fromJson(response.data);
@@ -80,7 +80,7 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
 
   Future<void> softDeleteConsultation(int consultationId) async {
     try {
-      await _dio.delete('${ApiConstants.baseUrl}/api/v1/customs-consultations/$consultationId');
+      await _dio.delete('${ApiConstants.baseUrl}/customs-consultations/$consultationId');
       await fetchConsultations();
     } catch (e) {
       rethrow;
@@ -89,7 +89,7 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
 
   Future<void> restoreConsultation(int consultationId) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/api/v1/customs-consultations/$consultationId/restore');
+      await _dio.post('${ApiConstants.baseUrl}/customs-consultations/$consultationId/restore');
       await fetchConsultations();
     } catch (e) {
       rethrow;

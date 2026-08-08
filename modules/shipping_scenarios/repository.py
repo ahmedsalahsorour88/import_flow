@@ -48,6 +48,7 @@ class ShippingScenarioRepository:
             port_of_discharge_id=payload.port_of_discharge_id,
             avg_form4_days=payload.avg_form4_days,
             avg_clearance_days=payload.avg_clearance_days,
+            import_file_id=payload.import_file_id,
             po_id=payload.po_id,
             project_id=payload.project_id,
             notes=payload.notes,
@@ -90,6 +91,7 @@ class ShippingScenarioRepository:
     def list_sessions(
         db: Session,
         include_inactive: bool = False,
+        import_file_id: Optional[int] = None,
         project_id: Optional[int] = None,
         po_id: Optional[int] = None,
         search: Optional[str] = None,
@@ -97,6 +99,8 @@ class ShippingScenarioRepository:
         query = db.query(ShippingEvaluationSession)
         if not include_inactive:
             query = query.filter(ShippingEvaluationSession.is_active.is_(True))
+        if import_file_id:
+            query = query.filter(ShippingEvaluationSession.import_file_id == import_file_id)
         if project_id:
             query = query.filter(ShippingEvaluationSession.project_id == project_id)
         if po_id:
@@ -128,6 +132,8 @@ class ShippingScenarioRepository:
             session_obj.avg_form4_days = payload.avg_form4_days
         if payload.avg_clearance_days is not None:
             session_obj.avg_clearance_days = payload.avg_clearance_days
+        if payload.import_file_id is not None:
+            session_obj.import_file_id = payload.import_file_id
         if payload.po_id is not None:
             session_obj.po_id = payload.po_id
         if payload.project_id is not None:

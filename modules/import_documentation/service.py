@@ -28,7 +28,7 @@ from modules.import_documentation.validators import (
 )
 
 
-def enrich_acid_response(item: AcidRegistrationSession) -> AcidRegistrationResponse:
+def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegistrationResponse:
     today = date.today()
     days_rem = (item.expiry_date - today).days if item.expiry_date else 0
     is_ver = (
@@ -40,10 +40,19 @@ def enrich_acid_response(item: AcidRegistrationSession) -> AcidRegistrationRespo
         and days_rem > 0
     )
 
+    import_file_code = None
+    if item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if imp:
+            import_file_code = imp.file_code or imp.custom_file_number
+
     return AcidRegistrationResponse(
         acid_id=item.acid_id,
         acid_code=item.acid_code,
         acid_number=item.acid_number,
+        import_file_id=item.import_file_id,
+        import_file_code=import_file_code,
         po_id=item.po_id,
         importer_id=item.importer_id,
         importer_name=item.importer_name,
@@ -72,6 +81,34 @@ def enrich_acid_response(item: AcidRegistrationSession) -> AcidRegistrationRespo
     )
 
 
+def enrich_banking_response(db: Session, item: BankingDocumentSession):
+    import_file_code = None
+    if item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if imp:
+            import_file_code = imp.file_code or imp.custom_file_number
+
+    from modules.import_documentation.schemas import BankingDocumentResponse
+    res = BankingDocumentResponse.model_validate(item)
+    res.import_file_code = import_file_code
+    return res
+
+
+def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem):
+    import_file_code = None
+    if item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if imp:
+            import_file_code = imp.file_code or imp.custom_file_number
+
+    from modules.import_documentation.schemas import ShipmentDocumentResponse
+    res = ShipmentDocumentResponse.model_validate(item)
+    res.import_file_code = import_file_code
+    return res
+
+
 def create_acid_session_service(
     db: Session, schema: AcidRegistrationCreate
 ) -> AcidRegistrationResponse:
@@ -79,7 +116,7 @@ def create_acid_session_service(
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
 
     db_item = repo.create_acid_session(db, schema)
-    return enrich_acid_response(db_item)
+    return enrich_acid_response(db, db_item)
 
 
 def update_acid_session_service(
@@ -96,21 +133,23 @@ def update_acid_session_service(
         validate_acid_number(schema.acid_number)
 
     updated = repo.update_acid_session(db, db_item, schema)
-    return enrich_acid_response(updated)
+    return enrich_acid_response(db, updated)
 
 
 # --- BANKING DOCUMENTS SERVICE ---
 def create_banking_document_service(
     db: Session, schema: BankingDocumentCreate
-) -> BankingDocumentSession:
-    return repo.create_banking_document(db, schema)
+):
+    item = repo.create_banking_document(db, schema)
+    return enrich_banking_response(db, item)
 
 
 # --- SHIPMENT DOCUMENTS SERVICE ---
 def create_shipment_document_service(
     db: Session, schema: ShipmentDocumentCreate
-) -> ShipmentDocumentItem:
-    return repo.create_shipment_document(db, schema)
+):
+    item = repo.create_shipment_document(db, schema)
+    return enrich_shipment_doc_response(db, item)
 
 
 def update_cargox_and_bl_endorsement_service(
@@ -118,7 +157,7 @@ def update_cargox_and_bl_endorsement_service(
     doc_id: int,
     cargox_envelope_id: str | None = None,
     endorsement_number: str | None = None,
-) -> ShipmentDocumentItem:
+):
     schema = ShipmentDocumentUpdate()
     if cargox_envelope_id:
         schema.is_cargox_uploaded = True
@@ -128,7 +167,8 @@ def update_cargox_and_bl_endorsement_service(
         schema.endorsement_number = endorsement_number
         schema.status = "Endorsed"
 
-    return repo.update_shipment_document(db, doc_id, schema)
+    item = repo.update_shipment_document(db, doc_id, schema)
+    return enrich_shipment_doc_response(db, item)
 
 
 # --- CUSTOMS DECLARATION SERVICE ---

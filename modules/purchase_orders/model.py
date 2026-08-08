@@ -21,6 +21,7 @@ class PurchaseOrder(Base):
     proforma_invoice_number = Column(String(100), nullable=True)           # Supplier PI Number
 
     # Foreign Keys
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("import_companies.company_id"), nullable=False, index=True)
     supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False, index=True)
@@ -55,6 +56,7 @@ class PurchaseOrder(Base):
     )
 
     # Relationships
+    import_file = relationship("ImportFile", foreign_keys=[import_file_id])
     project = relationship("Project", foreign_keys=[project_id])
     company = relationship("ImportCompany", foreign_keys=[company_id])
     supplier = relationship("Supplier", foreign_keys=[supplier_id])

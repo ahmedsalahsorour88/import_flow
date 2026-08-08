@@ -31,7 +31,10 @@ class CustomsConsultationSession(Base):
     broker_name: Mapped[str] = mapped_column(String(200), nullable=False)
     broker_contact_person: Mapped[str] = mapped_column(String(100), nullable=True)
 
-    # Optional Link to Purchase Order or Project
+    # Optional Link to Import File, Purchase Order or Project
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )

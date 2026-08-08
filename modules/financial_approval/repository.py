@@ -48,6 +48,7 @@ def create_payment_request(db: Session, schema: PaymentRequestCreate) -> Payment
     db_item = PaymentRequestSession(
         payment_code=code,
         title=schema.title,
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         supplier_id=schema.supplier_id,
         supplier_name=schema.supplier_name,
@@ -86,6 +87,7 @@ def get_all_payment_requests(
     db: Session,
     include_inactive: bool = False,
     search: str | None = None,
+    import_file_id: int | None = None,
     po_id: int | None = None,
     supplier_id: int | None = None,
     status: str | None = None,
@@ -94,6 +96,8 @@ def get_all_payment_requests(
     if not include_inactive:
         query = query.filter(PaymentRequestSession.is_active == True)
 
+    if import_file_id:
+        query = query.filter(PaymentRequestSession.import_file_id == import_file_id)
     if po_id:
         query = query.filter(PaymentRequestSession.po_id == po_id)
     if supplier_id:
@@ -190,6 +194,7 @@ def create_import_budget(db: Session, schema: ImportBudgetCreate) -> ImportBudge
     db_item = ImportBudgetApproval(
         budget_code=code,
         title=schema.title,
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         project_id=schema.project_id,
         invoice_amount_egp=schema.invoice_amount_egp,
@@ -219,12 +224,16 @@ def get_all_import_budgets(
     db: Session,
     include_inactive: bool = False,
     search: str | None = None,
+    import_file_id: int | None = None,
     po_id: int | None = None,
     budget_status: str | None = None,
 ) -> list[ImportBudgetApproval]:
     query = db.query(ImportBudgetApproval)
     if not include_inactive:
         query = query.filter(ImportBudgetApproval.is_active == True)
+
+    if import_file_id:
+        query = query.filter(ImportBudgetApproval.import_file_id == import_file_id)
 
     if po_id:
         query = query.filter(ImportBudgetApproval.po_id == po_id)

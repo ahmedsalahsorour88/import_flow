@@ -1,13 +1,11 @@
 import sqlite3
 from database.database import Base, engine
-from modules.audit_logs.model import AuditLog  # Register AuditLog model
-from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem  # Register CBM models
-from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder  # Register PurchaseOrder models
-
-
+from modules.audit_logs.model import AuditLog
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
 
 def migrate_db():
-    # 1. Create any missing tables (like audit_logs)
+    # 1. Create any missing tables
     Base.metadata.create_all(bind=engine)
 
     # 2. Migration for columns
@@ -16,9 +14,7 @@ def migrate_db():
     cursor = conn.cursor()
 
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='external_service_providers'")
-    table_exists = cursor.fetchone()
-
-    if table_exists:
+    if cursor.fetchone():
         cursor.execute("PRAGMA table_info(external_service_providers)")
         existing_cols = [info[1] for info in cursor.fetchall()]
 
@@ -42,7 +38,7 @@ def migrate_db():
                 except Exception as e:
                     print(f"Error adding column {col_name}: {e}")
 
-    # 3. Migration for projects table
+    # Migration for projects table
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")
     if cursor.fetchone():
         cursor.execute("PRAGMA table_info(projects)")
@@ -54,10 +50,35 @@ def migrate_db():
             except Exception as e:
                 print(f"Error adding column additional_company_ids: {e}")
 
+    # Universal import_file_id migration for all operational tables
+    target_tables = [
+        "purchase_orders",
+        "cbm_calculations",
+        "shipping_evaluation_sessions",
+        "freight_rfq_requests",
+        "customs_consultation_sessions",
+        "payment_request_sessions",
+        "import_budget_approvals",
+        "acid_registration_sessions",
+        "banking_document_sessions",
+        "customs_declaration_drafts",
+    ]
+
+    for table_name in target_tables:
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'")
+        if cursor.fetchone():
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            cols = [info[1] for info in cursor.fetchall()]
+            if "import_file_id" not in cols:
+                try:
+                    cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN import_file_id INTEGER REFERENCES import_files(import_file_id);")
+                    print(f"Added column 'import_file_id' to '{table_name}' table.")
+                except Exception as e:
+                    print(f"Error adding column import_file_id to {table_name}: {e}")
+
     conn.commit()
     conn.close()
     print("Database migration completed successfully.")
-
 
 if __name__ == "__main__":
     migrate_db()

@@ -41,13 +41,14 @@ def create_acid_session(
 def list_acid_sessions(
     include_inactive: bool = False,
     search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
     status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     items = repo.get_all_acid_sessions(
-        db, include_inactive=include_inactive, search=search, status=status
+        db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
     )
-    return [service.enrich_acid_response(item) for item in items]
+    return [service.enrich_acid_response(db, item) for item in items]
 
 
 @router.get(
@@ -60,7 +61,7 @@ def get_acid_session(acid_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ACID Registration Session ID {acid_id} not found.",
         )
-    return service.enrich_acid_response(item)
+    return service.enrich_acid_response(db, item)
 
 
 @router.put(
@@ -97,8 +98,9 @@ def create_banking_document(
 
 
 @router.get("/banking-documents", response_model=List[BankingDocumentResponse])
-def list_banking_documents(db: Session = Depends(get_db)):
-    return repo.get_all_banking_documents(db)
+def list_banking_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
+    items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
+    return [service.enrich_banking_response(db, item) for item in items]
 
 
 # --- SHIPMENT DOCUMENTS & CARGOX ENDPOINTS (BP-016, BP-017, BP-018) ---
@@ -114,8 +116,9 @@ def create_shipment_document(
 
 
 @router.get("/shipment-documents", response_model=List[ShipmentDocumentResponse])
-def list_shipment_documents(db: Session = Depends(get_db)):
-    return repo.get_all_shipment_documents(db)
+def list_shipment_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
+    items = repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+    return [service.enrich_shipment_doc_response(db, item) for item in items]
 
 
 @router.post(

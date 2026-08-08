@@ -152,6 +152,7 @@ class CBMService:
 
         calc_data = {
             "title": payload.title,
+            "import_file_id": payload.import_file_id,
             "project_id": payload.project_id,
             "po_id": payload.po_id,
             "notes": payload.notes,
@@ -175,6 +176,7 @@ class CBMService:
     def list_calculations_service(
         db: Session,
         include_inactive: bool = False,
+        import_file_id: Optional[int] = None,
         project_id: Optional[int] = None,
         po_id: Optional[int] = None,
         search: Optional[str] = None,
@@ -182,6 +184,7 @@ class CBMService:
         records = CBMRepository.get_all(
             db,
             include_inactive=include_inactive,
+            import_file_id=import_file_id,
             project_id=project_id,
             po_id=po_id,
             search=search,
@@ -281,7 +284,15 @@ class CBMService:
             if po:
                 po_number = po.po_number
 
+        import_file_code = None
+        if calc.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == calc.import_file_id).first()
+            if imp:
+                import_file_code = imp.file_code or imp.custom_file_number
+
         resp = CBMCalculationResponse.model_validate(calc)
         resp.project_name = project_name
         resp.po_number = po_number
+        resp.import_file_code = import_file_code
         return resp

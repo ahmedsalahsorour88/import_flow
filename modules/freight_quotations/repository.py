@@ -50,6 +50,7 @@ class FreightQuotationRepository:
             pol_name=rfq_in.pol_name,
             pod_id=rfq_in.pod_id,
             pod_name=rfq_in.pod_name,
+            import_file_id=rfq_in.import_file_id,
             po_id=rfq_in.po_id,
             project_id=rfq_in.project_id,
             total_cbm=rfq_in.total_cbm,
@@ -103,6 +104,7 @@ class FreightQuotationRepository:
         include_inactive: bool = False,
         search: Optional[str] = None,
         shipping_method: Optional[str] = None,
+        import_file_id: Optional[int] = None,
         po_id: Optional[int] = None,
         project_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -114,6 +116,9 @@ class FreightQuotationRepository:
 
         if shipping_method:
             query = query.filter(FreightRFQRequest.shipping_method == shipping_method)
+
+        if import_file_id:
+            query = query.filter(FreightRFQRequest.import_file_id == import_file_id)
 
         if po_id:
             query = query.filter(FreightRFQRequest.po_id == po_id)

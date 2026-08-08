@@ -37,6 +37,7 @@ def create_cbm_calculation(
 @router.get("", response_model=List[CBMCalculationResponse])
 def list_cbm_calculations(
     include_inactive: bool = Query(False, description="Include soft-deleted calculations"),
+    import_file_id: Optional[int] = Query(None, description="Filter by Import File ID"),
     project_id: Optional[int] = Query(None, description="Filter by Project ID"),
     po_id: Optional[int] = Query(None, description="Filter by Purchase Order ID"),
     search: Optional[str] = Query(None, description="Search term for code, title, or notes"),
@@ -48,6 +49,7 @@ def list_cbm_calculations(
     return CBMService.list_calculations_service(
         db,
         include_inactive=include_inactive,
+        import_file_id=import_file_id,
         project_id=project_id,
         po_id=po_id,
         search=search,

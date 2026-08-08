@@ -29,6 +29,7 @@ def create_shipping_evaluation(
 @router.get("", response_model=List[ShippingEvaluationResponse])
 def list_shipping_evaluations(
     include_inactive: bool = Query(False, description="Include soft-deleted evaluation sessions"),
+    import_file_id: Optional[int] = Query(None, description="Filter by Import File ID"),
     project_id: Optional[int] = Query(None, description="Filter by Project ID"),
     po_id: Optional[int] = Query(None, description="Filter by Purchase Order ID"),
     search: Optional[str] = Query(None, description="Search term for code, title, or notes"),
@@ -40,6 +41,7 @@ def list_shipping_evaluations(
     return ShippingScenarioService.list_sessions_service(
         db,
         include_inactive=include_inactive,
+        import_file_id=import_file_id,
         project_id=project_id,
         po_id=po_id,
         search=search,

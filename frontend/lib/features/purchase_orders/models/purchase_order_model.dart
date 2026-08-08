@@ -192,6 +192,7 @@ class PurchaseOrderModel {
   final int? poId;
   final String poNumber;
   final String? proformaInvoiceNumber;
+  final int? importFileId;
   final int projectId;
   final int companyId;
   final int supplierId;
@@ -210,6 +211,7 @@ class PurchaseOrderModel {
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String? importFileCode;
   final String? projectName;
   final String? companyName;
   final String? supplierName;
@@ -222,6 +224,7 @@ class PurchaseOrderModel {
     this.poId,
     required this.poNumber,
     this.proformaInvoiceNumber,
+    this.importFileId,
     required this.projectId,
     required this.companyId,
     required this.supplierId,
@@ -240,6 +243,7 @@ class PurchaseOrderModel {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.importFileCode,
     this.projectName,
     this.companyName,
     this.supplierName,
@@ -254,6 +258,7 @@ class PurchaseOrderModel {
       poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       poNumber: json['po_number'] as String? ?? '',
       proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
+      importFileId: json['import_file_id'] != null ? _numToInt(json['import_file_id']) : null,
       projectId: _numToInt(json['project_id']),
       companyId: _numToInt(json['company_id']),
       supplierId: _numToInt(json['supplier_id']),
@@ -274,6 +279,7 @@ class PurchaseOrderModel {
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      importFileCode: json['import_file_code'] as String?,
       projectName: json['project_name'] as String?,
       companyName: json['company_name'] as String?,
       supplierName: json['supplier_name'] as String?,
@@ -293,6 +299,7 @@ class PurchaseOrderModel {
       if (poId != null) 'po_id': poId,
       if (poNumber.isNotEmpty) 'po_number': poNumber,
       if (proformaInvoiceNumber != null) 'proforma_invoice_number': proformaInvoiceNumber,
+      if (importFileId != null) 'import_file_id': importFileId,
       'project_id': projectId,
       'company_id': companyId,
       'supplier_id': supplierId,

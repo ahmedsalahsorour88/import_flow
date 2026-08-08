@@ -101,6 +101,12 @@ class ShippingScenarioService:
         # Fetch names for linked entities if present
         po_num = session_obj.po.po_number if getattr(session_obj, "po", None) else None
         prj_name = session_obj.project.project_name if getattr(session_obj, "project", None) else None
+        import_file_code = None
+        if session_obj.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == session_obj.import_file_id).first()
+            if imp:
+                import_file_code = imp.file_code or imp.custom_file_number
 
         return ShippingEvaluationResponse(
             session_id=session_obj.session_id,
@@ -111,6 +117,8 @@ class ShippingScenarioService:
             port_of_discharge_id=session_obj.port_of_discharge_id,
             avg_form4_days=session_obj.avg_form4_days,
             avg_clearance_days=session_obj.avg_clearance_days,
+            import_file_id=session_obj.import_file_id,
+            import_file_code=import_file_code,
             po_id=session_obj.po_id,
             project_id=session_obj.project_id,
             notes=session_obj.notes,
@@ -153,6 +161,7 @@ class ShippingScenarioService:
     def list_sessions_service(
         db: Session,
         include_inactive: bool = False,
+        import_file_id: Optional[int] = None,
         project_id: Optional[int] = None,
         po_id: Optional[int] = None,
         search: Optional[str] = None,
@@ -160,6 +169,7 @@ class ShippingScenarioService:
         sessions = ShippingScenarioRepository.list_sessions(
             db,
             include_inactive=include_inactive,
+            import_file_id=import_file_id,
             project_id=project_id,
             po_id=po_id,
             search=search,

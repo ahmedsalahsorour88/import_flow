@@ -33,6 +33,7 @@ class CBMRepository:
         calc = CBMCalculation(
             calc_code=calc_code,
             title=calc_data.get("title"),
+            import_file_id=calc_data.get("import_file_id"),
             project_id=calc_data.get("project_id"),
             po_id=calc_data.get("po_id"),
             total_qty=calc_data.get("total_qty", 0),
@@ -80,6 +81,7 @@ class CBMRepository:
     def get_all(
         db: Session,
         include_inactive: bool = False,
+        import_file_id: Optional[int] = None,
         project_id: Optional[int] = None,
         po_id: Optional[int] = None,
         search: Optional[str] = None,
@@ -88,6 +90,9 @@ class CBMRepository:
 
         if not include_inactive:
             query = query.filter(CBMCalculation.is_active.is_(True))
+
+        if import_file_id is not None:
+            query = query.filter(CBMCalculation.import_file_id == import_file_id)
 
         if project_id is not None:
             query = query.filter(CBMCalculation.project_id == project_id)

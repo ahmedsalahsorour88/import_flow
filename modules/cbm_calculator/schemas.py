@@ -66,6 +66,7 @@ class CBMItemResponse(BaseModel):
 class CBMCalculationBase(BaseModel):
     title: Optional[str] = Field(default=None, json_schema_extra={"example": "Solar Panels Batch Measurement"})
     shipment_mode: str = Field(default="air", json_schema_extra={"example": "air"})  # air, sea
+    import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None
@@ -77,6 +78,7 @@ class CBMCalculationCreate(CBMCalculationBase):
 
 class CBMCalculationUpdate(BaseModel):
     title: Optional[str] = None
+    import_file_id: Optional[int] = None
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None
@@ -86,6 +88,8 @@ class CBMCalculationUpdate(BaseModel):
 class CBMCalculationResponse(CBMCalculationBase):
     calc_id: int
     calc_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     total_qty: int
     total_cbm: float
     total_gross_weight_kg: float
@@ -121,5 +125,6 @@ class CBMQuickCalcResponse(BaseModel):
 
 
 class LinkToPORequest(BaseModel):
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None

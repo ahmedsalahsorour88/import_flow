@@ -48,6 +48,7 @@ class CustomsConsultationRepository:
             broker_id=session_in.broker_id,
             broker_name=session_in.broker_name,
             broker_contact_person=session_in.broker_contact_person,
+            import_file_id=session_in.import_file_id,
             po_id=session_in.po_id,
             project_id=session_in.project_id,
             overall_status=session_in.overall_status,
@@ -94,6 +95,7 @@ class CustomsConsultationRepository:
         include_inactive: bool = False,
         search: Optional[str] = None,
         broker_id: Optional[int] = None,
+        import_file_id: Optional[int] = None,
         po_id: Optional[int] = None,
         project_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -105,6 +107,9 @@ class CustomsConsultationRepository:
 
         if broker_id:
             query = query.filter(CustomsConsultationSession.broker_id == broker_id)
+
+        if import_file_id:
+            query = query.filter(CustomsConsultationSession.import_file_id == import_file_id)
 
         if po_id:
             query = query.filter(CustomsConsultationSession.po_id == po_id)

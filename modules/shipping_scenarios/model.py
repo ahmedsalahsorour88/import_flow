@@ -34,6 +34,7 @@ class ShippingEvaluationSession(Base):
     avg_form4_days = Column(Integer, default=5, nullable=False)
     avg_clearance_days = Column(Integer, default=7, nullable=False)
 
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
     po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=True)
     project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=True)
 

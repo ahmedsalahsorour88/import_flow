@@ -45,6 +45,7 @@ class FreightRFQRequestBase(BaseModel):
     pol_name: str
     pod_id: Optional[int] = None
     pod_name: str
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     total_cbm: float = 0.0
@@ -67,6 +68,7 @@ class FreightRFQRequestUpdate(BaseModel):
     pol_name: Optional[str] = None
     pod_id: Optional[int] = None
     pod_name: Optional[str] = None
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     total_cbm: Optional[float] = None
@@ -81,6 +83,8 @@ class FreightRFQRequestUpdate(BaseModel):
 class FreightRFQRequestResponse(FreightRFQRequestBase):
     rfq_id: int
     rfq_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

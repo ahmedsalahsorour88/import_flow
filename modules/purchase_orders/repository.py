@@ -67,6 +67,7 @@ class PurchaseOrderRepository:
 
         po = PurchaseOrder(
             po_number=po_num,
+            import_file_id=data.import_file_id,
             proforma_invoice_number=data.proforma_invoice_number.strip() if data.proforma_invoice_number else None,
             project_id=data.project_id,
             company_id=data.company_id,

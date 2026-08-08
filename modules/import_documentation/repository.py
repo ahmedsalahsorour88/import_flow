@@ -53,6 +53,7 @@ def create_acid_session(db: Session, schema: AcidRegistrationCreate) -> AcidRegi
     db_item = AcidRegistrationSession(
         acid_code=code,
         acid_number=schema.acid_number.strip(),
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         importer_id=schema.importer_id,
         importer_name=schema.importer_name,
@@ -93,11 +94,15 @@ def get_all_acid_sessions(
     db: Session,
     include_inactive: bool = False,
     search: str | None = None,
+    import_file_id: int | None = None,
     status: str | None = None,
 ) -> list[AcidRegistrationSession]:
     query = db.query(AcidRegistrationSession)
     if not include_inactive:
         query = query.filter(AcidRegistrationSession.is_active == True)
+
+    if import_file_id:
+        query = query.filter(AcidRegistrationSession.import_file_id == import_file_id)
 
     if status and status != "All":
         query = query.filter(AcidRegistrationSession.status == status)
@@ -168,6 +173,7 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate) -> Banki
     db_item = BankingDocumentSession(
         bank_doc_code=code,
         doc_type=schema.doc_type,
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         bank_id=schema.bank_id,
         bank_name=schema.bank_name,
@@ -186,13 +192,11 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate) -> Banki
     return db_item
 
 
-def get_all_banking_documents(db: Session) -> list[BankingDocumentSession]:
-    return (
-        db.query(BankingDocumentSession)
-        .filter(BankingDocumentSession.is_active == True)
-        .order_by(BankingDocumentSession.bank_doc_id.desc())
-        .all()
-    )
+def get_all_banking_documents(db: Session, import_file_id: int | None = None) -> list[BankingDocumentSession]:
+    query = db.query(BankingDocumentSession).filter(BankingDocumentSession.is_active == True)
+    if import_file_id:
+        query = query.filter(BankingDocumentSession.import_file_id == import_file_id)
+    return query.order_by(BankingDocumentSession.bank_doc_id.desc()).all()
 
 
 # --- SHIPMENT DOCUMENT ITEMS REPOSITORY (BP-016 to BP-018) ---
@@ -226,6 +230,7 @@ def create_shipment_document(db: Session, schema: ShipmentDocumentCreate) -> Shi
 
     db_item = ShipmentDocumentItem(
         document_code=code,
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         doc_name=schema.doc_name,
         doc_number=schema.doc_number,
@@ -243,13 +248,11 @@ def create_shipment_document(db: Session, schema: ShipmentDocumentCreate) -> Shi
     return db_item
 
 
-def get_all_shipment_documents(db: Session) -> list[ShipmentDocumentItem]:
-    return (
-        db.query(ShipmentDocumentItem)
-        .filter(ShipmentDocumentItem.is_active == True)
-        .order_by(ShipmentDocumentItem.document_id.desc())
-        .all()
-    )
+def get_all_shipment_documents(db: Session, import_file_id: int | None = None) -> list[ShipmentDocumentItem]:
+    query = db.query(ShipmentDocumentItem).filter(ShipmentDocumentItem.is_active == True)
+    if import_file_id:
+        query = query.filter(ShipmentDocumentItem.import_file_id == import_file_id)
+    return query.order_by(ShipmentDocumentItem.document_id.desc()).all()
 
 
 def update_shipment_document(
@@ -282,6 +285,7 @@ def create_customs_declaration(
 
     db_item = CustomsDeclarationDraft(
         declaration_code=code,
+        import_file_id=schema.import_file_id,
         po_id=schema.po_id,
         acid_number=schema.acid_number,
         form4_number=schema.form4_number,

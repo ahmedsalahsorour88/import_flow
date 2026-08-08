@@ -54,6 +54,7 @@ class ShippingEvaluationBase(BaseModel):
     port_of_discharge_id: Optional[int] = None
     avg_form4_days: int = Field(5, ge=0)
     avg_clearance_days: int = Field(7, ge=0)
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     notes: Optional[str] = None
@@ -70,6 +71,7 @@ class ShippingEvaluationUpdate(BaseModel):
     port_of_discharge_id: Optional[int] = None
     avg_form4_days: Optional[int] = None
     avg_clearance_days: Optional[int] = None
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     notes: Optional[str] = None
@@ -79,6 +81,8 @@ class ShippingEvaluationUpdate(BaseModel):
 class ShippingEvaluationResponse(ShippingEvaluationBase):
     session_id: int
     session_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     is_active: bool
     created_at: datetime
     updated_at: datetime

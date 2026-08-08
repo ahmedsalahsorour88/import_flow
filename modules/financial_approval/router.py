@@ -130,6 +130,7 @@ def create_import_budget(payload: ImportBudgetCreate, db: Session = Depends(get_
 def list_import_budgets(
     include_inactive: bool = False,
     search: Optional[str] = None,
+    import_file_id: Optional[int] = None,
     po_id: Optional[int] = None,
     budget_status: Optional[str] = None,
     db: Session = Depends(get_db),
@@ -138,6 +139,7 @@ def list_import_budgets(
         db,
         include_inactive=include_inactive,
         search=search,
+        import_file_id=import_file_id,
         po_id=po_id,
         budget_status=budget_status,
     )

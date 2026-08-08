@@ -96,6 +96,7 @@ class PackingListValidationReport(BaseModel):
 # ==================================================
 
 class PurchaseOrderBase(BaseModel):
+    import_file_id: Optional[int] = None
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
     project_id: int
     company_id: int
@@ -115,6 +116,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 
 
 class PurchaseOrderUpdate(BaseModel):
+    import_file_id: Optional[int] = None
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
     project_id: Optional[int] = None
     company_id: Optional[int] = None
@@ -134,6 +136,8 @@ class PurchaseOrderUpdate(BaseModel):
 class PurchaseOrderResponse(PurchaseOrderBase):
     po_id: int
     po_number: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     total_amount_fob: float
     total_cbm: float
     total_gross_weight_kg: float

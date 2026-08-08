@@ -26,6 +26,9 @@ class AcidRegistrationSession(Base):
         String(50), unique=True, index=True, nullable=False
     )
 
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )
@@ -91,6 +94,9 @@ class BankingDocumentSession(Base):
         String(50), default="Form 4", nullable=False, index=True
     )
 
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )
@@ -136,6 +142,9 @@ class ShipmentDocumentItem(Base):
         String(50), unique=True, index=True, nullable=False
     )
 
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )
@@ -184,6 +193,9 @@ class CustomsDeclarationDraft(Base):
         String(50), unique=True, index=True, nullable=False
     )
 
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )

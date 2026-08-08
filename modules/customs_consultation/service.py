@@ -18,7 +18,7 @@ from modules.customs_consultation.validators import validate_broker_exists, vali
 class CustomsConsultationService:
 
     @staticmethod
-    def _compute_session_metrics(db_session: CustomsConsultationSession) -> CustomsConsultationResponse:
+    def _compute_session_metrics(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationResponse:
         """
         Calculates total documents, approved count, blocking issues count, readiness %, and overall status.
         """
@@ -50,6 +50,13 @@ class CustomsConsultationService:
         db_session.has_blocking_issues = has_blocking
         db_session.overall_status = overall_status
 
+        import_file_code = None
+        if db_session.import_file_id:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_session.import_file_id).first()
+            if imp:
+                import_file_code = imp.file_code or imp.custom_file_number
+
         res = CustomsConsultationResponse.model_validate(db_session)
         res.total_documents_count = total_count
         res.approved_documents_count = approved_count
@@ -57,6 +64,7 @@ class CustomsConsultationService:
         res.readiness_percentage = readiness_pct
         res.has_blocking_issues = has_blocking
         res.overall_status = overall_status
+        res.import_file_code = import_file_code
         return res
 
     @staticmethod
@@ -67,7 +75,7 @@ class CustomsConsultationService:
         validate_checklist_items(session_in.checklist_items)
 
         db_session = CustomsConsultationRepository.create(db, session_in)
-        return CustomsConsultationService._compute_session_metrics(db_session)
+        return CustomsConsultationService._compute_session_metrics(db, db_session)
 
     @staticmethod
     def get_consultation(db: Session, consultation_id: int) -> CustomsConsultationResponse:
@@ -77,7 +85,7 @@ class CustomsConsultationService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Customs Consultation study with ID '{consultation_id}' not found.",
             )
-        return CustomsConsultationService._compute_session_metrics(db_session)
+        return CustomsConsultationService._compute_session_metrics(db, db_session)
 
     @staticmethod
     def list_consultations(
@@ -85,6 +93,7 @@ class CustomsConsultationService:
         include_inactive: bool = False,
         search: Optional[str] = None,
         broker_id: Optional[int] = None,
+        import_file_id: Optional[int] = None,
         po_id: Optional[int] = None,
         project_id: Optional[int] = None,
         status: Optional[str] = None,
@@ -94,11 +103,12 @@ class CustomsConsultationService:
             include_inactive=include_inactive,
             search=search,
             broker_id=broker_id,
+            import_file_id=import_file_id,
             po_id=po_id,
             project_id=project_id,
             status=status,
         )
-        return [CustomsConsultationService._compute_session_metrics(s) for s in sessions]
+        return [CustomsConsultationService._compute_session_metrics(db, s) for s in sessions]
 
     @staticmethod
     def update_consultation(
@@ -118,7 +128,7 @@ class CustomsConsultationService:
             validate_checklist_items(update_in.checklist_items)
 
         updated_session = CustomsConsultationRepository.update(db, db_session, update_in)
-        return CustomsConsultationService._compute_session_metrics(updated_session)
+        return CustomsConsultationService._compute_session_metrics(db, updated_session)
 
     @staticmethod
     def soft_delete_consultation(db: Session, consultation_id: int) -> CustomsConsultationResponse:
@@ -129,7 +139,7 @@ class CustomsConsultationService:
                 detail=f"Customs Consultation study with ID '{consultation_id}' not found.",
             )
         deleted_session = CustomsConsultationRepository.soft_delete(db, db_session)
-        return CustomsConsultationService._compute_session_metrics(deleted_session)
+        return CustomsConsultationService._compute_session_metrics(db, deleted_session)
 
     @staticmethod
     def restore_consultation(db: Session, consultation_id: int) -> CustomsConsultationResponse:
@@ -140,4 +150,4 @@ class CustomsConsultationService:
                 detail=f"Customs Consultation study with ID '{consultation_id}' not found.",
             )
         restored_session = CustomsConsultationRepository.restore(db, db_session)
-        return CustomsConsultationService._compute_session_metrics(restored_session)
+        return CustomsConsultationService._compute_session_metrics(db, restored_session)

@@ -26,6 +26,7 @@ class CBMCalculation(Base):
     calc_code = Column(String(50), unique=True, index=True, nullable=False)
     title = Column(String(200), nullable=True)
 
+    import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
     project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=True)
     po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=True)
 

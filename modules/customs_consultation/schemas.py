@@ -37,6 +37,7 @@ class CustomsConsultationBase(BaseModel):
     broker_id: int
     broker_name: str
     broker_contact_person: Optional[str] = None
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     overall_status: str = "Pending Review"  # Pending Review, In Progress, Action Required, Clearance Ready, Blocked
@@ -53,6 +54,7 @@ class CustomsConsultationUpdate(BaseModel):
     broker_id: Optional[int] = None
     broker_name: Optional[str] = None
     broker_contact_person: Optional[str] = None
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     overall_status: Optional[str] = None
@@ -64,6 +66,8 @@ class CustomsConsultationUpdate(BaseModel):
 class CustomsConsultationResponse(CustomsConsultationBase):
     consultation_id: int
     consultation_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     has_blocking_issues: bool
     readiness_percentage: float
     is_active: bool

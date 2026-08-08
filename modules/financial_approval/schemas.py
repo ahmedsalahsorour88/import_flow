@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 # --- PAYMENT REQUEST SCHEMAS (BP-012) ---
 class PaymentRequestBase(BaseModel):
     title: str = Field(..., min_length=3, max_length=200)
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     supplier_id: Optional[int] = None
     supplier_name: str = Field(..., min_length=2, max_length=200)
@@ -37,6 +38,7 @@ class PaymentRequestCreate(PaymentRequestBase):
 
 class PaymentRequestUpdate(BaseModel):
     title: Optional[str] = None
+    import_file_id: Optional[int] = None
     payment_type: Optional[str] = None
     requested_amount: Optional[float] = None
     currency_code: Optional[str] = None
@@ -54,6 +56,8 @@ class PaymentRequestUpdate(BaseModel):
 class PaymentRequestResponse(PaymentRequestBase):
     payment_id: int
     payment_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     requested_amount_egp: float
     status: str
     swift_reference_no: Optional[str] = None
@@ -67,6 +71,7 @@ class PaymentRequestResponse(PaymentRequestBase):
 # --- IMPORT BUDGET APPROVAL SCHEMAS (BP-013) ---
 class ImportBudgetBase(BaseModel):
     title: str = Field(..., min_length=3, max_length=200)
+    import_file_id: Optional[int] = None
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     invoice_amount_egp: float = Field(default=0.0, ge=0.0)
@@ -82,6 +87,7 @@ class ImportBudgetCreate(ImportBudgetBase):
 
 class ImportBudgetUpdate(BaseModel):
     title: Optional[str] = None
+    import_file_id: Optional[int] = None
     invoice_amount_egp: Optional[float] = None
     freight_cost_egp: Optional[float] = None
     customs_duties_egp: Optional[float] = None
@@ -94,6 +100,8 @@ class ImportBudgetUpdate(BaseModel):
 class ImportBudgetResponse(ImportBudgetBase):
     budget_id: int
     budget_code: str
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
     total_budget_egp: float
     budget_status: str
     approved_by: Optional[str] = None

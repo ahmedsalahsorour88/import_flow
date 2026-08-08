@@ -711,6 +711,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   void _showPODialog(BuildContext context, PurchaseOrderModel? po) {
+    if ((ref.read(projectsProvider).value ?? []).isEmpty) ref.read(projectsProvider.notifier).fetchProjects();
+    if ((ref.read(importCompaniesProvider).value ?? []).isEmpty) ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    if ((ref.read(suppliersProvider).value ?? []).isEmpty) ref.read(suppliersProvider.notifier).fetchSuppliers();
+    if ((ref.read(incotermsProvider).value ?? []).isEmpty) ref.read(incotermsProvider.notifier).fetchIncoterms();
+    if ((ref.read(currenciesProvider).value ?? []).isEmpty) ref.read(currenciesProvider.notifier).fetchCurrencies();
+    if ((ref.read(customsTariffProvider).value ?? []).isEmpty) ref.read(customsTariffProvider.notifier).fetchTariffs();
+
     final projects = ref.read(projectsProvider).value ?? [];
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
@@ -718,27 +725,32 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     final currencies = ref.read(currenciesProvider).value ?? [];
     final tariffs = ref.read(customsTariffProvider).value ?? [];
 
-    if (projects.isEmpty || companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty || currencies.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please ensure Projects, Companies, Suppliers, Incoterms, and Currencies are loaded.')),
-      );
-      return;
-    }
-
     final formKey = GlobalKey<FormState>();
     final piCtrl = TextEditingController(text: po?.proformaInvoiceNumber ?? '');
     final rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     final termsCtrl = TextEditingController(text: po?.paymentTerms ?? 'LC at Sight / اعتماد مستندي');
     final notesCtrl = TextEditingController(text: po?.notes ?? '');
 
-    int selectedProjectId = po?.projectId ?? projects.first.projectId ?? 1;
-    int selectedCompanyId = po?.companyId ?? companies.first.companyId ?? 1;
-    int selectedSupplierId = po?.supplierId ?? suppliers.first.supplierId ?? 1;
-    int selectedIncotermId = po?.incotermId ?? incoterms.first.incotermId;
-    int selectedCurrencyId = po?.currencyId ?? currencies.first.currencyId ?? 1;
-    String selectedStatus = po?.status ?? 'Draft';
-    final List<POLineItemModel> dialogItems = po != null && po.items.isNotEmpty
+    int? selectedProjectId = (po != null && projects.any((p) => p.projectId == po.projectId))
+        ? po.projectId
+        : (projects.isNotEmpty ? projects.first.projectId : null);
+    int? selectedCompanyId = (po != null && companies.any((c) => c.companyId == po.companyId))
+        ? po.companyId
+        : (companies.isNotEmpty ? companies.first.companyId : null);
+    int? selectedSupplierId = (po != null && suppliers.any((s) => s.supplierId == po.supplierId))
+        ? po.supplierId
+        : (suppliers.isNotEmpty ? suppliers.first.supplierId : null);
+    int? selectedIncotermId = (po != null && incoterms.any((i) => i.incotermId == po.incotermId))
+        ? po.incotermId
+        : (incoterms.isNotEmpty ? incoterms.first.incotermId : null);
+    int? selectedCurrencyId = (po != null && currencies.any((c) => c.currencyId == po.currencyId))
+        ? po.currencyId
+        : (currencies.isNotEmpty ? currencies.first.currencyId : null);
 
+    String selectedStatus = po?.status ?? 'Draft';
+    bool isSubmitting = false;
+
+    final List<POLineItemModel> dialogItems = po != null && po.items.isNotEmpty
         ? po.items.map((i) => POLineItemModel(
             itemCode: i.itemCode,
             descriptionAr: i.descriptionAr,
@@ -1459,56 +1471,115 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-              onPressed: () async {
-                if (formKey.currentState!.validate()) {
-                  if (dialogItems.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Please add at least one line item.')),
-                    );
-                    return;
-                  }
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
 
-                  final rate = double.tryParse(rateCtrl.text.trim()) ?? 1.0;
+                      if (selectedProjectId == null ||
+                          selectedCompanyId == null ||
+                          selectedSupplierId == null ||
+                          selectedIncotermId == null ||
+                          selectedCurrencyId == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please select Project, Importing Company, Supplier, Incoterm, and Currency.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
 
-                  if (po == null) {
-                    final newPO = PurchaseOrderModel(
-                      poNumber: '',
-                      proformaInvoiceNumber: piCtrl.text.trim().isEmpty ? null : piCtrl.text.trim(),
-                      projectId: selectedProjectId,
-                      companyId: selectedCompanyId,
-                      supplierId: selectedSupplierId,
-                      incotermId: selectedIncotermId,
-                      currencyId: selectedCurrencyId,
-                      exchangeRate: rate,
-                      paymentTerms: termsCtrl.text.trim().isEmpty ? null : termsCtrl.text.trim(),
-                      status: selectedStatus,
-                      notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                      items: dialogItems,
-                      packingListItems: dialogPackingItems,
-                    );
-                    final ok = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
-                    if (ok && context.mounted) Navigator.pop(dialogCtx);
-                  } else {
-                    final updateData = {
-                      'proforma_invoice_number': piCtrl.text.trim().isEmpty ? null : piCtrl.text.trim(),
-                      'project_id': selectedProjectId,
-                      'company_id': selectedCompanyId,
-                      'supplier_id': selectedSupplierId,
-                      'incoterm_id': selectedIncotermId,
-                      'currency_id': selectedCurrencyId,
-                      'exchange_rate': rate,
-                      'payment_terms': termsCtrl.text.trim().isEmpty ? null : termsCtrl.text.trim(),
-                      'status': selectedStatus,
-                      'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                      'items': dialogItems.map((i) => i.toJson()).toList(),
-                      'packing_list_items': dialogPackingItems.map((i) => i.toJson()).toList(),
-                    };
-                    final ok = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(po.poId!, updateData);
-                    if (ok && context.mounted) Navigator.pop(dialogCtx);
-                  }
-                }
-              },
-              child: Text(po == null ? 'Create PO' : 'Save Changes'),
+                      if (dialogItems.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please add at least one line item.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+                      final messenger = ScaffoldMessenger.of(context);
+                      final rate = double.tryParse(rateCtrl.text.trim()) ?? 1.0;
+
+                      if (po == null) {
+                        final newPO = PurchaseOrderModel(
+                          poNumber: '',
+                          proformaInvoiceNumber: piCtrl.text.trim().isEmpty ? null : piCtrl.text.trim(),
+                          projectId: selectedProjectId!,
+                          companyId: selectedCompanyId!,
+                          supplierId: selectedSupplierId!,
+                          incotermId: selectedIncotermId!,
+                          currencyId: selectedCurrencyId!,
+                          exchangeRate: rate,
+                          paymentTerms: termsCtrl.text.trim().isEmpty ? null : termsCtrl.text.trim(),
+                          status: selectedStatus,
+                          notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                          items: dialogItems,
+                          packingListItems: dialogPackingItems,
+                        );
+                        final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
+                        if (errorMsg != null) {
+                          setDialogState(() => isSubmitting = false);
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Error creating PO:\n$errorMsg'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Purchase Order created successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          if (context.mounted) Navigator.pop(dialogCtx);
+                        }
+                      } else {
+                        final updateData = {
+                          'proforma_invoice_number': piCtrl.text.trim().isEmpty ? null : piCtrl.text.trim(),
+                          'project_id': selectedProjectId!,
+                          'company_id': selectedCompanyId!,
+                          'supplier_id': selectedSupplierId!,
+                          'incoterm_id': selectedIncotermId!,
+                          'currency_id': selectedCurrencyId!,
+                          'exchange_rate': rate,
+                          'payment_terms': termsCtrl.text.trim().isEmpty ? null : termsCtrl.text.trim(),
+                          'status': selectedStatus,
+                          'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                          'items': dialogItems.map((i) => i.toJson()).toList(),
+                          'packing_list_items': dialogPackingItems.map((i) => i.toJson()).toList(),
+                        };
+                        final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(po.poId!, updateData);
+                        if (errorMsg != null) {
+                          setDialogState(() => isSubmitting = false);
+                          messenger.showSnackBar(
+                            SnackBar(
+                              content: Text('Error updating PO:\n$errorMsg'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        } else {
+                          messenger.showSnackBar(
+                            const SnackBar(
+                              content: Text('Purchase Order updated successfully!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                          if (context.mounted) Navigator.pop(dialogCtx);
+                        }
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
+                  : Text(po == null ? 'Create PO' : 'Save Changes'),
             ),
           ],
         ),

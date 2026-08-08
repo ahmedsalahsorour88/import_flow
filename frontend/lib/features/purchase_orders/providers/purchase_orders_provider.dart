@@ -94,25 +94,55 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     fetchPurchaseOrders();
   }
 
-  Future<bool> createPurchaseOrder(PurchaseOrderModel po) async {
+  Future<String?> createPurchaseOrder(PurchaseOrderModel po) async {
     try {
       await _dio.post('/purchase-orders', data: po.toJson());
       await fetchPurchaseOrders();
-      return true;
+      return null;
+    } on DioException catch (e) {
+      final detail = e.response?.data?['detail'];
+      String msg = 'Failed to create purchase order.';
+      if (detail != null) {
+        if (detail is List) {
+          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
+        } else {
+          msg = detail.toString();
+        }
+      } else if (e.message != null) {
+        msg = e.message!;
+      }
+      state = state.copyWith(errorMessage: msg);
+      return msg;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to create purchase order: ${e.toString()}');
-      return false;
+      final msg = 'Failed to create purchase order: ${e.toString()}';
+      state = state.copyWith(errorMessage: msg);
+      return msg;
     }
   }
 
-  Future<bool> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
+  Future<String?> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
     try {
       await _dio.put('/purchase-orders/$poId', data: data);
       await fetchPurchaseOrders();
-      return true;
+      return null;
+    } on DioException catch (e) {
+      final detail = e.response?.data?['detail'];
+      String msg = 'Failed to update purchase order.';
+      if (detail != null) {
+        if (detail is List) {
+          msg = detail.map((d) => d['msg'] ?? d.toString()).join('\n');
+        } else {
+          msg = detail.toString();
+        }
+      } else if (e.message != null) {
+        msg = e.message!;
+      }
+      state = state.copyWith(errorMessage: msg);
+      return msg;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to update purchase order: ${e.toString()}');
-      return false;
+      final msg = 'Failed to update purchase order: ${e.toString()}';
+      state = state.copyWith(errorMessage: msg);
+      return msg;
     }
   }
 

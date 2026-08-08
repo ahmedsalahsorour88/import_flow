@@ -70,25 +70,25 @@ app.add_middleware(
 # Register Routers
 # ==================================================
 
-app.include_router(import_router)
+app.include_router(import_router, prefix="/api/v1")
 
-app.include_router(supplier_router)
+app.include_router(supplier_router, prefix="/api/v1")
 
-app.include_router(provider_router)
+app.include_router(provider_router, prefix="/api/v1")
 
-app.include_router(audit_router)
+app.include_router(audit_router, prefix="/api/v1")
 
-app.include_router(auth_router)
+app.include_router(auth_router, prefix="/api/v1")
 
-app.include_router(incoterms_router)
+app.include_router(incoterms_router, prefix="/api/v1")
 
-app.include_router(customs_tariff_router)
+app.include_router(customs_tariff_router, prefix="/api/v1")
 
-app.include_router(transport_locations_router)
+app.include_router(transport_locations_router, prefix="/api/v1")
 
-app.include_router(currencies_router)
+app.include_router(currencies_router, prefix="/api/v1")
 
-app.include_router(projects_router)
+app.include_router(projects_router, prefix="/api/v1")
 
 app.include_router(purchase_orders_router)
 

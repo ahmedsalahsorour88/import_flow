@@ -131,7 +131,7 @@ class TestCBMCalculatorBackend:
                 height_cm=40.0,
                 gross_weight_per_unit_kg=10.0,
             )
-        assert "length_cm" in str(exc_info.value)
+        assert "length" in str(exc_info.value) or "length_cm" in str(exc_info.value)
 
     def test_soft_delete_and_restore_cbm_calculation(self, db: Session):
         item = CBMItemCreate(

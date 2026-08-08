@@ -3,9 +3,10 @@ class CBMItemModel {
   final int? calcId;
   final String packageType;
   final int quantity;
-  final double lengthCm;
-  final double widthCm;
-  final double heightCm;
+  final double length;
+  final double width;
+  final double height;
+  final String unit; // mm, cm, m
   final double grossWeightPerUnitKg;
   final double totalCbm;
   final double volumetricWeightKg;
@@ -16,25 +17,40 @@ class CBMItemModel {
     this.calcId,
     this.packageType = 'Carton',
     required this.quantity,
-    required this.lengthCm,
-    required this.widthCm,
-    required this.heightCm,
+    required this.length,
+    required this.width,
+    required this.height,
+    this.unit = 'cm',
     required this.grossWeightPerUnitKg,
     this.totalCbm = 0.0,
     this.volumetricWeightKg = 0.0,
     this.totalGrossWeightKg = 0.0,
   });
 
+  double get lengthM => unit == 'mm' ? length / 1000.0 : (unit == 'cm' ? length / 100.0 : length);
+  double get widthM => unit == 'mm' ? width / 1000.0 : (unit == 'cm' ? width / 100.0 : width);
+  double get heightM => unit == 'mm' ? height / 1000.0 : (unit == 'cm' ? height / 100.0 : height);
+
+  double get lengthCm => lengthM * 100.0;
+  double get widthCm => widthM * 100.0;
+  double get heightCm => heightM * 100.0;
+
   factory CBMItemModel.fromJson(Map<String, dynamic> json) {
+    final u = json['unit']?.toString() ?? 'cm';
+    final l = (json['length'] as num?)?.toDouble() ?? (json['length_cm'] as num?)?.toDouble() ?? 100.0;
+    final w = (json['width'] as num?)?.toDouble() ?? (json['width_cm'] as num?)?.toDouble() ?? 80.0;
+    final h = (json['height'] as num?)?.toDouble() ?? (json['height_cm'] as num?)?.toDouble() ?? 60.0;
+
     return CBMItemModel(
       itemId: json['item_id'],
       calcId: json['calc_id'],
       packageType: json['package_type'] ?? 'Carton',
       quantity: json['quantity'] ?? 1,
-      lengthCm: (json['length_cm'] as num).toDouble(),
-      widthCm: (json['width_cm'] as num).toDouble(),
-      heightCm: (json['height_cm'] as num).toDouble(),
-      grossWeightPerUnitKg: (json['gross_weight_per_unit_kg'] as num).toDouble(),
+      length: l,
+      width: w,
+      height: h,
+      unit: u,
+      grossWeightPerUnitKg: (json['gross_weight_per_unit_kg'] as num?)?.toDouble() ?? 0.0,
       totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
       volumetricWeightKg: (json['volumetric_weight_kg'] as num?)?.toDouble() ?? 0.0,
       totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
@@ -47,6 +63,10 @@ class CBMItemModel {
       if (calcId != null) 'calc_id': calcId,
       'package_type': packageType,
       'quantity': quantity,
+      'length': length,
+      'width': width,
+      'height': height,
+      'unit': unit,
       'length_cm': lengthCm,
       'width_cm': widthCm,
       'height_cm': heightCm,
@@ -58,10 +78,11 @@ class CBMItemModel {
     return {
       'package_type': packageType,
       'quantity': quantity > 0 ? quantity : 1,
-      'length_cm': lengthCm > 0 ? lengthCm : 1.0,
-      'width_cm': widthCm > 0 ? widthCm : 1.0,
-      'height_cm': heightCm > 0 ? heightCm : 1.0,
-      'gross_weight_per_unit_kg': grossWeightPerUnitKg > 0 ? grossWeightPerUnitKg : 1.0,
+      'length': length > 0 ? length : 1.0,
+      'width': width > 0 ? width : 1.0,
+      'height': height > 0 ? height : 1.0,
+      'unit': unit,
+      'gross_weight_per_unit_kg': grossWeightPerUnitKg >= 0 ? grossWeightPerUnitKg : 0.0,
     };
   }
 }

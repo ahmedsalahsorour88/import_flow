@@ -21,6 +21,28 @@ from modules.purchase_orders.model import PurchaseOrder
 class CBMService:
 
     @staticmethod
+    def convert_to_meter(length: float, width: float, height: float, unit: str) -> Tuple[float, float, float]:
+        u = (unit or "cm").lower().strip()
+        if u == "mm":
+            return length / 1000.0, width / 1000.0, height / 1000.0
+        elif u == "cm":
+            return length / 100.0, width / 100.0, height / 100.0
+        elif u == "m":
+            return length, width, height
+        return length / 100.0, width / 100.0, height / 100.0
+
+    @staticmethod
+    def calculate_cbm(length_m: float, width_m: float, height_m: float, qty: int) -> float:
+        return qty * length_m * width_m * height_m
+
+    @staticmethod
+    def calculate_volumetric_weight(length_m: float, width_m: float, height_m: float, qty: int) -> float:
+        length_cm = length_m * 100.0
+        width_cm = width_m * 100.0
+        height_cm = height_m * 100.0
+        return (qty * length_cm * width_cm * height_cm) / 6000.0
+
+    @staticmethod
     def compute_items_and_totals(items: List[CBMItemCreate]) -> Tuple[List[dict], dict]:
         """
         Calculates line item measurements, volumetric weight, total CBM,
@@ -36,10 +58,11 @@ class CBMService:
 
         for item in items:
             line_qty = item.quantity
-            # CBM = Qty * L * W * H / 1,000,000
-            line_cbm = (line_qty * item.length_cm * item.width_cm * item.height_cm) / 1000000.0
-            # Air Volumetric Wt (kg) = Qty * L * W * H / 6,000
-            line_volumetric_wt = (line_qty * item.length_cm * item.width_cm * item.height_cm) / 6000.0
+            unit = getattr(item, "unit", "cm") or "cm"
+            l_m, w_m, h_m = CBMService.convert_to_meter(item.length, item.width, item.height, unit)
+
+            line_cbm = CBMService.calculate_cbm(l_m, w_m, h_m, line_qty)
+            line_volumetric_wt = CBMService.calculate_volumetric_weight(l_m, w_m, h_m, line_qty)
             line_gross_wt = line_qty * item.gross_weight_per_unit_kg
 
             sum_cbm += line_cbm
@@ -50,9 +73,13 @@ class CBMService:
             computed_items.append({
                 "package_type": item.package_type,
                 "quantity": line_qty,
-                "length_cm": item.length_cm,
-                "width_cm": item.width_cm,
-                "height_cm": item.height_cm,
+                "length": item.length,
+                "width": item.width,
+                "height": item.height,
+                "unit": unit,
+                "length_cm": round(l_m * 100.0, 2),
+                "width_cm": round(w_m * 100.0, 2),
+                "height_cm": round(h_m * 100.0, 2),
                 "gross_weight_per_unit_kg": item.gross_weight_per_unit_kg,
                 "total_cbm": round(line_cbm, 4),
                 "volumetric_weight_kg": round(line_volumetric_wt, 2),

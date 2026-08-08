@@ -19,13 +19,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   final TextEditingController _searchController = TextEditingController();
 
   // Quick Calculator State
+  String _quickShipmentMode = 'air';
   final List<CBMItemModel> _quickItems = [
     CBMItemModel(
       packageType: 'Carton',
       quantity: 10,
-      lengthCm: 100,
-      widthCm: 50,
-      heightCm: 40,
+      length: 100,
+      width: 50,
+      height: 40,
+      unit: 'cm',
       grossWeightPerUnitKg: 15,
     ),
   ];
@@ -131,8 +133,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     double totalVolumetricWt = 0.0;
 
     for (var item in _quickItems) {
-      final cbm = (item.quantity * item.lengthCm * item.widthCm * item.heightCm) / 1000000.0;
-      final volWt = (item.quantity * item.lengthCm * item.widthCm * item.heightCm) / 6000.0;
+      final l_m = item.lengthM;
+      final w_m = item.widthM;
+      final h_m = item.heightM;
+      final cbm = item.quantity * l_m * w_m * h_m;
+      final volWt = (item.quantity * (l_m * 100.0) * (w_m * 100.0) * (h_m * 100.0)) / 6000.0;
       final gross = item.quantity * item.grossWeightPerUnitKg;
 
       totalCbm += cbm;
@@ -140,13 +145,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       totalGrossWt += gross;
     }
 
-    final airChargeableWt = totalGrossWt > totalVolumetricWt ? totalGrossWt : totalVolumetricWt;
+    final chargeableWt = totalGrossWt > totalVolumetricWt ? totalGrossWt : totalVolumetricWt;
 
     String recMethod = '';
     String recContainer = '';
-    if (totalCbm <= 1.5 && totalGrossWt <= 300) {
+    if (_quickShipmentMode == 'air' || (totalCbm <= 1.5 && totalGrossWt <= 300)) {
       recMethod = 'Air Freight (شحن جوي)';
-      recContainer = 'N/A (Air Freight Cargo)';
+      recContainer = 'Air Chargeable Wt: ${chargeableWt.toStringAsFixed(1)} kg';
     } else if (totalCbm <= 15.0) {
       recMethod = 'LCL Ocean Freight (شحن بحري تجميعي)';
       recContainer = 'LCL Consolidation Container';
@@ -171,13 +176,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           // Live Results Summary Cards Header
           Row(
             children: [
-              _buildResultCard('Total CBM Volume', '${totalCbm.toStringAsFixed(3)} m³', Icons.view_in_ar, Colors.orange),
+              _buildResultCard('Total CBM Volume', '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
               const SizedBox(width: 12),
-              _buildResultCard('Air Chargeable Wt', '${airChargeableWt.toStringAsFixed(1)} KG', Icons.airplanemode_active, Colors.purple,
-                  subtitle: 'Volumetric: ${totalVolumetricWt.toStringAsFixed(1)} kg'),
-              const SizedBox(width: 12),
-              _buildResultCard('Total Gross Weight', '${totalGrossWt.toStringAsFixed(1)} KG', Icons.scale, Colors.green),
-              const SizedBox(width: 12),
+              if (_quickShipmentMode == 'air') ...[
+                _buildResultCard('Air Chargeable Wt', '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
+                    subtitle: 'Volumetric: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
+                const SizedBox(width: 12),
+                _buildResultCard('Total Gross Weight', '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
+                const SizedBox(width: 12),
+              ],
               _buildResultCard('Recommended Shipping', recMethod, Icons.directions_boat, Colors.blue, subtitle: recContainer),
             ],
           ),
@@ -196,6 +203,32 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     'Cargo Package Measurements & Dimensions (أبعاد ووزن الطرود)',
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                   ),
+                  const SizedBox(width: 24),
+                  // Shipment Mode Selector (Air vs Sea)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Air Freight (شحن جوي)'),
+                          selected: _quickShipmentMode == 'air',
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                          onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
+                        ),
+                        const SizedBox(width: 4),
+                        ChoiceChip(
+                          label: const Text('Sea Freight (شحن بحري)'),
+                          selected: _quickShipmentMode == 'sea',
+                          selectedColor: AppTheme.emerald,
+                          labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                          onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
+                        ),
+                      ],
+                    ),
+                  ),
                   const Spacer(),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
@@ -207,9 +240,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           CBMItemModel(
                             packageType: 'Carton',
                             quantity: 1,
-                            lengthCm: 100,
-                            widthCm: 80,
-                            heightCm: 60,
+                            length: 100,
+                            width: 80,
+                            height: 60,
+                            unit: 'cm',
                             grossWeightPerUnitKg: 20,
                           ),
                         );
@@ -239,8 +273,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 separatorBuilder: (_, __) => const Divider(),
                 itemBuilder: (ctx, idx) {
                   final item = _quickItems[idx];
-                  final itemCbm = (item.quantity * item.lengthCm * item.widthCm * item.heightCm) / 1000000.0;
-                  final itemVolWt = (item.quantity * item.lengthCm * item.widthCm * item.heightCm) / 6000.0;
+                  final l_m = item.lengthM;
+                  final w_m = item.widthM;
+                  final h_m = item.heightM;
+                  final itemCbm = item.quantity * l_m * w_m * h_m;
+                  final itemVolWt = (item.quantity * (l_m * 100.0) * (w_m * 100.0) * (h_m * 100.0)) / 6000.0;
                   final itemGross = item.quantity * item.grossWeightPerUnitKg;
 
                   return Row(
@@ -250,7 +287,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
                         child: Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 8),
+                      // Package Type Dropdown
                       Expanded(
                         flex: 2,
                         child: DropdownButtonFormField<String>(
@@ -265,9 +303,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 _quickItems[idx] = CBMItemModel(
                                   packageType: v,
                                   quantity: item.quantity,
-                                  lengthCm: item.lengthCm,
-                                  widthCm: item.widthCm,
-                                  heightCm: item.heightCm,
+                                  length: item.length,
+                                  width: item.width,
+                                  height: item.height,
+                                  unit: item.unit,
                                   grossWeightPerUnitKg: item.grossWeightPerUnitKg,
                                 );
                               });
@@ -275,7 +314,37 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
+                      // Dimension Unit Selector (mm, cm, m)
+                      SizedBox(
+                        width: 80,
+                        child: DropdownButtonFormField<String>(
+                          value: item.unit,
+                          decoration: const InputDecoration(labelText: 'Unit', isDense: true, border: OutlineInputBorder()),
+                          items: const [
+                            DropdownMenuItem(value: 'mm', child: Text('mm')),
+                            DropdownMenuItem(value: 'cm', child: Text('cm')),
+                            DropdownMenuItem(value: 'm', child: Text('m')),
+                          ],
+                          onChanged: (u) {
+                            if (u != null) {
+                              setState(() {
+                                _quickItems[idx] = CBMItemModel(
+                                  packageType: item.packageType,
+                                  quantity: item.quantity,
+                                  length: item.length,
+                                  width: item.width,
+                                  height: item.height,
+                                  unit: u,
+                                  grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                );
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Quantity
                       Expanded(
                         child: TextFormField(
                           initialValue: item.quantity.toString(),
@@ -287,108 +356,120 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               _quickItems[idx] = CBMItemModel(
                                 packageType: item.packageType,
                                 quantity: q,
-                                lengthCm: item.lengthCm,
-                                widthCm: item.widthCm,
-                                heightCm: item.heightCm,
+                                length: item.length,
+                                width: item.width,
+                                height: item.height,
+                                unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
                               );
                             });
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
+                      // Length
                       Expanded(
                         child: TextFormField(
-                          initialValue: item.lengthCm.toString(),
+                          initialValue: item.length.toString(),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Length (cm)', isDense: true, border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: 'Length (${item.unit})', isDense: true, border: const OutlineInputBorder()),
                           onChanged: (v) {
                             final l = double.tryParse(v) ?? 0.0;
                             setState(() {
                               _quickItems[idx] = CBMItemModel(
                                 packageType: item.packageType,
                                 quantity: item.quantity,
-                                lengthCm: l,
-                                widthCm: item.widthCm,
-                                heightCm: item.heightCm,
+                                length: l,
+                                width: item.width,
+                                height: item.height,
+                                unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
                               );
                             });
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
+                      // Width
                       Expanded(
                         child: TextFormField(
-                          initialValue: item.widthCm.toString(),
+                          initialValue: item.width.toString(),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Width (cm)', isDense: true, border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: 'Width (${item.unit})', isDense: true, border: const OutlineInputBorder()),
                           onChanged: (v) {
                             final w = double.tryParse(v) ?? 0.0;
                             setState(() {
                               _quickItems[idx] = CBMItemModel(
                                 packageType: item.packageType,
                                 quantity: item.quantity,
-                                lengthCm: item.lengthCm,
-                                widthCm: w,
-                                heightCm: item.heightCm,
+                                length: item.length,
+                                width: w,
+                                height: item.height,
+                                unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
                               );
                             });
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
+                      // Height
                       Expanded(
                         child: TextFormField(
-                          initialValue: item.heightCm.toString(),
+                          initialValue: item.height.toString(),
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Height (cm)', isDense: true, border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: 'Height (${item.unit})', isDense: true, border: const OutlineInputBorder()),
                           onChanged: (v) {
                             final h = double.tryParse(v) ?? 0.0;
                             setState(() {
                               _quickItems[idx] = CBMItemModel(
                                 packageType: item.packageType,
                                 quantity: item.quantity,
-                                lengthCm: item.lengthCm,
-                                widthCm: item.widthCm,
-                                heightCm: h,
+                                length: item.length,
+                                width: item.width,
+                                height: h,
+                                unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
                               );
                             });
                           },
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextFormField(
-                          initialValue: item.grossWeightPerUnitKg.toString(),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true, border: OutlineInputBorder()),
-                          onChanged: (v) {
-                            final gw = double.tryParse(v) ?? 0.0;
-                            setState(() {
-                              _quickItems[idx] = CBMItemModel(
-                                packageType: item.packageType,
-                                quantity: item.quantity,
-                                lengthCm: item.lengthCm,
-                                widthCm: item.widthCm,
-                                heightCm: item.heightCm,
-                                grossWeightPerUnitKg: gw,
-                              );
-                            });
-                          },
+                      if (_quickShipmentMode == 'air') ...[
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: item.grossWeightPerUnitKg.toString(),
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true, border: OutlineInputBorder()),
+                            onChanged: (v) {
+                              final gw = double.tryParse(v) ?? 0.0;
+                              setState(() {
+                                _quickItems[idx] = CBMItemModel(
+                                  packageType: item.packageType,
+                                  quantity: item.quantity,
+                                  length: item.length,
+                                  width: item.width,
+                                  height: item.height,
+                                  unit: item.unit,
+                                  grossWeightPerUnitKg: gw,
+                                );
+                              });
+                            },
+                          ),
                         ),
-                      ),
+                      ],
                       const SizedBox(width: 12),
 
                       // Computed line outputs badge
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          Text('CBM: ${itemCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
-                          Text('Gross: ${itemGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                          Text('Air Vol: ${itemVolWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.purple)),
+                          Text('CBM: ${itemCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange)),
+                          if (_quickShipmentMode == 'air') ...[
+                            Text('Gross: ${itemGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            Text('Air Vol: ${itemVolWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.purple)),
+                          ],
                         ],
                       ),
                       if (_quickItems.length > 1)

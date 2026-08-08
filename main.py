@@ -26,6 +26,7 @@ from modules.purchase_orders.model import POLineItem, PurchaseOrder
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
 
 
 # ==================================================
@@ -46,6 +47,7 @@ from modules.purchase_orders.router import router as purchase_orders_router
 from modules.cbm_calculator.router import router as cbm_calculator_router
 from modules.shipping_scenarios.router import router as shipping_scenarios_router
 from modules.customs_consultation.router import router as customs_consultation_router
+from modules.freight_quotations.router import router as freight_quotations_router
 
 
 # ==================================================
@@ -101,6 +103,8 @@ app.include_router(cbm_calculator_router)
 app.include_router(shipping_scenarios_router)
 
 app.include_router(customs_consultation_router)
+
+app.include_router(freight_quotations_router)
 
 
 # ==================================================

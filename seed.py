@@ -1091,6 +1091,80 @@ def seed_data():
             db.commit()
             print("Customs Consultation Studies seeded successfully.")
 
+        # ==================================================
+        # 13. Freight Quotations RFQ (BP-008)
+        # ==================================================
+        from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+
+        if db.query(FreightRFQRequest).count() == 0:
+            print("Seeding Freight RFQ Requests (BP-008)...")
+            maersk = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_name.like("%Maersk%")).first()
+            msc = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_name.like("%MSC%")).first()
+
+            maersk_id = maersk.provider_id if maersk else 1
+            msc_id = msc.provider_id if msc else 2
+
+            crd = date(2026, 8, 25)
+
+            rfq1 = FreightRFQRequest(
+                rfq_code="RFQ-2026-001",
+                title="طلب عرض سعر شحن 2 حاويات 40ft High Cube من شنغهاي إلى الإسكندرية",
+                shipping_method="Ocean FCL",
+                crd_date=crd,
+                pol_name="Shanghai Port (CN SHA), China",
+                pod_name="Alexandria Port (EG ALX), Egypt",
+                total_cbm=128.5,
+                total_gross_weight_kg=48500.0,
+                chargeable_weight_kg=48500.0,
+                status="Awarded",
+                notes="طلب مقارنة وتثبيت أسعار النولون البحري لشحنة معدات النسيج.",
+                is_active=True,
+            )
+
+            q1 = FreightQuotationItem(
+                provider_id=maersk_id,
+                provider_name="Maersk Line Shipping",
+                vessel_name="MAERSK MC-KINNEY MOLLER",
+                voyage_number="2608W",
+                currency_code="USD",
+                ocean_freight_cost=3400.0,
+                local_charges_cost=450.0,
+                inland_cost=300.0,
+                total_cost=4150.0,
+                sailing_date=crd + timedelta(days=4),
+                estimated_arrival_date=crd + timedelta(days=28),
+                transit_days=24,
+                free_days_at_pod=14,
+                is_awarded=True,
+                remarks="العرض الأسرع ترانزيت مع 14 يوم سماح بميناء الإسكندرية.",
+            )
+
+            q2 = FreightQuotationItem(
+                provider_id=msc_id,
+                provider_name="Mediterranean Shipping Company (MSC)",
+                vessel_name="MSC ISABELLA",
+                voyage_number="9904A",
+                currency_code="USD",
+                ocean_freight_cost=3200.0,
+                local_charges_cost=500.0,
+                inland_cost=350.0,
+                total_cost=4050.0,
+                sailing_date=crd + timedelta(days=8),
+                estimated_arrival_date=crd + timedelta(days=36),
+                transit_days=28,
+                free_days_at_pod=21,
+                is_awarded=False,
+                remarks="نولون أقل بـ $100 مع 21 يوم سماح بالجمارك.",
+            )
+
+            rfq1.quotations.extend([q1, q2])
+            db.add(rfq1)
+            db.commit()
+
+            rfq1.selected_quotation_id = q1.quotation_id
+            db.commit()
+            print("Freight RFQ Requests seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

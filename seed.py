@@ -1016,6 +1016,81 @@ def seed_data():
             db.commit()
             print("Shipping Scenario Evaluation Studies seeded successfully.")
 
+        # ==================================================
+        # 12. Customs Consultation Studies (BP-009)
+        # ==================================================
+        from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+
+        if db.query(CustomsConsultationSession).count() == 0:
+            print("Seeding Customs Consultation Studies (BP-009)...")
+            broker = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_type.like("%Customs Broker%")).first()
+            broker_id = broker.provider_id if broker else 1
+            broker_name = broker.partner_name if broker else "El-Ahram Customs Clearance"
+
+            cus1 = CustomsConsultationSession(
+                consultation_code="CUS-2026-001",
+                title="دراسة المراجعة الجمركية الأولية لخط إنتاج الآلات الصناعية (شحنة شنغهاي)",
+                broker_id=broker_id,
+                broker_name=broker_name,
+                broker_contact_person="أستاذ محمود عبد العال (مستخلص جمركي قدير)",
+                overall_status="In Progress",
+                estimated_duties_egp=165801.50,
+                notes="تطلب مراجعة شهادة الفحص المسبق وهيئة الصادرات والواردات قبل إصدار ACID وقبل الفاتورة النهائية.",
+                is_active=True,
+            )
+
+            c_items = [
+                CustomsChecklistItem(
+                    document_type="Proforma Invoice",
+                    hs_code="8479.89.90",
+                    is_required=True,
+                    is_blocking_shipment=True,
+                    responsible_party="Supplier / Exporter",
+                    status="Approved",
+                    received_date=date(2026, 8, 1),
+                    verified_date=date(2026, 8, 2),
+                    remarks="الفاتورة المبدئية معتمدة ومطابقة لأسعار البند الجمركي.",
+                ),
+                CustomsChecklistItem(
+                    document_type="Packing List",
+                    hs_code="8479.89.90",
+                    is_required=True,
+                    is_blocking_shipment=True,
+                    responsible_party="Supplier / Exporter",
+                    status="Approved",
+                    received_date=date(2026, 8, 1),
+                    verified_date=date(2026, 8, 2),
+                    remarks="قائمة التعبئة تحتوي على صافي الإجمالي وإجمالي القائم والأحجام بالـ CBM.",
+                ),
+                CustomsChecklistItem(
+                    document_type="Certificate of Origin (COO)",
+                    hs_code="8479.89.90",
+                    is_required=True,
+                    is_blocking_shipment=True,
+                    responsible_party="Customs Broker",
+                    status="Verified",
+                    received_date=date(2026, 8, 4),
+                    verified_date=date(2026, 8, 5),
+                    remarks="مطلوب تصديق الغرفة التجارية والسفارة المصرية في شنغهاي.",
+                ),
+                CustomsChecklistItem(
+                    document_type="Inspection Certificate (GOEIC)",
+                    hs_code="8479.89.90",
+                    is_required=True,
+                    is_blocking_shipment=True,
+                    responsible_party="Customs Broker",
+                    status="Pending",
+                    regulatory_agency="GOEIC (هيئة الرقابة على الصادرات والواردات)",
+                    remarks="بانتظار الفحص الظاهري وعينات المعمل الجمركي فور الوصول.",
+                    corrective_action_required="تجهيز الكتالوجات الفنية والرسم التخطيطي للآلات.",
+                ),
+            ]
+
+            cus1.checklist_items.extend(c_items)
+            db.add(cus1)
+            db.commit()
+            print("Customs Consultation Studies seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

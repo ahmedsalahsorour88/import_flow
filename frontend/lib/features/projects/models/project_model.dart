@@ -1,3 +1,18 @@
+double? _numToNullableDouble(dynamic val) {
+  if (val == null) return null;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val);
+  return null;
+}
+
+int _numToInt(dynamic val, [int fallback = 0]) {
+  if (val == null) return fallback;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? fallback;
+  return fallback;
+}
+
 class ProjectModel {
   final int? projectId;
   final String projectCode;
@@ -50,26 +65,26 @@ class ProjectModel {
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
     List<int> cIds = [];
     if (json['company_ids'] != null && json['company_ids'] is List) {
-      cIds = (json['company_ids'] as List).map((e) => e as int).toList();
+      cIds = (json['company_ids'] as List).map((e) => _numToInt(e)).toList();
     } else if (json['company_id'] != null) {
-      cIds = [json['company_id'] as int];
+      cIds = [_numToInt(json['company_id'])];
     }
 
     return ProjectModel(
-      projectId: json['project_id'] as int?,
+      projectId: json['project_id'] != null ? _numToInt(json['project_id']) : null,
       projectCode: json['project_code'] as String? ?? '',
       projectName: json['project_name'] as String? ?? '',
       projectOwner: json['project_owner'] as String? ?? '',
-      companyId: json['company_id'] as int? ?? 0,
+      companyId: _numToInt(json['company_id']),
       companyIds: cIds,
-      supplierId: json['supplier_id'] as int? ?? 0,
-      incotermId: json['incoterm_id'] as int? ?? 0,
+      supplierId: _numToInt(json['supplier_id']),
+      incotermId: _numToInt(json['incoterm_id']),
       importType: json['import_type'] as String? ?? 'Direct Commercial',
       priority: json['priority'] as String? ?? 'Medium',
       shipmentCategory: json['shipment_category'] as String? ?? 'FCL Container',
       allowMultiShipment: json['allow_multi_shipment'] as bool? ?? true,
       allowMultiCompany: json['allow_multi_company'] as bool? ?? true,
-      totalBudgetUsd: (json['total_budget_usd'] as num?)?.toDouble(),
+      totalBudgetUsd: _numToNullableDouble(json['total_budget_usd']),
       status: json['status'] as String? ?? 'Open',
       notes: json['notes'] as String?,
       isActive: json['is_active'] as bool? ?? true,

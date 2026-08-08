@@ -1,3 +1,25 @@
+double _numToDouble(dynamic val, [double fallback = 0.0]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? fallback;
+  return fallback;
+}
+
+double? _numToNullableDouble(dynamic val) {
+  if (val == null) return null;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val);
+  return null;
+}
+
+int _numToInt(dynamic val, [int fallback = 0]) {
+  if (val == null) return fallback;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? fallback;
+  return fallback;
+}
+
 class POLineItemModel {
   final int? itemId;
   final int? poId;
@@ -39,23 +61,23 @@ class POLineItemModel {
 
   factory POLineItemModel.fromJson(Map<String, dynamic> json) {
     return POLineItemModel(
-      itemId: json['item_id'] as int?,
-      poId: json['po_id'] as int?,
+      itemId: _numToInt(json['item_id']),
+      poId: _numToInt(json['po_id']),
       itemCode: json['item_code'] as String?,
       descriptionAr: json['description_ar'] as String? ?? '',
       descriptionEn: json['description_en'] as String?,
-      tariffId: json['tariff_id'] as int?,
-      quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
+      tariffId: json['tariff_id'] != null ? _numToInt(json['tariff_id']) : null,
+      quantity: _numToDouble(json['quantity'], 1.0),
       unitOfMeasure: json['unit_of_measure'] as String? ?? 'PCS',
-      unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
-      totalPrice: (json['total_price'] as num?)?.toDouble() ?? 0.0,
-      cbmPerUnit: (json['cbm_per_unit'] as num?)?.toDouble() ?? 0.0,
-      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
-      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      unitPrice: _numToDouble(json['unit_price']),
+      totalPrice: _numToDouble(json['total_price']),
+      cbmPerUnit: _numToDouble(json['cbm_per_unit']),
+      totalCbm: _numToDouble(json['total_cbm']),
+      grossWeightKg: _numToDouble(json['gross_weight_kg']),
+      netWeightKg: _numToDouble(json['net_weight_kg']),
       hsCode: json['hs_code'] as String?,
-      dutyRate: (json['duty_rate'] as num?)?.toDouble(),
-      vatRate: (json['vat_rate'] as num?)?.toDouble(),
+      dutyRate: _numToNullableDouble(json['duty_rate']),
+      vatRate: _numToNullableDouble(json['vat_rate']),
     );
   }
 
@@ -116,22 +138,22 @@ class PackingListItemModel {
 
   factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
     return PackingListItemModel(
-      packingItemId: json['packing_item_id'] as int?,
-      poId: json['po_id'] as int?,
+      packingItemId: _numToInt(json['packing_item_id']),
+      poId: _numToInt(json['po_id']),
       hsCode: json['hs_code'] as String? ?? '',
       itemCode: json['item_code'] as String? ?? '',
-      qtyPcs: (json['qty_pcs'] as num?)?.toDouble() ?? 1.0,
-      qtyPkg: (json['qty_pkg'] as num?)?.toDouble() ?? 1.0,
+      qtyPcs: _numToDouble(json['qty_pcs'], 1.0),
+      qtyPkg: _numToDouble(json['qty_pkg'], 1.0),
       packageType: json['package_type'] as String? ?? 'Carton',
-      lengthCm: (json['length_cm'] as num?)?.toDouble() ?? 0.0,
-      widthCm: (json['width_cm'] as num?)?.toDouble() ?? 0.0,
-      heightCm: (json['height_cm'] as num?)?.toDouble() ?? 0.0,
-      netWeightUnitKg: (json['net_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
-      grossWeightUnitKg: (json['gross_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
-      totalNetWeightKg: (json['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
-      chargeableWeightKg: (json['chargeable_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      lengthCm: _numToDouble(json['length_cm']),
+      widthCm: _numToDouble(json['width_cm']),
+      heightCm: _numToDouble(json['height_cm']),
+      netWeightUnitKg: _numToDouble(json['net_weight_unit_kg']),
+      grossWeightUnitKg: _numToDouble(json['gross_weight_unit_kg']),
+      totalNetWeightKg: _numToDouble(json['total_net_weight_kg']),
+      totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
+      totalCbm: _numToDouble(json['total_cbm']),
+      chargeableWeightKg: _numToDouble(json['chargeable_weight_kg']),
     );
   }
 
@@ -216,24 +238,24 @@ class PurchaseOrderModel {
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
     return PurchaseOrderModel(
-      poId: json['po_id'] as int?,
+      poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       poNumber: json['po_number'] as String? ?? '',
       proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
-      projectId: json['project_id'] as int? ?? 0,
-      companyId: json['company_id'] as int? ?? 0,
-      supplierId: json['supplier_id'] as int? ?? 0,
-      incotermId: json['incoterm_id'] as int? ?? 0,
-      currencyId: json['currency_id'] as int? ?? 0,
+      projectId: _numToInt(json['project_id']),
+      companyId: _numToInt(json['company_id']),
+      supplierId: _numToInt(json['supplier_id']),
+      incotermId: _numToInt(json['incoterm_id']),
+      currencyId: _numToInt(json['currency_id']),
       expectedDeliveryDate: json['expected_delivery_date'] != null
           ? DateTime.parse(json['expected_delivery_date'])
           : null,
-      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 1.0,
+      exchangeRate: _numToDouble(json['exchange_rate'], 1.0),
       paymentTerms: json['payment_terms'] as String?,
-      totalAmountFob: (json['total_amount_fob'] as num?)?.toDouble() ?? 0.0,
-      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
-      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalNetWeightKg: (json['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalPackagesCount: json['total_packages_count'] as int? ?? 0,
+      totalAmountFob: _numToDouble(json['total_amount_fob']),
+      totalCbm: _numToDouble(json['total_cbm']),
+      totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
+      totalNetWeightKg: _numToDouble(json['total_net_weight_kg']),
+      totalPackagesCount: _numToInt(json['total_packages_count']),
       status: json['status'] as String? ?? 'Draft',
       notes: json['notes'] as String?,
       isActive: json['is_active'] as bool? ?? true,

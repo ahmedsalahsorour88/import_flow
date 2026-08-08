@@ -1,3 +1,25 @@
+double _numToDouble(dynamic val, [double fallback = 0.0]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? fallback;
+  return fallback;
+}
+
+double? _numToNullableDouble(dynamic val) {
+  if (val == null) return null;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val);
+  return null;
+}
+
+int _numToInt(dynamic val, [int fallback = 0]) {
+  if (val == null) return fallback;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? fallback;
+  return fallback;
+}
+
 class ExchangeRateModel {
   final int? rateId;
   final int currencyId;
@@ -19,10 +41,10 @@ class ExchangeRateModel {
 
   factory ExchangeRateModel.fromJson(Map<String, dynamic> json) {
     return ExchangeRateModel(
-      rateId: json['rate_id'] as int?,
-      currencyId: json['currency_id'] as int? ?? 0,
-      commercialRate: (json['commercial_rate'] as num?)?.toDouble() ?? 1.0,
-      customsRate: (json['customs_rate'] as num?)?.toDouble() ?? 1.0,
+      rateId: json['rate_id'] != null ? _numToInt(json['rate_id']) : null,
+      currencyId: _numToInt(json['currency_id']),
+      commercialRate: _numToDouble(json['commercial_rate'], 1.0),
+      customsRate: _numToDouble(json['customs_rate'], 1.0),
       effectiveDate: json['effective_date'] as String? ?? '',
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
@@ -66,15 +88,15 @@ class CurrencyModel {
 
   factory CurrencyModel.fromJson(Map<String, dynamic> json) {
     return CurrencyModel(
-      currencyId: json['currency_id'] as int?,
+      currencyId: json['currency_id'] != null ? _numToInt(json['currency_id']) : null,
       currencyCode: json['currency_code'] as String? ?? '',
       currencyName: json['currency_name'] as String? ?? '',
       currencySymbol: json['currency_symbol'] as String? ?? '',
       isBaseCurrency: json['is_base_currency'] as bool? ?? false,
-      decimalPlaces: json['decimal_places'] as int? ?? 2,
+      decimalPlaces: _numToInt(json['decimal_places'], 2),
       isActive: json['is_active'] as bool? ?? true,
-      latestCommercialRate: (json['latest_commercial_rate'] as num?)?.toDouble(),
-      latestCustomsRate: (json['latest_customs_rate'] as num?)?.toDouble(),
+      latestCommercialRate: _numToNullableDouble(json['latest_commercial_rate']),
+      latestCustomsRate: _numToNullableDouble(json['latest_customs_rate']),
       exchangeRates: json['exchange_rates'] != null
           ? (json['exchange_rates'] as List).map((r) => ExchangeRateModel.fromJson(r)).toList()
           : null,

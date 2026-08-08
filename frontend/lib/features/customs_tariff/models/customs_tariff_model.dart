@@ -1,3 +1,18 @@
+double _numToDouble(dynamic val, [double fallback = 0.0]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? fallback;
+  return fallback;
+}
+
+int _numToInt(dynamic val, [int fallback = 0]) {
+  if (val == null) return fallback;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? fallback;
+  return fallback;
+}
+
 class CustomsTariffModel {
   final int tariffId;
   final String hsCode;
@@ -47,25 +62,25 @@ class CustomsTariffModel {
 
   factory CustomsTariffModel.fromJson(Map<String, dynamic> json) {
     return CustomsTariffModel(
-      tariffId: json['tariff_id'] as int,
+      tariffId: _numToInt(json['tariff_id']),
       hsCode: json['hs_code'] as String,
       hsDescription: json['hs_description'] as String,
       customsCategory: json['customs_category'] as String?,
-      customsDutyRate: (json['customs_duty_rate'] as num).toDouble(),
-      vatRate: (json['vat_rate'] as num).toDouble(),
-      scheduleTaxRate: (json['schedule_tax_rate'] as num).toDouble(),
-      developmentFeeRate: (json['development_fee_rate'] as num).toDouble(),
-      importFeeRate: (json['import_fee_rate'] as num).toDouble(),
-      requiresCoo: json['requires_coo'] as bool,
-      requiresInspection: json['requires_inspection'] as bool,
-      requiresAcid: json['requires_acid'] as bool,
+      customsDutyRate: _numToDouble(json['customs_duty_rate']),
+      vatRate: _numToDouble(json['vat_rate']),
+      scheduleTaxRate: _numToDouble(json['schedule_tax_rate']),
+      developmentFeeRate: _numToDouble(json['development_fee_rate']),
+      importFeeRate: _numToDouble(json['import_fee_rate']),
+      requiresCoo: json['requires_coo'] as bool? ?? false,
+      requiresInspection: json['requires_inspection'] as bool? ?? false,
+      requiresAcid: json['requires_acid'] as bool? ?? false,
       regulatoryAuthority: json['regulatory_authority'] as String?,
       effectiveFrom: DateTime.parse(json['effective_from'] as String),
       effectiveTo: json['effective_to'] != null
           ? DateTime.parse(json['effective_to'] as String)
           : null,
       notes: json['notes'] as String?,
-      isActive: json['is_active'] as bool,
+      isActive: json['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -149,23 +164,23 @@ class CustomsDutyBreakdownModel {
       hsDescription: json['hs_description'] as String,
       customsCategory: json['customs_category'] as String?,
       estimateDate: DateTime.parse(json['estimate_date'] as String),
-      cifValue: (json['cif_value'] as num).toDouble(),
-      freight: (json['freight'] as num).toDouble(),
-      customsDutyRate: (json['customs_duty_rate'] as num).toDouble(),
-      vatRate: (json['vat_rate'] as num).toDouble(),
-      scheduleTaxRate: (json['schedule_tax_rate'] as num).toDouble(),
-      developmentFeeRate: (json['development_fee_rate'] as num).toDouble(),
-      importFeeRate: (json['import_fee_rate'] as num).toDouble(),
-      importDutyAmount: (json['import_duty_amount'] as num).toDouble(),
-      vatBase: (json['vat_base'] as num).toDouble(),
-      vatAmount: (json['vat_amount'] as num).toDouble(),
-      scheduleTaxAmount: (json['schedule_tax_amount'] as num).toDouble(),
-      developmentFeeAmount: (json['development_fee_amount'] as num).toDouble(),
-      importFeeAmount: (json['import_fee_amount'] as num).toDouble(),
-      totalTaxesAndFees: (json['total_taxes_and_fees'] as num).toDouble(),
-      requiresCoo: json['requires_coo'] as bool,
-      requiresInspection: json['requires_inspection'] as bool,
-      requiresAcid: json['requires_acid'] as bool,
+      cifValue: _numToDouble(json['cif_value']),
+      freight: _numToDouble(json['freight']),
+      customsDutyRate: _numToDouble(json['customs_duty_rate']),
+      vatRate: _numToDouble(json['vat_rate']),
+      scheduleTaxRate: _numToDouble(json['schedule_tax_rate']),
+      developmentFeeRate: _numToDouble(json['development_fee_rate']),
+      importFeeRate: _numToDouble(json['import_fee_rate']),
+      importDutyAmount: _numToDouble(json['import_duty_amount']),
+      vatBase: _numToDouble(json['vat_base']),
+      vatAmount: _numToDouble(json['vat_amount']),
+      scheduleTaxAmount: _numToDouble(json['schedule_tax_amount']),
+      developmentFeeAmount: _numToDouble(json['development_fee_amount']),
+      importFeeAmount: _numToDouble(json['import_fee_amount']),
+      totalTaxesAndFees: _numToDouble(json['total_taxes_and_fees']),
+      requiresCoo: json['requires_coo'] as bool? ?? false,
+      requiresInspection: json['requires_inspection'] as bool? ?? false,
+      requiresAcid: json['requires_acid'] as bool? ?? false,
       regulatoryAuthority: json['regulatory_authority'] as String?,
     );
   }

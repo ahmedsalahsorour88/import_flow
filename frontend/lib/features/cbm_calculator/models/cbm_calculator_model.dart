@@ -1,3 +1,18 @@
+double _numToDouble(dynamic val, [double fallback = 0.0]) {
+  if (val == null) return fallback;
+  if (val is num) return val.toDouble();
+  if (val is String) return double.tryParse(val) ?? fallback;
+  return fallback;
+}
+
+int _numToInt(dynamic val, [int fallback = 0]) {
+  if (val == null) return fallback;
+  if (val is int) return val;
+  if (val is num) return val.toInt();
+  if (val is String) return int.tryParse(val) ?? fallback;
+  return fallback;
+}
+
 class CBMItemModel {
   final int? itemId;
   final int? calcId;
@@ -37,23 +52,23 @@ class CBMItemModel {
 
   factory CBMItemModel.fromJson(Map<String, dynamic> json) {
     final u = json['unit']?.toString() ?? 'cm';
-    final l = (json['length'] as num?)?.toDouble() ?? (json['length_cm'] as num?)?.toDouble() ?? 100.0;
-    final w = (json['width'] as num?)?.toDouble() ?? (json['width_cm'] as num?)?.toDouble() ?? 80.0;
-    final h = (json['height'] as num?)?.toDouble() ?? (json['height_cm'] as num?)?.toDouble() ?? 60.0;
+    final l = _numToDouble(json['length'], _numToDouble(json['length_cm'], 100.0));
+    final w = _numToDouble(json['width'], _numToDouble(json['width_cm'], 80.0));
+    final h = _numToDouble(json['height'], _numToDouble(json['height_cm'], 60.0));
 
     return CBMItemModel(
-      itemId: json['item_id'],
-      calcId: json['calc_id'],
+      itemId: json['item_id'] != null ? _numToInt(json['item_id']) : null,
+      calcId: json['calc_id'] != null ? _numToInt(json['calc_id']) : null,
       packageType: json['package_type'] ?? 'Carton',
-      quantity: json['quantity'] ?? 1,
+      quantity: _numToInt(json['quantity'], 1),
       length: l,
       width: w,
       height: h,
       unit: u,
-      grossWeightPerUnitKg: (json['gross_weight_per_unit_kg'] as num?)?.toDouble() ?? 0.0,
-      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
-      volumetricWeightKg: (json['volumetric_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      grossWeightPerUnitKg: _numToDouble(json['gross_weight_per_unit_kg']),
+      totalCbm: _numToDouble(json['total_cbm']),
+      volumetricWeightKg: _numToDouble(json['volumetric_weight_kg']),
+      totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
     );
   }
 
@@ -134,19 +149,19 @@ class CBMCalculationModel {
 
   factory CBMCalculationModel.fromJson(Map<String, dynamic> json) {
     return CBMCalculationModel(
-      calcId: json['calc_id'],
+      calcId: json['calc_id'] != null ? _numToInt(json['calc_id']) : null,
       calcCode: json['calc_code'] ?? '',
       title: json['title'],
-      projectId: json['project_id'],
-      poId: json['po_id'],
-      totalQty: json['total_qty'] ?? 0,
-      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
-      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      totalVolumetricWeightKg: (json['total_volumetric_weight_kg'] as num?)?.toDouble() ?? 0.0,
-      airChargeableWeightKg: (json['air_chargeable_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      projectId: json['project_id'] != null ? _numToInt(json['project_id']) : null,
+      poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
+      totalQty: _numToInt(json['total_qty']),
+      totalCbm: _numToDouble(json['total_cbm']),
+      totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
+      totalVolumetricWeightKg: _numToDouble(json['total_volumetric_weight_kg']),
+      airChargeableWeightKg: _numToDouble(json['air_chargeable_weight_kg']),
       recommendedShippingMethod: json['recommended_shipping_method'],
       recommendedContainerType: json['recommended_container_type'],
-      recommendedContainerCount: json['recommended_container_count'] ?? 0,
+      recommendedContainerCount: _numToInt(json['recommended_container_count']),
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'],

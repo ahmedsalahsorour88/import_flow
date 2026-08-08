@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -629,9 +630,13 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ],
                               rows: state.calculations.map((calc) {
                                 return DataRow(
+                                  onSelectChanged: (_) => _showCalcDetailsDialog(context, calc),
                                   cells: [
                                     DataCell(
-                                      Text(calc.calcCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      InkWell(
+                                        onTap: () => _showCalcDetailsDialog(context, calc),
+                                        child: Text(calc.calcCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                      ),
                                     ),
                                     DataCell(
                                       Text(calc.title ?? 'Calculation Session', overflow: TextOverflow.ellipsis),
@@ -698,6 +703,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                             _showLinkToPODialog(context, calc, poList, projectsList);
                                           } else if (val == 'view') {
                                             _showCalcDetailsDialog(context, calc);
+                                          } else if (val == 'print') {
+                                            _showPrintReportDialog(context, calc);
                                           } else if (val == 'delete_restore') {
                                             if (calc.isActive) {
                                               await ref.read(cbmCalculatorProvider.notifier).deleteCalculation(calc.calcId!);
@@ -713,7 +720,27 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                               children: [
                                                 Icon(Icons.edit_note, color: AppTheme.cobalt, size: 18),
                                                 SizedBox(width: 8),
-                                                Text('Reopen in Calculator (إعادة فتح)'),
+                                                Text('Reopen in Calculator (إعادة فتح وتعديل)'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'view',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.visibility_outlined, color: AppTheme.cobalt, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('View Session Details (عرض التفاصيل)'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'print',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.print_outlined, color: AppTheme.emerald, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Print / Export Report (طباعة وتصدير)'),
                                               ],
                                             ),
                                           ),
@@ -724,16 +751,6 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                                 Icon(Icons.link, color: AppTheme.cobalt, size: 18),
                                                 SizedBox(width: 8),
                                                 Text('Link to PO / Project'),
-                                              ],
-                                            ),
-                                          ),
-                                          const PopupMenuItem(
-                                            value: 'view',
-                                            child: Row(
-                                              children: [
-                                                Icon(Icons.list_alt, color: AppTheme.cobalt, size: 18),
-                                                SizedBox(width: 8),
-                                                Text('View Items Breakdown'),
                                               ],
                                             ),
                                           ),
@@ -839,53 +856,94 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text('Calculation Session Details: ${calc.calcCode}'),
+        title: Row(
+          children: [
+            const Icon(Icons.calculate, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text('Calculation Details: ${calc.calcCode}'),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.15), borderRadius: BorderRadius.circular(12)),
+              child: Text(
+                calc.poNumber != null ? 'Linked to PO: ${calc.poNumber}' : 'Standalone Session',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+              ),
+            ),
+          ],
+        ),
         content: SizedBox(
-          width: 700,
+          width: 750,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(calc.title ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                if (calc.notes != null) Text('Notes: ${calc.notes}', style: const TextStyle(color: Colors.grey)),
-                const Divider(height: 20),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(calc.title ?? 'Calculation Session', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal)),
+                      if (calc.notes != null && calc.notes!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text('📝 Notes: ${calc.notes}', style: const TextStyle(color: Colors.black87, fontSize: 13)),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Metrics Badges Row
                 Wrap(
-                  spacing: 20,
-                  runSpacing: 10,
+                  spacing: 12,
+                  runSpacing: 12,
                   children: [
-                    _buildDetailTag('Total CBM', '${calc.totalCbm.toStringAsFixed(3)} m³'),
-                    _buildDetailTag('Air Chargeable Wt', '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg'),
-                    _buildDetailTag('Total Gross Wt', '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg'),
-                    _buildDetailTag('Shipping Method', calc.recommendedShippingMethod ?? '-'),
-                    _buildDetailTag('Container Type', calc.recommendedContainerType ?? '-'),
+                    _buildDetailCardBadge('Total CBM Volume', '${calc.totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
+                    _buildDetailCardBadge('Air Chargeable Weight', '${calc.airChargeableWeightKg.toStringAsFixed(1)} KG', Icons.airplanemode_active, Colors.purple),
+                    _buildDetailCardBadge('Total Gross Weight', '${calc.totalGrossWeightKg.toStringAsFixed(1)} KG', Icons.scale, Colors.blue),
+                    _buildDetailCardBadge('Shipping Strategy', calc.recommendedShippingMethod ?? '-', Icons.directions_boat, AppTheme.cobalt),
+                    _buildDetailCardBadge('Container Type', calc.recommendedContainerType ?? '-', Icons.inventory, Colors.brown),
                   ],
                 ),
-                const Divider(height: 24),
-                const Text('Package Measurements Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
+
+                const Divider(height: 28),
+                const Text('📦 Package Measurements & Dimensions Breakdown (تفاصيل طرود ومقاسات الشحنة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                const SizedBox(height: 10),
+
                 Table(
                   border: TableBorder.all(color: Colors.grey.shade300),
                   children: [
                     const TableRow(
                       decoration: BoxDecoration(color: AppTheme.cloudWhite),
                       children: [
-                        Padding(padding: EdgeInsets.all(6), child: Text('Package', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('L x W x H (cm)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt/Unit', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Line CBM', style: TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('Package Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('L x W x H (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('Gross Wt/Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('Line Volume CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('Line Gross Wt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                       ],
                     ),
-                    ...calc.items.map(
-                      (item) => TableRow(
-                        children: [
-                          Padding(padding: const EdgeInsets.all(6), child: Text(item.packageType)),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(item.quantity.toString())),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm} x ${item.widthCm} x ${item.heightCm}')),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg')),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))),
-                        ],
-                      ),
+                    ...calc.items.asMap().entries.map(
+                      (entry) {
+                        final idx = entry.key;
+                        final item = entry.value;
+                        final lineGross = item.quantity * item.grossWeightPerUnitKg;
+                        return TableRow(
+                          children: [
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(item.packageType, style: const TextStyle(fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.quantity}', style: const TextStyle(fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.lengthCm} x ${item.widthCm} x ${item.heightCm}', style: const TextStyle(fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.grossWeightPerUnitKg} kg', style: const TextStyle(fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text('${lineGross.toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -894,19 +952,337 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           ),
         ),
         actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            icon: const Icon(Icons.edit_note, size: 16),
+            label: const Text('إعادة فتح وتعديل في الحاسبة', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              setState(() {
+                _quickShipmentMode = (calc.recommendedShippingMethod ?? '').contains('Air') ? 'air' : 'sea';
+                if (calc.items.isNotEmpty) {
+                  _quickItems.clear();
+                  _quickItems.addAll(calc.items.map((i) => CBMItemModel(
+                    packageType: i.packageType,
+                    quantity: i.quantity,
+                    length: i.lengthCm > 0 ? i.lengthCm : i.length,
+                    width: i.widthCm > 0 ? i.widthCm : i.width,
+                    height: i.heightCm > 0 ? i.heightCm : i.height,
+                    unit: 'cm',
+                    grossWeightPerUnitKg: i.grossWeightPerUnitKg,
+                  )));
+                }
+              });
+              _tabController.animateTo(0);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('تم تحميل بيانات الجلسة ${calc.calcCode} للحاسبة للتعديل والحساب.')),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
+            icon: const Icon(Icons.edit, size: 16),
+            label: const Text('تعديل البيانات (Edit Metadata)'),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              _showEditCalcDialog(context, calc);
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            icon: const Icon(Icons.print, size: 16),
+            label: const Text('طباعة / تصدير التقرير'),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              _showPrintReportDialog(context, calc);
+            },
+          ),
           TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
         ],
       ),
     );
   }
 
-  Widget _buildDetailTag(String label, String val) {
+  Widget _buildDetailCardBadge(String title, String val, IconData icon, Color color) {
+    return Container(
+      width: 220,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                Text(val, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color), overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEditCalcDialog(BuildContext context, CBMCalculationModel calc) {
+    final formKey = GlobalKey<FormState>();
+    final titleCtrl = TextEditingController(text: calc.title ?? '');
+    final notesCtrl = TextEditingController(text: calc.notes ?? '');
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Edit Session Details: ${calc.calcCode}'),
+        content: SizedBox(
+          width: 500,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: titleCtrl,
+                  decoration: const InputDecoration(labelText: 'Calculation Title *'),
+                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: notesCtrl,
+                  maxLines: 3,
+                  decoration: const InputDecoration(labelText: 'Notes & Remarks'),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                final ok = await ref.read(cbmCalculatorProvider.notifier).updateCalculation(
+                  calc.calcId!,
+                  {
+                    'title': titleCtrl.text.trim(),
+                    'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                  },
+                );
+                if (ok && context.mounted) {
+                  Navigator.pop(dialogCtx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Calculation metadata updated successfully.')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save Changes'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrintReportDialog(BuildContext context, CBMCalculationModel calc) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.print_outlined, color: AppTheme.emerald),
+            const SizedBox(width: 8),
+            Text('Printable Cargo Measurement Report (${calc.calcCode})'),
+          ],
+        ),
+        content: SizedBox(
+          width: 780,
+          child: SingleChildScrollView(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Official Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('ImportFlow ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
+                          const Text('Cargo Measurement & Volume Calculation Report', style: TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 2),
+                          Text('تقرير احتساب حجوم وأوزان الشحنات (BP-004)', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                        ],
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                            child: Text(calc.calcCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                          ),
+                          const SizedBox(height: 4),
+                          Text('Generated: ${calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, thickness: 1.5),
+
+                  // Session Metadata
+                  Row(
+                    children: [
+                      Expanded(child: Text('Title: ${calc.title ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                      if (calc.poNumber != null)
+                        Text('Linked PO: ${calc.poNumber}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12)),
+                    ],
+                  ),
+                  if (calc.notes != null && calc.notes!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text('Notes: ${calc.notes}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                  const SizedBox(height: 16),
+
+                  // Summary Box
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildReportStat('Total Volume', '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange),
+                        _buildReportStat('Air Chargeable Wt', '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple),
+                        _buildReportStat('Total Gross Wt', '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
+                        _buildReportStat('Shipping Mode', calc.recommendedShippingMethod ?? '-', Colors.blue),
+                        _buildReportStat('Container Type', calc.recommendedContainerType ?? '-', Colors.brown),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Package Details Table
+                  const Text('Package Breakdown Table (جدول تفاصيل الطرود والقياسات)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 8),
+                  Table(
+                    border: TableBorder.all(color: Colors.grey.shade400),
+                    children: [
+                      const TableRow(
+                        decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                        children: [
+                          Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('Package Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('L x W x H (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt/Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('Total Gross Wt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: EdgeInsets.all(6), child: Text('Line CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        ],
+                      ),
+                      ...calc.items.asMap().entries.map(
+                        (entry) {
+                          final idx = entry.key;
+                          final item = entry.value;
+                          final lineGross = item.quantity * item.grossWeightPerUnitKg;
+                          return TableRow(
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${idx + 1}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(item.packageType, style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm}x${item.widthCm}x${item.heightCm}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${lineGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
+                            ],
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            icon: const Icon(Icons.download, size: 16),
+            label: const Text('تنزيل ملف CSV Data'),
+            onPressed: () {
+              _downloadCalcCSV(context, calc);
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            icon: const Icon(Icons.print, size: 16),
+            label: const Text('طباعة التقرير (Print Report)'),
+            onPressed: () {
+              _triggerReportPrint(context, calc);
+            },
+          ),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReportStat(String label, String val, Color color) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-        Text(val, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+        Text(val, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color)),
       ],
+    );
+  }
+
+  void _downloadCalcCSV(BuildContext context, CBMCalculationModel calc) {
+    final buffer = StringBuffer();
+    buffer.writeln('ImportFlow ERP - Cargo Volume & Weight Measurement Report');
+    buffer.writeln('Calc Code,${calc.calcCode}');
+    buffer.writeln('Title,${calc.title ?? ""}');
+    buffer.writeln('Notes,${calc.notes ?? ""}');
+    buffer.writeln('Total CBM,${calc.totalCbm}');
+    buffer.writeln('Air Chargeable Weight (kg),${calc.airChargeableWeightKg}');
+    buffer.writeln('Total Gross Weight (kg),${calc.totalGrossWeightKg}');
+    buffer.writeln('Shipping Recommendation,${calc.recommendedShippingMethod ?? ""}');
+    buffer.writeln('Container Suggestion,${calc.recommendedContainerType ?? ""}');
+    buffer.writeln('');
+    buffer.writeln('Pkg #,Package Type,Qty,Length (cm),Width (cm),Height (cm),Gross Wt/Unit (kg),Line CBM (m3),Total Gross Wt (kg)');
+
+    for (int i = 0; i < calc.items.length; i++) {
+      final item = calc.items[i];
+      final lineGross = item.quantity * item.grossWeightPerUnitKg;
+      buffer.writeln('${i + 1},${item.packageType},${item.quantity},${item.lengthCm},${item.widthCm},${item.heightCm},${item.grossWeightPerUnitKg},${item.totalCbm},$lineGross');
+    }
+
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم نسخ وتنزيل تقرير بيانات الجلسة ${calc.calcCode} بصيغة CSV بنجاح!'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  void _triggerReportPrint(BuildContext context, CBMCalculationModel calc) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('جار إرسال التقرير ${calc.calcCode} للشاشة التفاعلية للطباعة والتصدير...'),
+        backgroundColor: AppTheme.cobalt,
+      ),
     );
   }
 

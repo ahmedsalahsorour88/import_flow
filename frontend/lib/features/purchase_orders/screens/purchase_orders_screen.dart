@@ -880,796 +880,931 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
 
     final isLoadingMaster = projects.isEmpty || companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty || currencies.isEmpty;
 
-    return AlertDialog(
-      title: Text(widget.po == null ? 'Create New Purchase Order (أمر شراء جديد)' : 'Edit Purchase Order (${widget.po!.poNumber})'),
-      content: SizedBox(
-        width: 800,
-        child: isLoadingMaster
-            ? const Padding(
-                padding: EdgeInsets.all(40.0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    return DefaultTabController(
+      length: 2,
+      child: AlertDialog(
+        titlePadding: EdgeInsets.zero,
+        title: Container(
+          decoration: const BoxDecoration(
+            color: AppTheme.charcoal,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(8)),
+          ),
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+                child: Row(
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 16),
-                    Text('جاري تحميل البيانات المرجعية...', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.receipt_long, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        widget.po == null ? 'Create New Purchase Order (أمر شراء جديد)' : 'Edit Purchase Order (${widget.po!.poNumber})',
+                        style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
                   ],
                 ),
-              )
-            : Form(
-                key: _formKey,
-                child: SingleChildScrollView(
+              ),
+              TabBar(
+                labelColor: AppTheme.emerald,
+                unselectedLabelColor: Colors.white70,
+                indicatorColor: AppTheme.emerald,
+                indicatorWeight: 3,
+                tabs: [
+                  Tab(
+                    icon: const Icon(Icons.list_alt, size: 18),
+                    text: '1. Commercial Header & Items (${_dialogItems.length})',
+                  ),
+                  Tab(
+                    icon: const Icon(Icons.inventory_2_outlined, size: 18),
+                    text: '2. BP-003 Packing List (${_dialogPackingItems.length})',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        content: SizedBox(
+          width: 850,
+          height: 520,
+          child: isLoadingMaster
+              ? const Padding(
+                  padding: EdgeInsets.all(40.0),
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _piCtrl,
-                              decoration: const InputDecoration(
-                                labelText: 'Proforma Invoice # (رقم الفاتورة المبدئية)',
-                                hintText: 'e.g. PI-2026-991',
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedProjectId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Project *'),
-                              items: projects
-                                  .map((p) => DropdownMenuItem(
-                                        value: p.projectId,
-                                        child: Text('${p.projectCode} (${p.projectName})', overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _selectedProjectId = v);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedCompanyId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Importing Company *'),
-                              items: companies
-                                  .map((c) => DropdownMenuItem(
-                                        value: c.companyId,
-                                        child: Text(c.importerName, overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _selectedCompanyId = v);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedSupplierId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Supplier *'),
-                              items: suppliers
-                                  .map((s) => DropdownMenuItem(
-                                        value: s.supplierId,
-                                        child: Text(s.companyName, overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _selectedSupplierId = v);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedIncotermId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Incoterm *'),
-                              items: incoterms
-                                  .map((i) => DropdownMenuItem(
-                                        value: i.incotermId,
-                                        child: Text('${i.incotermCode} (${i.incotermName})', overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _selectedIncotermId = v);
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<int>(
-                              value: _selectedCurrencyId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Currency *'),
-                              items: currencies
-                                  .map((c) => DropdownMenuItem(
-                                        value: c.currencyId,
-                                        child: Text('${c.currencyCode} (${c.currencyName})', overflow: TextOverflow.ellipsis),
-                                      ))
-                                  .toList(),
-                              onChanged: (v) {
-                                if (v != null) setState(() => _selectedCurrencyId = v);
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _rateCtrl,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(labelText: 'Exchange Rate'),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: _selectedStatus,
-                              isExpanded: true,
-                              decoration: const InputDecoration(labelText: 'Status'),
-                              items: ['Draft', 'Approved', 'In Transit', 'Closed', 'Cancelled']
-                                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                                  .toList(),
-                              onChanged: (v) => setState(() => _selectedStatus = v ?? 'Draft'),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-
-                      TextFormField(
-                        controller: _termsCtrl,
-                        decoration: const InputDecoration(labelText: 'Payment Terms'),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Line Items Header & Add Button
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'PO Line Items (بنود الفاتورة المبدئية) *',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add Item'),
-                            onPressed: () {
-                              setState(() {
-                                _dialogItems.add(
-                                  POLineItemModel(
-                                    descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
-                                    quantity: 1,
-                                    unitPrice: 0,
-                                  ),
-                                );
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Dynamic Line Items List
-                      ..._dialogItems.asMap().entries.map((entry) {
-                        final idx = entry.key;
-                        final item = entry.value;
-
-                        return Card(
-                          color: Colors.grey.shade50,
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('جاري تحميل البيانات المرجعية...', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )
+              : Form(
+                  key: _formKey,
+                  child: TabBarView(
+                    children: [
+                      // Tab 1: Commercial Header & Line Items
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.only(top: 8, right: 4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
                               children: [
-                                Row(
-                                  children: [
-                                    Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: TextFormField(
-                                        initialValue: item.descriptionAr,
-                                        decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
-                                        validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                        onChanged: (v) => _dialogItems[idx] = POLineItemModel(
-                                          itemCode: item.itemCode,
-                                          descriptionAr: v,
-                                          descriptionEn: item.descriptionEn,
-                                          tariffId: item.tariffId,
-                                          quantity: item.quantity,
-                                          unitOfMeasure: item.unitOfMeasure,
-                                          unitPrice: item.unitPrice,
-                                          cbmPerUnit: item.cbmPerUnit,
-                                          grossWeightKg: item.grossWeightKg,
-                                          netWeightKg: item.netWeightKg,
-                                        ),
-                                      ),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _piCtrl,
+                                    decoration: const InputDecoration(
+                                      labelText: 'Proforma Invoice # (رقم الفاتورة المبدئية)',
+                                      hintText: 'e.g. PI-2026-991',
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: DropdownButtonFormField<int?>(
-                                        value: item.tariffId,
-                                        isExpanded: true,
-                                        decoration: const InputDecoration(labelText: 'Customs Tariff / HS Code', isDense: true),
-                                        items: [
-                                          const DropdownMenuItem<int?>(value: null, child: Text('None / General')),
-                                          ...tariffs.map((t) => DropdownMenuItem<int?>(
-                                                value: t.tariffId,
-                                                child: Text('${t.hsCode} (${t.hsDescription})', overflow: TextOverflow.ellipsis),
-                                              )),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedProjectId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Project *'),
+                                    items: projects
+                                        .map((p) => DropdownMenuItem(
+                                              value: p.projectId,
+                                              child: Text('${p.projectCode} (${p.projectName})', overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedProjectId = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedCompanyId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Importing Company *'),
+                                    items: companies
+                                        .map((c) => DropdownMenuItem(
+                                              value: c.companyId,
+                                              child: Text(c.importerName, overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedCompanyId = v);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedSupplierId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Supplier *'),
+                                    items: suppliers
+                                        .map((s) => DropdownMenuItem(
+                                              value: s.supplierId,
+                                              child: Text(s.companyName, overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedSupplierId = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedIncotermId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Incoterm *'),
+                                    items: incoterms
+                                        .map((i) => DropdownMenuItem(
+                                              value: i.incotermId,
+                                              child: Text('${i.incotermCode} (${i.incotermName})', overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedIncotermId = v);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<int>(
+                                    value: _selectedCurrencyId,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Currency *'),
+                                    items: currencies
+                                        .map((c) => DropdownMenuItem(
+                                              value: c.currencyId,
+                                              child: Text('${c.currencyCode} (${c.currencyName})', overflow: TextOverflow.ellipsis),
+                                            ))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _selectedCurrencyId = v);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _rateCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(labelText: 'Exchange Rate'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: DropdownButtonFormField<String>(
+                                    value: _selectedStatus,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Status'),
+                                    items: ['Draft', 'Approved', 'In Transit', 'Closed', 'Cancelled']
+                                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                                        .toList(),
+                                    onChanged: (v) => setState(() => _selectedStatus = v ?? 'Draft'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+
+                            TextFormField(
+                              controller: _termsCtrl,
+                              decoration: const InputDecoration(labelText: 'Payment Terms'),
+                            ),
+                            const SizedBox(height: 14),
+
+                            // Line Items Header & Add Button
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'PO Line Items (بنود الفاتورة المبدئية) *',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                ),
+                                TextButton.icon(
+                                  icon: const Icon(Icons.add, size: 18),
+                                  label: const Text('Add Item'),
+                                  onPressed: () {
+                                    setState(() {
+                                      _dialogItems.add(
+                                        POLineItemModel(
+                                          descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
+                                          quantity: 1,
+                                          unitPrice: 0,
+                                        ),
+                                      );
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+
+                            // Dynamic Line Items List
+                            ..._dialogItems.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final item = entry.value;
+
+                              return Card(
+                                color: Colors.grey.shade50,
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(10),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 2,
+                                            child: TextFormField(
+                                              initialValue: item.descriptionAr,
+                                              decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
+                                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                              onChanged: (v) => _dialogItems[idx] = POLineItemModel(
+                                                itemCode: item.itemCode,
+                                                descriptionAr: v,
+                                                descriptionEn: item.descriptionEn,
+                                                tariffId: item.tariffId,
+                                                quantity: item.quantity,
+                                                unitOfMeasure: item.unitOfMeasure,
+                                                unitPrice: item.unitPrice,
+                                                cbmPerUnit: item.cbmPerUnit,
+                                                grossWeightKg: item.grossWeightKg,
+                                                netWeightKg: item.netWeightKg,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 2,
+                                            child: DropdownButtonFormField<int?>(
+                                              value: item.tariffId,
+                                              isExpanded: true,
+                                              decoration: const InputDecoration(labelText: 'Customs Tariff / HS Code', isDense: true),
+                                              items: [
+                                                const DropdownMenuItem<int?>(value: null, child: Text('None / General')),
+                                                ...tariffs.map((t) => DropdownMenuItem<int?>(
+                                                      value: t.tariffId,
+                                                      child: Text('${t.hsCode} (${t.hsDescription})', overflow: TextOverflow.ellipsis),
+                                                    )),
+                                              ],
+                                              onChanged: (v) => setState(() {
+                                                _dialogItems[idx] = POLineItemModel(
+                                                  itemCode: item.itemCode,
+                                                  descriptionAr: item.descriptionAr,
+                                                  descriptionEn: item.descriptionEn,
+                                                  tariffId: v,
+                                                  quantity: item.quantity,
+                                                  unitOfMeasure: item.unitOfMeasure,
+                                                  unitPrice: item.unitPrice,
+                                                  cbmPerUnit: item.cbmPerUnit,
+                                                  grossWeightKg: item.grossWeightKg,
+                                                  netWeightKg: item.netWeightKg,
+                                                );
+                                              }),
+                                            ),
+                                          ),
+                                          if (_dialogItems.length > 1)
+                                            IconButton(
+                                              icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
+                                              onPressed: () => setState(() => _dialogItems.removeAt(idx)),
+                                            ),
                                         ],
-                                        onChanged: (v) => setState(() {
-                                          _dialogItems[idx] = POLineItemModel(
-                                            itemCode: item.itemCode,
-                                            descriptionAr: item.descriptionAr,
-                                            descriptionEn: item.descriptionEn,
-                                            tariffId: v,
-                                            quantity: item.quantity,
-                                            unitOfMeasure: item.unitOfMeasure,
-                                            unitPrice: item.unitPrice,
-                                            cbmPerUnit: item.cbmPerUnit,
-                                            grossWeightKg: item.grossWeightKg,
-                                            netWeightKg: item.netWeightKg,
-                                          );
-                                        }),
                                       ),
-                                    ),
-                                    if (_dialogItems.length > 1)
-                                      IconButton(
-                                        icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
-                                        onPressed: () => setState(() => _dialogItems.removeAt(idx)),
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: TextFormField(
+                                              initialValue: item.quantity.toString(),
+                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                              decoration: const InputDecoration(labelText: 'Qty', isDense: true),
+                                              onChanged: (v) {
+                                                final q = double.tryParse(v) ?? 1.0;
+                                                _dialogItems[idx] = POLineItemModel(
+                                                  itemCode: item.itemCode,
+                                                  descriptionAr: item.descriptionAr,
+                                                  descriptionEn: item.descriptionEn,
+                                                  tariffId: item.tariffId,
+                                                  quantity: q,
+                                                  unitOfMeasure: item.unitOfMeasure,
+                                                  unitPrice: item.unitPrice,
+                                                  cbmPerUnit: item.cbmPerUnit,
+                                                  grossWeightKg: item.grossWeightKg,
+                                                  netWeightKg: item.netWeightKg,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: TextFormField(
+                                              initialValue: item.unitPrice.toString(),
+                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                              decoration: const InputDecoration(labelText: 'Unit Price', isDense: true),
+                                              onChanged: (v) {
+                                                final p = double.tryParse(v) ?? 0.0;
+                                                _dialogItems[idx] = POLineItemModel(
+                                                  itemCode: item.itemCode,
+                                                  descriptionAr: item.descriptionAr,
+                                                  descriptionEn: item.descriptionEn,
+                                                  tariffId: item.tariffId,
+                                                  quantity: item.quantity,
+                                                  unitOfMeasure: item.unitOfMeasure,
+                                                  unitPrice: p,
+                                                  cbmPerUnit: item.cbmPerUnit,
+                                                  grossWeightKg: item.grossWeightKg,
+                                                  netWeightKg: item.netWeightKg,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: TextFormField(
+                                              initialValue: item.cbmPerUnit.toString(),
+                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                              decoration: const InputDecoration(labelText: 'CBM / Unit', isDense: true),
+                                              onChanged: (v) {
+                                                final cbm = double.tryParse(v) ?? 0.0;
+                                                _dialogItems[idx] = POLineItemModel(
+                                                  itemCode: item.itemCode,
+                                                  descriptionAr: item.descriptionAr,
+                                                  descriptionEn: item.descriptionEn,
+                                                  tariffId: item.tariffId,
+                                                  quantity: item.quantity,
+                                                  unitOfMeasure: item.unitOfMeasure,
+                                                  unitPrice: item.unitPrice,
+                                                  cbmPerUnit: cbm,
+                                                  grossWeightKg: item.grossWeightKg,
+                                                  netWeightKg: item.netWeightKg,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: TextFormField(
+                                              initialValue: item.grossWeightKg.toString(),
+                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                              decoration: const InputDecoration(labelText: 'Gross Wt (kg)', isDense: true),
+                                              onChanged: (v) {
+                                                final gw = double.tryParse(v) ?? 0.0;
+                                                _dialogItems[idx] = POLineItemModel(
+                                                  itemCode: item.itemCode,
+                                                  descriptionAr: item.descriptionAr,
+                                                  descriptionEn: item.descriptionEn,
+                                                  tariffId: item.tariffId,
+                                                  quantity: item.quantity,
+                                                  unitOfMeasure: item.unitOfMeasure,
+                                                  unitPrice: item.unitPrice,
+                                                  cbmPerUnit: item.cbmPerUnit,
+                                                  grossWeightKg: gw,
+                                                  netWeightKg: item.netWeightKg,
+                                                );
+                                              },
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: item.quantity.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Qty', isDense: true),
-                                        onChanged: (v) {
-                                          final q = double.tryParse(v) ?? 1.0;
-                                          _dialogItems[idx] = POLineItemModel(
-                                            itemCode: item.itemCode,
-                                            descriptionAr: item.descriptionAr,
-                                            descriptionEn: item.descriptionEn,
-                                            tariffId: item.tariffId,
-                                            quantity: q,
-                                            unitOfMeasure: item.unitOfMeasure,
-                                            unitPrice: item.unitPrice,
-                                            cbmPerUnit: item.cbmPerUnit,
-                                            grossWeightKg: item.grossWeightKg,
-                                            netWeightKg: item.netWeightKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: item.unitPrice.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Unit Price', isDense: true),
-                                        onChanged: (v) {
-                                          final p = double.tryParse(v) ?? 0.0;
-                                          _dialogItems[idx] = POLineItemModel(
-                                            itemCode: item.itemCode,
-                                            descriptionAr: item.descriptionAr,
-                                            descriptionEn: item.descriptionEn,
-                                            tariffId: item.tariffId,
-                                            quantity: item.quantity,
-                                            unitOfMeasure: item.unitOfMeasure,
-                                            unitPrice: p,
-                                            cbmPerUnit: item.cbmPerUnit,
-                                            grossWeightKg: item.grossWeightKg,
-                                            netWeightKg: item.netWeightKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: item.cbmPerUnit.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'CBM / Unit', isDense: true),
-                                        onChanged: (v) {
-                                          final cbm = double.tryParse(v) ?? 0.0;
-                                          _dialogItems[idx] = POLineItemModel(
-                                            itemCode: item.itemCode,
-                                            descriptionAr: item.descriptionAr,
-                                            descriptionEn: item.descriptionEn,
-                                            tariffId: item.tariffId,
-                                            quantity: item.quantity,
-                                            unitOfMeasure: item.unitOfMeasure,
-                                            unitPrice: item.unitPrice,
-                                            cbmPerUnit: cbm,
-                                            grossWeightKg: item.grossWeightKg,
-                                            netWeightKg: item.netWeightKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: item.grossWeightKg.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Gross Wt (kg)', isDense: true),
-                                        onChanged: (v) {
-                                          final gw = double.tryParse(v) ?? 0.0;
-                                          _dialogItems[idx] = POLineItemModel(
-                                            itemCode: item.itemCode,
-                                            descriptionAr: item.descriptionAr,
-                                            descriptionEn: item.descriptionEn,
-                                            tariffId: item.tariffId,
-                                            quantity: item.quantity,
-                                            unitOfMeasure: item.unitOfMeasure,
-                                            unitPrice: item.unitPrice,
-                                            cbmPerUnit: item.cbmPerUnit,
-                                            grossWeightKg: gw,
-                                            netWeightKg: item.netWeightKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-
-                      const Divider(height: 24),
-                      // BP-003 Review Packing List Section
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'BP-003 Packing List Items (قائمة التعبئة والأوزان والأبعاد)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                          ),
-                          TextButton.icon(
-                            icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
-                            label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
-                            onPressed: () {
-                              setState(() {
-                                _dialogPackingItems.add(
-                                  PackingListItemModel(
-                                    hsCode: '8471.30.00',
-                                    itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
-                                    qtyPcs: 10,
-                                    qtyPkg: 1,
-                                    packageType: 'Carton',
-                                    lengthCm: 50,
-                                    widthCm: 40,
-                                    heightCm: 30,
-                                    netWeightUnitKg: 5,
-                                    grossWeightUnitKg: 6,
+                                    ],
                                   ),
-                                );
-                              });
-                            },
+                                ),
+                              );
+                            }),
+
+                            const SizedBox(height: 8),
+                            TextFormField(
+                              controller: _notesCtrl,
+                              maxLines: 2,
+                              decoration: const InputDecoration(labelText: 'PO Notes & Instructions'),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      // Tab 2: BP-003 Review Packing List
+                      Column(
+                        children: [
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'BP-003 Packing List Items (${_dialogPackingItems.length})',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                              ),
+                              Row(
+                                children: [
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue.shade50,
+                                      foregroundColor: AppTheme.cobalt,
+                                      elevation: 0,
+                                    ),
+                                    icon: const Icon(Icons.flash_on, size: 16),
+                                    label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
+                                    onPressed: () {
+                                      setState(() {
+                                        _dialogPackingItems.clear();
+                                        for (int i = 0; i < _dialogItems.length; i++) {
+                                          final item = _dialogItems[i];
+                                          String itemHsCode = '8471.30.00';
+                                          if (item.tariffId != null) {
+                                            final matchingTariff = tariffs.cast<CustomsTariffModel?>().firstWhere(
+                                                  (t) => t?.tariffId == item.tariffId,
+                                                  orElse: () => null,
+                                                );
+                                            if (matchingTariff != null && matchingTariff.hsCode.isNotEmpty) {
+                                              itemHsCode = matchingTariff.hsCode;
+                                            }
+                                          }
+                                          _dialogPackingItems.add(
+                                            PackingListItemModel(
+                                              hsCode: itemHsCode,
+                                              itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                              qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
+                                              qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
+                                              packageType: 'Carton',
+                                              lengthCm: 50.0,
+                                              widthCm: 40.0,
+                                              heightCm: 30.0,
+                                              netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
+                                              grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
+                                            ),
+                                          );
+                                        }
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
+                                          backgroundColor: AppTheme.emerald,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton.icon(
+                                    icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
+                                    label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
+                                    onPressed: () {
+                                      setState(() {
+                                        _dialogPackingItems.add(
+                                          PackingListItemModel(
+                                            hsCode: '8471.30.00',
+                                            itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
+                                            qtyPcs: 10,
+                                            qtyPkg: 1,
+                                            packageType: 'Carton',
+                                            lengthCm: 50,
+                                            widthCm: 40,
+                                            heightCm: 30,
+                                            netWeightUnitKg: 5,
+                                            grossWeightUnitKg: 6,
+                                          ),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+
+                          Expanded(
+                            child: _dialogPackingItems.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                        const SizedBox(height: 12),
+                                        const Text(
+                                          'لم يتم إضافة بنود تعبئة بعد',
+                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        const Text(
+                                          'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
+                                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    itemCount: _dialogPackingItems.length,
+                                    itemBuilder: (context, idx) {
+                                      final p = _dialogPackingItems[idx];
+                                      return Card(
+                                        color: Colors.blue.shade50.withOpacity(0.5),
+                                        margin: const EdgeInsets.only(bottom: 8),
+                                        child: Padding(
+                                          padding: const EdgeInsets.all(10),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: [
+                                                  Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.hsCode,
+                                                      decoration: const InputDecoration(labelText: 'HS Code *', isDense: true),
+                                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                                      onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
+                                                        hsCode: v,
+                                                        itemCode: p.itemCode,
+                                                        qtyPcs: p.qtyPcs,
+                                                        qtyPkg: p.qtyPkg,
+                                                        packageType: p.packageType,
+                                                        lengthCm: p.lengthCm,
+                                                        widthCm: p.widthCm,
+                                                        heightCm: p.heightCm,
+                                                        netWeightUnitKg: p.netWeightUnitKg,
+                                                        grossWeightUnitKg: p.grossWeightUnitKg,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.itemCode,
+                                                      decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
+                                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                                      onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
+                                                        hsCode: p.hsCode,
+                                                        itemCode: v,
+                                                        qtyPcs: p.qtyPcs,
+                                                        qtyPkg: p.qtyPkg,
+                                                        packageType: p.packageType,
+                                                        lengthCm: p.lengthCm,
+                                                        widthCm: p.widthCm,
+                                                        heightCm: p.heightCm,
+                                                        netWeightUnitKg: p.netWeightUnitKg,
+                                                        grossWeightUnitKg: p.grossWeightUnitKg,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: DropdownButtonFormField<String>(
+                                                      value: p.packageType,
+                                                      isExpanded: true,
+                                                      decoration: const InputDecoration(labelText: 'Package Type', isDense: true),
+                                                      items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
+                                                          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                                          .toList(),
+                                                      onChanged: (v) => setState(() {
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: v ?? 'Carton',
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      }),
+                                                    ),
+                                                  ),
+                                                  IconButton(
+                                                    icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
+                                                    onPressed: () => setState(() => _dialogPackingItems.removeAt(idx)),
+                                                  ),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 6),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.qtyPcs.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
+                                                      onChanged: (v) {
+                                                        final q = double.tryParse(v) ?? 1.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: q,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.qtyPkg.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'Qty PKG (طرود)', isDense: true),
+                                                      onChanged: (v) {
+                                                        final q = double.tryParse(v) ?? 1.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: q,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.lengthCm.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'L (cm)', isDense: true),
+                                                      onChanged: (v) {
+                                                        final l = double.tryParse(v) ?? 0.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: l,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.widthCm.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'W (cm)', isDense: true),
+                                                      onChanged: (v) {
+                                                        final w = double.tryParse(v) ?? 0.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: w,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.heightCm.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'H (cm)', isDense: true),
+                                                      onChanged: (v) {
+                                                        final h = double.tryParse(v) ?? 0.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: h,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.netWeightUnitKg.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'Net Wt/Unit', isDense: true),
+                                                      onChanged: (v) {
+                                                        final nw = double.tryParse(v) ?? 0.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: nw,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                  Expanded(
+                                                    child: TextFormField(
+                                                      initialValue: p.grossWeightUnitKg.toString(),
+                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit', isDense: true),
+                                                      onChanged: (v) {
+                                                        final gw = double.tryParse(v) ?? 0.0;
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: gw,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Dynamic Packing List Items Editor
-                      ..._dialogPackingItems.asMap().entries.map((entry) {
-                        final idx = entry.key;
-                        final p = entry.value;
-
-                        return Card(
-                          color: Colors.blue.shade50.withOpacity(0.5),
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(10),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.hsCode,
-                                        decoration: const InputDecoration(labelText: 'HS Code *', isDense: true),
-                                        validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                        onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
-                                          hsCode: v,
-                                          itemCode: p.itemCode,
-                                          qtyPcs: p.qtyPcs,
-                                          qtyPkg: p.qtyPkg,
-                                          packageType: p.packageType,
-                                          lengthCm: p.lengthCm,
-                                          widthCm: p.widthCm,
-                                          heightCm: p.heightCm,
-                                          netWeightUnitKg: p.netWeightUnitKg,
-                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.itemCode,
-                                        decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
-                                        validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                        onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
-                                          hsCode: p.hsCode,
-                                          itemCode: v,
-                                          qtyPcs: p.qtyPcs,
-                                          qtyPkg: p.qtyPkg,
-                                          packageType: p.packageType,
-                                          lengthCm: p.lengthCm,
-                                          widthCm: p.widthCm,
-                                          heightCm: p.heightCm,
-                                          netWeightUnitKg: p.netWeightUnitKg,
-                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: DropdownButtonFormField<String>(
-                                        value: p.packageType,
-                                        isExpanded: true,
-                                        decoration: const InputDecoration(labelText: 'Package Type', isDense: true),
-                                        items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
-                                            .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                                            .toList(),
-                                        onChanged: (v) => setState(() {
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: v ?? 'Carton',
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        }),
-                                      ),
-                                    ),
-                                    if (_dialogPackingItems.length > 1)
-                                      IconButton(
-                                        icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
-                                        onPressed: () => setState(() => _dialogPackingItems.removeAt(idx)),
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.qtyPcs.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
-                                        onChanged: (v) {
-                                          final q = double.tryParse(v) ?? 1.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: q,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.qtyPkg.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Qty PKG (طرود)', isDense: true),
-                                        onChanged: (v) {
-                                          final q = double.tryParse(v) ?? 1.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: q,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.lengthCm.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'L (cm)', isDense: true),
-                                        onChanged: (v) {
-                                          final l = double.tryParse(v) ?? 0.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: l,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.widthCm.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'W (cm)', isDense: true),
-                                        onChanged: (v) {
-                                          final w = double.tryParse(v) ?? 0.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: w,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.heightCm.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'H (cm)', isDense: true),
-                                        onChanged: (v) {
-                                          final h = double.tryParse(v) ?? 0.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: h,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.netWeightUnitKg.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Net Wt/Unit', isDense: true),
-                                        onChanged: (v) {
-                                          final nw = double.tryParse(v) ?? 0.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: nw,
-                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: TextFormField(
-                                        initialValue: p.grossWeightUnitKg.toString(),
-                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                        decoration: const InputDecoration(labelText: 'Gross Wt/Unit', isDense: true),
-                                        onChanged: (v) {
-                                          final gw = double.tryParse(v) ?? 0.0;
-                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                            hsCode: p.hsCode,
-                                            itemCode: p.itemCode,
-                                            qtyPcs: p.qtyPcs,
-                                            qtyPkg: p.qtyPkg,
-                                            packageType: p.packageType,
-                                            lengthCm: p.lengthCm,
-                                            widthCm: p.widthCm,
-                                            heightCm: p.heightCm,
-                                            netWeightUnitKg: p.netWeightUnitKg,
-                                            grossWeightUnitKg: gw,
-                                          );
-                                        },
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      }),
-
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        controller: _notesCtrl,
-                        maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'PO Notes & Instructions'),
                       ),
                     ],
                   ),
                 ),
-              ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            onPressed: (_isSubmitting || isLoadingMaster)
+                ? null
+                : () async {
+                    if (!_formKey.currentState!.validate()) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('الرجاء استكمال الحقول الإلزامية (الوصف العربي، HS Code، كود البند) بجميع التبويبات.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (_selectedProjectId == null ||
+                        _selectedCompanyId == null ||
+                        _selectedSupplierId == null ||
+                        _selectedIncotermId == null ||
+                        _selectedCurrencyId == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    if (_dialogItems.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                      return;
+                    }
+
+                    setState(() => _isSubmitting = true);
+                    final messenger = ScaffoldMessenger.of(context);
+                    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+
+                    if (widget.po == null) {
+                      final newPO = PurchaseOrderModel(
+                        poNumber: '',
+                        proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        projectId: _selectedProjectId!,
+                        companyId: _selectedCompanyId!,
+                        supplierId: _selectedSupplierId!,
+                        incotermId: _selectedIncotermId!,
+                        currencyId: _selectedCurrencyId!,
+                        exchangeRate: rate,
+                        paymentTerms: _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
+                        status: _selectedStatus,
+                        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+                        items: _dialogItems,
+                        packingListItems: _dialogPackingItems,
+                      );
+                      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
+                      if (errorMsg != null) {
+                        setState(() => _isSubmitting = false);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('خطأ في إدخال أمر الشراء:\n$errorMsg'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } else {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('تم إنشاء أمر الشراء بنجاح!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    } else {
+                      final updateData = {
+                        'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        'project_id': _selectedProjectId!,
+                        'company_id': _selectedCompanyId!,
+                        'supplier_id': _selectedSupplierId!,
+                        'incoterm_id': _selectedIncotermId!,
+                        'currency_id': _selectedCurrencyId!,
+                        'exchange_rate': rate,
+                        'payment_terms': _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
+                        'status': _selectedStatus,
+                        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+                        'items': _dialogItems.map((i) => i.toJson()).toList(),
+                        'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
+                      };
+                      final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
+                      if (errorMsg != null) {
+                        setState(() => _isSubmitting = false);
+                        messenger.showSnackBar(
+                          SnackBar(
+                            content: Text('خطأ في تحديث أمر الشراء:\n$errorMsg'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      } else {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('تم حفظ التعديلات بنجاح!'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                        if (context.mounted) Navigator.pop(context);
+                      }
+                    }
+                  },
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : Text(widget.po == null ? 'Create PO' : 'Save Changes'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-          onPressed: (_isSubmitting || isLoadingMaster)
-              ? null
-              : () async {
-                  if (!_formKey.currentState!.validate()) return;
-
-                  if (_selectedProjectId == null ||
-                      _selectedCompanyId == null ||
-                      _selectedSupplierId == null ||
-                      _selectedIncotermId == null ||
-                      _selectedCurrencyId == null) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('الرجاء التأكد من اختيار كافة الحقول الإلزامية (المشروع، الشركة المستوردة، المورد، الـ Incoterm والعملة).'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  if (_dialogItems.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('الرجاء إضافة بند استيرادي واحد على الأقل في أمر الشراء.'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-
-                  setState(() => _isSubmitting = true);
-                  final messenger = ScaffoldMessenger.of(context);
-                  final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
-
-                  if (widget.po == null) {
-                    final newPO = PurchaseOrderModel(
-                      poNumber: '',
-                      proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
-                      projectId: _selectedProjectId!,
-                      companyId: _selectedCompanyId!,
-                      supplierId: _selectedSupplierId!,
-                      incotermId: _selectedIncotermId!,
-                      currencyId: _selectedCurrencyId!,
-                      exchangeRate: rate,
-                      paymentTerms: _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
-                      status: _selectedStatus,
-                      notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-                      items: _dialogItems,
-                      packingListItems: _dialogPackingItems,
-                    );
-                    final errorMsg = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
-                    if (errorMsg != null) {
-                      setState(() => _isSubmitting = false);
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text('خطأ في إدخال أمر الشراء:\n$errorMsg'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    } else {
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('تم إنشاء أمر الشراء بنجاح!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  } else {
-                    final updateData = {
-                      'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
-                      'project_id': _selectedProjectId!,
-                      'company_id': _selectedCompanyId!,
-                      'supplier_id': _selectedSupplierId!,
-                      'incoterm_id': _selectedIncotermId!,
-                      'currency_id': _selectedCurrencyId!,
-                      'exchange_rate': rate,
-                      'payment_terms': _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
-                      'status': _selectedStatus,
-                      'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
-                      'items': _dialogItems.map((i) => i.toJson()).toList(),
-                      'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
-                    };
-                    final errorMsg = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(widget.po!.poId!, updateData);
-                    if (errorMsg != null) {
-                      setState(() => _isSubmitting = false);
-                      messenger.showSnackBar(
-                        SnackBar(
-                          content: Text('خطأ في تحديث أمر الشراء:\n$errorMsg'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    } else {
-                      messenger.showSnackBar(
-                        const SnackBar(
-                          content: Text('تم حفظ التعديلات بنجاح!'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                      if (context.mounted) Navigator.pop(context);
-                    }
-                  }
-                },
-          child: _isSubmitting
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                )
-              : Text(widget.po == null ? 'Create PO' : 'Save Changes'),
-        ),
-      ],
     );
   }
 }

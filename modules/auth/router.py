@@ -7,7 +7,7 @@ from .schemas import LoginRequest, TokenResponse, UserCreate, UserResponse
 from .security import decode_access_token
 from .service import AuthService
 
-router = APIRouter(prefix="/auth", tags=["Authentication & User Access Control (RBAC)"])
+router = APIRouter(prefix="/api/v1/auth", tags=["Authentication & User Access Control (RBAC)"])
 
 
 def get_current_user(authorization: str = Header(None), db: Session = Depends(get_db)) -> User:

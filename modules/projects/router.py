@@ -7,7 +7,7 @@ from database.database import get_db
 from modules.projects.schemas import ProjectCreate, ProjectResponse, ProjectUpdate
 from modules.projects.service import ProjectService
 
-router = APIRouter(prefix="/projects", tags=["Projects Module"])
+router = APIRouter(prefix="/api/v1/projects", tags=["Projects Module"])
 
 
 @router.get("", response_model=List[ProjectResponse])

@@ -16,7 +16,7 @@ final entityAuditTimelineProvider = FutureProvider.family<List<AuditLogModel>, (
 // Fetch all system-wide audit logs live from API
 final systemAuditLogsProvider = FutureProvider<List<AuditLogModel>>((ref) async {
   final dio = ref.watch(dioProvider);
-  final response = await dio.get('${ApiConstants.baseUrl}/audit-logs/?limit=200');
+  final response = await dio.get('${ApiConstants.baseUrl}/audit-logs?limit=200');
   final List data = response.data as List;
   return data.map((json) => AuditLogModel.fromJson(json as Map<String, dynamic>)).toList();
 });

@@ -18,7 +18,7 @@ from .service import (
 # ==================================================
 
 supplier_router = APIRouter(
-    prefix="/suppliers",
+    prefix="/api/v1/suppliers",
     tags=["Suppliers & Foreign Exporters"]
 )
 
@@ -28,7 +28,7 @@ supplier_router = APIRouter(
 # ==================================================
 
 @supplier_router.post(
-    "/",
+    "",
     response_model=SupplierResponse,
     status_code=status.HTTP_201_CREATED
 )
@@ -43,11 +43,11 @@ def create_supplier(supplier: SupplierCreate, db: Session = Depends(get_db)):
 
 
 # ==================================================
-# Get Suppliers Endpoint (Active or All)
+# Get All Suppliers (Active or All) Endpoint
 # ==================================================
 
 @supplier_router.get(
-    "/",
+    "",
     response_model=list[SupplierResponse]
 )
 def get_suppliers(include_inactive: bool = False, db: Session = Depends(get_db)):

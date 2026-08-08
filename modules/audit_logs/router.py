@@ -5,10 +5,10 @@ from database.database import get_db
 from .schemas import AuditLogResponse
 from .service import AuditLogService
 
-router = APIRouter(prefix="/audit-logs", tags=["Audit Logs Engine"])
+router = APIRouter(prefix="/api/v1/audit-logs", tags=["Audit Logs Engine"])
 
 
-@router.get("/", response_model=List[AuditLogResponse])
+@router.get("", response_model=List[AuditLogResponse])
 def get_all_audit_logs(limit: int = Query(100, ge=1, le=500), db: Session = Depends(get_db)):
     service = AuditLogService(db)
     return service.get_all_logs(limit=limit)

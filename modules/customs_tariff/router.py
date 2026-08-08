@@ -23,10 +23,15 @@ from .service import (
     update_tariff_service,
 )
 
-customs_tariff_router = APIRouter(prefix="/customs-tariff", tags=["Customs Tariff"])
+customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Customs Tariff"])
 
 
-@customs_tariff_router.post("/", response_model=CustomsTariffResponse)
+@customs_tariff_router.get("", response_model=List[CustomsTariffResponse])
+def get_all_tariffs(include_inactive: bool = Query(False), db: Session = Depends(get_db)):
+    return get_all_tariffs_service(db, include_inactive)
+
+
+@customs_tariff_router.post("", response_model=CustomsTariffResponse)
 def create_tariff(data: CustomsTariffCreate, db: Session = Depends(get_db)):
     try:
         return create_tariff_service(db, data)

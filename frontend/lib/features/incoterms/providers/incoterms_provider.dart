@@ -31,7 +31,7 @@ class IncotermsNotifier
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/incoterms/',
+        '${ApiConstants.baseUrl}/incoterms',
         queryParameters: {'include_inactive': showInactive},
       );
       final list = (response.data as List)
@@ -45,7 +45,7 @@ class IncotermsNotifier
 
   Future<String?> createIncoterm(Map<String, dynamic> data) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/incoterms/', data: data);
+      await _dio.post('${ApiConstants.baseUrl}/incoterms', data: data);
       ref.invalidate(incotermsProvider);
       return null;
     } on DioException catch (e) {
@@ -112,7 +112,7 @@ class CostItemsNotifier
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/cost-items/',
+        '${ApiConstants.baseUrl}/cost-items',
         queryParameters: {'include_inactive': showInactive},
       );
       final list = (response.data as List)
@@ -126,7 +126,7 @@ class CostItemsNotifier
 
   Future<String?> createCostItem(Map<String, dynamic> data) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/cost-items/', data: data);
+      await _dio.post('${ApiConstants.baseUrl}/cost-items', data: data);
       ref.invalidate(costItemsProvider);
       return null;
     } on DioException catch (e) {
@@ -191,7 +191,7 @@ class ResponsibilityMatrixNotifier
     state = const AsyncValue.loading();
     try {
       final response =
-          await _dio.get('${ApiConstants.baseUrl}/incoterm-responsibilities/');
+          await _dio.get('${ApiConstants.baseUrl}/incoterm-responsibilities');
       final list = (response.data as List)
           .map((json) => IncotermResponsibilityModel.fromJson(json))
           .toList();
@@ -216,7 +216,7 @@ class ResponsibilityMatrixNotifier
 
   Future<String?> createResponsibility(Map<String, dynamic> data) async {
     try {
-      await _dio.post('${ApiConstants.baseUrl}/incoterm-responsibilities/',
+      await _dio.post('${ApiConstants.baseUrl}/incoterm-responsibilities',
           data: data);
       ref.invalidate(responsibilityMatrixProvider);
       return null;

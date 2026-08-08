@@ -24,7 +24,7 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/import-companies/',
+        '${ApiConstants.baseUrl}/import-companies',
         queryParameters: {'include_inactive': showInactive},
       );
       final List data = response.data;
@@ -38,7 +38,7 @@ class ImportCompaniesNotifier extends StateNotifier<AsyncValue<List<ImportCompan
   Future<String?> createCompany(ImportCompanyModel company) async {
     try {
       await _dio.post(
-        '${ApiConstants.baseUrl}/import-companies/',
+        '${ApiConstants.baseUrl}/import-companies',
         data: company.toJson(),
       );
       ref?.invalidate(systemAuditLogsProvider);

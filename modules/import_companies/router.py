@@ -24,7 +24,7 @@ from .service import restore_import_company
 # ==================================================
 
 import_router = APIRouter(
-    prefix="/import-companies",
+    prefix="/api/v1/import-companies",
     tags=["Import Companies"]
 )
 
@@ -34,7 +34,7 @@ import_router = APIRouter(
 # ==================================================
 
 @import_router.post(
-    "/",
+    "",
     response_model=ImportCompanyResponse
 )
 def create_company(
@@ -53,7 +53,7 @@ def create_company(
 # ==================================================
 
 @import_router.get(
-    "/",
+    "",
     response_model=list[ImportCompanyResponse]
 )
 def get_companies(

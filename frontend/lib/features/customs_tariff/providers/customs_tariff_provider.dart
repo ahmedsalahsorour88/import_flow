@@ -33,7 +33,7 @@ class CustomsTariffNotifier
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/customs-tariff/',
+        '${ApiConstants.baseUrl}/customs-tariff',
         queryParameters: {
           'include_inactive': showInactive,
           if (search.isNotEmpty) 'search': search,
@@ -51,7 +51,7 @@ class CustomsTariffNotifier
   Future<String?> createTariff(Map<String, dynamic> data) async {
     try {
       await _dio.post(
-        '${ApiConstants.baseUrl}/customs-tariff/',
+        '${ApiConstants.baseUrl}/customs-tariff',
         data: data,
       );
       ref.invalidate(systemAuditLogsProvider);

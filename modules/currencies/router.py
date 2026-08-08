@@ -13,7 +13,7 @@ from modules.currencies.schemas import (
 )
 from modules.currencies.service import CurrencyService
 
-router = APIRouter(prefix="/currencies", tags=["Currencies & Exchange Rates (MD-004)"])
+router = APIRouter(prefix="/api/v1/currencies", tags=["Currencies & Exchange Rates (MD-004)"])
 
 
 @router.get("", response_model=List[CurrencyResponse])

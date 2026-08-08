@@ -41,14 +41,15 @@ from .service import (
 # Router
 # ==================================================
 
-incoterms_router = APIRouter(tags=["Incoterms"])
+incoterms_router = APIRouter(prefix="/api/v1", tags=["Incoterms"])
 
 
 # ==================================================
 # Incoterms Endpoints (MD-006)
 # ==================================================
 
-@incoterms_router.post("/incoterms/", response_model=IncotermResponse)
+@incoterms_router.post("/incoterms", response_model=IncotermResponse)
+@incoterms_router.post("/incoterms/", response_model=IncotermResponse, include_in_schema=False)
 def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db)):
     try:
         return create_incoterm_service(db, data)
@@ -56,7 +57,8 @@ def create_incoterm(data: IncotermCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@incoterms_router.get("/incoterms/", response_model=List[IncotermResponse])
+@incoterms_router.get("/incoterms", response_model=List[IncotermResponse])
+@incoterms_router.get("/incoterms/", response_model=List[IncotermResponse], include_in_schema=False)
 def list_incoterms(include_inactive: bool = False, db: Session = Depends(get_db)):
     return get_all_incoterms_service(db, include_inactive)
 
@@ -88,7 +90,8 @@ def restore_incoterm(incoterm_id: int, db: Session = Depends(get_db)):
 # Cost Items Endpoints (MD-006A)
 # ==================================================
 
-@incoterms_router.post("/cost-items/", response_model=CostItemResponse)
+@incoterms_router.post("/cost-items", response_model=CostItemResponse)
+@incoterms_router.post("/cost-items/", response_model=CostItemResponse, include_in_schema=False)
 def create_cost_item(data: CostItemCreate, db: Session = Depends(get_db)):
     try:
         return create_cost_item_service(db, data)
@@ -96,7 +99,8 @@ def create_cost_item(data: CostItemCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@incoterms_router.get("/cost-items/", response_model=List[CostItemResponse])
+@incoterms_router.get("/cost-items", response_model=List[CostItemResponse])
+@incoterms_router.get("/cost-items/", response_model=List[CostItemResponse], include_in_schema=False)
 def list_cost_items(include_inactive: bool = False, db: Session = Depends(get_db)):
     return get_all_cost_items_service(db, include_inactive)
 
@@ -129,7 +133,10 @@ def restore_cost_item(cost_item_id: int, db: Session = Depends(get_db)):
 # ==================================================
 
 @incoterms_router.post(
-    "/incoterm-responsibilities/", response_model=IncotermResponsibilityResponse
+    "/incoterm-responsibilities", response_model=IncotermResponsibilityResponse
+)
+@incoterms_router.post(
+    "/incoterm-responsibilities/", response_model=IncotermResponsibilityResponse, include_in_schema=False
 )
 def create_responsibility(
     data: IncotermResponsibilityCreate, db: Session = Depends(get_db)
@@ -141,7 +148,10 @@ def create_responsibility(
 
 
 @incoterms_router.get(
-    "/incoterm-responsibilities/", response_model=List[IncotermResponsibilityResponse]
+    "/incoterm-responsibilities", response_model=List[IncotermResponsibilityResponse]
+)
+@incoterms_router.get(
+    "/incoterm-responsibilities/", response_model=List[IncotermResponsibilityResponse], include_in_schema=False
 )
 def list_responsibilities(db: Session = Depends(get_db)):
     return get_all_responsibilities_service(db)

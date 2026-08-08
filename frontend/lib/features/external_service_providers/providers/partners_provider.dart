@@ -32,7 +32,7 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       }
 
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/external-service-providers/',
+        '${ApiConstants.baseUrl}/external-service-providers',
         queryParameters: queryParams,
       );
       final List data = response.data;
@@ -46,7 +46,7 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   Future<String?> createPartner(PartnerModel partner) async {
     try {
       await _dio.post(
-        '${ApiConstants.baseUrl}/external-service-providers/',
+        '${ApiConstants.baseUrl}/external-service-providers',
         data: partner.toJson(),
       );
       ref?.invalidate(systemAuditLogsProvider);

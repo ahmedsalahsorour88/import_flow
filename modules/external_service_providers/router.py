@@ -6,12 +6,12 @@ from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate
 from .service import ExternalServiceProviderService
 
 router = APIRouter(
-    prefix="/external-service-providers",
+    prefix="/api/v1/external-service-providers",
     tags=["External Service Providers & Financial Partners (MD-003)"]
 )
 
 
-@router.get("/", response_model=List[PartnerResponse])
+@router.get("", response_model=List[PartnerResponse])
 def list_partners(
     partner_type: Optional[str] = Query(None, description="Filter by partner type e.g. Bank, Shipping Line, Customs Broker"),
     include_inactive: bool = Query(False, description="Set True to include deactivated partners"),
@@ -21,7 +21,7 @@ def list_partners(
     return service.get_all_partners(partner_type=partner_type, include_inactive=include_inactive)
 
 
-@router.post("/", response_model=PartnerResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=PartnerResponse, status_code=status.HTTP_201_CREATED)
 def create_partner(
     partner_data: PartnerCreate,
     db: Session = Depends(get_db)

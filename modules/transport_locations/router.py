@@ -11,7 +11,7 @@ from modules.transport_locations.schemas import (
 )
 from modules.transport_locations.service import TransportLocationService
 
-router = APIRouter(prefix="/transport-locations", tags=["Transport Locations (MD-009)"])
+router = APIRouter(prefix="/api/v1/transport-locations", tags=["Transport Locations (MD-009)"])
 
 
 @router.get("", response_model=List[TransportLocationResponse])

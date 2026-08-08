@@ -4326,3 +4326,72 @@ ________________________________________
    - **pytest:** 64/64 Unit Tests Passed (100% Passing rate).
    - **flutter analyze:** 0 Errors across the entire codebase.
 
+________________________________________
+
+# 📊 4. Comprehensive Analysis & System Roadmap (تحليل المقارنة والدمج والخطة القادمة)
+
+## 4.1 مقارنة بين ما تم إنجازه والمتبقي (Completed vs. Remaining Matrix)
+
+| الموديول / العنصر | الموديولات المرتبطة في المواصفة | الحالة الحالية | نوع الدمج / التحسين المنفذ |
+| :--- | :--- | :--- | :--- |
+| **Import Companies** | MD-001 | **مكتمل 100%** ✅ | حساب آلي لتاريخ التجديد والانتهاء وAlert Badges تفاعلية. |
+| **Foreign Suppliers** | MD-002 | **مكتمل 100%** ✅ | منع تكرار `Registration Type` مع `Exporter ID` وتوليد `SUP-XXXXXX`. |
+| **External Service Providers & Shipping Lines** | MD-003, MD-004, MD-024 | **مكتمل ومدمج 100%** ✅ | **دمج شامل:** توحيد الخطوط الملاحية والبنوك التجارية والمخلصين والـ Freight Forwarders في جدول واحد مرن. |
+| **Currencies & Exchange Rates** | MD-005, MD-004 Rates | **مكتمل 100%** ✅ | فصل سعر الصرف التجاري عن سعر الصرف الجمركي الرسمي EGP. |
+| **Incoterms & Cost Matrix** | MD-006, MD-006A, MD-006B | **مكتمل 100%** ✅ | مصفوفة المسؤولية وتحمل التكاليف تفاعلية ومستقلة 100% عن الكود. |
+| **Customs Tariff & Duty Engine** | MD-008, Egyptian Customs | **مكتمل 100%** ✅ | محرك حساب جمركي مصري ذكي ينفذ 7 خطوات CIF->Duty->VAT->Schedule->Dev->Total دون أي Hardcoding. |
+| **Transport Locations** | MD-009, Ports & Airports | **مكتمل ومدمج 100%** ✅ | **دمج شامل:** توحيد الموانئ البحرية والمطارات والموانئ الجافة والمنافذ البرية بـ UN/LOCODE. |
+| **Projects Module** | PRJ-001, MD-007 | **مكتمل ومطور 100%** ✅ | **تطوير بناءً على طلب المستخدم:** دعم الربط بأكثر من شركة مستوردة تابعة للمجموعة وأكثر من نوع شحنة. |
+| **Purchase Orders & Proforma Invoices** | BP-001, BP-002 | **مكتمل 100%** ✅ | توليد `PO-YYYY-XXX` وحساب التكعيب المالي والـ FOB التجميعي وأوزان الشحنة. |
+| **Cargo Measurement Engine & CBM Calculator** | BP-004, MD-010..019 | **مكتمل ومطور 100%** ✅ | **تطوير تشغيلي:** أداة حرة قبل الشحن، حساب الوزن الجوي المحاسبي 1:6000، حاسبة الحاويات 20FT/40FT/40FT HC، وسجل جلسات `CALC-YYYY-XXX`. |
+| **Financial Approval & Form 4 / LC Opening** | BP-003, BP-007, BP-009, BP-010 | **قيد التنفيذ ⏳** | تتبع موافقة نموذج 4 البنكي وفتح الاعتماد المستندي والتحويلات T/T. |
+| **ACI / Nafeza & CargoX Integration** | BP-005, BP-011, BP-012 | **قيد التنفيذ ⏳** | تسجيل الـ ACI واستلام المستندات وقائمة التطابق الآلي (Verification Checklist). |
+| **Freight Rates & Booking** | BP-006, BP-008, BP-013, MD-020..026 | **مخطط ⏳** | حجز الشحن وعروض أسعار النولون وعقود الخطوط الملاحية. |
+
+---
+
+## 4.2 التحسينات والدمج الهندسي الذي تم تنفيذه (Implemented Architectural Consolidations)
+
+1. **دمج مقدمي الخدمات والخطوط الملاحية (Unified External Service Providers):**
+   - بدلاً من إنشاء 5 جداول منفصلة للـ Shipping Lines والـ Commercial Banks والـ Customs Brokers والـ Freight Forwarders والـ Inland Transport، تم دمجها في جدول ديناميكي واحد `external_service_providers` بـ Lookups ونوع الخدمة `partner_type` لتسهيل الاستعلامات وتقليل جداول قاعدة البيانات.
+
+2. **دمج المنافذ والموانئ في Transport Locations:**
+   - تم دمج الموانئ البحرية والمطارات والموانئ الجافة (Dry Ports) والمنافذ البرية ومحطات السكك الحديدية تحت جدول موحد `transport_locations` يعتمد على كود الـ UN/LOCODE المعتمد دولياً، مما يمنع التكرار ويسهل البحث الفوري.
+
+3. **المرونة التشغيلية لحاسبة الأحجام (CBM Calculator Operational Flexibility):**
+   - تم تحويل حاسبة الـ CBM من مجرد خطوة داخلية إلى **أداة تشغيلية مستقلة (Standalone Operational Tool)** تتيح للمستخدم إجراء الحسابات وتجربة سيناريوهات الشحن واختيار نوع وعدد الحاويات قبل إنشاء أو ربط الشحنة، ثم حفظ الجلسة بكود مرجعي `CALC-YYYY-XXX` مع إمكانية ربطها بأمر شراء `PO` أو مشروع في أي وقت.
+
+4. **تعدد الشركات الشقيقة وأنواع الشحنات في المشروع الواحد (Multi-Company & Multi-Category Projects):**
+   - تطوير جدول المشاريع لدعم استيراد المشروع الواحد لصالح **أكثر من شركة من شركات المجموعة** (`additional_company_ids`) وتغطية **أكثر من نوع شحنة** (`allow_multi_shipment`) مما يعكس بيئة العمل الحقيقية لشركات الاستيراد الكبرى.
+
+5. **تثبيت التصفح والتحديث الحي (Hash Persistence & Screen Mount Live Reload):**
+   - حل مشكلة خروج الواجهة للداش بورد عند F5 Refresh من خلال ربط مسار الشاشات بالـ URL Hash (`/#purchase-orders`)، مع تطبيق آلية `Live Reload` لتحديث البيانات حياً من السيرفر وإظهار مؤشرات التحميل عند فتح أي صفحة.
+
+---
+
+## 4.3 تحليل أهمية الأجزاء المتبقية (Impact & Business Value Analysis)
+
+1. **أهمية موديول الموافقات المالية ونموذج 4 (Form 4 & LC Module - BP-007/BP-009/BP-010):**
+   - **أهمية قانونية ومصرفية قصوى:** في نظام الاستيراد المصري، لا يمكن الإفراج عن الشحنة أو سداد قيمتها للمورد الأجنبي بدون صدور **النموذج 4 (Form 4)** المعتمد من البنك التجاري من خلال منظومة نافذة.
+   - **التحكم المالي:** يضمن النظام متابعة غطاء الاعتماد المستندي (LC Margin) والعمولات البنكية وآجال السداد.
+
+2. **أهمية موديول تسجيل الـ ACI والتكامل مع CargoX ونافذة (ACI & Document Intake - BP-005/BP-011/BP-012):**
+   - **الامتثال الجمركي الشديد:** التسجيل المسبق للشحنات (ACI) إجباري بموجب القانون الجمركي المصري قبل شحن البضائع من ميناء التحميل.
+   - **منع غرامات الأرضيات والمظلات:** قائمة التحقق الآلية (Verification Checklist) تمنع اختلاف بيانات المستندات (Invoice vs B/L vs Packing List) التي تسبب رفض الجمارك أو تأخير الإفراج.
+
+3. **أهمية موديول النولون وحجز الشحن (Freight Quotations & Booking - BP-006/BP-008):**
+   - **تحسين تكلفة الوصول (Landed Cost Optimization):** اختيار أفضل عرض سعر نولون (Ocean/Air Freight) بناءً على نتائج حاسبة الأحجام CBM.
+
+---
+
+## 4.4 التحسينات المقترحة والدمج المستقبلي الممكن (Proposed Future Consolidations)
+
+1. **دمج مواصفات الحاويات والطرود (Consolidation of Container Specifications & Package Types):**
+   - **المقترح:** بدلاً من فصل `Container Type` (MD-010) عن `Container Specification` (MD-011)، يُقترح دمجها في جدول واحد مرن باسم `container_types` يحتوي على الكود، الاسم، الأبعاد الداخلية، السعة التكعيبية القصوى CBM، والوزن الصافي والحمولات القصوى Payload Weight.
+
+2. **دمج عقود الشحن وتعريفات الأسعار (Consolidation of Freight Rates & Carrier Contracts):**
+   - **المقترح:** دمج `Carrier Contract` (MD-025) و `Freight Rate Master` (MD-026) في موديول موحد باسم `freight_rates` لربط الخط الملاحي، مسار الشحن (Origin -> Destination)، وسيلة الشحن، فترات السريان، وسعر الوحدة.
+
+3. **دمج إجراءات النموذج 4 والتحويلات المالية في موديول Financial Approvals:**
+   - **المقترح:** تجميع طلب نموذج 4 وإصدار الاعتماد المستندي والتحويل البنكي T/T في موديول موحد إدارة الموافقات المالية والبنكية (`financial_approval`) يتبع تسلسل حالات منظم: `Draft -> Submitted to Bank -> Form 4 Issued -> LC Opened -> Settled`.
+

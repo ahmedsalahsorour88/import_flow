@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../models/purchase_order_model.dart';
 
 class PurchaseOrdersState {
@@ -54,7 +55,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
-        '/api/v1/purchase-orders',
+        '/purchase-orders',
         queryParameters: {
           'include_inactive': state.showInactive,
           if (state.statusFilter != null && state.statusFilter!.isNotEmpty) 'status': state.statusFilter,
@@ -95,7 +96,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> createPurchaseOrder(PurchaseOrderModel po) async {
     try {
-      await _dio.post('/api/v1/purchase-orders', data: po.toJson());
+      await _dio.post('/purchase-orders', data: po.toJson());
       await fetchPurchaseOrders();
       return true;
     } catch (e) {
@@ -106,7 +107,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
     try {
-      await _dio.put('/api/v1/purchase-orders/$poId', data: data);
+      await _dio.put('/purchase-orders/$poId', data: data);
       await fetchPurchaseOrders();
       return true;
     } catch (e) {
@@ -117,7 +118,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> deletePurchaseOrder(int poId) async {
     try {
-      await _dio.delete('/api/v1/purchase-orders/$poId');
+      await _dio.delete('/purchase-orders/$poId');
       await fetchPurchaseOrders();
       return true;
     } catch (e) {
@@ -128,7 +129,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> restorePurchaseOrder(int poId) async {
     try {
-      await _dio.post('/api/v1/purchase-orders/$poId/restore');
+      await _dio.post('/purchase-orders/$poId/restore');
       await fetchPurchaseOrders();
       return true;
     } catch (e) {
@@ -140,9 +141,9 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
 final purchaseOrdersDioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
-    baseUrl: 'http://127.0.0.1:8000',
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
+    baseUrl: ApiConstants.baseUrl,
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 });
 

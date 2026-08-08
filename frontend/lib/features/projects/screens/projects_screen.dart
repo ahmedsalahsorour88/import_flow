@@ -206,7 +206,7 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                                 4: FixedColumnWidth(110),
                                 5: FixedColumnWidth(130),
                                 6: FixedColumnWidth(85),
-                                7: FixedColumnWidth(110),
+                                7: FixedColumnWidth(140),
                               },
                               children: [
                                 // Header

@@ -686,6 +686,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     const SnackBar(content: Text('Calculation session saved successfully.')),
                   );
                   _tabController.animateTo(1);
+                } else if (context.mounted) {
+                  final err = ref.read(cbmCalculatorProvider).errorMessage ?? 'Failed to save calculation session.';
+                  ScaffoldMessenger.of(dialogCtx).showSnackBar(
+                    SnackBar(content: Text('Error: $err'), backgroundColor: AppTheme.crimson),
+                  );
                 }
               }
             },

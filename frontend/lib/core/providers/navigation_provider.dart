@@ -30,7 +30,11 @@ final List<String> navSlugs = [
 
 int _getInitialIndexFromHash() {
   try {
-    final fragment = Uri.base.fragment.replaceAll('#', '').trim().toLowerCase();
+    final fragment = Uri.base.fragment
+        .replaceAll('/', '')
+        .replaceAll('#', '')
+        .trim()
+        .toLowerCase();
     if (fragment.isNotEmpty) {
       final index = navSlugs.indexOf(fragment);
       if (index != -1) return index;
@@ -47,13 +51,7 @@ void selectNavigationIndex(WidgetRef ref, int index) {
   // 1. Update State
   ref.read(navigationIndexProvider.notifier).state = index;
 
-  // 2. Update Browser Hash URL Fragment so F5 refresh stays on exact page
-  try {
-    final slug = navSlugs[index];
-    Uri.base.replace(fragment: slug);
-  } catch (_) {}
-
-  // 3. Live Auto-Refresh / Mount Live Data Fetch for target screen
+  // 2. Live Auto-Refresh / Mount Live Data Fetch for target screen
   _liveRefreshScreenData(ref, index);
 }
 

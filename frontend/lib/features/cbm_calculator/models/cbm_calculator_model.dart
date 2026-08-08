@@ -53,6 +53,17 @@ class CBMItemModel {
       'gross_weight_per_unit_kg': grossWeightPerUnitKg,
     };
   }
+
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'package_type': packageType,
+      'quantity': quantity > 0 ? quantity : 1,
+      'length_cm': lengthCm > 0 ? lengthCm : 1.0,
+      'width_cm': widthCm > 0 ? widthCm : 1.0,
+      'height_cm': heightCm > 0 ? heightCm : 1.0,
+      'gross_weight_per_unit_kg': grossWeightPerUnitKg > 0 ? grossWeightPerUnitKg : 1.0,
+    };
+  }
 }
 
 class CBMCalculationModel {
@@ -136,6 +147,16 @@ class CBMCalculationModel {
       'po_id': poId,
       'notes': notes,
       'items': items.map((i) => i.toJson()).toList(),
+    };
+  }
+
+  Map<String, dynamic> toCreateJson() {
+    return {
+      'title': title,
+      if (projectId != null) 'project_id': projectId,
+      if (poId != null) 'po_id': poId,
+      if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      'items': items.map((i) => i.toCreateJson()).toList(),
     };
   }
 }

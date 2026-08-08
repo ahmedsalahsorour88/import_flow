@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/api_constants.dart';
 import '../models/cbm_calculator_model.dart';
 
 class CBMCalculatorState {
@@ -60,7 +61,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
-        '/api/v1/cbm-calculator',
+        '/cbm-calculator',
         queryParameters: {
           'include_inactive': state.showInactive,
           if (state.projectFilter != null) 'project_id': state.projectFilter,
@@ -81,8 +82,8 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<Map<String, dynamic>?> quickCalculate(List<CBMItemModel> items) async {
     try {
-      final response = await _dio.post('/api/v1/cbm-calculator/quick-calculate', data: {
-        'items': items.map((i) => i.toJson()).toList(),
+      final response = await _dio.post('/cbm-calculator/quick-calculate', data: {
+        'items': items.map((i) => i.toCreateJson()).toList(),
       });
       state = state.copyWith(quickCalcResult: response.data);
       return response.data;
@@ -114,7 +115,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<bool> createCalculation(CBMCalculationModel calc) async {
     try {
-      await _dio.post('/api/v1/cbm-calculator', data: calc.toJson());
+      await _dio.post('/cbm-calculator', data: calc.toCreateJson());
       await fetchCalculations();
       return true;
     } catch (e) {
@@ -125,7 +126,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<bool> updateCalculation(int calcId, Map<String, dynamic> data) async {
     try {
-      await _dio.put('/api/v1/cbm-calculator/$calcId', data: data);
+      await _dio.put('/cbm-calculator/$calcId', data: data);
       await fetchCalculations();
       return true;
     } catch (e) {
@@ -136,7 +137,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<bool> linkToPO(int calcId, {int? poId, int? projectId}) async {
     try {
-      await _dio.post('/api/v1/cbm-calculator/$calcId/link', data: {
+      await _dio.post('/cbm-calculator/$calcId/link', data: {
         if (poId != null) 'po_id': poId,
         if (projectId != null) 'project_id': projectId,
       });
@@ -150,7 +151,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<bool> deleteCalculation(int calcId) async {
     try {
-      await _dio.delete('/api/v1/cbm-calculator/$calcId');
+      await _dio.delete('/cbm-calculator/$calcId');
       await fetchCalculations();
       return true;
     } catch (e) {
@@ -161,7 +162,7 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
   Future<bool> restoreCalculation(int calcId) async {
     try {
-      await _dio.post('/api/v1/cbm-calculator/$calcId/restore');
+      await _dio.post('/cbm-calculator/$calcId/restore');
       await fetchCalculations();
       return true;
     } catch (e) {
@@ -173,9 +174,9 @@ class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
 
 final cbmDioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
-    baseUrl: 'http://127.0.0.1:8000',
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
+    baseUrl: ApiConstants.baseUrl,
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 });
 

@@ -28,6 +28,12 @@ from modules.shipping_scenarios.model import ShippingEvaluationSession, Shipping
 from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
 from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+from modules.import_documentation.model import (
+    AcidRegistrationSession,
+    BankingDocumentSession,
+    ShipmentDocumentItem,
+    CustomsDeclarationDraft,
+)
 
 
 # ==================================================
@@ -50,6 +56,7 @@ from modules.shipping_scenarios.router import router as shipping_scenarios_route
 from modules.customs_consultation.router import router as customs_consultation_router
 from modules.freight_quotations.router import router as freight_quotations_router
 from modules.financial_approval.router import router as financial_approval_router
+from modules.import_documentation.router import router as import_documentation_router
 
 
 # ==================================================
@@ -94,6 +101,7 @@ app.include_router(shipping_scenarios_router)
 app.include_router(customs_consultation_router)
 app.include_router(freight_quotations_router)
 app.include_router(financial_approval_router)
+app.include_router(import_documentation_router)
 
 
 # ==================================================

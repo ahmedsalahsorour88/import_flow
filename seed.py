@@ -1212,6 +1212,103 @@ def seed_data():
             db.commit()
             print("Phase 2 Financial Approval seeded successfully.")
 
+        # ==================================================
+        # 17. Seed Phase 3 Import Documentation (BP-014 to BP-019)
+        # ==================================================
+        from modules.import_documentation.model import (
+            AcidRegistrationSession,
+            BankingDocumentSession,
+            ShipmentDocumentItem,
+            CustomsDeclarationDraft,
+        )
+
+        if db.query(AcidRegistrationSession).count() == 0:
+            print("Seeding Import Documentation & Nafeza ACI (BP-014 to BP-019)...")
+            acid1 = AcidRegistrationSession(
+                acid_code="ACID-2026-001",
+                acid_number="1987654321098765432",
+                importer_name="المصرية الحديثة للتنسيج والغزل ش.م.م",
+                importer_tax_id="100-200-300",
+                exporter_name="Shanghai Machinery & Textile Exports Ltd.",
+                exporter_reg_id="CN-SH-987654",
+                exporter_country="China",
+                proforma_invoice_no="PI-2026-SH09",
+                pol_name="Shanghai Port (CN SHA), China",
+                pod_name="Alexandria Port (EG ALX), Egypt",
+                requested_date=date(2026, 8, 1),
+                generated_date=date(2026, 8, 2),
+                expiry_date=date(2026, 11, 2),
+                is_importer_matched=True,
+                is_exporter_matched=True,
+                is_invoice_matched=True,
+                is_ports_matched=True,
+                verification_notes="تمت المطابقة التلقائية 100% ورقم الـ ACID صالح ومطابق على منصة نافذة.",
+                status="Verified",
+                is_active=True,
+            )
+            db.add(acid1)
+
+            bdoc1 = BankingDocumentSession(
+                bank_doc_code="FORM4-2026-001",
+                doc_type="Form 4",
+                bank_name="National Bank of Egypt (NBE)",
+                doc_reference_number="F4-2026-99081",
+                amount=62300.0,
+                currency_code="USD",
+                issue_date=date(2026, 8, 5),
+                expiry_date=date(2026, 12, 31),
+                status="Form Issued",
+                notes="تم إصدار نموذج 4 بنكي معتمد للتحويل السريع وصحيفة السداد.",
+                is_active=True,
+            )
+            db.add(bdoc1)
+
+            sdoc1 = ShipmentDocumentItem(
+                document_code="DOC-2026-001",
+                doc_name="Commercial Invoice (الفاتورة التجارية)",
+                doc_number="INV-2026-SH990",
+                issue_date=date(2026, 8, 6),
+                received_date=date(2026, 8, 7),
+                status="Approved",
+                is_cargox_uploaded=True,
+                cargox_envelope_id="ENV-CGX-2026-887766",
+                is_bl_endorsed=False,
+                notes="تم الرفع وتأكيد الغلاف الرقمي على منصة CargoX.",
+                is_active=True,
+            )
+
+            sdoc2 = ShipmentDocumentItem(
+                document_code="DOC-2026-002",
+                doc_name="Bill of Lading (بوليصة الشحن)",
+                doc_number="MAEU987654321",
+                issue_date=date(2026, 8, 8),
+                received_date=date(2026, 8, 8),
+                status="Endorsed",
+                is_cargox_uploaded=True,
+                cargox_envelope_id="ENV-CGX-2026-887766",
+                is_bl_endorsed=True,
+                endorsement_number="END-BL-2026-112233",
+                notes="تم التظهير الملاحي لبوليصة الشحن الأصلية بنجاح.",
+                is_active=True,
+            )
+            db.add_all([sdoc1, sdoc2])
+
+            dec1 = CustomsDeclarationDraft(
+                declaration_code="DEC46-2026-001",
+                acid_number="1987654321098765432",
+                form4_number="F4-2026-99081",
+                bl_number="MAEU987654321",
+                total_cif_val_egp=3322500.0,
+                total_customs_duties_egp=332250.0,
+                total_vat_egp=511665.0,
+                declaration_status="Draft Prepared",
+                is_active=True,
+            )
+            db.add(dec1)
+
+            db.commit()
+            print("Phase 3 Import Documentation seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

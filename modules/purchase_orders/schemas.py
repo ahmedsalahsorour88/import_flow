@@ -44,6 +44,7 @@ class PackingListItemBase(BaseModel):
     qty_pcs: float = Field(1.0, gt=0)
     qty_pkg: float = Field(1.0, gt=0)
     package_type: Optional[str] = Field("Carton", max_length=50)
+    unit: Optional[str] = Field("cm", max_length=10)
     length_cm: Optional[float] = Field(0.0, ge=0)
     width_cm: Optional[float] = Field(0.0, ge=0)
     height_cm: Optional[float] = Field(0.0, ge=0)

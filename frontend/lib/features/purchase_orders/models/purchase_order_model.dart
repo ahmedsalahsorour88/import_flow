@@ -107,6 +107,7 @@ class PackingListItemModel {
   final double qtyPcs;
   final double qtyPkg;
   final String packageType;
+  final String unit; // 'cm', 'mm', 'm'
   final double lengthCm;
   final double widthCm;
   final double heightCm;
@@ -125,6 +126,7 @@ class PackingListItemModel {
     this.qtyPcs = 1.0,
     this.qtyPkg = 1.0,
     this.packageType = 'Carton',
+    this.unit = 'cm',
     this.lengthCm = 0.0,
     this.widthCm = 0.0,
     this.heightCm = 0.0,
@@ -136,6 +138,15 @@ class PackingListItemModel {
     this.chargeableWeightKg = 0.0,
   });
 
+  double get lengthM => unit == 'mm' ? lengthCm / 1000.0 : (unit == 'm' ? lengthCm : lengthCm / 100.0);
+  double get widthM => unit == 'mm' ? widthCm / 1000.0 : (unit == 'm' ? widthCm : widthCm / 100.0);
+  double get heightM => unit == 'mm' ? heightCm / 1000.0 : (unit == 'm' ? heightCm : heightCm / 100.0);
+
+  double get calculatedCbm {
+    if (lengthM <= 0 || widthM <= 0 || heightM <= 0) return 0.0;
+    return qtyPkg * (lengthM * widthM * heightM);
+  }
+
   factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
     return PackingListItemModel(
       packingItemId: _numToInt(json['packing_item_id']),
@@ -145,6 +156,7 @@ class PackingListItemModel {
       qtyPcs: _numToDouble(json['qty_pcs'], 1.0),
       qtyPkg: _numToDouble(json['qty_pkg'], 1.0),
       packageType: json['package_type'] as String? ?? 'Carton',
+      unit: json['unit'] as String? ?? 'cm',
       lengthCm: _numToDouble(json['length_cm']),
       widthCm: _numToDouble(json['width_cm']),
       heightCm: _numToDouble(json['height_cm']),
@@ -166,6 +178,7 @@ class PackingListItemModel {
       'qty_pcs': qtyPcs,
       'qty_pkg': qtyPkg,
       'package_type': packageType,
+      'unit': unit,
       'length_cm': lengthCm,
       'width_cm': widthCm,
       'height_cm': heightCm,

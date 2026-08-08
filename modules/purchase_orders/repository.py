@@ -123,10 +123,19 @@ class PurchaseOrderRepository:
             for pitem in data.packing_list_items:
                 tot_net = round(pitem.qty_pcs * pitem.net_weight_unit_kg, 2)
                 tot_gross = round(pitem.qty_pcs * pitem.gross_weight_unit_kg, 2)
-                l_cm = pitem.length_cm or 0.0
-                w_cm = pitem.width_cm or 0.0
-                h_cm = pitem.height_cm or 0.0
-                tot_cbm = round(pitem.qty_pkg * (l_cm * w_cm * h_cm / 1_000_000.0), 4) if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.0
+                unit_str = getattr(pitem, "unit", "cm") or "cm"
+                l_val = pitem.length_cm or 0.0
+                w_val = pitem.width_cm or 0.0
+                h_val = pitem.height_cm or 0.0
+
+                if unit_str == "mm":
+                    l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
+                elif unit_str == "m":
+                    l_m, w_m, h_m = l_val, w_val, h_val
+                else:
+                    l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
+
+                tot_cbm = round(pitem.qty_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
 
                 pkg_total_net += tot_net
@@ -140,9 +149,9 @@ class PurchaseOrderRepository:
                     qty_pcs=pitem.qty_pcs,
                     qty_pkg=pitem.qty_pkg,
                     package_type=pitem.package_type.strip() if pitem.package_type else "Carton",
-                    length_cm=l_cm,
-                    width_cm=w_cm,
-                    height_cm=h_cm,
+                    length_cm=l_val,
+                    width_cm=w_val,
+                    height_cm=h_val,
                     net_weight_unit_kg=pitem.net_weight_unit_kg,
                     gross_weight_unit_kg=pitem.gross_weight_unit_kg,
                     total_net_weight_kg=tot_net,
@@ -240,13 +249,21 @@ class PurchaseOrderRepository:
                 q_pkg = pitem.get("qty_pkg", 1.0)
                 net_u = pitem.get("net_weight_unit_kg", 0.0)
                 gross_u = pitem.get("gross_weight_unit_kg", 0.0)
-                l_cm = pitem.get("length_cm") or 0.0
-                w_cm = pitem.get("width_cm") or 0.0
-                h_cm = pitem.get("height_cm") or 0.0
+                unit_str = pitem.get("unit", "cm") or "cm"
+                l_val = pitem.get("length_cm") or 0.0
+                w_val = pitem.get("width_cm") or 0.0
+                h_val = pitem.get("height_cm") or 0.0
+
+                if unit_str == "mm":
+                    l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
+                elif unit_str == "m":
+                    l_m, w_m, h_m = l_val, w_val, h_val
+                else:
+                    l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
 
                 tot_net = round(q_pcs * net_u, 2)
                 tot_gross = round(q_pcs * gross_u, 2)
-                tot_cbm = round(q_pkg * (l_cm * w_cm * h_cm / 1_000_000.0), 4) if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.0
+                tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
 
                 pkg_total_net += tot_net
@@ -260,9 +277,9 @@ class PurchaseOrderRepository:
                     qty_pcs=q_pcs,
                     qty_pkg=q_pkg,
                     package_type=pitem.get("package_type", "Carton"),
-                    length_cm=l_cm,
-                    width_cm=w_cm,
-                    height_cm=h_cm,
+                    length_cm=l_val,
+                    width_cm=w_val,
+                    height_cm=h_val,
                     net_weight_unit_kg=net_u,
                     gross_weight_unit_kg=gross_u,
                     total_net_weight_kg=tot_net,

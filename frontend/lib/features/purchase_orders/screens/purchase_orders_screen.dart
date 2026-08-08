@@ -105,7 +105,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               children: [
                 _buildSummaryMetric('Total POs', '$totalOrders Order(s)', Icons.receipt_long, Colors.blue),
                 const SizedBox(width: 12),
-                _buildSummaryMetric('Total FOB Value', '\$${totalFobSum.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
+                _buildSummaryMetric('Total PI/PO Amount', '\$${totalFobSum.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
                 const SizedBox(width: 12),
                 _buildSummaryMetric('Total Cargo CBM', '${totalCbmSum.toStringAsFixed(2)} CBM', Icons.view_in_ar, Colors.orange),
                 const SizedBox(width: 12),
@@ -293,7 +293,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 DataColumn(label: Text('Project')),
                 DataColumn(label: Text('Company')),
                 DataColumn(label: Text('Supplier')),
-                DataColumn(label: Text('FOB Amount')),
+                DataColumn(label: Text('PI/PO Amount')),
                 DataColumn(label: Text('CBM / Weight')),
                 DataColumn(label: Text('Status')),
                 DataColumn(label: Text('Actions')),
@@ -505,7 +505,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                 _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
                                 _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
                                 _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
-                                _buildDetailItem('Total FOB Value', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
+                                _buildDetailItem('Total PI/PO Amount', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
                                 _buildDetailItem('Total Volume', '${po.totalCbm.toStringAsFixed(3)} CBM'),
                                 _buildDetailItem('Gross / Net Weight', '${po.totalGrossWeightKg} kg / ${po.totalNetWeightKg} kg'),
                               ],
@@ -708,6 +708,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
           ),
           actions: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.cobalt,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('تعديل أمر الشراء (Edit PO)', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.pop(dialogCtx);
+                _showPODialog(context, po);
+              },
+            ),
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
               child: const Text('Close'),
@@ -1242,49 +1254,22 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          Expanded(
-                                            child: TextFormField(
-                                              initialValue: item.cbmPerUnit.toString(),
-                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'CBM / Unit', isDense: true),
-                                              onChanged: (v) {
-                                                final cbm = double.tryParse(v) ?? 0.0;
-                                                _dialogItems[idx] = POLineItemModel(
-                                                  itemCode: item.itemCode,
-                                                  descriptionAr: item.descriptionAr,
-                                                  descriptionEn: item.descriptionEn,
-                                                  tariffId: item.tariffId,
-                                                  quantity: item.quantity,
-                                                  unitOfMeasure: item.unitOfMeasure,
-                                                  unitPrice: item.unitPrice,
-                                                  cbmPerUnit: cbm,
-                                                  grossWeightKg: item.grossWeightKg,
-                                                  netWeightKg: item.netWeightKg,
-                                                );
-                                              },
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.shade50,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.green.shade200),
                                             ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: TextFormField(
-                                              initialValue: item.grossWeightKg.toString(),
-                                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Gross Wt (kg)', isDense: true),
-                                              onChanged: (v) {
-                                                final gw = double.tryParse(v) ?? 0.0;
-                                                _dialogItems[idx] = POLineItemModel(
-                                                  itemCode: item.itemCode,
-                                                  descriptionAr: item.descriptionAr,
-                                                  descriptionEn: item.descriptionEn,
-                                                  tariffId: item.tariffId,
-                                                  quantity: item.quantity,
-                                                  unitOfMeasure: item.unitOfMeasure,
-                                                  unitPrice: item.unitPrice,
-                                                  cbmPerUnit: item.cbmPerUnit,
-                                                  grossWeightKg: gw,
-                                                  netWeightKg: item.netWeightKg,
-                                                );
-                                              },
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.center,
+                                              children: [
+                                                const Text('Line Total', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                                Text(
+                                                  '\$${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
+                                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
+                                                ),
+                                              ],
                                             ),
                                           ),
                                         ],
@@ -1420,8 +1405,9 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                     itemBuilder: (context, idx) {
                                       final p = _dialogPackingItems[idx];
                                       return Card(
-                                        color: Colors.blue.shade50.withOpacity(0.5),
-                                        margin: const EdgeInsets.only(bottom: 8),
+                                        color: Colors.blue.shade50.withOpacity(0.4),
+                                        elevation: 1,
+                                        margin: const EdgeInsets.only(bottom: 10),
                                         child: Padding(
                                           padding: const EdgeInsets.all(10),
                                           child: Column(
@@ -1429,7 +1415,11 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             children: [
                                               Row(
                                                 children: [
-                                                  Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                  Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                    decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                                                    child: Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                                  ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
                                                     child: TextFormField(
@@ -1442,6 +1432,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                         qtyPcs: p.qtyPcs,
                                                         qtyPkg: p.qtyPkg,
                                                         packageType: p.packageType,
+                                                        unit: p.unit,
                                                         lengthCm: p.lengthCm,
                                                         widthCm: p.widthCm,
                                                         heightCm: p.heightCm,
@@ -1462,6 +1453,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                         qtyPcs: p.qtyPcs,
                                                         qtyPkg: p.qtyPkg,
                                                         packageType: p.packageType,
+                                                        unit: p.unit,
                                                         lengthCm: p.lengthCm,
                                                         widthCm: p.widthCm,
                                                         heightCm: p.heightCm,
@@ -1477,7 +1469,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       isExpanded: true,
                                                       decoration: const InputDecoration(labelText: 'Package Type', isDense: true),
                                                       items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
-                                                          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                                          .map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis)))
                                                           .toList(),
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = PackingListItemModel(
@@ -1486,6 +1478,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                           qtyPcs: p.qtyPcs,
                                                           qtyPkg: p.qtyPkg,
                                                           packageType: v ?? 'Carton',
+                                                          unit: p.unit,
                                                           lengthCm: p.lengthCm,
                                                           widthCm: p.widthCm,
                                                           heightCm: p.heightCm,
@@ -1501,9 +1494,38 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 6),
+                                              const SizedBox(height: 8),
                                               Row(
                                                 children: [
+                                                  SizedBox(
+                                                    width: 85,
+                                                    child: DropdownButtonFormField<String>(
+                                                      value: p.unit,
+                                                      isExpanded: true,
+                                                      decoration: const InputDecoration(labelText: 'Unit', isDense: true),
+                                                      items: const [
+                                                        DropdownMenuItem(value: 'cm', child: Text('cm')),
+                                                        DropdownMenuItem(value: 'mm', child: Text('mm')),
+                                                        DropdownMenuItem(value: 'm', child: Text('m')),
+                                                      ],
+                                                      onChanged: (v) => setState(() {
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          unit: v ?? 'cm',
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                        );
+                                                      }),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 6),
                                                   Expanded(
                                                     child: TextFormField(
                                                       initialValue: p.qtyPcs.toString(),
@@ -1511,18 +1533,21 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: q,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: q,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
@@ -1534,18 +1559,21 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       decoration: const InputDecoration(labelText: 'Qty PKG (طرود)', isDense: true),
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: q,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: q,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
@@ -1554,21 +1582,24 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                     child: TextFormField(
                                                       initialValue: p.lengthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'L (cm)', isDense: true),
+                                                      decoration: InputDecoration(labelText: 'Length (${p.unit})', isDense: true),
                                                       onChanged: (v) {
                                                         final l = double.tryParse(v) ?? 0.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: l,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: l,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
@@ -1577,21 +1608,24 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                     child: TextFormField(
                                                       initialValue: p.widthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'W (cm)', isDense: true),
+                                                      decoration: InputDecoration(labelText: 'Width (${p.unit})', isDense: true),
                                                       onChanged: (v) {
                                                         final w = double.tryParse(v) ?? 0.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: w,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: w,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
@@ -1600,68 +1634,116 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                     child: TextFormField(
                                                       initialValue: p.heightCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'H (cm)', isDense: true),
+                                                      decoration: InputDecoration(labelText: 'Height (${p.unit})', isDense: true),
                                                       onChanged: (v) {
                                                         final h = double.tryParse(v) ?? 0.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: h,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: h,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 6),
+                                                ],
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
                                                   Expanded(
                                                     child: TextFormField(
                                                       initialValue: p.netWeightUnitKg.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Net Wt/Unit', isDense: true),
+                                                      decoration: const InputDecoration(labelText: 'Net Wt/Unit (kg)', isDense: true),
                                                       onChanged: (v) {
                                                         final nw = double.tryParse(v) ?? 0.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: nw,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: nw,
+                                                            grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          );
+                                                        });
                                                       },
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 6),
+                                                  const SizedBox(width: 8),
                                                   Expanded(
                                                     child: TextFormField(
                                                       initialValue: p.grossWeightUnitKg.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit', isDense: true),
+                                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true),
                                                       onChanged: (v) {
                                                         final gw = double.tryParse(v) ?? 0.0;
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: gw,
-                                                        );
+                                                        setState(() {
+                                                          _dialogPackingItems[idx] = PackingListItemModel(
+                                                            hsCode: p.hsCode,
+                                                            itemCode: p.itemCode,
+                                                            qtyPcs: p.qtyPcs,
+                                                            qtyPkg: p.qtyPkg,
+                                                            packageType: p.packageType,
+                                                            unit: p.unit,
+                                                            lengthCm: p.lengthCm,
+                                                            widthCm: p.widthCm,
+                                                            heightCm: p.heightCm,
+                                                            netWeightUnitKg: p.netWeightUnitKg,
+                                                            grossWeightUnitKg: gw,
+                                                          );
+                                                        });
                                                       },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 12),
+                                                  Expanded(
+                                                    flex: 2,
+                                                    child: Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                      decoration: BoxDecoration(
+                                                        color: Colors.white,
+                                                        borderRadius: BorderRadius.circular(6),
+                                                        border: Border.all(color: Colors.blue.shade200),
+                                                      ),
+                                                      child: Row(
+                                                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                                        children: [
+                                                          Column(
+                                                            children: [
+                                                              const Text('Total Volume', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text('${p.calculatedCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
+                                                            ],
+                                                          ),
+                                                          Column(
+                                                            children: [
+                                                              const Text('Total Gross Wt', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text('${(p.qtyPcs * p.grossWeightUnitKg).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                                                            ],
+                                                          ),
+                                                          Column(
+                                                            children: [
+                                                              const Text('Air Chargeable', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text('${(p.calculatedCbm * 166.67).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
+                                                            ],
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 ],

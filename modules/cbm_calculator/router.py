@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from database import get_db
+from database.database import get_db
 from modules.cbm_calculator.schemas import (
     CBMCalculationCreate,
     CBMCalculationResponse,

@@ -67,9 +67,9 @@ class _RowHistoryDialogState extends ConsumerState<RowHistoryDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Activity Log & Audit History',
-                          style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           '${widget.entityType}: ${widget.entityTitle}',

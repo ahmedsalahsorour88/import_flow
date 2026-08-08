@@ -56,10 +56,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'System Audit Trail & History Logs',
                         style: TextStyle(

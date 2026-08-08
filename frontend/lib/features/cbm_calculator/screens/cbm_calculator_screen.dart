@@ -74,9 +74,9 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               children: [
                 const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Cargo Measurement Engine (حاسبة الأحجام والوزن الجوي)',
                       style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
@@ -133,11 +133,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     double totalVolumetricWt = 0.0;
 
     for (var item in _quickItems) {
-      final l_m = item.lengthM;
-      final w_m = item.widthM;
-      final h_m = item.heightM;
-      final cbm = item.quantity * l_m * w_m * h_m;
-      final volWt = (item.quantity * (l_m * 100.0) * (w_m * 100.0) * (h_m * 100.0)) / 6000.0;
+      final lM = item.lengthM;
+      final wM = item.widthM;
+      final hM = item.heightM;
+      final cbm = item.quantity * lM * wM * hM;
+      final volWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
       final gross = item.quantity * item.grossWeightPerUnitKg;
 
       totalCbm += cbm;
@@ -273,11 +273,11 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 separatorBuilder: (_, __) => const Divider(),
                 itemBuilder: (ctx, idx) {
                   final item = _quickItems[idx];
-                  final l_m = item.lengthM;
-                  final w_m = item.widthM;
-                  final h_m = item.heightM;
-                  final itemCbm = item.quantity * l_m * w_m * h_m;
-                  final itemVolWt = (item.quantity * (l_m * 100.0) * (w_m * 100.0) * (h_m * 100.0)) / 6000.0;
+                  final lM = item.lengthM;
+                  final wM = item.widthM;
+                  final hM = item.heightM;
+                  final itemCbm = item.quantity * lM * wM * hM;
+                  final itemVolWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
                   final itemGross = item.quantity * item.grossWeightPerUnitKg;
 
                   return Row(
@@ -594,10 +594,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           child: state.isLoading
               ? const Center(child: CircularProgressIndicator())
               : state.calculations.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
-                        children: const [
+                        children: [
                           Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
                           SizedBox(height: 12),
                           Text('No Saved Calculation Sessions Found', style: TextStyle(fontSize: 16, color: Colors.grey)),

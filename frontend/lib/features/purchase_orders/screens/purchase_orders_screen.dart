@@ -69,9 +69,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               children: [
                 const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Purchase Orders & Proforma Invoices (أوامر الشراء والفواتير المبدئية)',
                       style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
@@ -228,10 +228,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         ),
                       )
                     : state.purchaseOrders.isEmpty
-                        ? Center(
+                        ? const Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
-                              children: const [
+                              children: [
                                 Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
                                 SizedBox(height: 12),
                                 Text('No Purchase Orders Found', style: TextStyle(fontSize: 16, color: Colors.grey)),
@@ -429,9 +429,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     5: FlexColumnWidth(1.2),
                   },
                   children: [
-                    TableRow(
-                      decoration: const BoxDecoration(color: AppTheme.cloudWhite),
-                      children: const [
+                    const TableRow(
+                      decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                      children: [
                         Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
                         Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
                         Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),

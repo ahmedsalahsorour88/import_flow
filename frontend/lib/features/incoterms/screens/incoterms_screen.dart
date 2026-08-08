@@ -46,12 +46,12 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Incoterms Master (MD-006)',
                       style: TextStyle(
@@ -236,7 +236,7 @@ class _IncotermsTab extends ConsumerWidget {
                 },
                 children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal),
+                decoration: const BoxDecoration(color: AppTheme.charcoal),
                 children: ['Code', 'Name', 'Version', 'Status', 'Actions']
                     .map((h) => Padding(
                           padding: const EdgeInsets.symmetric(
@@ -585,7 +585,7 @@ class _CostItemsTab extends ConsumerWidget {
                 },
                 children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal),
+                decoration: const BoxDecoration(color: AppTheme.charcoal),
                 children: ['Code', 'Name', 'Category', 'Status', 'Actions']
                     .map((h) => Padding(
                           padding: const EdgeInsets.symmetric(
@@ -947,7 +947,7 @@ class _ResponsibilityMatrixTabState
                 },
                 children: [
               TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal),
+                decoration: const BoxDecoration(color: AppTheme.charcoal),
                 children: [
                   'Incoterm',
                   'Cost Item',

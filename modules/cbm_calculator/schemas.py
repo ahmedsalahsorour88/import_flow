@@ -4,13 +4,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CBMItemBase(BaseModel):
-    package_type: str = Field(default="Carton", example="Carton")
-    quantity: int = Field(..., gt=0, example=10)
-    length: float = Field(default=100.0, gt=0, example=120.0)
-    width: float = Field(default=80.0, gt=0, example=80.0)
-    height: float = Field(default=60.0, gt=0, example=100.0)
-    unit: str = Field(default="cm", example="cm")  # mm, cm, m
-    gross_weight_per_unit_kg: float = Field(default=0.0, ge=0, example=25.0)
+    package_type: str = Field(default="Carton", json_schema_extra={"example": "Carton"})
+    quantity: int = Field(..., gt=0, json_schema_extra={"example": 10})
+    length: float = Field(default=100.0, gt=0, json_schema_extra={"example": 120.0})
+    width: float = Field(default=80.0, gt=0, json_schema_extra={"example": 80.0})
+    height: float = Field(default=60.0, gt=0, json_schema_extra={"example": 100.0})
+    unit: str = Field(default="cm", json_schema_extra={"example": "cm"})  # mm, cm, m
+    gross_weight_per_unit_kg: float = Field(default=0.0, ge=0, json_schema_extra={"example": 25.0})
 
     @model_validator(mode="before")
     @classmethod
@@ -41,12 +41,21 @@ class CBMItemCreate(CBMItemBase):
     pass
 
 
-class CBMItemResponse(CBMItemBase):
+class CBMItemResponse(BaseModel):
     item_id: int
     calc_id: int
+    package_type: str
+    quantity: int
+    # DB stores dimensions in CM; optional raw fields for backwards compatibility
     length_cm: float
     width_cm: float
     height_cm: float
+    # Virtual / optional raw fields (populated from compute, may be absent from DB rows)
+    length: Optional[float] = None
+    width: Optional[float] = None
+    height: Optional[float] = None
+    unit: Optional[str] = None
+    gross_weight_per_unit_kg: float
     total_cbm: float
     volumetric_weight_kg: float
     total_gross_weight_kg: float
@@ -55,8 +64,8 @@ class CBMItemResponse(CBMItemBase):
 
 
 class CBMCalculationBase(BaseModel):
-    title: Optional[str] = Field(default=None, example="Solar Panels Batch Measurement")
-    shipment_mode: str = Field(default="air", example="air")  # air, sea
+    title: Optional[str] = Field(default=None, json_schema_extra={"example": "Solar Panels Batch Measurement"})
+    shipment_mode: str = Field(default="air", json_schema_extra={"example": "air"})  # air, sea
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None

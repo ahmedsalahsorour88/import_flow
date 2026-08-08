@@ -42,10 +42,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Egyptian Import Companies (MD-001)',
                         style: TextStyle(

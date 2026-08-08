@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
-import '../../../core/widgets/row_context_menu.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -53,10 +52,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'External Partners & Service Providers (MD-003)',
                         style: TextStyle(
@@ -473,20 +472,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     );
   }
 
-  IconData _getIconForCategory(String cat) {
-    switch (cat) {
-      case 'Bank':
-        return Icons.account_balance;
-      case 'Shipping Line':
-        return Icons.directions_boat;
-      case 'Customs Broker':
-        return Icons.assignment_ind;
-      case 'Freight Forwarder':
-        return Icons.local_shipping;
-      default:
-        return Icons.business;
-    }
-  }
+
 
   void _showPartnerDialog(BuildContext context, [PartnerModel? partnerToEdit]) {
     final isEditing = partnerToEdit != null;
@@ -519,12 +505,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final addressCtrl = TextEditingController(text: partnerToEdit?.address ?? '');
     final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? 'Egypt');
 
+    bool isSubmitting = false;
+
     showDialog(
       context: context,
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
-            bool isSubmitting = false;
             final isBank = selectedCategories.contains('Bank');
             final isShippingLine = selectedCategories.contains('Shipping Line');
             final isCustomsBroker = selectedCategories.contains('Customs Broker');
@@ -565,8 +552,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Multi-Select Partner Categories
-                              Row(
-                                children: const [
+                              const Row(
+                                children: [
                                   Text(
                                     'Partner Categories (Select one or multiple) *',
                                     style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal),

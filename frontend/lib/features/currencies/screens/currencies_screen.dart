@@ -38,9 +38,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Currencies & Exchange Rates (MD-004)',
                       style: TextStyle(

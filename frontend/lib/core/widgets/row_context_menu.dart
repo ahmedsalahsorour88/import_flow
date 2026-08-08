@@ -13,6 +13,7 @@ class RowContextMenuHelper {
     required VoidCallback onToggleActive,
   }) {
     final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     showMenu<String>(
       context: context,
@@ -23,30 +24,30 @@ class RowContextMenuHelper {
       elevation: 6,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       items: [
-        PopupMenuItem<String>(
+        const PopupMenuItem<String>(
           value: 'edit',
           child: Row(
-            children: const [
+            children: [
               Icon(Icons.edit, size: 18, color: AppTheme.cobalt),
               SizedBox(width: 10),
               Text('Edit Record', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
             ],
           ),
         ),
-        PopupMenuItem<String>(
+        const PopupMenuItem<String>(
           value: 'history',
           child: Row(
-            children: const [
+            children: [
               Icon(Icons.history, size: 18, color: AppTheme.charcoal),
               SizedBox(width: 10),
               Text('View Activity Log', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
             ],
           ),
         ),
-        PopupMenuItem<String>(
+        const PopupMenuItem<String>(
           value: 'copy',
           child: Row(
-            children: const [
+            children: [
               Icon(Icons.copy, size: 18, color: AppTheme.charcoal),
               SizedBox(width: 10),
               Text('Copy Code', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
@@ -87,7 +88,7 @@ class RowContextMenuHelper {
           break;
         case 'copy':
           Clipboard.setData(ClipboardData(text: codeToCopy));
-          ScaffoldMessenger.of(context).showSnackBar(
+          scaffoldMessenger.showSnackBar(
             SnackBar(
               content: Text('Copied "$codeToCopy" to clipboard'),
               duration: const Duration(seconds: 2),

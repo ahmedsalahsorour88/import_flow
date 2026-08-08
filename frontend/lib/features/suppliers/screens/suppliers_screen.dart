@@ -42,10 +42,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text(
                         'Foreign Suppliers Directory (MD-002)',
                         style: TextStyle(

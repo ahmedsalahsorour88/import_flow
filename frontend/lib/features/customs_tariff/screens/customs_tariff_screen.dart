@@ -44,9 +44,9 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
+                  children: [
                     Text(
                       'Customs Tariff / HS Code Master (MD-008)',
                       style: TextStyle(
@@ -746,8 +746,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setCalcState) => AlertDialog(
-          title: Row(
-            children: const [
+          title: const Row(
+            children: [
               Icon(Icons.calculate, color: AppTheme.emerald),
               SizedBox(width: 8),
               Text('Egyptian Customs Duty Calculator'),

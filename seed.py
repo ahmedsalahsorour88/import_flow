@@ -1353,6 +1353,53 @@ def seed_data():
             db.commit()
             print("Import Files Master seeded successfully.")
 
+        # ==================================================
+        # 19. Seed Phase 4 Freight Booking & Container Allocation
+        # ==================================================
+        from modules.freight_booking.model import ShipmentBooking
+
+        if db.query(ShipmentBooking).count() == 0:
+            print("Seeding Phase 4 Freight Booking...")
+            bkg1 = ShipmentBooking(
+                booking_code="BKG-2026-0001",
+                booking_confirmation_no="MSC-CN-889001",
+                freight_forwarder_name="El-Ahram Logistics",
+                shipping_line_name="Mediterranean Shipping Company (MSC)",
+                shipment_type="Ocean FCL",
+                pol_name="Shanghai Port (CNSHA)",
+                pod_name="Alexandria Port (EGALY)",
+                etd=datetime(2026, 8, 10, 10, 0, tzinfo=timezone.utc),
+                eta=datetime(2026, 8, 28, 14, 0, tzinfo=timezone.utc),
+                transit_time_days=18,
+                free_demurrage_days=14,
+                vessel_name="MSC Oscar",
+                voyage_number="VY-2026-X8",
+                container_release_order_no="RO-MSC-9912",
+                freight_terms="Collect",
+                containers_data=[
+                    {
+                        "container_type": "40HC",
+                        "quantity": 2,
+                        "container_numbers": ["MSCU1234567", "MSCU7654321"],
+                        "seal_numbers": ["SL-99001", "SL-99002"],
+                        "vgm_weight_kg": 24500.0
+                    }
+                ],
+                cost_charges_data=[
+                    {"charge_type": "Sea Freight", "unit": "Per Container", "quantity": 2, "currency": "USD", "rate": 2200.0, "total": 4400.0},
+                    {"charge_type": "THC", "unit": "Per Container", "quantity": 2, "currency": "USD", "rate": 350.0, "total": 700.0},
+                    {"charge_type": "BL Fee", "unit": "Per Shipment", "quantity": 1, "currency": "USD", "rate": 80.0, "total": 80.0}
+                ],
+                total_freight_cost_usd=5180.0,
+                status="Confirmed",
+                owner="Kamal",
+                notes="حجز مؤكد على MSC من ميناء شانغهاي لميناء الإسكندرية.",
+                is_active=True,
+            )
+            db.add(bkg1)
+            db.commit()
+            print("Phase 4 Freight Booking seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

@@ -20,6 +20,7 @@ import '../freight_quotations/screens/freight_quotations_screen.dart';
 import '../financial_approval/screens/financial_approval_screen.dart';
 import '../import_documentation/screens/import_documentation_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
+import '../freight_booking/screens/freight_booking_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -39,6 +40,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     CustomsConsultationScreen(),
     FinancialApprovalScreen(),
     ImportDocumentationScreen(),
+    FreightBookingScreen(),
     ProjectsScreen(),
     ImportCompaniesScreen(),
     SuppliersScreen(),
@@ -91,15 +93,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.gavel, 'Customs Broker (BP-009)', 6, selectedIndex),
                       _buildMenuItem(Icons.account_balance_wallet, 'Financial Approval (Phase 2)', 7, selectedIndex),
                       _buildMenuItem(Icons.verified_user, 'Import Docs & ACID (Phase 3)', 8, selectedIndex),
-                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 9, selectedIndex),
-                      _buildMenuItem(Icons.domain, 'Import Companies', 10, selectedIndex),
-                      _buildMenuItem(Icons.business, 'Suppliers', 11, selectedIndex),
-                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 12, selectedIndex),
-                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 13, selectedIndex),
-                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 14, selectedIndex),
-                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 15, selectedIndex),
-                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 16, selectedIndex),
-                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 17, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat, 'Freight Booking (Phase 4)', 9, selectedIndex),
+                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 10, selectedIndex),
+                      _buildMenuItem(Icons.domain, 'Import Companies', 11, selectedIndex),
+                      _buildMenuItem(Icons.business, 'Suppliers', 12, selectedIndex),
+                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 13, selectedIndex),
+                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 14, selectedIndex),
+                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 15, selectedIndex),
+                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 16, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 17, selectedIndex),
+                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 18, selectedIndex),
                     ],
                   ),
                 ),

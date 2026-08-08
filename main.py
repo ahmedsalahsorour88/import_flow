@@ -35,6 +35,7 @@ from modules.import_documentation.model import (
     CustomsDeclarationDraft,
 )
 from modules.import_files.model import ImportFile
+from modules.freight_booking.model import ShipmentBooking
 
 
 # ==================================================
@@ -59,6 +60,7 @@ from modules.freight_quotations.router import router as freight_quotations_route
 from modules.financial_approval.router import router as financial_approval_router
 from modules.import_documentation.router import router as import_documentation_router
 from modules.import_files.router import router as import_files_router
+from modules.freight_booking.router import router as freight_booking_router
 
 
 # ==================================================
@@ -105,6 +107,7 @@ app.include_router(freight_quotations_router)
 app.include_router(financial_approval_router)
 app.include_router(import_documentation_router)
 app.include_router(import_files_router)
+app.include_router(freight_booking_router)
 
 
 # ==================================================

@@ -1,0 +1,152 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/purchase_order_model.dart';
+
+class PurchaseOrdersState {
+  final List<PurchaseOrderModel> purchaseOrders;
+  final bool isLoading;
+  final String? errorMessage;
+  final String searchQuery;
+  final String? statusFilter;
+  final int? projectFilter;
+  final bool showInactive;
+
+  PurchaseOrdersState({
+    this.purchaseOrders = const [],
+    this.isLoading = false,
+    this.errorMessage,
+    this.searchQuery = '',
+    this.statusFilter,
+    this.projectFilter,
+    this.showInactive = false,
+  });
+
+  PurchaseOrdersState copyWith({
+    List<PurchaseOrderModel>? purchaseOrders,
+    bool? isLoading,
+    String? errorMessage,
+    String? searchQuery,
+    String? statusFilter,
+    int? projectFilter,
+    bool? showInactive,
+  }) {
+    return PurchaseOrdersState(
+      purchaseOrders: purchaseOrders ?? this.purchaseOrders,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+      searchQuery: searchQuery ?? this.searchQuery,
+      statusFilter: statusFilter ?? this.statusFilter,
+      projectFilter: projectFilter ?? this.projectFilter,
+      showInactive: showInactive ?? this.showInactive,
+    );
+  }
+}
+
+class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
+  final Dio _dio;
+
+  PurchaseOrdersNotifier(this._dio) : super(PurchaseOrdersState()) {
+    fetchPurchaseOrders();
+  }
+
+  Future<void> fetchPurchaseOrders() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final response = await _dio.get(
+        '/api/v1/purchase-orders',
+        queryParameters: {
+          'include_inactive': state.showInactive,
+          if (state.statusFilter != null && state.statusFilter!.isNotEmpty) 'status': state.statusFilter,
+          if (state.projectFilter != null) 'project_id': state.projectFilter,
+          if (state.searchQuery.isNotEmpty) 'search': state.searchQuery,
+        },
+      );
+      final List data = response.data;
+      final list = data.map((json) => PurchaseOrderModel.fromJson(json)).toList();
+      state = state.copyWith(purchaseOrders: list, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load purchase orders: ${e.toString()}',
+      );
+    }
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+    fetchPurchaseOrders();
+  }
+
+  void setStatusFilter(String? status) {
+    state = state.copyWith(statusFilter: status);
+    fetchPurchaseOrders();
+  }
+
+  void setProjectFilter(int? projectId) {
+    state = state.copyWith(projectFilter: projectId);
+    fetchPurchaseOrders();
+  }
+
+  void toggleShowInactive(bool val) {
+    state = state.copyWith(showInactive: val);
+    fetchPurchaseOrders();
+  }
+
+  Future<bool> createPurchaseOrder(PurchaseOrderModel po) async {
+    try {
+      await _dio.post('/api/v1/purchase-orders', data: po.toJson());
+      await fetchPurchaseOrders();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to create purchase order: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put('/api/v1/purchase-orders/$poId', data: data);
+      await fetchPurchaseOrders();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to update purchase order: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> deletePurchaseOrder(int poId) async {
+    try {
+      await _dio.delete('/api/v1/purchase-orders/$poId');
+      await fetchPurchaseOrders();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete purchase order: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> restorePurchaseOrder(int poId) async {
+    try {
+      await _dio.post('/api/v1/purchase-orders/$poId/restore');
+      await fetchPurchaseOrders();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to restore purchase order: ${e.toString()}');
+      return false;
+    }
+  }
+}
+
+final purchaseOrdersDioProvider = Provider<Dio>((ref) {
+  return Dio(BaseOptions(
+    baseUrl: 'http://127.0.0.1:8000',
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
+});
+
+final purchaseOrdersProvider = StateNotifierProvider<PurchaseOrdersNotifier, PurchaseOrdersState>((ref) {
+  final dio = ref.watch(purchaseOrdersDioProvider);
+  return PurchaseOrdersNotifier(dio);
+});

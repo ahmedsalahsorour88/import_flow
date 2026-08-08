@@ -5,7 +5,15 @@ import '../auth/providers/auth_provider.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
 import '../external_service_providers/screens/partners_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
+import '../incoterms/screens/incoterms_screen.dart';
+import '../customs_tariff/screens/customs_tariff_screen.dart';
+import '../transport_locations/screens/transport_locations_screen.dart';
+import '../currencies/screens/currencies_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
+import '../../core/providers/navigation_provider.dart';
+import '../projects/screens/projects_screen.dart';
+import '../purchase_orders/screens/purchase_orders_screen.dart';
+import '../cbm_calculator/screens/cbm_calculator_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -15,19 +23,24 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  int _selectedIndex = 0;
-
   final List<Widget> _screens = const [
     DashboardTab(),
+    PurchaseOrdersScreen(),
+    CBMCalculatorScreen(),
+    ProjectsScreen(),
     ImportCompaniesScreen(),
     SuppliersScreen(),
     PartnersScreen(),
     AuditLogsScreen(),
-    Center(child: Text('Customs & Cost - Coming Soon', style: TextStyle(fontSize: 18, color: Colors.grey))),
+    IncotermsScreen(),
+    CustomsTariffScreen(),
+    TransportLocationsScreen(),
+    CurrenciesScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
+    final selectedIndex = ref.watch(navigationIndexProvider);
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
@@ -57,12 +70,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ListView(
                     padding: EdgeInsets.zero,
                     children: [
-                      _buildMenuItem(Icons.dashboard, 'Dashboard', 0),
-                      _buildMenuItem(Icons.domain, 'Import Companies', 1),
-                      _buildMenuItem(Icons.business, 'Suppliers', 2),
-                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 3),
-                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 4),
-                      _buildMenuItem(Icons.calculate, 'Customs & Cost', 5),
+                      _buildMenuItem(Icons.dashboard, 'Dashboard', 0, selectedIndex),
+                      _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 1, selectedIndex),
+                      _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأحجام)', 2, selectedIndex),
+                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 3, selectedIndex),
+                      _buildMenuItem(Icons.domain, 'Import Companies', 4, selectedIndex),
+                      _buildMenuItem(Icons.business, 'Suppliers', 5, selectedIndex),
+                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 6, selectedIndex),
+                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 7, selectedIndex),
+                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 8, selectedIndex),
+                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 9, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 10, selectedIndex),
+                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 11, selectedIndex),
                     ],
                   ),
                 ),
@@ -132,7 +151,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           // Main Content Area
           Expanded(
             child: IndexedStack(
-              index: _selectedIndex,
+              index: selectedIndex,
               children: _screens,
             ),
           ),
@@ -183,8 +202,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index) {
-    final isSelected = _selectedIndex == index;
+  Widget _buildMenuItem(IconData icon, String title, int index, int selectedIndex) {
+    final isSelected = selectedIndex == index;
     return ListTile(
       leading: Icon(
         icon,
@@ -199,9 +218,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
       selected: isSelected,
       onTap: () {
-        setState(() {
-          _selectedIndex = index;
-        });
+        selectNavigationIndex(ref, index);
       },
     );
   }

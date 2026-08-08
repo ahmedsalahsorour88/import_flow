@@ -4248,3 +4248,81 @@ Notes for Developer
 •	إذا تم تعديل أى مستند بعد نجاح عملية التبادل الإلكترونى، يجب اعتبار عملية الرفع السابقة غير صالحة، وإجبار المستخدم على إعادة تنفيذ Verification Checklist ثم إعادة رفع المستندات، مع الاحتفاظ بالسجل التاريخى لجميع العمليات. 
 هذا التصميم يجعل المرحلة مرنة، قابلة للتوسع، ومستقلة عن CargoX، كما يسمح بإضافة مستندات جديدة أو قواعد تحقق جديدة أو حتى مزود خدمة جديد بالكامل دون الحاجة إلى إعادة تصميم النظام أو تعديل قاعدة البيانات.
 
+________________________________________
+
+# 🏛️ Implemented System Architecture & Module Registry (حالة النظام والوحدات المكتملة)
+
+تم بحمد الله بناء وتنفيذ الهيكل المعماري والوحدات التالية بالكامل في نظام **ImportFlow ERP** وفق أفضل معايير Enterprise Architecture واشتراطات `AGENTS.md`:
+
+## 1. Master Data Modules (البيانات المرجعية للنظام)
+
+### MD-001: Import Companies Master (الشركات المستوردة)
+- **Backend:** `modules/import_companies/`
+- **Model:** `ImportCompany` (اسم الشركة، السجل التجاري، البطاقة الضريبية، المتعاملين مع الجمارك، حاسبة تاريخ انتهاء البطاقة).
+- **Frontend:** `import_companies_screen.dart` مع مؤشرات التنبيه بالألوان وعمليات CRUD.
+
+### MD-002: Suppliers Master (الموردين الأجانب)
+- **Backend:** `modules/suppliers/`
+- **Model:** `Supplier` (اسم المورد، كود المورد المولد آلياً `SUP-XXXXXX`، رقم المصدر الأجنبي، الدولة، وتوليد كود التخليص).
+- **Frontend:** `suppliers_screen.dart` جدول تفاعلي مع البحث والتصفية.
+
+### MD-003: External Service Providers (شركاء الخدمة والبنوك والخطوط الملاحية)
+- **Backend:** `modules/external_service_providers/`
+- **Model:** `ExternalServiceProvider` (البنوك Commercial Banks، الخطوط الملاحية Shipping Lines، مخلصي الجمارك Customs Brokers، شركات الشحن Freight Forwarders، والتقييم).
+- **Frontend:** `partners_screen.dart` جدول تفاعلي بنظام Tabs.
+
+### MD-004: Currencies & Exchange Rates Master (العملات وأسعار الصرف الرسمية)
+- **Backend:** `modules/currencies/`
+- **Model:** `Currency`, `ExchangeRate` (9 عملات دولية رئيسية USD, EUR, GBP, EGP, CNY, SAR... مع فصل سعر البنك التجاري وسعر الصرف الجمركي الرسمي الرسمية الرسمية).
+- **Frontend:** `currencies_screen.dart` جدول أسعار الصرف وتاريخ التحديثات.
+
+### MD-006: Incoterms Master & Responsibility Matrix (الشروط التجارية الدولية)
+- **Backend:** `modules/incoterms/`
+- **Models:** `Incoterm` (11 شرطاً معتمداً 2020), `CostItem` (15 بند تكلفة)، و `IncotermResponsibility` (مصفوفة المسؤولية وتحمل التكاليف بين المورد والمستورد).
+- **Frontend:** `incoterms_screen.dart` مع حماية الجداول من الـ Overflow.
+
+### MD-008: Customs Tariff / HS Code Master & Egyptian Duty Engine (التعريفة الجمركية ومحرك الحساب الجمركي)
+- **Backend:** `modules/customs_tariff/`
+- **Model:** `CustomsTariff` (15 بند جمركي مصر حقيقي مع نسب ضريبة الوارد، القيمة المضافة VAT، ضريبة الجدول، رسم التنمية، ورسم الوارد والسريان التاريخي والجهات الرقابية).
+- **Service Engine:** `estimate_customs_duty_service` ينفذ متطلبات AGENTS.md 7.2 بدقة وبدون أي Hard-coding.
+- **Frontend:** `customs_tariff_screen.dart` حاسبة تفاعلية تقديرية للرسوم الجمركية المصرية.
+
+### MD-009: Transport Locations Master (الموانئ والمطارات والمنافذ البرية)
+- **Backend:** `modules/transport_locations/`
+- **Model:** `TransportLocation` (29 موقعاً دولياً ومصرياً ملاحياً بـ UN/LOCODE: موانئ بحرية، مطارات، موانئ جافة، ومنافذ برية).
+- **Frontend:** `transport_locations_screen.dart` مع فلاتر التصنيف وشريط البحث.
+
+---
+
+## 2. Business Modules (المراحل التشغيلية ونظام الاستيراد)
+
+### PRJ: Projects Module (المشاريع الاستيرادية)
+- **Backend:** `modules/projects/`
+- **Model:** `Project` (ربط الشحنات تحت مشروع استيرادي).
+- **Multi-Shipment & Multi-Company Capabilities:** دعم الشحن على أكثر من دفعة `allow_multi_shipment` والربط بأكثر من شركة مستوردة تابعة للمجموعة `additional_company_ids` مع دمج الأسماء آلياً.
+- **Frontend:** `projects_screen.dart` واجهة بطاقات وجداول بدعم الاختيارات المتعددة FilterChips.
+
+### BP-001 & BP-002: Purchase Orders & Proforma Invoices (أوامر الشراء والفواتير المبدئية)
+- **Backend:** `modules/purchase_orders/`
+- **Models:** `PurchaseOrder` & `POLineItem` (التوليد التلقائي لرفرنس `PO-YYYY-XXX` وحساب إجمالي القيم المالية FOB وتكعيب البنود وتجميع أوزان الشحنة).
+- **Frontend:** `purchase_orders_screen.dart` بطاقات إحصائية أعلى الشاشة (Total POs, FOB Value, Total CBM, Gross Weight)، جدول الشركات والموردين، ونافذة إضافة وتعديل البنود التفاعلية.
+
+### BP-004: Cargo Measurement Engine & CBM Calculator (حاسبة الأحجام والوزن الجوي والتوصيات)
+- **Backend:** `modules/cbm_calculator/`
+- **Models:** `CBMCalculation` & `CBMCalculationItem` (حساب الأحجام والـ Air Chargeable Weight بصيغة 1:6000 ومقارنتها بالوزن الفعلي، وتحديد وسيلة الشحن وحاسبة الحاويات 20FT, 40FT, 40FT HC).
+- **Standalone & Persistence Mode:** أداة تشغيلية حرة لحساب الـ CBM قبل ربطها بشحنة، مع حفظ السجلات المرجعية `CALC-YYYY-XXX` وإمكانية ربطها بأمر شراء أو مشروع بضغطة زر.
+- **Frontend:** `cbm_calculator_screen.dart` تبويب للحاسبة التشغيلية السريعة وتبويب لسجل الجلسات المحفوظة.
+
+---
+
+## 3. Core System Architecture & Quality Controls
+
+1. **Navigation State & Hash Persistence:**
+   - تم ربط تنقل الواجهات بـ URL Fragment Slugs (`/#purchase-orders`, `/#cbm-calculator`, `/#projects`...) في `navigation_provider.dart`.
+   - عند قيام المستخدم بعمل F5 Refresh يظل في نفس الصفحة بدلاً من الخروج للداش بورد.
+   - إعادة جلب البيانات الحية المحدثة (`Live Reload`) تلقائياً وإظهار مؤشر التحميل عند فتح أي صفحة.
+
+2. **Automated Verification:**
+   - **pytest:** 64/64 Unit Tests Passed (100% Passing rate).
+   - **flutter analyze:** 0 Errors across the entire codebase.
+

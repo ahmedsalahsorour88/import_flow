@@ -1,0 +1,198 @@
+from datetime import datetime
+from typing import List, Optional
+
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from modules.purchase_orders.model import POLineItem, PurchaseOrder
+from modules.purchase_orders.schemas import PurchaseOrderCreate, PurchaseOrderUpdate
+
+
+class PurchaseOrderRepository:
+
+    def __init__(self, db: Session):
+        self.db = db
+
+    def generate_po_number(self) -> str:
+        year = datetime.now().year
+        count = self.db.query(PurchaseOrder).count() + 1
+        return f"PO-{year}-{count:03d}"
+
+    def get_by_id(self, po_id: int) -> Optional[PurchaseOrder]:
+        return self.db.query(PurchaseOrder).filter(PurchaseOrder.po_id == po_id).first()
+
+    def get_by_number(self, po_number: str) -> Optional[PurchaseOrder]:
+        return self.db.query(PurchaseOrder).filter(PurchaseOrder.po_number == po_number.upper().strip()).first()
+
+    def get_all(
+        self,
+        include_inactive: bool = False,
+        status_filter: Optional[str] = None,
+        project_id: Optional[int] = None,
+        company_id: Optional[int] = None,
+        supplier_id: Optional[int] = None,
+        search: Optional[str] = None,
+    ) -> List[PurchaseOrder]:
+        query = self.db.query(PurchaseOrder)
+
+        if not include_inactive:
+            query = query.filter(PurchaseOrder.is_active.is_(True))
+
+        if status_filter:
+            query = query.filter(PurchaseOrder.status == status_filter)
+
+        if project_id:
+            query = query.filter(PurchaseOrder.project_id == project_id)
+
+        if company_id:
+            query = query.filter(PurchaseOrder.company_id == company_id)
+
+        if supplier_id:
+            query = query.filter(PurchaseOrder.supplier_id == supplier_id)
+
+        if search:
+            pattern = f"%{search.strip()}%"
+            query = query.filter(
+                or_(
+                    PurchaseOrder.po_number.ilike(pattern),
+                    PurchaseOrder.proforma_invoice_number.ilike(pattern),
+                    PurchaseOrder.notes.ilike(pattern),
+                )
+            )
+
+        return query.order_by(PurchaseOrder.created_at.desc()).all()
+
+    def create(self, data: PurchaseOrderCreate) -> PurchaseOrder:
+        po_num = data.po_number.upper().strip() if data.po_number else self.generate_po_number()
+
+        po = PurchaseOrder(
+            po_number=po_num,
+            proforma_invoice_number=data.proforma_invoice_number.strip() if data.proforma_invoice_number else None,
+            project_id=data.project_id,
+            company_id=data.company_id,
+            supplier_id=data.supplier_id,
+            incoterm_id=data.incoterm_id,
+            currency_id=data.currency_id,
+            expected_delivery_date=data.expected_delivery_date,
+            exchange_rate=data.exchange_rate,
+            payment_terms=data.payment_terms.strip() if data.payment_terms else None,
+            notes=data.notes.strip() if data.notes else None,
+            status="Draft",
+            is_active=True,
+        )
+
+        total_fob = 0.0
+        total_cbm = 0.0
+        total_gross = 0.0
+        total_net = 0.0
+        total_pkgs = 0
+
+        for item in data.items:
+            line_price = round(item.quantity * item.unit_price, 2)
+            line_cbm = round(item.quantity * item.cbm_per_unit, 4)
+
+            total_fob += line_price
+            total_cbm += line_cbm
+            total_gross += item.gross_weight_kg
+            total_net += item.net_weight_kg
+            total_pkgs += int(item.quantity)
+
+            po_item = POLineItem(
+                item_code=item.item_code.strip() if item.item_code else None,
+                description_ar=item.description_ar.strip(),
+                description_en=item.description_en.strip() if item.description_en else None,
+                tariff_id=item.tariff_id,
+                quantity=item.quantity,
+                unit_of_measure=item.unit_of_measure.strip(),
+                unit_price=item.unit_price,
+                total_price=line_price,
+                cbm_per_unit=item.cbm_per_unit,
+                total_cbm=line_cbm,
+                gross_weight_kg=item.gross_weight_kg,
+                net_weight_kg=item.net_weight_kg,
+            )
+            po.line_items.append(po_item)
+
+        po.total_amount_fob = total_fob
+        po.total_cbm = total_cbm
+        po.total_gross_weight_kg = total_gross
+        po.total_net_weight_kg = total_net
+        po.total_packages_count = total_pkgs
+
+        self.db.add(po)
+        self.db.commit()
+        self.db.refresh(po)
+        return po
+
+    def update(self, po: PurchaseOrder, data: PurchaseOrderUpdate) -> PurchaseOrder:
+        update_data = data.model_dump(exclude_unset=True)
+        items_data = update_data.pop("items", None)
+
+        for field, value in update_data.items():
+            if value is not None and isinstance(value, str):
+                value = value.strip()
+            setattr(po, field, value)
+
+        if items_data is not None:
+            # Recreate line items
+            po.line_items.clear()
+
+            total_fob = 0.0
+            total_cbm = 0.0
+            total_gross = 0.0
+            total_net = 0.0
+            total_pkgs = 0
+
+            for item_dict in items_data:
+                qty = item_dict.get("quantity", 1.0)
+                price = item_dict.get("unit_price", 0.0)
+                cbm_unit = item_dict.get("cbm_per_unit", 0.0)
+                gross = item_dict.get("gross_weight_kg", 0.0)
+                net = item_dict.get("net_weight_kg", 0.0)
+
+                line_price = round(qty * price, 2)
+                line_cbm = round(qty * cbm_unit, 4)
+
+                total_fob += line_price
+                total_cbm += line_cbm
+                total_gross += gross
+                total_net += net
+                total_pkgs += int(qty)
+
+                po_item = POLineItem(
+                    item_code=item_dict.get("item_code"),
+                    description_ar=item_dict.get("description_ar", "").strip(),
+                    description_en=item_dict.get("description_en"),
+                    tariff_id=item_dict.get("tariff_id"),
+                    quantity=qty,
+                    unit_of_measure=item_dict.get("unit_of_measure", "PCS"),
+                    unit_price=price,
+                    total_price=line_price,
+                    cbm_per_unit=cbm_unit,
+                    total_cbm=line_cbm,
+                    gross_weight_kg=gross,
+                    net_weight_kg=net,
+                )
+                po.line_items.append(po_item)
+
+            po.total_amount_fob = total_fob
+            po.total_cbm = total_cbm
+            po.total_gross_weight_kg = total_gross
+            po.total_net_weight_kg = total_net
+            po.total_packages_count = total_pkgs
+
+        self.db.commit()
+        self.db.refresh(po)
+        return po
+
+    def soft_delete(self, po: PurchaseOrder) -> PurchaseOrder:
+        po.is_active = False
+        self.db.commit()
+        self.db.refresh(po)
+        return po
+
+    def restore(self, po: PurchaseOrder) -> PurchaseOrder:
+        po.is_active = True
+        self.db.commit()
+        self.db.refresh(po)
+        return po

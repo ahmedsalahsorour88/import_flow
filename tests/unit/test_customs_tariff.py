@@ -1,0 +1,285 @@
+from datetime import date
+from decimal import Decimal
+import unittest
+
+from fastapi import HTTPException
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from database.database import Base
+from modules.customs_tariff.schemas import (
+    CustomsDutyEstimateRequest,
+    CustomsTariffCreate,
+    CustomsTariffUpdate,
+)
+from modules.customs_tariff.service import (
+    create_tariff_service,
+    delete_tariff_service,
+    estimate_customs_duty_service,
+    get_all_tariffs_service,
+    get_tariff_by_hs_code_service,
+    get_tariff_by_id_service,
+    restore_tariff_service,
+    update_tariff_service,
+)
+from modules.customs_tariff.validators import (
+    validate_effective_date_range,
+    validate_no_duplicate_hs_code,
+)
+
+
+class TestCustomsTariffBackend(unittest.TestCase):
+
+    def setUp(self):
+        self.engine = create_engine(
+            "sqlite:///:memory:", connect_args={"check_same_thread": False}
+        )
+        TestingSessionLocal = sessionmaker(
+            autocommit=False, autoflush=False, bind=self.engine
+        )
+        Base.metadata.create_all(bind=self.engine)
+        self.db = TestingSessionLocal()
+
+    def tearDown(self):
+        self.db.close()
+        Base.metadata.drop_all(bind=self.engine)
+
+    # ==================================================
+    # CRUD Tests
+    # ==================================================
+
+    def test_create_tariff(self):
+        data = CustomsTariffCreate(
+            hs_code="8471.30.00",
+            hs_description="Laptops and notebook computers",
+            customs_category="Electronics",
+            customs_duty_rate=Decimal("5.00"),
+            vat_rate=Decimal("14.00"),
+            development_fee_rate=Decimal("5.00"),
+            requires_coo=True,
+            requires_inspection=True,
+            requires_acid=True,
+            regulatory_authority="NTRA",
+        )
+        tariff = create_tariff_service(self.db, data)
+        self.assertEqual(tariff.hs_code, "8471.30.00")
+        self.assertEqual(tariff.customs_duty_rate, Decimal("5.00"))
+        self.assertEqual(tariff.vat_rate, Decimal("14.00"))
+        self.assertTrue(tariff.is_active)
+
+    def test_duplicate_hs_code_raises_error(self):
+        data = CustomsTariffCreate(
+            hs_code="8471.30.00",
+            hs_description="Laptops",
+            customs_duty_rate=Decimal("5.00"),
+            vat_rate=Decimal("14.00"),
+        )
+        create_tariff_service(self.db, data)
+        with self.assertRaises(ValueError):
+            create_tariff_service(self.db, data)
+
+    def test_invalid_date_range_raises_error(self):
+        with self.assertRaises(ValueError):
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+                effective_from=date(2024, 6, 1),
+                effective_to=date(2024, 1, 1),
+            )
+
+    def test_update_tariff(self):
+        data = CustomsTariffCreate(
+            hs_code="8471.30.00",
+            hs_description="Laptops",
+            customs_duty_rate=Decimal("5.00"),
+            vat_rate=Decimal("14.00"),
+        )
+        tariff = create_tariff_service(self.db, data)
+
+        update_data = CustomsTariffUpdate(
+            customs_duty_rate=Decimal("10.00"),
+            hs_description="Updated description",
+        )
+        updated = update_tariff_service(self.db, tariff.tariff_id, update_data)
+        self.assertEqual(updated.customs_duty_rate, Decimal("10.00"))
+        self.assertEqual(updated.hs_description, "Updated description")
+
+    def test_soft_delete_and_restore_tariff(self):
+        data = CustomsTariffCreate(
+            hs_code="8471.30.00",
+            hs_description="Laptops",
+            customs_duty_rate=Decimal("5.00"),
+            vat_rate=Decimal("14.00"),
+        )
+        tariff = create_tariff_service(self.db, data)
+
+        deleted = delete_tariff_service(self.db, tariff.tariff_id)
+        self.assertFalse(deleted.is_active)
+
+        restored = restore_tariff_service(self.db, tariff.tariff_id)
+        self.assertTrue(restored.is_active)
+
+    def test_get_tariff_by_id_404(self):
+        with self.assertRaises(HTTPException) as ctx:
+            get_tariff_by_id_service(self.db, 999)
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    def test_get_tariff_by_hs_code_404(self):
+        with self.assertRaises(HTTPException) as ctx:
+            get_tariff_by_hs_code_service(self.db, "0000.00.00")
+        self.assertEqual(ctx.exception.status_code, 404)
+
+    # ==================================================
+    # Egyptian Customs Calculation Engine Tests (7.2)
+    # ==================================================
+
+    def test_estimate_customs_duty_standard_laptop(self):
+        """
+        Customs Calculation Flow Verification for Laptop:
+        FOB/CIF = 100,000 EGP, Freight = 5,000 EGP
+        Duties:
+          - Import Duty (5%) = 100,000 * 5% = 5,000
+          - Schedule Tax (0%) = 0
+          - Development Fee (5%) = 100,000 * 5% = 5,000
+          - Import Fee (0%) = 0
+          - VAT Base = 100,000 + 5,000 (Duty) + 5,000 (Freight) = 110,000
+          - VAT (14%) = 110,000 * 14% = 15,400
+          - Total Taxes = 5,000 + 15,400 + 5,000 = 25,400
+        """
+        create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+                schedule_tax_rate=Decimal("0.00"),
+                development_fee_rate=Decimal("5.00"),
+                import_fee_rate=Decimal("0.00"),
+            ),
+        )
+
+        request = CustomsDutyEstimateRequest(
+            hs_code="8471.30.00",
+            cif_value=Decimal("100000.00"),
+            freight=Decimal("5000.00"),
+        )
+        breakdown = estimate_customs_duty_service(self.db, request)
+
+        self.assertEqual(breakdown.import_duty_amount, Decimal("5000.00"))
+        self.assertEqual(breakdown.vat_base, Decimal("110000.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("15400.00"))
+        self.assertEqual(breakdown.development_fee_amount, Decimal("5000.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("25400.00"))
+
+    def test_estimate_customs_duty_duty_free_pharmaceutical(self):
+        """
+        Customs Calculation Flow Verification for Pharmaceuticals (0% duty, 0% VAT):
+        CIF = 500,000 EGP, Freight = 20,000 EGP
+        All duties and VAT must be 0.
+        """
+        create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="3004.90.90",
+                hs_description="Medicaments",
+                customs_duty_rate=Decimal("0.00"),
+                vat_rate=Decimal("0.00"),
+                schedule_tax_rate=Decimal("0.00"),
+                development_fee_rate=Decimal("0.00"),
+            ),
+        )
+
+        request = CustomsDutyEstimateRequest(
+            hs_code="3004.90.90",
+            cif_value=Decimal("500000.00"),
+            freight=Decimal("20000.00"),
+        )
+        breakdown = estimate_customs_duty_service(self.db, request)
+
+        self.assertEqual(breakdown.import_duty_amount, Decimal("0.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("0.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("0.00"))
+
+    def test_estimate_customs_duty_car_with_schedule_tax(self):
+        """
+        Customs Calculation Flow Verification for Luxury Vehicle:
+        CIF = 600,000 EGP, Freight = 30,000 EGP
+        Rates: Duty 40%, VAT 14%, Schedule Tax 15%, Dev Fee 8%, Import Fee 3%
+        - Duty = 600,000 * 40% = 240,000
+        - Schedule Tax = 600,000 * 15% = 90,000
+        - Dev Fee = 600,000 * 8% = 48,000
+        - Import Fee = 600,000 * 3% = 18,000
+        - VAT Base = 600,000 + 240,000 + 30,000 = 870,000
+        - VAT = 870,000 * 14% = 121,800
+        - Total = 240,000 + 121,800 + 90,000 + 48,000 + 18,000 = 517,800
+        """
+        create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="8703.23.90",
+                hs_description="Vehicles",
+                customs_duty_rate=Decimal("40.00"),
+                vat_rate=Decimal("14.00"),
+                schedule_tax_rate=Decimal("15.00"),
+                development_fee_rate=Decimal("8.00"),
+                import_fee_rate=Decimal("3.00"),
+            ),
+        )
+
+        request = CustomsDutyEstimateRequest(
+            hs_code="8703.23.90",
+            cif_value=Decimal("600000.00"),
+            freight=Decimal("30000.00"),
+        )
+        breakdown = estimate_customs_duty_service(self.db, request)
+
+        self.assertEqual(breakdown.import_duty_amount, Decimal("240000.00"))
+        self.assertEqual(breakdown.schedule_tax_amount, Decimal("90000.00"))
+        self.assertEqual(breakdown.development_fee_amount, Decimal("48000.00"))
+        self.assertEqual(breakdown.import_fee_amount, Decimal("18000.00"))
+        self.assertEqual(breakdown.vat_base, Decimal("870000.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("121800.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("517800.00"))
+
+    # ==================================================
+    # Search and Filter Tests
+    # ==================================================
+
+    def test_search_tariffs(self):
+        create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="8471.30.00",
+                hs_description="Laptops and Notebooks",
+                customs_category="Electronics",
+                customs_duty_rate=Decimal("5.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+        create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="8703.23.90",
+                hs_description="Motor Vehicles",
+                customs_category="Automotive",
+                customs_duty_rate=Decimal("40.00"),
+                vat_rate=Decimal("14.00"),
+            ),
+        )
+
+        # Search by HS code
+        results = get_all_tariffs_service(self.db, search="8471")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].hs_code, "8471.30.00")
+
+        # Search by description
+        results = get_all_tariffs_service(self.db, search="Motor")
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].hs_code, "8703.23.90")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -224,14 +224,206 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         ),
                       ],
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) => const Divider(height: 1),
-                      itemBuilder: (context, index) {
-                        final partner = filtered[index];
-                        return _buildPartnerRow(partner);
-                      },
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.vertical,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minWidth: MediaQuery.of(context).size.width > 1100
+                                  ? MediaQuery.of(context).size.width - 300
+                                  : 950,
+                            ),
+                            child: Table(
+                              columnWidths: const {
+                                0: FixedColumnWidth(110),
+                                1: FlexColumnWidth(3),
+                                2: FlexColumnWidth(2.5),
+                                3: FlexColumnWidth(2),
+                                4: FixedColumnWidth(85),
+                                5: FixedColumnWidth(120),
+                              },
+                              children: [
+                                // Table Header
+                                TableRow(
+                                  decoration: const BoxDecoration(color: AppTheme.charcoal),
+                                  children: [
+                                    'Code',
+                                    'Partner Name & Category',
+                                    'Registration & License',
+                                    'Contact Details',
+                                    'Status',
+                                    'Actions'
+                                  ]
+                                      .map((h) => Padding(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                            child: Text(
+                                              h,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ))
+                                      .toList(),
+                                ),
+
+                                // Table Data Rows
+                                ...filtered.asMap().entries.map((entry) {
+                                  final partner = entry.value;
+                                  final isEven = entry.key % 2 == 0;
+                                  final isActive = partner.isActive;
+                                  final categories = partner.categoriesList;
+
+                                  return TableRow(
+                                    decoration: BoxDecoration(
+                                      color: isEven ? Colors.white : Colors.grey.shade50,
+                                    ),
+                                    children: [
+                                      // Code
+                                      _cell(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(4),
+                                          ),
+                                          child: Text(
+                                            partner.partnerCode,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                              color: AppTheme.charcoal,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Partner Name & Categories
+                                      _cell(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              partner.partnerName,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                                color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
+                                                decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Wrap(
+                                              spacing: 4,
+                                              runSpacing: 4,
+                                              children: categories.map((cat) => _buildCategoryBadge(cat)).toList(),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Registration & Identifiers
+                                      _cell(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
+                                              Text('SWIFT: ${partner.swiftCode}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
+                                              Text('SCAC: ${partner.scacCode}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                            if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
+                                              Text('License: ${partner.clearanceLicenseNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
+                                              Text('Reg: ${partner.commercialRegister}', style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text('Country: ${partner.country}', style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Contact Details
+                                      _cell(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(partner.email ?? 'No email', style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text(partner.phone ?? 'No phone', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
+                                      ),
+
+                                      // Status
+                                      _cell(
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                          child: Text(
+                                            isActive ? 'Active' : 'Inactive',
+                                            style: TextStyle(
+                                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+
+                                      // Actions
+                                      _cell(
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 18),
+                                              tooltip: 'View History',
+                                              onPressed: () {
+                                                if (partner.providerId != null) {
+                                                  RowHistoryDialog.show(
+                                                    context,
+                                                    entityType: 'ExternalServiceProvider',
+                                                    entityId: partner.providerId!,
+                                                    entityTitle: partner.partnerName,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
+                                              tooltip: 'Edit Partner',
+                                              onPressed: () => _showPartnerDialog(context, partner),
+                                            ),
+                                            Tooltip(
+                                              message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',
+                                              child: Switch(
+                                                value: isActive,
+                                                activeColor: AppTheme.emerald,
+                                                inactiveThumbColor: AppTheme.crimson,
+                                                onChanged: (_) {
+                                                  if (partner.providerId != null) {
+                                                    ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                                                  }
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                }),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
                     ),
                   );
                 },
@@ -242,183 +434,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
       ),
     );
   }
-  Widget _buildPartnerRow(PartnerModel partner) {
-    final isActive = partner.isActive;
-    final categories = partner.categoriesList;
 
-    return GestureDetector(
-      onSecondaryTapDown: (details) {
-        RowContextMenuHelper.showContextMenu(
-          context: context,
-          globalPosition: details.globalPosition,
-          codeToCopy: partner.partnerCode,
-          onEdit: () => _showPartnerDialog(context, partner),
-          onHistory: () => RowHistoryDialog.show(
-            context,
-            entityType: 'ExternalServiceProvider',
-            entityId: partner.providerId!,
-            entityTitle: partner.partnerName,
-          ),
-          isActive: isActive,
-          onToggleActive: () async {
-            if (partner.providerId != null) {
-              await ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-            }
-          },
-        );
-      },
-      child: Opacity(
-        opacity: isActive ? 1.0 : 0.6,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12.0),
-          child: Row(
-            children: [
-              // Category Icon
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: (isActive ? AppTheme.cobalt : Colors.grey).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Icon(_getIconForCategory(categories.firstOrNull ?? ''), color: isActive ? AppTheme.cobalt : Colors.grey),
-              ),
-              const SizedBox(width: 16),
-
-              // Code & Name & Multi-Category Badges
-              Expanded(
-                flex: 3,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: AppTheme.charcoal.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            partner.partnerCode,
-                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          partner.partnerName,
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: (isActive ? AppTheme.emerald : AppTheme.crimson).withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isActive ? 'Active' : 'Inactive',
-                            style: TextStyle(
-                              color: isActive ? AppTheme.emerald : AppTheme.crimson,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: categories.map((cat) => _buildCategoryBadge(cat)).toList(),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Specific Details
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
-                      Text('SWIFT: ${partner.swiftCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                    if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
-                      Text('SCAC: ${partner.scacCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                    if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
-                      Text('License: ${partner.clearanceLicenseNumber}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
-                    if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
-                      Text('Reg: ${partner.commercialRegister}', style: const TextStyle(fontSize: 12)),
-                    const SizedBox(height: 2),
-                    Text('Country: ${partner.country}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                  ],
-                ),
-              ),
-
-              // Contact Info
-              Expanded(
-                flex: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(partner.email ?? 'No email', style: const TextStyle(fontSize: 12)),
-                    const SizedBox(height: 2),
-                    Text(partner.phone ?? 'No phone', style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                  ],
-                ),
-              ),
-
-              // Actions: Edit, History Log & Switch
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
-                    tooltip: 'View Change History Logs',
-                    onPressed: () {
-                      if (partner.providerId != null) {
-                        RowHistoryDialog.show(
-                          context,
-                          entityType: 'ExternalServiceProvider',
-                          entityId: partner.providerId!,
-                          entityTitle: partner.partnerName,
-                        );
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                    tooltip: 'Edit External Partner',
-                    onPressed: () => _showPartnerDialog(context, partner),
-                  ),
-                  Tooltip(
-                    message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',
-                    child: Switch(
-                      value: isActive,
-                      activeColor: AppTheme.emerald,
-                      inactiveThumbColor: AppTheme.crimson,
-                      onChanged: (newStatus) {
-                        if (partner.providerId != null) {
-                          ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget _cell({required Widget child}) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        child: Align(alignment: Alignment.centerLeft, child: child),
+      );
 
   Widget _buildCategoryBadge(String cat) {
     Color color;

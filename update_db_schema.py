@@ -1,6 +1,8 @@
 import sqlite3
 from database.database import Base, engine
 from modules.audit_logs.model import AuditLog  # Register AuditLog model
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem  # Register CBM models
+from modules.purchase_orders.model import POLineItem, PurchaseOrder  # Register PurchaseOrder models
 
 
 def migrate_db():
@@ -38,6 +40,18 @@ def migrate_db():
                     print(f"Added column '{col_name}' ({col_type}) to external_service_providers table.")
                 except Exception as e:
                     print(f"Error adding column {col_name}: {e}")
+
+    # 3. Migration for projects table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(projects)")
+        proj_cols = [info[1] for info in cursor.fetchall()]
+        if "additional_company_ids" not in proj_cols:
+            try:
+                cursor.execute("ALTER TABLE projects ADD COLUMN additional_company_ids VARCHAR(250);")
+                print("Added column 'additional_company_ids' to projects table.")
+            except Exception as e:
+                print(f"Error adding column additional_company_ids: {e}")
 
     conn.commit()
     conn.close()

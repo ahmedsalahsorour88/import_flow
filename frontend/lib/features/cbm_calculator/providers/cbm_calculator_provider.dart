@@ -1,0 +1,185 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../models/cbm_calculator_model.dart';
+
+class CBMCalculatorState {
+  final List<CBMCalculationModel> calculations;
+  final bool isLoading;
+  final String? errorMessage;
+  final String searchQuery;
+  final int? projectFilter;
+  final int? poFilter;
+  final bool showInactive;
+
+  // Quick calc active result
+  final Map<String, dynamic>? quickCalcResult;
+
+  CBMCalculatorState({
+    this.calculations = const [],
+    this.isLoading = false,
+    this.errorMessage,
+    this.searchQuery = '',
+    this.projectFilter,
+    this.poFilter,
+    this.showInactive = false,
+    this.quickCalcResult,
+  });
+
+  CBMCalculatorState copyWith({
+    List<CBMCalculationModel>? calculations,
+    bool? isLoading,
+    String? errorMessage,
+    String? searchQuery,
+    int? projectFilter,
+    int? poFilter,
+    bool? showInactive,
+    Map<String, dynamic>? quickCalcResult,
+  }) {
+    return CBMCalculatorState(
+      calculations: calculations ?? this.calculations,
+      isLoading: isLoading ?? this.isLoading,
+      errorMessage: errorMessage,
+      searchQuery: searchQuery ?? this.searchQuery,
+      projectFilter: projectFilter ?? this.projectFilter,
+      poFilter: poFilter ?? this.poFilter,
+      showInactive: showInactive ?? this.showInactive,
+      quickCalcResult: quickCalcResult ?? this.quickCalcResult,
+    );
+  }
+}
+
+class CBMCalculatorNotifier extends StateNotifier<CBMCalculatorState> {
+  final Dio _dio;
+
+  CBMCalculatorNotifier(this._dio) : super(CBMCalculatorState()) {
+    fetchCalculations();
+  }
+
+  Future<void> fetchCalculations() async {
+    state = state.copyWith(isLoading: true, errorMessage: null);
+    try {
+      final response = await _dio.get(
+        '/api/v1/cbm-calculator',
+        queryParameters: {
+          'include_inactive': state.showInactive,
+          if (state.projectFilter != null) 'project_id': state.projectFilter,
+          if (state.poFilter != null) 'po_id': state.poFilter,
+          if (state.searchQuery.isNotEmpty) 'search': state.searchQuery,
+        },
+      );
+      final List data = response.data;
+      final list = data.map((json) => CBMCalculationModel.fromJson(json)).toList();
+      state = state.copyWith(calculations: list, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        errorMessage: 'Failed to load CBM calculations: ${e.toString()}',
+      );
+    }
+  }
+
+  Future<Map<String, dynamic>?> quickCalculate(List<CBMItemModel> items) async {
+    try {
+      final response = await _dio.post('/api/v1/cbm-calculator/quick-calculate', data: {
+        'items': items.map((i) => i.toJson()).toList(),
+      });
+      state = state.copyWith(quickCalcResult: response.data);
+      return response.data;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Quick calculation failed: ${e.toString()}');
+      return null;
+    }
+  }
+
+  void setSearchQuery(String query) {
+    state = state.copyWith(searchQuery: query);
+    fetchCalculations();
+  }
+
+  void setProjectFilter(int? projectId) {
+    state = state.copyWith(projectFilter: projectId);
+    fetchCalculations();
+  }
+
+  void setPoFilter(int? poId) {
+    state = state.copyWith(poFilter: poId);
+    fetchCalculations();
+  }
+
+  void toggleShowInactive(bool val) {
+    state = state.copyWith(showInactive: val);
+    fetchCalculations();
+  }
+
+  Future<bool> createCalculation(CBMCalculationModel calc) async {
+    try {
+      await _dio.post('/api/v1/cbm-calculator', data: calc.toJson());
+      await fetchCalculations();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to save calculation: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> updateCalculation(int calcId, Map<String, dynamic> data) async {
+    try {
+      await _dio.put('/api/v1/cbm-calculator/$calcId', data: data);
+      await fetchCalculations();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to update calculation: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> linkToPO(int calcId, {int? poId, int? projectId}) async {
+    try {
+      await _dio.post('/api/v1/cbm-calculator/$calcId/link', data: {
+        if (poId != null) 'po_id': poId,
+        if (projectId != null) 'project_id': projectId,
+      });
+      await fetchCalculations();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to link calculation: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> deleteCalculation(int calcId) async {
+    try {
+      await _dio.delete('/api/v1/cbm-calculator/$calcId');
+      await fetchCalculations();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to delete calculation: ${e.toString()}');
+      return false;
+    }
+  }
+
+  Future<bool> restoreCalculation(int calcId) async {
+    try {
+      await _dio.post('/api/v1/cbm-calculator/$calcId/restore');
+      await fetchCalculations();
+      return true;
+    } catch (e) {
+      state = state.copyWith(errorMessage: 'Failed to restore calculation: ${e.toString()}');
+      return false;
+    }
+  }
+}
+
+final cbmDioProvider = Provider<Dio>((ref) {
+  return Dio(BaseOptions(
+    baseUrl: 'http://127.0.0.1:8000',
+    connectTimeout: const Duration(seconds: 10),
+    receiveTimeout: const Duration(seconds: 10),
+  ));
+});
+
+final cbmCalculatorProvider = StateNotifierProvider<CBMCalculatorNotifier, CBMCalculatorState>((ref) {
+  final dio = ref.watch(cbmDioProvider);
+  return CBMCalculatorNotifier(dio);
+});

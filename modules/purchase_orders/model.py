@@ -1,0 +1,94 @@
+from datetime import datetime, timezone
+
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.orm import relationship
+
+from database.database import Base
+
+
+# ==================================================
+# Purchase Orders & Proforma Invoices Module (BP-001 / BP-002)
+# ==================================================
+
+class PurchaseOrder(Base):
+    __tablename__ = "purchase_orders"
+
+    # Primary Key
+    po_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+
+    # Reference Code
+    po_number = Column(String(50), nullable=False, unique=True, index=True) # e.g. PO-2026-001
+    proforma_invoice_number = Column(String(100), nullable=True)           # Supplier PI Number
+
+    # Foreign Keys
+    project_id = Column(Integer, ForeignKey("projects.project_id"), nullable=False, index=True)
+    company_id = Column(Integer, ForeignKey("import_companies.company_id"), nullable=False, index=True)
+    supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=False, index=True)
+    incoterm_id = Column(Integer, ForeignKey("incoterms.incoterm_id"), nullable=False, index=True)
+    currency_id = Column(Integer, ForeignKey("currencies.currency_id"), nullable=False, index=True)
+
+    # Dates & Financials
+    order_date = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    expected_delivery_date = Column(DateTime, nullable=True)
+    exchange_rate = Column(Numeric(10, 4), default=1.0, nullable=False)
+    total_amount_fob = Column(Numeric(14, 2), default=0.0, nullable=False)
+
+    # Shipping Measurements Aggregates
+    total_cbm = Column(Numeric(10, 4), default=0.0, nullable=False)
+    total_gross_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+    total_net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+    total_packages_count = Column(Integer, default=0, nullable=False)
+
+    # Workflow Status & Information
+    payment_terms = Column(String(100), nullable=True, default="LC at Sight / اعتماد مستندي")
+    status = Column(String(50), nullable=False, default="Draft", index=True) # Draft, Approved, In Transit, Closed, Cancelled
+    notes = Column(Text, nullable=True)
+
+    # Audit Trail
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    # Relationships
+    project = relationship("Project", foreign_keys=[project_id])
+    company = relationship("ImportCompany", foreign_keys=[company_id])
+    supplier = relationship("Supplier", foreign_keys=[supplier_id])
+    incoterm = relationship("Incoterm", foreign_keys=[incoterm_id])
+    currency = relationship("Currency", foreign_keys=[currency_id])
+    line_items = relationship("POLineItem", back_populates="purchase_order", cascade="all, delete-orphan")
+
+
+class POLineItem(Base):
+    __tablename__ = "po_line_items"
+
+    item_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    po_id = Column(Integer, ForeignKey("purchase_orders.po_id"), nullable=False, index=True)
+
+    item_code = Column(String(50), nullable=True)
+    description_ar = Column(String(250), nullable=False)
+    description_en = Column(String(250), nullable=True)
+
+    # Customs Tariff Link
+    tariff_id = Column(Integer, ForeignKey("customs_tariffs.tariff_id"), nullable=True, index=True)
+
+    # Quantities & Pricing
+    quantity = Column(Numeric(12, 2), nullable=False, default=1.0)
+    unit_of_measure = Column(String(30), nullable=False, default="PCS") # PCS, CTN, KG, SET
+    unit_price = Column(Numeric(14, 4), nullable=False, default=0.0)
+    total_price = Column(Numeric(14, 2), nullable=False, default=0.0)
+
+    # Package & Volume Specs
+    cbm_per_unit = Column(Numeric(10, 4), default=0.0, nullable=False)
+    total_cbm = Column(Numeric(10, 4), default=0.0, nullable=False)
+    gross_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+    net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    purchase_order = relationship("PurchaseOrder", back_populates="line_items")
+    tariff = relationship("CustomsTariff", foreign_keys=[tariff_id])

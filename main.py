@@ -17,6 +17,13 @@ from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.users.model import User
 from modules.audit_logs.model import AuditLog
+from modules.incoterms.model import Incoterm, CostItem, IncotermResponsibility
+from modules.customs_tariff.model import CustomsTariff
+from modules.transport_locations.model import TransportLocation
+from modules.currencies.model import Currency, ExchangeRate
+from modules.projects.model import Project
+from modules.purchase_orders.model import POLineItem, PurchaseOrder
+from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 
 
 # ==================================================
@@ -28,6 +35,13 @@ from modules.suppliers.router import supplier_router
 from modules.external_service_providers.router import router as provider_router
 from modules.audit_logs.router import router as audit_router
 from modules.auth.router import router as auth_router
+from modules.incoterms.router import incoterms_router
+from modules.customs_tariff.router import customs_tariff_router
+from modules.transport_locations.router import router as transport_locations_router
+from modules.currencies.router import router as currencies_router
+from modules.projects.router import router as projects_router
+from modules.purchase_orders.router import router as purchase_orders_router
+from modules.cbm_calculator.router import router as cbm_calculator_router
 
 
 # ==================================================
@@ -65,6 +79,20 @@ app.include_router(provider_router)
 app.include_router(audit_router)
 
 app.include_router(auth_router)
+
+app.include_router(incoterms_router)
+
+app.include_router(customs_tariff_router)
+
+app.include_router(transport_locations_router)
+
+app.include_router(currencies_router)
+
+app.include_router(projects_router)
+
+app.include_router(purchase_orders_router)
+
+app.include_router(cbm_calculator_router)
 
 
 # ==================================================

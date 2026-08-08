@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../currencies/providers/currencies_provider.dart';
+import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';

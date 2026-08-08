@@ -1,0 +1,154 @@
+"""
+Unit Tests for Import Files Master & Tracking Module (ملفات الشحنات الاستيرادية)
+"""
+
+import pytest
+from datetime import date
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from database.database import Base
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.projects.model import Project
+from modules.incoterms.model import Incoterm
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.purchase_orders.model import PurchaseOrder
+from modules.import_files.model import ImportFile
+from modules.import_files.schemas import ImportFileCreate, ImportFileUpdate
+import modules.import_files.service as service
+import modules.import_files.repository as repo
+from fastapi import HTTPException
+
+
+@pytest.fixture
+def db_session():
+    """Creates in-memory SQLite DB fixture."""
+    engine = create_engine("sqlite:///:memory:", echo=False)
+    Base.metadata.create_all(engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    db = TestingSessionLocal()
+
+    # Seed company, supplier, incoterm & projects
+    comp1 = ImportCompany(company_id=1, importer_name="Egyptian Import Co", vat_id="100-200-300", registration_number="12345", address="Cairo", country="Egypt", importer_id="IMP-001", importer_id_expiry=date(2028,1,1), vat_id_expiry=date(2028,1,1), registration_expiry=date(2028,1,1))
+    comp2 = ImportCompany(company_id=2, importer_name="Delta Trading", vat_id="200-300-400", registration_number="67890", address="Alex", country="Egypt", importer_id="IMP-002", importer_id_expiry=date(2028,1,1), vat_id_expiry=date(2028,1,1), registration_expiry=date(2028,1,1))
+    sup1 = Supplier(supplier_id=1, company_name="ABC China", supplier_code="SUP-01", supplier_type="Manufacturer", registration_type="Foreign Exporter", foreign_exporter_id="CN-99", foreign_exporter_country="China", foreign_exporter_country_code="CN", address="Shanghai")
+    inco1 = Incoterm(incoterm_id=1, incoterm_code="FOB", incoterm_name="Free On Board", description="Seller delivers goods on board vessel")
+
+    proj1 = Project(project_id=1, project_code="PRJ-01", project_name="Textile Expansion", project_owner="Kamal", company_id=1, supplier_id=1, incoterm_id=1, import_type="Direct Commercial")
+    proj2 = Project(project_id=2, project_code="PRJ-02", project_name="Delta Factory", project_owner="Kamal", company_id=2, supplier_id=1, incoterm_id=1, import_type="Direct Commercial")
+    db.add_all([comp1, comp2, sup1, inco1, proj1, proj2])
+    db.commit()
+
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+class TestImportFilesBackend:
+    def test_create_import_file_service_success(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068100",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            po_number="PO-1001",
+            pi_number="PI-889",
+            invoices_data=[
+                {"invoice_no": "PI-889", "amount": 24500.0, "currency": "USD"},
+                {"invoice_no": "INV-990", "amount": 24500.0, "currency": "USD"},
+            ],
+            packing_lists_data=[
+                {"pl_no": "PL-889", "total_packages": 50, "gross_weight_kg": 12000.0}
+            ],
+            project_ids=[1],
+            shipment_mode="Sea",
+            incoterm_code="FOB",
+            priority="High",
+            shipment_category="New Purchase",
+            required_eta=date(2026, 8, 15),
+            selected_scenario="MSC Option",
+            estimated_cost=24500.0,
+            owner="Kamal",
+        )
+        res = service.create_import_file_service(db_session, payload)
+
+        assert res.import_file_id is not None
+        assert res.custom_file_number == "6701068100"
+        assert res.company_name == "Egyptian Import Co"
+        assert res.supplier_name == "ABC China"
+        assert len(res.invoices_data) == 2
+        assert len(res.packing_lists_data) == 1
+        assert res.owner == "Kamal"
+        assert res.progress_percent == 25.0
+
+    def test_multi_project_company_mismatch_raises_error(self, db_session):
+        # Attempting to assign Project 2 (which belongs to Company 2) to an Import File for Company 1
+        payload = ImportFileCreate(
+            custom_file_number="6701069999",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            project_ids=[1, 2], # Project 2 is for Company 2!
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_import_file_service(db_session, payload)
+        assert exc_info.value.status_code == 400
+        assert "مرتبط بشركة مستوردة أخرى" in str(exc_info.value.detail)
+
+    def test_formula_progression(self, db_session):
+        payload = ImportFileCreate(
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            form4_no="F4-9988",
+            form46_no="DEC46-1122",
+        )
+        file_obj = service.create_import_file_service(db_session, payload)
+        assert file_obj.current_module == "BP-019 Prepare Customs Declaration 46"
+        assert file_obj.progress_percent == 65.0
+
+    def test_master_report_summary(self, db_session):
+        payload1 = ImportFileCreate(
+            custom_file_number="6701068101",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            estimated_cost=10000.0,
+            status="Open",
+        )
+        payload2 = ImportFileCreate(
+            custom_file_number="6701068102",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="XYZ Germany",
+            estimated_cost=15000.0,
+            status="In Progress",
+        )
+        service.create_import_file_service(db_session, payload1)
+        service.create_import_file_service(db_session, payload2)
+
+        report = service.generate_master_report_service(db_session)
+        assert report.total_import_files == 2
+        assert report.open_files_count == 1
+        assert report.in_progress_count == 1
+        assert report.total_estimated_cost == 25000.0
+        assert len(report.files) == 2
+
+    def test_soft_delete_import_file(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068103",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+        )
+        created = service.create_import_file_service(db_session, payload)
+        file_id = created.import_file_id
+
+        success = repo.soft_delete_import_file(db_session, file_id)
+        assert success is True
+        assert repo.get_import_file_by_id(db_session, file_id) is None

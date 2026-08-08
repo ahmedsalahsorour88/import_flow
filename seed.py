@@ -1309,6 +1309,50 @@ def seed_data():
             db.commit()
             print("Phase 3 Import Documentation seeded successfully.")
 
+        # ==================================================
+        # 18. Seed Import Files Master & Tracking (6701068100)
+        # ==================================================
+        from modules.import_files.model import ImportFile
+
+        if db.query(ImportFile).count() == 0:
+            print("Seeding Import Files Master & Tracking...")
+            file1 = ImportFile(
+                import_file_code="IMP-2026-0001",
+                custom_file_number="6701068100",
+                company_name="المصرية الحديثة للتنسيج والغزل ش.م.م",
+                supplier_name="ABC China",
+                po_number="PO-1001",
+                pi_number="PI-889",
+                invoices_data=[
+                    {"invoice_no": "PI-889", "invoice_type": "Proforma Invoice", "date": "2026-08-01", "amount": 24500.0, "currency": "USD"},
+                    {"invoice_no": "INV-2026-SH990", "invoice_type": "Commercial Invoice", "date": "2026-08-06", "amount": 24500.0, "currency": "USD"}
+                ],
+                packing_lists_data=[
+                    {"pl_no": "PL-889", "date": "2026-08-01", "total_packages": 50, "gross_weight_kg": 12000.0, "cbm": 35.5}
+                ],
+                shipment_mode="Sea",
+                incoterm_code="FOB",
+                priority="High",
+                shipment_category="New Purchase",
+                required_eta=date(2026, 8, 15),
+                selected_scenario="MSC Option",
+                form4_no="F4-2026-99081",
+                swift_no="SW-NBE-887711",
+                form46_no="DEC46-2026-001",
+                estimated_cost=24500.0,
+                current_module="BP-019 Prepare Customs Declaration 46",
+                current_stage="Phase 3: Import Documentation & ACI",
+                progress_percent=65.0,
+                next_action="Customs Inspection & Duty Settlement (Phase 6/7)",
+                status="Open",
+                owner="Kamal",
+                notes="ملف استيراد شحنة معدات وآلات غزل مبدئي من الصين عبر مسار MSC.",
+                is_active=True,
+            )
+            db.add(file1)
+            db.commit()
+            print("Import Files Master seeded successfully.")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

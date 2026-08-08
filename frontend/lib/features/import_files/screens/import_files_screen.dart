@@ -484,7 +484,7 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
   Widget build(BuildContext context) {
     final companies = ref.watch(importCompaniesProvider).value ?? [];
     final suppliers = ref.watch(suppliersProvider).value ?? [];
-    final incoterms = ref.watch(incotermsProvider).incoterms;
+    final incoterms = ref.watch(incotermsProvider).value ?? [];
     final projects = (ref.watch(projectsProvider).value ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
 
     return AlertDialog(

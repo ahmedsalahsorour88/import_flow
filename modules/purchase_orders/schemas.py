@@ -34,6 +34,66 @@ class POLineItemResponse(POLineItemBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ==================================================
+# BP-003 Packing List Schemas
+# ==================================================
+
+class PackingListItemBase(BaseModel):
+    hs_code: str = Field(..., min_length=2, max_length=50)
+    item_code: str = Field(..., min_length=1, max_length=50)
+    qty_pcs: float = Field(1.0, gt=0)
+    qty_pkg: float = Field(1.0, gt=0)
+    package_type: Optional[str] = Field("Carton", max_length=50)
+    length_cm: Optional[float] = Field(0.0, ge=0)
+    width_cm: Optional[float] = Field(0.0, ge=0)
+    height_cm: Optional[float] = Field(0.0, ge=0)
+    net_weight_unit_kg: float = Field(0.0, ge=0)
+    gross_weight_unit_kg: float = Field(0.0, ge=0)
+
+
+class PackingListItemCreate(PackingListItemBase):
+    pass
+
+
+class PackingListItemResponse(PackingListItemBase):
+    packing_item_id: int
+    po_id: int
+    total_net_weight_kg: float
+    total_gross_weight_kg: float
+    total_cbm: float
+    chargeable_weight_kg: float
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PackingListSummaryByHSCode(BaseModel):
+    hs_code: str
+    qty_pcs: float
+    qty_pkg: float
+    total_net_weight_kg: float
+    total_gross_weight_kg: float
+    total_cbm: float
+
+
+class PackingListValidationReport(BaseModel):
+    is_valid: bool
+    errors: List[str] = Field(default_factory=list)
+    warnings: List[str] = Field(default_factory=list)
+    total_items: int = 0
+    total_pcs: float = 0.0
+    total_pkg: float = 0.0
+    total_net_weight_kg: float = 0.0
+    total_gross_weight_kg: float = 0.0
+    total_cbm: float = 0.0
+    chargeable_weight_kg: float = 0.0
+    hs_code_summary: List[PackingListSummaryByHSCode] = Field(default_factory=list)
+
+
+# ==================================================
+# Purchase Order Schemas
+# ==================================================
+
 class PurchaseOrderBase(BaseModel):
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
     project_id: int
@@ -50,6 +110,7 @@ class PurchaseOrderBase(BaseModel):
 class PurchaseOrderCreate(PurchaseOrderBase):
     po_number: Optional[str] = Field(None, max_length=50, description="Auto-generated if empty (PO-YYYY-XXX)")
     items: List[POLineItemCreate] = Field(default_factory=list)
+    packing_list_items: List[PackingListItemCreate] = Field(default_factory=list)
 
 
 class PurchaseOrderUpdate(BaseModel):
@@ -66,6 +127,7 @@ class PurchaseOrderUpdate(BaseModel):
     notes: Optional[str] = None
     is_active: Optional[bool] = None
     items: Optional[List[POLineItemCreate]] = None
+    packing_list_items: Optional[List[PackingListItemCreate]] = None
 
 
 class PurchaseOrderResponse(PurchaseOrderBase):
@@ -86,5 +148,7 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     incoterm_code: Optional[str] = None
     currency_code: Optional[str] = None
     items: List[POLineItemResponse] = Field(default_factory=list)
+    packing_list_items: List[PackingListItemResponse] = Field(default_factory=list)
 
     model_config = ConfigDict(from_attributes=True)
+

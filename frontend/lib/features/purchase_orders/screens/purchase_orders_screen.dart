@@ -339,33 +339,56 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       ),
                     ),
                     DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.list_alt, color: AppTheme.cobalt, size: 20),
-                            tooltip: 'View Items Details',
-                            onPressed: () => _showPODetailsDialog(context, po),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: AppTheme.orange, size: 20),
-                            tooltip: 'Edit PO',
-                            onPressed: () => _showPODialog(context, po),
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              po.isActive ? Icons.delete_outline : Icons.restore,
-                              color: po.isActive ? AppTheme.crimson : AppTheme.emerald,
-                              size: 20,
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_vert, color: AppTheme.charcoal, size: 20),
+                        tooltip: 'Actions',
+                        onSelected: (val) async {
+                          if (val == 'view') {
+                            _showPODetailsDialog(context, po);
+                          } else if (val == 'edit') {
+                            _showPODialog(context, po);
+                          } else if (val == 'delete_restore') {
+                            if (po.isActive) {
+                              await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
+                            } else {
+                              await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
+                            }
+                          }
+                        },
+                        itemBuilder: (ctx) => [
+                          const PopupMenuItem(
+                            value: 'view',
+                            child: Row(
+                              children: [
+                                Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
+                                SizedBox(width: 8),
+                                Text('View Details & Packing List (BP-003)'),
+                              ],
                             ),
-                            tooltip: po.isActive ? 'Deactivate' : 'Restore',
-                            onPressed: () async {
-                              if (po.isActive) {
-                                await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
-                              } else {
-                                await ref.read(purchaseOrdersProvider.notifier).restorePurchaseOrder(po.poId!);
-                              }
-                            },
+                          ),
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit, color: AppTheme.orange, size: 18),
+                                SizedBox(width: 8),
+                                Text('Edit PO & Packing List'),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete_restore',
+                            child: Row(
+                              children: [
+                                Icon(
+                                  po.isActive ? Icons.delete_outline : Icons.restore,
+                                  color: po.isActive ? AppTheme.crimson : AppTheme.emerald,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(po.isActive ? 'Deactivate' : 'Restore'),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -381,102 +404,297 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   void _showPODetailsDialog(BuildContext context, PurchaseOrderModel po) {
+    // Group packing list items by HS Code for the HS Summary Report
+    final Map<String, Map<String, dynamic>> hsSummaryMap = {};
+    for (final p in po.packingListItems) {
+      final hs = p.hsCode.isNotEmpty ? p.hsCode : 'UNSPECIFIED';
+      if (!hsSummaryMap.containsKey(hs)) {
+        hsSummaryMap[hs] = {
+          'hs_code': hs,
+          'qty_pcs': 0.0,
+          'qty_pkg': 0.0,
+          'total_net': 0.0,
+          'total_gross': 0.0,
+          'total_cbm': 0.0,
+        };
+      }
+      hsSummaryMap[hs]!['qty_pcs'] += p.qtyPcs;
+      hsSummaryMap[hs]!['qty_pkg'] += p.qtyPkg;
+      hsSummaryMap[hs]!['total_net'] += p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPcs * p.netWeightUnitKg);
+      hsSummaryMap[hs]!['total_gross'] += p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPcs * p.grossWeightUnitKg);
+      hsSummaryMap[hs]!['total_cbm'] += p.totalCbm;
+    }
+
+    // Validation checks
+    final List<String> validationErrors = [];
+    final List<String> validationWarnings = [];
+    for (int i = 0; i < po.packingListItems.length; i++) {
+      final item = po.packingListItems[i];
+      if (item.grossWeightUnitKg < item.netWeightUnitKg) {
+        validationErrors.add('Item #${i + 1} (${item.itemCode}): Gross weight (${item.grossWeightUnitKg} kg) < Net weight (${item.netWeightUnitKg} kg)');
+      }
+      if (item.lengthCm <= 0 || item.widthCm <= 0 || item.heightCm <= 0) {
+        validationWarnings.add('Item #${i + 1} (${item.itemCode}): Missing package dimensions; CBM calculated from unit specs.');
+      }
+    }
+
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Row(
-          children: [
-            const Icon(Icons.receipt, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text('PO Details: ${po.poNumber} (${po.proformaInvoiceNumber ?? "No PI"})'),
-          ],
-        ),
-        content: SizedBox(
-          width: 800,
-          child: SingleChildScrollView(
+      builder: (dialogCtx) => DefaultTabController(
+        length: 2,
+        child: AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text('PO & Packing List Details: ${po.poNumber} (${po.proformaInvoiceNumber ?? "No PI"})'),
+            ],
+          ),
+          content: SizedBox(
+            width: 850,
+            height: 550,
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Wrap(
-                  spacing: 24,
-                  runSpacing: 12,
-                  children: [
-                    _buildDetailItem('Project', po.projectName ?? '-'),
-                    _buildDetailItem('Company', po.companyName ?? '-'),
-                    _buildDetailItem('Supplier', po.supplierName ?? '-'),
-                    _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
-                    _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
-                    _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
-                    _buildDetailItem('Total FOB Value', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
-                    _buildDetailItem('Total Volume', '${po.totalCbm.toStringAsFixed(3)} CBM'),
-                    _buildDetailItem('Gross / Net Weight', '${po.totalGrossWeightKg} kg / ${po.totalNetWeightKg} kg'),
-                  ],
+                Container(
+                  color: Colors.grey.shade100,
+                  child: const TabBar(
+                    labelColor: AppTheme.cobalt,
+                    unselectedLabelColor: Colors.grey,
+                    indicatorColor: AppTheme.cobalt,
+                    tabs: [
+                      Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'PO Line Items (الفاتورة المبدئية)'),
+                      Tab(icon: Icon(Icons.fact_check, size: 18), text: 'BP-003 Review Packing List (بيان التعبئة والوزن)'),
+                    ],
+                  ),
                 ),
-                const Divider(height: 24),
-                const Text(
-                  'Purchase Order Line Items (بنود أمر الشراء والجداول الجمركية)',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                ),
-                const SizedBox(height: 8),
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.2),
-                    1: FlexColumnWidth(3),
-                    2: FlexColumnWidth(1.2),
-                    3: FlexColumnWidth(1.2),
-                    4: FlexColumnWidth(1.2),
-                    5: FlexColumnWidth(1.2),
-                  },
-                  children: [
-                    const TableRow(
-                      decoration: BoxDecoration(color: AppTheme.cloudWhite),
-                      children: [
-                        Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Line Total', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Volume CBM', style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                    ),
-                    ...po.items.map(
-                      (item) => TableRow(
-                        children: [
-                          Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
-                          Padding(
-                            padding: const EdgeInsets.all(6),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                Expanded(
+                  child: TabBarView(
+                    children: [
+                      // Tab 1: Commercial PO Line Items
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 24,
+                              runSpacing: 12,
                               children: [
-                                Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                if (item.hsCode != null)
-                                  Text(
-                                    'HS: ${item.hsCode} (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
-                                    style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
-                                  ),
+                                _buildDetailItem('Project', po.projectName ?? '-'),
+                                _buildDetailItem('Company', po.companyName ?? '-'),
+                                _buildDetailItem('Supplier', po.supplierName ?? '-'),
+                                _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
+                                _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
+                                _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
+                                _buildDetailItem('Total FOB Value', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
+                                _buildDetailItem('Total Volume', '${po.totalCbm.toStringAsFixed(3)} CBM'),
+                                _buildDetailItem('Gross / Net Weight', '${po.totalGrossWeightKg} kg / ${po.totalNetWeightKg} kg'),
                               ],
                             ),
-                          ),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(3)} m³')),
-                        ],
+                            const Divider(height: 24),
+                            const Text(
+                              'Purchase Order Line Items (بنود أمر الشراء)',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                            ),
+                            const SizedBox(height: 8),
+                            Table(
+                              border: TableBorder.all(color: Colors.grey.shade300),
+                              columnWidths: const {
+                                0: FlexColumnWidth(1.2),
+                                1: FlexColumnWidth(3),
+                                2: FlexColumnWidth(1.2),
+                                3: FlexColumnWidth(1.2),
+                                4: FlexColumnWidth(1.2),
+                                5: FlexColumnWidth(1.2),
+                              },
+                              children: [
+                                const TableRow(
+                                  decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                  children: [
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Line Total', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Volume CBM', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  ],
+                                ),
+                                ...po.items.map(
+                                  (item) => TableRow(
+                                    children: [
+                                      Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
+                                      Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                            if (item.hsCode != null)
+                                              Text(
+                                                'HS: ${item.hsCode} (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(3)} m³')),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+
+                      // Tab 2: BP-003 Review Packing List
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Validation Status Banner
+                            if (validationErrors.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.red.shade300)),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                        SizedBox(width: 6),
+                                        Text('Packing List Validation Errors (أخطاء مطابقة الوزن والعبوات)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                                      ],
+                                    ),
+                                    ...validationErrors.map((e) => Padding(padding: const EdgeInsets.only(top: 4, left: 24), child: Text('• $e', style: const TextStyle(fontSize: 12, color: Colors.red)))),
+                                  ],
+                                ),
+                              )
+                            else
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade300)),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                                    SizedBox(width: 6),
+                                    Text('Packing List Validation Passed — All weights and quantities verified.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                  ],
+                                ),
+                              ),
+
+                            if (validationWarnings.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(8),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.amber.shade300)),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: validationWarnings.map((w) => Text('⚠️ $w', style: const TextStyle(fontSize: 11, color: Colors.brown))).toList(),
+                                ),
+                              ),
+
+                            const Text('Packing List Breakdown (تفاصيل طرود ومقاسات الشحنة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            const SizedBox(height: 6),
+
+                            if (po.packingListItems.isEmpty)
+                              const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Text('No detailed packing list items recorded yet. Click "Edit PO & Packing List" to add packing details.', style: TextStyle(color: Colors.grey)),
+                              )
+                            else
+                              Table(
+                                border: TableBorder.all(color: Colors.grey.shade300),
+                                children: [
+                                  const TableRow(
+                                    decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                    children: [
+                                      Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Pkg Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Dimensions (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Net Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                      Padding(padding: EdgeInsets.all(6), child: Text('CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    ],
+                                  ),
+                                  ...po.packingListItems.map(
+                                    (p) => TableRow(
+                                      children: [
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPcs * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPcs * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+
+                            const SizedBox(height: 20),
+                            const Text('📊 Report: Packing List Summary By HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            const SizedBox(height: 6),
+                            Table(
+                              border: TableBorder.all(color: Colors.grey.shade300),
+                              children: [
+                                const TableRow(
+                                  decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                  children: [
+                                    Padding(padding: EdgeInsets.all(6), child: Text('HS Code', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty PCS', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty PKG', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Total Net Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Total Gross Weight (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                    Padding(padding: EdgeInsets.all(6), child: Text('Total CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                  ],
+                                ),
+                                ...hsSummaryMap.values.map(
+                                  (summary) => TableRow(
+                                    children: [
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['hs_code']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: const TextStyle(fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: const TextStyle(fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
           ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Close'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -519,8 +737,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     int selectedIncotermId = po?.incotermId ?? incoterms.first.incotermId;
     int selectedCurrencyId = po?.currencyId ?? currencies.first.currencyId ?? 1;
     String selectedStatus = po?.status ?? 'Draft';
-
     final List<POLineItemModel> dialogItems = po != null && po.items.isNotEmpty
+
         ? po.items.map((i) => POLineItemModel(
             itemCode: i.itemCode,
             descriptionAr: i.descriptionAr,
@@ -542,13 +760,42 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             )
           ];
 
+    final List<PackingListItemModel> dialogPackingItems = po != null && po.packingListItems.isNotEmpty
+
+        ? po.packingListItems.map((p) => PackingListItemModel(
+            hsCode: p.hsCode,
+            itemCode: p.itemCode,
+            qtyPcs: p.qtyPcs,
+            qtyPkg: p.qtyPkg,
+            packageType: p.packageType,
+            lengthCm: p.lengthCm,
+            widthCm: p.widthCm,
+            heightCm: p.heightCm,
+            netWeightUnitKg: p.netWeightUnitKg,
+            grossWeightUnitKg: p.grossWeightUnitKg,
+          )).toList()
+        : [
+            PackingListItemModel(
+              hsCode: '8471.30.00',
+              itemCode: 'ITEM-001',
+              qtyPcs: 100,
+              qtyPkg: 10,
+              packageType: 'Carton',
+              lengthCm: 100,
+              widthCm: 80,
+              heightCm: 60,
+              netWeightUnitKg: 10,
+              grossWeightUnitKg: 12,
+            )
+          ];
+
     showDialog(
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text(po == null ? 'Create New Purchase Order (أمر شراء جديد)' : 'Edit Purchase Order (${po.poNumber})'),
           content: SizedBox(
-            width: 750,
+            width: 800,
             child: Form(
               key: formKey,
               child: SingleChildScrollView(
@@ -702,7 +949,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Text(
-                          'PO Line Items (بنود أمر الشراء والـ HS Codes) *',
+                          'PO Line Items (بنود الفاتورة المبدئية) *',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                         ),
                         TextButton.icon(
@@ -900,6 +1147,300 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       );
                     }),
 
+                    const Divider(height: 24),
+                    // BP-003 Review Packing List Section
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'BP-003 Packing List Items (قائمة التعبئة والأوزان والأبعاد)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        ),
+                        TextButton.icon(
+                          icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
+                          label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
+                          onPressed: () {
+                            setDialogState(() {
+                              dialogPackingItems.add(
+                                PackingListItemModel(
+                                  hsCode: '8471.30.00',
+                                  itemCode: 'ITEM-00${dialogPackingItems.length + 1}',
+                                  qtyPcs: 10,
+                                  qtyPkg: 1,
+                                  packageType: 'Carton',
+                                  lengthCm: 50,
+                                  widthCm: 40,
+                                  heightCm: 30,
+                                  netWeightUnitKg: 5,
+                                  grossWeightUnitKg: 6,
+                                ),
+                              );
+                            });
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // Dynamic Packing List Items Editor
+                    ...dialogPackingItems.asMap().entries.map((entry) {
+                      final idx = entry.key;
+                      final p = entry.value;
+
+                      return Card(
+                        color: Colors.blue.shade50.withOpacity(0.5),
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.hsCode,
+                                      decoration: const InputDecoration(labelText: 'HS Code *', isDense: true),
+                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                      onChanged: (v) => dialogPackingItems[idx] = PackingListItemModel(
+                                        hsCode: v,
+                                        itemCode: p.itemCode,
+                                        qtyPcs: p.qtyPcs,
+                                        qtyPkg: p.qtyPkg,
+                                        packageType: p.packageType,
+                                        lengthCm: p.lengthCm,
+                                        widthCm: p.widthCm,
+                                        heightCm: p.heightCm,
+                                        netWeightUnitKg: p.netWeightUnitKg,
+                                        grossWeightUnitKg: p.grossWeightUnitKg,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.itemCode,
+                                      decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
+                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                      onChanged: (v) => dialogPackingItems[idx] = PackingListItemModel(
+                                        hsCode: p.hsCode,
+                                        itemCode: v,
+                                        qtyPcs: p.qtyPcs,
+                                        qtyPkg: p.qtyPkg,
+                                        packageType: p.packageType,
+                                        lengthCm: p.lengthCm,
+                                        widthCm: p.widthCm,
+                                        heightCm: p.heightCm,
+                                        netWeightUnitKg: p.netWeightUnitKg,
+                                        grossWeightUnitKg: p.grossWeightUnitKg,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: p.packageType,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(labelText: 'Package Type', isDense: true),
+                                      items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
+                                          .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                          .toList(),
+                                      onChanged: (v) => setDialogState(() {
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: v ?? 'Carton',
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      }),
+                                    ),
+                                  ),
+                                  if (dialogPackingItems.length > 1)
+                                    IconButton(
+                                      icon: const Icon(Icons.remove_circle_outline, color: AppTheme.crimson, size: 20),
+                                      onPressed: () => setDialogState(() => dialogPackingItems.removeAt(idx)),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.qtyPcs.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
+                                      onChanged: (v) {
+                                        final q = double.tryParse(v) ?? 1.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: q,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.qtyPkg.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'Qty PKG (طرود)', isDense: true),
+                                      onChanged: (v) {
+                                        final q = double.tryParse(v) ?? 1.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: q,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.lengthCm.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'L (cm)', isDense: true),
+                                      onChanged: (v) {
+                                        final l = double.tryParse(v) ?? 0.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: l,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.widthCm.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'W (cm)', isDense: true),
+                                      onChanged: (v) {
+                                        final w = double.tryParse(v) ?? 0.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: w,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.heightCm.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'H (cm)', isDense: true),
+                                      onChanged: (v) {
+                                        final h = double.tryParse(v) ?? 0.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: h,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.netWeightUnitKg.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'Net Wt/Unit', isDense: true),
+                                      onChanged: (v) {
+                                        final nw = double.tryParse(v) ?? 0.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: nw,
+                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextFormField(
+                                      initialValue: p.grossWeightUnitKg.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit', isDense: true),
+                                      onChanged: (v) {
+                                        final gw = double.tryParse(v) ?? 0.0;
+                                        dialogPackingItems[idx] = PackingListItemModel(
+                                          hsCode: p.hsCode,
+                                          itemCode: p.itemCode,
+                                          qtyPcs: p.qtyPcs,
+                                          qtyPkg: p.qtyPkg,
+                                          packageType: p.packageType,
+                                          lengthCm: p.lengthCm,
+                                          widthCm: p.widthCm,
+                                          heightCm: p.heightCm,
+                                          netWeightUnitKg: p.netWeightUnitKg,
+                                          grossWeightUnitKg: gw,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+
                     const SizedBox(height: 8),
                     TextFormField(
                       controller: notesCtrl,
@@ -943,6 +1484,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       status: selectedStatus,
                       notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       items: dialogItems,
+                      packingListItems: dialogPackingItems,
                     );
                     final ok = await ref.read(purchaseOrdersProvider.notifier).createPurchaseOrder(newPO);
                     if (ok && context.mounted) Navigator.pop(dialogCtx);
@@ -959,6 +1501,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       'status': selectedStatus,
                       'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
                       'items': dialogItems.map((i) => i.toJson()).toList(),
+                      'packing_list_items': dialogPackingItems.map((i) => i.toJson()).toList(),
                     };
                     final ok = await ref.read(purchaseOrdersProvider.notifier).updatePurchaseOrder(po.poId!, updateData);
                     if (ok && context.mounted) Navigator.pop(dialogCtx);

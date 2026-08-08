@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from database.database import get_db
-from modules.purchase_orders.schemas import PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderUpdate
+from modules.purchase_orders.schemas import PackingListValidationReport, PurchaseOrderCreate, PurchaseOrderResponse, PurchaseOrderUpdate
 from modules.purchase_orders.service import PurchaseOrderService
 
 router = APIRouter(
@@ -40,6 +40,12 @@ def get_purchase_order(po_id: int, db: Session = Depends(get_db)):
     return service.get_by_id(po_id)
 
 
+@router.get("/{po_id}/packing-list-report", response_model=PackingListValidationReport)
+def get_packing_list_report(po_id: int, db: Session = Depends(get_db)):
+    service = PurchaseOrderService(db)
+    return service.get_packing_list_report(po_id)
+
+
 @router.post("", response_model=PurchaseOrderResponse, status_code=status.HTTP_201_CREATED)
 def create_purchase_order(data: PurchaseOrderCreate, db: Session = Depends(get_db)):
     service = PurchaseOrderService(db)
@@ -62,3 +68,4 @@ def delete_purchase_order(po_id: int, db: Session = Depends(get_db)):
 def restore_purchase_order(po_id: int, db: Session = Depends(get_db)):
     service = PurchaseOrderService(db)
     return service.restore(po_id)
+

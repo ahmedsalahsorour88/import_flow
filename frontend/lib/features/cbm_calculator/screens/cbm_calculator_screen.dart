@@ -670,33 +670,86 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                           )),
                                     ),
                                     DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          IconButton(
-                                            icon: const Icon(Icons.link, color: AppTheme.cobalt, size: 20),
-                                            tooltip: 'Link to Purchase Order / Project',
-                                            onPressed: () => _showLinkToPODialog(context, calc, poList, projectsList),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.list_alt, color: AppTheme.cobalt, size: 20),
-                                            tooltip: 'View Items Breakdown',
-                                            onPressed: () => _showCalcDetailsDialog(context, calc),
-                                          ),
-                                          IconButton(
-                                            icon: Icon(
-                                              calc.isActive ? Icons.delete_outline : Icons.restore,
-                                              color: calc.isActive ? AppTheme.crimson : AppTheme.emerald,
-                                              size: 20,
-                                            ),
-                                            tooltip: calc.isActive ? 'Deactivate' : 'Restore',
-                                            onPressed: () async {
-                                              if (calc.isActive) {
-                                                await ref.read(cbmCalculatorProvider.notifier).deleteCalculation(calc.calcId!);
-                                              } else {
-                                                await ref.read(cbmCalculatorProvider.notifier).restoreCalculation(calc.calcId!);
+                                      PopupMenuButton<String>(
+                                        icon: const Icon(Icons.more_vert, color: AppTheme.charcoal, size: 20),
+                                        tooltip: 'Actions',
+                                        onSelected: (val) async {
+                                          if (val == 'reopen') {
+                                            setState(() {
+                                              _quickShipmentMode = (calc.recommendedShippingMethod ?? '').contains('Air') ? 'air' : 'sea';
+                                              if (calc.items.isNotEmpty) {
+                                                _quickItems.clear();
+                                                _quickItems.addAll(calc.items.map((i) => CBMItemModel(
+                                                  packageType: i.packageType,
+                                                  quantity: i.quantity,
+                                                  length: i.lengthCm > 0 ? i.lengthCm : i.length,
+                                                  width: i.widthCm > 0 ? i.widthCm : i.width,
+                                                  height: i.heightCm > 0 ? i.heightCm : i.height,
+                                                  unit: 'cm',
+                                                  grossWeightPerUnitKg: i.grossWeightPerUnitKg,
+                                                )));
                                               }
-                                            },
+                                            });
+                                            _tabController.animateTo(0);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Session ${calc.calcCode} loaded into Quick Calculator.')),
+                                            );
+                                          } else if (val == 'link') {
+                                            _showLinkToPODialog(context, calc, poList, projectsList);
+                                          } else if (val == 'view') {
+                                            _showCalcDetailsDialog(context, calc);
+                                          } else if (val == 'delete_restore') {
+                                            if (calc.isActive) {
+                                              await ref.read(cbmCalculatorProvider.notifier).deleteCalculation(calc.calcId!);
+                                            } else {
+                                              await ref.read(cbmCalculatorProvider.notifier).restoreCalculation(calc.calcId!);
+                                            }
+                                          }
+                                        },
+                                        itemBuilder: (ctx) => [
+                                          const PopupMenuItem(
+                                            value: 'reopen',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.edit_note, color: AppTheme.cobalt, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Reopen in Calculator (إعادة فتح)'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'link',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.link, color: AppTheme.cobalt, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('Link to PO / Project'),
+                                              ],
+                                            ),
+                                          ),
+                                          const PopupMenuItem(
+                                            value: 'view',
+                                            child: Row(
+                                              children: [
+                                                Icon(Icons.list_alt, color: AppTheme.cobalt, size: 18),
+                                                SizedBox(width: 8),
+                                                Text('View Items Breakdown'),
+                                              ],
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete_restore',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  calc.isActive ? Icons.delete_outline : Icons.restore,
+                                                  color: calc.isActive ? AppTheme.crimson : AppTheme.emerald,
+                                                  size: 18,
+                                                ),
+                                                const SizedBox(width: 8),
+                                                Text(calc.isActive ? 'Deactivate' : 'Restore'),
+                                              ],
+                                            ),
                                           ),
                                         ],
                                       ),

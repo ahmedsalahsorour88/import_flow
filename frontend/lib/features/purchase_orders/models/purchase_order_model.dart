@@ -77,6 +77,82 @@ class POLineItemModel {
   }
 }
 
+class PackingListItemModel {
+  final int? packingItemId;
+  final int? poId;
+  final String hsCode;
+  final String itemCode;
+  final double qtyPcs;
+  final double qtyPkg;
+  final String packageType;
+  final double lengthCm;
+  final double widthCm;
+  final double heightCm;
+  final double netWeightUnitKg;
+  final double grossWeightUnitKg;
+  final double totalNetWeightKg;
+  final double totalGrossWeightKg;
+  final double totalCbm;
+  final double chargeableWeightKg;
+
+  PackingListItemModel({
+    this.packingItemId,
+    this.poId,
+    required this.hsCode,
+    required this.itemCode,
+    this.qtyPcs = 1.0,
+    this.qtyPkg = 1.0,
+    this.packageType = 'Carton',
+    this.lengthCm = 0.0,
+    this.widthCm = 0.0,
+    this.heightCm = 0.0,
+    this.netWeightUnitKg = 0.0,
+    this.grossWeightUnitKg = 0.0,
+    this.totalNetWeightKg = 0.0,
+    this.totalGrossWeightKg = 0.0,
+    this.totalCbm = 0.0,
+    this.chargeableWeightKg = 0.0,
+  });
+
+  factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
+    return PackingListItemModel(
+      packingItemId: json['packing_item_id'] as int?,
+      poId: json['po_id'] as int?,
+      hsCode: json['hs_code'] as String? ?? '',
+      itemCode: json['item_code'] as String? ?? '',
+      qtyPcs: (json['qty_pcs'] as num?)?.toDouble() ?? 1.0,
+      qtyPkg: (json['qty_pkg'] as num?)?.toDouble() ?? 1.0,
+      packageType: json['package_type'] as String? ?? 'Carton',
+      lengthCm: (json['length_cm'] as num?)?.toDouble() ?? 0.0,
+      widthCm: (json['width_cm'] as num?)?.toDouble() ?? 0.0,
+      heightCm: (json['height_cm'] as num?)?.toDouble() ?? 0.0,
+      netWeightUnitKg: (json['net_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+      grossWeightUnitKg: (json['gross_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+      totalNetWeightKg: (json['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
+      chargeableWeightKg: (json['chargeable_weight_kg'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      if (packingItemId != null) 'packing_item_id': packingItemId,
+      if (poId != null) 'po_id': poId,
+      'hs_code': hsCode,
+      'item_code': itemCode,
+      'qty_pcs': qtyPcs,
+      'qty_pkg': qtyPkg,
+      'package_type': packageType,
+      'length_cm': lengthCm,
+      'width_cm': widthCm,
+      'height_cm': heightCm,
+      'net_weight_unit_kg': netWeightUnitKg,
+      'gross_weight_unit_kg': grossWeightUnitKg,
+    };
+  }
+}
+
 class PurchaseOrderModel {
   final int? poId;
   final String poNumber;
@@ -105,6 +181,7 @@ class PurchaseOrderModel {
   final String? incotermCode;
   final String? currencyCode;
   final List<POLineItemModel> items;
+  final List<PackingListItemModel> packingListItems;
 
   PurchaseOrderModel({
     this.poId,
@@ -134,6 +211,7 @@ class PurchaseOrderModel {
     this.incotermCode,
     this.currencyCode,
     this.items = const [],
+    this.packingListItems = const [],
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
@@ -169,6 +247,9 @@ class PurchaseOrderModel {
       items: json['items'] != null
           ? (json['items'] as List).map((i) => POLineItemModel.fromJson(i as Map<String, dynamic>)).toList()
           : [],
+      packingListItems: json['packing_list_items'] != null
+          ? (json['packing_list_items'] as List).map((i) => PackingListItemModel.fromJson(i as Map<String, dynamic>)).toList()
+          : [],
     );
   }
 
@@ -189,6 +270,8 @@ class PurchaseOrderModel {
       if (notes != null) 'notes': notes,
       'is_active': isActive,
       'items': items.map((i) => i.toJson()).toList(),
+      'packing_list_items': packingListItems.map((i) => i.toJson()).toList(),
     };
   }
 }
+

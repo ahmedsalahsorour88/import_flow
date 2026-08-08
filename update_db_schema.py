@@ -2,7 +2,8 @@ import sqlite3
 from database.database import Base, engine
 from modules.audit_logs.model import AuditLog  # Register AuditLog model
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem  # Register CBM models
-from modules.purchase_orders.model import POLineItem, PurchaseOrder  # Register PurchaseOrder models
+from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder  # Register PurchaseOrder models
+
 
 
 def migrate_db():

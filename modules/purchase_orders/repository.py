@@ -4,7 +4,7 @@ from typing import List, Optional
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from modules.purchase_orders.model import POLineItem, PurchaseOrder
+from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
 from modules.purchase_orders.schemas import PurchaseOrderCreate, PurchaseOrderUpdate
 
 
@@ -113,6 +113,51 @@ class PurchaseOrderRepository:
             )
             po.line_items.append(po_item)
 
+        # Process Packing List Items
+        if data.packing_list_items:
+            pkg_total_net = 0.0
+            pkg_total_gross = 0.0
+            pkg_total_cbm = 0.0
+            pkg_count = 0.0
+
+            for pitem in data.packing_list_items:
+                tot_net = round(pitem.qty_pcs * pitem.net_weight_unit_kg, 2)
+                tot_gross = round(pitem.qty_pcs * pitem.gross_weight_unit_kg, 2)
+                l_cm = pitem.length_cm or 0.0
+                w_cm = pitem.width_cm or 0.0
+                h_cm = pitem.height_cm or 0.0
+                tot_cbm = round(pitem.qty_pkg * (l_cm * w_cm * h_cm / 1_000_000.0), 4) if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.0
+                chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
+
+                pkg_total_net += tot_net
+                pkg_total_gross += tot_gross
+                pkg_total_cbm += tot_cbm
+                pkg_count += pitem.qty_pkg
+
+                pli = PackingListItem(
+                    hs_code=pitem.hs_code.strip(),
+                    item_code=pitem.item_code.strip(),
+                    qty_pcs=pitem.qty_pcs,
+                    qty_pkg=pitem.qty_pkg,
+                    package_type=pitem.package_type.strip() if pitem.package_type else "Carton",
+                    length_cm=l_cm,
+                    width_cm=w_cm,
+                    height_cm=h_cm,
+                    net_weight_unit_kg=pitem.net_weight_unit_kg,
+                    gross_weight_unit_kg=pitem.gross_weight_unit_kg,
+                    total_net_weight_kg=tot_net,
+                    total_gross_weight_kg=tot_gross,
+                    total_cbm=tot_cbm,
+                    chargeable_weight_kg=chg_wt,
+                )
+                po.packing_list_items.append(pli)
+
+            # Sync PO totals from Packing List if provided
+            total_cbm = pkg_total_cbm if pkg_total_cbm > 0 else total_cbm
+            total_gross = pkg_total_gross if pkg_total_gross > 0 else total_gross
+            total_net = pkg_total_net if pkg_total_net > 0 else total_net
+            total_pkgs = int(pkg_count) if pkg_count > 0 else total_pkgs
+
         po.total_amount_fob = total_fob
         po.total_cbm = total_cbm
         po.total_gross_weight_kg = total_gross
@@ -127,11 +172,18 @@ class PurchaseOrderRepository:
     def update(self, po: PurchaseOrder, data: PurchaseOrderUpdate) -> PurchaseOrder:
         update_data = data.model_dump(exclude_unset=True)
         items_data = update_data.pop("items", None)
+        packing_items_data = update_data.pop("packing_list_items", None)
 
         for field, value in update_data.items():
             if value is not None and isinstance(value, str):
                 value = value.strip()
             setattr(po, field, value)
+
+        total_fob = float(po.total_amount_fob or 0.0)
+        total_cbm = float(po.total_cbm or 0.0)
+        total_gross = float(po.total_gross_weight_kg or 0.0)
+        total_net = float(po.total_net_weight_kg or 0.0)
+        total_pkgs = int(po.total_packages_count or 0)
 
         if items_data is not None:
             # Recreate line items
@@ -175,11 +227,65 @@ class PurchaseOrderRepository:
                 )
                 po.line_items.append(po_item)
 
-            po.total_amount_fob = total_fob
-            po.total_cbm = total_cbm
-            po.total_gross_weight_kg = total_gross
-            po.total_net_weight_kg = total_net
-            po.total_packages_count = total_pkgs
+        if packing_items_data is not None:
+            po.packing_list_items.clear()
+
+            pkg_total_net = 0.0
+            pkg_total_gross = 0.0
+            pkg_total_cbm = 0.0
+            pkg_count = 0.0
+
+            for pitem in packing_items_data:
+                q_pcs = pitem.get("qty_pcs", 1.0)
+                q_pkg = pitem.get("qty_pkg", 1.0)
+                net_u = pitem.get("net_weight_unit_kg", 0.0)
+                gross_u = pitem.get("gross_weight_unit_kg", 0.0)
+                l_cm = pitem.get("length_cm") or 0.0
+                w_cm = pitem.get("width_cm") or 0.0
+                h_cm = pitem.get("height_cm") or 0.0
+
+                tot_net = round(q_pcs * net_u, 2)
+                tot_gross = round(q_pcs * gross_u, 2)
+                tot_cbm = round(q_pkg * (l_cm * w_cm * h_cm / 1_000_000.0), 4) if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.0
+                chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
+
+                pkg_total_net += tot_net
+                pkg_total_gross += tot_gross
+                pkg_total_cbm += tot_cbm
+                pkg_count += q_pkg
+
+                pli = PackingListItem(
+                    hs_code=str(pitem.get("hs_code", "")).strip(),
+                    item_code=str(pitem.get("item_code", "")).strip(),
+                    qty_pcs=q_pcs,
+                    qty_pkg=q_pkg,
+                    package_type=pitem.get("package_type", "Carton"),
+                    length_cm=l_cm,
+                    width_cm=w_cm,
+                    height_cm=h_cm,
+                    net_weight_unit_kg=net_u,
+                    gross_weight_unit_kg=gross_u,
+                    total_net_weight_kg=tot_net,
+                    total_gross_weight_kg=tot_gross,
+                    total_cbm=tot_cbm,
+                    chargeable_weight_kg=chg_wt,
+                )
+                po.packing_list_items.append(pli)
+
+            if pkg_total_cbm > 0:
+                total_cbm = pkg_total_cbm
+            if pkg_total_gross > 0:
+                total_gross = pkg_total_gross
+            if pkg_total_net > 0:
+                total_net = pkg_total_net
+            if pkg_count > 0:
+                total_pkgs = int(pkg_count)
+
+        po.total_amount_fob = total_fob
+        po.total_cbm = total_cbm
+        po.total_gross_weight_kg = total_gross
+        po.total_net_weight_kg = total_net
+        po.total_packages_count = total_pkgs
 
         self.db.commit()
         self.db.refresh(po)

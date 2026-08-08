@@ -16,6 +16,8 @@ from modules.projects.model import Project
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.purchase_orders.model import POLineItem, PurchaseOrder
 from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
+from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_shipping.model import CargoShippingRecord
 
 
 def seed_data():
@@ -1399,6 +1401,79 @@ def seed_data():
             db.add(bkg1)
             db.commit()
             print("Phase 4 Freight Booking seeded successfully.")
+
+        # Seed Phase 5 Cargo Shipping
+        if db.query(CargoShippingRecord).count() == 0:
+            imp = db.query(ImportFile).filter(ImportFile.is_active == True).first()
+            bkg = db.query(ShipmentBooking).filter(ShipmentBooking.is_active == True).first()
+            imp_id = imp.import_file_id if imp else 1
+            bkg_id = bkg.booking_id if bkg else 1
+
+            shp1 = CargoShippingRecord(
+                cargo_shipping_code="SHP-2026-0001",
+                import_file_id=imp_id,
+                booking_id=bkg_id,
+                crd_date=datetime(2026, 8, 8, 12, 0, tzinfo=timezone.utc),
+                cargo_cutoff_date=datetime(2026, 8, 10, 18, 0, tzinfo=timezone.utc),
+                is_crd_validated=True,
+                containers_loading_data=[
+                    {
+                        "container_no": "MSCU1234567",
+                        "seal_no": "SL-99001",
+                        "tare_weight_kg": 3800.0,
+                        "net_weight_kg": 20700.0,
+                        "gross_weight_kg": 24500.0,
+                        "vgm_status": "Submitted",
+                        "vgm_ref_no": "VGM-MSC-9901"
+                    },
+                    {
+                        "container_no": "MSCU7654321",
+                        "seal_no": "SL-99002",
+                        "tare_weight_kg": 3800.0,
+                        "net_weight_kg": 20700.0,
+                        "gross_weight_kg": 24500.0,
+                        "vgm_status": "Submitted",
+                        "vgm_ref_no": "VGM-MSC-9902"
+                    }
+                ],
+                level1_approval_status="Approved",
+                level1_approved_by="Operational Lead",
+                level1_approved_at=datetime(2026, 8, 9, 10, 0, tzinfo=timezone.utc),
+                level1_notes="تمت مراجعة أرقام الحاويات، ACID، والأوزان الفنية ومطابقتها.",
+                level2_approval_status="Approved",
+                level2_approved_by="Import Manager",
+                level2_approved_at=datetime(2026, 8, 9, 11, 30, tzinfo=timezone.utc),
+                level2_notes="اعتماد ثنائي نهائي مأذون به للشحن.",
+                dual_approval_status="Dual Approved",
+                courier_tracking_data={
+                    "courier_provider": "DHL Express",
+                    "tracking_number": "DHL-9876543210",
+                    "dispatch_date": "2026-08-09T08:00:00Z",
+                    "receipt_status": "Received at Office",
+                    "received_at": "2026-08-09T14:00:00Z",
+                    "received_by": "Kamal"
+                },
+                cargox_exchange_data={
+                    "platform_provider": "CargoX Platform",
+                    "envelope_id": "ENV-CGX-2026-0001",
+                    "envelope_status": "Checklist Passed",
+                    "blockchain_tx_hash": "0xBC7789A990001FA88321",
+                    "verification_checklist": [
+                        {"rule_name": "ACID Number Validity & Verification", "passed": True, "details": "Verified on Nafeza"},
+                        {"rule_name": "Commercial Invoice & Consignee Match", "passed": True, "details": "Matched"},
+                        {"rule_name": "Bill of Lading (BL) & Container List Match", "passed": True, "details": "Matched"},
+                        {"rule_name": "Dual Approval Level 1 & Level 2 Status", "passed": True, "details": "Dual Approved"}
+                    ]
+                },
+                live_tracking_url="https://www.msc.com/track/?number=MSCU1234567",
+                status="Dual Approved",
+                owner="Kamal",
+                notes="سجل تجهيز الشحنة والتحميل مراجَع ومُعتمد ثنائياً.",
+                is_active=True,
+            )
+            db.add(shp1)
+            db.commit()
+            print("Phase 5 Cargo Shipping seeded successfully.")
 
         print("All Database Seeder Data populated successfully!")
 

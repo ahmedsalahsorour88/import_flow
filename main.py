@@ -36,6 +36,7 @@ from modules.import_documentation.model import (
 )
 from modules.import_files.model import ImportFile
 from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_shipping.model import CargoShippingRecord
 
 
 # ==================================================
@@ -61,6 +62,7 @@ from modules.financial_approval.router import router as financial_approval_route
 from modules.import_documentation.router import router as import_documentation_router
 from modules.import_files.router import router as import_files_router
 from modules.freight_booking.router import router as freight_booking_router
+from modules.cargo_shipping.router import router as cargo_shipping_router
 
 
 # ==================================================
@@ -70,9 +72,9 @@ from modules.freight_booking.router import router as freight_booking_router
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
-    title="ImportFlow ERP",
+    title="ImportFlow ERP API",
+    description="Enterprise API for Import Management & Customs Clearance",
     version="1.0.0",
-    description="Customs Clearance, Freight, & Import Operations System",
 )
 
 # CORS Middleware Setup
@@ -108,6 +110,7 @@ app.include_router(financial_approval_router)
 app.include_router(import_documentation_router)
 app.include_router(import_files_router)
 app.include_router(freight_booking_router)
+app.include_router(cargo_shipping_router)
 
 
 # ==================================================

@@ -24,6 +24,7 @@ from modules.currencies.model import Currency, ExchangeRate
 from modules.projects.model import Project
 from modules.purchase_orders.model import POLineItem, PurchaseOrder
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 
 
 # ==================================================
@@ -42,6 +43,7 @@ from modules.currencies.router import router as currencies_router
 from modules.projects.router import router as projects_router
 from modules.purchase_orders.router import router as purchase_orders_router
 from modules.cbm_calculator.router import router as cbm_calculator_router
+from modules.shipping_scenarios.router import router as shipping_scenarios_router
 
 
 # ==================================================
@@ -93,6 +95,8 @@ app.include_router(projects_router, prefix="/api/v1")
 app.include_router(purchase_orders_router)
 
 app.include_router(cbm_calculator_router)
+
+app.include_router(shipping_scenarios_router)
 
 
 # ==================================================

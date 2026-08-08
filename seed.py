@@ -15,6 +15,7 @@ from modules.currencies.model import Currency, ExchangeRate
 from modules.projects.model import Project
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.purchase_orders.model import POLineItem, PurchaseOrder
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 
 
 def seed_data():
@@ -945,6 +946,75 @@ def seed_data():
             db.add(calc1)
             db.commit()
             print("CBM Calculation Sessions seeded successfully.")
+
+        # ==================================================
+        # Seed Shipping Scenarios Evaluation (BP-007)
+        # ==================================================
+        if db.query(ShippingEvaluationSession).count() == 0:
+            print("Seeding Shipping Scenario Evaluation Studies...")
+            po = db.query(PurchaseOrder).first()
+            proj = db.query(Project).first()
+            pol = db.query(TransportLocation).filter(TransportLocation.un_locode == "CNSHA").first()
+            pod = db.query(TransportLocation).filter(TransportLocation.un_locode == "EGALY").first()
+
+            crd = datetime.now().date() + timedelta(days=5)
+
+            sce1 = ShippingEvaluationSession(
+                session_code="SCE-2026-001",
+                title="دراسة مقارنة خيارات وسيناريوهات شحن محولات محطة الإسماعيلية - Shanghai to Alexandria",
+                cargo_ready_date=crd,
+                port_of_loading_id=pol.location_id if pol else None,
+                port_of_discharge_id=pod.location_id if pod else None,
+                avg_form4_days=5,
+                avg_clearance_days=7,
+                po_id=po.po_id if po else None,
+                project_id=proj.project_id if proj else None,
+                notes="دراسة مقارنة الخطوط الملاحية المتاحة لشهر أغسطس 2026 لمراعاة مواعيد التسليم بالموقع",
+            )
+
+            item1 = ShippingScenarioItem(
+                provider_name="COSCO Shipping",
+                vessel_name="COSCO SHIPPING UNIVERSE",
+                voyage_number="042E",
+                sailing_date=crd + timedelta(days=2),
+                estimated_arrival_date=crd + timedelta(days=26),
+                expected_line_delay_days=2,
+                is_recommended=True,
+                risk_level="Low",
+                notes="أقرب موعد إبحار وتوافر حاويات HQ في ميناء شنغهاي",
+            )
+
+            item2 = ShippingScenarioItem(
+                provider_name="Maersk Line",
+                vessel_name="MAERSK MC-KINNEY MOLLER",
+                voyage_number="2608W",
+                sailing_date=crd + timedelta(days=5),
+                estimated_arrival_date=crd + timedelta(days=32),
+                expected_line_delay_days=4,
+                is_recommended=False,
+                risk_level="Medium",
+                notes="ترانزيت في بيرايوس مع تكلفة شحن أقل بمقدار $300",
+            )
+
+            item3 = ShippingScenarioItem(
+                provider_name="CMA CGM",
+                vessel_name="CMA CGM JACQUES SAADE",
+                voyage_number="8819X",
+                sailing_date=crd + timedelta(days=12),
+                estimated_arrival_date=crd + timedelta(days=48),
+                expected_line_delay_days=7,
+                is_excluded_from_average=True,
+                is_recommended=False,
+                risk_level="High",
+                notes="تاريخ إبحار متأخر جداً ومخاطرة عالية بالتأخير بالميناء الوسيط - مستبعد من المتوسط",
+            )
+
+            sce1.items.append(item1)
+            sce1.items.append(item2)
+            sce1.items.append(item3)
+            db.add(sce1)
+            db.commit()
+            print("Shipping Scenario Evaluation Studies seeded successfully.")
 
         print("All Database Seeder Data populated successfully!")
 

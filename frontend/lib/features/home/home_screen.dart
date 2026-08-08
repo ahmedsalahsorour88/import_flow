@@ -14,6 +14,7 @@ import '../../core/providers/navigation_provider.dart';
 import '../projects/screens/projects_screen.dart';
 import '../purchase_orders/screens/purchase_orders_screen.dart';
 import '../cbm_calculator/screens/cbm_calculator_screen.dart';
+import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -27,6 +28,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     DashboardTab(),
     PurchaseOrdersScreen(),
     CBMCalculatorScreen(),
+    ShippingScenariosScreen(),
     ProjectsScreen(),
     ImportCompaniesScreen(),
     SuppliersScreen(),
@@ -73,15 +75,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.dashboard, 'Dashboard', 0, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 1, selectedIndex),
                       _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأحجام)', 2, selectedIndex),
-                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 3, selectedIndex),
-                      _buildMenuItem(Icons.domain, 'Import Companies', 4, selectedIndex),
-                      _buildMenuItem(Icons.business, 'Suppliers', 5, selectedIndex),
-                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 6, selectedIndex),
-                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 7, selectedIndex),
-                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 8, selectedIndex),
-                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 9, selectedIndex),
-                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 10, selectedIndex),
-                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 11, selectedIndex),
+                      _buildMenuItem(Icons.alt_route, 'Shipping Scenarios (BP-007)', 3, selectedIndex),
+                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 4, selectedIndex),
+                      _buildMenuItem(Icons.domain, 'Import Companies', 5, selectedIndex),
+                      _buildMenuItem(Icons.business, 'Suppliers', 6, selectedIndex),
+                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 7, selectedIndex),
+                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 8, selectedIndex),
+                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 9, selectedIndex),
+                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 10, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 11, selectedIndex),
+                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 12, selectedIndex),
                     ],
                   ),
                 ),

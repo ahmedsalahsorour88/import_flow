@@ -171,7 +171,7 @@ class CustomsDutyBreakdown(BaseModel):
 
 # ==================================================
 # Multi-Item (Multi HS Code) Customs Calculation Schemas
-# (Nafeza Statement Specification Engine)
+# (Nafeza Statement Engine + Technical Addendum)
 # ==================================================
 
 class MultiItemCustomsEstimateLine(BaseModel):
@@ -180,6 +180,8 @@ class MultiItemCustomsEstimateLine(BaseModel):
     value_fc: Decimal = Field(..., gt=0, description="قيمة الصنف بالعملة الأجنبية")
     weight_kg: Decimal = Field(default=Decimal("0.00"), ge=0, description="وزن الصنف بالكيلوجرام")
     qty: Decimal = Field(default=Decimal("1.00"), gt=0, description="الكمية")
+    origin_country: Optional[str] = Field(None, description="بلد المنشأ للصنف (رمز الدولة ISO 2 e.g. TR, DE, CN)")
+    exemption_code: Optional[str] = Field(None, description="كود الإعفاء الجمركي المطبق على السطر إن وجد")
     exempted_value_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="القيمة المعفاة إن وجدت")
     value_without_payment_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة بدون دفع إن وجدت")
     inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم الخدمات الجمركية / الفحص للصنف بالجنيه")
@@ -190,9 +192,14 @@ class MultiItemCustomsEstimateRequest(BaseModel):
     exchange_rate: Decimal = Field(..., gt=0, description="سعر التحويل / الصرف الرسمي للجمارك")
     insurance_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي التأمين بالجنيه")
     freight_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي النولون / الشحن بالجنيه")
+    has_insurance_document: bool = Field(default=True, description="وجود وثيقة تأمين فعلية (إلا تحسب حكمياً 2.5%)")
+    has_freight_document: bool = Field(default=True, description="وجود وثيقة شحن فعلية (إلا تحسب حكمياً 2.0%)")
+    deemed_insurance_rate: Decimal = Field(default=Decimal("0.025"), description="نسبة التأمين الحكمي الافتراضية (2.5%)")
+    deemed_freight_rate: Decimal = Field(default=Decimal("0.020"), description="نسبة النولون الحكمي الافتراضية (2.0%)")
     additional_fees_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم إضافية/أساسية على مستوى الفاتورة بالجنيه")
     cif_declared_total_egp: Optional[Decimal] = Field(None, ge=0, description="إجمالي القيمة المقرة نهائياً بالجنيه (CIF Final Declared)")
     vat_rate_override: Optional[Decimal] = Field(None, description="تجاوز نسبة ضريبة القيمة المضافة العامة إن وجد")
+    exemption_code: Optional[str] = Field(None, description="كود إعفاء عام للشحنة إن وجد")
     estimate_date: Optional[date] = Field(None, description="تاريخ الإقرار الجمركي")
     lines: List[MultiItemCustomsEstimateLine] = Field(..., min_length=1, description="قائمة أصناف الفاتورة")
 
@@ -202,11 +209,17 @@ class MultiItemCustomsLineBreakdown(BaseModel):
     hs_code: str
     hs_description: str
     customs_category: Optional[str]
+    origin_country: Optional[str]
 
     value_fc: Decimal
     value_share: Decimal
     allocated_insurance_freight_egp: Decimal
     cif_value_egp: Decimal
+
+    # Exemption & Tax Bases Audit
+    duty_taxable_base_egp: Decimal
+    schedule_taxable_base_egp: Decimal
+    vat_taxable_base_egp: Decimal
 
     customs_duty_rate: Decimal
     duty_egp: Decimal
@@ -221,6 +234,13 @@ class MultiItemCustomsLineBreakdown(BaseModel):
 
     inspection_fee_egp: Decimal
 
+    # Audit Trail Flags
+    insurance_source: str = Field("actual", description="مصدر حساب التأمين: actual أو deemed")
+    freight_source: str = Field("actual", description="مصدر حساب النولون: actual أو deemed")
+    exemption_code_applied: Optional[str] = None
+    exemption_applied_details: Optional[str] = None
+    preferential_agreement_applied: Optional[str] = None
+
     requires_coo: bool
     requires_inspection: bool
     requires_acid: bool
@@ -231,8 +251,11 @@ class MultiItemCustomsBreakdown(BaseModel):
     currency: str
     exchange_rate: Decimal
     invoice_total_value_fc: Decimal
+    fob_value_egp: Decimal
     insurance_egp: Decimal
     freight_egp: Decimal
+    insurance_source: str = Field("actual", description="مصدر التأمين الكلي: actual أو deemed")
+    freight_source: str = Field("actual", description="مصدر النولون الكلي: actual أو deemed")
     additional_fees_egp: Decimal
     estimate_date: date
 

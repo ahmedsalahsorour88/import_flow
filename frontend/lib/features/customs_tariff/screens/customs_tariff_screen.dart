@@ -760,21 +760,30 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     final additionalFeesCtrl = TextEditingController(text: '1329.50');
     final declaredCifCtrl = TextEditingController(text: '623000.00');
 
-    List<Map<String, TextEditingController>> multiLines = [
+    bool hasInsuranceDoc = true;
+    bool hasFreightDoc = true;
+
+    List<Map<String, dynamic>> multiLines = [
       {
         'hs': TextEditingController(text: '8536410000'),
         'value': TextEditingController(text: '607.6'),
         'inspection': TextEditingController(text: '0.00'),
+        'origin': 'CN',
+        'exemption': null,
       },
       {
         'hs': TextEditingController(text: '8537109000'),
         'value': TextEditingController(text: '4371.2'),
         'inspection': TextEditingController(text: '8514.81'),
+        'origin': 'TR',
+        'exemption': null,
       },
       {
         'hs': TextEditingController(text: '8537109000'),
         'value': TextEditingController(text: '6757.6'),
         'inspection': TextEditingController(text: '69772.09'),
+        'origin': 'DE',
+        'exemption': null,
       },
     ];
 
@@ -1091,6 +1100,45 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                             ),
                           ],
                         ),
+                        const SizedBox(height: 10),
+
+                        // Document Presence Switches (Statutory/Deemed Costs Engine)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(0.05),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Text('توفر الوثائق الرسمية:',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              const SizedBox(width: 12),
+                              FilterChip(
+                                label: Text(hasInsuranceDoc ? 'وثيقة تأمين فعلية ✔' : 'تأمين حكمي (2.5%) ⚡',
+                                    style: TextStyle(fontSize: 11, color: hasInsuranceDoc ? AppTheme.cobalt : AppTheme.orange)),
+                                selected: hasInsuranceDoc,
+                                onSelected: (val) {
+                                  setCalcState(() {
+                                    hasInsuranceDoc = val;
+                                  });
+                                },
+                              ),
+                              const SizedBox(width: 8),
+                              FilterChip(
+                                label: Text(hasFreightDoc ? 'وثيقة شحن فعلية ✔' : 'نولون حكمي (2.0%) ⚡',
+                                    style: TextStyle(fontSize: 11, color: hasFreightDoc ? AppTheme.cobalt : AppTheme.orange)),
+                                selected: hasFreightDoc,
+                                onSelected: (val) {
+                                  setCalcState(() {
+                                    hasFreightDoc = val;
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 16),
 
                         // Lines Table Title & Add Button
@@ -1109,6 +1157,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                     'hs': TextEditingController(text: '8537109000'),
                                     'value': TextEditingController(text: '1000.00'),
                                     'inspection': TextEditingController(text: '0.00'),
+                                    'origin': 'CN',
+                                    'exemption': null,
                                   });
                                 });
                               },
@@ -1130,11 +1180,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                   child: Text('${idx + 1}',
                                       style: const TextStyle(color: Colors.white, fontSize: 10)),
                                 ),
-                                const SizedBox(width: 8),
+                                const SizedBox(width: 6),
                                 Expanded(
                                   flex: 3,
                                   child: TextField(
-                                    controller: line['hs'],
+                                    controller: line['hs'] as TextEditingController,
                                     decoration: const InputDecoration(
                                       labelText: 'HS Code',
                                       isDense: true,
@@ -1143,9 +1193,9 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
-                                  flex: 3,
+                                  flex: 2,
                                   child: TextField(
-                                    controller: line['value'],
+                                    controller: line['value'] as TextEditingController,
                                     keyboardType: TextInputType.number,
                                     decoration: const InputDecoration(
                                       labelText: 'القيمة (USD)',
@@ -1155,12 +1205,51 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Expanded(
+                                  flex: 2,
+                                  child: DropdownButtonFormField<String>(
+                                    value: line['origin'] as String?,
+                                    decoration: const InputDecoration(labelText: 'المنشأ', isDense: true),
+                                    items: const [
+                                      DropdownMenuItem(value: 'CN', child: Text('CN - الصين')),
+                                      DropdownMenuItem(value: 'TR', child: Text('TR - تركيا (0%)')),
+                                      DropdownMenuItem(value: 'DE', child: Text('DE - ألمانيا')),
+                                      DropdownMenuItem(value: 'MA', child: Text('MA - المغرب (أغادير)')),
+                                      DropdownMenuItem(value: 'SA', child: Text('SA - السعودية (GAFTA)')),
+                                    ],
+                                    onChanged: (val) {
+                                      setCalcState(() {
+                                        line['origin'] = val;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
                                   flex: 3,
+                                  child: DropdownButtonFormField<String>(
+                                    value: line['exemption'] as String?,
+                                    decoration: const InputDecoration(labelText: 'الإعفاء', isDense: true),
+                                    items: const [
+                                      DropdownMenuItem(value: null, child: Text('لا يوجد إعفاء')),
+                                      DropdownMenuItem(value: 'INV-LAW-EXEMPT-01', child: Text('قانون الاستثمار (إعفاء جمركي)')),
+                                      DropdownMenuItem(value: 'FREEZONE-EXEMPT-02', child: Text('منطقة حرة (إعفاء شامل)')),
+                                      DropdownMenuItem(value: 'PARTIAL-50-EXEMPT', child: Text('إعفاء جزئي 50%')),
+                                    ],
+                                    onChanged: (val) {
+                                      setCalcState(() {
+                                        line['exemption'] = val;
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  flex: 2,
                                   child: TextField(
-                                    controller: line['inspection'],
+                                    controller: line['inspection'] as TextEditingController,
                                     keyboardType: TextInputType.number,
                                     decoration: const InputDecoration(
-                                      labelText: 'رسوم خدمات (EGP)',
+                                      labelText: 'خدمات (EGP)',
                                       isDense: true,
                                     ),
                                   ),
@@ -1204,9 +1293,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                     final linesData = multiLines.map((m) {
                                       return {
                                         'line_no': multiLines.indexOf(m) + 1,
-                                        'hs_code': m['hs']!.text.trim(),
-                                        'value_fc': double.tryParse(m['value']!.text.trim()) ?? 0,
-                                        'inspection_fee_egp': double.tryParse(m['inspection']!.text.trim()) ?? 0,
+                                        'hs_code': (m['hs'] as TextEditingController).text.trim(),
+                                        'value_fc': double.tryParse((m['value'] as TextEditingController).text.trim()) ?? 0,
+                                        'inspection_fee_egp': double.tryParse((m['inspection'] as TextEditingController).text.trim()) ?? 0,
+                                        'origin_country': m['origin'],
+                                        'exemption_code': m['exemption'],
                                       };
                                     }).toList();
 
@@ -1221,6 +1312,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                         'exchange_rate': rate,
                                         'insurance_egp': ins,
                                         'freight_egp': frt,
+                                        'has_insurance_document': hasInsuranceDoc,
+                                        'has_freight_document': hasFreightDoc,
                                         'additional_fees_egp': add,
                                         if (decCif != null && decCif > 0) 'cif_declared_total_egp': decCif,
                                         'lines': linesData,
@@ -1262,7 +1355,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         if (multiResult != null) ...[
                           const SizedBox(height: 16),
                           const Divider(),
-                          const Text('نتيجة حساب الشحنة (Nafeza Worked Example Result):',
+                          const Text('نتيجة حساب الشحنة (Nafeza Statement Result):',
                               style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.charcoal,
@@ -1273,7 +1366,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
-                              columnSpacing: 16,
+                              columnSpacing: 12,
                               headingRowHeight: 32,
                               dataRowMinHeight: 32,
                               dataRowMaxHeight: 32,
@@ -1281,30 +1374,37 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                               columns: const [
                                 DataColumn(label: Text('سطر')),
                                 DataColumn(label: Text('HS Code')),
-                                DataColumn(label: Text('القيمة (USD)')),
+                                DataColumn(label: Text('المنشأ / الاتفاقية')),
                                 DataColumn(label: Text('CIF (EGP)')),
-                                DataColumn(label: Text('جمرك (10%)')),
+                                DataColumn(label: Text('جمرك')),
                                 DataColumn(label: Text('ض.جدول')),
                                 DataColumn(label: Text('VAT (14%)')),
-                                DataColumn(label: Text('خدمات فحص')),
+                                DataColumn(label: Text('ملاحظات الإعفاء والاتفاقيات')),
                               ],
                               rows: (multiResult!['lines'] as List).map((l) {
                                 return DataRow(cells: [
                                   DataCell(Text('#${l['line_no']}')),
                                   DataCell(Text(l['hs_code'].toString())),
-                                  DataCell(Text('\$${l['value_fc']}')),
+                                  DataCell(Text(l['preferential_agreement_applied'] != null
+                                      ? '${l['origin_country']} (تفضيل 0%)'
+                                      : '${l['origin_country'] ?? "-"}')),
                                   DataCell(Text('${l['cif_value_egp']} EGP')),
-                                  DataCell(Text('${l['duty_egp']} EGP')),
+                                  DataCell(Text('${l['duty_egp']} EGP (${l['customs_duty_rate']}%)')),
                                   DataCell(Text('${l['schedule_tax_egp']} EGP')),
                                   DataCell(Text('${l['vat_egp']} EGP')),
-                                  DataCell(Text('${l['inspection_fee_egp']} EGP')),
+                                  DataCell(Text(l['exemption_applied_details'] ?? l['preferential_agreement_applied'] ?? 'خاضع بالكامل',
+                                      style: TextStyle(
+                                          fontSize: 10,
+                                          color: (l['exemption_applied_details'] != null || l['preferential_agreement_applied'] != null)
+                                              ? AppTheme.emerald
+                                              : Colors.black87))),
                                 ]);
                               }).toList(),
                             ),
                           ),
                           const SizedBox(height: 12),
 
-                          // Summary Box matching Nafeza Statement
+                          // Summary Box matching Nafeza Statement + Audit Badges
                           Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
@@ -1314,6 +1414,16 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                             ),
                             child: Column(
                               children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('مصدر التأمين: ${multiResult!['insurance_source'] == "deemed" ? "حكمي (2.5%) ⚡" : "فعلي ✔"}',
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                    Text('مصدر النولون: ${multiResult!['freight_source'] == "deemed" ? "حكمي (2.0%) ⚡" : "فعلي ✔"}',
+                                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
+                                const Divider(),
                                 _calcRow('إجمالي ضريبة الوارد (الجمارك)',
                                     '${multiResult!['total_duty_egp']} EGP'),
                                 _calcRow('إجمالي ضريبة الجدول (أ.نص)',

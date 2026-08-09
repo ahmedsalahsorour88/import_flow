@@ -295,6 +295,128 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
 
 
 # ==================================================
+# Technical Addendum Lookup Registries & Engine Functions
+# ==================================================
+
+EXEMPTIONS_REGISTRY: Dict[str, dict] = {
+    "INV-LAW-EXEMPT-01": {
+        "exemption_code": "INV-LAW-EXEMPT-01",
+        "applies_to": ["duty"],
+        "exemption_type": "full",
+        "exemption_percentage": None,
+        "legal_basis": "قانون الاستثمار رقم 72 لسنة 2017 - إعفاء من ضريبة الوارد",
+    },
+    "FREEZONE-EXEMPT-02": {
+        "exemption_code": "FREEZONE-EXEMPT-02",
+        "applies_to": ["duty", "schedule_tax", "vat"],
+        "exemption_type": "full",
+        "exemption_percentage": None,
+        "legal_basis": "إعفاء المناطق حرة - شامل لكافة الضرائب والرسوم الجمركية",
+    },
+    "DIPLO-EXEMPT-03": {
+        "exemption_code": "DIPLO-EXEMPT-03",
+        "applies_to": ["duty", "schedule_tax", "vat"],
+        "exemption_type": "full",
+        "exemption_percentage": None,
+        "legal_basis": "إعفاء الهيئات الدبلوماسية والقنصلية",
+    },
+    "PARTIAL-50-EXEMPT": {
+        "exemption_code": "PARTIAL-50-EXEMPT",
+        "applies_to": ["duty"],
+        "exemption_type": "percentage",
+        "exemption_percentage": Decimal("0.50"),
+        "legal_basis": "إعفاء جزئي بنسبة 50% من ضريبة الوارد",
+    },
+}
+
+PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY: Dict[str, dict] = {
+    "TR": {
+        "agreement_name": "اتفاقية الشراكة المصرية التركية",
+        "origin_country": "TR",
+        "preferential_rate": Decimal("0.00"),
+    },
+    "MA": {
+        "agreement_name": "اتفاقية أغادير (المغرب)",
+        "origin_country": "MA",
+        "preferential_rate": Decimal("0.00"),
+    },
+    "TN": {
+        "agreement_name": "اتفاقية أغادير (تونس)",
+        "origin_country": "TN",
+        "preferential_rate": Decimal("0.00"),
+    },
+    "JO": {
+        "agreement_name": "اتفاقية أغادير (الأردن)",
+        "origin_country": "JO",
+        "preferential_rate": Decimal("0.00"),
+    },
+    "SA": {
+        "agreement_name": "منطقة التجارة الحرة العربية الكبرى (GAFTA - السعودية)",
+        "origin_country": "SA",
+        "preferential_rate": Decimal("0.00"),
+    },
+    "AE": {
+        "agreement_name": "منطقة التجارة الحرة العربية الكبرى (GAFTA - الإمارات)",
+        "origin_country": "AE",
+        "preferential_rate": Decimal("0.00"),
+    },
+}
+
+
+def resolve_insurance_freight(
+    invoice_total_value_fc: Decimal,
+    exchange_rate: Decimal,
+    actual_insurance_egp: Decimal,
+    actual_freight_egp: Decimal,
+    has_insurance_document: bool,
+    has_freight_document: bool,
+    deemed_insurance_rate: Decimal = Decimal("0.025"),
+    deemed_freight_rate: Decimal = Decimal("0.020"),
+) -> Tuple[Decimal, Decimal, str, str, Decimal]:
+    """
+    حساب وتأكيد قيم التأمين والنولون الفعلي أو الحكمي (Statutory / Deemed Costs)
+    """
+    fob_value_egp = _round(invoice_total_value_fc * exchange_rate)
+
+    if has_insurance_document and actual_insurance_egp > Decimal("0.00"):
+        resolved_insurance = actual_insurance_egp
+        insurance_source = "actual"
+    else:
+        resolved_insurance = _round(fob_value_egp * deemed_insurance_rate)
+        insurance_source = "deemed"
+
+    if has_freight_document and actual_freight_egp > Decimal("0.00"):
+        resolved_freight = actual_freight_egp
+        freight_source = "actual"
+    else:
+        resolved_freight = _round(fob_value_egp * deemed_freight_rate)
+        freight_source = "deemed"
+
+    return resolved_insurance, resolved_freight, insurance_source, freight_source, fob_value_egp
+
+
+def apply_exemption(cif_line_egp: Decimal, exemption: Optional[dict], tax_type: str) -> Tuple[Decimal, Optional[str]]:
+    """
+    تطبيق الإعفاء الجمركي على الوعاء الضريبي (Base) قبل ضربه في النسبة
+    """
+    if not exemption or tax_type not in exemption.get("applies_to", []):
+        return cif_line_egp, None
+
+    ex_type = exemption.get("exemption_type")
+    legal_basis = exemption.get("legal_basis", "إعفاء جمركي قانوني")
+
+    if ex_type == "full":
+        return Decimal("0.00"), f"إعفاء كامل شامل ({legal_basis})"
+    elif ex_type == "percentage":
+        pct = exemption.get("exemption_percentage") or Decimal("0.00")
+        taxable_base = _round(cif_line_egp * (Decimal("1.00") - pct))
+        pct_display = int(pct * Decimal("100"))
+        return taxable_base, f"إعفاء جزئي بنسبة {pct_display}% ({legal_basis})"
+
+    return cif_line_egp, None
+
+
+# ==================================================
 # Multi-Item Egyptian Customs Engine (Nafeza Statement Engine)
 # ==================================================
 
@@ -303,7 +425,7 @@ def estimate_multi_item_customs_duty_service(
 ) -> MultiItemCustomsBreakdown:
     """
     محرك الحساب الجمركي المصري لشحنة متعددة الأصناف (Multi-HS Code Customs Engine)
-    بناءً على المواصفة الفنية والنموذج الفعلي المعالج من منصة نافذة (Nafeza Statement Specification).
+    بناءً على المواصفة الفنية والنموذج الفعلي المعالج من منصة نافذة + الملحق الفني للإعفاءات التنافسية والحساب الحكمي.
     """
     on_date = request.estimate_date or date.today()
     if not request.lines:
@@ -313,7 +435,25 @@ def estimate_multi_item_customs_duty_service(
     if invoice_total_value_fc <= Decimal("0.00"):
         raise HTTPException(status_code=400, detail="Total invoice value must be greater than 0")
 
-    total_insurance_freight_egp = request.insurance_egp + request.freight_egp
+    # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
+    (
+        resolved_insurance_egp,
+        resolved_freight_egp,
+        insurance_source,
+        freight_source,
+        fob_value_egp,
+    ) = resolve_insurance_freight(
+        invoice_total_value_fc=invoice_total_value_fc,
+        exchange_rate=request.exchange_rate,
+        actual_insurance_egp=request.insurance_egp,
+        actual_freight_egp=request.freight_egp,
+        has_insurance_document=request.has_insurance_document,
+        has_freight_document=request.has_freight_document,
+        deemed_insurance_rate=request.deemed_insurance_rate,
+        deemed_freight_rate=request.deemed_freight_rate,
+    )
+
+    total_insurance_freight_egp = resolved_insurance_egp + resolved_freight_egp
 
     line_breakdowns: List[MultiItemCustomsLineBreakdown] = []
     total_duty_egp = Decimal("0.00")
@@ -324,9 +464,17 @@ def estimate_multi_item_customs_duty_service(
     for line in request.lines:
         tariff = repository.get_active_tariff_on_date(db, line.hs_code, on_date)
 
-        duty_rate = Decimal(str(tariff.customs_duty_rate)) if tariff else Decimal("10.00")
+        standard_duty_rate = Decimal(str(tariff.customs_duty_rate)) if tariff else Decimal("10.00")
         vat_rate = Decimal(str(request.vat_rate_override or (tariff.vat_rate if tariff else Decimal("14.00"))))
         sched_rate = Decimal(str(tariff.schedule_tax_rate)) if tariff else Decimal("10.00")
+
+        # Step 2: Trade Agreements Preferential Tariff Check
+        duty_rate = standard_duty_rate
+        trade_agreement_name = None
+        if line.origin_country and line.origin_country.upper() in PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY:
+            ag = PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY[line.origin_country.upper()]
+            duty_rate = ag["preferential_rate"]
+            trade_agreement_name = ag["agreement_name"]
 
         schedule_tax_base = "duty"
 
@@ -346,16 +494,30 @@ def estimate_multi_item_customs_duty_service(
         else:
             cif_line_egp = _round((line_taxable_fc * request.exchange_rate) + allocated_ins_freight)
 
-        duty_line_egp = _round(cif_line_egp * (duty_rate / Decimal("100")))
+        # Step 3: Resolve Exemptions for Line
+        exemption_code_to_apply = line.exemption_code or request.exemption_code
+        exemption_info = EXEMPTIONS_REGISTRY.get(exemption_code_to_apply) if exemption_code_to_apply else None
+        exemption_details = None
 
+        # Apply Duty Exemption on Base
+        duty_taxable_base_egp, ex_det_duty = apply_exemption(cif_line_egp, exemption_info, "duty")
+        if ex_det_duty:
+            exemption_details = ex_det_duty
+
+        duty_line_egp = _round(duty_taxable_base_egp * (duty_rate / Decimal("100")))
+
+        # Apply Schedule Tax Exemption on Base
+        schedule_taxable_base_egp, ex_det_sched = apply_exemption(cif_line_egp, exemption_info, "schedule_tax")
         if schedule_tax_base == "duty":
             schedule_tax_line_egp = _round(duty_line_egp * (sched_rate / Decimal("100")))
         elif schedule_tax_base == "cif":
-            schedule_tax_line_egp = _round(cif_line_egp * (sched_rate / Decimal("100")))
+            schedule_tax_line_egp = _round(schedule_taxable_base_egp * (sched_rate / Decimal("100")))
         else:
             schedule_tax_line_egp = Decimal("0.00")
 
-        vat_base_egp = cif_line_egp + duty_line_egp
+        # Apply VAT Exemption on Base
+        vat_taxable_base_egp, ex_det_vat = apply_exemption(cif_line_egp, exemption_info, "vat")
+        vat_base_egp = vat_taxable_base_egp + duty_line_egp
         vat_line_egp = _round(vat_base_egp * (vat_rate / Decimal("100")))
 
         inspection_fee_line_egp = _round(line.inspection_fee_egp)
@@ -371,10 +533,14 @@ def estimate_multi_item_customs_duty_service(
                 hs_code=line.hs_code,
                 hs_description=hs_description,
                 customs_category=customs_category,
+                origin_country=line.origin_country,
                 value_fc=line.value_fc,
                 value_share=_round(value_share * Decimal("100")),
                 allocated_insurance_freight_egp=_round(allocated_ins_freight),
                 cif_value_egp=cif_line_egp,
+                duty_taxable_base_egp=duty_taxable_base_egp,
+                schedule_taxable_base_egp=schedule_taxable_base_egp,
+                vat_taxable_base_egp=vat_taxable_base_egp,
                 customs_duty_rate=duty_rate,
                 duty_egp=duty_line_egp,
                 schedule_tax_rate=sched_rate,
@@ -384,6 +550,11 @@ def estimate_multi_item_customs_duty_service(
                 vat_base_egp=vat_base_egp,
                 vat_egp=vat_line_egp,
                 inspection_fee_egp=inspection_fee_line_egp,
+                insurance_source=insurance_source,
+                freight_source=freight_source,
+                exemption_code_applied=exemption_code_to_apply if exemption_info else None,
+                exemption_applied_details=exemption_details,
+                preferential_agreement_applied=trade_agreement_name,
                 requires_coo=requires_coo,
                 requires_inspection=requires_inspection,
                 requires_acid=requires_acid,
@@ -398,8 +569,11 @@ def estimate_multi_item_customs_duty_service(
         currency=request.currency,
         exchange_rate=request.exchange_rate,
         invoice_total_value_fc=invoice_total_value_fc,
-        insurance_egp=request.insurance_egp,
-        freight_egp=request.freight_egp,
+        fob_value_egp=fob_value_egp,
+        insurance_egp=resolved_insurance_egp,
+        freight_egp=resolved_freight_egp,
+        insurance_source=insurance_source,
+        freight_source=freight_source,
         additional_fees_egp=request.additional_fees_egp,
         estimate_date=on_date,
         lines=line_breakdowns,

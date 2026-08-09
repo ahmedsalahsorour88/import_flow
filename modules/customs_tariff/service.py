@@ -12,6 +12,9 @@ from .schemas import (
     CustomsDutyEstimateRequest,
     CustomsTariffCreate,
     CustomsTariffUpdate,
+    MultiItemCustomsBreakdown,
+    MultiItemCustomsEstimateRequest,
+    MultiItemCustomsLineBreakdown,
 )
 from .validators import (
     validate_effective_date_range,
@@ -289,4 +292,123 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
         "total_processed": imported_count + updated_count,
         "errors": errors,
     }
+
+
+# ==================================================
+# Multi-Item Egyptian Customs Engine (Nafeza Statement Engine)
+# ==================================================
+
+def estimate_multi_item_customs_duty_service(
+    db: Session, request: MultiItemCustomsEstimateRequest
+) -> MultiItemCustomsBreakdown:
+    """
+    محرك الحساب الجمركي المصري لشحنة متعددة الأصناف (Multi-HS Code Customs Engine)
+    بناءً على المواصفة الفنية والنموذج الفعلي المعالج من منصة نافذة (Nafeza Statement Specification).
+    """
+    on_date = request.estimate_date or date.today()
+    if not request.lines:
+        raise HTTPException(status_code=400, detail="At least one line item is required")
+
+    invoice_total_value_fc = sum(line.value_fc for line in request.lines)
+    if invoice_total_value_fc <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Total invoice value must be greater than 0")
+
+    total_insurance_freight_egp = request.insurance_egp + request.freight_egp
+
+    line_breakdowns: List[MultiItemCustomsLineBreakdown] = []
+    total_duty_egp = Decimal("0.00")
+    total_schedule_tax_egp = Decimal("0.00")
+    total_vat_egp = Decimal("0.00")
+    total_inspection_fees_egp = Decimal("0.00")
+
+    for line in request.lines:
+        tariff = repository.get_active_tariff_on_date(db, line.hs_code, on_date)
+
+        duty_rate = Decimal(str(tariff.customs_duty_rate)) if tariff else Decimal("10.00")
+        vat_rate = Decimal(str(request.vat_rate_override or (tariff.vat_rate if tariff else Decimal("14.00"))))
+        sched_rate = Decimal(str(tariff.schedule_tax_rate)) if tariff else Decimal("10.00")
+
+        schedule_tax_base = "duty"
+
+        requires_coo = tariff.requires_coo if tariff else True
+        requires_inspection = tariff.requires_inspection if tariff else True
+        requires_acid = tariff.requires_acid if tariff else True
+        regulatory_authority = tariff.regulatory_authority if tariff else None
+        hs_description = tariff.hs_description if tariff else f"HS Code {line.hs_code}"
+        customs_category = tariff.customs_category if tariff else None
+
+        value_share = line.value_fc / invoice_total_value_fc
+        allocated_ins_freight = total_insurance_freight_egp * value_share
+
+        line_taxable_fc = line.value_fc - line.exempted_value_fc - line.value_without_payment_fc
+        if request.cif_declared_total_egp and request.cif_declared_total_egp > Decimal("0.00"):
+            cif_line_egp = _round(request.cif_declared_total_egp * value_share)
+        else:
+            cif_line_egp = _round((line_taxable_fc * request.exchange_rate) + allocated_ins_freight)
+
+        duty_line_egp = _round(cif_line_egp * (duty_rate / Decimal("100")))
+
+        if schedule_tax_base == "duty":
+            schedule_tax_line_egp = _round(duty_line_egp * (sched_rate / Decimal("100")))
+        elif schedule_tax_base == "cif":
+            schedule_tax_line_egp = _round(cif_line_egp * (sched_rate / Decimal("100")))
+        else:
+            schedule_tax_line_egp = Decimal("0.00")
+
+        vat_base_egp = cif_line_egp + duty_line_egp
+        vat_line_egp = _round(vat_base_egp * (vat_rate / Decimal("100")))
+
+        inspection_fee_line_egp = _round(line.inspection_fee_egp)
+
+        total_duty_egp += duty_line_egp
+        total_schedule_tax_egp += schedule_tax_line_egp
+        total_vat_egp += vat_line_egp
+        total_inspection_fees_egp += inspection_fee_line_egp
+
+        line_breakdowns.append(
+            MultiItemCustomsLineBreakdown(
+                line_no=line.line_no,
+                hs_code=line.hs_code,
+                hs_description=hs_description,
+                customs_category=customs_category,
+                value_fc=line.value_fc,
+                value_share=_round(value_share * Decimal("100")),
+                allocated_insurance_freight_egp=_round(allocated_ins_freight),
+                cif_value_egp=cif_line_egp,
+                customs_duty_rate=duty_rate,
+                duty_egp=duty_line_egp,
+                schedule_tax_rate=sched_rate,
+                schedule_tax_base=schedule_tax_base,
+                schedule_tax_egp=schedule_tax_line_egp,
+                vat_rate=vat_rate,
+                vat_base_egp=vat_base_egp,
+                vat_egp=vat_line_egp,
+                inspection_fee_egp=inspection_fee_line_egp,
+                requires_coo=requires_coo,
+                requires_inspection=requires_inspection,
+                requires_acid=requires_acid,
+                regulatory_authority=regulatory_authority,
+            )
+        )
+
+    items_taxes_total_egp = total_duty_egp + total_schedule_tax_egp + total_vat_egp
+    grand_total_payable_egp = items_taxes_total_egp + _round(request.additional_fees_egp)
+
+    return MultiItemCustomsBreakdown(
+        currency=request.currency,
+        exchange_rate=request.exchange_rate,
+        invoice_total_value_fc=invoice_total_value_fc,
+        insurance_egp=request.insurance_egp,
+        freight_egp=request.freight_egp,
+        additional_fees_egp=request.additional_fees_egp,
+        estimate_date=on_date,
+        lines=line_breakdowns,
+        total_duty_egp=total_duty_egp,
+        total_schedule_tax_egp=total_schedule_tax_egp,
+        total_vat_egp=total_vat_egp,
+        total_inspection_fees_egp=total_inspection_fees_egp,
+        items_taxes_total_egp=items_taxes_total_egp,
+        grand_total_payable_egp=grand_total_payable_egp,
+    )
+
 

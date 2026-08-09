@@ -12,12 +12,15 @@ from .schemas import (
     CustomsTariffCreate,
     CustomsTariffResponse,
     CustomsTariffUpdate,
+    MultiItemCustomsBreakdown,
+    MultiItemCustomsEstimateRequest,
 )
 from .service import (
     bulk_import_tariffs_service,
     create_tariff_service,
     delete_tariff_service,
     estimate_customs_duty_service,
+    estimate_multi_item_customs_duty_service,
     get_all_tariffs_service,
     get_tariff_by_hs_code_service,
     get_tariff_by_id_service,
@@ -57,6 +60,18 @@ def estimate_customs_duty(request: CustomsDutyEstimateRequest, db: Session = Dep
     Estimates customs duties, VAT, schedule tax, and development fees based on the HS Code.
     """
     return estimate_customs_duty_service(db, request)
+
+
+@customs_tariff_router.post("/estimate-multi", response_model=MultiItemCustomsBreakdown)
+def estimate_multi_item_customs_duty(
+    request: MultiItemCustomsEstimateRequest, db: Session = Depends(get_db)
+):
+    """
+    Egyptian Multi-Item Customs Calculation Engine API Endpoint.
+    Estimates customs duties, VAT, schedule taxes, and grand totals for multi-item invoices based on official Nafeza specifications.
+    """
+    return estimate_multi_item_customs_duty_service(db, request)
+
 
 
 @customs_tariff_router.get("/hs/{hs_code}", response_model=CustomsTariffResponse)

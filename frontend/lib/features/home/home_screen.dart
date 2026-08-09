@@ -25,6 +25,8 @@ import '../cargo_shipping/screens/cargo_shipping_screen.dart';
 import '../customs_clearance/screens/customs_clearance_screen.dart';
 import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
+import '../financial_settlement/screens/financial_settlement_screen.dart';
+import '../file_closure/screens/file_closure_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -57,6 +59,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         CurrenciesScreen(),
         CustomsClearanceScreen(),
         WarehouseReceivingScreen(),
+        FinancialSettlementScreen(),
+        FileClosureScreen(),
       ];
 
   @override
@@ -142,6 +146,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.local_shipping_outlined, 'Cargo & CargoX (Phase 5)', 10, selectedIndex),
                       _buildMenuItem(Icons.gavel_outlined, 'Customs Clearance (Phase 7)', 20, selectedIndex),
                       _buildMenuItem(Icons.inventory_outlined, 'Warehouse Receiving (Phase 8)', 21, selectedIndex),
+                      _buildMenuItem(Icons.calculate_outlined, 'Financial Settlement (Phase 9)', 22, selectedIndex),
+                      _buildMenuItem(Icons.archive_outlined, 'File Closure & Archiving (Phase 10)', 23, selectedIndex),
 
                       // Section 4: Master Data
                       _buildSectionHeader('🏢 البيانات الأساسية للمؤسسة'),

@@ -753,187 +753,602 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     String? calcError;
     bool isCalculating = false;
 
+    // Multi-Item State
+    final exchangeRateCtrl = TextEditingController(text: '50.7917');
+    final insuranceCtrl = TextEditingController(text: '14902.793');
+    final multiFreightCtrl = TextEditingController(text: '11922.234');
+    final additionalFeesCtrl = TextEditingController(text: '1329.50');
+    final declaredCifCtrl = TextEditingController(text: '623000.00');
+
+    List<Map<String, TextEditingController>> multiLines = [
+      {
+        'hs': TextEditingController(text: '8536410000'),
+        'value': TextEditingController(text: '607.6'),
+        'inspection': TextEditingController(text: '0.00'),
+      },
+      {
+        'hs': TextEditingController(text: '8537109000'),
+        'value': TextEditingController(text: '4371.2'),
+        'inspection': TextEditingController(text: '8514.81'),
+      },
+      {
+        'hs': TextEditingController(text: '8537109000'),
+        'value': TextEditingController(text: '6757.6'),
+        'inspection': TextEditingController(text: '69772.09'),
+      },
+    ];
+
+    Map<String, dynamic>? multiResult;
+    String? multiError;
+    bool isMultiCalculating = false;
+
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setCalcState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.calculate, color: AppTheme.emerald),
-              SizedBox(width: 8),
-              Text('Egyptian Customs Duty Calculator'),
-            ],
-          ),
-          content: SizedBox(
-            width: 560,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+        builder: (ctx, setCalcState) => DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Column(
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.calculate, color: AppTheme.emerald),
+                    SizedBox(width: 8),
+                    Text('Egyptian Customs Duty Calculator (حاسبة الجمارك المصرية)'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TabBar(
+                  labelColor: AppTheme.cobalt,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: AppTheme.cobalt,
+                  tabs: const [
+                    Tab(text: 'Single Item (حساب صنف واحد)'),
+                    Tab(text: 'Multi-Item Shipment (شحنة متعددة الأصناف — نافذة)'),
+                  ],
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 820,
+              height: 580,
+              child: TabBarView(
                 children: [
-                  const Text(
-                    'Calculates Import Duty, VAT, Schedule Tax & Development Fees dynamically using HS Code tariff rates (AGENTS.md Section 7.2)',
-                    style: TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: hsCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'HS Code *',
-                            hintText: 'e.g. 8471.30.00',
+                  // Tab 1: Single Item
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Calculates Import Duty, VAT, Schedule Tax & Development Fees dynamically using HS Code tariff rates',
+                          style: TextStyle(fontSize: 12, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: hsCtrl,
+                                decoration: const InputDecoration(
+                                  labelText: 'HS Code *',
+                                  hintText: 'e.g. 8471.30.00',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: cifCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'CIF Value (EGP) *',
+                                  hintText: 'e.g. 100000',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: freightCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'Freight (EGP)',
+                                  hintText: 'e.g. 5000',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                            icon: isCalculating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.bolt, size: 18),
+                            label: const Text('Calculate Duties & Taxes'),
+                            onPressed: isCalculating
+                                ? null
+                                : () async {
+                                    final hs = hsCtrl.text.trim();
+                                    final cif = double.tryParse(cifCtrl.text.trim()) ?? 0;
+                                    final freight = double.tryParse(freightCtrl.text.trim()) ?? 0;
+
+                                    if (hs.isEmpty || cif <= 0) {
+                                      setCalcState(() {
+                                        calcError = 'Please enter a valid HS Code and positive CIF value.';
+                                        breakdown = null;
+                                      });
+                                      return;
+                                    }
+
+                                    setCalcState(() {
+                                      isCalculating = true;
+                                      calcError = null;
+                                    });
+
+                                    try {
+                                      final res = await ref
+                                          .read(customsTariffProvider.notifier)
+                                          .estimateDuty(
+                                            hsCode: hs,
+                                            cifValue: cif,
+                                            freight: freight,
+                                          );
+                                      setCalcState(() {
+                                        breakdown = res;
+                                        isCalculating = false;
+                                      });
+                                    } catch (e) {
+                                      setCalcState(() {
+                                        calcError = e.toString().replaceAll('Exception: ', '');
+                                        isCalculating = false;
+                                        breakdown = null;
+                                      });
+                                    }
+                                  },
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: cifCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'CIF Value (EGP) *',
-                            hintText: 'e.g. 100000',
+                        if (calcError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.crimson.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(calcError!,
+                                  style: const TextStyle(color: AppTheme.crimson, fontSize: 12)),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: freightCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Freight (EGP)',
-                            hintText: 'e.g. 5000',
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: isCalculating
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
-                          : const Icon(Icons.bolt, size: 18),
-                      label: const Text('Calculate Duties & Taxes'),
-                      onPressed: isCalculating
-                          ? null
-                          : () async {
-                              final hs = hsCtrl.text.trim();
-                              final cif = double.tryParse(cifCtrl.text.trim()) ?? 0;
-                              final freight = double.tryParse(freightCtrl.text.trim()) ?? 0;
-
-                              if (hs.isEmpty || cif <= 0) {
-                                setCalcState(() {
-                                  calcError = 'Please enter a valid HS Code and positive CIF value.';
-                                  breakdown = null;
-                                });
-                                return;
-                              }
-
-                              setCalcState(() {
-                                isCalculating = true;
-                                calcError = null;
-                              });
-
-                              try {
-                                final res = await ref
-                                    .read(customsTariffProvider.notifier)
-                                    .estimateDuty(
-                                      hsCode: hs,
-                                      cifValue: cif,
-                                      freight: freight,
-                                    );
-                                setCalcState(() {
-                                  breakdown = res;
-                                  isCalculating = false;
-                                });
-                              } catch (e) {
-                                setCalcState(() {
-                                  calcError = e.toString().replaceAll('Exception: ', '');
-                                  isCalculating = false;
-                                  breakdown = null;
-                                });
-                              }
-                            },
-                    ),
-                  ),
-
-                  if (calcError != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppTheme.crimson.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(calcError!,
-                            style: const TextStyle(color: AppTheme.crimson, fontSize: 12)),
-                      ),
-                    ),
-
-                  if (breakdown != null) ...[
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const Text('Calculation Breakdown:',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.charcoal,
-                            fontSize: 14)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Column(
-                        children: [
-                          _calcRow('CIF Base Value', '${breakdown!.cifValue.toStringAsFixed(2)} EGP'),
-                          _calcRow('Import Duty (${breakdown!.customsDutyRate}%)',
-                              '${breakdown!.importDutyAmount.toStringAsFixed(2)} EGP'),
-                          _calcRow('VAT Base (CIF + Duty + Freight)',
-                              '${breakdown!.vatBase.toStringAsFixed(2)} EGP'),
-                          _calcRow('VAT (${breakdown!.vatRate}%)',
-                              '${breakdown!.vatAmount.toStringAsFixed(2)} EGP'),
-                          if (breakdown!.scheduleTaxAmount > 0)
-                            _calcRow('Schedule Tax (${breakdown!.scheduleTaxRate}%)',
-                                '${breakdown!.scheduleTaxAmount.toStringAsFixed(2)} EGP'),
-                          if (breakdown!.developmentFeeAmount > 0)
-                            _calcRow('Development Fee (${breakdown!.developmentFeeRate}%)',
-                                '${breakdown!.developmentFeeAmount.toStringAsFixed(2)} EGP'),
-                          if (breakdown!.importFeeAmount > 0)
-                            _calcRow('Import Fee (${breakdown!.importFeeRate}%)',
-                                '${breakdown!.importFeeAmount.toStringAsFixed(2)} EGP'),
+                        if (breakdown != null) ...[
+                          const SizedBox(height: 16),
                           const Divider(),
-                          _calcRow(
-                            'Total Customs Taxes & Fees',
-                            '${breakdown!.totalTaxesAndFees.toStringAsFixed(2)} EGP',
-                            isTotal: true,
+                          const Text('Calculation Breakdown:',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                  fontSize: 14)),
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              children: [
+                                _calcRow('CIF Base Value', '${breakdown!.cifValue.toStringAsFixed(2)} EGP'),
+                                _calcRow('Import Duty (${breakdown!.customsDutyRate}%)',
+                                    '${breakdown!.importDutyAmount.toStringAsFixed(2)} EGP'),
+                                _calcRow('VAT Base (CIF + Duty + Freight)',
+                                    '${breakdown!.vatBase.toStringAsFixed(2)} EGP'),
+                                _calcRow('VAT (${breakdown!.vatRate}%)',
+                                    '${breakdown!.vatAmount.toStringAsFixed(2)} EGP'),
+                                if (breakdown!.scheduleTaxAmount > 0)
+                                  _calcRow('Schedule Tax (${breakdown!.scheduleTaxRate}%)',
+                                      '${breakdown!.scheduleTaxAmount.toStringAsFixed(2)} EGP'),
+                                if (breakdown!.developmentFeeAmount > 0)
+                                  _calcRow('Development Fee (${breakdown!.developmentFeeRate}%)',
+                                      '${breakdown!.developmentFeeAmount.toStringAsFixed(2)} EGP'),
+                                if (breakdown!.importFeeAmount > 0)
+                                  _calcRow('Import Fee (${breakdown!.importFeeRate}%)',
+                                      '${breakdown!.importFeeAmount.toStringAsFixed(2)} EGP'),
+                                const Divider(),
+                                _calcRow(
+                                  'Total Customs Taxes & Fees',
+                                  '${breakdown!.totalTaxesAndFees.toStringAsFixed(2)} EGP',
+                                  isTotal: true,
+                                ),
+                              ],
+                            ),
                           ),
                         ],
-                      ),
+                      ],
                     ),
-                  ],
+                  ),
+
+                  // Tab 2: Multi-Item Shipment
+                  SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              'حساب الجمارك لشحنة متعددة الأصناف وفق نموذج منصة نافذة (Nafeza Statement)',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.orange,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.downloading, size: 14),
+                              label: const Text('تحميل مثال نافذة الفعلي (2026-612-1-94731)',
+                                  style: TextStyle(fontSize: 11)),
+                              onPressed: () {
+                                setCalcState(() {
+                                  exchangeRateCtrl.text = '50.7917';
+                                  insuranceCtrl.text = '14902.793';
+                                  multiFreightCtrl.text = '11922.234';
+                                  additionalFeesCtrl.text = '1329.50';
+                                  declaredCifCtrl.text = '623000.00';
+                                  multiLines = [
+                                    {
+                                      'hs': TextEditingController(text: '8536410000'),
+                                      'value': TextEditingController(text: '607.6'),
+                                      'inspection': TextEditingController(text: '0.00'),
+                                    },
+                                    {
+                                      'hs': TextEditingController(text: '8537109000'),
+                                      'value': TextEditingController(text: '4371.2'),
+                                      'inspection': TextEditingController(text: '8514.81'),
+                                    },
+                                    {
+                                      'hs': TextEditingController(text: '8537109000'),
+                                      'value': TextEditingController(text: '6757.6'),
+                                      'inspection': TextEditingController(text: '69772.09'),
+                                    },
+                                  ];
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Header Inputs Grid
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: exchangeRateCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'سعر التحويل (EGP/USD) *',
+                                  hintText: '50.7917',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: insuranceCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'إجمالي التأمين (EGP)',
+                                  hintText: '14902.793',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: multiFreightCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'إجمالي النولون (EGP)',
+                                  hintText: '11922.234',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: additionalFeesCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'رسوم أساسية/إضافية (EGP)',
+                                  hintText: '1329.50',
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: declaredCifCtrl,
+                                keyboardType: TextInputType.number,
+                                decoration: const InputDecoration(
+                                  labelText: 'القيمة المقرة CIF (EGP - اختياري)',
+                                  hintText: '623000.00',
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Lines Table Title & Add Button
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('سطور الفاتورة (Invoice Line Items):',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            OutlinedButton.icon(
+                              icon: const Icon(Icons.add, size: 14),
+                              label: const Text('إضافة صنف', style: TextStyle(fontSize: 11)),
+                              onPressed: () {
+                                setCalcState(() {
+                                  multiLines.add({
+                                    'hs': TextEditingController(text: '8537109000'),
+                                    'value': TextEditingController(text: '1000.00'),
+                                    'inspection': TextEditingController(text: '0.00'),
+                                  });
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+
+                        // Lines List Input Rows
+                        ...List.generate(multiLines.length, (idx) {
+                          final line = multiLines[idx];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8.0),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 12,
+                                  backgroundColor: AppTheme.cobalt,
+                                  child: Text('${idx + 1}',
+                                      style: const TextStyle(color: Colors.white, fontSize: 10)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: line['hs'],
+                                    decoration: const InputDecoration(
+                                      labelText: 'HS Code',
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: line['value'],
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'القيمة (USD)',
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  flex: 3,
+                                  child: TextField(
+                                    controller: line['inspection'],
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(
+                                      labelText: 'رسوم خدمات (EGP)',
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ),
+                                if (multiLines.length > 1)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 18),
+                                    onPressed: () {
+                                      setCalcState(() {
+                                        multiLines.removeAt(idx);
+                                      });
+                                    },
+                                  ),
+                              ],
+                            ),
+                          );
+                        }),
+
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+                            icon: isMultiCalculating
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: Colors.white))
+                                : const Icon(Icons.account_balance_wallet, size: 18),
+                            label: const Text('احسب إجمالي الضرائب والرسوم لشحنة نافذة'),
+                            onPressed: isMultiCalculating
+                                ? null
+                                : () async {
+                                    final rate = double.tryParse(exchangeRateCtrl.text.trim()) ?? 50.7917;
+                                    final ins = double.tryParse(insuranceCtrl.text.trim()) ?? 0;
+                                    final frt = double.tryParse(multiFreightCtrl.text.trim()) ?? 0;
+                                    final add = double.tryParse(additionalFeesCtrl.text.trim()) ?? 0;
+                                    final decCif = double.tryParse(declaredCifCtrl.text.trim());
+
+                                    final linesData = multiLines.map((m) {
+                                      return {
+                                        'line_no': multiLines.indexOf(m) + 1,
+                                        'hs_code': m['hs']!.text.trim(),
+                                        'value_fc': double.tryParse(m['value']!.text.trim()) ?? 0,
+                                        'inspection_fee_egp': double.tryParse(m['inspection']!.text.trim()) ?? 0,
+                                      };
+                                    }).toList();
+
+                                    setCalcState(() {
+                                      isMultiCalculating = true;
+                                      multiError = null;
+                                    });
+
+                                    try {
+                                      final payload = {
+                                        'currency': 'USD',
+                                        'exchange_rate': rate,
+                                        'insurance_egp': ins,
+                                        'freight_egp': frt,
+                                        'additional_fees_egp': add,
+                                        if (decCif != null && decCif > 0) 'cif_declared_total_egp': decCif,
+                                        'lines': linesData,
+                                      };
+
+                                      final res = await ref
+                                          .read(customsTariffProvider.notifier)
+                                          .estimateMultiItemDuty(payload);
+
+                                      setCalcState(() {
+                                        multiResult = res;
+                                        isMultiCalculating = false;
+                                      });
+                                    } catch (e) {
+                                      setCalcState(() {
+                                        multiError = e.toString().replaceAll('Exception: ', '');
+                                        isMultiCalculating = false;
+                                        multiResult = null;
+                                      });
+                                    }
+                                  },
+                          ),
+                        ),
+
+                        if (multiError != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.crimson.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(multiError!,
+                                  style: const TextStyle(color: AppTheme.crimson, fontSize: 12)),
+                            ),
+                          ),
+
+                        if (multiResult != null) ...[
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const Text('نتيجة حساب الشحنة (Nafeza Worked Example Result):',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                  fontSize: 13)),
+                          const SizedBox(height: 8),
+
+                          // Multi-Item Results Table
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              columnSpacing: 16,
+                              headingRowHeight: 32,
+                              dataRowMinHeight: 32,
+                              dataRowMaxHeight: 32,
+                              headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
+                              columns: const [
+                                DataColumn(label: Text('سطر')),
+                                DataColumn(label: Text('HS Code')),
+                                DataColumn(label: Text('القيمة (USD)')),
+                                DataColumn(label: Text('CIF (EGP)')),
+                                DataColumn(label: Text('جمرك (10%)')),
+                                DataColumn(label: Text('ض.جدول')),
+                                DataColumn(label: Text('VAT (14%)')),
+                                DataColumn(label: Text('خدمات فحص')),
+                              ],
+                              rows: (multiResult!['lines'] as List).map((l) {
+                                return DataRow(cells: [
+                                  DataCell(Text('#${l['line_no']}')),
+                                  DataCell(Text(l['hs_code'].toString())),
+                                  DataCell(Text('\$${l['value_fc']}')),
+                                  DataCell(Text('${l['cif_value_egp']} EGP')),
+                                  DataCell(Text('${l['duty_egp']} EGP')),
+                                  DataCell(Text('${l['schedule_tax_egp']} EGP')),
+                                  DataCell(Text('${l['vat_egp']} EGP')),
+                                  DataCell(Text('${l['inspection_fee_egp']} EGP')),
+                                ]);
+                              }).toList(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Summary Box matching Nafeza Statement
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: AppTheme.emerald.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: AppTheme.emerald.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              children: [
+                                _calcRow('إجمالي ضريبة الوارد (الجمارك)',
+                                    '${multiResult!['total_duty_egp']} EGP'),
+                                _calcRow('إجمالي ضريبة الجدول (أ.نص)',
+                                    '${multiResult!['total_schedule_tax_egp']} EGP'),
+                                _calcRow('إجمالي ضريبة القيمة المضافة (VAT)',
+                                    '${multiResult!['total_vat_egp']} EGP'),
+                                _calcRow('إجمالي رسوم الخدمات الجمركية والفحص',
+                                    '${multiResult!['total_inspection_fees_egp']} EGP'),
+                                _calcRow('إجمالي مصاريف البنود (Taxes Subtotal)',
+                                    '${multiResult!['items_taxes_total_egp']} EGP'),
+                                _calcRow('رسوم أساسية إضافية',
+                                    '${multiResult!['additional_fees_egp']} EGP'),
+                                const Divider(),
+                                _calcRow(
+                                  'إجمالي الضرائب والرسوم المطلوب سدادها (Grand Total Payable)',
+                                  '${multiResult!['grand_total_payable_egp']} EGP',
+                                  isTotal: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          actions: [
-            TextButton(
+            actions: [
+              TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Close')),
-          ],
+                child: const Text('Close'),
+              ),
+            ],
+          ),
         ),
       ),
     );

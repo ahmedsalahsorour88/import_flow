@@ -120,6 +120,21 @@ class CustomsTariffNotifier
     }
   }
 
+  Future<Map<String, dynamic>?> estimateMultiItemDuty(Map<String, dynamic> requestData) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/estimate-multi',
+        data: requestData,
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw Exception(
+          e.response?.data?['detail']?.toString() ?? 'Failed to calculate multi-item duties.');
+    } catch (e) {
+      throw Exception('An unexpected error occurred during calculation.');
+    }
+  }
+
   Future<Map<String, dynamic>?> uploadExcelTariffs(List<int> bytes, String filename) async {
     try {
       final formData = FormData.fromMap({

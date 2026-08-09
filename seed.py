@@ -21,6 +21,8 @@ from modules.freight_booking.model import ShipmentBooking
 from modules.cargo_shipping.model import CargoShippingRecord
 
 
+SEED_OPERATIONAL_DEMO_DATA = False
+
 def seed_data():
     Base.metadata.create_all(bind=engine)
     migrate_db()
@@ -799,9 +801,9 @@ def seed_data():
             print("Currencies & Exchange Rates (MD-004) seeded successfully.")
 
         # ==================================================
-        # 10. Seed Projects Module
+        # 10. Seed Projects Module (Optional Demo Data)
         # ==================================================
-        if db.query(Project).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(Project).count() == 0:
             print("Seeding Projects Module...")
             c1 = db.query(ImportCompany).first()
             s1 = db.query(Supplier).first()
@@ -851,7 +853,7 @@ def seed_data():
         # ==================================================
         from modules.purchase_orders.model import POLineItem, PurchaseOrder
 
-        if db.query(PurchaseOrder).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(PurchaseOrder).count() == 0:
             print("Seeding Purchase Orders...")
             proj = db.query(Project).first()
             comp = db.query(ImportCompany).first()
@@ -902,7 +904,7 @@ def seed_data():
         # ==================================================
         # 10. Seed CBM Calculation Sessions
         # ==================================================
-        if db.query(CBMCalculation).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(CBMCalculation).count() == 0:
             print("Seeding CBM Calculation Sessions...")
             po = db.query(PurchaseOrder).first()
             proj = db.query(Project).first()
@@ -953,7 +955,7 @@ def seed_data():
         # ==================================================
         # Seed Shipping Scenarios Evaluation (BP-007)
         # ==================================================
-        if db.query(ShippingEvaluationSession).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(ShippingEvaluationSession).count() == 0:
             print("Seeding Shipping Scenario Evaluation Studies...")
             po = db.query(PurchaseOrder).first()
             proj = db.query(Project).first()
@@ -1024,7 +1026,7 @@ def seed_data():
         # ==================================================
         from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 
-        if db.query(CustomsConsultationSession).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(CustomsConsultationSession).count() == 0:
             print("Seeding Customs Consultation Studies (BP-009)...")
             broker = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_type.like("%Customs Broker%")).first()
             broker_id = broker.provider_id if broker else 1
@@ -1099,7 +1101,7 @@ def seed_data():
         # ==================================================
         from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
 
-        if db.query(FreightRFQRequest).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(FreightRFQRequest).count() == 0:
             print("Seeding Freight RFQ Requests (BP-008)...")
             maersk = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_name.like("%Maersk%")).first()
             msc = db.query(ExternalServiceProvider).filter(ExternalServiceProvider.partner_name.like("%MSC%")).first()
@@ -1173,7 +1175,7 @@ def seed_data():
         # ==================================================
         from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
 
-        if db.query(PaymentRequestSession).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(PaymentRequestSession).count() == 0:
             print("Seeding Payment Requests & Import Budgets (BP-012 & BP-013)...")
             pay1 = PaymentRequestSession(
                 payment_code="PAY-2026-001",
@@ -1225,7 +1227,7 @@ def seed_data():
             CustomsDeclarationDraft,
         )
 
-        if db.query(AcidRegistrationSession).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(AcidRegistrationSession).count() == 0:
             print("Seeding Import Documentation & Nafeza ACI (BP-014 to BP-019)...")
             acid1 = AcidRegistrationSession(
                 acid_code="ACID-2026-001",
@@ -1317,7 +1319,7 @@ def seed_data():
         # ==================================================
         from modules.import_files.model import ImportFile
 
-        if db.query(ImportFile).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(ImportFile).count() == 0:
             print("Seeding Import Files Master & Tracking...")
             file1 = ImportFile(
                 import_file_code="IMP-2026-0001",
@@ -1361,7 +1363,7 @@ def seed_data():
         # ==================================================
         from modules.freight_booking.model import ShipmentBooking
 
-        if db.query(ShipmentBooking).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(ShipmentBooking).count() == 0:
             print("Seeding Phase 4 Freight Booking...")
             bkg1 = ShipmentBooking(
                 booking_code="BKG-2026-0001",
@@ -1404,7 +1406,7 @@ def seed_data():
             print("Phase 4 Freight Booking seeded successfully.")
 
         # Seed Phase 5 Cargo Shipping
-        if db.query(CargoShippingRecord).count() == 0:
+        if SEED_OPERATIONAL_DEMO_DATA and db.query(CargoShippingRecord).count() == 0:
             imp = db.query(ImportFile).filter(ImportFile.is_active == True).first()
             bkg = db.query(ShipmentBooking).filter(ShipmentBooking.is_active == True).first()
             imp_id = imp.import_file_id if imp else 1

@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/container_requirement_engine.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/freight_quotation_model.dart';
 import '../providers/freight_quotations_provider.dart';
@@ -28,11 +31,13 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   String _shippingMethod = 'Ocean FCL';
   String _polName = 'Shanghai Port (CN SHA), China';
   String _podName = 'Alexandria Port (EG ALX), Egypt';
+  int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
 
   final List<FreightQuotationItemModel> _quotations = [];
   bool _isSaving = false;
+  bool _isStackable = true;
 
   // Search & Filter
   String _searchQuery = '';
@@ -42,6 +47,10 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    Future.microtask(() {
+      ref.read(freightQuotationsProvider.notifier).fetchRFQs();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
   }
 
   @override
@@ -260,6 +269,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
         'crd_date': _crdDate.toString().substring(0, 10),
         'pol_name': _polName,
         'pod_name': _podName,
+        'import_file_id': _selectedImportFileId,
         'po_id': _selectedPoId,
         'project_id': _selectedProjectId,
         'total_cbm': double.tryParse(_cbmController.text.trim()) ?? 0.0,
@@ -485,6 +495,67 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           Row(
                             children: [
                               Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<int?>(
+                                  value: _selectedImportFileId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                          value: f.importFileId,
+                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                        )),
+                                  ],
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _selectedImportFileId = v;
+                                      if (v != null) {
+                                        final importFilesList = ref.read(importFilesProvider).value ?? [];
+                                        final selectedFile = importFilesList.where((f) => f.importFileId == v).firstOrNull;
+                                        if (selectedFile != null) {
+                                          double calcCbm = 0.0;
+                                          double calcWeight = 0.0;
+                                          if (selectedFile.packingListsData.isNotEmpty) {
+                                            for (var pl in selectedFile.packingListsData) {
+                                              calcCbm += pl.cbm;
+                                              calcWeight += pl.grossWeightKg;
+                                            }
+                                          }
+                                          if (calcCbm == 0 && calcWeight == 0) {
+                                            final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+                                            final filePoIds = selectedFile.poIds ?? [];
+                                            for (var po in allPOs) {
+                                              if (filePoIds.contains(po.poId) || po.importFileId == selectedFile.importFileId) {
+                                                if (po.packingListItems.isNotEmpty) {
+                                                  for (var pl in po.packingListItems) {
+                                                    calcCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+                                                    calcWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+                                                  }
+                                                } else {
+                                                  calcCbm += po.totalCbm;
+                                                  calcWeight += po.totalGrossWeightKg;
+                                                }
+                                              }
+                                            }
+                                          }
+                                          if (calcCbm > 0) _cbmController.text = calcCbm.toStringAsFixed(2);
+                                          if (calcWeight > 0) _weightController.text = calcWeight.toStringAsFixed(1);
+                                        }
+                                      }
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _titleController,
@@ -549,6 +620,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   controller: _cbmController,
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'إجمالي الحجم (CBM)', border: OutlineInputBorder()),
+                                  onChanged: (_) => setState(() {}),
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -557,10 +629,91 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   controller: _weightController,
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'الوزن القائم (Gross Wt kg)', border: OutlineInputBorder()),
+                                  onChanged: (_) => setState(() {}),
                                 ),
                               ),
                             ],
                           ),
+
+                          // Container Recommendation Engine (MD-019.1 Banner)
+                          Builder(builder: (context) {
+                            final double curCbm = double.tryParse(_cbmController.text.trim()) ?? 0.0;
+                            final double curWeight = double.tryParse(_weightController.text.trim()) ?? 0.0;
+                            final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: curCbm, totalWeightKg: curWeight);
+                            final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+
+                            return Container(
+                              margin: const EdgeInsets.only(top: 14),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
+                                      const SizedBox(width: 10),
+                                      const Text(
+                                        '🚚 نوع التحميل والتخزين (Cargo Stacking): ',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ChoiceChip(
+                                        label: const Text('📦 قابل للرص (Stackable)'),
+                                        selected: _isStackable,
+                                        selectedColor: AppTheme.cobalt,
+                                        labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        onSelected: (val) => setState(() => _isStackable = true),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ChoiceChip(
+                                        label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                                        selected: !_isStackable,
+                                        selectedColor: Colors.orange.shade800,
+                                        labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        onSelected: (val) => setState(() => _isStackable = false),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const Text(
+                                              '🚚 اقتراح أعداد وأنواع الحاويات التلقائي (MD-019.1 Engine):',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              containerRec.recommendationSummary,
+                                              style: TextStyle(fontSize: 12, color: _isStackable ? Colors.blue.shade900 : Colors.orange.shade900, fontWeight: FontWeight.w600),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.cobalt,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
+                                        label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                                        onPressed: () => _showContainerComparisonDialog(context, dualRec, curCbm, curWeight),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -698,6 +851,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                 headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                                 columns: const [
                                   DataColumn(label: Text('كود RFQ', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('عنوان الطلب والميناء', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('أقل سعر', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('أسرع ترانزيت', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -709,6 +863,19 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   return DataRow(
                                     cells: [
                                       DataCell(Text(rfq.rfqCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                      DataCell(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            rfq.importFileCode ?? (rfq.importFileId != null ? 'IMP-${rfq.importFileId}' : '-'),
+                                            style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                          ),
+                                        ),
+                                      ),
                                       DataCell(Text(rfq.title)),
                                       DataCell(Text('\$${rfq.lowestFreightCost}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
                                       DataCell(Text('${rfq.fastestTransitDays} يوم')),
@@ -765,6 +932,153 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
       child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
+    );
+  }
+
+  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل (MD-019.1 Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 750,
+              height: 480,
+              child: Column(
+                children: [
+                  Container(
+                    color: AppTheme.charcoal,
+                    child: const TabBar(
+                      indicatorColor: AppTheme.cobalt,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: [
+                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
+                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.nonStackableResult),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+            ),
+            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(2.0),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.5),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                children: const [
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('نوع الحاوية (Spec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('العدد المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال المساحة %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال الوزن %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('التوصية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+              ...rec.comparisonDetails.map((detail) {
+                final spec = detail['spec'] as ContainerSpec;
+                final int count = detail['reqCount'] as int;
+                final double volUtil = detail['spaceUtil'] as double;
+                final double weightUtil = detail['payloadUtil'] as double;
+                final isBest = spec.code == rec.recommendedContainerCode;
+
+                return TableRow(
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                          Text('السعة: ${spec.internalVolumeCbm} CBM | الحمولة: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: isBest
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
+                              child: const Text('🌟 الخيار الأنسب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                            )
+                          : const Text('بديل قابل للتطبيق', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

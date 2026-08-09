@@ -3,8 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/container_requirement_engine.dart';
+import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
+import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/shipping_scenario_model.dart';
@@ -24,12 +28,15 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   final _formKey = GlobalKey<FormState>();
 
   // Evaluator Form State
+  int? _editingSessionId;
+  String? _editingSessionCode;
   String _title = '';
   DateTime _cargoReadyDate = DateTime.now().add(const Duration(days: 5));
   int? _selectedPolId;
   int? _selectedPodId;
   int _avgForm4Days = 5;
   int _avgClearanceDays = 7;
+  int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
   final String _sessionNotes = '';
@@ -37,6 +44,49 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   // Carrier Options List
   final List<ShippingScenarioItemModel> _evalItems = [];
   bool _isSaving = false;
+  bool _isStackable = true;
+
+  void _loadSessionForEditing(ShippingEvaluationModel sess) {
+    setState(() {
+      _editingSessionId = sess.sessionId;
+      _editingSessionCode = sess.sessionCode;
+      _title = sess.title ?? '';
+      _cargoReadyDate = DateTime.tryParse(sess.cargoReadyDate) ?? DateTime.now();
+      _selectedPolId = sess.portOfLoadingId;
+      _selectedPodId = sess.portOfDischargeId;
+      _avgForm4Days = sess.avgForm4Days;
+      _avgClearanceDays = sess.avgClearanceDays;
+      _selectedImportFileId = sess.importFileId;
+      _selectedPoId = sess.poId;
+      _selectedProjectId = sess.projectId;
+      _evalItems.clear();
+      _evalItems.addAll(sess.items);
+    });
+    _tabController.animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📂 تم فتح الجلسة ${sess.sessionCode} لتعديل دراسة الشحن!'),
+        backgroundColor: AppTheme.cobalt,
+      ),
+    );
+  }
+
+  void _resetFormForNewStudy() {
+    setState(() {
+      _editingSessionId = null;
+      _editingSessionCode = null;
+      _title = '';
+      _cargoReadyDate = DateTime.now().add(const Duration(days: 5));
+      _selectedPolId = null;
+      _selectedPodId = null;
+      _avgForm4Days = 5;
+      _avgClearanceDays = 7;
+      _selectedImportFileId = null;
+      _selectedPoId = null;
+      _selectedProjectId = null;
+      _initDefaultItems();
+    });
+  }
 
   @override
   void initState() {
@@ -54,6 +104,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
     ref.read(partnersProvider.notifier).fetchPartners();
     ref.read(transportLocationsProvider.notifier).fetchLocations();
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
   }
 
   void _initDefaultItems() {
@@ -114,8 +165,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
     final poList = poState.purchaseOrders;
     final projectsList = projectsState.value ?? [];
-    final partnersList = partnersState.value ?? [];
-    final shippingLines = partnersList.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Freight')).toList();
+    final List<PartnerModel> partnersList = partnersState.value ?? [];
+    final List<PartnerModel> shippingLines = partnersList.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Freight') || p.partnerType.contains('Broker') || p.partnerType.contains('Carrier')).toList();
     final portsList = portsState.value ?? [];
 
     return Scaffold(
@@ -159,7 +210,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     );
   }
 
-  Widget _buildEvaluatorTab(List poList, List projectsList, List shippingLines, List portsList) {
+  Widget _buildEvaluatorTab(List poList, List projectsList, List<PartnerModel> shippingLines, List portsList) {
     // Dynamic Calculations Preview
     final crdStr = _cargoReadyDate.toString().substring(0, 10);
     final List<Map<String, dynamic>> calculatedScenarios = [];
@@ -222,6 +273,56 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       recommendedProvider = '${(rec['item'] as ShippingScenarioItemModel).providerName} (${(rec['item'] as ShippingScenarioItemModel).vesselName})';
     }
 
+    double totalCargoCbm = 0.0;
+    double totalCargoWeightKg = 0.0;
+    int linkedPoCount = 0;
+    int linkedPlCount = 0;
+    bool hasNonStackableItems = false;
+    bool hasExplicitPackingList = false;
+
+    if (_selectedImportFileId != null) {
+      final matchingPOs = poList.where((p) => (p as PurchaseOrderModel).importFileId == _selectedImportFileId).cast<PurchaseOrderModel>().toList();
+      linkedPoCount = matchingPOs.length;
+      for (var po in matchingPOs) {
+        if (po.packingListItems.isNotEmpty) {
+          hasExplicitPackingList = true;
+          linkedPlCount += po.packingListItems.length;
+          for (var pl in po.packingListItems) {
+            totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+            totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+            if (!pl.isStackable) {
+              hasNonStackableItems = true;
+            }
+          }
+        } else {
+          totalCargoCbm += po.totalCbm;
+          totalCargoWeightKg += po.totalGrossWeightKg;
+        }
+      }
+    } else if (_selectedPoId != null) {
+      final po = poList.firstWhere((p) => (p as PurchaseOrderModel).poId == _selectedPoId, orElse: () => null) as PurchaseOrderModel?;
+      if (po != null) {
+        linkedPoCount = 1;
+        if (po.packingListItems.isNotEmpty) {
+          hasExplicitPackingList = true;
+          linkedPlCount = po.packingListItems.length;
+          for (var pl in po.packingListItems) {
+            totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+            totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+            if (!pl.isStackable) {
+              hasNonStackableItems = true;
+            }
+          }
+        } else {
+          totalCargoCbm += po.totalCbm;
+          totalCargoWeightKg += po.totalGrossWeightKg;
+        }
+      }
+    }
+
+    final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCargoCbm, totalWeightKg: totalCargoWeightKg);
+    final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Form(
@@ -240,22 +341,36 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 children: [
                   const Icon(Icons.explore, color: Colors.white, size: 36),
                   const SizedBox(width: 14),
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Shipping Scenarios & Transit Lead Time Evaluation (BP-007)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                        SizedBox(height: 2),
-                        Text('مقارنة خيارات الشحن والخطوط الملاحية وتوقع تاريخ وصول الشحنة للمخزن قبل تأكيد الحجز', style: TextStyle(color: Colors.white70, fontSize: 12)),
+                        Text(
+                          _editingSessionId != null
+                              ? 'Editing Shipping Study ($_editingSessionCode)'
+                              : 'Shipping Scenarios & Transit Lead Time Evaluation (BP-007)',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text('مقارنة خيارات الشحن والخطوط الملاحية وتوقع تاريخ وصول الشحنة للمخزن قبل تأكيد الحجز', style: TextStyle(color: Colors.white70, fontSize: 12)),
                       ],
                     ),
                   ),
+                  if (_editingSessionId != null) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)),
+                      icon: const Icon(Icons.add_circle_outline, size: 16),
+                      label: const Text('دراسة جديدة'),
+                      onPressed: _resetFormForNewStudy,
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                     icon: _isSaving
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.save, size: 18),
-                    label: const Text('حفظ الدراسة والنتائج', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(_editingSessionId != null ? 'حفظ التعديلات' : 'حفظ الدراسة والنتائج', style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: _isSaving ? null : () => _saveEvaluationSession(context),
                   ),
                 ],
@@ -279,7 +394,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
             ),
             const SizedBox(height: 20),
 
-            // Shipment Parameters Card
+            // Shipment Parameters Card (Responsive & Overflow Free Layout)
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -288,21 +403,61 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('📌 Shipment & Logistics Parameters (بيانات الشحنة والزمن الإداري)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('📌 Shipment & Logistics Parameters (بيانات الشحنة والزمن الإداري)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
+                              icon: const Icon(Icons.print, size: 14),
+                              label: const Text('طباعة الدراسة (Print)'),
+                              onPressed: () {
+                                final currentSession = ShippingEvaluationModel(
+                                  sessionCode: _editingSessionCode ?? 'DRAFT-STUDY',
+                                  title: _title,
+                                  cargoReadyDate: crdStr,
+                                  portOfLoadingId: _selectedPolId,
+                                  portOfDischargeId: _selectedPodId,
+                                  avgForm4Days: _avgForm4Days,
+                                  avgClearanceDays: _avgClearanceDays,
+                                  importFileId: _selectedImportFileId,
+                                  poId: _selectedPoId,
+                                  projectId: _selectedProjectId,
+                                  items: _evalItems,
+                                  avgExpectedTransitDays: avgTransitDays,
+                                  avgExpectedWarehouseArrivalDate: avgWhDateStr,
+                                  earliestArrivalDate: earliestDate,
+                                  earliestArrivalScenarioProvider: earliestProvider,
+                                  latestArrivalDate: latestDate,
+                                  latestArrivalScenarioProvider: latestProvider,
+                                  recommendedScenarioProvider: recommendedProvider,
+                                );
+                                _showPrintReportDialog(context, currentSession);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
+
+                    // Parameters Row 1
                     Row(
                       children: [
                         Expanded(
-                          flex: 2,
+                          flex: 3,
                           child: TextFormField(
                             initialValue: _title,
-                            decoration: const InputDecoration(labelText: 'Study Title / Reference *', hintText: 'مثال: دراسة مقارنة خيارات شحن محولات الإسماعيلية'),
+                            decoration: const InputDecoration(labelText: 'Study Title / Reference *', hintText: 'مثال: دراسة مقارنة خيارات شحن محولات الإسماعيلية', isDense: true),
                             validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
                             onChanged: (v) => _title = v.trim(),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
+                          flex: 2,
                           child: InkWell(
                             onTap: () async {
                               final picked = await showDatePicker(
@@ -314,11 +469,11 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               if (picked != null) setState(() => _cargoReadyDate = picked);
                             },
                             child: InputDecorator(
-                              decoration: const InputDecoration(labelText: 'Cargo Ready Date (CRD) *'),
+                              decoration: const InputDecoration(labelText: 'Cargo Ready Date (CRD) *', isDense: true),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(crdStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                  Text(crdStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
                                   const Icon(Icons.calendar_today, size: 16, color: AppTheme.cobalt),
                                 ],
                               ),
@@ -327,9 +482,32 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         ),
                         const SizedBox(width: 12),
                         Expanded(
+                          flex: 3,
+                          child: DropdownButtonFormField<int?>(
+                            value: _selectedImportFileId,
+                            decoration: const InputDecoration(labelText: 'Import File (ملف الشحنة)', isDense: true),
+                            items: [
+                              const DropdownMenuItem<int?>(value: null, child: Text('None / Standalone')),
+                              ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    value: f.importFileId,
+                                    child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                  )),
+                            ],
+                            onChanged: (v) => setState(() => _selectedImportFileId = v),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Parameters Row 2 (POL & POD)
+                    Row(
+                      children: [
+                        Expanded(
                           child: DropdownButtonFormField<int?>(
                             value: _selectedPolId,
-                            decoration: const InputDecoration(labelText: 'Port of Loading (POL)'),
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Port of Loading (POL)', isDense: true),
                             items: [
                               const DropdownMenuItem<int?>(value: null, child: Text('Select POL')),
                               ...portsList.map((p) => DropdownMenuItem<int?>(
@@ -344,7 +522,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         Expanded(
                           child: DropdownButtonFormField<int?>(
                             value: _selectedPodId,
-                            decoration: const InputDecoration(labelText: 'Port of Discharge (POD)'),
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Port of Discharge (POD)', isDense: true),
                             items: [
                               const DropdownMenuItem<int?>(value: null, child: Text('Select POD')),
                               ...portsList.map((p) => DropdownMenuItem<int?>(
@@ -358,32 +537,15 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       ],
                     ),
                     const SizedBox(height: 12),
+
+                    // Parameters Row 3 (PO Link & Project Link)
                     Row(
                       children: [
                         Expanded(
-                          child: TextFormField(
-                            initialValue: _avgForm4Days.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', suffixText: 'أيام'),
-                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
-                            onChanged: (v) => setState(() => _avgForm4Days = int.tryParse(v) ?? 5),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _avgClearanceDays.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', suffixText: 'أيام'),
-                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
-                            onChanged: (v) => setState(() => _avgClearanceDays = int.tryParse(v) ?? 7),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
                           child: DropdownButtonFormField<int?>(
                             value: _selectedPoId,
-                            decoration: const InputDecoration(labelText: 'Link Purchase Order (PO)'),
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Link Purchase Order (PO)', isDense: true),
                             items: [
                               const DropdownMenuItem<int?>(value: null, child: Text('None / Standalone')),
                               ...poList.map((po) => DropdownMenuItem<int?>(
@@ -398,7 +560,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         Expanded(
                           child: DropdownButtonFormField<int?>(
                             value: _selectedProjectId,
-                            decoration: const InputDecoration(labelText: 'Link Project'),
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'Link Project', isDense: true),
                             items: [
                               const DropdownMenuItem<int?>(value: null, child: Text('None / Unbound')),
                               ...projectsList.map((p) => DropdownMenuItem<int?>(
@@ -411,6 +574,151 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         ),
                       ],
                     ),
+                    const SizedBox(height: 12),
+
+                    // Parameters Row 3 (Form 4 & Clearance Days)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: _avgForm4Days.toString(),
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', suffixText: 'أيام', isDense: true),
+                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
+                            onChanged: (v) => setState(() => _avgForm4Days = int.tryParse(v) ?? 5),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: TextFormField(
+                            initialValue: _avgClearanceDays.toString(),
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', suffixText: 'أيام', isDense: true),
+                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
+                            onChanged: (v) => setState(() => _avgClearanceDays = int.tryParse(v) ?? 7),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (_selectedImportFileId != null || _selectedPoId != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 34),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      const Text(
+                                        '📦 إجمالي حمولة الملف المجمعة من قوائم التعبئة: ',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      ),
+                                      Text(
+                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg ($linkedPoCount أمر شراء | $linkedPlCount بند تعبئة)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 13),
+                                      ),
+                                    ],
+                                  ),
+                                  if (hasExplicitPackingList) ...[
+                                    const SizedBox(height: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: hasNonStackableItems ? Colors.orange.shade50 : Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(color: hasNonStackableItems ? Colors.orange.shade300 : Colors.green.shade300),
+                                      ),
+                                      child: Text(
+                                        hasNonStackableItems
+                                            ? '⚠️ تعليمات قائمة التعبئة: تتضمن الشحنة طرود غير قابلة للرص (Non-Stackable Items Detected)'
+                                            : '✅ تعليمات قائمة التعبئة: جميع الطرود قابلة للرص (All Items Stackable)',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: hasNonStackableItems ? Colors.orange.shade900 : Colors.green.shade900,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    children: [
+                                      const Text('🚚 نوع التحميل والتخزين (Cargo Stacking): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      const SizedBox(width: 8),
+                                      ChoiceChip(
+                                        label: const Text('📦 قابل للرص (Stackable)'),
+                                        selected: _isStackable,
+                                        selectedColor: AppTheme.cobalt,
+                                        labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        onSelected: (val) => setState(() => _isStackable = true),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      ChoiceChip(
+                                        label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                                        selected: !_isStackable,
+                                        selectedColor: Colors.orange.shade800,
+                                        labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                                        onSelected: (val) => setState(() => _isStackable = false),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Wrap(
+                                    crossAxisAlignment: WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 6,
+                                    children: [
+                                      const Text('🚚 اقتراح الحاوية التلقائي (MD-019.1 Engine): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: (_isStackable ? AppTheme.emerald : Colors.orange.shade800).withOpacity(0.15),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: _isStackable ? AppTheme.emerald : Colors.orange.shade800),
+                                        ),
+                                        child: Text(
+                                          containerRec.recommendationSummary,
+                                          style: TextStyle(fontWeight: FontWeight.bold, color: _isStackable ? AppTheme.emerald : Colors.orange.shade900, fontSize: 12),
+                                        ),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade400)),
+                                        child: Text(
+                                          _isStackable
+                                              ? 'بديل غير قابل للرص: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
+                                              : 'بديل قابل للرص: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 11),
+                                        ),
+                                      ),
+                                      OutlinedButton.icon(
+                                        style: OutlinedButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          side: const BorderSide(color: AppTheme.cobalt),
+                                        ),
+                                        icon: const Icon(Icons.table_chart, size: 14, color: AppTheme.cobalt),
+                                        label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                        onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCargoCbm, totalCargoWeightKg),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -470,11 +778,48 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           const SizedBox(width: 10),
                           Expanded(
                             flex: 2,
+                            child: DropdownButtonFormField<int?>(
+                              value: item.providerId,
+                              decoration: const InputDecoration(labelText: 'شركة الشحن / الناقل (Partners)', isDense: true),
+                              items: [
+                                const DropdownMenuItem<int?>(value: null, child: Text('ادخال يدوياً / Custom')),
+                                ...shippingLines.map((p) => DropdownMenuItem<int?>(
+                                      value: p.providerId,
+                                      child: Text(p.partnerName, overflow: TextOverflow.ellipsis),
+                                    )),
+                              ],
+                              onChanged: (val) {
+                                final partner = shippingLines.where((p) => p.providerId == val).firstOrNull;
+                                setState(() {
+                                  _evalItems[idx] = ShippingScenarioItemModel(
+                                    itemId: item.itemId,
+                                    providerId: val,
+                                    providerName: partner != null ? partner.partnerName : item.providerName,
+                                    vesselName: item.vesselName,
+                                    voyageNumber: item.voyageNumber,
+                                    sailingDate: item.sailingDate,
+                                    estimatedArrivalDate: item.estimatedArrivalDate,
+                                    expectedLineDelayDays: item.expectedLineDelayDays,
+                                    isExcludedFromAverage: item.isExcludedFromAverage,
+                                    isRecommended: item.isRecommended,
+                                    riskLevel: item.riskLevel,
+                                    notes: item.notes,
+                                  );
+                                });
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
                             child: TextFormField(
+                              key: ValueKey('prov_${idx}_${item.providerName}'),
                               initialValue: item.providerName,
-                              decoration: const InputDecoration(labelText: 'Shipping Provider *', isDense: true),
+                              decoration: const InputDecoration(labelText: 'Shipping Provider Name *', isDense: true),
                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
                               onChanged: (v) => _evalItems[idx] = ShippingScenarioItemModel(
+                                itemId: item.itemId,
+                                providerId: item.providerId,
                                 providerName: v.trim(),
                                 vesselName: item.vesselName,
                                 voyageNumber: item.voyageNumber,
@@ -861,6 +1206,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             columns: const [
                               DataColumn(label: Text('Study Code')),
+                              DataColumn(label: Text('Import File')),
                               DataColumn(label: Text('Title / Description')),
                               DataColumn(label: Text('CRD Date')),
                               DataColumn(label: Text('Avg Transit')),
@@ -880,6 +1226,19 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       child: Text(sess.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
                                     ),
                                   ),
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '-'),
+                                        style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
                                   DataCell(Text(sess.title ?? 'Shipping Transit Study', overflow: TextOverflow.ellipsis)),
                                   DataCell(Text(sess.cargoReadyDate)),
                                   DataCell(Text('${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
@@ -897,7 +1256,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     PopupMenuButton<String>(
                                       icon: const Icon(Icons.more_vert),
                                       onSelected: (val) async {
-                                        if (val == 'view') {
+                                        if (val == 'edit') {
+                                          _loadSessionForEditing(sess);
+                                        } else if (val == 'view') {
                                           _showSessionDetailsDialog(context, sess);
                                         } else if (val == 'print') {
                                           _showPrintReportDialog(context, sess);
@@ -910,6 +1271,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                         }
                                       },
                                       itemBuilder: (ctx) => [
+                                        const PopupMenuItem(value: 'edit', child: Text('Edit / Re-open Session (فتح وتعديل الجلسة)')),
                                         const PopupMenuItem(value: 'view', child: Text('View Details (عرض التفاصيل)')),
                                         const PopupMenuItem(value: 'print', child: Text('Print / Export Report (طباعة وتصدير)')),
                                         PopupMenuItem(value: 'delete_restore', child: Text(sess.isActive ? 'Deactivate' : 'Restore')),
@@ -929,31 +1291,78 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   }
 
   Future<void> _saveEvaluationSession(BuildContext context) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يرجى التأكد من استكمال كافة البيانات الإلزامية مثل عنوان الدراسة!'),
+          backgroundColor: AppTheme.crimson,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    _formKey.currentState!.save();
+
+    final titleToSave = _title.trim().isNotEmpty
+        ? _title.trim()
+        : 'دراسة تقييم خيارات الشحن (${DateTime.now().toString().substring(0, 10)})';
 
     setState(() => _isSaving = true);
-    final session = ShippingEvaluationModel(
-      sessionCode: '',
-      title: _title,
-      cargoReadyDate: _cargoReadyDate.toString().substring(0, 10),
-      portOfLoadingId: _selectedPolId,
-      portOfDischargeId: _selectedPodId,
-      avgForm4Days: _avgForm4Days,
-      avgClearanceDays: _avgClearanceDays,
-      poId: _selectedPoId,
-      projectId: _selectedProjectId,
-      notes: _sessionNotes,
-      items: _evalItems,
-    );
 
-    final ok = await ref.read(shippingScenariosProvider.notifier).createSession(session);
+    bool ok = false;
+    if (_editingSessionId != null) {
+      final data = {
+        'title': titleToSave,
+        'cargo_ready_date': _cargoReadyDate.toString().substring(0, 10),
+        if (_selectedPolId != null) 'port_of_loading_id': _selectedPolId,
+        if (_selectedPodId != null) 'port_of_discharge_id': _selectedPodId,
+        'avg_form4_days': _avgForm4Days,
+        'avg_clearance_days': _avgClearanceDays,
+        if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
+        if (_selectedPoId != null) 'po_id': _selectedPoId,
+        if (_selectedProjectId != null) 'project_id': _selectedProjectId,
+        'items': _evalItems.map((i) => i.toCreateJson()).toList(),
+      };
+      ok = await ref.read(shippingScenariosProvider.notifier).updateSession(_editingSessionId!, data);
+    } else {
+      final session = ShippingEvaluationModel(
+        sessionCode: '',
+        title: titleToSave,
+        cargoReadyDate: _cargoReadyDate.toString().substring(0, 10),
+        portOfLoadingId: _selectedPolId,
+        portOfDischargeId: _selectedPodId,
+        avgForm4Days: _avgForm4Days,
+        avgClearanceDays: _avgClearanceDays,
+        importFileId: _selectedImportFileId,
+        poId: _selectedPoId,
+        projectId: _selectedProjectId,
+        notes: _sessionNotes,
+        items: _evalItems,
+      );
+      ok = await ref.read(shippingScenariosProvider.notifier).createSession(session);
+    }
+
     setState(() => _isSaving = false);
 
     if (ok && context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('تم حفظ دراسة خيارات وسيناريوهات الشحن بنجاح!'), backgroundColor: AppTheme.emerald),
+        SnackBar(
+          content: Text(_editingSessionId != null ? '✅ تم حفظ تعديلات الجلسة $_editingSessionCode بنجاح!' : '✅ تم حفظ دراسة خيارات وسيناريوهات الشحن بنجاح!'),
+          backgroundColor: AppTheme.emerald,
+        ),
       );
+      _resetFormForNewStudy();
       _tabController.animateTo(1);
+    } else if (!ok && context.mounted) {
+      final err = ref.read(shippingScenariosProvider).errorMessage ?? 'فشلت عملية حفظ الدراسة والنتائج';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('❌ $err'),
+          backgroundColor: AppTheme.crimson,
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
@@ -1022,6 +1431,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           ),
         ),
         actions: [
+          OutlinedButton.icon(
+            icon: const Icon(Icons.edit, size: 16),
+            label: const Text('تعديل / فتح الجلسة'),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              _loadSessionForEditing(sess);
+            },
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
             icon: const Icon(Icons.print, size: 16),
@@ -1112,4 +1529,152 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       ),
     );
   }
+
+  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('تحليل خيارات ومواصفات الحاويات (MD-019.1 Engine Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 750,
+              height: 480,
+              child: Column(
+                children: [
+                  Container(
+                    color: AppTheme.charcoal,
+                    child: const TabBar(
+                      indicatorColor: AppTheme.cobalt,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: [
+                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
+                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.nonStackableResult),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+            ),
+            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(2.0),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.5),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                children: const [
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('نوع الحاوية (Spec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('العدد المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال المساحة %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال الوزن %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('التوصية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+              ...rec.comparisonDetails.map((detail) {
+                final spec = detail['spec'] as ContainerSpec;
+                final int count = detail['reqCount'] as int;
+                final double volUtil = detail['spaceUtil'] as double;
+                final double weightUtil = detail['payloadUtil'] as double;
+                final isBest = spec.code == rec.recommendedContainerCode;
+
+                return TableRow(
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                          Text('السعة: ${spec.internalVolumeCbm} CBM | الحمولة: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: isBest
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
+                              child: const Text('🌟 الخيار الأنسب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                            )
+                          : const Text('بديل قابل للتطبيق', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
+

@@ -4,11 +4,12 @@ class CustomsChecklistItemModel {
   final String documentType;
   final String? hsCode;
   final bool isRequired;
+  final String requiredText; // '✓', 'حسب الحالة', 'لاحقاً', 'حسب Incoterm'
   final bool isBlockingShipment;
   final String responsibleParty;
   final String status; // Pending, Received, Verified, Approved, Rejected
-  final String? receivedDate;
-  final String? verifiedDate;
+  final String? receivedDate; // تاريخ العرض / الاستلام
+  final String? verifiedDate; // تاريخ الموافقة النهائية (auto once approved)
   final String? regulatoryAgency;
   final String? remarks;
   final String? correctiveActionRequired;
@@ -19,6 +20,7 @@ class CustomsChecklistItemModel {
     required this.documentType,
     this.hsCode,
     this.isRequired = true,
+    this.requiredText = '✓',
     this.isBlockingShipment = true,
     this.responsibleParty = 'Customs Broker',
     this.status = 'Pending',
@@ -36,6 +38,7 @@ class CustomsChecklistItemModel {
       documentType: json['document_type'] ?? '',
       hsCode: json['hs_code'],
       isRequired: json['is_required'] ?? true,
+      requiredText: json['required_text'] ?? ((json['is_required'] ?? true) ? '✓' : 'حسب الحالة'),
       isBlockingShipment: json['is_blocking_shipment'] ?? true,
       responsibleParty: json['responsible_party'] ?? 'Customs Broker',
       status: json['status'] ?? 'Pending',
@@ -54,6 +57,7 @@ class CustomsChecklistItemModel {
       'document_type': documentType,
       'hs_code': hsCode,
       'is_required': isRequired,
+      'required_text': requiredText,
       'is_blocking_shipment': isBlockingShipment,
       'responsible_party': responsibleParty,
       'status': status,
@@ -71,6 +75,7 @@ class CustomsChecklistItemModel {
     String? documentType,
     String? hsCode,
     bool? isRequired,
+    String? requiredText,
     bool? isBlockingShipment,
     String? responsibleParty,
     String? status,
@@ -86,6 +91,7 @@ class CustomsChecklistItemModel {
       documentType: documentType ?? this.documentType,
       hsCode: hsCode ?? this.hsCode,
       isRequired: isRequired ?? this.isRequired,
+      requiredText: requiredText ?? this.requiredText,
       isBlockingShipment: isBlockingShipment ?? this.isBlockingShipment,
       responsibleParty: responsibleParty ?? this.responsibleParty,
       status: status ?? this.status,
@@ -102,6 +108,7 @@ class CustomsConsultationModel {
   final int consultationId;
   final String consultationCode;
   final String title;
+  final int? importFileId;
   final int brokerId;
   final String brokerName;
   final String? brokerContactPerson;
@@ -115,6 +122,7 @@ class CustomsConsultationModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
   final List<CustomsChecklistItemModel> checklistItems;
   final int totalDocumentsCount;
   final int approvedDocumentsCount;
@@ -124,6 +132,7 @@ class CustomsConsultationModel {
     required this.consultationId,
     required this.consultationCode,
     required this.title,
+    this.importFileId,
     required this.brokerId,
     required this.brokerName,
     this.brokerContactPerson,
@@ -137,6 +146,7 @@ class CustomsConsultationModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
     this.checklistItems = const [],
     this.totalDocumentsCount = 0,
     this.approvedDocumentsCount = 0,
@@ -148,6 +158,7 @@ class CustomsConsultationModel {
       consultationId: json['consultation_id'],
       consultationCode: json['consultation_code'] ?? '',
       title: json['title'] ?? '',
+      importFileId: json['import_file_id'],
       brokerId: json['broker_id'],
       brokerName: json['broker_name'] ?? '',
       brokerContactPerson: json['broker_contact_person'],
@@ -161,6 +172,7 @@ class CustomsConsultationModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
       checklistItems: (json['checklist_items'] as List<dynamic>?)
               ?.map((item) => CustomsChecklistItemModel.fromJson(item))
               .toList() ??
@@ -176,6 +188,7 @@ class CustomsConsultationModel {
       'consultation_id': consultationId,
       'consultation_code': consultationCode,
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'broker_id': brokerId,
       'broker_name': brokerName,
       'broker_contact_person': brokerContactPerson,

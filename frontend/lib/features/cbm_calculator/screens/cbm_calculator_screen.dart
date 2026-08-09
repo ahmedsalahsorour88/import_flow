@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/container_requirement_engine.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/cbm_calculator_model.dart';
@@ -21,6 +23,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
   // Quick Calculator State
   String _quickShipmentMode = 'air';
+  bool _isStackable = true;
   final List<CBMItemModel> _quickItems = [
     CBMItemModel(
       packageType: 'Carton',
@@ -41,6 +44,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       ref.read(cbmCalculatorProvider.notifier).fetchCalculations();
       ref.read(projectsProvider.notifier).fetchProjects();
       ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
     });
   }
 
@@ -75,18 +79,22 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               children: [
                 const Icon(Icons.calculate_outlined, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Cargo Measurement Engine (حاسبة الأحجام والوزن الجوي)',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'BP-004: احتساب الـ CBM، الوزن الجوي المحاسبي Chargeable Wt، وتوصيات الحاويات ووسيلة الشحن',
-                      style: TextStyle(color: AppTheme.cloudWhite, fontSize: 12),
-                    ),
-                  ],
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Cargo Measurement Engine (حاسبة الأحجام والوزن الجوي)',
+                        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'BP-004: احتساب الـ CBM، الوزن الجوي المحاسبي Chargeable Wt، وتوصيات الحاويات ووسيلة الشحن',
+                        style: TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
                 const Spacer(),
                 TabBar(
@@ -148,26 +156,14 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
     final chargeableWt = totalGrossWt > totalVolumetricWt ? totalGrossWt : totalVolumetricWt;
 
-    String recMethod = '';
-    String recContainer = '';
-    if (_quickShipmentMode == 'air' || (totalCbm <= 1.5 && totalGrossWt <= 300)) {
-      recMethod = 'Air Freight (شحن جوي)';
-      recContainer = 'Air Chargeable Wt: ${chargeableWt.toStringAsFixed(1)} kg';
-    } else if (totalCbm <= 15.0) {
-      recMethod = 'LCL Ocean Freight (شحن بحري تجميعي)';
-      recContainer = 'LCL Consolidation Container';
-    } else {
-      recMethod = 'FCL Container (حاوية كاملة بحرية)';
-      if (totalCbm <= 33.0) {
-        recContainer = '1 x 20FT Standard Container (20\' ST)';
-      } else if (totalCbm <= 67.0) {
-        recContainer = '1 x 40FT Standard Container (40\' ST)';
-      } else if (totalCbm <= 76.0) {
-        recContainer = '1 x 40FT High Cube Container (40\' HC)';
-      } else {
-        final count = (totalCbm / 76.0).ceil();
-        recContainer = '$count x 40FT High Cube Containers (40\' HC)';
-      }
+    final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCbm, totalWeightKg: totalGrossWt);
+    final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+
+    final modeRec = dualRec.modeRecommendation;
+    String recMethod = modeRec.recommendedModeAr;
+    String recContainer = modeRec.reasonAr;
+    if (totalCbm >= 15.0) {
+      recContainer = containerRec.recommendationSummary;
     }
 
     return Padding(
@@ -186,77 +182,187 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                 _buildResultCard('Total Gross Weight', '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
                 const SizedBox(width: 12),
               ],
-              _buildResultCard('Recommended Shipping', recMethod, Icons.directions_boat, Colors.blue, subtitle: recContainer),
+              _buildResultCard('Recommended Shipping', recMethod, Icons.directions_boat, modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue), subtitle: recContainer),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
 
-          // Items Table Header & Add Row Action
+          // Smart Mode & Cargo Stacking Skill Banner (MD-019.1)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: modeRec.isAirSuggested
+                  ? Colors.purple.shade50
+                  : (modeRec.isLclSuggested ? Colors.amber.shade50 : AppTheme.cobalt.withOpacity(0.08)),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: modeRec.isAirSuggested
+                    ? Colors.purple.shade300
+                    : (modeRec.isLclSuggested ? Colors.amber.shade300 : AppTheme.cobalt.withOpacity(0.3)),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: [
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
+                        const SizedBox(width: 8),
+                        const Text('🚚 تعليمات التحميل (Cargo Stacking): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: const Text('📦 قابل للرص (Stackable)'),
+                          selected: _isStackable,
+                          selectedColor: AppTheme.cobalt,
+                          labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                          onSelected: (val) => setState(() => _isStackable = true),
+                        ),
+                        const SizedBox(width: 6),
+                        ChoiceChip(
+                          label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                          selected: !_isStackable,
+                          selectedColor: Colors.orange.shade800,
+                          labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                          onSelected: (val) => setState(() => _isStackable = false),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.cobalt,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
+                          label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        modeRec.isAirSuggested ? Icons.airplanemode_active : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
+                        color: modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          modeRec.reasonAr,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: modeRec.isAirSuggested ? Colors.purple.shade900 : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)
           Card(
             elevation: 2,
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Row(
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 12,
+                runSpacing: 10,
                 children: [
-                  const Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
-                  const SizedBox(width: 8),
-                  const Text(
-                    'Cargo Package Measurements & Dimensions (أبعاد ووزن الطرود)',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
+                      SizedBox(width: 8),
+                      Text(
+                        'Cargo Package Measurements & Dimensions (أبعاد ووزن الطرود)',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 24),
-                  // Shipment Mode Selector (Air vs Sea)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Air Freight (شحن جوي)'),
-                          selected: _quickShipmentMode == 'air',
-                          selectedColor: AppTheme.cobalt,
-                          labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                          onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Shipment Mode Selector (Air vs Sea)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('Air Freight (شحن جوي)'),
+                              selected: _quickShipmentMode == 'air',
+                              selectedColor: AppTheme.cobalt,
+                              labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                              onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
+                            ),
+                            const SizedBox(width: 4),
+                            ChoiceChip(
+                              label: const Text('Sea Freight (شحن بحري)'),
+                              selected: _quickShipmentMode == 'sea',
+                              selectedColor: AppTheme.emerald,
+                              labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                              onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 4),
-                        ChoiceChip(
-                          label: const Text('Sea Freight (شحن بحري)'),
-                          selected: _quickShipmentMode == 'sea',
-                          selectedColor: AppTheme.emerald,
-                          labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                          onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const Spacer(),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Package Line'),
-                    onPressed: () {
-                      setState(() {
-                        _quickItems.add(
-                          CBMItemModel(
-                            packageType: 'Carton',
-                            quantity: 1,
-                            length: 100,
-                            width: 80,
-                            height: 60,
-                            unit: 'cm',
-                            grossWeightPerUnitKg: 20,
-                          ),
-                        );
-                      });
-                    },
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                    icon: const Icon(Icons.save_outlined, size: 18),
-                    label: const Text('Save Calculation Session'),
-                    onPressed: () => _showSaveCalcDialog(context, _quickItems),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add Package Line'),
+                        onPressed: () {
+                          setState(() {
+                            _quickItems.add(
+                              CBMItemModel(
+                                packageType: 'Carton',
+                                quantity: 1,
+                                length: 100,
+                                width: 80,
+                                height: 60,
+                                unit: 'cm',
+                                grossWeightPerUnitKg: 20,
+                              ),
+                            );
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.save_outlined, size: 18),
+                        label: const Text('Save Session'),
+                        onPressed: () => _showSaveCalcDialog(context, _quickItems),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -318,7 +424,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       const SizedBox(width: 6),
                       // Dimension Unit Selector (mm, cm, m)
                       SizedBox(
-                        width: 80,
+                        width: 90,
                         child: DropdownButtonFormField<String>(
                           value: item.unit,
                           decoration: const InputDecoration(labelText: 'Unit', isDense: true, border: OutlineInputBorder()),
@@ -619,6 +725,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               dataRowMaxHeight: 52,
                               columns: const [
                                 DataColumn(label: Text('Calc Code')),
+                                DataColumn(label: Text('Import File')),
                                 DataColumn(label: Text('Title / Description')),
                                 DataColumn(label: Text('Volume (CBM)')),
                                 DataColumn(label: Text('Chargeable Wt')),
@@ -636,6 +743,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                       InkWell(
                                         onTap: () => _showCalcDetailsDialog(context, calc),
                                         child: Text(calc.calcCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                      ),
+                                    ),
+                                    DataCell(
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.charcoal.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                        child: Text(
+                                          calc.importFileCode ?? (calc.importFileId != null ? 'IMP-${calc.importFileId}' : '-'),
+                                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                        ),
                                       ),
                                     ),
                                     DataCell(
@@ -788,48 +908,72 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final formKey = GlobalKey<FormState>();
     final titleCtrl = TextEditingController(text: 'حساب قياسات شحنة جديد');
     final notesCtrl = TextEditingController();
+    int? selectedImportFileId;
+    final importFiles = ref.read(importFilesProvider).value ?? [];
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: const Text('Save Calculation Session (حفظ الجلسة التشغيلية)'),
-        content: SizedBox(
-          width: 500,
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Calculation Session Title *'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                ),
-                const SizedBox(height: 12),
-                TextFormField(
-                  controller: notesCtrl,
-                  maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'Notes & Cargo Remarks'),
-                ),
-              ],
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Text('Save Calculation Session (حفظ الجلسة التشغيلية)'),
+          content: SizedBox(
+            width: 500,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<int?>(
+                    value: selectedImportFileId,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Import File (رقم ملف الشحنة)',
+                      prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                    ),
+                    items: [
+                      const DropdownMenuItem<int?>(
+                        value: null,
+                        child: Text('-- None / غير مرتبط بملف شحنة --'),
+                      ),
+                      ...importFiles.map((f) => DropdownMenuItem<int?>(
+                            value: f.importFileId,
+                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                          )),
+                    ],
+                    onChanged: (v) => setDialogState(() => selectedImportFileId = v),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: titleCtrl,
+                    decoration: const InputDecoration(labelText: 'Calculation Session Title *'),
+                    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'Notes & Cargo Remarks'),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            onPressed: () async {
-              if (formKey.currentState!.validate()) {
-                final calc = CBMCalculationModel(
-                  calcCode: '',
-                  title: titleCtrl.text.trim(),
-                  notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
-                  items: items,
-                );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              onPressed: () async {
+                if (formKey.currentState!.validate()) {
+                  final calc = CBMCalculationModel(
+                    calcCode: '',
+                    importFileId: selectedImportFileId,
+                    title: titleCtrl.text.trim(),
+                    notes: notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                    items: items,
+                  );
                 final ok = await ref.read(cbmCalculatorProvider.notifier).createCalculation(calc);
                 if (ok && context.mounted) {
                   Navigator.pop(dialogCtx);
@@ -849,6 +993,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           ),
         ],
       ),
+    ),
     );
   }
 
@@ -1354,6 +1499,153 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل (MD-019.1 Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 750,
+              height: 480,
+              child: Column(
+                children: [
+                  Container(
+                    color: AppTheme.charcoal,
+                    child: const TabBar(
+                      indicatorColor: AppTheme.cobalt,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: [
+                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
+                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.nonStackableResult),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+            ),
+            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(2.0),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.5),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              TableRow(
+                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                children: const [
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('نوع الحاوية (Spec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('العدد المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال المساحة %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال الوزن %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8.0), child: Text('التوصية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+              ...rec.comparisonDetails.map((detail) {
+                final spec = detail['spec'] as ContainerSpec;
+                final int count = detail['reqCount'] as int;
+                final double volUtil = detail['spaceUtil'] as double;
+                final double weightUtil = detail['payloadUtil'] as double;
+                final isBest = spec.code == rec.recommendedContainerCode;
+
+                return TableRow(
+                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                          Text('السعة: ${spec.internalVolumeCbm} CBM | الحمولة: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: isBest
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
+                              child: const Text('🌟 الخيار الأنسب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                            )
+                          : const Text('بديل قابل للتطبيق', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
       ),
     );
   }

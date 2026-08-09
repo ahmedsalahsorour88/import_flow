@@ -94,6 +94,7 @@ class CustomsChecklistItem(Base):
     
     # Flags & Party
     is_required: Mapped[bool] = mapped_column(Boolean, default=True)
+    required_text: Mapped[str] = mapped_column(String(50), nullable=True, default="✓")
     is_blocking_shipment: Mapped[bool] = mapped_column(Boolean, default=True)
     responsible_party: Mapped[str] = mapped_column(String(100), default="Customs Broker")
     

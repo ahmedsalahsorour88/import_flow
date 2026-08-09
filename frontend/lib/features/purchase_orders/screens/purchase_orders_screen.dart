@@ -6,6 +6,7 @@ import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -33,6 +34,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       ref.read(incotermsProvider.notifier).fetchIncoterms();
       ref.read(currenciesProvider.notifier).fetchCurrencies();
       ref.read(customsTariffProvider.notifier).fetchTariffs();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
     });
   }
 
@@ -289,6 +291,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               dataRowMaxHeight: 52,
               columns: const [
                 DataColumn(label: Text('PO Reference')),
+                DataColumn(label: Text('Import File')),
                 DataColumn(label: Text('PI Number')),
                 DataColumn(label: Text('Project')),
                 DataColumn(label: Text('Company')),
@@ -327,6 +330,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                             const SizedBox(width: 4),
                             const Icon(Icons.open_in_new, size: 14, color: AppTheme.cobalt),
                           ],
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: AppTheme.charcoal.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          po.importFileCode ?? (po.importFileId != null ? 'IMP-${po.importFileId}' : '-'),
+                          style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
                         ),
                       ),
                     ),
@@ -492,82 +508,106 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       // Tab 1: Commercial PO Line Items
                       SingleChildScrollView(
                         padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Wrap(
-                              spacing: 24,
-                              runSpacing: 12,
+                        child: Builder(builder: (context) {
+                            final double effectivePackingListCbm = po.packingListItems.isNotEmpty
+                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
+                                : po.totalCbm;
+                            final double effectivePackingListWeight = po.packingListItems.isNotEmpty
+                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
+                                : po.totalGrossWeightKg;
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _buildDetailItem('Project', po.projectName ?? '-'),
-                                _buildDetailItem('Company', po.companyName ?? '-'),
-                                _buildDetailItem('Supplier', po.supplierName ?? '-'),
-                                _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
-                                _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
-                                _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
-                                _buildDetailItem('Total PI/PO Amount', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
-                                _buildDetailItem('Total Volume', '${po.totalCbm.toStringAsFixed(3)} CBM'),
-                                _buildDetailItem('Gross / Net Weight', '${po.totalGrossWeightKg} kg / ${po.totalNetWeightKg} kg'),
-                              ],
-                            ),
-                            const Divider(height: 24),
-                            const Text(
-                              'Purchase Order Line Items (بنود أمر الشراء)',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                            ),
-                            const SizedBox(height: 8),
-                            Table(
-                              border: TableBorder.all(color: Colors.grey.shade300),
-                              columnWidths: const {
-                                0: FlexColumnWidth(1.2),
-                                1: FlexColumnWidth(3),
-                                2: FlexColumnWidth(1.2),
-                                3: FlexColumnWidth(1.2),
-                                4: FlexColumnWidth(1.2),
-                                5: FlexColumnWidth(1.2),
-                              },
-                              children: [
-                                const TableRow(
-                                  decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                Wrap(
+                                  spacing: 20,
+                                  runSpacing: 10,
                                   children: [
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Line Total', style: TextStyle(fontWeight: FontWeight.bold))),
-                                    Padding(padding: EdgeInsets.all(6), child: Text('Volume CBM', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    _buildDetailItem('Project', po.projectName ?? '-'),
+                                    _buildDetailItem('Company', po.companyName ?? '-'),
+                                    _buildDetailItem('Supplier', po.supplierName ?? '-'),
+                                    _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
+                                    _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
+                                    _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
+                                    _buildDetailItem('Total PI/PO Amount', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
+                                    _buildDetailItem('Total Volume (Packing List)', '${effectivePackingListCbm.toStringAsFixed(3)} CBM'),
+                                    _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListWeight.toStringAsFixed(1)} kg / ${po.totalNetWeightKg} kg'),
                                   ],
                                 ),
-                                ...po.items.map(
-                                  (item) => TableRow(
-                                    children: [
-                                      Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
-                                      Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                const Divider(height: 24),
+                                const Text(
+                                  'Purchase Order Line Items (بنود أمر الشراء)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                                ),
+                                const SizedBox(height: 8),
+                                Table(
+                                  border: TableBorder.all(color: Colors.grey.shade300),
+                                  columnWidths: const {
+                                    0: FlexColumnWidth(1.2),
+                                    1: FlexColumnWidth(3),
+                                    2: FlexColumnWidth(1.2),
+                                    3: FlexColumnWidth(1.2),
+                                    4: FlexColumnWidth(1.2),
+                                    5: FlexColumnWidth(1.2),
+                                  },
+                                  children: [
+                                    const TableRow(
+                                      decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                      children: [
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Line Total', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: EdgeInsets.all(6), child: Text('Volume CBM (Packing List)', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      ],
+                                    ),
+                                    ...po.items.map(
+                                      (item) {
+                                        double itemCbm = item.totalCbm;
+                                        if (po.packingListItems.isNotEmpty) {
+                                          final matchingPl = po.packingListItems.firstWhere(
+                                            (pl) => (item.itemCode != null && pl.itemCode == item.itemCode) || (item.hsCode != null && pl.hsCode == item.hsCode),
+                                            orElse: () => PackingListItemModel(hsCode: '', itemCode: ''),
+                                          );
+                                          if (matchingPl.itemCode.isNotEmpty) {
+                                            itemCbm = matchingPl.totalCbm > 0 ? matchingPl.totalCbm : matchingPl.calculatedCbm;
+                                          } else if (po.totalAmountFob > 0) {
+                                            itemCbm = (item.totalPrice / po.totalAmountFob) * effectivePackingListCbm;
+                                          }
+                                        }
+
+                                        return TableRow(
                                           children: [
-                                            Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                            if (item.hsCode != null)
-                                              Text(
-                                                'HS: ${item.hsCode} (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
-                                                style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                  if (item.hsCode != null)
+                                                    Text(
+                                                      'HS: ${item.hsCode} (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                      style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
+                                                    ),
+                                                ],
                                               ),
+                                            ),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${itemCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))),
                                           ],
-                                        ),
-                                      ),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(3)} m³')),
-                                    ],
-                                  ),
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ],
-                            ),
-                          ],
+                            );
+                          }),
                         ),
-                      ),
 
                       // Tab 2: BP-003 Review Packing List
                       SingleChildScrollView(
@@ -762,15 +802,16 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   final _formKey = GlobalKey<FormState>();
   late TextEditingController _piCtrl;
   late TextEditingController _rateCtrl;
-  late TextEditingController _termsCtrl;
   late TextEditingController _notesCtrl;
 
+  int? _selectedImportFileId;
   int? _selectedProjectId;
   int? _selectedCompanyId;
   int? _selectedSupplierId;
   int? _selectedIncotermId;
   int? _selectedCurrencyId;
   late String _selectedStatus;
+  late String _selectedPaymentTerms;
 
   late List<POLineItemModel> _dialogItems;
   late List<PackingListItemModel> _dialogPackingItems;
@@ -782,10 +823,19 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     final po = widget.po;
     _piCtrl = TextEditingController(text: po?.proformaInvoiceNumber ?? '');
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
-    _termsCtrl = TextEditingController(text: po?.paymentTerms ?? 'LC at Sight / اعتماد مستندي');
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'Draft';
 
+    final rawTerms = po?.paymentTerms;
+    if (rawTerms != null && (rawTerms.contains('LC') || rawTerms.contains('اعتماد'))) {
+      _selectedPaymentTerms = 'Letter of Credit / LC';
+    } else if (rawTerms != null && (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت'))) {
+      _selectedPaymentTerms = 'Cash in Advance / SWIFT';
+    } else {
+      _selectedPaymentTerms = rawTerms ?? 'Cash in Advance / SWIFT';
+    }
+
+    _selectedImportFileId = po?.importFileId;
     _selectedProjectId = po?.projectId;
     _selectedCompanyId = po?.companyId;
     _selectedSupplierId = po?.supplierId;
@@ -826,6 +876,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
             heightCm: p.heightCm,
             netWeightUnitKg: p.netWeightUnitKg,
             grossWeightUnitKg: p.grossWeightUnitKg,
+            isStackable: p.isStackable,
           )).toList()
         : [
             PackingListItemModel(
@@ -839,6 +890,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
               heightCm: 60,
               netWeightUnitKg: 10,
               grossWeightUnitKg: 12,
+              isStackable: true,
             )
           ];
   }
@@ -847,7 +899,6 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   void dispose() {
     _piCtrl.dispose();
     _rateCtrl.dispose();
-    _termsCtrl.dispose();
     _notesCtrl.dispose();
     super.dispose();
   }
@@ -860,6 +911,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     final incoterms = ref.watch(incotermsProvider).value ?? [];
     final currencies = ref.watch(currenciesProvider).value ?? [];
     final tariffs = ref.watch(customsTariffProvider).value ?? [];
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     if (_selectedProjectId == null && projects.isNotEmpty) {
       _selectedProjectId = projects.first.projectId;
@@ -963,6 +1015,26 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            DropdownButtonFormField<int?>(
+                              value: _selectedImportFileId,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                              ),
+                              items: [
+                                const DropdownMenuItem<int?>(
+                                  value: null,
+                                  child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                ),
+                                ...importFiles.map((f) => DropdownMenuItem<int?>(
+                                      value: f.importFileId,
+                                      child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                    )),
+                              ],
+                              onChanged: (v) => setState(() => _selectedImportFileId = v),
+                            ),
+                            const SizedBox(height: 12),
                             Row(
                               children: [
                                 Expanded(
@@ -1098,9 +1170,38 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             ),
                             const SizedBox(height: 12),
 
-                            TextFormField(
-                              controller: _termsCtrl,
-                              decoration: const InputDecoration(labelText: 'Payment Terms'),
+                            DropdownButtonFormField<String>(
+                              value: ['Cash in Advance / SWIFT', 'Letter of Credit / LC', 'CAD / Cash Against Documents', 'Open Account / Deferred Payment'].contains(_selectedPaymentTerms)
+                                  ? _selectedPaymentTerms
+                                  : 'Cash in Advance / SWIFT',
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Payment Terms (شروط الدفع) *',
+                                prefixIcon: Icon(Icons.payments_outlined, color: AppTheme.cobalt),
+                              ),
+                              items: const [
+                                DropdownMenuItem(
+                                  value: 'Cash in Advance / SWIFT',
+                                  child: Text('Cash in Advance / SWIFT (تحويل سويفت مقدم)', overflow: TextOverflow.ellipsis),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Letter of Credit / LC',
+                                  child: Text('Letter of Credit / LC (اعتماد مستندي)', overflow: TextOverflow.ellipsis),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'CAD / Cash Against Documents',
+                                  child: Text('CAD / Cash Against Documents (تحصيل مستندي)', overflow: TextOverflow.ellipsis),
+                                ),
+                                DropdownMenuItem(
+                                  value: 'Open Account / Deferred Payment',
+                                  child: Text('Open Account / Deferred Payment (حساب مفتوح / آجل)', overflow: TextOverflow.ellipsis),
+                                ),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) {
+                                  setState(() => _selectedPaymentTerms = v);
+                                }
+                              },
                             ),
                             const SizedBox(height: 14),
 
@@ -1650,6 +1751,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                             heightCm: h,
                                                             netWeightUnitKg: p.netWeightUnitKg,
                                                             grossWeightUnitKg: p.grossWeightUnitKg,
+                                                            isStackable: p.isStackable,
                                                           );
                                                         });
                                                       },
@@ -1680,6 +1782,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                             heightCm: p.heightCm,
                                                             netWeightUnitKg: nw,
                                                             grossWeightUnitKg: p.grossWeightUnitKg,
+                                                            isStackable: p.isStackable,
                                                           );
                                                         });
                                                       },
@@ -1706,9 +1809,38 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                             heightCm: p.heightCm,
                                                             netWeightUnitKg: p.netWeightUnitKg,
                                                             grossWeightUnitKg: gw,
+                                                            isStackable: p.isStackable,
                                                           );
                                                         });
                                                       },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: DropdownButtonFormField<bool>(
+                                                      value: p.isStackable,
+                                                      isExpanded: true,
+                                                      decoration: const InputDecoration(labelText: 'تعليمات الرص *', isDense: true),
+                                                      items: const [
+                                                        DropdownMenuItem(value: true, child: Text('📦 قابل للرص', style: TextStyle(fontSize: 11))),
+                                                        DropdownMenuItem(value: false, child: Text('🚫 غير قابل للرص', style: TextStyle(fontSize: 11))),
+                                                      ],
+                                                      onChanged: (v) => setState(() {
+                                                        _dialogPackingItems[idx] = PackingListItemModel(
+                                                          hsCode: p.hsCode,
+                                                          itemCode: p.itemCode,
+                                                          qtyPcs: p.qtyPcs,
+                                                          qtyPkg: p.qtyPkg,
+                                                          packageType: p.packageType,
+                                                          unit: p.unit,
+                                                          lengthCm: p.lengthCm,
+                                                          widthCm: p.widthCm,
+                                                          heightCm: p.heightCm,
+                                                          netWeightUnitKg: p.netWeightUnitKg,
+                                                          grossWeightUnitKg: p.grossWeightUnitKg,
+                                                          isStackable: v ?? true,
+                                                        );
+                                                      }),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 12),
@@ -1813,13 +1945,14 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                       final newPO = PurchaseOrderModel(
                         poNumber: '',
                         proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        importFileId: _selectedImportFileId,
                         projectId: _selectedProjectId!,
                         companyId: _selectedCompanyId!,
                         supplierId: _selectedSupplierId!,
                         incotermId: _selectedIncotermId!,
                         currencyId: _selectedCurrencyId!,
                         exchangeRate: rate,
-                        paymentTerms: _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
+                        paymentTerms: _selectedPaymentTerms,
                         status: _selectedStatus,
                         notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
                         items: _dialogItems,
@@ -1846,13 +1979,14 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                     } else {
                       final updateData = {
                         'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        'import_file_id': _selectedImportFileId,
                         'project_id': _selectedProjectId!,
                         'company_id': _selectedCompanyId!,
                         'supplier_id': _selectedSupplierId!,
                         'incoterm_id': _selectedIncotermId!,
                         'currency_id': _selectedCurrencyId!,
                         'exchange_rate': rate,
-                        'payment_terms': _termsCtrl.text.trim().isEmpty ? null : _termsCtrl.text.trim(),
+                        'payment_terms': _selectedPaymentTerms,
                         'status': _selectedStatus,
                         'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
                         'items': _dialogItems.map((i) => i.toJson()).toList(),

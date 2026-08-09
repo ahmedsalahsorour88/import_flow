@@ -87,6 +87,23 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
     }
   }
 
+  Future<ImportFileModel?> closeShipment(int importFileId, String closureReason, String closedAtPhase) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/close-shipment',
+        data: {
+          'closure_reason': closureReason,
+          'closed_at_phase': closedAtPhase,
+        },
+      );
+      final closed = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return closed;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<ImportMasterReportSummaryModel> fetchMasterReport() async {
     try {
       final response = await _dio.get('${ApiConstants.baseUrl}/import-files/report/master');

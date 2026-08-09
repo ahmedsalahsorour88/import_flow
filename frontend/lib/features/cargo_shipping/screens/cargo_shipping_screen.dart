@@ -131,6 +131,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                           columns: const [
                             DataColumn(label: Text('كود الشحن', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('جاهزية البضاعة (CRD / Cut-off)', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('مطابقة المواعيد', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الحاويات والرصاص الأمني', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -145,6 +146,19 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                             return DataRow(
                               cells: [
                                 DataCell(Text(rec.cargoShippingCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.charcoal.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      rec.importFileCode ?? 'IMP-${rec.importFileId}',
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
                                 DataCell(
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,

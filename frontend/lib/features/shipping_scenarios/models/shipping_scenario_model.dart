@@ -83,6 +83,7 @@ class ShippingEvaluationModel {
   final int? sessionId;
   final String sessionCode;
   final String? title;
+  final int? importFileId;
   final String cargoReadyDate;
   final int? portOfLoadingId;
   final int? portOfDischargeId;
@@ -95,6 +96,7 @@ class ShippingEvaluationModel {
   final String? createdAt;
   final String? updatedAt;
 
+  final String? importFileCode;
   final String? poNumber;
   final String? projectName;
   final String? polName;
@@ -115,6 +117,7 @@ class ShippingEvaluationModel {
     this.sessionId,
     required this.sessionCode,
     this.title,
+    this.importFileId,
     required this.cargoReadyDate,
     this.portOfLoadingId,
     this.portOfDischargeId,
@@ -126,6 +129,7 @@ class ShippingEvaluationModel {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.importFileCode,
     this.poNumber,
     this.projectName,
     this.polName,
@@ -145,6 +149,7 @@ class ShippingEvaluationModel {
       sessionId: json['session_id'],
       sessionCode: json['session_code'] ?? '',
       title: json['title'],
+      importFileId: json['import_file_id'],
       cargoReadyDate: json['cargo_ready_date'] ?? '',
       portOfLoadingId: json['port_of_loading_id'],
       portOfDischargeId: json['port_of_discharge_id'],
@@ -156,6 +161,7 @@ class ShippingEvaluationModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
+      importFileCode: json['import_file_code'],
       poNumber: json['po_number'],
       projectName: json['project_name'],
       polName: json['pol_name'],
@@ -176,6 +182,7 @@ class ShippingEvaluationModel {
   Map<String, dynamic> toCreateJson() {
     return {
       if (title != null && title!.isNotEmpty) 'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'cargo_ready_date': cargoReadyDate,
       if (portOfLoadingId != null) 'port_of_loading_id': portOfLoadingId,
       if (portOfDischargeId != null) 'port_of_discharge_id': portOfDischargeId,

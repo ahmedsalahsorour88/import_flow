@@ -106,6 +106,7 @@ class CBMCalculationModel {
   final int? calcId;
   final String calcCode;
   final String? title;
+  final int? importFileId;
   final int? projectId;
   final int? poId;
   final int totalQty;
@@ -120,6 +121,7 @@ class CBMCalculationModel {
   final bool isActive;
   final String? createdAt;
   final String? updatedAt;
+  final String? importFileCode;
   final String? projectName;
   final String? poNumber;
   final List<CBMItemModel> items;
@@ -128,6 +130,7 @@ class CBMCalculationModel {
     this.calcId,
     required this.calcCode,
     this.title,
+    this.importFileId,
     this.projectId,
     this.poId,
     this.totalQty = 0,
@@ -142,6 +145,7 @@ class CBMCalculationModel {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.importFileCode,
     this.projectName,
     this.poNumber,
     this.items = const [],
@@ -152,6 +156,7 @@ class CBMCalculationModel {
       calcId: json['calc_id'] != null ? _numToInt(json['calc_id']) : null,
       calcCode: json['calc_code'] ?? '',
       title: json['title'],
+      importFileId: json['import_file_id'] != null ? _numToInt(json['import_file_id']) : null,
       projectId: json['project_id'] != null ? _numToInt(json['project_id']) : null,
       poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       totalQty: _numToInt(json['total_qty']),
@@ -166,6 +171,7 @@ class CBMCalculationModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
+      importFileCode: json['import_file_code'],
       projectName: json['project_name'],
       poNumber: json['po_number'],
       items: json['items'] != null
@@ -179,6 +185,7 @@ class CBMCalculationModel {
       if (calcId != null) 'calc_id': calcId,
       'calc_code': calcCode,
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'project_id': projectId,
       'po_id': poId,
       'notes': notes,
@@ -189,6 +196,7 @@ class CBMCalculationModel {
   Map<String, dynamic> toCreateJson() {
     return {
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       if (projectId != null) 'project_id': projectId,
       if (poId != null) 'po_id': poId,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,

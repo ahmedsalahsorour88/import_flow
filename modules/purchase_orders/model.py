@@ -123,6 +123,7 @@ class PackingListItem(Base):
     total_gross_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
     total_cbm = Column(Numeric(10, 4), nullable=False, default=0.0)
     chargeable_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
+    is_stackable = Column(Boolean, nullable=False, default=True)
 
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 

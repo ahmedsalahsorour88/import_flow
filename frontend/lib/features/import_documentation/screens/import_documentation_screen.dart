@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/import_documentation_model.dart';
@@ -28,6 +29,7 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
   final TextEditingController _proformaNoController = TextEditingController(text: 'PI-2026-SH09');
   final TextEditingController _notesController = TextEditingController();
 
+  int? _acidSelectedImportFileId;
   int? _selectedImporterId;
   String _importerName = 'المصرية الحديثة للتنسيج والغزل ش.م.م';
   int? _selectedSupplierId;
@@ -54,6 +56,9 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    Future.microtask(() {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
   }
 
   @override
@@ -78,6 +83,7 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     try {
       final payload = {
         'acid_number': _acidNumController.text.trim(),
+        'import_file_id': _acidSelectedImportFileId,
         'importer_id': _selectedImporterId,
         'importer_name': _importerName,
         'importer_tax_id': _importerTaxIdController.text.trim(),
@@ -283,6 +289,30 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                           const SizedBox(height: 10),
                           Row(
                             children: [
+                              Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<int?>(
+                                  value: _acidSelectedImportFileId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                          value: f.importFileId,
+                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _acidSelectedImportFileId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(

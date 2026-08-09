@@ -173,3 +173,34 @@ def generate_master_report_service(
         total_estimated_cost=total_cost,
         files=file_responses,
     )
+
+
+def close_shipment_service(
+    db: Session,
+    import_file_id: int,
+    payload: "CloseShipmentSubmit",
+) -> ImportFile:
+    existing = repo.get_import_file_by_id(db, import_file_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    if not payload.closure_reason or not payload.closure_reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يلزم إدخال سبب إيقاف وإغلاق الشحنة قبل إتمام العملية.",
+        )
+
+    update_dict = {
+        "status": "Closed",
+        "current_module": "Phase 10 - Import File Closure & Historical Archive",
+        "current_stage": f"Closed at {payload.closed_at_phase} - {payload.closure_reason.strip()}",
+        "progress_percent": 100.0,
+        "next_action": f"File Closed Early at {payload.closed_at_phase}",
+        "closure_reason": payload.closure_reason.strip(),
+        "closed_at_phase": payload.closed_at_phase,
+    }
+
+    return repo.update_import_file(db, import_file_id, update_dict)

@@ -132,6 +132,7 @@ class FreightRFQRequestModel {
   final int rfqId;
   final String rfqCode;
   final String title;
+  final int? importFileId;
   final String shippingMethod;
   final String crdDate;
   final int? polId;
@@ -149,6 +150,7 @@ class FreightRFQRequestModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
   final List<FreightQuotationItemModel> quotations;
   final int totalQuotationsCount;
   final double lowestFreightCost;
@@ -161,6 +163,7 @@ class FreightRFQRequestModel {
     required this.rfqId,
     required this.rfqCode,
     required this.title,
+    this.importFileId,
     required this.shippingMethod,
     required this.crdDate,
     this.polId,
@@ -178,6 +181,7 @@ class FreightRFQRequestModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
     this.quotations = const [],
     this.totalQuotationsCount = 0,
     this.lowestFreightCost = 0.0,
@@ -192,6 +196,7 @@ class FreightRFQRequestModel {
       rfqId: json['rfq_id'],
       rfqCode: json['rfq_code'] ?? '',
       title: json['title'] ?? '',
+      importFileId: json['import_file_id'],
       shippingMethod: json['shipping_method'] ?? 'Ocean FCL',
       crdDate: json['crd_date'] ?? '',
       polId: json['pol_id'],
@@ -209,6 +214,7 @@ class FreightRFQRequestModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
       quotations: (json['quotations'] as List<dynamic>?)
               ?.map((q) => FreightQuotationItemModel.fromJson(q))
               .toList() ??
@@ -227,6 +233,7 @@ class FreightRFQRequestModel {
       'rfq_id': rfqId,
       'rfq_code': rfqCode,
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'shipping_method': shippingMethod,
       'crd_date': crdDate,
       'pol_id': polId,

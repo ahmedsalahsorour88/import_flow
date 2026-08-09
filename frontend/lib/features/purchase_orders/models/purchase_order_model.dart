@@ -117,6 +117,7 @@ class PackingListItemModel {
   final double totalGrossWeightKg;
   final double totalCbm;
   final double chargeableWeightKg;
+  final bool isStackable;
 
   PackingListItemModel({
     this.packingItemId,
@@ -136,6 +137,7 @@ class PackingListItemModel {
     this.totalGrossWeightKg = 0.0,
     this.totalCbm = 0.0,
     this.chargeableWeightKg = 0.0,
+    this.isStackable = true,
   });
 
   double get lengthM => unit == 'mm' ? lengthCm / 1000.0 : (unit == 'm' ? lengthCm : lengthCm / 100.0);
@@ -166,6 +168,7 @@ class PackingListItemModel {
       totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
       totalCbm: _numToDouble(json['total_cbm']),
       chargeableWeightKg: _numToDouble(json['chargeable_weight_kg']),
+      isStackable: json['is_stackable'] as bool? ?? true,
     );
   }
 
@@ -184,6 +187,7 @@ class PackingListItemModel {
       'height_cm': heightCm,
       'net_weight_unit_kg': netWeightUnitKg,
       'gross_weight_unit_kg': grossWeightUnitKg,
+      'is_stackable': isStackable,
     };
   }
 }

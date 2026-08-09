@@ -11,6 +11,7 @@ class CustomsChecklistItemBase(BaseModel):
     document_type: str = Field(..., min_length=2, max_length=100)
     hs_code: Optional[str] = None
     is_required: bool = True
+    required_text: Optional[str] = "✓"
     is_blocking_shipment: bool = True
     responsible_party: str = "Customs Broker"
     status: str = "Pending"  # Pending, Received, Verified, Approved, Rejected

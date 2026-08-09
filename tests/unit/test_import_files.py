@@ -152,3 +152,25 @@ class TestImportFilesBackend:
         success = repo.soft_delete_import_file(db_session, file_id)
         assert success is True
         assert repo.get_import_file_by_id(db_session, file_id) is None
+
+    def test_close_shipment_early_service(self, db_session):
+        from modules.import_files.schemas import CloseShipmentSubmit
+        payload = ImportFileCreate(
+            custom_file_number="6701068104",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+        )
+        created = service.create_import_file_service(db_session, payload)
+
+        close_payload = CloseShipmentSubmit(
+            closure_reason="إلغاء الطلب من المورد الخارجي لظروف الشحن",
+            closed_at_phase="Phase 3 - Import Documentation",
+        )
+        closed_file = service.close_shipment_service(db_session, created.import_file_id, close_payload)
+
+        assert closed_file.status == "Closed"
+        assert closed_file.current_module == "Phase 10 - Import File Closure & Historical Archive"
+        assert closed_file.progress_percent == 100.0
+        assert closed_file.closure_reason == "إلغاء الطلب من المورد الخارجي لظروف الشحن"
+        assert closed_file.closed_at_phase == "Phase 3 - Import Documentation"

@@ -35,6 +35,9 @@ class ImportFile(Base):
     supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=True)
     supplier_name = Column(String(255), nullable=False)
 
+    broker_id = Column(Integer, ForeignKey("external_service_providers.provider_id"), nullable=True)
+    broker_name = Column(String(255), nullable=True)
+
     po_number = Column(String(100), nullable=True) # e.g. PO-1001
     po_ids = Column(JSON, nullable=True) # List of linked PO IDs
     
@@ -69,6 +72,9 @@ class ImportFile(Base):
     status = Column(String(50), nullable=False, default="Open") # Open, In Progress, On Hold, Closed, Archived
     owner = Column(String(100), nullable=False, default="Kamal") # Operational owner e.g. Kamal
     notes = Column(Text, nullable=True)
+
+    closure_reason = Column(Text, nullable=True)
+    closed_at_phase = Column(String(100), nullable=True)
 
     # Audit Trail
     is_active = Column(Boolean, default=True, nullable=False)

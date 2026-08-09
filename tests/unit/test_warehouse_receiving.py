@@ -1,0 +1,106 @@
+import unittest
+from datetime import datetime, date
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from database.database import Base
+from modules.import_companies.model import ImportCompany
+from modules.import_files.model import ImportFile
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
+from modules.warehouse_receiving.schemas import (
+    WarehouseReceivingCreate,
+    GrnItemSchema,
+    WarehouseReceivingUpdate,
+    DiscrepancyReportSubmit,
+)
+from modules.warehouse_receiving.service import (
+    create_warehouse_receiving_service,
+    get_warehouse_receiving_service,
+    list_warehouse_receivings_service,
+    report_receiving_discrepancy_service,
+    soft_delete_warehouse_receiving_service,
+)
+from modules.warehouse_receiving.validators import validate_seal_integrity, validate_discrepancy_claim
+from fastapi import HTTPException
+
+class TestWarehouseReceivingModule(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine("sqlite:///:memory:")
+        Base.metadata.create_all(self.engine)
+        TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        self.db = TestingSessionLocal()
+
+        company = ImportCompany(
+            company_id=1,
+            importer_name="Gamma Import Ltd",
+            vat_id="111-222-333",
+            registration_number="54321",
+            address="Cairo, Egypt",
+            country="Egypt",
+            importer_id="IMP-003",
+            importer_id_expiry=date(2028, 1, 1),
+            vat_id_expiry=date(2028, 1, 1),
+            registration_expiry=date(2028, 1, 1),
+        )
+        self.db.add(company)
+        self.db.commit()
+
+        imp_file = ImportFile(
+            import_file_code="IMP-FILE-2026-0003",
+            company_id=company.company_id,
+            company_name=company.importer_name,
+            supplier_name="Global Tech Inc",
+            po_number="PO-2026-100",
+        )
+        self.db.add(imp_file)
+        self.db.commit()
+        self.db.refresh(imp_file)
+        self.import_file_id = imp_file.import_file_id
+
+    def tearDown(self):
+        self.db.close()
+
+    def test_create_warehouse_receiving_and_grn_totals(self):
+        schema = WarehouseReceivingCreate(
+            import_file_id=self.import_file_id,
+            warehouse_name="Cairo Logistics Depot",
+            truck_plate_number="TRK-9988",
+            driver_name="Ahmed Hassan",
+            seal_number="SEAL-776655",
+            seal_intact=True,
+            grn_items=[
+                GrnItemSchema(item_code="ITM-01", item_name="Pipes", invoiced_qty=100, accepted_qty=95, shortage_qty=3, damaged_qty=2),
+                GrnItemSchema(item_code="ITM-02", item_name="Fittings", invoiced_qty=50, accepted_qty=50, shortage_qty=0, damaged_qty=0),
+            ],
+        )
+
+        record = create_warehouse_receiving_service(self.db, schema)
+        self.assertIsNotNone(record.receiving_id)
+        self.assertTrue(record.grn_code.startswith("GRN-"))
+        self.assertEqual(record.total_invoiced_qty, 150)
+        self.assertEqual(record.total_accepted_qty, 145)
+        self.assertEqual(record.total_shortage_qty, 3)
+        self.assertEqual(record.total_damaged_qty, 2)
+        self.assertEqual(record.discrepancy_type, "Shortage")
+
+    def test_discrepancy_reporting_and_quarantine(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+
+        payload = DiscrepancyReportSubmit(
+            discrepancy_type="Damage",
+            discrepancy_notes="2 boxes found crushed during unloading.",
+            quarantine_zone_assigned=True,
+            insurance_claim_filed=True,
+            insurance_claim_ref="CLAIM-INS-99001",
+        )
+
+        record = report_receiving_discrepancy_service(self.db, record.receiving_id, payload)
+        self.assertEqual(record.discrepancy_type, "Damage")
+        self.assertTrue(record.quarantine_zone_assigned)
+        self.assertTrue(record.insurance_claim_filed)
+        self.assertEqual(record.insurance_claim_ref, "CLAIM-INS-99001")
+        self.assertEqual(record.status, "Discrepancy Reported")
+
+if __name__ == "__main__":
+    unittest.main()

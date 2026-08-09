@@ -40,6 +40,7 @@ class PackingListItemModel {
   final int totalPackages;
   final double grossWeightKg;
   final double cbm;
+  final bool isStackable;
 
   PackingListItemModel({
     required this.plNo,
@@ -47,6 +48,7 @@ class PackingListItemModel {
     this.totalPackages = 0,
     this.grossWeightKg = 0.0,
     this.cbm = 0.0,
+    this.isStackable = true,
   });
 
   factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
@@ -56,6 +58,7 @@ class PackingListItemModel {
       totalPackages: json['total_packages'] ?? 0,
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       cbm: (json['cbm'] as num?)?.toDouble() ?? 0.0,
+      isStackable: json['is_stackable'] as bool? ?? true,
     );
   }
 
@@ -66,6 +69,7 @@ class PackingListItemModel {
       'total_packages': totalPackages,
       'gross_weight_kg': grossWeightKg,
       'cbm': cbm,
+      'is_stackable': isStackable,
     };
   }
 }
@@ -78,6 +82,8 @@ class ImportFileModel {
   final String companyName;
   final int? supplierId;
   final String supplierName;
+  final int? brokerId;
+  final String? brokerName;
   final String? poNumber;
   final List<int>? poIds;
   final String? piNumber;
@@ -102,6 +108,8 @@ class ImportFileModel {
   final String status;
   final String owner;
   final String? notes;
+  final String? closureReason;
+  final String? closedAtPhase;
   final bool isActive;
   final String createdAt;
   final String updatedAt;
@@ -114,6 +122,8 @@ class ImportFileModel {
     required this.companyName,
     this.supplierId,
     required this.supplierName,
+    this.brokerId,
+    this.brokerName,
     this.poNumber,
     this.poIds,
     this.piNumber,
@@ -121,7 +131,7 @@ class ImportFileModel {
     this.packingListsData = const [],
     this.projectIds = const [],
     this.projectNames,
-    this.shipmentMode = 'Sea',
+    this.shipmentMode = 'Sea FCL',
     this.incotermCode = 'FOB',
     this.priority = 'High',
     this.shipmentCategory = 'New Purchase',
@@ -138,6 +148,8 @@ class ImportFileModel {
     this.status = 'Open',
     this.owner = 'Kamal',
     this.notes,
+    this.closureReason,
+    this.closedAtPhase,
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
@@ -156,6 +168,8 @@ class ImportFileModel {
       companyName: json['company_name'] ?? '',
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'] ?? '',
+      brokerId: json['broker_id'],
+      brokerName: json['broker_name'],
       poNumber: json['po_number'],
       poIds: (json['po_ids'] as List<dynamic>?)?.map((e) => e as int).toList(),
       piNumber: json['pi_number'],
@@ -163,7 +177,7 @@ class ImportFileModel {
       packingListsData: rawPacking.map((p) => PackingListItemModel.fromJson(p)).toList(),
       projectIds: rawProjects.map((p) => p as int).toList(),
       projectNames: json['project_names'],
-      shipmentMode: json['shipment_mode'] ?? 'Sea',
+      shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
       incotermCode: json['incoterm_code'] ?? 'FOB',
       priority: json['priority'] ?? 'High',
       shipmentCategory: json['shipment_category'] ?? 'New Purchase',
@@ -180,6 +194,8 @@ class ImportFileModel {
       status: json['status'] ?? 'Open',
       owner: json['owner'] ?? 'Kamal',
       notes: json['notes'],
+      closureReason: json['closure_reason'],
+      closedAtPhase: json['closed_at_phase'],
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
@@ -195,6 +211,8 @@ class ImportFileModel {
       'company_name': companyName,
       'supplier_id': supplierId,
       'supplier_name': supplierName,
+      'broker_id': brokerId,
+      'broker_name': brokerName,
       'po_number': poNumber,
       'po_ids': poIds,
       'pi_number': piNumber,

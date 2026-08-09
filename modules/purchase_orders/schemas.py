@@ -50,6 +50,7 @@ class PackingListItemBase(BaseModel):
     height_cm: Optional[float] = Field(0.0, ge=0)
     net_weight_unit_kg: float = Field(0.0, ge=0)
     gross_weight_unit_kg: float = Field(0.0, ge=0)
+    is_stackable: bool = Field(True, description="Stackable vs Non-stackable cargo instruction")
 
 
 class PackingListItemCreate(PackingListItemBase):

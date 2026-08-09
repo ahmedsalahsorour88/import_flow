@@ -106,3 +106,97 @@ def soft_delete_import_file(db: Session, import_file_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+
+def get_operational_dashboard_data(
+    db: Session,
+    phase: Optional[str] = None,
+    priority: Optional[str] = None,
+    broker_id: Optional[int] = None,
+    broker_name: Optional[str] = None,
+    search: Optional[str] = None,
+):
+    """
+    Fetches operational dashboard shipments matching phase, priority, broker, and search
+    using strict AND combination logic. Returns shipment count, list, phase counts, and dynamic brokers.
+    """
+    query = db.query(ImportFile).filter(ImportFile.is_active == True)
+
+    # 1. Phase Filter
+    if phase and phase != "All":
+        phase_str = str(phase).strip()
+        query = query.filter(
+            or_(
+                ImportFile.current_module.ilike(f"%{phase_str}%"),
+                ImportFile.current_stage.ilike(f"%{phase_str}%"),
+            )
+        )
+
+    # 2. Priority Filter
+    if priority and priority != "All":
+        query = query.filter(ImportFile.priority == priority)
+
+    # 3. Customs Broker Filter
+    if broker_id:
+        query = query.filter(ImportFile.broker_id == broker_id)
+    elif broker_name and broker_name != "All":
+        query = query.filter(ImportFile.broker_name == broker_name)
+
+    # 4. Search Filter
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                ImportFile.import_file_code.ilike(term),
+                ImportFile.custom_file_number.ilike(term),
+                ImportFile.company_name.ilike(term),
+                ImportFile.supplier_name.ilike(term),
+                ImportFile.po_number.ilike(term),
+                ImportFile.broker_name.ilike(term),
+            )
+        )
+
+    shipments = query.order_by(ImportFile.import_file_id.desc()).all()
+    shipment_count = len(shipments)
+
+    # Calculate Phase distribution across all active files
+    all_active = db.query(ImportFile).filter(ImportFile.is_active == True).all()
+    phase_counts = {f"Phase {i}": 0 for i in range(1, 11)}
+    for file in all_active:
+        stage_text = f"{file.current_module} {file.current_stage}"
+        for i in range(1, 11):
+            if f"Phase {i}" in stage_text:
+                phase_counts[f"Phase {i}"] += 1
+
+    # Dynamic Brokers List from Database
+    brokers_query = db.query(ImportFile.broker_id, ImportFile.broker_name).filter(
+        ImportFile.is_active == True,
+        ImportFile.broker_name.isnot(None),
+        ImportFile.broker_name != "",
+    ).distinct().all()
+
+    from modules.external_service_providers.model import ExternalServiceProvider
+    ext_brokers = db.query(ExternalServiceProvider).filter(
+        ExternalServiceProvider.is_active == True,
+        ExternalServiceProvider.provider_type == "Customs Broker",
+    ).all()
+
+    broker_dict = {}
+    for p in ext_brokers:
+        broker_dict[p.provider_name] = p.provider_id
+    for b_id, b_name in brokers_query:
+        if b_name and b_name not in broker_dict:
+            broker_dict[b_name] = b_id
+
+    available_brokers = [
+        {"broker_id": v, "broker_name": k} for k, v in broker_dict.items()
+    ]
+
+    return {
+        "shipment_count": shipment_count,
+        "shipments": shipments,
+        "last_updated_at": datetime.utcnow(),
+        "available_brokers": available_brokers,
+        "phase_counts": phase_counts,
+    }
+

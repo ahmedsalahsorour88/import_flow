@@ -22,6 +22,9 @@ import '../import_documentation/screens/import_documentation_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
+import '../customs_clearance/screens/customs_clearance_screen.dart';
+import '../operational_dashboard/screens/operational_dashboard_screen.dart';
+import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -31,28 +34,30 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  final List<Widget> _screens = const [
-    DashboardTab(),
-    ImportFilesScreen(),
-    PurchaseOrdersScreen(),
-    CBMCalculatorScreen(),
-    ShippingScenariosScreen(),
-    FreightQuotationsScreen(),
-    CustomsConsultationScreen(),
-    FinancialApprovalScreen(),
-    ImportDocumentationScreen(),
-    FreightBookingScreen(),
-    CargoShippingScreen(),
-    ProjectsScreen(),
-    ImportCompaniesScreen(),
-    SuppliersScreen(),
-    PartnersScreen(),
-    AuditLogsScreen(),
-    IncotermsScreen(),
-    CustomsTariffScreen(),
-    TransportLocationsScreen(),
-    CurrenciesScreen(),
-  ];
+  List<Widget> get _screens => const [
+        DashboardTab(),
+        ImportFilesScreen(),
+        PurchaseOrdersScreen(),
+        CBMCalculatorScreen(),
+        ShippingScenariosScreen(),
+        FreightQuotationsScreen(),
+        CustomsConsultationScreen(),
+        FinancialApprovalScreen(),
+        ImportDocumentationScreen(),
+        FreightBookingScreen(),
+        CargoShippingScreen(),
+        ProjectsScreen(),
+        ImportCompaniesScreen(),
+        SuppliersScreen(),
+        PartnersScreen(),
+        AuditLogsScreen(),
+        IncotermsScreen(),
+        CustomsTariffScreen(),
+        TransportLocationsScreen(),
+        CurrenciesScreen(),
+        CustomsClearanceScreen(),
+        WarehouseReceivingScreen(),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -65,47 +70,93 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           // Sidebar
           Container(
-            width: 260,
+            width: 275,
             color: AppTheme.charcoal,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Padding(
-                  padding: EdgeInsets.all(24.0),
-                  child: Text(
-                    'ImportFlow ERP',
-                    style: TextStyle(
-                      color: AppTheme.cloudWhite,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                    ),
+                Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.swap_calls_rounded, color: Colors.white, size: 24),
+                          ),
+                          const SizedBox(width: 12),
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'ImportFlow ERP',
+                                style: TextStyle(
+                                  color: AppTheme.cloudWhite,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'إدارة الاستيراد والجمارك',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
                 const Divider(color: Colors.white24, height: 1),
                 Expanded(
                   child: ListView(
-                    padding: EdgeInsets.zero,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     children: [
-                      _buildMenuItem(Icons.dashboard, 'Dashboard', 0, selectedIndex),
-                      _buildMenuItem(Icons.folder_special, 'Import Files (ملفات الشحنات)', 1, selectedIndex),
+                      // Section 1: Core Operations
+                      _buildSectionHeader('📊 الرئيسية وأوامر الشراء'),
+                      _buildMenuItem(Icons.dashboard_outlined, 'Dashboard (لوحة التحليلات)', 0, selectedIndex),
+                      _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات)', 1, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 2, selectedIndex),
                       _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأحجام)', 3, selectedIndex),
+
+                      // Section 2: Phase 1 Shipping & Logistics Planning
+                      _buildSectionHeader('🚀 مراحل التخطيط وشغور النولون'),
                       _buildMenuItem(Icons.alt_route, 'Shipping Scenarios (BP-007)', 4, selectedIndex),
-                      _buildMenuItem(Icons.request_quote, 'Freight RFQ (BP-008)', 5, selectedIndex),
-                      _buildMenuItem(Icons.gavel, 'Customs Broker (BP-009)', 6, selectedIndex),
-                      _buildMenuItem(Icons.account_balance_wallet, 'Financial Approval (Phase 2)', 7, selectedIndex),
-                      _buildMenuItem(Icons.verified_user, 'Import Docs & ACID (Phase 3)', 8, selectedIndex),
-                      _buildMenuItem(Icons.directions_boat, 'Freight Booking (Phase 4)', 9, selectedIndex),
-                      _buildMenuItem(Icons.local_shipping, 'Cargo & CargoX (Phase 5)', 10, selectedIndex),
-                      _buildMenuItem(Icons.assignment, 'Projects (المشاريع)', 11, selectedIndex),
-                      _buildMenuItem(Icons.domain, 'Import Companies', 12, selectedIndex),
-                      _buildMenuItem(Icons.business, 'Suppliers', 13, selectedIndex),
-                      _buildMenuItem(Icons.account_balance, 'Partners & Banks', 14, selectedIndex),
-                      _buildMenuItem(Icons.history_edu, 'System Audit Trail', 15, selectedIndex),
-                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms (MD-006)', 16, selectedIndex),
-                      _buildMenuItem(Icons.calculate, 'Customs Tariff (MD-008)', 17, selectedIndex),
-                      _buildMenuItem(Icons.directions_boat, 'Ports & Locations (MD-009)', 18, selectedIndex),
-                      _buildMenuItem(Icons.currency_exchange, 'Currencies & Rates (MD-004)', 19, selectedIndex),
+                      _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ (BP-008)', 5, selectedIndex),
+                      _buildMenuItem(Icons.gavel_outlined, 'Customs Broker (BP-009)', 6, selectedIndex),
+
+                      // Section 3: Phases 2 - 5 Operations & Execution
+                      _buildSectionHeader('⚡ المراحل الإجرائية والتخليص'),
+                      _buildMenuItem(Icons.account_balance_wallet_outlined, 'Financial Approval (Phase 2)', 7, selectedIndex),
+                      _buildMenuItem(Icons.verified_user_outlined, 'Import Docs & ACID (Phase 3)', 8, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat_outlined, 'Freight Booking (Phase 4)', 9, selectedIndex),
+                      _buildMenuItem(Icons.local_shipping_outlined, 'Cargo & CargoX (Phase 5)', 10, selectedIndex),
+                      _buildMenuItem(Icons.gavel_outlined, 'Customs Clearance (Phase 7)', 20, selectedIndex),
+                      _buildMenuItem(Icons.inventory_outlined, 'Warehouse Receiving (Phase 8)', 21, selectedIndex),
+
+                      // Section 4: Master Data
+                      _buildSectionHeader('🏢 البيانات الأساسية للمؤسسة'),
+                      _buildMenuItem(Icons.domain_outlined, 'Import Companies (شركات الاستيراد)', 12, selectedIndex),
+                      _buildMenuItem(Icons.business_outlined, 'Suppliers (الموردون الخارجيون)', 13, selectedIndex),
+                      _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks (البنوك والشركاء)', 14, selectedIndex),
+                      _buildMenuItem(Icons.assignment_outlined, 'Projects (المشاريع والمراكز)', 11, selectedIndex),
+
+                      // Section 5: Reference Data & Tariff Rules
+                      _buildSectionHeader('⚙️ الجداول المرجعية والتعريفات'),
+                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules (MD-006)', 16, selectedIndex),
+                      _buildMenuItem(Icons.description_outlined, 'Customs Tariff (MD-008)', 17, selectedIndex),
+                      _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations (MD-009)', 18, selectedIndex),
+                      _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates (MD-004)', 19, selectedIndex),
+                      _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs (سجل الأنشطة)', 15, selectedIndex),
                     ],
                   ),
                 ),
@@ -174,10 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           // Main Content Area
           Expanded(
-            child: IndexedStack(
-              index: selectedIndex,
-              children: _screens,
-            ),
+            child: _screens[selectedIndex < _screens.length ? selectedIndex : 0],
           ),
         ],
       ),
@@ -226,100 +274,68 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
   }
 
-  Widget _buildMenuItem(IconData icon, String title, int index, int selectedIndex) {
-    final isSelected = selectedIndex == index;
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
-          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-        ),
-      ),
-      selected: isSelected,
-      onTap: () {
-        selectNavigationIndex(ref, index);
-      },
-    );
-  }
-}
-
-class DashboardTab extends StatelessWidget {
-  const DashboardTab({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24.0),
+  Widget _buildSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Executive Overview',
-            style: TextStyle(
-              fontSize: 24,
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.amber,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
-              color: AppTheme.charcoal,
+              letterSpacing: 0.5,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              _buildStatCard('Active Shipments', '12', Icons.local_shipping, AppTheme.cobalt),
-              const SizedBox(width: 16),
-              _buildStatCard('Customs Clearance', '5 Pending', Icons.assignment, AppTheme.orange),
-              const SizedBox(width: 16),
-              _buildStatCard('Est. Landed Cost', '\$45,200', Icons.attach_money, AppTheme.emerald),
-              const SizedBox(width: 16),
-              _buildStatCard('Pending Documents', '3 Action Req.', Icons.description, AppTheme.crimson),
-            ],
-          ),
+          const SizedBox(height: 4),
+          const Divider(color: Colors.white12, height: 1),
         ],
       ),
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(20.0),
-        decoration: BoxDecoration(
-          color: AppTheme.cloudWhite,
-          borderRadius: BorderRadius.circular(8.0),
-          border: Border.all(color: color.withOpacity(0.3), width: 1.5),
+  Widget _buildMenuItem(IconData icon, String title, int index, int selectedIndex) {
+    final isSelected = selectedIndex == index;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: isSelected ? AppTheme.cobalt.withOpacity(0.2) : Colors.transparent,
+        borderRadius: BorderRadius.circular(6),
+        border: isSelected
+            ? const Border(left: BorderSide(color: AppTheme.cobalt, width: 4))
+            : null,
+      ),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+        leading: Icon(
+          icon,
+          size: 20,
+          color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: AppTheme.charcoal,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Icon(icon, color: color),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: color,
-              ),
-            ),
-          ],
+        title: Text(
+          title,
+          style: TextStyle(
+            color: isSelected ? Colors.white : AppTheme.cloudWhite,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12.5,
+          ),
         ),
+        selected: isSelected,
+        onTap: () {
+          selectNavigationIndex(ref, index);
+        },
       ),
     );
+  }
+}
+class DashboardTab extends StatelessWidget {
+  const DashboardTab({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const OperationalDashboardScreen();
   }
 }

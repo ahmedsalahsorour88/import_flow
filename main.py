@@ -37,6 +37,8 @@ from modules.import_documentation.model import (
 from modules.import_files.model import ImportFile
 from modules.freight_booking.model import ShipmentBooking
 from modules.cargo_shipping.model import CargoShippingRecord
+from modules.customs_clearance.model import CustomsClearanceRecord
+from modules.warehouse_receiving.model import WarehouseReceivingRecord
 
 
 # ==================================================
@@ -63,6 +65,8 @@ from modules.import_documentation.router import router as import_documentation_r
 from modules.import_files.router import router as import_files_router
 from modules.freight_booking.router import router as freight_booking_router
 from modules.cargo_shipping.router import router as cargo_shipping_router
+from modules.customs_clearance.router import router as customs_clearance_router
+from modules.warehouse_receiving.router import router as warehouse_receiving_router
 
 
 # ==================================================
@@ -111,6 +115,8 @@ app.include_router(import_documentation_router)
 app.include_router(import_files_router)
 app.include_router(freight_booking_router)
 app.include_router(cargo_shipping_router)
+app.include_router(customs_clearance_router)
+app.include_router(warehouse_receiving_router)
 
 
 # ==================================================

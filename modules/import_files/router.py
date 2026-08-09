@@ -12,6 +12,8 @@ from modules.import_files.schemas import (
     ImportFileUpdate,
     ImportFileResponse,
     ImportMasterReportSummary,
+    OperationalDashboardResponse,
+    CloseShipmentSubmit,
 )
 import modules.import_files.service as service
 import modules.import_files.repository as repo
@@ -78,6 +80,29 @@ def get_master_report(
 
 
 @router.get(
+    "/operational-dashboard",
+    response_model=OperationalDashboardResponse,
+    summary="Operational Dashboard multi-criteria AND filtering",
+)
+def get_operational_dashboard(
+    phase: Optional[str] = None,
+    priority: Optional[str] = None,
+    broker_id: Optional[int] = None,
+    broker_name: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_operational_dashboard_data(
+        db,
+        phase=phase,
+        priority=priority,
+        broker_id=broker_id,
+        broker_name=broker_name,
+        search=search,
+    )
+
+
+@router.get(
     "/{import_file_id}",
     response_model=ImportFileResponse,
     summary="Get single import file by ID or custom file number",
@@ -119,3 +144,16 @@ def soft_delete_import_file(import_file_id: int, db: Session = Depends(get_db)):
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
         )
+
+
+@router.post(
+    "/{import_file_id}/close-shipment",
+    response_model=ImportFileResponse,
+    summary="Early close and terminate shipment at current phase with reason notes",
+)
+def close_shipment(
+    import_file_id: int,
+    payload: CloseShipmentSubmit,
+    db: Session = Depends(get_db),
+):
+    return service.close_shipment_service(db, import_file_id, payload)

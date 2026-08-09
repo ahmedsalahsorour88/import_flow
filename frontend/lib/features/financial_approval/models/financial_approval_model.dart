@@ -2,6 +2,7 @@ class PaymentRequestModel {
   final int paymentId;
   final String paymentCode;
   final String title;
+  final int? importFileId;
   final int? poId;
   final int? supplierId;
   final String supplierName;
@@ -24,11 +25,13 @@ class PaymentRequestModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   PaymentRequestModel({
     required this.paymentId,
     required this.paymentCode,
     required this.title,
+    this.importFileId,
     this.poId,
     this.supplierId,
     required this.supplierName,
@@ -51,6 +54,7 @@ class PaymentRequestModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory PaymentRequestModel.fromJson(Map<String, dynamic> json) {
@@ -58,6 +62,7 @@ class PaymentRequestModel {
       paymentId: json['payment_id'],
       paymentCode: json['payment_code'] ?? '',
       title: json['title'] ?? '',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'] ?? '',
@@ -80,6 +85,7 @@ class PaymentRequestModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -88,6 +94,7 @@ class PaymentRequestModel {
       'payment_id': paymentId,
       'payment_code': paymentCode,
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'supplier_id': supplierId,
       'supplier_name': supplierName,
@@ -116,6 +123,7 @@ class ImportBudgetModel {
   final int budgetId;
   final String budgetCode;
   final String title;
+  final int? importFileId;
   final int? poId;
   final int? projectId;
   final double invoiceAmountEgp;
@@ -130,11 +138,13 @@ class ImportBudgetModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   ImportBudgetModel({
     required this.budgetId,
     required this.budgetCode,
     required this.title,
+    this.importFileId,
     this.poId,
     this.projectId,
     this.invoiceAmountEgp = 0.0,
@@ -149,6 +159,7 @@ class ImportBudgetModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory ImportBudgetModel.fromJson(Map<String, dynamic> json) {
@@ -156,6 +167,7 @@ class ImportBudgetModel {
       budgetId: json['budget_id'],
       budgetCode: json['budget_code'] ?? '',
       title: json['title'] ?? '',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       projectId: json['project_id'],
       invoiceAmountEgp: (json['invoice_amount_egp'] as num?)?.toDouble() ?? 0.0,
@@ -170,6 +182,7 @@ class ImportBudgetModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -178,6 +191,7 @@ class ImportBudgetModel {
       'budget_id': budgetId,
       'budget_code': budgetCode,
       'title': title,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'project_id': projectId,
       'invoice_amount_egp': invoiceAmountEgp,

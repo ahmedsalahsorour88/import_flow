@@ -2,6 +2,7 @@ class AcidRegistrationModel {
   final int acidId;
   final String acidCode;
   final String acidNumber;
+  final int? importFileId;
   final int? poId;
   final int? importerId;
   final String importerName;
@@ -27,11 +28,13 @@ class AcidRegistrationModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   AcidRegistrationModel({
     required this.acidId,
     required this.acidCode,
     required this.acidNumber,
+    this.importFileId,
     this.poId,
     this.importerId,
     required this.importerName,
@@ -57,6 +60,7 @@ class AcidRegistrationModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory AcidRegistrationModel.fromJson(Map<String, dynamic> json) {
@@ -64,6 +68,7 @@ class AcidRegistrationModel {
       acidId: json['acid_id'],
       acidCode: json['acid_code'] ?? '',
       acidNumber: json['acid_number'] ?? '',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       importerId: json['importer_id'],
       importerName: json['importer_name'] ?? '',
@@ -89,6 +94,7 @@ class AcidRegistrationModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -97,6 +103,7 @@ class AcidRegistrationModel {
       'acid_id': acidId,
       'acid_code': acidCode,
       'acid_number': acidNumber,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'importer_id': importerId,
       'importer_name': importerName,
@@ -126,6 +133,7 @@ class BankingDocumentModel {
   final int bankDocId;
   final String bankDocCode;
   final String docType;
+  final int? importFileId;
   final int? poId;
   final int? bankId;
   final String bankName;
@@ -139,11 +147,13 @@ class BankingDocumentModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   BankingDocumentModel({
     required this.bankDocId,
     required this.bankDocCode,
     required this.docType,
+    this.importFileId,
     this.poId,
     this.bankId,
     required this.bankName,
@@ -157,6 +167,7 @@ class BankingDocumentModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory BankingDocumentModel.fromJson(Map<String, dynamic> json) {
@@ -164,6 +175,7 @@ class BankingDocumentModel {
       bankDocId: json['bank_doc_id'],
       bankDocCode: json['bank_doc_code'] ?? '',
       docType: json['doc_type'] ?? 'Form 4',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       bankId: json['bank_id'],
       bankName: json['bank_name'] ?? '',
@@ -177,6 +189,7 @@ class BankingDocumentModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -185,6 +198,7 @@ class BankingDocumentModel {
       'bank_doc_id': bankDocId,
       'bank_doc_code': bankDocCode,
       'doc_type': docType,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'bank_id': bankId,
       'bank_name': bankName,
@@ -203,6 +217,7 @@ class BankingDocumentModel {
 class ShipmentDocumentModel {
   final int documentId;
   final String documentCode;
+  final int? importFileId;
   final int? poId;
   final String docName;
   final String docNumber;
@@ -217,10 +232,12 @@ class ShipmentDocumentModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   ShipmentDocumentModel({
     required this.documentId,
     required this.documentCode,
+    this.importFileId,
     this.poId,
     required this.docName,
     required this.docNumber,
@@ -235,12 +252,14 @@ class ShipmentDocumentModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory ShipmentDocumentModel.fromJson(Map<String, dynamic> json) {
     return ShipmentDocumentModel(
       documentId: json['document_id'],
       documentCode: json['document_code'] ?? '',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       docName: json['doc_name'] ?? '',
       docNumber: json['doc_number'] ?? '',
@@ -255,6 +274,7 @@ class ShipmentDocumentModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -262,6 +282,7 @@ class ShipmentDocumentModel {
     return {
       'document_id': documentId,
       'document_code': documentCode,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'doc_name': docName,
       'doc_number': docNumber,
@@ -281,6 +302,7 @@ class ShipmentDocumentModel {
 class CustomsDeclarationModel {
   final int declarationId;
   final String declarationCode;
+  final int? importFileId;
   final int? poId;
   final String acidNumber;
   final String? form4Number;
@@ -292,10 +314,12 @@ class CustomsDeclarationModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   CustomsDeclarationModel({
     required this.declarationId,
     required this.declarationCode,
+    this.importFileId,
     this.poId,
     required this.acidNumber,
     this.form4Number,
@@ -307,12 +331,14 @@ class CustomsDeclarationModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory CustomsDeclarationModel.fromJson(Map<String, dynamic> json) {
     return CustomsDeclarationModel(
       declarationId: json['declaration_id'],
       declarationCode: json['declaration_code'] ?? '',
+      importFileId: json['import_file_id'],
       poId: json['po_id'],
       acidNumber: json['acid_number'] ?? '',
       form4Number: json['form4_number'],
@@ -324,6 +350,7 @@ class CustomsDeclarationModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 
@@ -331,6 +358,7 @@ class CustomsDeclarationModel {
     return {
       'declaration_id': declarationId,
       'declaration_code': declarationCode,
+      if (importFileId != null) 'import_file_id': importFileId,
       'po_id': poId,
       'acid_number': acidNumber,
       'form4_number': form4Number,

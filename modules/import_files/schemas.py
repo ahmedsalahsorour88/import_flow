@@ -31,6 +31,8 @@ class ImportFileBase(BaseModel):
     company_name: str = Field(..., min_length=2, description="Importing Company Name")
     supplier_id: Optional[int] = None
     supplier_name: str = Field(..., min_length=2, description="Foreign Supplier Name")
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = Field(None, description="Customs Broker Name")
     po_number: Optional[str] = Field(None, description="PO Number e.g. PO-1001")
     po_ids: Optional[List[int]] = None
     pi_number: Optional[str] = Field(None, description="Main PI Number e.g. PI-889")
@@ -51,6 +53,13 @@ class ImportFileBase(BaseModel):
     status: str = Field("Open", description="Open, In Progress, On Hold, Closed, Archived")
     owner: str = Field("Kamal", description="Operational Owner")
     notes: Optional[str] = None
+    closure_reason: Optional[str] = Field(None, description="Reason for early closure or termination")
+    closed_at_phase: Optional[str] = Field(None, description="Operational phase where closure occurred")
+
+
+class CloseShipmentSubmit(BaseModel):
+    closure_reason: str = Field(..., min_length=3, description="Reason for stopping/closing shipment")
+    closed_at_phase: str = Field(..., description="Operational phase e.g. Phase 3 - Import Documentation")
 
 
 class ImportFileCreate(ImportFileBase):
@@ -63,6 +72,8 @@ class ImportFileUpdate(BaseModel):
     company_name: Optional[str] = None
     supplier_id: Optional[int] = None
     supplier_name: Optional[str] = None
+    broker_id: Optional[int] = None
+    broker_name: Optional[str] = None
     po_number: Optional[str] = None
     po_ids: Optional[List[int]] = None
     pi_number: Optional[str] = None
@@ -108,3 +119,17 @@ class ImportMasterReportSummary(BaseModel):
     closed_files_count: int
     total_estimated_cost: float
     files: List[ImportFileResponse]
+
+
+class OperationalDashboardBroker(BaseModel):
+    broker_id: Optional[int] = None
+    broker_name: str
+
+
+class OperationalDashboardResponse(BaseModel):
+    shipment_count: int
+    shipments: List[ImportFileResponse]
+    last_updated_at: datetime
+    available_brokers: List[OperationalDashboardBroker]
+    phase_counts: Dict[str, int]
+

@@ -112,6 +112,7 @@ class ShipmentBookingModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   ShipmentBookingModel({
     required this.bookingId,
@@ -149,6 +150,7 @@ class ShipmentBookingModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory ShipmentBookingModel.fromJson(Map<String, dynamic> json) {
@@ -191,6 +193,7 @@ class ShipmentBookingModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 

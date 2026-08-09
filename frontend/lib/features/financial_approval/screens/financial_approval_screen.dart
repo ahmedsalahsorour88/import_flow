@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -31,6 +32,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   String _currencyCode = 'USD';
   DateTime _dueDate = DateTime.now().add(const Duration(days: 12));
   int? _selectedSupplierId;
+  int? _paySelectedImportFileId;
   bool _isSavingPayment = false;
 
   // Import Budget Form State (BP-013)
@@ -41,6 +43,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   final TextEditingController _customsEgpController = TextEditingController(text: '829000.0');
   final TextEditingController _clearanceEgpController = TextEditingController(text: '75000.0');
   final TextEditingController _bgtNotesController = TextEditingController();
+  int? _bgtSelectedImportFileId;
   bool _isSavingBudget = false;
 
   // Search & Filter
@@ -51,6 +54,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    Future.microtask(() {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
   }
 
   @override
@@ -84,6 +90,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
       final payload = {
         'title': _payTitleController.text.trim(),
+        'import_file_id': _paySelectedImportFileId,
         'supplier_id': _selectedSupplierId,
         'supplier_name': _supplierNameController.text.trim(),
         'payment_type': _paymentType,
@@ -127,6 +134,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
       final payload = {
         'title': _bgtTitleController.text.trim(),
+        'import_file_id': _bgtSelectedImportFileId,
         'invoice_amount_egp': inv,
         'freight_cost_egp': frt,
         'customs_duties_egp': cust,
@@ -294,10 +302,41 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           const Text('إصدار طلب سداد / تحويل مالي للمورد (Create Payment Request)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                           const Divider(),
                           const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _payTitleController,
-                            decoration: const InputDecoration(labelText: 'عنوان طلب السداد *', border: OutlineInputBorder()),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<int?>(
+                                  value: _paySelectedImportFileId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                          value: f.importFileId,
+                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _paySelectedImportFileId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _payTitleController,
+                                  decoration: const InputDecoration(labelText: 'عنوان طلب السداد *', border: OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -479,10 +518,41 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           const Text('اعتماد ميزانية ملف الاستيراد الشاملة (Import Budget Approval Setup)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                           const Divider(),
                           const SizedBox(height: 10),
-                          TextFormField(
-                            controller: _bgtTitleController,
-                            decoration: const InputDecoration(labelText: 'عنوان الميزانية الاستيرادية *', border: OutlineInputBorder()),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<int?>(
+                                  value: _bgtSelectedImportFileId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                          value: f.importFileId,
+                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _bgtSelectedImportFileId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _bgtTitleController,
+                                  decoration: const InputDecoration(labelText: 'عنوان الميزانية الاستيرادية *', border: OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال العنوان' : null,
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
                           Row(
@@ -607,6 +677,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                           columns: const [
                             DataColumn(label: Text('كود الطلب', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('المورد المستفيد والعنوان', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('طريقة السداد', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('المبلغ المطلوب', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -618,6 +689,19 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             return DataRow(
                               cells: [
                                 DataCell(Text(p.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.charcoal.withOpacity(0.08),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      p.importFileCode ?? (p.importFileId != null ? 'IMP-${p.importFileId}' : '-'),
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
                                 DataCell(Text('${p.supplierName} - ${p.title}')),
                                 DataCell(Text(p.paymentType)),
                                 DataCell(Text('${p.requestedAmount} ${p.currencyCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),

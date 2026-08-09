@@ -174,6 +174,7 @@ class CargoShippingModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
+  final String? importFileCode;
 
   CargoShippingModel({
     required this.cargoShippingId,
@@ -202,6 +203,7 @@ class CargoShippingModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
+    this.importFileCode,
   });
 
   factory CargoShippingModel.fromJson(Map<String, dynamic> json) {
@@ -233,6 +235,7 @@ class CargoShippingModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
+      importFileCode: json['import_file_code'],
     );
   }
 

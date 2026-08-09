@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
+import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/customs_consultation_model.dart';
@@ -27,6 +28,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   int? _selectedBrokerId;
   String _selectedBrokerName = '';
   String? _brokerContactPerson;
+  int? _selectedImportFileId;
   int? _selectedPoId;
   int? _selectedProjectId;
 
@@ -42,6 +44,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
     _initializeDefaultChecklist();
+    Future.microtask(() {
+      ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
   }
 
   @override
@@ -241,6 +247,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         'broker_id': _selectedBrokerId,
         'broker_name': _selectedBrokerName,
         'broker_contact_person': _brokerContactPerson,
+        'import_file_id': _selectedImportFileId,
         'po_id': _selectedPoId,
         'project_id': _selectedProjectId,
         'estimated_duties_egp': double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0,
@@ -495,6 +502,29 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             children: [
                               Expanded(
                                 child: DropdownButtonFormField<int?>(
+                                  value: _selectedImportFileId,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(
+                                    labelText: 'ملف الشحنة الاستيرادية (Import File)',
+                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  items: [
+                                    const DropdownMenuItem<int?>(
+                                      value: null,
+                                      child: Text('-- بدون ربط بملف شحنة --'),
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                          value: f.importFileId,
+                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedImportFileId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: DropdownButtonFormField<int?>(
                                   value: _selectedPoId,
                                   decoration: const InputDecoration(labelText: 'ربط بأمر الشراء (Purchase Order - اختياري)', border: OutlineInputBorder()),
                                   items: [
@@ -706,6 +736,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                                 columns: const [
                                   DataColumn(label: Text('كود الدراسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('عنوان الدراسة والموضوع', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('المستخلص الجمركي', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('نسبة الجاهزية', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -716,6 +747,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   return DataRow(
                                     cells: [
                                       DataCell(Text(session.consultationCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                      DataCell(
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.charcoal.withOpacity(0.08),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: Text(
+                                            session.importFileCode ?? (session.importFileId != null ? 'IMP-${session.importFileId}' : '-'),
+                                            style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                          ),
+                                        ),
+                                      ),
                                       DataCell(Text(session.title)),
                                       DataCell(Text(session.brokerName)),
                                       DataCell(Text('${session.readinessPercentage}%', style: const TextStyle(fontWeight: FontWeight.bold))),

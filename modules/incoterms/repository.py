@@ -1,6 +1,6 @@
 from typing import List, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from .model import CostItem, Incoterm, IncotermResponsibility
 
@@ -121,13 +121,21 @@ def get_responsibility_by_pair(
 
 
 def get_all_responsibilities(db: Session) -> List[IncotermResponsibility]:
-    return db.query(IncotermResponsibility).all()
+    return (
+        db.query(IncotermResponsibility)
+        .options(joinedload(IncotermResponsibility.incoterm), joinedload(IncotermResponsibility.cost_item))
+        .all()
+    )
 
 
 def get_matrix_for_incoterm(db: Session, incoterm_id: int) -> List[IncotermResponsibility]:
-    return db.query(IncotermResponsibility).filter(
-        IncotermResponsibility.incoterm_id == incoterm_id
-    ).all()
+    return (
+        db.query(IncotermResponsibility)
+        .options(joinedload(IncotermResponsibility.incoterm), joinedload(IncotermResponsibility.cost_item))
+        .filter(IncotermResponsibility.incoterm_id == incoterm_id)
+        .all()
+    )
+
 
 
 def create_responsibility(db: Session, data: dict) -> IncotermResponsibility:

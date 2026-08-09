@@ -987,11 +987,11 @@ class _ResponsibilityMatrixTabState
                     switch (r.responsibleParty) {
                       case 'Importer':
                         partyColor = AppTheme.cobalt;
-                        partyText = 'المشتري (YES)';
+                        partyText = 'المشتري / المستورد (YES)';
                         break;
                       case 'Exporter':
                         partyColor = AppTheme.orange;
-                        partyText = 'البائع (NO)';
+                        partyText = 'البائع / الشاحن (NO)';
                         break;
                       default:
                         partyColor = AppTheme.emerald;
@@ -1144,10 +1144,10 @@ class _ResponsibilityMatrixTabState
                     items: const [
                       DropdownMenuItem(
                           value: 'Importer',
-                          child: Text('المشتري (Importer) - YES')),
+                          child: Text('المشتري / المستورد (YES)')),
                       DropdownMenuItem(
                           value: 'Exporter',
-                          child: Text('البائع (Exporter) - NO')),
+                          child: Text('البائع / الشاحن (NO)')),
                       DropdownMenuItem(
                           value: 'Shared', child: Text('مشترك (Shared)')),
                     ],

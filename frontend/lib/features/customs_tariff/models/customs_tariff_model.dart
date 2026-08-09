@@ -63,9 +63,9 @@ class CustomsTariffModel {
   factory CustomsTariffModel.fromJson(Map<String, dynamic> json) {
     return CustomsTariffModel(
       tariffId: _numToInt(json['tariff_id']),
-      hsCode: json['hs_code'] as String,
-      hsDescription: json['hs_description'] as String,
-      customsCategory: json['customs_category'] as String?,
+      hsCode: json['hs_code']?.toString() ?? '',
+      hsDescription: json['hs_description']?.toString() ?? '',
+      customsCategory: json['customs_category']?.toString(),
       customsDutyRate: _numToDouble(json['customs_duty_rate']),
       vatRate: _numToDouble(json['vat_rate']),
       scheduleTaxRate: _numToDouble(json['schedule_tax_rate']),
@@ -74,15 +74,21 @@ class CustomsTariffModel {
       requiresCoo: json['requires_coo'] as bool? ?? false,
       requiresInspection: json['requires_inspection'] as bool? ?? false,
       requiresAcid: json['requires_acid'] as bool? ?? false,
-      regulatoryAuthority: json['regulatory_authority'] as String?,
-      effectiveFrom: DateTime.parse(json['effective_from'] as String),
+      regulatoryAuthority: json['regulatory_authority']?.toString(),
+      effectiveFrom: json['effective_from'] != null
+          ? DateTime.tryParse(json['effective_from'].toString()) ?? DateTime.now()
+          : DateTime.now(),
       effectiveTo: json['effective_to'] != null
-          ? DateTime.parse(json['effective_to'] as String)
+          ? DateTime.tryParse(json['effective_to'].toString())
           : null,
-      notes: json['notes'] as String?,
+      notes: json['notes']?.toString(),
       isActive: json['is_active'] as bool? ?? true,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 

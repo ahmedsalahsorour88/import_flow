@@ -33,20 +33,26 @@ class ImportCompanyModel {
 
   factory ImportCompanyModel.fromJson(Map<String, dynamic> json) {
     return ImportCompanyModel(
-      companyId: json['company_id'],
-      importerName: json['importer_name'] ?? '',
-      address: json['address'] ?? '',
-      country: json['country'] ?? '',
-      importerId: json['importer_id'] ?? '',
-      importerIdExpiry: DateTime.parse(json['importer_id_expiry']),
-      vatId: json['vat_id'] ?? '',
-      vatIdExpiry: DateTime.parse(json['vat_id_expiry']),
-      registrationNumber: json['registration_number'] ?? '',
-      registrationExpiry: DateTime.parse(json['registration_expiry']),
-      phone: json['phone'],
-      email: json['email'],
-      isActive: json['is_active'] ?? true,
-      notes: json['notes'],
+      companyId: json['company_id'] as int?,
+      importerName: json['importer_name']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      country: json['country']?.toString() ?? '',
+      importerId: json['importer_id']?.toString() ?? '',
+      importerIdExpiry: json['importer_id_expiry'] != null
+          ? DateTime.tryParse(json['importer_id_expiry'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      vatId: json['vat_id']?.toString() ?? '',
+      vatIdExpiry: json['vat_id_expiry'] != null
+          ? DateTime.tryParse(json['vat_id_expiry'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      registrationNumber: json['registration_number']?.toString() ?? '',
+      registrationExpiry: json['registration_expiry'] != null
+          ? DateTime.tryParse(json['registration_expiry'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      phone: json['phone']?.toString(),
+      email: json['email']?.toString(),
+      isActive: json['is_active'] as bool? ?? true,
+      notes: json['notes']?.toString(),
     );
   }
 

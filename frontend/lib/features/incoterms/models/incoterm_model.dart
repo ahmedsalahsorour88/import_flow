@@ -21,14 +21,18 @@ class IncotermModel {
 
   factory IncotermModel.fromJson(Map<String, dynamic> json) {
     return IncotermModel(
-      incotermId: json['incoterm_id'] as int,
-      incotermCode: json['incoterm_code'] as String,
-      incotermName: json['incoterm_name'] as String,
-      version: json['version'] as String,
-      description: json['description'] as String?,
-      isActive: json['is_active'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      incotermId: json['incoterm_id'] as int? ?? 0,
+      incotermCode: json['incoterm_code']?.toString() ?? '',
+      incotermName: json['incoterm_name']?.toString() ?? '',
+      version: json['version']?.toString() ?? '2020',
+      description: json['description']?.toString(),
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 
@@ -65,14 +69,18 @@ class CostItemModel {
 
   factory CostItemModel.fromJson(Map<String, dynamic> json) {
     return CostItemModel(
-      costItemId: json['cost_item_id'] as int,
-      costItemCode: json['cost_item_code'] as String,
-      costItemName: json['cost_item_name'] as String,
-      costCategory: json['cost_category'] as String,
-      description: json['description'] as String?,
-      isActive: json['is_active'] as bool,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      costItemId: json['cost_item_id'] as int? ?? 0,
+      costItemCode: json['cost_item_code']?.toString() ?? '',
+      costItemName: json['cost_item_name']?.toString() ?? '',
+      costCategory: json['cost_category']?.toString() ?? '',
+      description: json['description']?.toString(),
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
     );
   }
 

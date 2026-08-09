@@ -25,16 +25,18 @@ class AuditLogModel {
 
   factory AuditLogModel.fromJson(Map<String, dynamic> json) {
     return AuditLogModel(
-      logId: json['log_id'] as int,
-      entityType: json['entity_type'] as String,
-      entityId: json['entity_id'] as int,
-      entityCode: json['entity_code'] as String?,
-      action: json['action'] as String,
-      changesSummary: json['changes_summary'] as String?,
-      oldValues: json['old_values'] as String?,
-      newValues: json['new_values'] as String?,
-      performedAt: DateTime.parse(json['performed_at'] as String),
-      performedBy: json['performed_by'] as String? ?? 'System Admin',
+      logId: (json['log_id'] as num?)?.toInt() ?? 0,
+      entityType: json['entity_type']?.toString() ?? '',
+      entityId: (json['entity_id'] as num?)?.toInt() ?? 0,
+      entityCode: json['entity_code']?.toString(),
+      action: json['action']?.toString() ?? '',
+      changesSummary: json['changes_summary']?.toString(),
+      oldValues: json['old_values']?.toString(),
+      newValues: json['new_values']?.toString(),
+      performedAt: json['performed_at'] != null
+          ? DateTime.tryParse(json['performed_at'].toString()) ?? DateTime.now()
+          : DateTime.now(),
+      performedBy: json['performed_by']?.toString() ?? 'System Admin',
     );
   }
 

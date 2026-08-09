@@ -49,7 +49,10 @@ class ExternalServiceProvider(Base):
     contact_person = Column(String(150))
     phone = Column(String(50))
     mobile = Column(String(50))
+    fax = Column(String(50))
     email = Column(String(150))
+    secondary_email = Column(String(150))
+    website = Column(String(200))
     address = Column(String(300))
     country = Column(String(100), default="Egypt")
 

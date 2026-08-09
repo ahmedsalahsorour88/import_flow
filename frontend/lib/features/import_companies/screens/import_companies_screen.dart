@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
@@ -88,7 +89,16 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Master Data Toolbar (Excel Template, Upload, Export Excel, Export PDF)
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'import-companies',
+              title: 'Import_Companies',
+              onRefreshNeeded: () => ref.refresh(importCompaniesProvider.notifier).fetchCompanies(),
+            ),
+
+            const SizedBox(height: 16),
 
             // Search Bar
             Container(
@@ -463,51 +473,176 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                           ],
                         ),
                         const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomTextField(
-                                controller: impIdCtrl,
-                                label: 'Importer Card ID',
-                                icon: Icons.badge,
-                                isRequired: true,
-                                hint: 'IMP-100200',
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: CustomTextField(
-                                controller: vatIdCtrl,
-                                label: 'VAT Registration ID',
-                                icon: Icons.receipt_long,
-                                isRequired: true,
-                                hint: 'VAT-998877',
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomTextField(
-                                controller: regNumCtrl,
-                                label: 'Commercial Reg #',
-                                icon: Icons.app_registration,
-                                isRequired: true,
-                                hint: 'REG-554433',
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: CustomTextField(
-                                controller: phoneCtrl,
-                                label: 'Phone Number',
-                                icon: Icons.phone,
-                                hint: '+20 100 000 0000',
-                              ),
-                            ),
-                          ],
+                        StatefulBuilder(
+                          builder: (context, setDialogState) {
+                            Future<void> pickDate(String type) async {
+                              final initial = type == 'imp'
+                                  ? impExpiry
+                                  : type == 'vat'
+                                      ? vatExpiry
+                                      : regExpiry;
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: initial,
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2040),
+                              );
+                              if (picked != null) {
+                                setDialogState(() {
+                                  if (type == 'imp') impExpiry = picked;
+                                  if (type == 'vat') vatExpiry = picked;
+                                  if (type == 'reg') regExpiry = picked;
+                                });
+                              }
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        controller: impIdCtrl,
+                                        label: 'Importer Card ID',
+                                        icon: Icons.badge,
+                                        isRequired: true,
+                                        hint: 'IMP-100200',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Importer Card Expiry Date *',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () => pickDate('imp'),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.grey.shade400),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 8),
+                                                  Text('${impExpiry.year}-${impExpiry.month.toString().padLeft(2, '0')}-${impExpiry.day.toString().padLeft(2, '0')}'),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        controller: vatIdCtrl,
+                                        label: 'VAT Registration ID',
+                                        icon: Icons.receipt_long,
+                                        isRequired: true,
+                                        hint: 'VAT-998877',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'VAT Registration Expiry Date *',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () => pickDate('vat'),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.grey.shade400),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 8),
+                                                  Text('${vatExpiry.year}-${vatExpiry.month.toString().padLeft(2, '0')}-${vatExpiry.day.toString().padLeft(2, '0')}'),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomTextField(
+                                        controller: regNumCtrl,
+                                        label: 'Commercial Reg #',
+                                        icon: Icons.app_registration,
+                                        isRequired: true,
+                                        hint: 'REG-554433',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Commercial Reg Expiry Date *',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          InkWell(
+                                            onTap: () => pickDate('reg'),
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                              decoration: BoxDecoration(
+                                                color: Colors.white,
+                                                borderRadius: BorderRadius.circular(8),
+                                                border: Border.all(color: Colors.grey.shade400),
+                                              ),
+                                              child: Row(
+                                                children: [
+                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                  const SizedBox(width: 8),
+                                                  Text('${regExpiry.year}-${regExpiry.month.toString().padLeft(2, '0')}-${regExpiry.day.toString().padLeft(2, '0')}'),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 16),
+                                CustomTextField(
+                                  controller: phoneCtrl,
+                                  label: 'Phone Number',
+                                  icon: Icons.phone,
+                                  hint: '+20 100 000 0000',
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ],
                     ),

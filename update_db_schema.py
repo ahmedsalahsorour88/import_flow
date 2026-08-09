@@ -28,6 +28,9 @@ def migrate_db():
             ("bank_code", "VARCHAR(20)"),
             ("branch_name", "VARCHAR(100)"),
             ("rating", "FLOAT DEFAULT 5.0"),
+            ("secondary_email", "VARCHAR(150)"),
+            ("fax", "VARCHAR(50)"),
+            ("website", "VARCHAR(200)"),
         ]
 
         for col_name, col_type in new_columns:
@@ -37,6 +40,27 @@ def migrate_db():
                     print(f"Added column '{col_name}' ({col_type}) to external_service_providers table.")
                 except Exception as e:
                     print(f"Error adding column {col_name}: {e}")
+
+    # Migration for suppliers table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='suppliers'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(suppliers)")
+        sup_cols = [info[1] for info in cursor.fetchall()]
+        sup_new_cols = [
+            ("secondary_email", "VARCHAR(150)"),
+            ("mobile", "VARCHAR(50)"),
+            ("fax", "VARCHAR(50)"),
+            ("has_iso", "BOOLEAN DEFAULT 0"),
+            ("registered_decree_43", "BOOLEAN DEFAULT 0"),
+            ("white_list_registered", "BOOLEAN DEFAULT 0"),
+        ]
+        for col_name, col_type in sup_new_cols:
+            if col_name not in sup_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE suppliers ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to suppliers table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to suppliers: {e}")
 
     # Migration for projects table
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")

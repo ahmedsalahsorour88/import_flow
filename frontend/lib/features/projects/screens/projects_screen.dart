@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -78,7 +79,16 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Master Data Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'projects',
+              title: 'Projects_CostCenters',
+              onRefreshNeeded: () => ref.refresh(projectsProvider.notifier).fetchProjects(),
+            ),
+
+            const SizedBox(height: 16),
 
             // Filters & Search Bar
             Row(

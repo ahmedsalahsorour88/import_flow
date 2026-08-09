@@ -28,14 +28,25 @@ class SupplierBase(BaseModel):
 
     phone: str | None = None
 
+    mobile: str | None = None
+
+    fax: str | None = None
+
     email: str | None = None
 
+    secondary_email: str | None = None
+
     website: str | None = None
+
+    has_iso: bool = False
+
+    registered_decree_43: bool = False
+
+    white_list_registered: bool = False
 
     brands: str | None = None
 
     notes: str | None = None
-
 
 
 # ==================================================
@@ -47,7 +58,6 @@ class SupplierCreate(SupplierBase):
     created_by: str | None = None
 
 
-
 # ==================================================
 # Update Supplier
 # ==================================================
@@ -57,6 +67,34 @@ class SupplierUpdate(BaseModel):
     company_name: str | None = None
 
     supplier_type: str | None = None
+
+    registration_type: str | None = None
+
+    foreign_exporter_id: str | None = None
+
+    foreign_exporter_country: str | None = None
+
+    foreign_exporter_country_code: str | None = None
+
+    address: str | None = None
+
+    phone: str | None = None
+
+    mobile: str | None = None
+
+    fax: str | None = None
+
+    email: str | None = None
+
+    secondary_email: str | None = None
+
+    website: str | None = None
+
+    has_iso: bool | None = None
+
+    registered_decree_43: bool | None = None
+
+    white_list_registered: bool | None = None
 
     registration_type: str | None = None
 

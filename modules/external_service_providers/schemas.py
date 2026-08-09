@@ -21,7 +21,10 @@ class PartnerBase(BaseModel):
     contact_person: Optional[str] = Field(None, max_length=150)
     phone: Optional[str] = Field(None, max_length=50)
     mobile: Optional[str] = Field(None, max_length=50)
+    fax: Optional[str] = Field(None, max_length=50)
     email: Optional[str] = Field(None, max_length=150)
+    secondary_email: Optional[str] = Field(None, max_length=150)
+    website: Optional[str] = Field(None, max_length=200)
     address: Optional[str] = Field(None, max_length=300)
     country: Optional[str] = Field("Egypt", max_length=100)
 

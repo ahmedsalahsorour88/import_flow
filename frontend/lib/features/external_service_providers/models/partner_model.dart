@@ -14,7 +14,10 @@ class PartnerModel {
   final String? contactPerson;
   final String? phone;
   final String? mobile;
+  final String? fax;
   final String? email;
+  final String? secondaryEmail;
+  final String? website;
   final String? address;
   final String country;
   final String paymentType;
@@ -28,7 +31,6 @@ class PartnerModel {
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
       .toList();
-
 
   PartnerModel({
     this.providerId,
@@ -46,7 +48,10 @@ class PartnerModel {
     this.contactPerson,
     this.phone,
     this.mobile,
+    this.fax,
     this.email,
+    this.secondaryEmail,
+    this.website,
     this.address,
     this.country = 'Egypt',
     this.paymentType = 'Credit',
@@ -73,7 +78,10 @@ class PartnerModel {
       contactPerson: json['contact_person'],
       phone: json['phone'],
       mobile: json['mobile'],
+      fax: json['fax'],
       email: json['email'],
+      secondaryEmail: json['secondary_email'],
+      website: json['website'],
       address: json['address'],
       country: json['country'] ?? 'Egypt',
       paymentType: json['payment_type'] ?? 'Credit',
@@ -101,7 +109,10 @@ class PartnerModel {
       'contact_person': contactPerson,
       'phone': phone,
       'mobile': mobile,
+      'fax': fax,
       'email': email,
+      'secondary_email': secondaryEmail,
+      'website': website,
       'address': address,
       'country': country,
       'payment_type': paymentType,

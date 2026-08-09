@@ -104,22 +104,52 @@ class Supplier(Base):
         index=True
     )
 
+    secondary_email = Column(
+        String(150),
+        nullable=True
+    )
+
+    mobile = Column(
+        String(50),
+        nullable=True
+    )
+
+    fax = Column(
+        String(50),
+        nullable=True
+    )
 
     website = Column(
         String(200),
         nullable=True
     )
 
+    # ==================================================
+    # Business & Compliance Flags
+    # ==================================================
 
-    # ==================================================
-    # Business Information
-    # ==================================================
+    has_iso = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    registered_decree_43 = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
+
+    white_list_registered = Column(
+        Boolean,
+        default=False,
+        nullable=False
+    )
 
     brands = Column(
         Text,
         nullable=True
     )
-
 
     notes = Column(
         Text,

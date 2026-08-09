@@ -130,3 +130,166 @@ def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
             detail=f"Supplier with ID {supplier_id} not found."
         )
     return restored
+
+
+# ==================================================
+# Excel Template & Bulk Import
+# ==================================================
+
+from fastapi import Response, UploadFile, File
+from utils.export_import_helper import MasterDataExportImportHelper
+
+@supplier_router.get("/excel-template")
+def download_suppliers_excel_template():
+    cols = [
+        'company_name', 'supplier_type', 'registration_type', 'foreign_exporter_id',
+        'foreign_exporter_country', 'foreign_exporter_country_code', 'address',
+        'phone', 'mobile', 'fax', 'email', 'secondary_email', 'website',
+        'has_iso', 'registered_decree_43', 'white_list_registered', 'brands', 'notes'
+    ]
+    sample = {
+        'company_name': 'G.I. Industrial Holding S.p.A.',
+        'supplier_type': 'Manufacturer',
+        'registration_type': 'Factory Registration',
+        'foreign_exporter_id': 'EXP-IT-992211',
+        'foreign_exporter_country': 'Italy',
+        'foreign_exporter_country_code': 'IT',
+        'address': 'Via G. Agnelli, 7 - 33053 Latisana (UD) - Italy',
+        'phone': '+39 0432 823011',
+        'mobile': '+39 335 1234567',
+        'fax': '+39 0432 773855',
+        'email': 'info@gind.it',
+        'secondary_email': 'sales@gind.it',
+        'website': 'www.gind.it',
+        'has_iso': 'true',
+        'registered_decree_43': 'true',
+        'white_list_registered': 'true',
+        'brands': 'Clint, Novair',
+        'notes': 'Registered under Decree 43',
+    }
+    content = MasterDataExportImportHelper.create_excel_template(cols, sample)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Template.xlsx"},
+    )
+
+
+@supplier_router.post("/import-excel")
+async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    file_bytes = await file.read()
+    cols = ['company_name', 'supplier_type', 'registration_type', 'foreign_exporter_id', 'foreign_exporter_country', 'foreign_exporter_country_code', 'address']
+    rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
+
+    imported_count = 0
+    errors = []
+
+    for idx, r in enumerate(rows, start=2):
+        try:
+            c_name = r.get('company_name')
+            exp_id = r.get('foreign_exporter_id')
+            c_country = r.get('foreign_exporter_country') or 'China'
+            c_code = r.get('foreign_exporter_country_code') or 'CN'
+
+            if not c_name or not exp_id:
+                errors.append(f"Row {idx}: Missing required company_name or foreign_exporter_id.")
+                continue
+
+            def parse_bool(v):
+                return str(v).lower() in ['true', '1', 'yes', 'نعم', 't']
+
+            schema = SupplierCreate(
+                company_name=c_name,
+                supplier_type=r.get('supplier_type') or 'Manufacturer',
+                registration_type=r.get('registration_type') or 'Factory Registration',
+                foreign_exporter_id=exp_id,
+                foreign_exporter_country=c_country,
+                foreign_exporter_country_code=c_code,
+                address=r.get('address') or 'Main Industrial Zone',
+                phone=r.get('phone'),
+                mobile=r.get('mobile'),
+                fax=r.get('fax'),
+                email=r.get('email'),
+                secondary_email=r.get('secondary_email'),
+                website=r.get('website'),
+                has_iso=parse_bool(r.get('has_iso')),
+                registered_decree_43=parse_bool(r.get('registered_decree_43')),
+                white_list_registered=parse_bool(r.get('white_list_registered')),
+                brands=r.get('brands'),
+                notes=r.get('notes'),
+            )
+            create_supplier_service(db, schema)
+            imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    return {"message": f"Successfully imported {imported_count} foreign suppliers.", "errors": errors}
+
+
+@supplier_router.get("/export-excel")
+def export_suppliers_excel(db: Session = Depends(get_db)):
+    suppliers = get_all_suppliers_service(db, include_inactive=True)
+    headers = [
+        'Code', 'Company Name', 'Type', 'Reg Type', 'Exporter ID (Nafeza)', 'Country',
+        'Country Code', 'Address', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
+        'Website', 'ISO', 'Decree 43', 'White List', 'Status'
+    ]
+    rows = []
+    for s in suppliers:
+        rows.append([
+            s.supplier_code,
+            s.company_name,
+            s.supplier_type,
+            s.registration_type,
+            s.foreign_exporter_id,
+            s.foreign_exporter_country,
+            s.foreign_exporter_country_code,
+            s.address,
+            s.phone or '',
+            getattr(s, 'mobile', '') or '',
+            getattr(s, 'fax', '') or '',
+            s.email or '',
+            getattr(s, 'secondary_email', '') or '',
+            s.website or '',
+            'Yes' if getattr(s, 'has_iso', False) else 'No',
+            'Yes' if getattr(s, 'registered_decree_43', False) else 'No',
+            'Yes' if getattr(s, 'white_list_registered', False) else 'No',
+            'Active' if s.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Foreign Suppliers", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Report.xlsx"},
+    )
+
+
+@supplier_router.get("/export-pdf")
+def export_suppliers_pdf(db: Session = Depends(get_db)):
+    suppliers = get_all_suppliers_service(db, include_inactive=True)
+    headers = ['Code', 'Company Name', 'Type', 'Exporter ID', 'Country', 'Phone', 'Email', 'ISO/Decree43/WhiteList', 'Status']
+    rows = []
+    for s in suppliers:
+        flags = []
+        if getattr(s, 'has_iso', False): flags.append("ISO")
+        if getattr(s, 'registered_decree_43', False): flags.append("D43")
+        if getattr(s, 'white_list_registered', False): flags.append("WL")
+        flag_str = ", ".join(flags) if flags else "-"
+
+        rows.append([
+            s.supplier_code,
+            s.company_name,
+            s.supplier_type,
+            s.foreign_exporter_id,
+            s.foreign_exporter_country,
+            s.phone or '',
+            s.email or '',
+            flag_str,
+            'Active' if s.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Foreign Exporters & Suppliers (MD-002)", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Report.pdf"},
+    )

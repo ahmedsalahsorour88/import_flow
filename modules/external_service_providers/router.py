@@ -65,3 +65,145 @@ def restore_partner(
 ):
     service = ExternalServiceProviderService(db)
     return service.restore_partner(provider_id)
+
+
+# ==================================================
+# Excel Template & Bulk Import & Export
+# ==================================================
+
+from fastapi import Response, UploadFile, File
+from utils.export_import_helper import MasterDataExportImportHelper
+
+@partner_router.get("/excel-template")
+def download_partners_excel_template():
+    cols = [
+        'partner_name', 'partner_type', 'tax_id', 'commercial_register',
+        'contact_person', 'phone', 'mobile', 'fax', 'email', 'secondary_email',
+        'website', 'address', 'country', 'notes'
+    ]
+    sample = {
+        'partner_name': 'National Bank of Egypt (NBE)',
+        'partner_type': 'Bank',
+        'tax_id': 'TAX-100200300',
+        'commercial_register': 'REG-8877',
+        'contact_person': 'Trade Finance Dept',
+        'phone': '+20 2 19623',
+        'mobile': '+20 100 1234567',
+        'fax': '+20 2 2577 0000',
+        'email': 'trade@nbe.com.eg',
+        'secondary_email': 'support@nbe.com.eg',
+        'website': 'www.nbe.com.eg',
+        'address': 'Corniche El Nile, Cairo',
+        'country': 'Egypt',
+        'notes': 'Primary LC & CAD Bank',
+    }
+    content = MasterDataExportImportHelper.create_excel_template(cols, sample)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Template.xlsx"},
+    )
+
+
+@partner_router.post("/import-excel")
+async def import_excel_partners(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    file_bytes = await file.read()
+    cols = ['partner_name', 'partner_type', 'tax_id', 'commercial_register']
+    rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
+
+    service = PartnerService(db)
+    imported_count = 0
+    errors = []
+
+    for idx, r in enumerate(rows, start=2):
+        try:
+            name = r.get('partner_name')
+            p_type = r.get('partner_type') or 'Bank'
+
+            if not name:
+                errors.append(f"Row {idx}: Missing required partner_name.")
+                continue
+
+            schema = PartnerCreate(
+                partner_name=name,
+                partner_type=p_type,
+                tax_id=r.get('tax_id'),
+                commercial_register=r.get('commercial_register'),
+                contact_person=r.get('contact_person'),
+                phone=r.get('phone'),
+                mobile=r.get('mobile'),
+                fax=r.get('fax'),
+                email=r.get('email'),
+                secondary_email=r.get('secondary_email'),
+                website=r.get('website'),
+                address=r.get('address'),
+                country=r.get('country') or 'Egypt',
+                notes=r.get('notes'),
+            )
+            service.create_partner(schema)
+            imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    return {"message": f"Successfully imported {imported_count} partners & banks.", "errors": errors}
+
+
+@partner_router.get("/export-excel")
+def export_partners_excel(db: Session = Depends(get_db)):
+    service = PartnerService(db)
+    partners = service.get_all_partners(include_inactive=True)
+    headers = [
+        'Code', 'Partner Name', 'Category / Type', 'Tax ID', 'Commercial Reg #',
+        'Contact Person', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
+        'Website', 'Address', 'Country', 'Status'
+    ]
+    rows = []
+    for p in partners:
+        rows.append([
+            p.partner_code,
+            p.partner_name,
+            p.partner_type,
+            p.tax_id or '',
+            p.commercial_register or '',
+            p.contact_person or '',
+            p.phone or '',
+            p.mobile or '',
+            getattr(p, 'fax', '') or '',
+            p.email or '',
+            getattr(p, 'secondary_email', '') or '',
+            getattr(p, 'website', '') or '',
+            p.address or '',
+            p.country or 'Egypt',
+            'Active' if p.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Partners & Banks", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Report.xlsx"},
+    )
+
+
+@partner_router.get("/export-pdf")
+def export_partners_pdf(db: Session = Depends(get_db)):
+    service = PartnerService(db)
+    partners = service.get_all_partners(include_inactive=True)
+    headers = ['Code', 'Partner Name', 'Category', 'Tax ID', 'Phone', 'Email', 'Country', 'Status']
+    rows = []
+    for p in partners:
+        rows.append([
+            p.partner_code,
+            p.partner_name,
+            p.partner_type,
+            p.tax_id or '',
+            p.phone or p.mobile or '',
+            p.email or '',
+            p.country or 'Egypt',
+            'Active' if p.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Partners & Banks (MD-003)", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Partners_Banks_Report.pdf"},
+    )

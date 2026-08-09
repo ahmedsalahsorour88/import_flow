@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -79,7 +80,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Master Data Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'external-service-providers',
+              title: 'Partners_Banks',
+              onRefreshNeeded: () => ref.refresh(partnersProvider.notifier).fetchPartners(),
+            ),
+
+            const SizedBox(height: 16),
 
             // Category Filter Chips
             SingleChildScrollView(
@@ -528,7 +538,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     final bankCodeCtrl = TextEditingController(text: partnerToEdit?.bankCode ?? '');
     final branchCtrl = TextEditingController(text: partnerToEdit?.branchName ?? '');
     final phoneCtrl = TextEditingController(text: partnerToEdit?.phone ?? '');
+    final mobileCtrl = TextEditingController(text: partnerToEdit?.mobile ?? '');
+    final faxCtrl = TextEditingController(text: partnerToEdit?.fax ?? '');
     final emailCtrl = TextEditingController(text: partnerToEdit?.email ?? '');
+    final secondaryEmailCtrl = TextEditingController(text: partnerToEdit?.secondaryEmail ?? '');
+    final websiteCtrl = TextEditingController(text: partnerToEdit?.website ?? '');
     final addressCtrl = TextEditingController(text: partnerToEdit?.address ?? '');
     final countryCtrl = TextEditingController(text: partnerToEdit?.country ?? 'Egypt');
 
@@ -771,12 +785,26 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: emailCtrl,
-                                      label: 'Email Address',
+                                      label: 'Primary Email',
                                       icon: Icons.email,
                                       hint: 'contact@partner.com',
                                     ),
                                   ),
                                   const SizedBox(width: 16),
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: secondaryEmailCtrl,
+                                      label: 'Secondary / Additional Email',
+                                      icon: Icons.mark_email_read_outlined,
+                                      hint: 'trade@partner.com',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              Row(
+                                children: [
                                   Expanded(
                                     child: CustomTextField(
                                       controller: phoneCtrl,
@@ -785,7 +813,33 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                       hint: '+20 2 2555 5555',
                                     ),
                                   ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: mobileCtrl,
+                                      label: 'Mobile Number',
+                                      icon: Icons.smartphone,
+                                      hint: '+20 100 1234567',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: faxCtrl,
+                                      label: 'Fax Number',
+                                      icon: Icons.print,
+                                      hint: '+20 2 2577 0000',
+                                    ),
+                                  ),
                                 ],
+                              ),
+                              const SizedBox(height: 16),
+
+                              CustomTextField(
+                                controller: websiteCtrl,
+                                label: 'Website URL',
+                                icon: Icons.language,
+                                hint: 'www.partner.com',
                               ),
                               const SizedBox(height: 16),
 
@@ -861,7 +915,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 bankCode: bankCodeCtrl.text.trim().isEmpty ? null : bankCodeCtrl.text.trim(),
                                 branchName: branchCtrl.text.trim().isEmpty ? null : branchCtrl.text.trim(),
                                 email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
+                                secondaryEmail: secondaryEmailCtrl.text.trim().isEmpty ? null : secondaryEmailCtrl.text.trim(),
                                 phone: phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                                mobile: mobileCtrl.text.trim().isEmpty ? null : mobileCtrl.text.trim(),
+                                fax: faxCtrl.text.trim().isEmpty ? null : faxCtrl.text.trim(),
+                                website: websiteCtrl.text.trim().isEmpty ? null : websiteCtrl.text.trim(),
                                 address: addressCtrl.text.trim().isEmpty ? null : addressCtrl.text.trim(),
                                 country: countryCtrl.text.trim(),
                                 isActive: partnerToEdit?.isActive ?? true,

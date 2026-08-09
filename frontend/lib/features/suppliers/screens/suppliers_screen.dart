@@ -150,7 +150,34 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
               child: suppliersAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Text('Error loading suppliers: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.wifi_off_rounded, size: 48, color: AppTheme.crimson),
+                      const SizedBox(height: 12),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                        child: Text(
+                          'تعذر الاتصال بالسيرفر (DioException / Connection Error)\n$err',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.refresh_rounded),
+                        label: const Text('إعادة المحاولة (Retry Connection)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          ref.read(suppliersProvider.notifier).fetchSuppliers();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
                 data: (suppliers) {
                   final filtered = suppliers.where((s) {

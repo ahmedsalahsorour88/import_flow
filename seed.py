@@ -783,7 +783,8 @@ def seed_data():
             db.add_all(currencies_data)
             db.commit()
 
-            # Seed initial rates against EGP
+        if db.query(ExchangeRate).count() == 0:
+            print("Seeding Exchange Rates (MD-004)...")
             curr_map = {c.currency_code: c.currency_id for c in db.query(Currency).all()}
             today = date.today()
             rates_data = [

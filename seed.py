@@ -3,6 +3,7 @@ from database.database import SessionLocal, Base, engine
 from update_db_schema import migrate_db
 
 # Import models
+from modules.import_files.model import ImportFile
 from modules.import_companies.model import ImportCompany
 from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider

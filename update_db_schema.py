@@ -50,6 +50,24 @@ def migrate_db():
             except Exception as e:
                 print(f"Error adding column additional_company_ids: {e}")
 
+    # Migration for import_files table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='import_files'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(import_files)")
+        imp_cols = [info[1] for info in cursor.fetchall()]
+        if "closure_reason" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN closure_reason TEXT;")
+                print("Added column 'closure_reason' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column closure_reason: {e}")
+        if "closed_at_phase" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN closed_at_phase VARCHAR(100);")
+                print("Added column 'closed_at_phase' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column closed_at_phase: {e}")
+
     # Universal import_file_id migration for all operational tables
     target_tables = [
         "purchase_orders",
@@ -61,6 +79,7 @@ def migrate_db():
         "import_budget_approvals",
         "acid_registration_sessions",
         "banking_document_sessions",
+        "shipment_document_items",
         "customs_declaration_drafts",
     ]
 

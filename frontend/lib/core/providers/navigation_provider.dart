@@ -51,7 +51,7 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 
 const int _totalScreens = 24;
 
-final navigationIndexProvider = StateProvider<int>((ref) => 0);
+final navigationIndexProvider = StateProvider<int>((ref) => 13);
 
 void selectNavigationIndex(WidgetRef ref, int index) {
   if (index < 0 || index >= _totalScreens) return;

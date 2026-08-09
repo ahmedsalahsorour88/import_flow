@@ -74,7 +74,7 @@ def restore_partner(
 from fastapi import Response, UploadFile, File
 from utils.export_import_helper import MasterDataExportImportHelper
 
-@partner_router.get("/excel-template")
+@router.get("/excel-template")
 def download_partners_excel_template():
     cols = [
         'partner_name', 'partner_type', 'tax_id', 'commercial_register',
@@ -105,7 +105,7 @@ def download_partners_excel_template():
     )
 
 
-@partner_router.post("/import-excel")
+@router.post("/import-excel")
 async def import_excel_partners(file: UploadFile = File(...), db: Session = Depends(get_db)):
     file_bytes = await file.read()
     cols = ['partner_name', 'partner_type', 'tax_id', 'commercial_register']
@@ -148,7 +148,7 @@ async def import_excel_partners(file: UploadFile = File(...), db: Session = Depe
     return {"message": f"Successfully imported {imported_count} partners & banks.", "errors": errors}
 
 
-@partner_router.get("/export-excel")
+@router.get("/export-excel")
 def export_partners_excel(db: Session = Depends(get_db)):
     service = PartnerService(db)
     partners = service.get_all_partners(include_inactive=True)
@@ -184,7 +184,7 @@ def export_partners_excel(db: Session = Depends(get_db)):
     )
 
 
-@partner_router.get("/export-pdf")
+@router.get("/export-pdf")
 def export_partners_pdf(db: Session = Depends(get_db)):
     service = PartnerService(db)
     partners = service.get_all_partners(include_inactive=True)

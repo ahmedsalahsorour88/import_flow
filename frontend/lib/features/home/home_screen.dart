@@ -23,7 +23,6 @@ import '../import_files/screens/import_files_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
 import '../customs_clearance/screens/customs_clearance_screen.dart';
-import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
 import '../file_closure/screens/file_closure_screen.dart';
@@ -340,11 +339,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 }
-class DashboardTab extends StatelessWidget {
+class DashboardTab extends ConsumerWidget {
   const DashboardTab({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const OperationalDashboardScreen();
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      body: Center(
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 550),
+          padding: const EdgeInsets.all(32),
+          margin: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.orange.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.dashboard_customize_outlined, size: 48, color: AppTheme.orange),
+              ),
+              const SizedBox(height: 20),
+              const Text(
+                'لوحة التحكم الإحصائية معطلة مؤقتاً',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'تم تعطيل الشاشة الرئيسية مؤقتاً بناءً على طلبك لحين الانتهاء من تصميم وتجهيز كافة موديولات وواجهات النظام بالكامل.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.grey, height: 1.5),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () {
+                  selectNavigationIndex(ref, 13); // Go to Foreign Suppliers
+                },
+                icon: const Icon(Icons.people_alt_outlined, size: 18),
+                label: const Text('الانتقال لدليل الموردين الخارجيين (MD-002)'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

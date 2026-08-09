@@ -13,6 +13,17 @@ int _numToInt(dynamic val, [int fallback = 0]) {
   return fallback;
 }
 
+bool _parseBool(dynamic val, {bool defaultValue = false}) {
+  if (val == null) return defaultValue;
+  if (val is bool) return val;
+  if (val is num) return val != 0;
+  if (val is String) {
+    final s = val.toLowerCase().trim();
+    return s == 'true' || s == '1' || s == 'yes' || s == 't';
+  }
+  return defaultValue;
+}
+
 class ProjectModel {
   final int? projectId;
   final String projectCode;
@@ -72,37 +83,37 @@ class ProjectModel {
 
     return ProjectModel(
       projectId: json['project_id'] != null ? _numToInt(json['project_id']) : null,
-      projectCode: json['project_code'] as String? ?? '',
-      projectName: json['project_name'] as String? ?? '',
-      projectOwner: json['project_owner'] as String? ?? '',
+      projectCode: json['project_code']?.toString() ?? '',
+      projectName: json['project_name']?.toString() ?? '',
+      projectOwner: json['project_owner']?.toString() ?? '',
       companyId: _numToInt(json['company_id']),
       companyIds: cIds,
       supplierId: _numToInt(json['supplier_id']),
       incotermId: _numToInt(json['incoterm_id']),
-      importType: json['import_type'] as String? ?? 'Direct Commercial',
-      priority: json['priority'] as String? ?? 'Medium',
-      shipmentCategory: json['shipment_category'] as String? ?? 'FCL Container',
-      allowMultiShipment: json['allow_multi_shipment'] as bool? ?? true,
-      allowMultiCompany: json['allow_multi_company'] as bool? ?? true,
+      importType: json['import_type']?.toString() ?? 'Direct Commercial',
+      priority: json['priority']?.toString() ?? 'Medium',
+      shipmentCategory: json['shipment_category']?.toString() ?? 'FCL Container',
+      allowMultiShipment: _parseBool(json['allow_multi_shipment'], defaultValue: true),
+      allowMultiCompany: _parseBool(json['allow_multi_company'], defaultValue: true),
       totalBudgetUsd: _numToNullableDouble(json['total_budget_usd']),
-      status: json['status'] as String? ?? 'Open',
-      notes: json['notes'] as String?,
-      isActive: json['is_active'] as bool? ?? true,
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
-      companyName: json['company_name'] as String?,
-      supplierName: json['supplier_name'] as String?,
-      incotermCode: json['incoterm_code'] as String?,
+      status: json['status']?.toString() ?? 'Open',
+      notes: json['notes']?.toString(),
+      isActive: _parseBool(json['is_active'], defaultValue: true),
+      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'].toString()) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'].toString()) : null,
+      companyName: json['company_name']?.toString(),
+      supplierName: json['supplier_name']?.toString(),
+      incotermCode: json['incoterm_code']?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
       if (projectId != null) 'project_id': projectId,
-      if (projectCode.isNotEmpty) 'project_code': projectCode,
+      'project_code': projectCode,
       'project_name': projectName,
       'project_owner': projectOwner,
-      'company_id': companyIds.isNotEmpty ? companyIds.first : companyId,
+      'company_id': companyId,
       'company_ids': companyIds,
       'supplier_id': supplierId,
       'incoterm_id': incotermId,
@@ -111,9 +122,9 @@ class ProjectModel {
       'shipment_category': shipmentCategory,
       'allow_multi_shipment': allowMultiShipment,
       'allow_multi_company': allowMultiCompany,
-      if (totalBudgetUsd != null) 'total_budget_usd': totalBudgetUsd,
+      'total_budget_usd': totalBudgetUsd,
       'status': status,
-      if (notes != null) 'notes': notes,
+      'notes': notes,
       'is_active': isActive,
     };
   }

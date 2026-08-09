@@ -46,28 +46,39 @@ class SupplierModel {
   });
 
   factory SupplierModel.fromJson(Map<String, dynamic> json) {
+    bool parseBool(dynamic val, {bool defaultValue = false}) {
+      if (val == null) return defaultValue;
+      if (val is bool) return val;
+      if (val is num) return val != 0;
+      if (val is String) {
+        final s = val.toLowerCase().trim();
+        return s == 'true' || s == '1' || s == 'yes' || s == 't';
+      }
+      return defaultValue;
+    }
+
     return SupplierModel(
       supplierId: json['supplier_id'],
-      supplierCode: json['supplier_code'] ?? '',
-      companyName: json['company_name'] ?? '',
-      supplierType: json['supplier_type'] ?? 'Manufacturer',
-      registrationType: json['registration_type'] ?? 'Factory Registration',
-      foreignExporterId: json['foreign_exporter_id'] ?? '',
-      foreignExporterCountry: json['foreign_exporter_country'] ?? '',
-      foreignExporterCountryCode: json['foreign_exporter_country_code'] ?? '',
-      address: json['address'] ?? '',
-      phone: json['phone'],
-      mobile: json['mobile'],
-      fax: json['fax'],
-      email: json['email'],
-      secondaryEmail: json['secondary_email'],
-      website: json['website'],
-      hasIso: json['has_iso'] ?? false,
-      registeredDecree43: json['registered_decree_43'] ?? false,
-      whiteListRegistered: json['white_list_registered'] ?? false,
-      brands: json['brands'],
-      notes: json['notes'],
-      isActive: json['is_active'] ?? true,
+      supplierCode: json['supplier_code']?.toString() ?? '',
+      companyName: json['company_name']?.toString() ?? '',
+      supplierType: json['supplier_type']?.toString() ?? 'Manufacturer',
+      registrationType: json['registration_type']?.toString() ?? 'Factory Registration',
+      foreignExporterId: json['foreign_exporter_id']?.toString() ?? '',
+      foreignExporterCountry: json['foreign_exporter_country']?.toString() ?? '',
+      foreignExporterCountryCode: json['foreign_exporter_country_code']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      phone: json['phone']?.toString(),
+      mobile: json['mobile']?.toString(),
+      fax: json['fax']?.toString(),
+      email: json['email']?.toString(),
+      secondaryEmail: json['secondary_email']?.toString(),
+      website: json['website']?.toString(),
+      hasIso: parseBool(json['has_iso']),
+      registeredDecree43: parseBool(json['registered_decree_43']),
+      whiteListRegistered: parseBool(json['white_list_registered']),
+      brands: json['brands']?.toString(),
+      notes: json['notes']?.toString(),
+      isActive: parseBool(json['is_active'], defaultValue: true),
     );
   }
 

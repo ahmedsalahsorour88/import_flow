@@ -14,6 +14,10 @@ class ImportCompanyModel {
   final bool isActive;
   final String? notes;
 
+  int get daysUntilImporterIdExpiry => importerIdExpiry.difference(DateTime.now()).inDays;
+  int get daysUntilVatExpiry => vatIdExpiry.difference(DateTime.now()).inDays;
+  int get daysUntilRegExpiry => registrationExpiry.difference(DateTime.now()).inDays;
+
   ImportCompanyModel({
     this.companyId,
     required this.importerName,
@@ -32,6 +36,17 @@ class ImportCompanyModel {
   });
 
   factory ImportCompanyModel.fromJson(Map<String, dynamic> json) {
+    bool parseBool(dynamic val, {bool defaultValue = false}) {
+      if (val == null) return defaultValue;
+      if (val is bool) return val;
+      if (val is num) return val != 0;
+      if (val is String) {
+        final s = val.toLowerCase().trim();
+        return s == 'true' || s == '1' || s == 'yes' || s == 't';
+      }
+      return defaultValue;
+    }
+
     return ImportCompanyModel(
       companyId: json['company_id'] as int?,
       importerName: json['importer_name']?.toString() ?? '',
@@ -51,7 +66,7 @@ class ImportCompanyModel {
           : DateTime.now(),
       phone: json['phone']?.toString(),
       email: json['email']?.toString(),
-      isActive: json['is_active'] as bool? ?? true,
+      isActive: parseBool(json['is_active'], defaultValue: true),
       notes: json['notes']?.toString(),
     );
   }
@@ -74,9 +89,4 @@ class ImportCompanyModel {
       'notes': notes,
     };
   }
-
-  // Days remaining helper
-  int get daysUntilImporterIdExpiry => importerIdExpiry.difference(DateTime.now()).inDays;
-  int get daysUntilVatExpiry => vatIdExpiry.difference(DateTime.now()).inDays;
-  int get daysUntilRegExpiry => registrationExpiry.difference(DateTime.now()).inDays;
 }

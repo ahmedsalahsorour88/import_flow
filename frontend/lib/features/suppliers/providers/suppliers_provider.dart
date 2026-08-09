@@ -24,7 +24,7 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
     state = const AsyncValue.loading();
     try {
       final response = await _dio.get(
-        '${ApiConstants.baseUrl}/suppliers/',
+        '${ApiConstants.baseUrl}/suppliers',
         queryParameters: {'include_inactive': showInactive},
       );
       final List data = response.data;
@@ -38,7 +38,7 @@ class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
   Future<String?> createSupplier(SupplierModel supplier) async {
     try {
       await _dio.post(
-        '${ApiConstants.baseUrl}/suppliers/',
+        '${ApiConstants.baseUrl}/suppliers',
         data: supplier.toJson(),
       );
       ref?.invalidate(systemAuditLogsProvider);

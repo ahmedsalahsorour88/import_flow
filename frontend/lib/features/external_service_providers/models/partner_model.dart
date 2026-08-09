@@ -62,33 +62,44 @@ class PartnerModel {
   });
 
   factory PartnerModel.fromJson(Map<String, dynamic> json) {
+    bool parseBool(dynamic val, {bool defaultValue = false}) {
+      if (val == null) return defaultValue;
+      if (val is bool) return val;
+      if (val is num) return val != 0;
+      if (val is String) {
+        final s = val.toLowerCase().trim();
+        return s == 'true' || s == '1' || s == 'yes' || s == 't';
+      }
+      return defaultValue;
+    }
+
     return PartnerModel(
       providerId: json['provider_id'],
-      partnerCode: json['partner_code'] ?? '',
-      partnerName: json['partner_name'] ?? '',
-      partnerType: json['partner_type'] ?? 'Customs Broker',
-      taxId: json['tax_id'],
-      commercialRegister: json['commercial_register'],
-      clearanceLicenseNumber: json['clearance_license_number'],
-      scacCode: json['scac_code'],
-      trackingUrl: json['tracking_url'],
-      swiftCode: json['swift_code'],
-      bankCode: json['bank_code'],
-      branchName: json['branch_name'],
-      contactPerson: json['contact_person'],
-      phone: json['phone'],
-      mobile: json['mobile'],
-      fax: json['fax'],
-      email: json['email'],
-      secondaryEmail: json['secondary_email'],
-      website: json['website'],
-      address: json['address'],
-      country: json['country'] ?? 'Egypt',
-      paymentType: json['payment_type'] ?? 'Credit',
+      partnerCode: json['partner_code']?.toString() ?? '',
+      partnerName: json['partner_name']?.toString() ?? '',
+      partnerType: json['partner_type']?.toString() ?? 'Customs Broker',
+      taxId: json['tax_id']?.toString(),
+      commercialRegister: json['commercial_register']?.toString(),
+      clearanceLicenseNumber: json['clearance_license_number']?.toString(),
+      scacCode: json['scac_code']?.toString(),
+      trackingUrl: json['tracking_url']?.toString(),
+      swiftCode: json['swift_code']?.toString(),
+      bankCode: json['bank_code']?.toString(),
+      branchName: json['branch_name']?.toString(),
+      contactPerson: json['contact_person']?.toString(),
+      phone: json['phone']?.toString(),
+      mobile: json['mobile']?.toString(),
+      fax: json['fax']?.toString(),
+      email: json['email']?.toString(),
+      secondaryEmail: json['secondary_email']?.toString(),
+      website: json['website']?.toString(),
+      address: json['address']?.toString(),
+      country: json['country']?.toString() ?? 'Egypt',
+      paymentType: json['payment_type']?.toString() ?? 'Credit',
       creditLimit: (json['credit_limit'] as num?)?.toDouble() ?? 0.0,
       rating: (json['rating'] as num?)?.toDouble() ?? 5.0,
-      notes: json['notes'],
-      isActive: json['is_active'] ?? true,
+      notes: json['notes']?.toString(),
+      isActive: parseBool(json['is_active'], defaultValue: true),
     );
   }
 

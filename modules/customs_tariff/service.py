@@ -170,3 +170,123 @@ def estimate_customs_duty_service(
         requires_acid=tariff.requires_acid,
         regulatory_authority=tariff.regulatory_authority,
     )
+
+
+# ==================================================
+# Bulk Import & Template Generator (MD-008 Excel/CSV)
+# ==================================================
+
+import csv
+import io
+
+def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str) -> dict:
+    """
+    Bulk import or update Egyptian Customs Tariffs from CSV/Excel file.
+    """
+    try:
+        text_content = file_contents.decode("utf-8-sig")
+    except Exception:
+        try:
+            text_content = file_contents.decode("latin-1")
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Invalid file encoding: {str(e)}")
+
+    reader = csv.DictReader(io.StringIO(text_content))
+    if not reader.fieldnames:
+        raise HTTPException(status_code=400, detail="CSV/Excel file is empty or invalid format")
+
+    field_map = {}
+    for name in reader.fieldnames:
+        clean = name.strip().lower()
+        if clean in ("hs_code", "hscode", "code", "كود البند"):
+            field_map["hs_code"] = name
+        elif clean in ("hs_description", "description", "name", "الوصف"):
+            field_map["hs_description"] = name
+        elif clean in ("customs_category", "category", "التصنيف"):
+            field_map["customs_category"] = name
+        elif clean in ("customs_duty_rate", "duty", "duty%", "duty_rate", "ضريبة الوارد"):
+            field_map["customs_duty_rate"] = name
+        elif clean in ("vat_rate", "vat", "vat%", "ضريبة القيمة المضافة"):
+            field_map["vat_rate"] = name
+        elif clean in ("schedule_tax_rate", "schedule_tax", "ضريبة الجدول"):
+            field_map["schedule_tax_rate"] = name
+        elif clean in ("development_fee_rate", "dev_fee", "development_fee", "رسم التنمية"):
+            field_map["development_fee_rate"] = name
+        elif clean in ("import_fee_rate", "import_fee", "رسم الوارد"):
+            field_map["import_fee_rate"] = name
+        elif clean in ("regulatory_authority", "authority", "الجهة الرقابية"):
+            field_map["regulatory_authority"] = name
+        elif clean in ("requires_coo", "coo"):
+            field_map["requires_coo"] = name
+        elif clean in ("requires_inspection", "inspection", "insp"):
+            field_map["requires_inspection"] = name
+        elif clean in ("requires_acid", "acid"):
+            field_map["requires_acid"] = name
+        elif clean in ("notes", "ملاحظات"):
+            field_map["notes"] = name
+
+    if "hs_code" not in field_map or "hs_description" not in field_map:
+        raise HTTPException(
+            status_code=400,
+            detail="File must contain 'hs_code' (or 'hscode') and 'hs_description' (or 'description') columns.",
+        )
+
+    imported_count = 0
+    updated_count = 0
+    errors = []
+
+    for row_idx, row in enumerate(reader, start=2):
+        try:
+            hs_code_val = row.get(field_map["hs_code"], "").strip()
+            if not hs_code_val:
+                continue
+
+            desc_val = row.get(field_map["hs_description"], "").strip() or f"HS Code {hs_code_val}"
+            category_val = row.get(field_map.get("customs_category", ""), "").strip() or "General"
+
+            duty_val = float(row.get(field_map.get("customs_duty_rate", ""), 0) or 0)
+            vat_val = float(row.get(field_map.get("vat_rate", ""), 0) or 0)
+            sched_val = float(row.get(field_map.get("schedule_tax_rate", ""), 0) or 0)
+            dev_val = float(row.get(field_map.get("development_fee_rate", ""), 0) or 0)
+            imp_fee_val = float(row.get(field_map.get("import_fee_rate", ""), 0) or 0)
+
+            auth_val = row.get(field_map.get("regulatory_authority", ""), "").strip() or None
+            coo_val = str(row.get(field_map.get("requires_coo", ""), "true")).strip().lower() in ("true", "1", "yes", "نعم")
+            insp_val = str(row.get(field_map.get("requires_inspection", ""), "true")).strip().lower() in ("true", "1", "yes", "نعم")
+            acid_val = str(row.get(field_map.get("requires_acid", ""), "true")).strip().lower() in ("true", "1", "yes", "نعم")
+            notes_val = row.get(field_map.get("notes", ""), "").strip() or None
+
+            existing = repository.get_tariff_by_hs_code(db, hs_code_val)
+            data_dict = {
+                "hs_code": hs_code_val,
+                "hs_description": desc_val,
+                "customs_category": category_val,
+                "customs_duty_rate": duty_val,
+                "vat_rate": vat_val,
+                "schedule_tax_rate": sched_val,
+                "development_fee_rate": dev_val,
+                "import_fee_rate": imp_fee_val,
+                "regulatory_authority": auth_val,
+                "requires_coo": coo_val,
+                "requires_inspection": insp_val,
+                "requires_acid": acid_val,
+                "notes": notes_val,
+                "is_active": True,
+            }
+
+            if existing:
+                repository.update_tariff(db, existing.tariff_id, data_dict)
+                updated_count += 1
+            else:
+                repository.create_tariff(db, data_dict)
+                imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {row_idx}: {str(e)}")
+
+    return {
+        "imported": imported_count,
+        "updated": updated_count,
+        "total_processed": imported_count + updated_count,
+        "errors": errors,
+    }
+

@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -66,14 +67,24 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   children: [
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                      ),
+                      icon: const Icon(Icons.file_upload_outlined, size: 18),
+                      label: const Text('Import Excel/CSV'),
+                      onPressed: () => _handleExcelImport(context, ref),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                       ),
                       icon: const Icon(Icons.calculate, size: 18),
                       label: const Text('Duty Calculator'),
                       onPressed: () => _showDutyCalculatorDialog(context, ref),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
                       label: const Text('Add HS Code'),
@@ -953,5 +964,86 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['csv', 'xlsx', 'xls'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.bytes != null) {
+          if (context.mounted) {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (ctx) => const Center(
+                child: Card(
+                  child: Padding(
+                    padding: EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(),
+                        SizedBox(height: 16),
+                        Text('Importing Customs Tariff Dataset...'),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          final summary = await ref
+              .read(customsTariffProvider.notifier)
+              .uploadExcelTariffs(file.bytes!, file.name);
+
+          if (context.mounted) {
+            Navigator.pop(context); // Close loading dialog
+            final imported = summary?['imported'] ?? 0;
+            final updated = summary?['updated'] ?? 0;
+            final total = summary?['total_processed'] ?? 0;
+
+            showDialog(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Row(
+                  children: [
+                    Icon(Icons.check_circle, color: AppTheme.emerald),
+                    SizedBox(width: 8),
+                    Text('Import Completed'),
+                  ],
+                ),
+                content: Text(
+                  'Successfully processed $total HS Codes!\n'
+                  '• New Tariffs Created: $imported\n'
+                  '• Existing Tariffs Updated: $updated',
+                ),
+                actions: [
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('OK'),
+                  ),
+                ],
+              ),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Import failed: ${e.toString()}'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+    }
   }
 }

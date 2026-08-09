@@ -41,6 +41,7 @@ from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.file_closure.model import ImportFileClosureRecord
+from modules.notifications.model import SystemNotification
 
 
 # ==================================================
@@ -71,6 +72,8 @@ from modules.customs_clearance.router import router as customs_clearance_router
 from modules.warehouse_receiving.router import router as warehouse_receiving_router
 from modules.financial_settlement.router import router as financial_settlement_router
 from modules.file_closure.router import router as file_closure_router
+from modules.notifications.router import router as notifications_router
+from modules.integrations.router import router as integrations_router
 
 
 # ==================================================
@@ -123,6 +126,8 @@ app.include_router(customs_clearance_router)
 app.include_router(warehouse_receiving_router)
 app.include_router(financial_settlement_router)
 app.include_router(file_closure_router)
+app.include_router(notifications_router)
+app.include_router(integrations_router)
 
 
 # ==================================================

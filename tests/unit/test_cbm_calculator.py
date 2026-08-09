@@ -113,6 +113,21 @@ class TestCBMCalculatorBackend:
 
         # Link calculation session to an existing PO
         po = db.query(PurchaseOrder).first()
+        if not po:
+            po = PurchaseOrder(
+                po_number="PO-TEST-001",
+                project_id=1,
+                company_id=1,
+                supplier_id=1,
+                incoterm_id=1,
+                currency_id=1,
+                exchange_rate=50.0,
+                total_amount_fob=1000.0,
+                status="Draft",
+            )
+            db.add(po)
+            db.commit()
+            db.refresh(po)
         assert po is not None
 
         linked_calc = CBMService.link_to_po_service(db, calc.calc_id, po_id=po.po_id)

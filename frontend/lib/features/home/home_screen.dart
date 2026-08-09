@@ -27,6 +27,7 @@ import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
 import '../file_closure/screens/file_closure_screen.dart';
+import '../notifications/widgets/notification_bell_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -102,7 +103,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                                 'ImportFlow ERP',
                                 style: TextStyle(
                                   color: AppTheme.cloudWhite,
-                                  fontSize: 18,
+                                  fontSize: 17,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -115,6 +116,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                             ],
                           ),
+                          const Spacer(),
+                          const NotificationBellWidget(),
                         ],
                       ),
                     ],

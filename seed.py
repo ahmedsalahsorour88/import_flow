@@ -300,28 +300,28 @@ def seed_data():
         if db.query(Incoterm).count() == 0:
             print("Seeding Incoterms 2020 (MD-006)...")
             incoterms = [
-                Incoterm(incoterm_code="EXW", incoterm_name="Ex Works", version="Incoterms 2020",
-                         description="المشتري يتحمل كل التكاليف والمخاطر من مستودع البائع. أقل التزاماً للبائع."),
-                Incoterm(incoterm_code="FCA", incoterm_name="Free Carrier", version="Incoterms 2020",
-                         description="البائع يسلم البضاعة للناقل في نقطة محددة. المشتري يدفع الشحن الرئيسي."),
-                Incoterm(incoterm_code="FAS", incoterm_name="Free Alongside Ship", version="Incoterms 2020",
-                         description="البائع يضع البضاعة بجانب السفينة. يُستخدم في الشحن البحري فقط."),
-                Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", version="Incoterms 2020",
-                         description="البائع يُحمّل البضاعة على السفينة. الأكثر شيوعاً في الاستيراد المصري."),
-                Incoterm(incoterm_code="CFR", incoterm_name="Cost and Freight", version="Incoterms 2020",
-                         description="البائع يدفع تكلفة الشحن حتى ميناء الوصول. المشتري يتحمل التأمين والمخاطر بعد الشحن."),
-                Incoterm(incoterm_code="CIF", incoterm_name="Cost, Insurance and Freight", version="Incoterms 2020",
-                         description="البائع يدفع الشحن والتأمين. القيمة الجمركية = CIF. الأساس في حساب الجمارك."),
-                Incoterm(incoterm_code="CPT", incoterm_name="Carriage Paid To", version="Incoterms 2020",
-                         description="البائع يدفع الشحن لوجهة محددة. يُستخدم في جميع وسائل النقل."),
-                Incoterm(incoterm_code="CIP", incoterm_name="Carriage and Insurance Paid To", version="Incoterms 2020",
-                         description="البائع يدفع الشحن والتأمين الكامل. تغطية تأمينية أعلى من CIF."),
-                Incoterm(incoterm_code="DAP", incoterm_name="Delivered at Place", version="Incoterms 2020",
-                         description="البائع يوصل البضاعة لمكان الوصول. المشتري يتحمل التخليص الجمركي والرسوم."),
-                Incoterm(incoterm_code="DPU", incoterm_name="Delivered at Place Unloaded", version="Incoterms 2020",
-                         description="البائع يوصل ويفرغ البضاعة في المكان المحدد. يحل محل DAT."),
-                Incoterm(incoterm_code="DDP", incoterm_name="Delivered Duty Paid", version="Incoterms 2020",
-                         description="أقصى التزام للبائع. البائع يدفع كل شيء بما فيه الجمارك والضرائب."),
+                Incoterm(incoterm_code="EXW", incoterm_name="Ex Works (تسليم المصنع)", version="Incoterms 2020",
+                         description="الحد الأدنى من الالتزامات للبائع؛ حيث تقع المسؤولية والتكلفة على المشتري لاستلام البضائع من مستودع البائع."),
+                Incoterm(incoterm_code="CFR", incoterm_name="Cost and Freight (التكلفة والشحن)", version="Incoterms 2020",
+                         description="يدفع البائع تكاليف الشحن لميناء الوجهة، ولكن المخاطر تنتقل للمشتري بمجرد تحميل البضائع على السفينة."),
+                Incoterm(incoterm_code="CIF", incoterm_name="Cost, Insurance and Freight (التكلفة والتأمين والشحن)", version="Incoterms 2020",
+                         description="نفس قواعد CFR، ولكن يُطلب من البائع أيضاً توفير الحد الأدنى من التأمين على البضائع للمشتري."),
+                Incoterm(incoterm_code="CIP", incoterm_name="Carriage and Insurance Paid To (الرسوم والتأمين المدفوعان إلى)", version="Incoterms 2020",
+                         description="يشبه CPT، ولكن يُلزم البائع أيضاً بدفع ثمن التأمين على البضائع."),
+                Incoterm(incoterm_code="CPT", incoterm_name="Carriage Paid To (أجور النقل المدفوعة إلى)", version="Incoterms 2020",
+                         description="يدفع البائع تكاليف نقل البضائع إلى الوجهة المتفق عليها."),
+                Incoterm(incoterm_code="DAP", incoterm_name="Delivered at Place (تسليم في المكان)", version="Incoterms 2020",
+                         description="يُسلم البائع البضائع ويتحمل المخاطر حتى وصولها إلى المكان المتفق عليه (دون تفريغها)."),
+                Incoterm(incoterm_code="DDP", incoterm_name="Delivered Duty Paid (التسليم مدفوع الرسوم)", version="Incoterms 2020",
+                         description="الحد الأقصى من الالتزامات للبائع؛ حيث يدفع جميع التكاليف والرسوم الجمركية"),
+                Incoterm(incoterm_code="DPU", incoterm_name="Delivered at Place Unloaded (تسليم في المكان المفرغ)", version="Incoterms 2020",
+                         description="يُسلم البائع البضائع ويتحمل المخاطر حتى يتم تفريغها في الوجهة المحددة."),
+                Incoterm(incoterm_code="FAS", incoterm_name="Free Alongside Ship (التسليم بجانب السفينة)", version="Incoterms 2020",
+                         description="يضع البائع البضائع بجانب السفينة في ميناء الشحن المحدد، وتنتقل المسؤولية بعدها للمشتري."),
+                Incoterm(incoterm_code="FCA", incoterm_name="Free Carrier (الناقل الحر)", version="Incoterms 2020",
+                         description="يُسلم البائع البضائع إلى الناقل أو شخص آخر يسميه المشتري في مكان مسمى."),
+                Incoterm(incoterm_code="FOB", incoterm_name="Free On Board (تسليم على متن السفينة)", version="Incoterms 2020",
+                         description="يتحمل البائع تكاليف ومخاطر وضع البضائع على متن السفينة، ثم تنتقل للمشتري بمجرد عبورها حاجز السفينة."),
             ]
             db.add_all(incoterms)
             db.commit()
@@ -332,42 +332,28 @@ def seed_data():
         # ==================================================
         if db.query(CostItem).count() == 0:
             print("Seeding Cost Items (MD-006A)...")
+            cost_items_data = [
+                ("OTRK", "Trucking Origin fees", "Freight", "نقل البضاعة من مستودع البائع إلى ميناء/نقطة الشحن في بلد المنشأ"),
+                ("XCLR", "Export Clearance fees", "Customs", "التخليص الجمركي ورسوم التصدير في بلد المنشأ"),
+                ("OTHC", "OTHC fees", "Port", "رسوم مناولة الحاويات في ميناء الشحن الأصلي (Origin Terminal Handling Charge)"),
+                ("INS", "Insurance fees", "Freight", "تكلفة التأمين البحري/الجوي على البضاعة أثناء النقل الدولي"),
+                ("XINSP", "Origin Inspection", "Other", "تكاليف الفحص والتفتيش والمعاينة في بلد المنشأ قبل الشحن"),
+                ("OFR", "O/F fees", "Freight", "رسوم الشحن الدولي (Ocean Freight / Air Freight)"),
+                ("DTRK", "Trucking Destination fees", "Freight", "النقل الداخلي من ميناء الوصول إلى مستودع المشتري النهائي"),
+                ("DTHC", "DTHC fees", "Port", "رسوم تفريغ ومناولة الحاويات في ميناء الوصول (Destination Terminal Handling Charge)"),
+                ("DOC", "Documentation fees", "Other", "رسوم إصدار ومعالجة المستندات التجارية وبوالص الشحن"),
+                ("DISC", "Disclaim letter", "Other", "خطابات التنازل وإجراءات نقل ملكية الشحنة (Disclaim / Delivery Order)"),
+                ("ICLR", "Import Clearance fees", "Customs", "أتعاب التخليص الجمركي والإفراج عن الشحنة في ميناء الوصول"),
+                ("PCONG", "Port Congestion", "Port", "علاوات ورسوم الازدحام والتأخير في الموانئ (Port Congestion Surcharge)"),
+                ("DMRG", "Demurrage & Detention", "Port", "غرامات تأخير الحاويات وعوائد الميناء وخطوط الشحن"),
+                ("XCMP", "Compliance Fees", "Other", "رسوم الامتثال والفحص الفني والجهات الرقابية الجمركية"),
+                ("FORM4", "L/C Or Form 4 fees", "Bank", "مصاريف ودمغات الاعتماد المستندي ونموذج 4 البنكي لاستيراد البضائع"),
+                ("DUTY", "Tax & Customs Duties", "Customs", "الضرائب والرسوم الجمركية ورسم التنمية وضريبة القيمة المضافة الجمركية"),
+                ("STG", "Storage/Warehousing", "Port", "رسوم الأرضيات والتخزين وإيداعات الموانئ والمستودعات الجمركية"),
+            ]
             cost_items = [
-                # Freight
-                CostItem(cost_item_code="OFR", cost_item_name="Ocean Freight", cost_category="Freight",
-                         description="تكلفة الشحن البحري من ميناء الشحن لميناء الوصول"),
-                CostItem(cost_item_code="OTHC", cost_item_name="Origin THC (Terminal Handling)", cost_category="Port",
-                         description="رسوم مناولة الحاوية في ميناء الشحن"),
-                CostItem(cost_item_code="DTHC", cost_item_name="Destination THC (Terminal Handling)", cost_category="Port",
-                         description="رسوم مناولة الحاوية في ميناء الوصول"),
-                CostItem(cost_item_code="OTRK", cost_item_name="Origin Trucking", cost_category="Freight",
-                         description="نقل البضاعة من المستودع لميناء الشحن"),
-                CostItem(cost_item_code="DTRK", cost_item_name="Destination / Inland Transport", cost_category="Freight",
-                         description="نقل البضاعة من ميناء الوصول للمستودع"),
-                # Insurance
-                CostItem(cost_item_code="INS", cost_item_name="Insurance", cost_category="Freight",
-                         description="تأمين على البضاعة أثناء الشحن"),
-                # Customs
-                CostItem(cost_item_code="CUST", cost_item_name="Customs Clearance Fees", cost_category="Customs",
-                         description="أتعاب المستخلص الجمركي"),
-                CostItem(cost_item_code="DUTY", cost_item_name="Import Duties & Taxes", cost_category="Customs",
-                         description="ضريبة الوارد وضريبة القيمة المضافة والضرائب الجمركية"),
-                CostItem(cost_item_code="FORM4", cost_item_name="Form 4 (Bank Form)", cost_category="Bank",
-                         description="رسوم نموذج 4 البنكي لتحويل قيمة البضاعة"),
-                # Port
-                CostItem(cost_item_code="STG", cost_item_name="Storage / Demurrage", cost_category="Port",
-                         description="رسوم الأرضية والتخزين في الميناء"),
-                CostItem(cost_item_code="DMRG", cost_item_name="Demurrage (Container)", cost_category="Port",
-                         description="غرامة تأخير الحاوية عن الموعد المقرر"),
-                CostItem(cost_item_code="PCONG", cost_item_name="Port Congestion Surcharge", cost_category="Port",
-                         description="رسوم الازدحام الميناني"),
-                # Other
-                CostItem(cost_item_code="XINSP", cost_item_name="Origin Inspection", cost_category="Other",
-                         description="تكلفة فحص البضاعة في بلد الصادر"),
-                CostItem(cost_item_code="DOC", cost_item_name="Documentation Fees", cost_category="Other",
-                         description="رسوم المستندات (B/L, Certificates, etc.)"),
-                CostItem(cost_item_code="XCMP", cost_item_name="Compliance / Regulatory Fees", cost_category="Other",
-                         description="رسوم الامتثال والجهات الرقابية"),
+                CostItem(cost_item_code=code, cost_item_name=name, cost_category=cat, description=desc)
+                for code, name, cat, desc in cost_items_data
             ]
             db.add_all(cost_items)
             db.commit()
@@ -375,97 +361,96 @@ def seed_data():
 
         # ==================================================
         # 6. Seed Responsibility Matrix (MD-006B)
-        # For FOB and CIF as the most common incoterms
         # ==================================================
         if db.query(IncotermResponsibility).count() == 0:
             print("Seeding Incoterm Responsibility Matrix (MD-006B)...")
-            # Fetch seeded records
-            fob = db.query(Incoterm).filter(Incoterm.incoterm_code == "FOB").first()
-            cif = db.query(Incoterm).filter(Incoterm.incoterm_code == "CIF").first()
-            cfr = db.query(Incoterm).filter(Incoterm.incoterm_code == "CFR").first()
-            exw = db.query(Incoterm).filter(Incoterm.incoterm_code == "EXW").first()
-            ddp = db.query(Incoterm).filter(Incoterm.incoterm_code == "DDP").first()
+            cost_item_map = {ci.cost_item_code: ci.cost_item_id for ci in db.query(CostItem).all()}
+            incoterm_map = {inc.incoterm_code: inc.incoterm_id for inc.incoterm_id, inc.incoterm_code in db.query(Incoterm.incoterm_id, Incoterm.incoterm_code).all()}
 
-            ofr = db.query(CostItem).filter(CostItem.cost_item_code == "OFR").first()
-            ins = db.query(CostItem).filter(CostItem.cost_item_code == "INS").first()
-            othc = db.query(CostItem).filter(CostItem.cost_item_code == "OTHC").first()
-            dthc = db.query(CostItem).filter(CostItem.cost_item_code == "DTHC").first()
-            otrk = db.query(CostItem).filter(CostItem.cost_item_code == "OTRK").first()
-            dtrk = db.query(CostItem).filter(CostItem.cost_item_code == "DTRK").first()
-            cust = db.query(CostItem).filter(CostItem.cost_item_code == "CUST").first()
-            duty = db.query(CostItem).filter(CostItem.cost_item_code == "DUTY").first()
-            form4 = db.query(CostItem).filter(CostItem.cost_item_code == "FORM4").first()
+            matrix_rules = {
+                "EXW": {code: "Importer" for code in cost_item_map.keys()},
+                "CFR": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter",
+                    "INS": "Importer", "XINSP": "Importer", "OFR": "Importer", "DTRK": "Importer",
+                    "DTHC": "Importer", "DOC": "Importer", "DISC": "Importer", "ICLR": "Importer",
+                    "PCONG": "Importer", "DMRG": "Importer", "XCMP": "Importer", "FORM4": "Importer",
+                    "DUTY": "Importer", "STG": "Importer"
+                },
+                "CIF": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter", "INS": "Exporter",
+                    "XINSP": "Importer", "OFR": "Importer", "DTRK": "Importer", "DTHC": "Importer",
+                    "DOC": "Importer", "DISC": "Importer", "ICLR": "Importer", "PCONG": "Importer",
+                    "DMRG": "Importer", "XCMP": "Importer", "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "CIP": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter", "INS": "Exporter",
+                    "XINSP": "Importer", "OFR": "Importer", "DTRK": "Importer", "DTHC": "Importer",
+                    "DOC": "Importer", "DISC": "Importer", "ICLR": "Importer", "PCONG": "Importer",
+                    "DMRG": "Importer", "XCMP": "Importer", "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "CPT": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter",
+                    "INS": "Importer", "XINSP": "Importer", "OFR": "Importer", "DTRK": "Importer",
+                    "DTHC": "Importer", "DOC": "Importer", "DISC": "Importer", "ICLR": "Importer",
+                    "PCONG": "Importer", "DMRG": "Importer", "XCMP": "Importer", "FORM4": "Importer",
+                    "DUTY": "Importer", "STG": "Importer"
+                },
+                "DAP": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter", "INS": "Exporter",
+                    "XINSP": "Exporter", "OFR": "Exporter", "DTRK": "Exporter", "DTHC": "Exporter", "DOC": "Exporter",
+                    "DISC": "Importer", "ICLR": "Importer", "PCONG": "Importer", "DMRG": "Importer",
+                    "XCMP": "Importer", "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "DDP": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter", "INS": "Exporter",
+                    "XINSP": "Exporter", "OFR": "Exporter", "DTRK": "Exporter", "DTHC": "Exporter",
+                    "DOC": "Exporter", "DISC": "Exporter", "ICLR": "Exporter", "PCONG": "Exporter",
+                    "DMRG": "Exporter", "XCMP": "Exporter", "DUTY": "Exporter",
+                    "FORM4": "Importer", "STG": "Importer"
+                },
+                "DPU": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter", "INS": "Exporter",
+                    "XINSP": "Exporter", "OFR": "Exporter", "DTRK": "Exporter", "DTHC": "Exporter", "DOC": "Exporter",
+                    "DISC": "Importer", "ICLR": "Importer", "PCONG": "Importer", "DMRG": "Importer",
+                    "XCMP": "Importer", "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "FAS": {
+                    "OTRK": "Exporter", "XCLR": "Exporter",
+                    "OTHC": "Importer", "INS": "Importer", "XINSP": "Importer", "OFR": "Importer",
+                    "DTRK": "Importer", "DTHC": "Importer", "DOC": "Importer", "DISC": "Importer",
+                    "ICLR": "Importer", "PCONG": "Importer", "DMRG": "Importer", "XCMP": "Importer",
+                    "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "FCA": {
+                    "OTRK": "Exporter", "XCLR": "Exporter",
+                    "OTHC": "Importer", "INS": "Importer", "XINSP": "Importer", "OFR": "Importer",
+                    "DTRK": "Importer", "DTHC": "Importer", "DOC": "Importer", "DISC": "Importer",
+                    "ICLR": "Importer", "PCONG": "Importer", "DMRG": "Importer", "XCMP": "Importer",
+                    "FORM4": "Importer", "DUTY": "Importer", "STG": "Importer"
+                },
+                "FOB": {
+                    "OTRK": "Exporter", "XCLR": "Exporter", "OTHC": "Exporter",
+                    "INS": "Importer", "XINSP": "Importer", "OFR": "Importer", "DTRK": "Importer",
+                    "DTHC": "Importer", "DOC": "Importer", "DISC": "Importer", "ICLR": "Importer",
+                    "PCONG": "Importer", "DMRG": "Importer", "XCMP": "Importer", "FORM4": "Importer",
+                    "DUTY": "Importer", "STG": "Importer"
+                },
+            }
 
             responsibilities = []
-
-            # --- FOB: Seller pays origin; Buyer pays freight, insurance, destination ---
-            if fob and ofr:
-                for (inc_id, ci_id, party, included) in [
-                    (fob.incoterm_id, otrk.cost_item_id, "Exporter", True),
-                    (fob.incoterm_id, othc.cost_item_id, "Exporter", True),
-                    (fob.incoterm_id, ofr.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, ins.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, dthc.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, dtrk.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, cust.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, duty.cost_item_id, "Importer", False),
-                    (fob.incoterm_id, form4.cost_item_id, "Importer", False),
-                ]:
-                    responsibilities.append(IncotermResponsibility(
-                        incoterm_id=inc_id, cost_item_id=ci_id,
-                        responsible_party=party, included_in_incoterm=included
-                    ))
-
-            # --- CIF: Seller pays freight + insurance; Buyer pays destination + customs ---
-            if cif and ofr:
-                for (inc_id, ci_id, party, included) in [
-                    (cif.incoterm_id, otrk.cost_item_id, "Exporter", True),
-                    (cif.incoterm_id, othc.cost_item_id, "Exporter", True),
-                    (cif.incoterm_id, ofr.cost_item_id, "Exporter", True),
-                    (cif.incoterm_id, ins.cost_item_id, "Exporter", True),
-                    (cif.incoterm_id, dthc.cost_item_id, "Importer", False),
-                    (cif.incoterm_id, dtrk.cost_item_id, "Importer", False),
-                    (cif.incoterm_id, cust.cost_item_id, "Importer", False),
-                    (cif.incoterm_id, duty.cost_item_id, "Importer", False),
-                    (cif.incoterm_id, form4.cost_item_id, "Importer", False),
-                ]:
-                    responsibilities.append(IncotermResponsibility(
-                        incoterm_id=inc_id, cost_item_id=ci_id,
-                        responsible_party=party, included_in_incoterm=included
-                    ))
-
-            # --- EXW: Buyer pays everything ---
-            if exw and ofr:
-                for (inc_id, ci_id, party, included) in [
-                    (exw.incoterm_id, otrk.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, othc.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, ofr.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, ins.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, dthc.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, cust.cost_item_id, "Importer", False),
-                    (exw.incoterm_id, duty.cost_item_id, "Importer", False),
-                ]:
-                    responsibilities.append(IncotermResponsibility(
-                        incoterm_id=inc_id, cost_item_id=ci_id,
-                        responsible_party=party, included_in_incoterm=included
-                    ))
-
-            # --- DDP: Seller pays everything including duties ---
-            if ddp and ofr:
-                for (inc_id, ci_id, party, included) in [
-                    (ddp.incoterm_id, otrk.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, othc.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, ofr.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, ins.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, dthc.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, dtrk.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, cust.cost_item_id, "Exporter", True),
-                    (ddp.incoterm_id, duty.cost_item_id, "Exporter", True),
-                ]:
-                    responsibilities.append(IncotermResponsibility(
-                        incoterm_id=inc_id, cost_item_id=ci_id,
-                        responsible_party=party, included_in_incoterm=included
-                    ))
+            for inco_code, rules in matrix_rules.items():
+                if inco_code in incoterm_map:
+                    inc_id = incoterm_map[inco_code]
+                    for item_code, party in rules.items():
+                        if item_code in cost_item_map:
+                            ci_id = cost_item_map[item_code]
+                            is_included = (party == "Exporter")
+                            responsibilities.append(IncotermResponsibility(
+                                incoterm_id=inc_id,
+                                cost_item_id=ci_id,
+                                responsible_party=party,
+                                included_in_incoterm=is_included,
+                            ))
 
             if responsibilities:
                 db.add_all(responsibilities)

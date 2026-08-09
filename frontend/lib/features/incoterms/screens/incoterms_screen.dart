@@ -836,9 +836,7 @@ class _CostItemsTab extends ConsumerWidget {
           child: Align(alignment: Alignment.centerLeft, child: child),
         ),
       );
-}
-
-// ==================================================
+}// ==================================================
 // Tab 3: Responsibility Matrix
 // ==================================================
 
@@ -862,30 +860,41 @@ class _ResponsibilityMatrixTabState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Incoterm selector dropdown
+        // Incoterm selector dropdown & header actions
         incotermsAsync.when(
           loading: () => const SizedBox.shrink(),
           error: (_, __) => const SizedBox.shrink(),
           data: (incoterms) {
             final active = incoterms.where((i) => i.isActive).toList();
             return Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Filter by Incoterm:',
-                    style: TextStyle(fontWeight: FontWeight.w600)),
-                const SizedBox(width: 16),
-                DropdownButton<int?>(
-                  value: _selectedIncotermId,
-                  hint: const Text('All Incoterms'),
-                  items: [
-                    const DropdownMenuItem<int?>(
-                        value: null, child: Text('All Incoterms')),
-                    ...active.map((i) => DropdownMenuItem<int?>(
-                          value: i.incotermId,
-                          child: Text('${i.incotermCode} - ${i.incotermName}'),
-                        )),
+                Row(
+                  children: [
+                    const Text('Filter by Incoterm:',
+                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    const SizedBox(width: 16),
+                    DropdownButton<int?>(
+                      value: _selectedIncotermId,
+                      hint: const Text('All Incoterms (11 Terms)'),
+                      items: [
+                        const DropdownMenuItem<int?>(
+                            value: null, child: Text('All Incoterms (11 Terms)')),
+                        ...active.map((i) => DropdownMenuItem<int?>(
+                              value: i.incotermId,
+                              child: Text('${i.incotermCode} - ${i.incotermName}'),
+                            )),
+                      ],
+                      onChanged: (val) =>
+                          setState(() => _selectedIncotermId = val),
+                    ),
                   ],
-                  onChanged: (val) =>
-                      setState(() => _selectedIncotermId = val),
+                ),
+                Text(
+                  _selectedIncotermId == null
+                      ? 'Showing All Matrix Responsibilities'
+                      : 'Filtering responsibilities for selected term',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
               ],
             );
@@ -935,116 +944,301 @@ class _ResponsibilityMatrixTabState
               constraints: BoxConstraints(
                 minWidth: MediaQuery.of(context).size.width > 1100
                     ? MediaQuery.of(context).size.width - 300
-                    : 850,
+                    : 1000,
               ),
               child: Table(
                 columnWidths: const {
-                  0: FixedColumnWidth(90),
+                  0: FixedColumnWidth(100),
                   1: FlexColumnWidth(2),
                   2: FixedColumnWidth(110),
-                  3: FixedColumnWidth(110),
-                  4: FixedColumnWidth(90),
+                  3: FixedColumnWidth(140),
+                  4: FixedColumnWidth(100),
+                  5: FlexColumnWidth(2),
+                  6: FixedColumnWidth(80),
                 },
                 children: [
-              TableRow(
-                decoration: const BoxDecoration(color: AppTheme.charcoal),
-                children: [
-                  'Incoterm',
-                  'Cost Item',
-                  'Category',
-                  'Responsible',
-                  'Included'
-                ]
-                    .map((h) => Padding(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                          child: Text(h,
-                              style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13)),
-                        ))
-                    .toList(),
+                  TableRow(
+                    decoration: const BoxDecoration(color: AppTheme.charcoal),
+                    children: [
+                      'Incoterm',
+                      'Cost Item',
+                      'Category',
+                      'Responsible (الجهة)',
+                      'Included',
+                      'Comment / Notes',
+                      'Actions'
+                    ]
+                        .map((h) => Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 12),
+                              child: Text(h,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
+                            ))
+                        .toList(),
+                  ),
+                  ...matrix.asMap().entries.map((entry) {
+                    final r = entry.value;
+                    final isEven = entry.key % 2 == 0;
+                    Color partyColor;
+                    String partyText;
+                    switch (r.responsibleParty) {
+                      case 'Importer':
+                        partyColor = AppTheme.cobalt;
+                        partyText = 'المشتري (YES)';
+                        break;
+                      case 'Exporter':
+                        partyColor = AppTheme.orange;
+                        partyText = 'البائع (NO)';
+                        break;
+                      default:
+                        partyColor = AppTheme.emerald;
+                        partyText = 'مشترك (Shared)';
+                    }
+                    return TableRow(
+                      decoration: BoxDecoration(
+                          color: isEven ? Colors.white : Colors.grey.shade50),
+                      children: [
+                        _cell(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(r.incotermCode ?? '—',
+                                style: const TextStyle(
+                                    color: AppTheme.cobalt,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12)),
+                          ),
+                        ),
+                        _cell(
+                            child: Text(r.costItemName ?? '—',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    color: AppTheme.charcoal))),
+                        _cell(
+                            child: Text(r.costCategory ?? '—',
+                                style: TextStyle(
+                                    fontSize: 12, color: Colors.grey.shade700))),
+                        _cell(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: partyColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(partyText,
+                                style: TextStyle(
+                                    color: partyColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11)),
+                          ),
+                        ),
+                        _cell(
+                          child: Icon(
+                            r.includedInIncoterm
+                                ? Icons.check_circle
+                                : Icons.remove_circle_outline,
+                            color: r.includedInIncoterm
+                                ? AppTheme.emerald
+                                : Colors.grey.shade400,
+                            size: 20,
+                          ),
+                        ),
+                        _cell(
+                          child: Text(
+                            r.notes ?? '—',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey.shade600),
+                          ),
+                        ),
+                        _cell(
+                          child: IconButton(
+                            icon: const Icon(Icons.edit,
+                                color: AppTheme.cobalt, size: 20),
+                            tooltip: 'Edit Responsibility (تعديل المسؤولية)',
+                            onPressed: () =>
+                                _showEditResponsibilityDialog(context, ref, r),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
               ),
-              ...matrix.asMap().entries.map((entry) {
-                final r = entry.value;
-                final isEven = entry.key % 2 == 0;
-                Color partyColor;
-                switch (r.responsibleParty) {
-                  case 'Importer':
-                    partyColor = AppTheme.cobalt;
-                    break;
-                  case 'Exporter':
-                    partyColor = AppTheme.orange;
-                    break;
-                  default:
-                    partyColor = AppTheme.emerald;
-                }
-                return TableRow(
-                  decoration: BoxDecoration(
-                      color: isEven ? Colors.white : Colors.grey.shade50),
-                  children: [
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(r.incotermCode ?? '—',
-                            style: const TextStyle(
-                                color: AppTheme.cobalt,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12)),
-                      ),
-                    ),
-                    _cell(
-                        child: Text(r.costItemName ?? '—',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                                color: AppTheme.charcoal))),
-                    _cell(
-                        child: Text(r.costCategory ?? '—',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey.shade700))),
-                    _cell(
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: partyColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(r.responsibleParty,
-                            style: TextStyle(
-                                color: partyColor,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11)),
-                      ),
-                    ),
-                    _cell(
-                      child: Icon(
-                        r.includedInIncoterm
-                            ? Icons.check_circle
-                            : Icons.remove_circle_outline,
-                        color: r.includedInIncoterm
-                            ? AppTheme.emerald
-                            : Colors.grey.shade400,
-                        size: 20,
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
-}
+    );
+  }
+
+  void _showEditResponsibilityDialog(
+      BuildContext context, WidgetRef ref, IncotermResponsibilityModel r) {
+    String selectedParty = r.responsibleParty;
+    bool isIncluded = r.includedInIncoterm;
+    final notesCtrl = TextEditingController(text: r.notes ?? '');
+    bool isLoading = false;
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Row(
+            children: [
+              const Icon(Icons.edit_note, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text('Edit Responsibility · ${r.incotermCode ?? ''}'),
+            ],
+          ),
+          content: Form(
+            key: formKey,
+            child: SizedBox(
+              width: 480,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(8),
+                      border:
+                          Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Incoterm: ${r.incotermCode ?? '—'}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text(
+                            'Cost Item: ${r.costItemName ?? '—'} (${r.costCategory ?? '—'})',
+                            style: TextStyle(
+                                color: Colors.grey.shade700, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Responsible Party (الجهة المسؤولة) *',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<String>(
+                    value: selectedParty,
+                    decoration: const InputDecoration(
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                          value: 'Importer',
+                          child: Text('المشتري (Importer) - YES')),
+                      DropdownMenuItem(
+                          value: 'Exporter',
+                          child: Text('البائع (Exporter) - NO')),
+                      DropdownMenuItem(
+                          value: 'Shared', child: Text('مشترك (Shared)')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) {
+                        setDialogState(() {
+                          selectedParty = val;
+                          if (val == 'Exporter') {
+                            isIncluded = true;
+                          } else if (val == 'Importer') {
+                            isIncluded = false;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Included in Seller Price (مدرج ضمن التكلفة)',
+                        style: TextStyle(
+                            fontSize: 13, fontWeight: FontWeight.w500)),
+                    subtitle: const Text(
+                        'Does the seller cover this cost in the invoice price?',
+                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    value: isIncluded,
+                    activeColor: AppTheme.emerald,
+                    onChanged: (val) => setDialogState(() => isIncluded = val),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Comment / Notes (تعليق أوملاحظات)',
+                      hintText: 'إضافة تفاصيل أو شروط خاصة ببند التكلفة...',
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      setDialogState(() => isLoading = true);
+                      final data = {
+                        'responsible_party': selectedParty,
+                        'included_in_incoterm': isIncluded,
+                        'notes': notesCtrl.text.trim().isEmpty
+                            ? null
+                            : notesCtrl.text.trim(),
+                      };
+
+                      final error = await ref
+                          .read(responsibilityMatrixProvider.notifier)
+                          .updateResponsibility(r.responsibilityId, data);
+
+                      setDialogState(() => isLoading = false);
+                      if (ctx.mounted) {
+                        if (error != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text(error),
+                              backgroundColor: AppTheme.crimson));
+                        } else {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text('Updated successfully'),
+                                  backgroundColor: AppTheme.emerald));
+                        }
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white))
+                  : const Text('Save Changes'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   Widget _cell({required Widget child}) => Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),

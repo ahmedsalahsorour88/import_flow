@@ -130,6 +130,10 @@ class IncotermResponsibilityUpdate(BaseModel):
         return v
 
 
+from typing import Any, List, Optional
+from pydantic import BaseModel, field_validator, model_validator
+
+
 class IncotermResponsibilityResponse(BaseModel):
     responsibility_id: int
     incoterm_id: int
@@ -146,3 +150,26 @@ class IncotermResponsibilityResponse(BaseModel):
     cost_category: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def extract_nested_info(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            return data
+        incoterm = getattr(data, "incoterm", None)
+        cost_item = getattr(data, "cost_item", None)
+        return {
+            "responsibility_id": getattr(data, "responsibility_id", None),
+            "incoterm_id": getattr(data, "incoterm_id", None),
+            "cost_item_id": getattr(data, "cost_item_id", None),
+            "responsible_party": getattr(data, "responsible_party", None),
+            "included_in_incoterm": getattr(data, "included_in_incoterm", False),
+            "notes": getattr(data, "notes", None),
+            "created_at": getattr(data, "created_at", None),
+            "updated_at": getattr(data, "updated_at", None),
+            "incoterm_code": incoterm.incoterm_code if incoterm else getattr(data, "incoterm_code", None),
+            "cost_item_name": cost_item.cost_item_name if cost_item else getattr(data, "cost_item_name", None),
+            "cost_category": cost_item.cost_category if cost_item else getattr(data, "cost_category", None),
+        }
+
+

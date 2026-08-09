@@ -1210,6 +1210,7 @@ class _ResponsibilityMatrixTabState
                       final error = await ref
                           .read(responsibilityMatrixProvider.notifier)
                           .updateResponsibility(r.responsibilityId, data);
+                      ref.read(responsibilityMatrixProvider.notifier).fetchAll();
 
                       setDialogState(() => isLoading = false);
                       if (ctx.mounted) {

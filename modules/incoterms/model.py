@@ -119,15 +119,3 @@ class IncotermResponsibility(Base):
     # Relationships
     incoterm = relationship("Incoterm", back_populates="responsibilities")
     cost_item = relationship("CostItem", back_populates="responsibilities")
-
-    @property
-    def incoterm_code(self) -> Optional[str]:
-        return self.incoterm.incoterm_code if self.incoterm else None
-
-    @property
-    def cost_item_name(self) -> Optional[str]:
-        return self.cost_item.cost_item_name if self.cost_item else None
-
-    @property
-    def cost_category(self) -> Optional[str]:
-        return self.cost_item.cost_category if self.cost_item else None

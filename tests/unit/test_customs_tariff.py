@@ -144,9 +144,10 @@ class TestCustomsTariffBackend(unittest.TestCase):
           - Schedule Tax (0%) = 0
           - Development Fee (5%) = 100,000 * 5% = 5,000
           - Import Fee (0%) = 0
-          - VAT Base = 100,000 + 5,000 (Duty) + 5,000 (Freight) = 110,000
-          - VAT (14%) = 110,000 * 14% = 15,400
-          - Total Taxes = 5,000 + 15,400 + 5,000 = 25,400
+          - Customs Service Fee (1%) = 100,000 * 1% = 1,000
+          - VAT Base = 100,000 + 5,000 (Duty) = 105,000
+          - VAT (14%) = 105,000 * 14% = 14,700
+          - Total Taxes = 5,000 + 14,700 + 5,000 + 1,000 = 25,700
         """
         create_tariff_service(
             self.db,
@@ -158,6 +159,7 @@ class TestCustomsTariffBackend(unittest.TestCase):
                 schedule_tax_rate=Decimal("0.00"),
                 development_fee_rate=Decimal("5.00"),
                 import_fee_rate=Decimal("0.00"),
+                customs_service_fee_rate=Decimal("1.00"),
             ),
         )
 
@@ -169,14 +171,15 @@ class TestCustomsTariffBackend(unittest.TestCase):
         breakdown = estimate_customs_duty_service(self.db, request)
 
         self.assertEqual(breakdown.import_duty_amount, Decimal("5000.00"))
-        self.assertEqual(breakdown.vat_base, Decimal("110000.00"))
-        self.assertEqual(breakdown.vat_amount, Decimal("15400.00"))
+        self.assertEqual(breakdown.vat_base, Decimal("105000.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("14700.00"))
         self.assertEqual(breakdown.development_fee_amount, Decimal("5000.00"))
-        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("25400.00"))
+        self.assertEqual(breakdown.customs_service_fee_amount, Decimal("1000.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("25700.00"))
 
     def test_estimate_customs_duty_duty_free_pharmaceutical(self):
         """
-        Customs Calculation Flow Verification for Pharmaceuticals (0% duty, 0% VAT):
+        Customs Calculation Flow Verification for Pharmaceuticals (0% duty, 0% VAT, 0% Service Fee):
         CIF = 500,000 EGP, Freight = 20,000 EGP
         All duties and VAT must be 0.
         """
@@ -189,6 +192,7 @@ class TestCustomsTariffBackend(unittest.TestCase):
                 vat_rate=Decimal("0.00"),
                 schedule_tax_rate=Decimal("0.00"),
                 development_fee_rate=Decimal("0.00"),
+                customs_service_fee_rate=Decimal("0.00"),
             ),
         )
 
@@ -201,20 +205,22 @@ class TestCustomsTariffBackend(unittest.TestCase):
 
         self.assertEqual(breakdown.import_duty_amount, Decimal("0.00"))
         self.assertEqual(breakdown.vat_amount, Decimal("0.00"))
+        self.assertEqual(breakdown.customs_service_fee_amount, Decimal("0.00"))
         self.assertEqual(breakdown.total_taxes_and_fees, Decimal("0.00"))
 
     def test_estimate_customs_duty_car_with_schedule_tax(self):
         """
         Customs Calculation Flow Verification for Luxury Vehicle:
         CIF = 600,000 EGP, Freight = 30,000 EGP
-        Rates: Duty 40%, VAT 14%, Schedule Tax 15%, Dev Fee 8%, Import Fee 3%
+        Rates: Duty 40%, VAT 14%, Schedule Tax 15%, Dev Fee 8%, Import Fee 3%, Service Fee 1%
         - Duty = 600,000 * 40% = 240,000
         - Schedule Tax = 600,000 * 15% = 90,000
         - Dev Fee = 600,000 * 8% = 48,000
         - Import Fee = 600,000 * 3% = 18,000
-        - VAT Base = 600,000 + 240,000 + 30,000 = 870,000
-        - VAT = 870,000 * 14% = 121,800
-        - Total = 240,000 + 121,800 + 90,000 + 48,000 + 18,000 = 517,800
+        - Service Fee = 600,000 * 1% = 6,000
+        - VAT Base = 600,000 + 240,000 = 840,000
+        - VAT = 840,000 * 14% = 117,600
+        - Total = 240,000 + 117,600 + 90,000 + 48,000 + 18,000 + 6,000 = 519,600
         """
         create_tariff_service(
             self.db,
@@ -226,6 +232,7 @@ class TestCustomsTariffBackend(unittest.TestCase):
                 schedule_tax_rate=Decimal("15.00"),
                 development_fee_rate=Decimal("8.00"),
                 import_fee_rate=Decimal("3.00"),
+                customs_service_fee_rate=Decimal("1.00"),
             ),
         )
 
@@ -240,9 +247,10 @@ class TestCustomsTariffBackend(unittest.TestCase):
         self.assertEqual(breakdown.schedule_tax_amount, Decimal("90000.00"))
         self.assertEqual(breakdown.development_fee_amount, Decimal("48000.00"))
         self.assertEqual(breakdown.import_fee_amount, Decimal("18000.00"))
-        self.assertEqual(breakdown.vat_base, Decimal("870000.00"))
-        self.assertEqual(breakdown.vat_amount, Decimal("121800.00"))
-        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("517800.00"))
+        self.assertEqual(breakdown.customs_service_fee_amount, Decimal("6000.00"))
+        self.assertEqual(breakdown.vat_base, Decimal("840000.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("117600.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("519600.00"))
 
     # ==================================================
     # Search and Filter Tests
@@ -280,6 +288,48 @@ class TestCustomsTariffBackend(unittest.TestCase):
         self.assertEqual(len(results), 1)
         self.assertEqual(results[0].hs_code, "8703.23.90")
 
+    def test_feed_hs_code_3925900090_building_plastics(self):
+        """
+        Verification of official Nafeza Tariff data for HS 3925900090:
+        Standard Duty: 40%, VAT: 14%, Schedule: 0%, Service Fee: 1%
+        Category: أصناف وتجهيزات البناء من لدائن
+        Mercosur Preferential Duty: 3%
+        """
+        tariff = create_tariff_service(
+            self.db,
+            CustomsTariffCreate(
+                hs_code="3925900090",
+                hs_description="أصناف أخر لتجهيزات البناء من لدائن ، غير مذكورة أو داخلة في مكان آخر .",
+                customs_category="أصناف وتجهيزات البناء من لدائن",
+                customs_duty_rate=Decimal("40.00"),
+                vat_rate=Decimal("14.00"),
+                schedule_tax_rate=Decimal("0.00"),
+                development_fee_rate=Decimal("0.00"),
+                import_fee_rate=Decimal("0.00"),
+                customs_service_fee_rate=Decimal("1.00"),
+                requires_coo=True,
+                requires_inspection=True,
+                requires_acid=True,
+                regulatory_authority="الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)",
+            ),
+        )
+        self.assertEqual(tariff.hs_code, "3925900090")
+        self.assertEqual(tariff.customs_duty_rate, Decimal("40.00"))
+        self.assertEqual(tariff.vat_rate, Decimal("14.00"))
+
+        request = CustomsDutyEstimateRequest(
+            hs_code="3925900090",
+            cif_value=Decimal("100000.00"),
+            freight=Decimal("0.00"),
+        )
+        breakdown = estimate_customs_duty_service(self.db, request)
+        self.assertEqual(breakdown.import_duty_amount, Decimal("40000.00"))
+        self.assertEqual(breakdown.vat_base, Decimal("140000.00"))
+        self.assertEqual(breakdown.vat_amount, Decimal("19600.00"))
+        self.assertEqual(breakdown.customs_service_fee_amount, Decimal("1000.00"))
+        self.assertEqual(breakdown.total_taxes_and_fees, Decimal("60600.00"))
+
 
 if __name__ == "__main__":
     unittest.main()
+

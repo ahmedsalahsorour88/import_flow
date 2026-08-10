@@ -14,18 +14,24 @@ from .schemas import (
     CustomsTariffUpdate,
     MultiItemCustomsBreakdown,
     MultiItemCustomsEstimateRequest,
+    PreferentialAgreementCreate,
+    PreferentialAgreementResponse,
+    TariffVerificationRequest,
 )
 from .service import (
     bulk_import_tariffs_service,
+    create_preferential_agreement_service,
     create_tariff_service,
     delete_tariff_service,
     estimate_customs_duty_service,
     estimate_multi_item_customs_duty_service,
+    get_agreements_by_hs_code_service,
     get_all_tariffs_service,
     get_tariff_by_hs_code_service,
     get_tariff_by_id_service,
     restore_tariff_service,
     update_tariff_service,
+    verify_and_update_tariff_service,
 )
 
 customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Customs Tariff"])
@@ -102,6 +108,37 @@ def restore_tariff(tariff_id: int, db: Session = Depends(get_db)):
     return restore_tariff_service(db, tariff_id)
 
 
+@customs_tariff_router.post("/hs/{hs_code}/verify", response_model=CustomsTariffResponse)
+def verify_and_update_tariff(
+    hs_code: str, request: TariffVerificationRequest, db: Session = Depends(get_db)
+):
+    """
+    تسجيل مراجعة يدوية وتحديث لبيانات البند الجمركي (Addendum 3 Workflow).
+    في حال تغيير نسب الضرائب، يتم إنشاء إيراد جديد أوتوماتيكياً والحفاظ على السجل التاريخي.
+    """
+    return verify_and_update_tariff_service(db, hs_code, request)
+
+
+@customs_tariff_router.get("/hs/{hs_code}/agreements", response_model=List[PreferentialAgreementResponse])
+def get_agreements_by_hs_code(
+    hs_code: str, origin_country: Optional[str] = Query(None), db: Session = Depends(get_db)
+):
+    """
+    استرجاع الاتفاقيات التجارية التفضيلية الخاصة ببند جمركي معين.
+    """
+    return get_agreements_by_hs_code_service(db, hs_code, origin_country)
+
+
+@customs_tariff_router.post("/agreements", response_model=PreferentialAgreementResponse)
+def create_preferential_agreement(
+    data: PreferentialAgreementCreate, db: Session = Depends(get_db)
+):
+    """
+    إضافة اتفاقية تفضيلية جديدة مرتبط بدولة منشأ وبند جمركي.
+    """
+    return create_preferential_agreement_service(db, data)
+
+
 @customs_tariff_router.post("/upload-excel")
 async def upload_customs_tariffs(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """
@@ -127,4 +164,25 @@ def export_customs_tariff_template():
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=customs_tariff_template.csv"},
     )
+
+
+from .schemas import FeeCodeCreate, FeeCodeResponse
+from .service import create_fee_code_service, get_all_fee_codes_service
+
+
+@customs_tariff_router.get("/fee-codes", response_model=List[FeeCodeResponse])
+def get_all_fee_codes(include_inactive: bool = Query(False), db: Session = Depends(get_db)):
+    """
+    استرجاع رسوم الإقرارات والنافذة الموحدة الرسمية.
+    """
+    return get_all_fee_codes_service(db, include_inactive)
+
+
+@customs_tariff_router.post("/fee-codes", response_model=FeeCodeResponse)
+def create_fee_code(data: FeeCodeCreate, db: Session = Depends(get_db)):
+    """
+    إضافة كود رسم جديد لقائمة تحصيل نافذة والجمارك المصرية.
+    """
+    return create_fee_code_service(db, data)
+
 

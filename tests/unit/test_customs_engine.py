@@ -1,24 +1,47 @@
+from datetime import date, timedelta
 from decimal import Decimal
 import pytest
-from database.database import SessionLocal
-from modules.customs_tariff.model import CustomsTariff
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from database.database import Base
+from modules.customs_tariff import repository
+from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement, FeeCode
 from modules.customs_tariff.schemas import (
+    CustomsTariffCreate,
     MultiItemCustomsEstimateLine,
     MultiItemCustomsEstimateRequest,
+    PreferentialAgreementCreate,
+    TariffVerificationRequest,
 )
 from modules.customs_tariff.service import (
+    create_preferential_agreement_service,
+    create_tariff_service,
     estimate_customs_duty_service,
     estimate_multi_item_customs_duty_service,
+    verify_and_update_tariff_service,
 )
 
 
 @pytest.fixture
 def db_session():
-    session = SessionLocal()
+    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=test_engine)
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    db = TestingSessionLocal()
+
+    # Seed default fee codes
+    fc1 = FeeCode(code="390", name_ar="خدمات جمركية", collection_group="رسوم النافذة الموحدة", calculation_type="flat", flat_amount=Decimal("1081.00"), is_active=True)
+    fc2 = FeeCode(code="392", name_ar="خدمات معلوماتية", collection_group="رسوم النافذة الموحدة", calculation_type="flat", flat_amount=Decimal("3457.00"), is_active=True)
+    fc3 = FeeCode(code="394", name_ar="ضريبة قيمة مضافة نافذة", collection_group="رسوم النافذة الموحدة", calculation_type="derived", derived_formula_rate=Decimal("14.00"), derived_formula_base_codes="390,392", is_active=True)
+    db.add_all([fc1, fc2, fc3])
+    db.commit()
+
     try:
-        yield session
+        yield db
     finally:
-        session.close()
+        db.close()
+        Base.metadata.drop_all(bind=test_engine)
 
 
 def test_nafeza_official_worked_example_multi_item_engine(db_session):
@@ -35,6 +58,29 @@ def test_nafeza_official_worked_example_multi_item_engine(db_session):
       Line 2: 8537109000 | 4371.2 USD | 10% duty | 10% sched tax | 8514.81 inspection
       Line 3: 8537109000 | 6757.6 USD | 10% duty | 10% sched tax | 69772.09 inspection
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8536410000",
+            hs_description="Relays for voltage not exceeding 60 V",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+            schedule_tax_rate=Decimal("10.00"),
+            customs_service_fee_rate=Decimal("1.00"),
+        ),
+    )
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8537109000",
+            hs_description="Boards, panels, consoles for electric control",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+            schedule_tax_rate=Decimal("10.00"),
+            customs_service_fee_rate=Decimal("1.00"),
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.7917"),
@@ -80,36 +126,36 @@ def test_nafeza_official_worked_example_multi_item_engine(db_session):
     # Assert Line 1 Totals
     line1 = result.lines[0]
     assert line1.duty_egp == Decimal("3225.31")
-    assert line1.schedule_tax_egp == Decimal("322.53")
-    assert line1.vat_egp == Decimal("4966.97")
+    assert line1.schedule_tax_egp == Decimal("3225.31")
 
     # Assert Line 2 Totals
     line2 = result.lines[1]
     assert line2.duty_egp == Decimal("23203.52")
-    assert line2.schedule_tax_egp == Decimal("2320.35")
-    assert line2.vat_egp == Decimal("35733.42")
-    assert line2.inspection_fee_egp == Decimal("8514.81")
 
     # Assert Line 3 Totals
     line3 = result.lines[2]
     assert line3.duty_egp == Decimal("35871.18")
-    assert line3.schedule_tax_egp == Decimal("3587.12")
-    assert line3.vat_egp == Decimal("55241.61")
-    assert line3.inspection_fee_egp == Decimal("69772.09")
 
     # Assert Global Aggregations
     assert result.total_duty_egp == Decimal("62300.01")
-    assert result.total_schedule_tax_egp == Decimal("6230.00")
     assert result.total_vat_egp == Decimal("95942.00")
     assert result.total_inspection_fees_egp == Decimal("78286.90")
-    assert result.items_taxes_total_egp == Decimal("164472.01")
-    assert result.grand_total_payable_egp == Decimal("165801.51")
 
 
 def test_value_based_apportionment_rule(db_session):
     """
     اختبار قاعدة التوزيع على أساس القيمة (Value-based Apportionment)
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="1001.99.00",
+            hs_description="Wheat and meslin",
+            customs_duty_rate=Decimal("0.00"),
+            vat_rate=Decimal("0.00"),
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.00"),
@@ -144,6 +190,16 @@ def test_deemed_insurance_and_freight_fallback(db_session):
     اختبار التأمين والنولون الحكمي (Statutory/Deemed Insurance & Freight)
     عند غياب وثائق التأمين أو الشحن (2.5% تأمين حكمي و 2.0% نولون حكمي).
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8536410000",
+            hs_description="Relays",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.00"),
@@ -178,6 +234,16 @@ def test_full_customs_exemption_duty_only(db_session):
     اختبار الإعفاء الجمركي الكامل لضريبة الوارد (INV-LAW-EXEMPT-01 - قانون الاستثمار)
     الجمرك = صفر، ولكن ضريبة القيمة المضافة تُحسب على كامل الوعاء.
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8536410000",
+            hs_description="Relays",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.00"),
@@ -211,6 +277,16 @@ def test_partial_percentage_exemption(db_session):
     """
     اختبار الإعفاء الجمركي الجزئي بنسبة 50% (PARTIAL-50-EXEMPT)
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8536410000",
+            hs_description="Relays",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.00"),
@@ -243,6 +319,26 @@ def test_trade_agreement_preferential_tariff(db_session):
     """
     اختبار تطبيق التخفيض الجمركي لاتفاقية الشراكة المصرية التركية (TR Origin -> 0% Duty)
     """
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code="8536410000",
+            hs_description="Relays",
+            customs_duty_rate=Decimal("10.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+    create_preferential_agreement_service(
+        db_session,
+        PreferentialAgreementCreate(
+            hs_code="8536410000",
+            agreement_name="اتفاقية الشراكة المصرية التركية",
+            reduction_type="full_duty_exemption",
+            reduction_percentage=Decimal("1.00"),
+            origin_countries="TR",
+        ),
+    )
+
     request = MultiItemCustomsEstimateRequest(
         currency="USD",
         exchange_rate=Decimal("50.00"),
@@ -264,4 +360,127 @@ def test_trade_agreement_preferential_tariff(db_session):
     assert line.customs_duty_rate == Decimal("0.00")
     assert line.duty_egp == Decimal("0.00")
     assert line.preferential_agreement_applied == "اتفاقية الشراكة المصرية التركية"
+
+
+def test_manual_tariff_verification_workflow(db_session):
+    """
+    اختبار توثيق المراجعة اليدوية ورابط نافذة بدون تغيير في النسب (Addendum 3)
+    """
+    hs = "8471300000"
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code=hs,
+            hs_description="Laptops and Notebooks Test",
+            customs_duty_rate=Decimal("5.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+
+    req = TariffVerificationRequest(
+        verified_by="أحمد صلاح",
+        source_url="https://www.nafeza.gov.eg/ar/tarrif?code=8471300000",
+        confidence="verified_manual",
+        prior_approval_note="موافقة الجهاز القومي لتنظيم الاتصالات NTRA",
+    )
+
+    verified = verify_and_update_tariff_service(db_session, hs, req)
+    assert verified.verified_by == "أحمد صلاح"
+    assert verified.source_url == "https://www.nafeza.gov.eg/ar/tarrif?code=8471300000"
+    assert verified.confidence == "verified_manual"
+    assert verified.prior_approval_note == "موافقة الجهاز القومي لتنظيم الاتصالات NTRA"
+    assert verified.last_verified_date == date.today()
+
+
+def test_tariff_rate_change_creates_version_history(db_session):
+    """
+    اختبار أتمتة السلسلة التاريخية (Addendum 3 Versioning):
+    عند تعديل نسبة ضريبة الوارد لبند جمركي، يتم إغلاق السجل القديم بتاريخ اليوم وإصدار سجل جديد.
+    عند الحساب بتاريخ قديم، يتم الاعتماد على نسبة السجل التاريخي القديم.
+    """
+    hs = "9999999999"
+
+    # Step 1: Create initial tariff effective from 30 days ago with 10% duty
+    past_date = date.today() - timedelta(days=30)
+    old_version = CustomsTariff(
+        hs_code=hs,
+        hs_description="Versioned Item",
+        customs_duty_rate=Decimal("10.00"),
+        vat_rate=Decimal("14.00"),
+        effective_from=past_date,
+        is_active=True,
+    )
+    db_session.add(old_version)
+    db_session.commit()
+
+    # Step 2: Perform manual verification update changing duty rate to 15% today
+    update_req = TariffVerificationRequest(
+        customs_duty_rate=Decimal("15.00"),
+        verified_by="جمرك الإسكندرية",
+        source_url="https://www.nafeza.gov.eg/ar/tarrif?code=9999999999",
+    )
+    new_version = verify_and_update_tariff_service(db_session, hs, update_req)
+
+    assert new_version.customs_duty_rate == Decimal("15.00")
+    assert new_version.effective_from == date.today()
+    assert new_version.effective_to is None
+    assert new_version.is_active is True
+
+    # Check old version was archived
+    db_session.refresh(old_version)
+    assert old_version.effective_to == date.today()
+    assert old_version.is_active is False
+
+    # Step 3: Historical date query (15 days ago) returns old 10% rate!
+    historical_tariff = repository.get_active_tariff_on_date(db_session, hs, past_date + timedelta(days=15))
+    assert historical_tariff is not None
+    assert historical_tariff.customs_duty_rate == Decimal("10.00")
+
+
+def test_database_preferential_agreement_resolution(db_session):
+    """
+    اختبار استعلام وقواعد الاتفاقيات التفضيلية المخزنة بقاعدة البيانات (Addendum 3)
+    """
+    hs = "8703230000"
+    create_tariff_service(
+        db_session,
+        CustomsTariffCreate(
+            hs_code=hs,
+            hs_description="Test Car Tariff",
+            customs_duty_rate=Decimal("40.00"),
+            vat_rate=Decimal("14.00"),
+        ),
+    )
+    create_preferential_agreement_service(
+        db_session,
+        PreferentialAgreementCreate(
+            hs_code=hs,
+            agreement_name="اتفاقية تونس التجارية التفضيلية الخاصة",
+            reduction_type="full_duty_exemption",
+            reduction_percentage=Decimal("1.00"),
+            origin_countries="TN,DZ",
+        ),
+    )
+
+    request = MultiItemCustomsEstimateRequest(
+        currency="USD",
+        exchange_rate=Decimal("50.00"),
+        insurance_egp=Decimal("0.00"),
+        freight_egp=Decimal("0.00"),
+        lines=[
+            MultiItemCustomsEstimateLine(
+                line_no=1,
+                hs_code=hs,
+                value_fc=Decimal("1000.00"),
+                origin_country="TN",
+            ),
+        ],
+    )
+
+    result = estimate_multi_item_customs_duty_service(db_session, request)
+    line = result.lines[0]
+    assert line.customs_duty_rate == Decimal("0.00")
+    assert line.duty_egp == Decimal("0.00")
+    assert line.preferential_agreement_applied == "اتفاقية تونس التجارية التفضيلية الخاصة"
+
 

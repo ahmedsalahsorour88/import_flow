@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
@@ -923,21 +924,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<int?>(
+                  SearchableDropdownField<int?>(
                     value: selectedImportFileId,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Import File (رقم ملف الشحنة)',
-                      prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                    ),
+                    labelText: 'Import File (رقم ملف الشحنة)',
+                    searchHintText: 'ابحث عن ملف الشحنة...',
                     items: [
-                      const DropdownMenuItem<int?>(
+                      const SearchableDropdownItem<int?>(
                         value: null,
-                        child: Text('-- None / غير مرتبط بملف شحنة --'),
+                        label: '-- None / غير مرتبط بملف شحنة --',
                       ),
-                      ...importFiles.map((f) => DropdownMenuItem<int?>(
+                      ...importFiles.map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                            subtitle: f.companyName,
                           )),
                     ],
                     onChanged: (v) => setDialogState(() => selectedImportFileId = v),
@@ -1450,29 +1449,30 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: selectedPoId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Select Purchase Order (PO)'),
+                  labelText: 'Select Purchase Order (PO)',
+                  searchHintText: 'ابحث عن أمر الشراء...',
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('None / Standalone')),
-                    ...poList.map((po) => DropdownMenuItem<int?>(
+                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                    ...poList.map((po) => SearchableDropdownItem<int?>(
                           value: po.poId,
-                          child: Text('${po.poNumber} (${po.projectName ?? "Project"})', overflow: TextOverflow.ellipsis),
+                          label: '${po.poNumber} (${po.projectName ?? "Project"})',
+                          subtitle: po.supplierName,
                         )),
                   ],
                   onChanged: (v) => setDialogState(() => selectedPoId = v),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: selectedProjectId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Select Project'),
+                  labelText: 'Select Project',
+                  searchHintText: 'ابحث عن المشروع...',
                   items: [
-                    const DropdownMenuItem<int?>(value: null, child: Text('None / Unbound')),
-                    ...projectsList.map((p) => DropdownMenuItem<int?>(
+                    const SearchableDropdownItem<int?>(value: null, label: 'None / Unbound'),
+                    ...projectsList.map((p) => SearchableDropdownItem<int?>(
                           value: p.projectId,
-                          child: Text('${p.projectCode} - ${p.projectName}', overflow: TextOverflow.ellipsis),
+                          label: '${p.projectCode} - ${p.projectName}',
                         )),
                   ],
                   onChanged: (v) => setDialogState(() => selectedProjectId = v),

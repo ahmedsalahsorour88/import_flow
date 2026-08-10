@@ -40,6 +40,8 @@ dependencies:
   go_router: ^15.1.2
   window_manager: ^0.3.9
   file_picker: ^11.0.3
+  pdf: ^3.11.3
+  printing: ^5.14.3
 
 dev_dependencies:
   flutter_test:

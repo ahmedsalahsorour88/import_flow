@@ -104,6 +104,7 @@ class PurchaseOrderBase(BaseModel):
     supplier_id: int
     incoterm_id: int
     currency_id: int
+    order_date: Optional[datetime] = Field(None, description="Invoice Date / تاريخ الفاتورة")
     expected_delivery_date: Optional[datetime] = None
     exchange_rate: float = Field(1.0, gt=0)
     payment_terms: Optional[str] = Field("LC at Sight / اعتماد مستندي", max_length=100)
@@ -124,6 +125,7 @@ class PurchaseOrderUpdate(BaseModel):
     supplier_id: Optional[int] = None
     incoterm_id: Optional[int] = None
     currency_id: Optional[int] = None
+    order_date: Optional[datetime] = None
     expected_delivery_date: Optional[datetime] = None
     exchange_rate: Optional[float] = Field(None, gt=0)
     payment_terms: Optional[str] = Field(None, max_length=100)
@@ -139,6 +141,7 @@ class PurchaseOrderResponse(PurchaseOrderBase):
     po_number: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    order_date: Optional[datetime] = None
     total_amount_fob: float
     total_cbm: float
     total_gross_weight_kg: float

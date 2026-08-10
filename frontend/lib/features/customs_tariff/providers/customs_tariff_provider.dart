@@ -101,15 +101,22 @@ class CustomsTariffNotifier
     required String hsCode,
     required double cifValue,
     required double freight,
+    String? originCountry,
+    double packagingEgp = 0.0,
   }) async {
     try {
+      final Map<String, dynamic> requestData = {
+        'hs_code': hsCode,
+        'cif_value': cifValue,
+        'freight': freight,
+        'packaging_egp': packagingEgp,
+      };
+      if (originCountry != null && originCountry.isNotEmpty) {
+        requestData['origin_country'] = originCountry.toUpperCase();
+      }
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/customs-tariff/estimate',
-        data: {
-          'hs_code': hsCode,
-          'cif_value': cifValue,
-          'freight': freight,
-        },
+        data: requestData,
       );
       return CustomsDutyBreakdownModel.fromJson(response.data);
     } on DioException catch (e) {
@@ -151,6 +158,51 @@ class CustomsTariffNotifier
       throw e.response?.data?['detail']?.toString() ?? 'Failed to upload Excel file.';
     } catch (e) {
       throw 'An error occurred during file upload: ${e.toString()}';
+    }
+  }
+
+  Future<String?> verifyTariff(String hsCode, Map<String, dynamic> data) async {
+    try {
+      await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/hs/$hsCode/verify',
+        data: data,
+      );
+      ref.invalidate(systemAuditLogsProvider);
+      ref.invalidate(customsTariffProvider);
+      return null;
+    } on DioException catch (e) {
+      return e.response?.data?['detail']?.toString() ??
+          'Failed to verify/update tariff entry.';
+    } catch (_) {
+      return 'An unexpected error occurred.';
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchAgreements(String hsCode) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/customs-tariff/hs/$hsCode/agreements',
+      );
+      return (response.data as List).cast<Map<String, dynamic>>();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  Future<String?> createPreferentialAgreement(Map<String, dynamic> data) async {
+    try {
+      await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/agreements',
+        data: data,
+      );
+      ref.invalidate(systemAuditLogsProvider);
+      ref.invalidate(customsTariffProvider);
+      return null;
+    } on DioException catch (e) {
+      return e.response?.data?['detail']?.toString() ??
+          'Failed to create preferential trade agreement.';
+    } catch (_) {
+      return 'An unexpected error occurred.';
     }
   }
 }

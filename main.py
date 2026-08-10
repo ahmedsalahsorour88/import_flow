@@ -74,6 +74,7 @@ from modules.financial_settlement.router import router as financial_settlement_r
 from modules.file_closure.router import router as file_closure_router
 from modules.notifications.router import router as notifications_router
 from modules.integrations.router import router as integrations_router
+from modules.container_loader.router import container_loader_router
 
 
 # ==================================================
@@ -114,6 +115,7 @@ app.include_router(currencies_router)
 app.include_router(projects_router)
 app.include_router(purchase_orders_router)
 app.include_router(cbm_calculator_router)
+app.include_router(container_loader_router)
 app.include_router(shipping_scenarios_router)
 app.include_router(customs_consultation_router)
 app.include_router(freight_quotations_router)

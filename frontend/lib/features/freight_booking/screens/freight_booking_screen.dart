@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
@@ -400,10 +401,17 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<int?>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedImportFileId,
-                                    decoration: const InputDecoration(labelText: 'ملف الشحنة الاستيرادية (Import File)', border: OutlineInputBorder()),
-                                    items: importFiles.map((f) => DropdownMenuItem<int?>(value: f.importFileId, child: Text('${f.customFileNumber ?? f.importFileCode} (${f.companyName})'))).toList(),
+                                    labelText: 'ملف الشحنة الاستيرادية (Import File)',
+                                    searchHintText: 'ابحث عن ملف الشحنة...',
+                                    items: importFiles
+                                        .map((f) => SearchableDropdownItem<int?>(
+                                              value: f.importFileId,
+                                              label: '${f.customFileNumber ?? f.importFileCode} (${f.companyName})',
+                                              subtitle: f.supplierName,
+                                            ))
+                                        .toList(),
                                     onChanged: (val) => setState(() => _selectedImportFileId = val),
                                   ),
                                 ),
@@ -511,16 +519,19 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
+                                  child: SearchableDropdownField<String>(
                                     value: _status,
-                                    decoration: const InputDecoration(labelText: 'حالة الحجز (Status) *', border: OutlineInputBorder()),
+                                    labelText: 'حالة الحجز (Status) *',
+                                    searchHintText: 'ابحث عن حالة الحجز...',
                                     items: const [
-                                      DropdownMenuItem(value: 'Draft', child: Text('Draft')),
-                                      DropdownMenuItem(value: 'Booking Requested', child: Text('Booking Requested')),
-                                      DropdownMenuItem(value: 'Confirmed', child: Text('Confirmed')),
-                                      DropdownMenuItem(value: 'Sailed', child: Text('Sailed')),
+                                      SearchableDropdownItem(value: 'Draft', label: 'Draft'),
+                                      SearchableDropdownItem(value: 'Booking Requested', label: 'Booking Requested'),
+                                      SearchableDropdownItem(value: 'Confirmed', label: 'Confirmed'),
+                                      SearchableDropdownItem(value: 'Sailed', label: 'Sailed'),
                                     ],
-                                    onChanged: (v) => setState(() => _status = v!),
+                                    onChanged: (v) {
+                                      if (v != null) setState(() => _status = v);
+                                    },
                                   ),
                                 ),
                               ],

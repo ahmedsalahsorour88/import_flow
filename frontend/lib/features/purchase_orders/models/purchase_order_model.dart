@@ -202,6 +202,7 @@ class PurchaseOrderModel {
   final int supplierId;
   final int incotermId;
   final int currencyId;
+  final DateTime? orderDate;
   final DateTime? expectedDeliveryDate;
   final double exchangeRate;
   final String? paymentTerms;
@@ -234,6 +235,7 @@ class PurchaseOrderModel {
     required this.supplierId,
     required this.incotermId,
     required this.currencyId,
+    this.orderDate,
     this.expectedDeliveryDate,
     this.exchangeRate = 1.0,
     this.paymentTerms = 'LC at Sight / اعتماد مستندي',
@@ -268,6 +270,7 @@ class PurchaseOrderModel {
       supplierId: _numToInt(json['supplier_id']),
       incotermId: _numToInt(json['incoterm_id']),
       currencyId: _numToInt(json['currency_id']),
+      orderDate: json['order_date'] != null ? DateTime.parse(json['order_date']) : null,
       expectedDeliveryDate: json['expected_delivery_date'] != null
           ? DateTime.parse(json['expected_delivery_date'])
           : null,
@@ -309,6 +312,7 @@ class PurchaseOrderModel {
       'supplier_id': supplierId,
       'incoterm_id': incotermId,
       'currency_id': currencyId,
+      if (orderDate != null) 'order_date': orderDate!.toIso8601String(),
       if (expectedDeliveryDate != null) 'expected_delivery_date': expectedDeliveryDate!.toIso8601String(),
       'exchange_rate': exchangeRate,
       if (paymentTerms != null) 'payment_terms': paymentTerms,

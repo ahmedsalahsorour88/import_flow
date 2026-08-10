@@ -703,6 +703,42 @@ def seed_data():
             print("Customs Tariff / HS Codes seeded successfully.")
 
         # ==================================================
+        # 7.1 Seed Nafeza Fee Codes Registry (FeeCode)
+        # ==================================================
+        from modules.customs_tariff.model import FeeCode
+        FEE_CODES_SEED = [
+            {"code": "77",  "name_ar": "ضريبة مهن حرة",            "collection_group": "رسم مستخلص",      "calculation_type": "flat", "flat_amount": 50.00},
+            {"code": "250", "name_ar": "رسم طباعة بيان جمركي موحد", "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 55.00},
+            {"code": "798", "name_ar": "رسم نموذج 19 ك م",          "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 35.00},
+            {"code": "60",  "name_ar": "دمغة إقرار مميكن",          "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 4.50},
+            {"code": "74",  "name_ar": "رسم خدمات مميكنة",          "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 20.00},
+            {"code": "107", "name_ar": "رسم تنمية محررات",          "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 2.00},
+            {"code": "1",   "name_ar": "ضريبة الوارد",              "collection_group": "ضريبة جمارك",      "calculation_type": "reference", "reference_source": "duty_amount"},
+            {"code": "3",   "name_ar": "رسم مصاريف إدارية",         "collection_group": "ضريبة جمارك",      "calculation_type": "flat", "flat_amount": 750.00},
+            {"code": "37",  "name_ar": "ضريبة أ.ت.ص",               "collection_group": "أ.ت.ص",           "calculation_type": "reference", "reference_source": "service_fee_amount"},
+            {"code": "232", "name_ar": "تحت حساب قيمة مضافة",       "collection_group": "ض.مبيعات",         "calculation_type": "flat", "flat_amount": 100.00},
+            {"code": "32",  "name_ar": "ضريبة قيمة مضافة",          "collection_group": "ض.مبيعات",         "calculation_type": "reference", "reference_source": "vat_amount"},
+            {"code": "397", "name_ar": "صندوق تكريم الشهداء",       "collection_group": "رسوم النافذة الموحدة", "calculation_type": "flat", "flat_amount": 5.00},
+            {"code": "390", "name_ar": "خدمات جمركية",              "collection_group": "رسوم النافذة الموحدة", "calculation_type": "flat", "flat_amount": 1081.00},
+            {"code": "392", "name_ar": "خدمات معلوماتية",           "collection_group": "رسوم النافذة الموحدة", "calculation_type": "flat", "flat_amount": 3457.00},
+            {"code": "394", "name_ar": "ضريبة قيمة مضافة على خدمات", "collection_group": "رسوم النافذة الموحدة", "calculation_type": "derived", "derived_formula_rate": 14.00, "derived_formula_base_codes": "390,392"},
+        ]
+        for seed_item in FEE_CODES_SEED:
+            existing = db.query(FeeCode).filter(FeeCode.code == seed_item["code"]).first()
+            if existing:
+                existing.name_ar = seed_item["name_ar"]
+                existing.collection_group = seed_item["collection_group"]
+                existing.calculation_type = seed_item["calculation_type"]
+                existing.flat_amount = seed_item.get("flat_amount", 0.00)
+                existing.reference_source = seed_item.get("reference_source")
+                existing.derived_formula_rate = seed_item.get("derived_formula_rate")
+                existing.derived_formula_base_codes = seed_item.get("derived_formula_base_codes")
+            else:
+                db.add(FeeCode(**seed_item))
+        db.commit()
+        print("Nafeza Fee Codes synced successfully.")
+
+        # ==================================================
         # 8. Seed MD-009: Transport Locations
         # ==================================================
         from modules.transport_locations.model import TransportLocation

@@ -182,6 +182,7 @@ class PurchaseOrderService:
             supplier_id=po.supplier_id,
             incoterm_id=po.incoterm_id,
             currency_id=po.currency_id,
+            order_date=po.order_date,
             expected_delivery_date=po.expected_delivery_date,
             exchange_rate=float(po.exchange_rate),
             payment_terms=po.payment_terms,

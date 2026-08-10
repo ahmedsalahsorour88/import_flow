@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
@@ -291,6 +292,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               dataRowMaxHeight: 52,
               columns: const [
                 DataColumn(label: Text('PO Reference')),
+                DataColumn(label: Text('Invoice Date')),
                 DataColumn(label: Text('Import File')),
                 DataColumn(label: Text('PI Number')),
                 DataColumn(label: Text('Project')),
@@ -309,6 +311,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         : po.status == 'Closed'
                             ? Colors.grey
                             : AppTheme.orange;
+
+                final invoiceDateStr = po.orderDate != null
+                    ? '${po.orderDate!.year}-${po.orderDate!.month.toString().padLeft(2, '0')}-${po.orderDate!.day.toString().padLeft(2, '0')}'
+                    : '-';
 
                 return DataRow(
                   onSelectChanged: (_) => _showPODetailsDialog(context, po),
@@ -333,6 +339,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         ),
                       ),
                     ),
+                    DataCell(Text(invoiceDateStr, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12))),
                     DataCell(
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -804,6 +811,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   late TextEditingController _rateCtrl;
   late TextEditingController _notesCtrl;
 
+  late DateTime _selectedOrderDate;
   int? _selectedImportFileId;
   int? _selectedProjectId;
   int? _selectedCompanyId;
@@ -817,10 +825,129 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   late List<PackingListItemModel> _dialogPackingItems;
   bool _isSubmitting = false;
 
+  Future<CustomsTariffModel?> _showHsCodeSearchPicker(BuildContext context, List<CustomsTariffModel> tariffs) async {
+    return showDialog<CustomsTariffModel?>(
+      context: context,
+      builder: (ctx) {
+        String search = '';
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final filtered = tariffs.where((t) {
+              final query = search.trim().toLowerCase();
+              if (query.isEmpty) return true;
+              return t.hsCode.toLowerCase().contains(query) ||
+                  t.hsDescription.toLowerCase().contains(query) ||
+                  (t.customsCategory?.toLowerCase().contains(query) ?? false);
+            }).toList();
+
+            return AlertDialog(
+              title: const Row(
+                children: [
+                  Icon(Icons.search, color: AppTheme.cobalt),
+                  SizedBox(width: 8),
+                  Text('اختيار البند الجمركي (Customs Tariff / HS Code)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              content: SizedBox(
+                width: 600,
+                height: 450,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'ابحث برقم البند الجمركي أو الوصف (مثال: 8415 أو تكييف)...',
+                        prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                        suffixIcon: search.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () => setDialogState(() => search = ''),
+                              )
+                            : null,
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (v) => setDialogState(() => search = v),
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      tileColor: Colors.grey.shade100,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      title: const Text('None / General (بدون بند جمركي)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                      subtitle: const Text('إلغاء ربط البند الجمركي لهذا السطر'),
+                      onTap: () => Navigator.pop(ctx, null),
+                    ),
+                    const Divider(),
+                    Expanded(
+                      child: filtered.isEmpty
+                          ? const Center(
+                              child: Text('لا يوجد بند جمركي يطابق البحث', style: TextStyle(color: Colors.grey)),
+                            )
+                          : ListView.separated(
+                              itemCount: filtered.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (context, index) {
+                                final item = filtered[index];
+                                return ListTile(
+                                  dense: true,
+                                  title: Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(4),
+                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                                        ),
+                                        child: Text(
+                                          item.hsCode,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          item.hsDescription,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Padding(
+                                    padding: const EdgeInsets.only(top: 4),
+                                    child: Text(
+                                      'الفئة: ${item.customsCategory ?? "عام"} | جمارك: ${item.customsDutyRate}% | قيمة مضافة: ${item.vatRate}% | رسم تنمية: ${item.developmentFeeRate}%',
+                                      style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+                                    ),
+                                  ),
+                                  onTap: () => Navigator.pop(ctx, item),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('إلغاء'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     final po = widget.po;
+    _selectedOrderDate = po?.orderDate ?? DateTime.now();
     _piCtrl = TextEditingController(text: po?.proformaInvoiceNumber ?? '');
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
@@ -1043,6 +1170,32 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                     decoration: const InputDecoration(
                                       labelText: 'Proforma Invoice # (رقم الفاتورة المبدئية)',
                                       hintText: 'e.g. PI-2026-991',
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _selectedOrderDate,
+                                        firstDate: DateTime(2000),
+                                        lastDate: DateTime(2035),
+                                      );
+                                      if (picked != null) {
+                                        setState(() => _selectedOrderDate = picked);
+                                      }
+                                    },
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(
+                                        labelText: 'Invoice Date (تاريخ الفاتورة) *',
+                                        prefixIcon: Icon(Icons.calendar_today, color: AppTheme.cobalt),
+                                      ),
+                                      child: Text(
+                                        '${_selectedOrderDate.year}-${_selectedOrderDate.month.toString().padLeft(2, '0')}-${_selectedOrderDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -1272,31 +1425,43 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             flex: 2,
-                                            child: DropdownButtonFormField<int?>(
-                                              value: item.tariffId,
-                                              isExpanded: true,
-                                              decoration: const InputDecoration(labelText: 'Customs Tariff / HS Code', isDense: true),
-                                              items: [
-                                                const DropdownMenuItem<int?>(value: null, child: Text('None / General')),
-                                                ...tariffs.map((t) => DropdownMenuItem<int?>(
-                                                      value: t.tariffId,
-                                                      child: Text('${t.hsCode} (${t.hsDescription})', overflow: TextOverflow.ellipsis),
-                                                    )),
-                                              ],
-                                              onChanged: (v) => setState(() {
-                                                _dialogItems[idx] = POLineItemModel(
-                                                  itemCode: item.itemCode,
-                                                  descriptionAr: item.descriptionAr,
-                                                  descriptionEn: item.descriptionEn,
-                                                  tariffId: v,
-                                                  quantity: item.quantity,
-                                                  unitOfMeasure: item.unitOfMeasure,
-                                                  unitPrice: item.unitPrice,
-                                                  cbmPerUnit: item.cbmPerUnit,
-                                                  grossWeightKg: item.grossWeightKg,
-                                                  netWeightKg: item.netWeightKg,
-                                                );
-                                              }),
+                                            child: InkWell(
+                                              onTap: () async {
+                                                final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                                setState(() {
+                                                  _dialogItems[idx] = POLineItemModel(
+                                                    itemCode: item.itemCode,
+                                                    descriptionAr: item.descriptionAr,
+                                                    descriptionEn: item.descriptionEn,
+                                                    tariffId: picked?.tariffId,
+                                                    quantity: item.quantity,
+                                                    unitOfMeasure: item.unitOfMeasure,
+                                                    unitPrice: item.unitPrice,
+                                                    cbmPerUnit: item.cbmPerUnit,
+                                                    grossWeightKg: item.grossWeightKg,
+                                                    netWeightKg: item.netWeightKg,
+                                                  );
+                                                });
+                                              },
+                                              child: InputDecorator(
+                                                decoration: const InputDecoration(
+                                                  labelText: 'Customs Tariff / HS Code (بحث 🔍)',
+                                                  isDense: true,
+                                                ),
+                                                child: Text(
+                                                  item.tariffId != null
+                                                      ? (tariffs.any((t) => t.tariffId == item.tariffId)
+                                                          ? '${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode} - ${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsDescription}'
+                                                          : 'ID #${item.tariffId}')
+                                                      : 'None / General',
+                                                  style: TextStyle(
+                                                    fontWeight: item.tariffId != null ? FontWeight.bold : FontWeight.normal,
+                                                    color: item.tariffId != null ? AppTheme.cobalt : Colors.grey.shade700,
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
                                             ),
                                           ),
                                           if (_dialogItems.length > 1)
@@ -1313,21 +1478,23 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             child: TextFormField(
                                               initialValue: item.quantity.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Qty', isDense: true),
+                                              decoration: const InputDecoration(labelText: 'Qty (العدد)', isDense: true),
                                               onChanged: (v) {
                                                 final q = double.tryParse(v) ?? 1.0;
-                                                _dialogItems[idx] = POLineItemModel(
-                                                  itemCode: item.itemCode,
-                                                  descriptionAr: item.descriptionAr,
-                                                  descriptionEn: item.descriptionEn,
-                                                  tariffId: item.tariffId,
-                                                  quantity: q,
-                                                  unitOfMeasure: item.unitOfMeasure,
-                                                  unitPrice: item.unitPrice,
-                                                  cbmPerUnit: item.cbmPerUnit,
-                                                  grossWeightKg: item.grossWeightKg,
-                                                  netWeightKg: item.netWeightKg,
-                                                );
+                                                setState(() {
+                                                  _dialogItems[idx] = POLineItemModel(
+                                                    itemCode: item.itemCode,
+                                                    descriptionAr: item.descriptionAr,
+                                                    descriptionEn: item.descriptionEn,
+                                                    tariffId: item.tariffId,
+                                                    quantity: q,
+                                                    unitOfMeasure: item.unitOfMeasure,
+                                                    unitPrice: item.unitPrice,
+                                                    cbmPerUnit: item.cbmPerUnit,
+                                                    grossWeightKg: item.grossWeightKg,
+                                                    netWeightKg: item.netWeightKg,
+                                                  );
+                                                });
                                               },
                                             ),
                                           ),
@@ -1336,21 +1503,23 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             child: TextFormField(
                                               initialValue: item.unitPrice.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Unit Price', isDense: true),
+                                              decoration: const InputDecoration(labelText: 'Unit Price (سعر الوحده)', isDense: true),
                                               onChanged: (v) {
                                                 final p = double.tryParse(v) ?? 0.0;
-                                                _dialogItems[idx] = POLineItemModel(
-                                                  itemCode: item.itemCode,
-                                                  descriptionAr: item.descriptionAr,
-                                                  descriptionEn: item.descriptionEn,
-                                                  tariffId: item.tariffId,
-                                                  quantity: item.quantity,
-                                                  unitOfMeasure: item.unitOfMeasure,
-                                                  unitPrice: p,
-                                                  cbmPerUnit: item.cbmPerUnit,
-                                                  grossWeightKg: item.grossWeightKg,
-                                                  netWeightKg: item.netWeightKg,
-                                                );
+                                                setState(() {
+                                                  _dialogItems[idx] = POLineItemModel(
+                                                    itemCode: item.itemCode,
+                                                    descriptionAr: item.descriptionAr,
+                                                    descriptionEn: item.descriptionEn,
+                                                    tariffId: item.tariffId,
+                                                    quantity: item.quantity,
+                                                    unitOfMeasure: item.unitOfMeasure,
+                                                    unitPrice: p,
+                                                    cbmPerUnit: item.cbmPerUnit,
+                                                    grossWeightKg: item.grossWeightKg,
+                                                    netWeightKg: item.netWeightKg,
+                                                  );
+                                                });
                                               },
                                             ),
                                           ),
@@ -1360,14 +1529,14 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             decoration: BoxDecoration(
                                               color: Colors.green.shade50,
                                               borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.green.shade200),
+                                              border: Border.all(color: Colors.green.shade300),
                                             ),
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.center,
                                               children: [
-                                                const Text('Line Total', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                                const Text('Line Total (إجمالي السطر)', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
                                                 Text(
-                                                  '\$${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
+                                                  '${currencies.firstWhere((c) => c.currencyId == _selectedCurrencyId, orElse: () => CurrencyModel(currencyId: 0, currencyCode: 'USD', currencyName: 'USD', currencySymbol: '\$')).currencyCode} ${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
                                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
                                                 ),
                                               ],
@@ -1523,22 +1692,39 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
-                                                    child: TextFormField(
-                                                      initialValue: p.hsCode,
-                                                      decoration: const InputDecoration(labelText: 'HS Code *', isDense: true),
-                                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                                      onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
-                                                        hsCode: v,
-                                                        itemCode: p.itemCode,
-                                                        qtyPcs: p.qtyPcs,
-                                                        qtyPkg: p.qtyPkg,
-                                                        packageType: p.packageType,
-                                                        unit: p.unit,
-                                                        lengthCm: p.lengthCm,
-                                                        widthCm: p.widthCm,
-                                                        heightCm: p.heightCm,
-                                                        netWeightUnitKg: p.netWeightUnitKg,
-                                                        grossWeightUnitKg: p.grossWeightUnitKg,
+                                                    child: InkWell(
+                                                      onTap: () async {
+                                                        final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                                        if (picked != null) {
+                                                          setState(() {
+                                                            _dialogPackingItems[idx] = PackingListItemModel(
+                                                              hsCode: picked.hsCode,
+                                                              itemCode: p.itemCode,
+                                                              qtyPcs: p.qtyPcs,
+                                                              qtyPkg: p.qtyPkg,
+                                                              packageType: p.packageType,
+                                                              unit: p.unit,
+                                                              lengthCm: p.lengthCm,
+                                                              widthCm: p.widthCm,
+                                                              heightCm: p.heightCm,
+                                                              netWeightUnitKg: p.netWeightUnitKg,
+                                                              grossWeightUnitKg: p.grossWeightUnitKg,
+                                                              isStackable: p.isStackable,
+                                                            );
+                                                          });
+                                                        }
+                                                      },
+                                                      child: InputDecorator(
+                                                        decoration: const InputDecoration(labelText: 'HS Code (بحث 🔍) *', isDense: true),
+                                                        child: Text(
+                                                          p.hsCode.isNotEmpty ? p.hsCode : 'اختر بند جمركي',
+                                                          style: TextStyle(
+                                                            fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                                                            color: p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600,
+                                                            fontSize: 12,
+                                                          ),
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
                                                       ),
                                                     ),
                                                   ),
@@ -1951,6 +2137,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         supplierId: _selectedSupplierId!,
                         incotermId: _selectedIncotermId!,
                         currencyId: _selectedCurrencyId!,
+                        orderDate: _selectedOrderDate,
                         exchangeRate: rate,
                         paymentTerms: _selectedPaymentTerms,
                         status: _selectedStatus,
@@ -1985,6 +2172,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         'supplier_id': _selectedSupplierId!,
                         'incoterm_id': _selectedIncotermId!,
                         'currency_id': _selectedCurrencyId!,
+                        'order_date': _selectedOrderDate.toIso8601String(),
                         'exchange_rate': rate,
                         'payment_terms': _selectedPaymentTerms,
                         'status': _selectedStatus,

@@ -3,11 +3,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
+import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../financial_approval/providers/financial_approval_provider.dart';
 import '../../financial_approval/models/financial_approval_model.dart';
@@ -779,206 +781,15 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.folder_special, color: AppTheme.cobalt, size: 28),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'تفاصيل ملف الشحنة: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                    ),
-                    Text(
-                      'كود الشحنة الرسمي: ${file.importFileCode} | المورد: ${file.supplierName} | الحالة: ${file.status}',
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 920,
-            height: 550,
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: AppTheme.cobalt.withOpacity(0.06),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '📊 ملخص الفواتير وأحجام التعبئة المرتبطة بملف الاستيراد:',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildDetailMetricTile(
-                                'عدد الفواتير وأرقامها',
-                                '${invoiceNumbers.length} فواتير',
-                                subtitle: invoiceNumbers.isEmpty ? 'لا توجد فواتير' : invoiceNumbers.join(', '),
-                                icon: Icons.receipt_long,
-                                color: AppTheme.cobalt,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildDetailMetricTile(
-                                'إجمالي الـ CBM من الباكينج ليست',
-                                '${totalPackingListCbm.toStringAsFixed(3)} m³',
-                                subtitle: 'مجموع الـ CBM من كافه الباكينج ليست',
-                                icon: Icons.view_in_ar,
-                                color: Colors.orange,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildDetailMetricTile(
-                                'إجمالي الوزن القائم (Gross Wt)',
-                                '${totalPackingListWeight.toStringAsFixed(0)} kg',
-                                subtitle: 'مجموع الوزن من كافه الباكينج ليست',
-                                icon: Icons.fitness_center,
-                                color: AppTheme.emerald,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildDetailMetricTile(
-                                'أوامر الشراء المرتبطة',
-                                '${linkedPOs.length} POs',
-                                subtitle: '$totalPackingListsCount قوائم تعبئة (Packing Lists)',
-                                icon: Icons.shopping_bag,
-                                color: Colors.purple,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  const Text(
-                    '🛒 قائمة أوامر الشراء التفصيلية المرتبطة بهذا الملف (Linked Purchase Orders):',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                  ),
-                  const SizedBox(height: 10),
-                  linkedPOs.isEmpty
-                      ? Container(
-                          padding: const EdgeInsets.all(24),
-                          width: double.infinity,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                          child: const Text('لا توجد أوامر شراء مرتبطة بهذا الملف حالياً.'),
-                        )
-                      : Table(
-                          border: TableBorder.all(color: Colors.grey.shade300),
-                          columnWidths: const {
-                            0: FlexColumnWidth(1.5),
-                            1: FlexColumnWidth(1.5),
-                            2: FlexColumnWidth(2.0),
-                            3: FlexColumnWidth(1.5),
-                            4: FlexColumnWidth(1.2),
-                            5: FlexColumnWidth(1.6),
-                            6: FlexColumnWidth(1.2),
-                          },
-                          children: [
-                            const TableRow(
-                              decoration: BoxDecoration(color: AppTheme.charcoal),
-                              children: [
-                                Padding(padding: EdgeInsets.all(8), child: Text('رقم أمر الشراء', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('رقم الفاتورة المبدئية PI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('المورد الأجنبي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('قيمة الفاتورة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('قوائم التعبئة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('CBM / الوزن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                                Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                              ],
-                            ),
-                            ...linkedPOs.map((po) {
-                              final poPlCbm = po.packingListItems.isNotEmpty
-                                  ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
-                                  : po.totalCbm;
-                              final poPlWeight = po.packingListItems.isNotEmpty
-                                  ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
-                                  : po.totalGrossWeightKg;
-                              final plCount = po.packingListItems.length;
-
-                              return TableRow(
-                                children: [
-                                  Padding(padding: const EdgeInsets.all(8), child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-')),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-')),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text('\$${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text('$plCount بند تعبئة', style: const TextStyle(fontWeight: FontWeight.w600))),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text('${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                  Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
-                                ],
-                              );
-                            }),
-                          ],
-                        ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            if (file.status != 'Closed')
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
-                label: const Text('إغلاق وإيقاف الشحنة عند هذه المرحلة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                onPressed: () async {
-                  Navigator.pop(context);
-                  showDialog(
-                    context: context,
-                    builder: (c) => CloseShipmentDialog(
-                      importFileId: file.importFileId,
-                      importFileCode: file.customFileNumber ?? file.importFileCode,
-                      currentPhaseName: file.currentStage,
-                    ),
-                  );
-                },
-              ),
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
-          ],
+        return _ImportFileDetailsDialogWidget(
+          file: file,
+          linkedPOs: linkedPOs,
+          invoiceNumbers: invoiceNumbers,
+          totalPackingListCbm: totalPackingListCbm,
+          totalPackingListWeight: totalPackingListWeight,
+          totalPackingListsCount: totalPackingListsCount,
         );
       },
-    );
-  }
-
-  Widget _buildDetailMetricTile(String title, String value, {required String subtitle, required IconData icon, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.3))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 18),
-              const SizedBox(width: 6),
-              Expanded(child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal), overflow: TextOverflow.ellipsis)),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
-          const SizedBox(height: 2),
-          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), overflow: TextOverflow.ellipsis, maxLines: 1),
-        ],
-      ),
     );
   }
 
@@ -1219,6 +1030,523 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
             TextSpan(text: value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ImportFileDetailsDialogWidget extends StatefulWidget {
+  final ImportFileModel file;
+  final List<PurchaseOrderModel> linkedPOs;
+  final Set<String> invoiceNumbers;
+  final double totalPackingListCbm;
+  final double totalPackingListWeight;
+  final int totalPackingListsCount;
+
+  const _ImportFileDetailsDialogWidget({
+    required this.file,
+    required this.linkedPOs,
+    required this.invoiceNumbers,
+    required this.totalPackingListCbm,
+    required this.totalPackingListWeight,
+    required this.totalPackingListsCount,
+  });
+
+  @override
+  State<_ImportFileDetailsDialogWidget> createState() => _ImportFileDetailsDialogWidgetState();
+}
+
+class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialogWidget> {
+  bool _isStackable = true;
+
+  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل (MD-019.1 Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: 750,
+              height: 480,
+              child: Column(
+                children: [
+                  Container(
+                    color: AppTheme.charcoal,
+                    child: const TabBar(
+                      indicatorColor: AppTheme.cobalt,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      tabs: [
+                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
+                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        _buildComparisonTable(dualRec.stackableResult),
+                        _buildComparisonTable(dualRec.nonStackableResult),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
+            ),
+            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+          ),
+          const SizedBox(height: 12),
+          Table(
+            border: TableBorder.all(color: Colors.grey.shade300),
+            columnWidths: const {
+              0: FlexColumnWidth(2.0),
+              1: FlexColumnWidth(1.2),
+              2: FlexColumnWidth(1.5),
+              3: FlexColumnWidth(1.5),
+              4: FlexColumnWidth(1.5),
+            },
+            children: [
+              const TableRow(
+                decoration: BoxDecoration(color: AppTheme.charcoal),
+                children: [
+                  Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية (Container Spec)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8), child: Text('العدد المطلوب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8), child: Text('السعة الفعالة CBM', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8), child: Text('استغلال المساحة %', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: EdgeInsets.all(8), child: Text('استغلال الوزن %', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                ],
+              ),
+              ...rec.comparisonDetails.map((detail) {
+                final spec = detail['spec'] as ContainerSpec;
+                final reqCount = detail['reqCount'] as int;
+                final effVol = detail['effectiveVolumeCbm'] as double;
+                final spaceUtil = detail['spaceUtil'] as double;
+                final payloadUtil = detail['payloadUtil'] as double;
+                final isBest = spec.code == rec.recommendedContainerCode;
+
+                return TableRow(
+                  decoration: BoxDecoration(color: isBest ? AppTheme.cobalt.withOpacity(0.08) : null),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Row(
+                        children: [
+                          if (isBest) const Icon(Icons.star, color: Colors.amber, size: 16),
+                          if (isBest) const SizedBox(width: 4),
+                          Text('${spec.code} (${spec.name})', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal, color: isBest ? AppTheme.cobalt : AppTheme.charcoal)),
+                        ],
+                      ),
+                    ),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('$reqCount حاوية', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${effVol.toStringAsFixed(1)} m³')),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${spaceUtil.toStringAsFixed(1)}%', style: TextStyle(color: spaceUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('${payloadUtil.toStringAsFixed(1)}%', style: TextStyle(color: payloadUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
+                  ],
+                );
+              }),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final file = widget.file;
+    final linkedPOs = widget.linkedPOs;
+    final invoiceNumbers = widget.invoiceNumbers;
+    final totalPackingListCbm = widget.totalPackingListCbm;
+    final totalPackingListWeight = widget.totalPackingListWeight;
+    final totalPackingListsCount = widget.totalPackingListsCount;
+
+    final dualRec = ContainerRequirementEngine.calculateBoth(
+      totalCbm: totalPackingListCbm,
+      totalWeightKg: totalPackingListWeight,
+    );
+    final currentRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+    final modeRec = dualRec.modeRecommendation;
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.folder_special, color: AppTheme.cobalt, size: 28),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'تفاصيل ملف الشحنة: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                Text(
+                  'كود الشحنة الرسمي: ${file.importFileCode} | المورد: ${file.supplierName} | الحالة: ${file.status}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: 920,
+        height: 620,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Top Metric Summary Cards
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      '📊 ملخص الفواتير وأحجام التعبئة المرتبطة بملف الاستيراد:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMetricTile(
+                            'عدد الفواتير وأرقامها',
+                            '${invoiceNumbers.length} فواتير',
+                            subtitle: invoiceNumbers.isEmpty ? 'لا توجد فواتير' : invoiceNumbers.join(', '),
+                            icon: Icons.receipt_long,
+                            color: AppTheme.cobalt,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildMetricTile(
+                            'إجمالي الـ CBM من الباكينج ليست',
+                            '${totalPackingListCbm.toStringAsFixed(3)} m³',
+                            subtitle: 'مجموع الـ CBM من كافه الباكينج ليست',
+                            icon: Icons.view_in_ar,
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildMetricTile(
+                            'إجمالي الوزن القائم (Gross Wt)',
+                            '${totalPackingListWeight.toStringAsFixed(0)} kg',
+                            subtitle: 'مجموع الوزن من كافه الباكينج ليست',
+                            icon: Icons.fitness_center,
+                            color: AppTheme.emerald,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildMetricTile(
+                            'أوامر الشراء المرتبطة',
+                            '${linkedPOs.length} POs',
+                            subtitle: '$totalPackingListsCount قوائم تعبئة (Packing Lists)',
+                            icon: Icons.shopping_bag,
+                            color: Colors.purple,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Linked Purchase Orders Table
+              const Text(
+                '🛒 قائمة أوامر الشراء التفصيلية المرتبطة بهذا الملف (Linked Purchase Orders):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+              ),
+              const SizedBox(height: 10),
+              linkedPOs.isEmpty
+                  ? Container(
+                      padding: const EdgeInsets.all(24),
+                      width: double.infinity,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
+                      child: const Text('لا توجد أوامر شراء مرتبطة بهذا الملف حالياً.'),
+                    )
+                  : Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.5),
+                        1: FlexColumnWidth(1.5),
+                        2: FlexColumnWidth(2.0),
+                        3: FlexColumnWidth(1.5),
+                        4: FlexColumnWidth(1.2),
+                        5: FlexColumnWidth(1.6),
+                        6: FlexColumnWidth(1.2),
+                      },
+                      children: [
+                        const TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal),
+                          children: [
+                            Padding(padding: EdgeInsets.all(8), child: Text('رقم أمر الشراء', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('رقم الفاتورة المبدئية PI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('المورد الأجنبي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('قيمة الفاتورة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('قوائم التعبئة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('CBM / الوزن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                          ],
+                        ),
+                        ...linkedPOs.map((po) {
+                          final poPlCbm = po.packingListItems.isNotEmpty
+                              ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
+                              : po.totalCbm;
+                          final poPlWeight = po.packingListItems.isNotEmpty
+                              ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
+                              : po.totalGrossWeightKg;
+                          final plCount = po.packingListItems.length;
+
+                          return TableRow(
+                            children: [
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-')),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-')),
+                              Padding(padding: const EdgeInsets.all(8), child: Text('\$${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text('$plCount بند تعبئة', style: const TextStyle(fontWeight: FontWeight.w600))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text('${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+              const SizedBox(height: 18),
+
+              // CARGO STACKING & CONTAINER REQUIREMENT WIDGET (MD-019.1)
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.purple.shade200),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
+                            const SizedBox(width: 8),
+                            const Text(
+                              '🚚 تعليمات التحميل (Cargo Stacking): ',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            ChoiceChip(
+                              label: const Text('📦 قابل للرص (Stackable)'),
+                              selected: _isStackable,
+                              selectedColor: AppTheme.cobalt,
+                              labelStyle: TextStyle(
+                                color: _isStackable ? Colors.white : AppTheme.charcoal,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                              onSelected: (val) => setState(() => _isStackable = true),
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                              selected: !_isStackable,
+                              selectedColor: Colors.orange.shade800,
+                              labelStyle: TextStyle(
+                                color: !_isStackable ? Colors.white : AppTheme.charcoal,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                              ),
+                              onSelected: (val) => setState(() => _isStackable = false),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
+                              label: const Text(
+                                'مقارنة الحالتين (Matrix)',
+                                style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _showContainerComparisonDialog(
+                                context,
+                                dualRec,
+                                totalPackingListCbm,
+                                totalPackingListWeight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // Smart Recommendation Banner Box
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(
+                                modeRec.isAirSuggested
+                                    ? Icons.airplanemode_active
+                                    : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
+                                color: modeRec.isAirSuggested
+                                    ? Colors.purple
+                                    : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                                size: 22,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  modeRec.reasonAr,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: modeRec.isAirSuggested
+                                        ? Colors.purple.shade900
+                                        : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Divider(height: 16),
+                          Row(
+                            children: [
+                              const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
+                              const SizedBox(width: 6),
+                              const Text('عدد الحاويات وطريقة الشحن المقترحة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                              Expanded(
+                                child: Text(
+                                  '${currentRec.requiredContainersCount} x ${currentRec.recommendedContainerCode} (${modeRec.recommendedModeAr})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'توصية استغلال المساحة والوزن: ${currentRec.recommendationSummary}',
+                            style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        if (file.status != 'Closed')
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+            icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
+            label: const Text('إغلاق وإيقاف الشحنة عند هذه المرحلة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () async {
+              Navigator.pop(context);
+              showDialog(
+                context: context,
+                builder: (c) => CloseShipmentDialog(
+                  importFileId: file.importFileId,
+                  importFileCode: file.customFileNumber ?? file.importFileCode,
+                  currentPhaseName: file.currentStage,
+                ),
+              );
+            },
+          ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+      ],
+    );
+  }
+
+  Widget _buildMetricTile(String title, String value, {required String subtitle, required IconData icon, required Color color}) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: color.withOpacity(0.3))),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 18),
+              const SizedBox(width: 6),
+              Expanded(child: Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal), overflow: TextOverflow.ellipsis)),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(value, style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+          const SizedBox(height: 2),
+          Text(subtitle, style: const TextStyle(fontSize: 10, color: Colors.grey), overflow: TextOverflow.ellipsis, maxLines: 1),
+        ],
       ),
     );
   }
@@ -1472,10 +1800,17 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<int?>(
+                      child: SearchableDropdownField<int?>(
                         value: _selectedCompanyId,
-                        decoration: const InputDecoration(labelText: 'الشركة المستوردة المصرية *', border: OutlineInputBorder()),
-                        items: companies.map((c) => DropdownMenuItem<int?>(value: c.companyId, child: Text(c.importerName))).toList(),
+                        labelText: 'الشركة المستوردة المصرية *',
+                        searchHintText: 'ابحث عن الشركة المستوردة...',
+                        items: companies
+                            .map((c) => SearchableDropdownItem<int?>(
+                                  value: c.companyId,
+                                  label: c.importerName,
+                                  subtitle: c.vatId,
+                                ))
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
                             final comp = companies.firstWhere((c) => c.companyId == val);
@@ -1494,10 +1829,17 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<int?>(
+                      child: SearchableDropdownField<int?>(
                         value: _selectedSupplierId,
-                        decoration: const InputDecoration(labelText: 'المورد الأجنبي (Supplier) *', border: OutlineInputBorder()),
-                        items: suppliers.map((s) => DropdownMenuItem<int?>(value: s.supplierId, child: Text(s.companyName))).toList(),
+                        labelText: 'المورد الأجنبي (Supplier) *',
+                        searchHintText: 'ابحث عن المورد الأجنبي...',
+                        items: suppliers
+                            .map((s) => SearchableDropdownItem<int?>(
+                                  value: s.supplierId,
+                                  label: s.companyName,
+                                  subtitle: s.foreignExporterCountry,
+                                ))
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
                             final sup = suppliers.firstWhere((s) => s.supplierId == val);
@@ -1511,19 +1853,19 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<int?>(
+                      child: SearchableDropdownField<int?>(
                         value: _selectedBrokerId,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'المخلص الجمركي (Customs Broker)',
-                          border: OutlineInputBorder(),
-                        ),
+                        labelText: 'المخلص الجمركي (Customs Broker)',
+                        searchHintText: 'ابحث عن المخلص الجمركي...',
                         items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('-- اختيار المخلص الجمركي --')),
-                          ...partners.where((p) => p.partnerType.toUpperCase().contains('BROKER') || p.partnerType.toUpperCase().contains('CUSTOMS')).map((b) => DropdownMenuItem<int?>(
-                                value: b.providerId,
-                                child: Text(b.partnerName, overflow: TextOverflow.ellipsis),
-                              )),
+                          const SearchableDropdownItem<int?>(value: null, label: '-- اختيار المخلص الجمركي --'),
+                          ...partners
+                              .where((p) => p.partnerType.toUpperCase().contains('BROKER') || p.partnerType.toUpperCase().contains('CUSTOMS'))
+                              .map((b) => SearchableDropdownItem<int?>(
+                                    value: b.providerId,
+                                    label: b.partnerName,
+                                    subtitle: b.partnerType,
+                                  )),
                         ],
                         onChanged: (val) {
                           if (val != null) {
@@ -1614,27 +1956,33 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: incoterms.any((i) => i.incotermCode == _incotermCode) ? _incotermCode : 'FOB',
-                        decoration: const InputDecoration(labelText: 'شرط التجارة (Incoterm) *', border: OutlineInputBorder()),
-                        items: (incoterms.isNotEmpty ? incoterms.map((i) => i.incotermCode).toList() : ['FOB', 'CIF', 'CFR', 'EXW'])
-                            .map((code) => DropdownMenuItem(value: code, child: Text(code)))
+                        labelText: 'شرط التجارة (Incoterm) *',
+                        searchHintText: 'ابحث عن شرط التجارة...',
+                        items: (incoterms.isNotEmpty ? incoterms.map((i) => i.incotermCode).toList() : ['FOB', 'CIF', 'CFR', 'EXW', 'FCA', 'CIP', 'DDP', 'DAP'])
+                            .map((code) => SearchableDropdownItem<String>(value: code, label: code))
                             .toList(),
-                        onChanged: (v) => setState(() => _incotermCode = v!),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _incotermCode = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _priority,
-                        decoration: const InputDecoration(labelText: 'الأولوية (Priority) *', border: OutlineInputBorder()),
+                        labelText: 'الأولوية (Priority) *',
+                        searchHintText: 'ابحث عن مستوى الأولوية...',
                         items: const [
-                          DropdownMenuItem(value: 'Low', child: Text('Low (منخفضة)')),
-                          DropdownMenuItem(value: 'Medium', child: Text('Medium (متوسطة)')),
-                          DropdownMenuItem(value: 'High', child: Text('High (عالية)')),
-                          DropdownMenuItem(value: 'Critical', child: Text('Critical (حرجة)')),
+                          SearchableDropdownItem(value: 'Low', label: 'Low (منخفضة)'),
+                          SearchableDropdownItem(value: 'Medium', label: 'Medium (متوسطة)'),
+                          SearchableDropdownItem(value: 'High', label: 'High (عالية)'),
+                          SearchableDropdownItem(value: 'Critical', label: 'Critical (حرجة)'),
                         ],
-                        onChanged: (v) => setState(() => _priority = v!),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _priority = v);
+                        },
                       ),
                     ),
                   ],
@@ -1643,16 +1991,19 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _shipmentCategory,
-                        decoration: const InputDecoration(labelText: 'تصنيف الشحنة (Category) *', border: OutlineInputBorder()),
+                        labelText: 'تصنيف الشحنة (Category) *',
+                        searchHintText: 'ابحث عن التكليف / التصنيف...',
                         items: const [
-                          DropdownMenuItem(value: 'New Purchase', child: Text('New Purchase (شراء جديد)')),
-                          DropdownMenuItem(value: 'Replacement', child: Text('Replacement (استبدال)')),
-                          DropdownMenuItem(value: 'Repair', child: Text('Repair (إصلاح)')),
-                          DropdownMenuItem(value: 'Sample', child: Text('Sample (عينة)')),
+                          SearchableDropdownItem(value: 'New Purchase', label: 'New Purchase (شراء جديد)'),
+                          SearchableDropdownItem(value: 'Replacement', label: 'Replacement (استبدال)'),
+                          SearchableDropdownItem(value: 'Repair', label: 'Repair (إصلاح)'),
+                          SearchableDropdownItem(value: 'Sample', label: 'Sample (عينة)'),
                         ],
-                        onChanged: (v) => setState(() => _shipmentCategory = v!),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _shipmentCategory = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1727,15 +2078,16 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                         ),
                         const SizedBox(height: 8),
                       ],
-                      DropdownButtonFormField<int?>(
-                        decoration: const InputDecoration(
-                          labelText: '+ إضافة إسناد إلى مشروع (اختر مشروعاً للإضافة إلى الشحنة)',
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                        ),
+                      SearchableDropdownField<int?>(
+                        value: null,
+                        labelText: '+ إضافة إسناد إلى مشروع (اختر مشروعاً للإضافة إلى الشحنة)',
+                        searchHintText: 'ابحث عن المشروع بالاسم أو الكود...',
                         items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('-- اختر مشروعاً جديداً لإسناده للشحنة --')),
-                          ...projects.map((p) => DropdownMenuItem<int?>(value: p.projectId, child: Text('${p.projectName} (${p.projectCode})'))),
+                          const SearchableDropdownItem<int?>(value: null, label: '-- اختر مشروعاً جديداً لإسناده للشحنة --'),
+                          ...projects.map((p) => SearchableDropdownItem<int?>(
+                                value: p.projectId,
+                                label: '${p.projectName} (${p.projectCode})',
+                              )),
                         ],
                         onChanged: (val) {
                           if (val != null && !_selectedProjectIds.contains(val)) {

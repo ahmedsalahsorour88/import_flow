@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
@@ -370,13 +371,15 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  decoration: const InputDecoration(labelText: 'ملف الشحنة الاستيرادية *', border: OutlineInputBorder()),
+                  labelText: 'ملف الشحنة الاستيرادية *',
+                  searchHintText: 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...',
                   items: importFiles
-                      .map((f) => DropdownMenuItem<int?>(
+                      .map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}'),
+                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                            subtitle: f.companyName,
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
@@ -394,15 +397,18 @@ class _CustomsClearanceFormDialogState extends ConsumerState<_CustomsClearanceFo
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _channelType,
-                        decoration: const InputDecoration(labelText: 'المسار الجمركي (Channel) *', border: OutlineInputBorder()),
+                        labelText: 'المسار الجمركي (Channel) *',
+                        searchHintText: 'ابحث عن المسار الجمركي...',
                         items: const [
-                          DropdownMenuItem(value: 'Red Channel', child: Text('Red Channel (مسار أحمر - معاينة كاملة)')),
-                          DropdownMenuItem(value: 'Green Channel', child: Text('Green Channel (مسار أخضر - إفراج مباشر)')),
-                          DropdownMenuItem(value: 'Yellow Channel', child: Text('Yellow Channel (مسار مستندي)')),
+                          SearchableDropdownItem(value: 'Red Channel', label: 'Red Channel (مسار أحمر - معاينة كاملة)'),
+                          SearchableDropdownItem(value: 'Green Channel', label: 'Green Channel (مسار أخضر - إفراج مباشر)'),
+                          SearchableDropdownItem(value: 'Yellow Channel', label: 'Yellow Channel (مسار مستندي)'),
                         ],
-                        onChanged: (val) => setState(() => _channelType = val!),
+                        onChanged: (val) {
+                          if (val != null) setState(() => _channelType = val);
+                        },
                       ),
                     ),
                   ],

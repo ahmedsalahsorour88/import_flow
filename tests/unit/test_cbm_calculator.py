@@ -16,15 +16,20 @@ from modules.purchase_orders.model import PurchaseOrder
 from seed import seed_data
 
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
 @pytest.fixture(scope="module")
 def db():
-    Base.metadata.create_all(bind=engine)
-    seed_data()
-    session = SessionLocal()
+    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=test_engine)
+    TestingSession = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    session = TestingSession()
     try:
         yield session
     finally:
         session.close()
+        Base.metadata.drop_all(bind=test_engine)
 
 
 class TestCBMCalculatorBackend:

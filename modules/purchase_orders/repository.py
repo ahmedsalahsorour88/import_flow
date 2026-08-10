@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import or_
@@ -74,6 +74,7 @@ class PurchaseOrderRepository:
             supplier_id=data.supplier_id,
             incoterm_id=data.incoterm_id,
             currency_id=data.currency_id,
+            order_date=data.order_date or datetime.now(timezone.utc),
             expected_delivery_date=data.expected_delivery_date,
             exchange_rate=data.exchange_rate,
             payment_terms=data.payment_terms.strip() if data.payment_terms else None,

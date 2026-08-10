@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/file_closure_provider.dart';
 
@@ -263,13 +264,15 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  decoration: const InputDecoration(labelText: 'اختر ملف الشحنة للإغلاق النهائي *', border: OutlineInputBorder()),
+                  labelText: 'اختر ملف الشحنة للإغلاق النهائي *',
+                  searchHintText: 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...',
                   items: importFiles
-                      .map((f) => DropdownMenuItem<int?>(
+                      .map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}'),
+                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                            subtitle: f.companyName,
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),

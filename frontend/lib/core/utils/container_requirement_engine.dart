@@ -139,17 +139,28 @@ class ContainerRequirementEngine {
     }
 
     final List<Map<String, dynamic>> comparisons = [];
-    final double volumeUsabilityFactor = isStackable ? 1.0 : 0.50;
 
     for (final spec in specs) {
+      // For Non-Stackable cargo, calculate effective volume and floor footprint constraints:
+      // 40HC (76.4 CBM, 28.27 m² floor) fits up to 70 CBM / 28 m² floor footprint safely.
+      final double volumeUsabilityFactor = isStackable ? 1.0 : (spec.code == '40HC' || spec.code == '45HC' ? 0.85 : 0.65);
       final double effectiveVolumeCbm = spec.internalVolumeCbm * volumeUsabilityFactor;
       final int countByVol = effectiveVolumeCbm > 0 ? (totalCbm / effectiveVolumeCbm).ceil() : 1;
       final int countByWeight = spec.maxPayloadKg > 0 ? (totalWeightKg / spec.maxPayloadKg).ceil() : 1;
       final int rawReq = countByVol > countByWeight ? countByVol : countByWeight;
       final int reqCount = rawReq < 1 ? 1 : rawReq;
 
-      final double spaceUtil = (totalCbm / (reqCount * effectiveVolumeCbm)) * 100;
+      final double spaceUtil = (totalCbm / (reqCount * spec.internalVolumeCbm)) * 100;
       final double payloadUtil = (totalWeightKg / (reqCount * spec.maxPayloadKg)) * 100;
+
+      // Penalize oversized 45HC when 40HC fits 100% of cargo (e.g. 40 CBM)
+      double score = (reqCount * 100) - ((spaceUtil + payloadUtil) / 2);
+      if (!isStackable && totalCbm > 30.0 && totalCbm <= 65.0 && spec.code == '40HC' && reqCount == 1) {
+        score -= 50.0; // Boost 40HC as ideal non-stackable choice
+      }
+      if (!isStackable && totalCbm <= 65.0 && spec.code == '45HC') {
+        score += 30.0; // Discourage unnecessary 45HC when 40HC is sufficient
+      }
 
       comparisons.add({
         'spec': spec,
@@ -157,7 +168,7 @@ class ContainerRequirementEngine {
         'effectiveVolumeCbm': effectiveVolumeCbm,
         'spaceUtil': spaceUtil > 100 ? 100.0 : spaceUtil,
         'payloadUtil': payloadUtil > 100 ? 100.0 : payloadUtil,
-        'score': (reqCount * 100) - ((spaceUtil + payloadUtil) / 2),
+        'score': score,
       });
     }
 

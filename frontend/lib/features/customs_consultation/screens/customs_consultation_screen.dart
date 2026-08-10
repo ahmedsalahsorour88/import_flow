@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../projects/providers/projects_provider.dart';
@@ -478,10 +479,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedBrokerId,
-                                  decoration: const InputDecoration(labelText: 'المستخلص الجمركي (Customs Broker) *', border: OutlineInputBorder()),
-                                  items: brokersList.map((b) => DropdownMenuItem<int>(value: b.providerId, child: Text(b.partnerName))).toList(),
+                                  labelText: 'المستخلص الجمركي (Customs Broker) *',
+                                  searchHintText: 'ابحث عن المستخلص الجمركي...',
+                                  items: brokersList
+                                      .map((b) => SearchableDropdownItem<int?>(
+                                            value: b.providerId,
+                                            label: b.partnerName,
+                                            subtitle: b.contactPerson,
+                                          ))
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       final b = brokersList.firstWhere((element) => element.providerId == val);
@@ -501,22 +509,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedImportFileId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'ملف الشحنة الاستيرادية (Import File)',
-                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                                    border: OutlineInputBorder(),
-                                  ),
+                                  labelText: 'ملف الشحنة الاستيرادية (Import File)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
                                   items: [
-                                    const DropdownMenuItem<int?>(
+                                    const SearchableDropdownItem<int?>(
                                       value: null,
-                                      child: Text('-- بدون ربط بملف شحنة --'),
+                                      label: '-- بدون ربط بملف شحنة --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          subtitle: f.companyName,
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _selectedImportFileId = v),
@@ -524,24 +529,26 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedPoId,
-                                  decoration: const InputDecoration(labelText: 'ربط بأمر الشراء (Purchase Order - اختياري)', border: OutlineInputBorder()),
+                                  labelText: 'ربط بأمر الشراء (Purchase Order - اختياري)',
+                                  searchHintText: 'ابحث عن أمر الشراء...',
                                   items: [
-                                    const DropdownMenuItem<int?>(value: null, child: Text('بدون ربط (مستقل)')),
-                                    ...poList.map((po) => DropdownMenuItem<int?>(value: po.poId, child: Text('${po.poNumber} - ${po.supplierName}'))),
+                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط (مستقل)'),
+                                    ...poList.map((po) => SearchableDropdownItem<int?>(value: po.poId, label: '${po.poNumber} - ${po.supplierName}')),
                                   ],
                                   onChanged: (val) => setState(() => _selectedPoId = val),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedProjectId,
-                                  decoration: const InputDecoration(labelText: 'ربط بالمشروع (Project - اختياري)', border: OutlineInputBorder()),
+                                  labelText: 'ربط بالمشروع (Project - اختياري)',
+                                  searchHintText: 'ابحث عن المشروع...',
                                   items: [
-                                    const DropdownMenuItem<int?>(value: null, child: Text('بدون ربط مشروع')),
-                                    ...projectsList.map((pj) => DropdownMenuItem<int?>(value: pj.projectId, child: Text('${pj.projectCode} - ${pj.projectName}'))),
+                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط مشروع'),
+                                    ...projectsList.map((pj) => SearchableDropdownItem<int?>(value: pj.projectId, label: '${pj.projectCode} - ${pj.projectName}')),
                                   ],
                                   onChanged: (val) => setState(() => _selectedProjectId = val),
                                 ),

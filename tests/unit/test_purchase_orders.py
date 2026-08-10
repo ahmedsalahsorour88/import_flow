@@ -4,11 +4,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
+from modules.audit_logs.model import AuditLog
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.customs_tariff.schemas import CustomsTariffCreate
 from modules.customs_tariff.service import create_tariff_service
+from modules.external_service_providers.model import ExternalServiceProvider
 from modules.import_companies.model import ImportCompany
+from modules.import_files.model import ImportFile
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
 from modules.purchase_orders.schemas import POLineItemCreate, PurchaseOrderCreate, PurchaseOrderUpdate

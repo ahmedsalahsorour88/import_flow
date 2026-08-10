@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
@@ -385,10 +386,17 @@ class _CargoShippingFormDialogState extends ConsumerState<_CargoShippingFormDial
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Section 1: Cargo Readiness Date (CRD)
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  decoration: const InputDecoration(labelText: 'ملف الشحنة الاستيرادية المرتبط *', border: OutlineInputBorder()),
-                  items: importFiles.map((f) => DropdownMenuItem<int?>(value: f.importFileId, child: Text('${f.customFileNumber ?? f.importFileCode} (${f.companyName})'))).toList(),
+                  labelText: 'ملف الشحنة الاستيرادية المرتبط *',
+                  searchHintText: 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...',
+                  items: importFiles
+                      .map((f) => SearchableDropdownItem<int?>(
+                            value: f.importFileId,
+                            label: '${f.customFileNumber ?? f.importFileCode} (${f.companyName})',
+                            subtitle: f.supplierName,
+                          ))
+                      .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
                 ),
                 const SizedBox(height: 12),

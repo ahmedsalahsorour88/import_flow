@@ -6,7 +6,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from . import repository
-from .model import CustomsTariff
+from .model import CustomsTariff, PreferentialAgreement
 from .schemas import (
     CustomsDutyBreakdown,
     CustomsDutyEstimateRequest,
@@ -15,6 +15,9 @@ from .schemas import (
     MultiItemCustomsBreakdown,
     MultiItemCustomsEstimateRequest,
     MultiItemCustomsLineBreakdown,
+    PreferentialAgreementCreate,
+    PreferentialAgreementResponse,
+    TariffVerificationRequest,
 )
 from .validators import (
     validate_effective_date_range,
@@ -23,8 +26,10 @@ from .validators import (
 )
 
 
-def _round(value: Decimal) -> Decimal:
+def _round(value: Any) -> Decimal:
     """Helper to round financial decimals to 2 decimal places using HALF_UP."""
+    if not isinstance(value, Decimal):
+        value = Decimal(str(value))
     return value.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
@@ -89,6 +94,54 @@ def restore_tariff_service(db: Session, tariff_id: int) -> CustomsTariff:
     return repository.toggle_tariff_active(db, tariff_id, is_active=True)
 
 
+def verify_and_update_tariff_service(
+    db: Session, hs_code: str, request: TariffVerificationRequest
+) -> CustomsTariff:
+    """
+    مراجعة وتحديث البند الجمركي يدوياً (Addendum 3 Workflow):
+    1. البحث عن البند الجمركي الفعّال حالياً.
+    2. في حالة تغيير أي من نسب الضرائب (customs_duty_rate, vat_rate, schedule_tax_rate, ...):
+       يتم أتمتة السلسلة التاريخية بإغلاق السجل الحالي اليوم وإنشاء سجل جديد بتاريخ بداية اليوم.
+    3. في حالة مراجعة البيانات فقط بدون تغيير في النسب:
+       يتم تحديث بيانات التوثيق (source_url, last_verified_date, verified_by, confidence, prior_approval_note) على السجل الحالي مباشرة.
+    """
+    tariff = repository.get_tariff_by_hs_code(db, hs_code)
+    if not tariff:
+        raise HTTPException(status_code=404, detail=f"Customs Tariff for HS Code '{hs_code}' not found")
+
+    update_data = request.model_dump(exclude_unset=True, exclude_none=True)
+    today = date.today()
+
+    # Check if rate values have changed
+    has_rate_change = False
+    rate_fields = ["customs_duty_rate", "vat_rate", "schedule_tax_rate", "development_fee_rate", "import_fee_rate"]
+    for field in rate_fields:
+        if field in update_data:
+            current_val = getattr(tariff, field)
+            new_val = update_data[field]
+            if Decimal(str(current_val)) != Decimal(str(new_val)):
+                has_rate_change = True
+                break
+
+    if has_rate_change:
+        return repository.archive_and_create_new_tariff_version(db, tariff, update_data, effective_date=today)
+    else:
+        update_data["last_verified_date"] = today
+        return repository.update_tariff(db, tariff.tariff_id, update_data)
+
+
+def create_preferential_agreement_service(
+    db: Session, request: PreferentialAgreementCreate
+) -> PreferentialAgreement:
+    return repository.create_preferential_agreement(db, request.model_dump())
+
+
+def get_agreements_by_hs_code_service(
+    db: Session, hs_code: str, origin_country: Optional[str] = None
+) -> List[PreferentialAgreement]:
+    return repository.get_agreements_by_hs_code(db, hs_code, origin_country)
+
+
 # ==================================================
 # Egyptian Customs Duty Calculation Engine (7.2)
 # ==================================================
@@ -97,48 +150,59 @@ def estimate_customs_duty_service(
     db: Session, request: CustomsDutyEstimateRequest
 ) -> CustomsDutyBreakdown:
     """
-    محرك الحساب الجمركي المصري (Egyptian Customs Calculation Engine)
-
-    يتم حساب جميع الرسوم والضرائب بناءً على نسب الـ HS Code المحددة في MD-008.
-    لا يتم استخدام أي نسب ثنائية أو Hard-coded (مثل VAT 14%).
-
-    تسلسل الحساب:
-    1. Customs Value (CIF) = request.cif_value
-    2. Import Duty = CIF * (customs_duty_rate / 100)
-    3. VAT Base = CIF + Import Duty + Freight
-    4. VAT = VAT Base * (vat_rate / 100)
-    5. Schedule Tax = CIF * (schedule_tax_rate / 100)
-    6. Development Fee = CIF * (development_fee_rate / 100)
-    7. Import Fee = CIF * (import_fee_rate / 100)
-    8. Total Taxes & Fees = Import Duty + VAT + Schedule Tax + Development Fee + Import Fee
+    محرك الحساب الجمركي المصري للبند المنفرد (Single Item Customs Engine)
     """
     on_date = request.estimate_date or date.today()
-    tariff = repository.get_active_tariff_on_date(db, request.hs_code, on_date)
+    tariff = repository.get_active_tariff_on_date(db, request.hs_code, on_date, strict=True)
 
     if not tariff:
         raise HTTPException(
-            status_code=404,
-            detail=f"No active Customs Tariff rule found for HS Code '{request.hs_code}' on {on_date}",
+            status_code=422,
+            detail=(
+                f"لا يوجد بند تعريفة فعّال لكود {request.hs_code} بتاريخ {on_date}. "
+                "لا يمكن إكمال الحساب بنسبة افتراضية — أضف البند لجدول customs_tariffs أولاً."
+            ),
         )
 
     cif = request.cif_value
     freight = request.freight
 
     # Convert numeric fields to Decimal safely
-    duty_rate = Decimal(str(tariff.customs_duty_rate))
+    standard_duty_rate = Decimal(str(tariff.customs_duty_rate))
     vat_rate = Decimal(str(tariff.vat_rate))
     schedule_rate = Decimal(str(tariff.schedule_tax_rate))
     dev_rate = Decimal(str(tariff.development_fee_rate))
     import_fee_rate = Decimal(str(tariff.import_fee_rate))
+    svc_fee_rate = Decimal(str(tariff.customs_service_fee_rate if tariff.customs_service_fee_rate is not None else "1.00"))
+
+    # Trade Agreements Preferential Tariff Check (DB ONLY)
+    effective_duty_rate = standard_duty_rate
+    trade_agreement_name = None
+    conditions_note = None
+    if request.origin_country:
+        origin_clean = request.origin_country.upper()
+        db_agreements = repository.get_agreements_by_hs_code(db, request.hs_code, origin_clean)
+        if db_agreements:
+            ag_db = db_agreements[0]
+            trade_agreement_name = ag_db.agreement_name
+            conditions_note = ag_db.conditions_note
+            red_pct = Decimal(str(ag_db.reduction_percentage))
+            if ag_db.reduction_type == "full_duty_exemption":
+                effective_duty_rate = Decimal("0.00")
+            elif ag_db.reduction_type == "percentage_of_duty":
+                effective_duty_rate = _round(standard_duty_rate * (Decimal("1.00") - red_pct))
+            elif ag_db.reduction_type == "fixed_rate":
+                effective_duty_rate = red_pct
 
     # Calculation Steps
-    import_duty_amount = _round(cif * (duty_rate / Decimal("100")))
+    import_duty_amount = _round(cif * (effective_duty_rate / Decimal("100")))
     schedule_tax_amount = _round(cif * (schedule_rate / Decimal("100")))
     development_fee_amount = _round(cif * (dev_rate / Decimal("100")))
     import_fee_amount = _round(cif * (import_fee_rate / Decimal("100")))
+    customs_service_fee_amount = _round(cif * (svc_fee_rate / Decimal("100")))
 
-    # VAT Base includes CIF + Import Duty + Freight
-    vat_base = cif + import_duty_amount + freight
+    # Unified VAT Base equation: CIF Base + Actual Import Duty Amount
+    vat_base = cif + import_duty_amount
     vat_amount = _round(vat_base * (vat_rate / Decimal("100")))
 
     total_taxes = (
@@ -147,6 +211,7 @@ def estimate_customs_duty_service(
         + schedule_tax_amount
         + development_fee_amount
         + import_fee_amount
+        + customs_service_fee_amount
     )
 
     return CustomsDutyBreakdown(
@@ -154,25 +219,32 @@ def estimate_customs_duty_service(
         hs_description=tariff.hs_description,
         customs_category=tariff.customs_category,
         estimate_date=on_date,
+        origin_country=request.origin_country,
         cif_value=cif,
         freight=freight,
-        customs_duty_rate=duty_rate,
+        packaging_egp=request.packaging_egp or Decimal("0.00"),
+        customs_duty_rate=effective_duty_rate,
         vat_rate=vat_rate,
         schedule_tax_rate=schedule_rate,
         development_fee_rate=dev_rate,
         import_fee_rate=import_fee_rate,
+        customs_service_fee_rate=svc_fee_rate,
         import_duty_amount=import_duty_amount,
         vat_base=vat_base,
         vat_amount=vat_amount,
         schedule_tax_amount=schedule_tax_amount,
         development_fee_amount=development_fee_amount,
         import_fee_amount=import_fee_amount,
+        customs_service_fee_amount=customs_service_fee_amount,
         total_taxes_and_fees=total_taxes,
+        trade_agreement_applied=trade_agreement_name,
+        conditions_note=conditions_note,
         requires_coo=tariff.requires_coo,
         requires_inspection=tariff.requires_inspection,
         requires_acid=tariff.requires_acid,
         regulatory_authority=tariff.regulatory_authority,
     )
+
 
 
 # ==================================================
@@ -247,11 +319,12 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
             desc_val = row.get(field_map["hs_description"], "").strip() or f"HS Code {hs_code_val}"
             category_val = row.get(field_map.get("customs_category", ""), "").strip() or "General"
 
-            duty_val = float(row.get(field_map.get("customs_duty_rate", ""), 0) or 0)
-            vat_val = float(row.get(field_map.get("vat_rate", ""), 0) or 0)
-            sched_val = float(row.get(field_map.get("schedule_tax_rate", ""), 0) or 0)
-            dev_val = float(row.get(field_map.get("development_fee_rate", ""), 0) or 0)
-            imp_fee_val = float(row.get(field_map.get("import_fee_rate", ""), 0) or 0)
+            duty_val = _parse_decimal(row.get(field_map.get("customs_duty_rate", ""), "0"))
+            vat_val = _parse_decimal(row.get(field_map.get("vat_rate", ""), "0"))
+            sched_val = _parse_decimal(row.get(field_map.get("schedule_tax_rate", ""), "0"))
+            dev_val = _parse_decimal(row.get(field_map.get("development_fee_rate", ""), "0"))
+            imp_fee_val = _parse_decimal(row.get(field_map.get("import_fee_rate", ""), "0"))
+            svc_fee_val = _parse_decimal(row.get(field_map.get("customs_service_fee_rate", ""), "1.00"))
 
             auth_val = row.get(field_map.get("regulatory_authority", ""), "").strip() or None
             coo_val = str(row.get(field_map.get("requires_coo", ""), "true")).strip().lower() in ("true", "1", "yes", "نعم")
@@ -269,6 +342,7 @@ def bulk_import_tariffs_service(db: Session, file_contents: bytes, filename: str
                 "schedule_tax_rate": sched_val,
                 "development_fee_rate": dev_val,
                 "import_fee_rate": imp_fee_val,
+                "customs_service_fee_rate": svc_fee_val,
                 "regulatory_authority": auth_val,
                 "requires_coo": coo_val,
                 "requires_inspection": insp_val,
@@ -329,38 +403,16 @@ EXEMPTIONS_REGISTRY: Dict[str, dict] = {
     },
 }
 
-PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY: Dict[str, dict] = {
-    "TR": {
-        "agreement_name": "اتفاقية الشراكة المصرية التركية",
-        "origin_country": "TR",
-        "preferential_rate": Decimal("0.00"),
-    },
-    "MA": {
-        "agreement_name": "اتفاقية أغادير (المغرب)",
-        "origin_country": "MA",
-        "preferential_rate": Decimal("0.00"),
-    },
-    "TN": {
-        "agreement_name": "اتفاقية أغادير (تونس)",
-        "origin_country": "TN",
-        "preferential_rate": Decimal("0.00"),
-    },
-    "JO": {
-        "agreement_name": "اتفاقية أغادير (الأردن)",
-        "origin_country": "JO",
-        "preferential_rate": Decimal("0.00"),
-    },
-    "SA": {
-        "agreement_name": "منطقة التجارة الحرة العربية الكبرى (GAFTA - السعودية)",
-        "origin_country": "SA",
-        "preferential_rate": Decimal("0.00"),
-    },
-    "AE": {
-        "agreement_name": "منطقة التجارة الحرة العربية الكبرى (GAFTA - الإمارات)",
-        "origin_country": "AE",
-        "preferential_rate": Decimal("0.00"),
-    },
-}
+
+def _parse_decimal(raw: str, default: str = "0.00") -> Decimal:
+    """Helper to safely parse string/numeric inputs into Decimal without binary float rounding errors."""
+    try:
+        val = str(raw).strip()
+        if not val:
+            return Decimal(default)
+        return Decimal(val)
+    except Exception:
+        return Decimal(default)
 
 
 def resolve_insurance_freight(
@@ -372,12 +424,18 @@ def resolve_insurance_freight(
     has_freight_document: bool,
     deemed_insurance_rate: Decimal = Decimal("0.025"),
     deemed_freight_rate: Decimal = Decimal("0.020"),
+    freight_currency: str = "EGP",
+    freight_foreign_amount: Decimal = Decimal("0.00"),
+    freight_exchange_rate: Optional[Decimal] = None,
+    packaging_egp: Decimal = Decimal("0.00"),
 ) -> Tuple[Decimal, Decimal, str, str, Decimal]:
     """
     حساب وتأكيد قيم التأمين والنولون الفعلي أو الحكمي (Statutory / Deemed Costs)
+    يدعم تحويل النولون الفعلي بالعملة الأجنبية باستخدام معامل تحويل النولون الفعلي أو سعر الصرف الأساسي
     """
-    fob_value_egp = _round(invoice_total_value_fc * exchange_rate)
+    fob_value_egp = _round((invoice_total_value_fc * exchange_rate) + packaging_egp)
 
+    # Resolution of Insurance
     if has_insurance_document and actual_insurance_egp > Decimal("0.00"):
         resolved_insurance = actual_insurance_egp
         insurance_source = "actual"
@@ -385,8 +443,14 @@ def resolve_insurance_freight(
         resolved_insurance = _round(fob_value_egp * deemed_insurance_rate)
         insurance_source = "deemed"
 
-    if has_freight_document and actual_freight_egp > Decimal("0.00"):
-        resolved_freight = actual_freight_egp
+    # Resolution of Freight (support foreign currency freight & specific freight exchange rate)
+    effective_actual_freight_egp = actual_freight_egp
+    if freight_currency and freight_currency.upper() != "EGP" and freight_foreign_amount > Decimal("0.00"):
+        frt_rate = freight_exchange_rate if (freight_exchange_rate and freight_exchange_rate > Decimal("0.00")) else exchange_rate
+        effective_actual_freight_egp = _round(freight_foreign_amount * frt_rate)
+
+    if has_freight_document and effective_actual_freight_egp > Decimal("0.00"):
+        resolved_freight = effective_actual_freight_egp
         freight_source = "actual"
     else:
         resolved_freight = _round(fob_value_egp * deemed_freight_rate)
@@ -416,6 +480,65 @@ def apply_exemption(cif_line_egp: Decimal, exemption: Optional[dict], tax_type: 
     return cif_line_egp, None
 
 
+def calc_collection_fees(
+    fee_codes: List[repository.FeeCode],
+    duty_amount: Decimal,
+    service_fee_amount: Decimal,
+    vat_amount: Decimal,
+) -> dict:
+    """
+    حساب تفاصيل الرسوم والإقرارات الرسمية نافذة (Fee Codes Collection Engine)
+    """
+    computed: dict = {}
+    itemized: List[dict] = []
+    reference_map = {
+        "duty_amount": duty_amount,
+        "service_fee_amount": service_fee_amount,
+        "vat_amount": vat_amount,
+    }
+
+    # Stage 1: Flat & Reference Fee Codes
+    for fc in fee_codes:
+        if fc.calculation_type == "flat":
+            computed[fc.code] = Decimal(str(fc.flat_amount or 0))
+        elif fc.calculation_type == "reference":
+            computed[fc.code] = reference_map.get(fc.reference_source, Decimal("0.00"))
+
+    # Stage 2: Derived Fee Codes (depends on stage 1 codes)
+    for fc in fee_codes:
+        if fc.calculation_type == "derived" and fc.derived_formula_base_codes:
+            base_codes = [c.strip() for c in fc.derived_formula_base_codes.split(",")]
+            base_sum = sum(computed.get(c, Decimal("0.00")) for c in base_codes)
+            computed[fc.code] = _round(base_sum * (Decimal(str(fc.derived_formula_rate or 0)) / Decimal("100")))
+
+    groups: dict = {}
+    group_items: dict = {}
+    for fc in fee_codes:
+        group_name = fc.collection_group
+        val = computed.get(fc.code, Decimal("0.00"))
+        groups.setdefault(group_name, Decimal("0.00"))
+        groups[group_name] += val
+
+        item_info = {
+            "code": fc.code,
+            "name_ar": fc.name_ar,
+            "collection_group": fc.collection_group,
+            "calculation_type": fc.calculation_type,
+            "calculated_amount": float(val),
+        }
+        itemized.append(item_info)
+        group_items.setdefault(group_name, []).append(item_info)
+
+    total_sum = sum(groups.values())
+    return {
+        "by_code": {k: float(v) for k, v in computed.items()},
+        "by_group": {k: float(v) for k, v in groups.items()},
+        "itemized_fees": itemized,
+        "group_items": {k: v for k, v in group_items.items()},
+        "grand_total": float(total_sum),
+    }
+
+
 # ==================================================
 # Multi-Item Egyptian Customs Engine (Nafeza Statement Engine)
 # ==================================================
@@ -425,7 +548,7 @@ def estimate_multi_item_customs_duty_service(
 ) -> MultiItemCustomsBreakdown:
     """
     محرك الحساب الجمركي المصري لشحنة متعددة الأصناف (Multi-HS Code Customs Engine)
-    بناءً على المواصفة الفنية والنموذج الفعلي المعالج من منصة نافذة + الملحق الفني للإعفاءات التنافسية والحساب الحكمي.
+    يتوافق 100% مع النموذج الرسمي لقوائم التحصيل والشهادات الجمركية بمنصة نافذة.
     """
     on_date = request.estimate_date or date.today()
     if not request.lines:
@@ -451,42 +574,72 @@ def estimate_multi_item_customs_duty_service(
         has_freight_document=request.has_freight_document,
         deemed_insurance_rate=request.deemed_insurance_rate,
         deemed_freight_rate=request.deemed_freight_rate,
+        freight_currency=request.freight_currency or "EGP",
+        freight_foreign_amount=request.freight_foreign_amount or Decimal("0.00"),
+        freight_exchange_rate=request.freight_exchange_rate,
+        packaging_egp=request.packaging_egp or Decimal("0.00"),
     )
 
-    total_insurance_freight_egp = resolved_insurance_egp + resolved_freight_egp
+    total_insurance_freight_packaging_egp = resolved_insurance_egp + resolved_freight_egp + request.packaging_egp
 
     line_breakdowns: List[MultiItemCustomsLineBreakdown] = []
     total_duty_egp = Decimal("0.00")
     total_schedule_tax_egp = Decimal("0.00")
     total_vat_egp = Decimal("0.00")
+    total_customs_service_fee_egp = Decimal("0.00")
+    total_development_fee_egp = Decimal("0.00")
+    total_import_fee_egp = Decimal("0.00")
     total_inspection_fees_egp = Decimal("0.00")
 
     for line in request.lines:
-        tariff = repository.get_active_tariff_on_date(db, line.hs_code, on_date)
+        # Strict Tariff Lookup — FAIL LOUDLY if HS Code is not in DB on date (Issue #1)
+        tariff = repository.get_active_tariff_on_date(db, line.hs_code, on_date, strict=True)
+        if not tariff:
+            raise HTTPException(
+                status_code=422,
+                detail=(
+                    f"لا يوجد بند تعريفة فعّال لكود {line.hs_code} بتاريخ {on_date}. "
+                    "لا يمكن إكمال الحساب بنسبة افتراضية — أضف البند لجدول customs_tariffs أولاً."
+                ),
+            )
 
-        standard_duty_rate = Decimal(str(tariff.customs_duty_rate)) if tariff else Decimal("10.00")
-        vat_rate = Decimal(str(request.vat_rate_override or (tariff.vat_rate if tariff else Decimal("14.00"))))
-        sched_rate = Decimal(str(tariff.schedule_tax_rate)) if tariff else Decimal("10.00")
+        standard_duty_rate = Decimal(str(tariff.customs_duty_rate))
+        vat_rate = Decimal(str(request.vat_rate_override or tariff.vat_rate))
+        sched_rate = Decimal(str(tariff.schedule_tax_rate))
+        dev_rate = Decimal(str(tariff.development_fee_rate))
+        imp_fee_rate = Decimal(str(tariff.import_fee_rate))
+        svc_fee_rate = Decimal(str(tariff.customs_service_fee_rate if tariff.customs_service_fee_rate is not None else "1.00"))
 
-        # Step 2: Trade Agreements Preferential Tariff Check
+        # Step 2: Trade Agreements Preferential Tariff Check (DB ONLY - Issue #2)
         duty_rate = standard_duty_rate
         trade_agreement_name = None
-        if line.origin_country and line.origin_country.upper() in PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY:
-            ag = PREFERENTIAL_TRADE_AGREEMENTS_REGISTRY[line.origin_country.upper()]
-            duty_rate = ag["preferential_rate"]
-            trade_agreement_name = ag["agreement_name"]
+        conditions_note = None
+        if line.origin_country:
+            origin_clean = line.origin_country.upper()
+            db_agreements = repository.get_agreements_by_hs_code(db, line.hs_code, origin_clean)
+            if db_agreements:
+                ag_db = db_agreements[0]
+                trade_agreement_name = ag_db.agreement_name
+                conditions_note = ag_db.conditions_note
+                red_pct = Decimal(str(ag_db.reduction_percentage))
+                if ag_db.reduction_type == "full_duty_exemption":
+                    duty_rate = Decimal("0.00")
+                elif ag_db.reduction_type == "percentage_of_duty":
+                    duty_rate = _round(standard_duty_rate * (Decimal("1.00") - red_pct))
+                elif ag_db.reduction_type == "fixed_rate":
+                    duty_rate = red_pct
 
-        schedule_tax_base = "duty"
+        schedule_tax_base = "cif"
 
-        requires_coo = tariff.requires_coo if tariff else True
-        requires_inspection = tariff.requires_inspection if tariff else True
-        requires_acid = tariff.requires_acid if tariff else True
-        regulatory_authority = tariff.regulatory_authority if tariff else None
-        hs_description = tariff.hs_description if tariff else f"HS Code {line.hs_code}"
-        customs_category = tariff.customs_category if tariff else None
+        requires_coo = tariff.requires_coo
+        requires_inspection = tariff.requires_inspection
+        requires_acid = tariff.requires_acid
+        regulatory_authority = tariff.regulatory_authority
+        hs_description = tariff.hs_description
+        customs_category = tariff.customs_category
 
         value_share = line.value_fc / invoice_total_value_fc
-        allocated_ins_freight = total_insurance_freight_egp * value_share
+        allocated_ins_freight = total_insurance_freight_packaging_egp * value_share
 
         line_taxable_fc = line.value_fc - line.exempted_value_fc - line.value_without_payment_fc
         if request.cif_declared_total_egp and request.cif_declared_total_egp > Decimal("0.00"):
@@ -499,24 +652,26 @@ def estimate_multi_item_customs_duty_service(
         exemption_info = EXEMPTIONS_REGISTRY.get(exemption_code_to_apply) if exemption_code_to_apply else None
         exemption_details = None
 
-        # Apply Duty Exemption on Base
+        # Apply Duty Exemption on Base ONLY for Import Duty
         duty_taxable_base_egp, ex_det_duty = apply_exemption(cif_line_egp, exemption_info, "duty")
         if ex_det_duty:
             exemption_details = ex_det_duty
 
         duty_line_egp = _round(duty_taxable_base_egp * (duty_rate / Decimal("100")))
 
-        # Apply Schedule Tax Exemption on Base
-        schedule_taxable_base_egp, ex_det_sched = apply_exemption(cif_line_egp, exemption_info, "schedule_tax")
-        if schedule_tax_base == "duty":
-            schedule_tax_line_egp = _round(duty_line_egp * (sched_rate / Decimal("100")))
-        elif schedule_tax_base == "cif":
-            schedule_tax_line_egp = _round(schedule_taxable_base_egp * (sched_rate / Decimal("100")))
-        else:
-            schedule_tax_line_egp = Decimal("0.00")
+        # Schedule Tax Exemption (does NOT get exempted by trade agreements!)
+        schedule_taxable_base_egp, _ = apply_exemption(cif_line_egp, exemption_info, "schedule_tax")
+        schedule_tax_line_egp = _round(schedule_taxable_base_egp * (sched_rate / Decimal("100")))
 
-        # Apply VAT Exemption on Base
-        vat_taxable_base_egp, ex_det_vat = apply_exemption(cif_line_egp, exemption_info, "vat")
+        # Customs Service Fee (أ.ت.ص 1%) — Calculated ALWAYS on full CIF value, NEVER exempted by duty agreements! (Issue #3)
+        customs_service_fee_line_egp = _round(cif_line_egp * (svc_fee_rate / Decimal("100")))
+
+        # Development & Import Fees
+        development_fee_line_egp = _round(cif_line_egp * (dev_rate / Decimal("100")))
+        import_fee_line_egp = _round(cif_line_egp * (imp_fee_rate / Decimal("100")))
+
+        # Unified VAT Base Equation: CIF Line EGP + Actual Import Duty EGP (Issue #4)
+        vat_taxable_base_egp, _ = apply_exemption(cif_line_egp, exemption_info, "vat")
         vat_base_egp = vat_taxable_base_egp + duty_line_egp
         vat_line_egp = _round(vat_base_egp * (vat_rate / Decimal("100")))
 
@@ -525,6 +680,9 @@ def estimate_multi_item_customs_duty_service(
         total_duty_egp += duty_line_egp
         total_schedule_tax_egp += schedule_tax_line_egp
         total_vat_egp += vat_line_egp
+        total_customs_service_fee_egp += customs_service_fee_line_egp
+        total_development_fee_egp += development_fee_line_egp
+        total_import_fee_egp += import_fee_line_egp
         total_inspection_fees_egp += inspection_fee_line_egp
 
         line_breakdowns.append(
@@ -549,12 +707,19 @@ def estimate_multi_item_customs_duty_service(
                 vat_rate=vat_rate,
                 vat_base_egp=vat_base_egp,
                 vat_egp=vat_line_egp,
+                development_fee_rate=dev_rate,
+                development_fee_egp=development_fee_line_egp,
+                import_fee_rate=imp_fee_rate,
+                import_fee_egp=import_fee_line_egp,
+                customs_service_fee_rate=svc_fee_rate,
+                customs_service_fee_egp=customs_service_fee_line_egp,
                 inspection_fee_egp=inspection_fee_line_egp,
                 insurance_source=insurance_source,
                 freight_source=freight_source,
                 exemption_code_applied=exemption_code_to_apply if exemption_info else None,
                 exemption_applied_details=exemption_details,
                 preferential_agreement_applied=trade_agreement_name,
+                conditions_note=conditions_note,
                 requires_coo=requires_coo,
                 requires_inspection=requires_inspection,
                 requires_acid=requires_acid,
@@ -562,8 +727,31 @@ def estimate_multi_item_customs_duty_service(
             )
         )
 
-    items_taxes_total_egp = total_duty_egp + total_schedule_tax_egp + total_vat_egp
-    grand_total_payable_egp = items_taxes_total_egp + _round(request.additional_fees_egp)
+    # Compute Fee Codes Collection Breakdown (Issue #10)
+    active_fee_codes = repository.get_active_fee_codes(db, on_date)
+    fee_codes_result = calc_collection_fees(
+        fee_codes=active_fee_codes,
+        duty_amount=total_duty_egp,
+        service_fee_amount=total_customs_service_fee_egp,
+        vat_amount=total_vat_egp,
+    )
+
+    additional_fees_total_egp = (
+        request.additional_fees_egp
+        if request.additional_fees_egp > Decimal("0.00")
+        else Decimal(str(fee_codes_result["grand_total"]))
+    )
+
+    items_taxes_total_egp = (
+        total_duty_egp
+        + total_schedule_tax_egp
+        + total_vat_egp
+        + total_customs_service_fee_egp
+        + total_development_fee_egp
+        + total_import_fee_egp
+        + total_inspection_fees_egp
+    )
+    grand_total_payable_egp = items_taxes_total_egp + _round(additional_fees_total_egp)
 
     return MultiItemCustomsBreakdown(
         currency=request.currency,
@@ -572,17 +760,43 @@ def estimate_multi_item_customs_duty_service(
         fob_value_egp=fob_value_egp,
         insurance_egp=resolved_insurance_egp,
         freight_egp=resolved_freight_egp,
+        packaging_egp=request.packaging_egp,
         insurance_source=insurance_source,
         freight_source=freight_source,
-        additional_fees_egp=request.additional_fees_egp,
+        additional_fees_egp=additional_fees_total_egp,
         estimate_date=on_date,
         lines=line_breakdowns,
         total_duty_egp=total_duty_egp,
         total_schedule_tax_egp=total_schedule_tax_egp,
         total_vat_egp=total_vat_egp,
+        total_customs_service_fee_egp=total_customs_service_fee_egp,
+        total_development_fee_egp=total_development_fee_egp,
+        total_import_fee_egp=total_import_fee_egp,
         total_inspection_fees_egp=total_inspection_fees_egp,
         items_taxes_total_egp=items_taxes_total_egp,
         grand_total_payable_egp=grand_total_payable_egp,
+        fee_codes_breakdown=fee_codes_result,
     )
+
+
+# ==================================================
+# Fee Code Services
+# ==================================================
+
+from .schemas import FeeCodeCreate
+
+
+def get_all_fee_codes_service(
+    db: Session, include_inactive: bool = False
+) -> List[repository.FeeCode]:
+    return repository.get_all_fee_codes(db, include_inactive=include_inactive)
+
+
+def create_fee_code_service(
+    db: Session, request: FeeCodeCreate
+) -> repository.FeeCode:
+    return repository.create_fee_code(db, request.model_dump())
+
+
 
 

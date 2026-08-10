@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -291,22 +292,19 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _acidSelectedImportFileId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
-                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                                    border: OutlineInputBorder(),
-                                  ),
+                                  labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
                                   items: [
-                                    const DropdownMenuItem<int?>(
+                                    const SearchableDropdownItem<int?>(
                                       value: null,
-                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                      label: '-- None / غير مرتبط بملف شحنة --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          subtitle: f.companyName,
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _acidSelectedImportFileId = v),
@@ -356,10 +354,17 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedImporterId,
-                                  decoration: const InputDecoration(labelText: 'الشركة المستوردة المصرية *', border: OutlineInputBorder()),
-                                  items: companiesList.map((c) => DropdownMenuItem<int?>(value: c.companyId, child: Text(c.importerName))).toList(),
+                                  labelText: 'الشركة المستوردة المصرية *',
+                                  searchHintText: 'ابحث عن الشركة المستوردة...',
+                                  items: companiesList
+                                      .map((c) => SearchableDropdownItem<int?>(
+                                            value: c.companyId,
+                                            label: c.importerName,
+                                            subtitle: 'ضريبي: ${c.vatId}',
+                                          ))
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       final c = companiesList.firstWhere((comp) => comp.companyId == val);
@@ -385,10 +390,17 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedSupplierId,
-                                  decoration: const InputDecoration(labelText: 'المورد الأجنبي (Foreign Exporter) *', border: OutlineInputBorder()),
-                                  items: suppliersList.map((s) => DropdownMenuItem<int?>(value: s.supplierId, child: Text(s.companyName))).toList(),
+                                  labelText: 'المورد الأجنبي (Foreign Exporter) *',
+                                  searchHintText: 'ابحث عن المورد الأجنبي...',
+                                  items: suppliersList
+                                      .map((s) => SearchableDropdownItem<int?>(
+                                            value: s.supplierId,
+                                            label: s.companyName,
+                                            subtitle: s.foreignExporterCountry,
+                                          ))
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       final s = suppliersList.firstWhere((sup) => sup.supplierId == val);
@@ -517,10 +529,17 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedBankId,
-                                  decoration: const InputDecoration(labelText: 'البنك المصري المعالج *', border: OutlineInputBorder()),
-                                  items: banksList.map((b) => DropdownMenuItem<int?>(value: b.providerId, child: Text(b.partnerName))).toList(),
+                                  labelText: 'البنك المصري المعالج *',
+                                  searchHintText: 'ابحث عن البنك المصرفي...',
+                                  items: banksList
+                                      .map((b) => SearchableDropdownItem<int?>(
+                                            value: b.providerId,
+                                            label: b.partnerName,
+                                            subtitle: b.partnerType,
+                                          ))
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       final b = banksList.firstWhere((bk) => bk.providerId == val);

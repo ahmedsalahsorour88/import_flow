@@ -20,16 +20,24 @@ class CustomsTariffCreate(BaseModel):
     schedule_tax_rate: Decimal = Field(default=Decimal("0.00"), ge=0, le=100, description="نسبة ضريبة الجدول %")
     development_fee_rate: Decimal = Field(default=Decimal("0.00"), ge=0, le=100, description="نسبة رسم التنمية %")
     import_fee_rate: Decimal = Field(default=Decimal("0.00"), ge=0, le=100, description="نسبة رسم الوارد %")
+    customs_service_fee_rate: Decimal = Field(default=Decimal("1.00"), ge=0, le=100, description="نسبة رسم الخدمات الجمركية أ.ت.ص % (افتراضي 1%)")
 
     # Requirements
     requires_coo: bool = Field(default=False, description="يتطلب شهادة منشأ")
     requires_inspection: bool = Field(default=False, description="يتطلب شهادة فحص")
     requires_acid: bool = Field(default=True, description="يتطلب ACID")
     regulatory_authority: Optional[str] = Field(None, max_length=500, description="الجهات الرقابية")
+    prior_approval_note: Optional[str] = Field(None, description="ملاحظات وشروط الموافقة المسبقة")
 
     # Effective dates
     effective_from: date = Field(default_factory=date.today, description="تاريخ بداية السريان")
     effective_to: Optional[date] = Field(None, description="تاريخ انتهاء السريان (None = ساري حتى الآن)")
+
+    # Audit & Verification Metadata (Addendum 3)
+    source_url: Optional[str] = Field(None, max_length=500, description="رابط صفحة نافذة الرسمية للتحقق")
+    last_verified_date: Optional[date] = Field(default_factory=date.today, description="تاريخ آخر مراجعة يدوية")
+    verified_by: Optional[str] = Field("System Admin", max_length=100, description="اسم المراجع المسؤول")
+    confidence: Optional[str] = Field("verified_manual", max_length=50, description="مستوى الثقة")
 
     notes: Optional[str] = Field(None, description="ملاحظات")
 
@@ -56,14 +64,21 @@ class CustomsTariffUpdate(BaseModel):
     schedule_tax_rate: Optional[Decimal] = Field(None, ge=0, le=100)
     development_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
     import_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    customs_service_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
 
     requires_coo: Optional[bool] = None
     requires_inspection: Optional[bool] = None
     requires_acid: Optional[bool] = None
     regulatory_authority: Optional[str] = Field(None, max_length=500)
+    prior_approval_note: Optional[str] = None
 
     effective_from: Optional[date] = None
     effective_to: Optional[date] = None
+
+    source_url: Optional[str] = None
+    last_verified_date: Optional[date] = None
+    verified_by: Optional[str] = None
+    confidence: Optional[str] = None
     notes: Optional[str] = None
 
     @model_validator(mode="after")
@@ -85,14 +100,21 @@ class CustomsTariffResponse(BaseModel):
     schedule_tax_rate: Decimal
     development_fee_rate: Decimal
     import_fee_rate: Decimal
+    customs_service_fee_rate: Decimal
 
     requires_coo: bool
     requires_inspection: bool
     requires_acid: bool
     regulatory_authority: Optional[str]
+    prior_approval_note: Optional[str]
 
     effective_from: date
     effective_to: Optional[date]
+
+    source_url: Optional[str]
+    last_verified_date: Optional[date]
+    verified_by: Optional[str]
+    confidence: Optional[str]
 
     notes: Optional[str]
     is_active: bool
@@ -103,17 +125,108 @@ class CustomsTariffResponse(BaseModel):
 
 
 # ==================================================
+# Fee Code Schemas (Nafeza Statement Fee Codes Registry)
+# ==================================================
+
+class FeeCodeCreate(BaseModel):
+    code: str = Field(..., min_length=1, max_length=10, description="كود الرسم نافذة الرسمي")
+    name_ar: str = Field(..., min_length=2, max_length=200, description="اسم الرسم باللغة العربية")
+    collection_group: str = Field(..., max_length=100, description="المجموعة: رسم مستخلص / ضريبة جمارك / أ.ت.ص ...")
+    calculation_type: str = Field(default="flat", description="نوع الحساب: flat, reference, derived")
+    flat_amount: Optional[Decimal] = Field(default=Decimal("0.00"), ge=0)
+    reference_source: Optional[str] = Field(None, description="duty_amount, service_fee_amount, vat_amount")
+    derived_formula_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    derived_formula_base_codes: Optional[str] = Field(None, description="الأكواد بالفواصل e.g. 390,392")
+    effective_from: date = Field(default_factory=date.today)
+    effective_to: Optional[date] = None
+    source_url: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class FeeCodeResponse(BaseModel):
+    fee_code_id: int
+    code: str
+    name_ar: str
+    collection_group: str
+    calculation_type: str
+    flat_amount: Optional[Decimal]
+    reference_source: Optional[str]
+    derived_formula_rate: Optional[Decimal]
+    derived_formula_base_codes: Optional[str]
+    effective_from: date
+    effective_to: Optional[date]
+    source_url: Optional[str]
+    notes: Optional[str]
+    is_active: bool
+
+    model_config = {"from_attributes": True}
+
+
+# ==================================================
+# Preferential Trade Agreement & Manual Audit Schemas (Addendum 3)
+# ==================================================
+
+class PreferentialAgreementCreate(BaseModel):
+    hs_code: str = Field(..., min_length=4, max_length=20)
+    agreement_name: str = Field(..., max_length=200)
+    reduction_type: str = Field(default="percentage_of_duty", description="percentage_of_duty, full_duty_exemption, fixed_rate")
+    reduction_percentage: Decimal = Field(default=Decimal("1.00"), ge=0, le=100)
+    origin_countries: str = Field(..., description="قائمة رموز الدول المعنية بالفواصل e.g. JO,TN,MA")
+    conditions_note: Optional[str] = None
+    effective_from: date = Field(default_factory=date.today)
+    effective_to: Optional[date] = None
+    source_url: Optional[str] = None
+
+
+class PreferentialAgreementResponse(BaseModel):
+    agreement_id: int
+    hs_code: str
+    agreement_name: str
+    reduction_type: str
+    reduction_percentage: Decimal
+    origin_countries: str
+    conditions_note: Optional[str]
+    effective_from: date
+    effective_to: Optional[date]
+    source_url: Optional[str]
+
+    model_config = {"from_attributes": True}
+
+
+class TariffVerificationRequest(BaseModel):
+    customs_duty_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="نسبة ضريبة الوارد الجديدة")
+    vat_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="نسبة القيمة المضافة الجديدة")
+    schedule_tax_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="نسبة ضريبة الجدول الجديدة")
+    development_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    import_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+    customs_service_fee_rate: Optional[Decimal] = Field(None, ge=0, le=100)
+
+    hs_description: Optional[str] = None
+    regulatory_authority: Optional[str] = None
+    prior_approval_note: Optional[str] = None
+
+    source_url: Optional[str] = Field(None, max_length=500, description="رابط المرجعية الرسمية على منصة نافذة")
+    verified_by: str = Field(..., min_length=2, max_length=100, description="اسم المراجع المسؤول")
+    confidence: str = Field("verified_manual", description="مستوى الثقة: verified_manual, verified_official_gazette")
+
+
+# ==================================================
 # Customs Duty Estimation Schemas
 # ==================================================
 
 class CustomsDutyEstimateRequest(BaseModel):
     """
     طلب حساب تقديري للجمارك.
-    يجب تمرير قيمة CIF مباشرة (FOB + Freight + Insurance).
+    يجب تمرير قيمة CIF مباشرة (FOB + Freight + Insurance + Packaging).
     """
     hs_code: str = Field(..., description="البند الجمركي المراد التقدير له")
     cif_value: Decimal = Field(..., gt=0, description="القيمة الجمركية CIF (بالجنيه المصري أو العملة المختارة)")
-    freight: Decimal = Field(default=Decimal("0.00"), ge=0, description="النولون (مضمّن في CIF أو منفصل)")
+    freight: Decimal = Field(default=Decimal("0.00"), ge=0, description="النولون بالجنيه")
+    freight_currency: Optional[str] = Field("EGP", description="عملة النولون الفعلي e.g. USD, EUR, EGP")
+    freight_foreign_amount: Decimal = Field(default=Decimal("0.00"), ge=0, description="مبلغ النولون الفعلي بالعملة الأجنبية")
+    freight_exchange_rate: Optional[Decimal] = Field(None, ge=0, description="معامل تحويل عملة النولون الأجنبي بالجنيه EGP")
+    packaging_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة التعبئة والتغليف بالجنيه")
+    origin_country: Optional[str] = Field(None, description="بلد المنشأ (رمز ISO e.g. IT, TR, CN)")
     estimate_date: Optional[date] = Field(None, description="تاريخ التقدير — None يعني اليوم")
 
 
@@ -126,30 +239,33 @@ class CustomsDutyBreakdown(BaseModel):
     hs_description: str
     customs_category: Optional[str]
     estimate_date: date
+    origin_country: Optional[str] = None
 
     # القيم المُدخلة
     cif_value: Decimal
     freight: Decimal
+    packaging_egp: Decimal = Decimal("0.00")
 
-    # نسب الضرائب المُستخرجة من سجل HS Code (لا hard-coding)
+    # نسب الضرائب والرسوم المُستخرجة من سجل HS Code (لا hard-coding)
     customs_duty_rate: Decimal
     vat_rate: Decimal
     schedule_tax_rate: Decimal
     development_fee_rate: Decimal
     import_fee_rate: Decimal
+    customs_service_fee_rate: Decimal
 
     # نتائج الحساب
     import_duty_amount: Decimal
-    """ضريبة الوارد = CIF × customs_duty_rate%"""
+    """ضريبة الوارد الفعالة بعد أي إعفاء تفضيلي"""
 
     vat_base: Decimal
-    """الوعاء الضريبي = CIF + Import Duty + Freight"""
+    """الوعاء الضريبي = CIF + Import Duty الفعلي"""
 
     vat_amount: Decimal
     """ضريبة القيمة المضافة = VAT Base × vat_rate%"""
 
     schedule_tax_amount: Decimal
-    """ضريبة الجدول = CIF × schedule_tax_rate%"""
+    """ضريبة الجدول = CIF × schedule_tax_rate% (لا تتأثر بإعفاء ضريبة الوارد)"""
 
     development_fee_amount: Decimal
     """رسم التنمية = CIF × development_fee_rate%"""
@@ -157,8 +273,14 @@ class CustomsDutyBreakdown(BaseModel):
     import_fee_amount: Decimal
     """رسم الوارد = CIF × import_fee_rate%"""
 
+    customs_service_fee_amount: Decimal
+    """رسم الخدمات الجمركية أ.ت.ص = CIF × 1% (لا يتأثر بإعفاء ضريبة الوارد)"""
+
     total_taxes_and_fees: Decimal
     """إجمالي الضرائب والرسوم = مجموع جميع البنود"""
+
+    trade_agreement_applied: Optional[str] = None
+    conditions_note: Optional[str] = None
 
     # متطلبات الاستيراد
     requires_coo: bool
@@ -180,11 +302,11 @@ class MultiItemCustomsEstimateLine(BaseModel):
     value_fc: Decimal = Field(..., gt=0, description="قيمة الصنف بالعملة الأجنبية")
     weight_kg: Decimal = Field(default=Decimal("0.00"), ge=0, description="وزن الصنف بالكيلوجرام")
     qty: Decimal = Field(default=Decimal("1.00"), gt=0, description="الكمية")
-    origin_country: Optional[str] = Field(None, description="بلد المنشأ للصنف (رمز الدولة ISO 2 e.g. TR, DE, CN)")
+    origin_country: Optional[str] = Field(None, description="بلد المنشأ للصنف (رمز الدولة ISO 2 e.g. TR, DE, IT, CN)")
     exemption_code: Optional[str] = Field(None, description="كود الإعفاء الجمركي المطبق على السطر إن وجد")
     exempted_value_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="القيمة المعفاة إن وجدت")
     value_without_payment_fc: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة بدون دفع إن وجدت")
-    inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم الخدمات الجمركية / الفحص للصنف بالجنيه")
+    inspection_fee_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="رسوم فحص أجر خدمات مخصص للصنف إن وجد")
 
 
 class MultiItemCustomsEstimateRequest(BaseModel):
@@ -192,6 +314,10 @@ class MultiItemCustomsEstimateRequest(BaseModel):
     exchange_rate: Decimal = Field(..., gt=0, description="سعر التحويل / الصرف الرسمي للجمارك")
     insurance_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي التأمين بالجنيه")
     freight_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي النولون / الشحن بالجنيه")
+    freight_currency: Optional[str] = Field("EGP", description="عملة النولون الفعلي e.g. USD, EUR, EGP")
+    freight_foreign_amount: Decimal = Field(default=Decimal("0.00"), ge=0, description="مبلغ النولون الفعلي بالعملة الأجنبية")
+    freight_exchange_rate: Optional[Decimal] = Field(None, ge=0, description="معامل تحويل عملة النولون الأجنبي بالجنيه EGP")
+    packaging_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="قيمة التعبئة/التغليف بالجنيه")
     has_insurance_document: bool = Field(default=True, description="وجود وثيقة تأمين فعلية (إلا تحسب حكمياً 2.5%)")
     has_freight_document: bool = Field(default=True, description="وجود وثيقة شحن فعلية (إلا تحسب حكمياً 2.0%)")
     deemed_insurance_rate: Decimal = Field(default=Decimal("0.025"), description="نسبة التأمين الحكمي الافتراضية (2.5%)")
@@ -225,12 +351,21 @@ class MultiItemCustomsLineBreakdown(BaseModel):
     duty_egp: Decimal
 
     schedule_tax_rate: Decimal
-    schedule_tax_base: str = Field("duty", description="أساس ضريبة الجدول: duty أو cif")
+    schedule_tax_base: str = Field("cif", description="أساس ضريبة الجدول: cif أو duty")
     schedule_tax_egp: Decimal
 
     vat_rate: Decimal
     vat_base_egp: Decimal
     vat_egp: Decimal
+
+    development_fee_rate: Decimal = Decimal("0.00")
+    development_fee_egp: Decimal = Decimal("0.00")
+
+    import_fee_rate: Decimal = Decimal("0.00")
+    import_fee_egp: Decimal = Decimal("0.00")
+
+    customs_service_fee_rate: Decimal = Decimal("1.00")
+    customs_service_fee_egp: Decimal = Decimal("0.00")
 
     inspection_fee_egp: Decimal
 
@@ -240,6 +375,7 @@ class MultiItemCustomsLineBreakdown(BaseModel):
     exemption_code_applied: Optional[str] = None
     exemption_applied_details: Optional[str] = None
     preferential_agreement_applied: Optional[str] = None
+    conditions_note: Optional[str] = None
 
     requires_coo: bool
     requires_inspection: bool
@@ -254,6 +390,7 @@ class MultiItemCustomsBreakdown(BaseModel):
     fob_value_egp: Decimal
     insurance_egp: Decimal
     freight_egp: Decimal
+    packaging_egp: Decimal = Decimal("0.00")
     insurance_source: str = Field("actual", description="مصدر التأمين الكلي: actual أو deemed")
     freight_source: str = Field("actual", description="مصدر النولون الكلي: actual أو deemed")
     additional_fees_egp: Decimal
@@ -264,8 +401,14 @@ class MultiItemCustomsBreakdown(BaseModel):
     total_duty_egp: Decimal
     total_schedule_tax_egp: Decimal
     total_vat_egp: Decimal
+    total_customs_service_fee_egp: Decimal = Decimal("0.00")
+    total_development_fee_egp: Decimal = Decimal("0.00")
+    total_import_fee_egp: Decimal = Decimal("0.00")
     total_inspection_fees_egp: Decimal
 
     items_taxes_total_egp: Decimal
     grand_total_payable_egp: Decimal
+
+    fee_codes_breakdown: Optional[dict] = Field(None, description="تفاصيل جدول تحصيل رسوم نافذة والإقرارات الجمركية الرسمية")
+
 

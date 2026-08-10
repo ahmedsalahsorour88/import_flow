@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/financial_approval_model.dart';
@@ -306,22 +307,19 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _paySelectedImportFileId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
-                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                                    border: OutlineInputBorder(),
-                                  ),
+                                  labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
                                   items: [
-                                    const DropdownMenuItem<int?>(
+                                    const SearchableDropdownItem<int?>(
                                       value: null,
-                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                      label: '-- None / غير مرتبط بملف شحنة --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          subtitle: f.companyName,
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _paySelectedImportFileId = v),
@@ -343,10 +341,17 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedSupplierId,
-                                  decoration: const InputDecoration(labelText: 'اختر المورد من Master Data', border: OutlineInputBorder()),
-                                  items: suppliersList.map((s) => DropdownMenuItem<int?>(value: s.supplierId, child: Text(s.companyName))).toList(),
+                                  labelText: 'اختر المورد من Master Data',
+                                  searchHintText: 'ابحث عن المورد...',
+                                  items: suppliersList
+                                      .map((s) => SearchableDropdownItem<int?>(
+                                            value: s.supplierId,
+                                            label: s.companyName,
+                                            subtitle: s.foreignExporterCountry,
+                                          ))
+                                      .toList(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       final sup = suppliersList.firstWhere((s) => s.supplierId == val);
@@ -370,17 +375,20 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 1,
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: _paymentType,
-                                  decoration: const InputDecoration(labelText: 'نوع طريقة السداد *', border: OutlineInputBorder()),
+                                  labelText: 'نوع طريقة السداد *',
+                                  searchHintText: 'ابحث عن طريقة السداد...',
                                   items: const [
-                                    DropdownMenuItem(value: 'Advance Payment', child: Text('Advance Payment (دفعة مقدمة)')),
-                                    DropdownMenuItem(value: 'Against B/L', child: Text('Against B/L (مقابل بوليصة)')),
-                                    DropdownMenuItem(value: 'Letter of Credit (L/C)', child: Text('L/C (اعتماد مستندي)')),
-                                    DropdownMenuItem(value: 'Documentary Collection (CAD)', child: Text('CAD (تحصيل مستندي)')),
-                                    DropdownMenuItem(value: 'Final Settlement', child: Text('Final Settlement (تسوية نهائية)')),
+                                    SearchableDropdownItem(value: 'Advance Payment', label: 'Advance Payment (دفعة مقدمة)'),
+                                    SearchableDropdownItem(value: 'Against B/L', label: 'Against B/L (مقابل بوليصة)'),
+                                    SearchableDropdownItem(value: 'Letter of Credit (L/C)', label: 'L/C (اعتماد مستندي)'),
+                                    SearchableDropdownItem(value: 'Documentary Collection (CAD)', label: 'CAD (تحصيل مستندي)'),
+                                    SearchableDropdownItem(value: 'Final Settlement', label: 'Final Settlement (تسوية نهائية)'),
                                   ],
-                                  onChanged: (val) => setState(() => _paymentType = val!),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _paymentType = val);
+                                  },
                                 ),
                               ),
                             ],
@@ -398,15 +406,22 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: _currencyCode,
-                                  decoration: const InputDecoration(labelText: 'العملة *', border: OutlineInputBorder()),
+                                  labelText: 'العملة *',
+                                  searchHintText: 'ابحث عن العملة...',
                                   items: const [
-                                    DropdownMenuItem(value: 'USD', child: Text('USD - دولار أمريكي')),
-                                    DropdownMenuItem(value: 'EUR', child: Text('EUR - يورو أوروبي')),
-                                    DropdownMenuItem(value: 'EGP', child: Text('EGP - جنيه مصري')),
+                                    SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
+                                    SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
+                                    SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
+                                    SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
+                                    SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
+                                    SearchableDropdownItem(value: 'SAR', label: 'SAR - ريال سعودي'),
+                                    SearchableDropdownItem(value: 'AED', label: 'AED - درهم إماراتي'),
                                   ],
-                                  onChanged: (val) => setState(() => _currencyCode = val!),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _currencyCode = val);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -522,22 +537,19 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _bgtSelectedImportFileId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
-                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                                    border: OutlineInputBorder(),
-                                  ),
+                                  labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
                                   items: [
-                                    const DropdownMenuItem<int?>(
+                                    const SearchableDropdownItem<int?>(
                                       value: null,
-                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                      label: '-- None / غير مرتبط بملف شحنة --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          subtitle: f.companyName,
                                         )),
                                   ],
                                   onChanged: (v) => setState(() => _bgtSelectedImportFileId = v),

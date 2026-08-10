@@ -2,6 +2,7 @@ import sqlite3
 from database.database import Base, engine
 from modules.audit_logs.model import AuditLog
 from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
+from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement
 from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
 
 def migrate_db():
@@ -118,6 +119,57 @@ def migrate_db():
                     print(f"Added column 'import_file_id' to '{table_name}' table.")
                 except Exception as e:
                     print(f"Error adding column import_file_id to {table_name}: {e}")
+
+    # Migration for customs_tariffs table
+    cursor.execute("SELECT sql FROM sqlite_master WHERE type='table' AND name='customs_tariffs'")
+    row = cursor.fetchone()
+    if row:
+        table_sql = row[0]
+        if "uq_customs_tariff_hs_code" in table_sql or "UNIQUE (hs_code)" in table_sql:
+            print("Migrating customs_tariffs table schema to support date-based versioning...")
+            cursor.execute("DROP INDEX IF EXISTS uq_customs_tariff_hs_code;")
+            cursor.execute("DROP INDEX IF EXISTS ix_customs_tariffs_hs_code;")
+            cursor.execute("DROP INDEX IF EXISTS ix_customs_tariffs_tariff_id;")
+            cursor.execute("DROP TABLE IF EXISTS customs_tariffs_old;")
+            cursor.execute("ALTER TABLE customs_tariffs RENAME TO customs_tariffs_old;")
+            conn.commit()
+            Base.metadata.tables["customs_tariffs"].create(bind=engine)
+            cursor.execute("""
+                INSERT INTO customs_tariffs (
+                    tariff_id, hs_code, hs_description, customs_category,
+                    customs_duty_rate, vat_rate, schedule_tax_rate, development_fee_rate, import_fee_rate, customs_service_fee_rate,
+                    requires_coo, requires_inspection, requires_acid, regulatory_authority,
+                    prior_approval_note, effective_from, effective_to, source_url,
+                    last_verified_date, verified_by, confidence, notes, is_active, created_at, updated_at
+                )
+                SELECT 
+                    tariff_id, hs_code, hs_description, customs_category,
+                    customs_duty_rate, vat_rate, schedule_tax_rate, development_fee_rate, import_fee_rate, 1.00,
+                    requires_coo, requires_inspection, requires_acid, regulatory_authority,
+                    prior_approval_note, effective_from, effective_to, source_url,
+                    last_verified_date, verified_by, confidence, notes, is_active, created_at, updated_at
+                FROM customs_tariffs_old;
+            """)
+            cursor.execute("DROP TABLE customs_tariffs_old;")
+            conn.commit()
+            print("customs_tariffs table schema migration completed.")
+        else:
+            cursor.execute("PRAGMA table_info(customs_tariffs)")
+            ct_cols = [info[1] for info in cursor.fetchall()]
+            ct_new_cols = [
+                ("prior_approval_note", "TEXT"),
+                ("source_url", "VARCHAR(500)"),
+                ("last_verified_date", "DATE"),
+                ("verified_by", "VARCHAR(100)"),
+                ("confidence", "VARCHAR(50)"),
+            ]
+            for col_name, col_type in ct_new_cols:
+                if col_name not in ct_cols:
+                    try:
+                        cursor.execute(f"ALTER TABLE customs_tariffs ADD COLUMN {col_name} {col_type};")
+                        print(f"Added column '{col_name}' ({col_type}) to customs_tariffs table.")
+                    except Exception as e:
+                        print(f"Error adding column {col_name} to customs_tariffs: {e}")
 
     conn.commit()
     conn.close()

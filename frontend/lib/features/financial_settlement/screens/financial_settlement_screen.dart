@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/financial_settlement_provider.dart';
 
@@ -340,13 +341,15 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  decoration: const InputDecoration(labelText: 'ملف الشحنة الاستيرادية *', border: OutlineInputBorder()),
+                  labelText: 'ملف الشحنة الاستيرادية *',
+                  searchHintText: 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...',
                   items: importFiles
-                      .map((f) => DropdownMenuItem<int?>(
+                      .map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}'),
+                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                            subtitle: f.companyName,
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
@@ -370,17 +373,20 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _category,
-                        decoration: const InputDecoration(labelText: 'فئة المصروف *', border: OutlineInputBorder()),
+                        labelText: 'فئة المصروف *',
+                        searchHintText: 'ابحث عن فئة المصروف...',
                         items: const [
-                          DropdownMenuItem(value: 'Freight', child: Text('Freight (نولون شحن)')),
-                          DropdownMenuItem(value: 'Customs Duty', child: Text('Customs Duty (ضرائب وجماك)')),
-                          DropdownMenuItem(value: 'Brokerage', child: Text('Brokerage (أتعاب تخليص)')),
-                          DropdownMenuItem(value: 'Local Transport', child: Text('Local Transport (نقل بري)')),
-                          DropdownMenuItem(value: 'Storage', child: Text('Storage (أرضيات وتخزين)')),
+                          SearchableDropdownItem(value: 'Freight', label: 'Freight (نولون شحن)'),
+                          SearchableDropdownItem(value: 'Customs Duty', label: 'Customs Duty (ضرائب وجماك)'),
+                          SearchableDropdownItem(value: 'Brokerage', label: 'Brokerage (أتعاب تخليص)'),
+                          SearchableDropdownItem(value: 'Local Transport', label: 'Local Transport (نقل بري)'),
+                          SearchableDropdownItem(value: 'Storage', label: 'Storage (أرضيات وتخزين)'),
                         ],
-                        onChanged: (v) => setState(() => _category = v!),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _category = v);
+                        },
                       ),
                     ),
                   ],
@@ -414,16 +420,19 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
                   ],
                 ),
                 const SizedBox(height: 8),
-                DropdownButtonFormField<String>(
+                SearchableDropdownField<String>(
                   value: _allocationRule,
-                  decoration: const InputDecoration(labelText: 'قاعدة توزيع المصروف على الأصناف *', border: OutlineInputBorder()),
+                  labelText: 'قاعدة توزيع المصروف على الأصناف *',
+                  searchHintText: 'ابحث عن قاعدة التوزيع...',
                   items: const [
-                    DropdownMenuItem(value: 'Volume-Based', child: Text('Volume-Based (حسب الحجم CBM)')),
-                    DropdownMenuItem(value: 'Value-Based', child: Text('Value-Based (حسب القيمة FOB)')),
-                    DropdownMenuItem(value: 'Weight-Based', child: Text('Weight-Based (حسب الوزن Gross Wt)')),
-                    DropdownMenuItem(value: 'Equal', child: Text('Equal (بالتساوي)')),
+                    SearchableDropdownItem(value: 'Volume-Based', label: 'Volume-Based (حسب الحجم CBM)'),
+                    SearchableDropdownItem(value: 'Value-Based', label: 'Value-Based (حسب القيمة FOB)'),
+                    SearchableDropdownItem(value: 'Weight-Based', label: 'Weight-Based (حسب الوزن Gross Wt)'),
+                    SearchableDropdownItem(value: 'Equal', label: 'Equal (بالتساوي)'),
                   ],
-                  onChanged: (v) => setState(() => _allocationRule = v!),
+                  onChanged: (v) {
+                    if (v != null) setState(() => _allocationRule = v);
+                  },
                 ),
 
                 const SizedBox(height: 16),

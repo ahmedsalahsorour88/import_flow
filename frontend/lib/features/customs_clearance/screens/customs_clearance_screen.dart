@@ -101,20 +101,25 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       ),
                     ),
                     const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedStatusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Inspection In Progress', child: Text('Inspection In Progress (المعاينة جارية)')),
-                        DropdownMenuItem(value: 'Duty Paid', child: Text('Duty Paid (تم سداد الرسوم)')),
-                        DropdownMenuItem(value: 'Final Release Granted', child: Text('Final Release Granted (مُفرج نهائياً)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(customsClearanceProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                        }
-                      },
+                    SizedBox(
+                      width: 220,
+                      child: SearchableDropdownField<String>(
+                        value: _selectedStatusFilter,
+                        labelText: 'تصفية حسب الحالة',
+                        searchHintText: 'ابحث عن الحالة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                          SearchableDropdownItem(value: 'Inspection In Progress', label: 'Inspection In Progress (المعاينة جارية)'),
+                          SearchableDropdownItem(value: 'Duty Paid', label: 'Duty Paid (تم سداد الرسوم)'),
+                          SearchableDropdownItem(value: 'Final Release Granted', label: 'Final Release Granted (مُفرج نهائياً)'),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedStatusFilter = val);
+                            ref.read(customsClearanceProvider.notifier).fetchRecords(search: _searchController.text, status: val);
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),

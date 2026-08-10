@@ -653,15 +653,22 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                       ),
                     ),
                     const SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _statusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Draft', child: Text('Draft')),
-                        DropdownMenuItem(value: 'Approved', child: Text('Approved')),
-                        DropdownMenuItem(value: 'Paid', child: Text('Paid')),
-                      ],
-                      onChanged: (v) => setState(() => _statusFilter = v!),
+                    SizedBox(
+                      width: 200,
+                      child: SearchableDropdownField<String>(
+                        value: _statusFilter,
+                        labelText: 'تصفية حسب الحالة',
+                        searchHintText: 'ابحث عن الحالة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                          SearchableDropdownItem(value: 'Draft', label: 'Draft'),
+                          SearchableDropdownItem(value: 'Approved', label: 'Approved'),
+                          SearchableDropdownItem(value: 'Paid', label: 'Paid'),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) setState(() => _statusFilter = v);
+                        },
+                      ),
                     ),
                   ],
                 ),

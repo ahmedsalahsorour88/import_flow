@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/currency_model.dart';
 import '../providers/currencies_provider.dart';
 
@@ -472,13 +473,15 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DropdownButtonFormField<int>(
+                  SearchableDropdownField<int?>(
                     value: selectedCurrencyId,
-                    decoration: const InputDecoration(labelText: 'Select Foreign Currency *'),
+                    labelText: 'Select Foreign Currency *',
+                    searchHintText: 'ابحث عن العملة...',
                     items: currencies
-                        .map((c) => DropdownMenuItem(
+                        .map((c) => SearchableDropdownItem<int?>(
                               value: c.currencyId,
-                              child: Text('${c.currencyCode} — ${c.currencyName} (${c.currencySymbol})'),
+                              label: '${c.currencyCode} — ${c.currencyName} (${c.currencySymbol})',
+                              searchValue: '${c.currencyCode} ${c.currencyName}',
                             ))
                         .toList(),
                     onChanged: (v) {

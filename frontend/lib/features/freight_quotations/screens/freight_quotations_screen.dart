@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -101,10 +102,11 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      DropdownButtonFormField<int>(
+                      SearchableDropdownField<int?>(
                         value: selectedProviderId,
-                        decoration: const InputDecoration(labelText: 'شركة الشحن / الخط الملاحي *', border: OutlineInputBorder()),
-                        items: carriersList.map((c) => DropdownMenuItem<int>(value: c.providerId, child: Text(c.partnerName))).toList(),
+                        labelText: 'شركة الشحن / الخط الملاحي *',
+                        searchHintText: 'ابحث عن الشركة...',
+                        items: carriersList.map((c) => SearchableDropdownItem<int?>(value: c.providerId, label: c.partnerName)).toList(),
                         onChanged: (val) {
                           if (val != null) {
                             final c = carriersList.firstWhere((p) => p.providerId == val);
@@ -496,22 +498,18 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int?>(
+                                child: SearchableDropdownField<int?>(
                                   value: _selectedImportFileId,
-                                  isExpanded: true,
-                                  decoration: const InputDecoration(
-                                    labelText: 'Import File (ملف الشحنة الاستيرادية)',
-                                    prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                                    border: OutlineInputBorder(),
-                                  ),
+                                  labelText: 'Import File (ملف الشحنة الاستيرادية)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
                                   items: [
-                                    const DropdownMenuItem<int?>(
+                                    const SearchableDropdownItem<int?>(
                                       value: null,
-                                      child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                      label: '-- None / غير مرتبط بملف شحنة --',
                                     ),
-                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
-                                          child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
                                         )),
                                   ],
                                   onChanged: (v) {
@@ -566,16 +564,19 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                               const SizedBox(width: 12),
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: _shippingMethod,
-                                  decoration: const InputDecoration(labelText: 'وسيلة الشحن (Shipping Method) *', border: OutlineInputBorder()),
+                                  labelText: 'وسيلة الشحن (Shipping Method) *',
+                                  searchHintText: 'ابحث عن الوسيلة...',
                                   items: const [
-                                    DropdownMenuItem(value: 'Ocean FCL', child: Text('Ocean FCL (شحن بحري كامل)')),
-                                    DropdownMenuItem(value: 'Ocean LCL', child: Text('Ocean LCL (شحن بحري جزئي)')),
-                                    DropdownMenuItem(value: 'Air Freight', child: Text('Air Freight (شحن جوي)')),
-                                    DropdownMenuItem(value: 'Inland Trucking', child: Text('Inland Trucking (شحن بري)')),
+                                    SearchableDropdownItem(value: 'Ocean FCL', label: 'Ocean FCL (شحن بحري كامل)'),
+                                    SearchableDropdownItem(value: 'Ocean LCL', label: 'Ocean LCL (شحن بحري جزئي)'),
+                                    SearchableDropdownItem(value: 'Air Freight', label: 'Air Freight (شحن جوي)'),
+                                    SearchableDropdownItem(value: 'Inland Trucking', label: 'Inland Trucking (شحن بري)'),
                                   ],
-                                  onChanged: (val) => setState(() => _shippingMethod = val!),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _shippingMethod = val);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -598,20 +599,26 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: portsList.any((p) => p.locationName == _polName) ? _polName : (portsList.isNotEmpty ? portsList.first.locationName : _polName),
-                                  decoration: const InputDecoration(labelText: 'ميناء التحميل (POL) *', border: OutlineInputBorder()),
-                                  items: portsList.map((p) => DropdownMenuItem<String>(value: p.locationName, child: Text(p.locationName))).toList(),
-                                  onChanged: (val) => setState(() => _polName = val!),
+                                  labelText: 'ميناء التحميل (POL) *',
+                                  searchHintText: 'ابحث عن ميناء التحميل...',
+                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _polName = val);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: portsList.any((p) => p.locationName == _podName) ? _podName : (portsList.length > 1 ? portsList[1].locationName : _podName),
-                                  decoration: const InputDecoration(labelText: 'ميناء الوصول (POD) *', border: OutlineInputBorder()),
-                                  items: portsList.map((p) => DropdownMenuItem<String>(value: p.locationName, child: Text(p.locationName))).toList(),
-                                  onChanged: (val) => setState(() => _podName = val!),
+                                  labelText: 'ميناء الوصول (POD) *',
+                                  searchHintText: 'ابحث عن ميناء الوصول...',
+                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
+                                  onChanged: (val) {
+                                    if (val != null) setState(() => _podName = val);
+                                  },
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -829,16 +836,23 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                           ),
                         ),
                         const SizedBox(width: 12),
-                        DropdownButton<String>(
-                          value: _statusFilter,
-                          items: const [
-                            DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                            DropdownMenuItem(value: 'Draft', child: Text('Draft')),
-                            DropdownMenuItem(value: 'RFQ Issued', child: Text('RFQ Issued')),
-                            DropdownMenuItem(value: 'Quotations Received', child: Text('Quotations Received')),
-                            DropdownMenuItem(value: 'Awarded', child: Text('Awarded')),
-                          ],
-                          onChanged: (v) => setState(() => _statusFilter = v!),
+                        SizedBox(
+                          width: 220,
+                          child: SearchableDropdownField<String>(
+                            value: _statusFilter,
+                            labelText: 'تصفية حسب الحالة',
+                            searchHintText: 'ابحث عن الحالة...',
+                            items: const [
+                              SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                              SearchableDropdownItem(value: 'Draft', label: 'Draft'),
+                              SearchableDropdownItem(value: 'RFQ Issued', label: 'RFQ Issued'),
+                              SearchableDropdownItem(value: 'Quotations Received', label: 'Quotations Received'),
+                              SearchableDropdownItem(value: 'Awarded', label: 'Awarded'),
+                            ],
+                            onChanged: (v) {
+                              if (v != null) setState(() => _statusFilter = v);
+                            },
+                          ),
                         ),
                       ],
                     ),

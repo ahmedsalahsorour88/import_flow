@@ -85,21 +85,26 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedStatusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Draft', child: Text('Draft (مسودة)')),
-                        DropdownMenuItem(value: 'Booking Requested', child: Text('Booking Requested (تم الطلب)')),
-                        DropdownMenuItem(value: 'Confirmed', child: Text('Confirmed (مؤكد)')),
-                        DropdownMenuItem(value: 'Sailed', child: Text('Sailed (أبحر)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(freightBookingProvider.notifier).fetchBookings(search: _searchController.text, status: val);
-                        }
-                      },
+                    SizedBox(
+                      width: 220,
+                      child: SearchableDropdownField<String>(
+                        value: _selectedStatusFilter,
+                        labelText: 'تصفية حسب الحالة',
+                        searchHintText: 'ابحث عن الحالة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                          SearchableDropdownItem(value: 'Draft', label: 'Draft (مسودة)'),
+                          SearchableDropdownItem(value: 'Booking Requested', label: 'Booking Requested (تم الطلب)'),
+                          SearchableDropdownItem(value: 'Confirmed', label: 'Confirmed (مؤكد)'),
+                          SearchableDropdownItem(value: 'Sailed', label: 'Sailed (أبحر)'),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedStatusFilter = val);
+                            ref.read(freightBookingProvider.notifier).fetchBookings(search: _searchController.text, status: val);
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -571,14 +576,15 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 return Row(
                                   children: [
                                     Expanded(
-                                      child: DropdownButtonFormField<String>(
+                                      child: SearchableDropdownField<String>(
                                         value: item.containerType,
-                                        decoration: const InputDecoration(labelText: 'نوع الحاوية', border: OutlineInputBorder()),
+                                        labelText: 'نوع الحاوية',
+                                        searchHintText: 'ابحث عن النوع...',
                                         items: const [
-                                          DropdownMenuItem(value: '20GP', child: Text('20GP Standard')),
-                                          DropdownMenuItem(value: '40GP', child: Text('40GP Standard')),
-                                          DropdownMenuItem(value: '40HC', child: Text('40HC High Cube')),
-                                          DropdownMenuItem(value: '45HC', child: Text('45HC High Cube')),
+                                          SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
+                                          SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
+                                          SearchableDropdownItem(value: '40HC', label: '40HC High Cube'),
+                                          SearchableDropdownItem(value: '45HC', label: '45HC High Cube'),
                                         ],
                                         onChanged: (val) {
                                           if (val != null) {
@@ -703,12 +709,13 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                     const SizedBox(width: 8),
                                     Expanded(
                                       flex: 2,
-                                      child: DropdownButtonFormField<String>(
+                                      child: SearchableDropdownField<String>(
                                         value: c.unit,
-                                        decoration: const InputDecoration(labelText: 'وحدة الاحتساب', border: OutlineInputBorder()),
+                                        labelText: 'وحدة الاحتساب',
+                                        searchHintText: 'ابحث...',
                                         items: const [
-                                          DropdownMenuItem(value: 'Per Container', child: Text('Per Container')),
-                                          DropdownMenuItem(value: 'Per Shipment', child: Text('Per Shipment')),
+                                          SearchableDropdownItem(value: 'Per Container', label: 'Per Container'),
+                                          SearchableDropdownItem(value: 'Per Shipment', label: 'Per Shipment'),
                                         ],
                                         onChanged: (val) {
                                           if (val != null) {

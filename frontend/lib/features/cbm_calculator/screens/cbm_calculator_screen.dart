@@ -399,11 +399,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       // Package Type Dropdown
                       Expanded(
                         flex: 2,
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownField<String>(
                           value: item.packageType,
-                          decoration: const InputDecoration(labelText: 'Package Type', isDense: true, border: OutlineInputBorder()),
+                          labelText: 'Package Type',
+                          searchHintText: 'ابحث عن نوع الطرد...',
                           items: ['Carton', 'Pallet', 'Wooden Crate', 'Drum', 'Bag', 'Loose Box']
-                              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                              .map((t) => SearchableDropdownItem<String>(value: t, label: t))
                               .toList(),
                           onChanged: (v) {
                             if (v != null) {
@@ -425,14 +426,15 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       const SizedBox(width: 6),
                       // Dimension Unit Selector (mm, cm, m)
                       SizedBox(
-                        width: 90,
-                        child: DropdownButtonFormField<String>(
+                        width: 110,
+                        child: SearchableDropdownField<String>(
                           value: item.unit,
-                          decoration: const InputDecoration(labelText: 'Unit', isDense: true, border: OutlineInputBorder()),
+                          labelText: 'Unit',
+                          searchHintText: 'الوحدة...',
                           items: const [
-                            DropdownMenuItem(value: 'mm', child: Text('mm')),
-                            DropdownMenuItem(value: 'cm', child: Text('cm')),
-                            DropdownMenuItem(value: 'm', child: Text('m')),
+                            SearchableDropdownItem<String>(value: 'mm', label: 'mm'),
+                            SearchableDropdownItem<String>(value: 'cm', label: 'cm'),
+                            SearchableDropdownItem<String>(value: 'm', label: 'm'),
                           ],
                           onChanged: (u) {
                             if (u != null) {

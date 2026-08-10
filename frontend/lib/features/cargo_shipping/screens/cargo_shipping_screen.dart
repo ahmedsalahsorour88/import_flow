@@ -92,21 +92,26 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedStatusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Cargo Ready', child: Text('Cargo Ready (جاهزية البضاعة)')),
-                        DropdownMenuItem(value: 'Loaded & Sealed', child: Text('Loaded & Sealed (مُحمل ومختوم)')),
-                        DropdownMenuItem(value: 'Dual Approved', child: Text('Dual Approved (معتمد ثنائياً)')),
-                        DropdownMenuItem(value: 'CargoX Transfer Completed', child: Text('CargoX Completed')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(cargoShippingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                        }
-                      },
+                    SizedBox(
+                      width: 220,
+                      child: SearchableDropdownField<String>(
+                        value: _selectedStatusFilter,
+                        labelText: 'تصفية حسب الحالة',
+                        searchHintText: 'ابحث عن الحالة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                          SearchableDropdownItem(value: 'Cargo Ready', label: 'Cargo Ready (جاهزية البضاعة)'),
+                          SearchableDropdownItem(value: 'Loaded & Sealed', label: 'Loaded & Sealed (مُحمل ومختوم)'),
+                          SearchableDropdownItem(value: 'Dual Approved', label: 'Dual Approved (معتمد ثنائياً)'),
+                          SearchableDropdownItem(value: 'CargoX Transfer Completed', label: 'CargoX Completed'),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedStatusFilter = val);
+                            ref.read(cargoShippingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),

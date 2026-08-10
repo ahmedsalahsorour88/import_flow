@@ -2658,21 +2658,19 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownField<String>(
                       value: confidence,
-                      decoration: const InputDecoration(
-                        labelText: 'Confidence Level',
-                        prefixIcon: Icon(Icons.security),
-                      ),
+                      labelText: 'Confidence Level',
+                      searchHintText: 'ابحث عن حالة التوثيق...',
                       items: const [
-                        DropdownMenuItem(
+                        SearchableDropdownItem(
                             value: 'verified_manual',
-                            child: Text('Manual Audit (Verified)')),
-                        DropdownMenuItem(
+                            label: 'Manual Audit (Verified)'),
+                        SearchableDropdownItem(
                             value: 'verified_official_gazette',
-                            child: Text('Official Gazette Decree')),
-                        DropdownMenuItem(
-                            value: 'draft', child: Text('Draft / Unverified')),
+                            label: 'Official Gazette Decree'),
+                        SearchableDropdownItem(
+                            value: 'draft', label: 'Draft / Unverified'),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => confidence = val);

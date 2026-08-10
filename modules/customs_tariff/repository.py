@@ -18,11 +18,21 @@ def get_tariff_by_id(db: Session, tariff_id: int) -> Optional[CustomsTariff]:
 def get_tariff_by_hs_code(db: Session, hs_code: str) -> Optional[CustomsTariff]:
     clean_hs = hs_code.strip()
     nodots = clean_hs.replace(".", "")
-    formatted = f"{nodots[:4]}.{nodots[4:6]}.{nodots[6:8]}" if len(nodots) in (8, 10) else clean_hs
-    targets = list(dict.fromkeys([clean_hs, nodots, formatted]))
-    return (
+    formatted8 = f"{nodots[:4]}.{nodots[4:6]}.{nodots[6:8]}" if len(nodots) >= 8 else clean_hs
+    formatted10 = f"{nodots[:4]}.{nodots[4:6]}.{nodots[6:8]}.{nodots[8:]}" if len(nodots) >= 10 else clean_hs
+    targets = list(dict.fromkeys([clean_hs, nodots, formatted8, formatted10]))
+    res = (
         db.query(CustomsTariff)
         .filter(CustomsTariff.hs_code.in_(targets), CustomsTariff.is_active == True)
+        .order_by(CustomsTariff.effective_from.desc())
+        .first()
+    )
+    if res:
+        return res
+    from sqlalchemy import func
+    return (
+        db.query(CustomsTariff)
+        .filter(func.replace(CustomsTariff.hs_code, '.', '') == nodots, CustomsTariff.is_active == True)
         .order_by(CustomsTariff.effective_from.desc())
         .first()
     )

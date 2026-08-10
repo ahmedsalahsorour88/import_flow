@@ -736,17 +736,24 @@ def estimate_multi_item_customs_duty_service(
         vat_amount=total_vat_egp,
     )
 
+    # Extra Nafeza administrative & non-tax fees (Fee Codes Total minus taxes already in items_taxes_total_egp)
+    nafeza_fee_codes_grand_total = Decimal(str(fee_codes_result["grand_total"]))
+    taxes_in_fee_codes = total_duty_egp + total_vat_egp + total_customs_service_fee_egp + total_schedule_tax_egp
+    extra_nafeza_fees = _round(nafeza_fee_codes_grand_total - taxes_in_fee_codes)
+    if extra_nafeza_fees < Decimal("0.00"):
+        extra_nafeza_fees = Decimal("0.00")
+
     additional_fees_total_egp = (
         request.additional_fees_egp
         if request.additional_fees_egp > Decimal("0.00")
-        else Decimal(str(fee_codes_result["grand_total"]))
+        else extra_nafeza_fees
     )
 
     items_taxes_total_egp = (
         total_duty_egp
         + total_schedule_tax_egp
-        + total_vat_egp
         + total_customs_service_fee_egp
+        + total_vat_egp
         + total_development_fee_egp
         + total_import_fee_egp
         + total_inspection_fees_egp

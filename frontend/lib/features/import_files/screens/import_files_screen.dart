@@ -22,7 +22,6 @@ import '../../../core/utils/container_requirement_engine.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
-import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
 class ImportFilesScreen extends ConsumerStatefulWidget {
   const ImportFilesScreen({super.key});
@@ -432,10 +431,6 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
                               ...displayFiles.map((file) {
                             final linkedPOs = allPOs.where((p) => p.importFileId == file.importFileId || (p.importFileCode != null && p.importFileCode == file.importFileCode)).toList();
-                            final shippingSessions = ref.read(shippingScenariosProvider).sessions;
-                            final linkedSession = shippingSessions.where(
-                              (s) => s.importFileId == file.importFileId || (s.importFileCode != null && s.importFileCode == file.importFileCode),
-                            ).firstOrNull;
 
                             double fileTotalCbm = 0.0;
                             double fileTotalWeight = 0.0;
@@ -545,37 +540,6 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                             Colors.purple,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 10),
-
-                                  // Shipping Scenarios Transit Lead Time Badges Bar (BP-007)
-                                  Container(
-                                    padding: const EdgeInsets.all(10),
-                                    decoration: BoxDecoration(
-                                      color: Colors.purple.shade50.withOpacity(0.4),
-                                      borderRadius: BorderRadius.circular(8),
-                                              border: Border.all(color: Colors.purple.shade200),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Builder(builder: (context) {
-                                          final smartModeRec = ContainerRequirementEngine.recommendShipmentMode(totalCbm: fileTotalCbm, totalWeightKg: fileTotalWeight);
-                                          return Wrap(
-                                            spacing: 8,
-                                            runSpacing: 6,
-                                            children: [
-                                              _buildMiniBadge('وسيلة الشحن المقترحة ذكياً', smartModeRec.recommendedModeAr, smartModeRec.isAirSuggested ? Colors.purple : (smartModeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue)),
-                                              _buildMiniBadge('متوسط مدة الترانزيت', linkedSession != null ? '${linkedSession.avgExpectedTransitDays.toStringAsFixed(1)} يوم' : '43.0 يوم', Colors.purple),
-                                              _buildMiniBadge('متوسط تاريخ الوصول للمخزن', linkedSession?.avgExpectedWarehouseArrivalDate ?? '2026-09-26', AppTheme.cobalt),
-                                              _buildMiniBadge('أقرب تاريخ وصول متوقع', linkedSession != null && linkedSession.earliestArrivalDate != null ? '${linkedSession.earliestArrivalDate} (${linkedSession.earliestArrivalScenarioProvider ?? ''})' : '2026-09-22 (COSCO Shipping)', AppTheme.emerald),
-                                              _buildMiniBadge('أبعد تاريخ وصول متوقع', linkedSession != null && linkedSession.latestArrivalDate != null ? '${linkedSession.latestArrivalDate} (${linkedSession.latestArrivalScenarioProvider ?? ''})' : '2026-09-30 (Maersk Line)', Colors.orange),
-                                              _buildMiniBadge('الرحلة/الخط الموصى به', linkedSession?.recommendedScenarioProvider ?? file.selectedScenario ?? 'COSCO Shipping (COSCO UNIVERSE)', Colors.blue),
-                                            ],
-                                          );
-                                        }),
                                       ],
                                     ),
                                   ),

@@ -4,6 +4,7 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from database.database import SessionLocal, Base, engine
+import main  # Register all models in Base.metadata
 from seed import seed_data
 from modules.shipping_scenarios.schemas import (
     ShippingEvaluationCreate,

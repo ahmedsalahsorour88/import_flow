@@ -43,15 +43,15 @@ class CustomsPdfService {
     final String dateStr = DateTime.now().toString().split('.').first;
 
     final summary = result['summary'] as Map<String, dynamic>? ?? {};
-    final lines = (result['line_breakdowns'] as List<dynamic>?) ?? [];
+    final lines = (result['line_breakdowns'] as List<dynamic>?) ?? (result['lines'] as List<dynamic>?) ?? [];
 
-    final double totalDuty = (summary['total_customs_duty_egp'] as num?)?.toDouble() ?? 0.0;
-    final double totalVat = (summary['total_vat_egp'] as num?)?.toDouble() ?? 0.0;
-    final double totalScheduleTax = (summary['total_schedule_tax_egp'] as num?)?.toDouble() ?? 0.0;
-    final double totalDevFee = (summary['total_development_fee_egp'] as num?)?.toDouble() ?? 0.0;
-    final double totalInspection = (summary['total_inspection_fees_egp'] as num?)?.toDouble() ?? 0.0;
-    final double totalBasicFees = (summary['total_basic_fees_egp'] as num?)?.toDouble() ?? 0.0;
-    final double grandTotalDuties = (summary['total_duties_and_taxes_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalDuty = (result['total_duty_egp'] as num?)?.toDouble() ?? (summary['total_customs_duty_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalVat = (result['total_vat_egp'] as num?)?.toDouble() ?? (summary['total_vat_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalScheduleTax = (result['total_schedule_tax_egp'] as num?)?.toDouble() ?? (summary['total_schedule_tax_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalServiceFee = (result['total_customs_service_fee_egp'] as num?)?.toDouble() ?? (summary['total_customs_service_fee_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalDevFee = (result['total_development_fee_egp'] as num?)?.toDouble() ?? (summary['total_development_fee_egp'] as num?)?.toDouble() ?? 0.0;
+    final double totalInspection = (result['total_inspection_fees_egp'] as num?)?.toDouble() ?? (summary['total_inspection_fees_egp'] as num?)?.toDouble() ?? 0.0;
+    final double grandTotalDuties = (result['grand_total_payable_egp'] as num?)?.toDouble() ?? (summary['total_duties_and_taxes_egp'] as num?)?.toDouble() ?? 0.0;
 
     pdf.addPage(
       pw.MultiPage(
@@ -147,11 +147,11 @@ class CustomsPdfService {
                   pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
-                      _pdfSummaryStat('ضريبة الوارد (Customs Duty)', '${totalDuty.toStringAsFixed(2)} EGP'),
+                      _pdfSummaryStat('ضريبة الوارد', '${totalDuty.toStringAsFixed(2)} EGP'),
+                      _pdfSummaryStat('ضريبة الجدول', '${totalScheduleTax.toStringAsFixed(2)} EGP'),
+                      _pdfSummaryStat('أ.ن.ص (1%)', '${totalServiceFee.toStringAsFixed(2)} EGP'),
                       _pdfSummaryStat('القيمة المضافة (VAT)', '${totalVat.toStringAsFixed(2)} EGP'),
-                      _pdfSummaryStat('ضريبة الجدول (Schedule Tax)', '${totalScheduleTax.toStringAsFixed(2)} EGP'),
-                      _pdfSummaryStat('رسم التنمية (Dev Fee)', '${totalDevFee.toStringAsFixed(2)} EGP'),
-                      _pdfSummaryStat('خدمات وفحص جمركي', '${(totalInspection + totalBasicFees + additionalFeesEgp).toStringAsFixed(2)} EGP'),
+                      _pdfSummaryStat('خدمات ونولون/فحص', '${(totalInspection + additionalFeesEgp + totalDevFee).toStringAsFixed(2)} EGP'),
                     ],
                   ),
                   pw.Divider(color: PdfColor.fromHex('#3498DB')),
@@ -180,11 +180,12 @@ class CustomsPdfService {
                 'HS Code',
                 'المنشأ',
                 'القيمة ($currency)',
-                'القيمة (CIF EGP)',
+                'CIF (EGP)',
                 'ضريبة الوارد',
+                'ض.جدول',
+                'أ.ن.ص (1%)',
                 'القيمة المضافة',
-                'خدمات/فحص',
-                'إجمالي السطر (EGP)'
+                'فحص/خدمات'
               ],
               data: lines.map((l) {
                 final lineMap = l as Map<String, dynamic>;
@@ -192,13 +193,14 @@ class CustomsPdfService {
                 final hs = lineMap['hs_code'] ?? '-';
                 final origin = lineMap['origin_country'] ?? '-';
                 final valFc = (lineMap['value_fc'] as num?)?.toDouble() ?? 0.0;
-                final cifEgp = (lineMap['cif_allocated_egp'] as num?)?.toDouble() ?? 0.0;
-                final dutyEgp = (lineMap['customs_duty_amount'] as num?)?.toDouble() ?? 0.0;
+                final cifEgp = (lineMap['cif_value_egp'] as num?)?.toDouble() ?? (lineMap['cif_allocated_egp'] as num?)?.toDouble() ?? 0.0;
+                final dutyEgp = (lineMap['duty_egp'] as num?)?.toDouble() ?? (lineMap['customs_duty_amount'] as num?)?.toDouble() ?? 0.0;
                 final dutyRate = (lineMap['customs_duty_rate'] as num?)?.toDouble() ?? 0.0;
-                final vatEgp = (lineMap['vat_amount'] as num?)?.toDouble() ?? 0.0;
+                final schedEgp = (lineMap['schedule_tax_egp'] as num?)?.toDouble() ?? 0.0;
+                final svcEgp = (lineMap['customs_service_fee_egp'] as num?)?.toDouble() ?? 0.0;
+                final vatEgp = (lineMap['vat_egp'] as num?)?.toDouble() ?? (lineMap['vat_amount'] as num?)?.toDouble() ?? 0.0;
                 final vatRate = (lineMap['vat_rate'] as num?)?.toDouble() ?? 0.0;
                 final inspEgp = (lineMap['inspection_fee_egp'] as num?)?.toDouble() ?? 0.0;
-                final lineTotal = (lineMap['total_line_duties'] as num?)?.toDouble() ?? 0.0;
 
                 return [
                   '$lineNo',
@@ -207,9 +209,10 @@ class CustomsPdfService {
                   valFc.toStringAsFixed(2),
                   cifEgp.toStringAsFixed(2),
                   '${dutyEgp.toStringAsFixed(2)}\n($dutyRate%)',
+                  schedEgp.toStringAsFixed(2),
+                  svcEgp.toStringAsFixed(2),
                   '${vatEgp.toStringAsFixed(2)}\n($vatRate%)',
                   inspEgp.toStringAsFixed(2),
-                  lineTotal.toStringAsFixed(2),
                 ];
               }).toList(),
               headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, color: PdfColors.white, fontSize: 9),

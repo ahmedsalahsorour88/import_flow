@@ -143,7 +143,14 @@ class ShippingScenarioService:
     ) -> ShippingEvaluationResponse:
         ShippingScenarioValidator.validate_evaluation_create(payload)
         session_obj = ShippingScenarioRepository.create(db, payload)
-        return ShippingScenarioService._enrich_session_response(db, session_obj)
+        res = ShippingScenarioService._enrich_session_response(db, session_obj)
+        if res.import_file_id and res.recommended_scenario_provider:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == res.import_file_id).first()
+            if imp:
+                imp.selected_scenario = res.recommended_scenario_provider
+                db.commit()
+        return res
 
     @staticmethod
     def get_session_service(
@@ -196,7 +203,14 @@ class ShippingScenarioService:
             )
 
         updated_obj = ShippingScenarioRepository.update(db, session_obj, payload)
-        return ShippingScenarioService._enrich_session_response(db, updated_obj)
+        res = ShippingScenarioService._enrich_session_response(db, updated_obj)
+        if res.import_file_id and res.recommended_scenario_provider:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == res.import_file_id).first()
+            if imp:
+                imp.selected_scenario = res.recommended_scenario_provider
+                db.commit()
+        return res
 
     @staticmethod
     def soft_delete_service(db: Session, session_id: int) -> dict:

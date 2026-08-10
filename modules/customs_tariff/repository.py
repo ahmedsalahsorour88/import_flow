@@ -37,10 +37,15 @@ def get_all_tariffs(
     if not include_inactive:
         query = query.filter(CustomsTariff.is_active == True)
     if search:
-        term = f"%{search.lower()}%"
+        clean_search = search.strip()
+        nodots = clean_search.replace(".", "").lower()
+        term = f"%{clean_search.lower()}%"
+        nodots_term = f"%{nodots}%"
+        from sqlalchemy import func
         query = query.filter(
             or_(
                 CustomsTariff.hs_code.ilike(term),
+                func.replace(CustomsTariff.hs_code, '.', '').ilike(nodots_term),
                 CustomsTariff.hs_description.ilike(term),
                 CustomsTariff.customs_category.ilike(term),
             )

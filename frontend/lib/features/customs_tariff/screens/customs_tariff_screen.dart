@@ -966,22 +966,6 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.emerald,
-                            side: const BorderSide(color: AppTheme.emerald),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                          icon: const Icon(Icons.calculate_outlined, size: 18),
-                          label: const Text('حساب الرسوم'),
-                          onPressed: () {
-                            Navigator.pop(ctx);
-                            _showDutyCalculatorDialog(context, ref, initialHsCode: tariff.hsCode);
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.cobalt,
@@ -1834,6 +1818,21 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   ...multiLines.asMap().entries.map((entry) {
                     final idx = entry.key;
                     final m = entry.value;
+                    final registeredTariffs = ref.watch(customsTariffProvider).value ?? [];
+                    final hsDropdownItems = registeredTariffs
+                        .map((t) => SearchableDropdownItem<String>(
+                              value: t.hsCode,
+                              label: '[${t.hsCode}] ${t.hsDescription}',
+                              subtitle: 'الوارد: ${t.customsDutyRate}% | ض.م: ${t.vatRate}%',
+                            ))
+                        .toList();
+
+                    final currentHs = (m['hs'] as TextEditingController).text.trim();
+                    final matchedTariff = registeredTariffs.cast<CustomsTariffModel?>().firstWhere(
+                          (t) => t != null && (t.hsCode == currentHs || t.hsCode.replaceAll('.', '') == currentHs.replaceAll('.', '')),
+                          orElse: () => null,
+                        );
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       padding: const EdgeInsets.all(8),
@@ -1842,107 +1841,168 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                         borderRadius: BorderRadius.circular(6),
                         border: Border.all(color: Colors.grey.withOpacity(0.2)),
                       ),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          CircleAvatar(
-                            radius: 12,
-                            backgroundColor: AppTheme.cobalt,
-                            child: Text('${idx + 1}',
-                                style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: m['hs'] as TextEditingController,
-                              decoration: const InputDecoration(
-                                labelText: 'HS Code',
-                                hintText: '8471.30.00',
-                                isDense: true,
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 12,
+                                backgroundColor: AppTheme.cobalt,
+                                child: Text('${idx + 1}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: m['value'] as TextEditingController,
-                              keyboardType: TextInputType.number,
-                              onChanged: (_) => syncCalculatedFields(setCalcState, multiLines),
-                              decoration: InputDecoration(
-                                labelText: 'القيمة ($selectedCurrency)',
-                                hintText: '1000',
-                                isDense: true,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                flex: 3,
+                                child: SearchableDropdownField<String>(
+                                  value: currentHs.isEmpty ? null : currentHs,
+                                  labelText: 'HS Code (بند التعريفة الجمركية) *',
+                                  searchHintText: 'ابحث برقم البند أو الوصف الجمركي...',
+                                  items: [
+                                    if (currentHs.isNotEmpty && !registeredTariffs.any((t) => t.hsCode == currentHs))
+                                      SearchableDropdownItem<String>(
+                                        value: currentHs,
+                                        label: currentHs,
+                                        subtitle: 'بند غير مسجل / حرة',
+                                      ),
+                                    ...hsDropdownItems,
+                                  ],
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      setCalcState(() {
+                                        (m['hs'] as TextEditingController).text = val;
+                                      });
+                                    }
+                                  },
+                                ),
                               ),
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 2,
-                            child: SearchableDropdownField<String>(
-                              value: m['origin'] as String?,
-                              labelText: 'المنشأ',
-                              searchHintText: 'ابحث عن بلد المنشأ...',
-                              items: const [
-                                SearchableDropdownItem(value: 'CN', label: 'الصين - CN'),
-                                SearchableDropdownItem(value: 'TR', label: 'تركيا (اتفاقية) - TR'),
-                                SearchableDropdownItem(value: 'DE', label: 'ألمانيا (شراكة) - DE'),
-                                SearchableDropdownItem(value: 'IT', label: 'إيطاليا (شراكة) - IT'),
-                                SearchableDropdownItem(value: 'EG', label: 'مصر - EG'),
-                                SearchableDropdownItem(value: 'GB', label: 'المملكة المتحدة - GB'),
-                                SearchableDropdownItem(value: 'US', label: 'أمريكا - US'),
-                                SearchableDropdownItem(value: 'IN', label: 'الهند - IN'),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  controller: m['value'] as TextEditingController,
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (_) => syncCalculatedFields(setCalcState, multiLines),
+                                  decoration: InputDecoration(
+                                    labelText: 'القيمة ($selectedCurrency)',
+                                    hintText: '1000',
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                flex: 2,
+                                child: SearchableDropdownField<String>(
+                                  value: m['origin'] as String?,
+                                  labelText: 'المنشأ',
+                                  searchHintText: 'ابحث عن بلد المنشأ...',
+                                  items: const [
+                                    SearchableDropdownItem(value: 'CN', label: 'الصين - CN'),
+                                    SearchableDropdownItem(value: 'TR', label: 'تركيا (اتفاقية) - TR'),
+                                    SearchableDropdownItem(value: 'DE', label: 'ألمانيا (شراكة) - DE'),
+                                    SearchableDropdownItem(value: 'IT', label: 'إيطاليا (شراكة) - IT'),
+                                    SearchableDropdownItem(value: 'EG', label: 'مصر - EG'),
+                                    SearchableDropdownItem(value: 'GB', label: 'المملكة المتحدة - GB'),
+                                    SearchableDropdownItem(value: 'US', label: 'أمريكا - US'),
+                                    SearchableDropdownItem(value: 'IN', label: 'الهند - IN'),
+                                    SearchableDropdownItem(value: 'BR', label: 'البرازيل (ميركوسور) - BR'),
+                                    SearchableDropdownItem(value: 'RS', label: 'صربيا (اتفاقية) - RS'),
+                                    SearchableDropdownItem(value: 'CH', label: 'سويسرا (إفتا) - CH'),
+                                  ],
+                                  onChanged: (val) {
+                                    setCalcState(() {
+                                      m['origin'] = val;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                flex: 2,
+                                child: SearchableDropdownField<String?>(
+                                  value: m['exemption'] as String?,
+                                  labelText: 'الإعفاء',
+                                  searchHintText: 'ابحث عن كود الإعفاء...',
+                                  items: const [
+                                    SearchableDropdownItem(value: null, label: 'لا يوجد إعفاء'),
+                                    SearchableDropdownItem(value: 'INV-LAW-EXEMPT-01', label: 'قانون الاستثمار (100%)'),
+                                    SearchableDropdownItem(value: 'FREEZONE-EXEMPT-02', label: 'منطقة حرة (100%)'),
+                                    SearchableDropdownItem(value: 'DIPLO-EXEMPT-03', label: 'إعفاء دبلوماسي (100%)'),
+                                    SearchableDropdownItem(value: 'PARTIAL-50-EXEMPT', label: 'إعفاء جزئي (50%)'),
+                                  ],
+                                  onChanged: (val) {
+                                    setCalcState(() {
+                                      m['exemption'] = val;
+                                    });
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                flex: 2,
+                                child: TextField(
+                                  controller: m['inspection'] as TextEditingController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'خدمات جمركية (EGP)',
+                                    hintText: '0.00',
+                                    isDense: true,
+                                  ),
+                                ),
+                              ),
+                              if (multiLines.length > 1) ...[
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  onPressed: () {
+                                    setCalcState(() {
+                                      multiLines.removeAt(idx);
+                                      syncCalculatedFields(setCalcState, multiLines);
+                                    });
+                                  },
+                                ),
                               ],
-                              onChanged: (val) {
-                                setCalcState(() {
-                                  m['origin'] = val;
-                                });
-                              },
-                            ),
+                            ],
                           ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 2,
-                            child: SearchableDropdownField<String?>(
-                              value: m['exemption'] as String?,
-                              labelText: 'الإعفاء',
-                              searchHintText: 'ابحث عن كود الإعفاء...',
-                              items: const [
-                                SearchableDropdownItem(value: null, label: 'لا يوجد إعفاء'),
-                                SearchableDropdownItem(value: 'INV-LAW-EXEMPT-01', label: 'قانون الاستثمار (100%)'),
-                                SearchableDropdownItem(value: 'FREEZONE-EXEMPT-02', label: 'منطقة حرة (100%)'),
-                                SearchableDropdownItem(value: 'DIPLO-EXEMPT-03', label: 'إعفاء دبلوماسي (100%)'),
-                                SearchableDropdownItem(value: 'PARTIAL-50-EXEMPT', label: 'إعفاء جزئي (50%)'),
-                              ],
-                              onChanged: (val) {
-                                setCalcState(() {
-                                  m['exemption'] = val;
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            flex: 2,
-                            child: TextField(
-                              controller: m['inspection'] as TextEditingController,
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'خدمات جمركية (EGP)',
-                                hintText: '0.00',
-                                isDense: true,
+                          if (matchedTariff != null && (matchedTariff.priorApprovalNote ?? '').isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.amber.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.amber.shade700),
                               ),
-                            ),
-                          ),
-                          if (multiLines.length > 1) ...[
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                              onPressed: () {
-                                setCalcState(() {
-                                  multiLines.removeAt(idx);
-                                  syncCalculatedFields(setCalcState, multiLines);
-                                });
-                              },
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 16),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${matchedTariff.hsCode}):',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Colors.amber.shade900,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:',
+                                    style: TextStyle(fontSize: 10.5, color: Colors.amber.shade900),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    matchedTariff.priorApprovalNote!,
+                                    style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal, height: 1.3),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ],

@@ -989,25 +989,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     );
   }
 
-  Widget _buildMiniBadge(String label, String value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.4)),
-      ),
-      child: RichText(
-        text: TextSpan(
-          style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
-          children: [
-            TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.bold)),
-            TextSpan(text: value, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
-          ],
-        ),
-      ),
-    );
-  }
+
 }
 
 class _ImportFileDetailsDialogWidget extends StatefulWidget {
@@ -1355,12 +1337,12 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                       spacing: 12,
                       runSpacing: 8,
                       children: [
-                        Row(
+                        const Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
-                            const SizedBox(width: 8),
-                            const Text(
+                            Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
+                            SizedBox(width: 8),
+                            Text(
                               '🚚 تعليمات التحميل (Cargo Stacking): ',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                             ),
@@ -1433,11 +1415,11 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              const Row(
                                 children: [
-                                  const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
-                                  const SizedBox(width: 8),
-                                  const Text(
+                                  Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
+                                  SizedBox(width: 8),
+                                  Text(
                                     '🚢 دراسات وسيناريوهات الشحن المسجلة للشحنة (Saved Shipping Evaluation Studies)',
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                   ),

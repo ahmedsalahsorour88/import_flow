@@ -882,8 +882,8 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        children: const [
+                      const Row(
+                        children: [
                           Icon(Icons.article_outlined,
                               color: AppTheme.charcoal, size: 26),
                           SizedBox(width: 8),
@@ -1902,7 +1902,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                     keyboardType: TextInputType.number,
                                     onChanged: (_) => syncCalculatedFields(
                                         setCalcState, multiLines),
-                                    decoration: InputDecoration(
+                                    decoration: const InputDecoration(
                                       labelText: 'معامل تحويل عملة النولون *',
                                       hintText: '50.7917',
                                       isDense: true,
@@ -2682,11 +2682,11 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                                                 ],
                                               ),
                                             );
-                                          }).toList(),
+                                          }),
                                         ],
                                       ),
                                     );
-                                  })).toList(),
+                                  })),
                                 ],
                               ),
                             ),

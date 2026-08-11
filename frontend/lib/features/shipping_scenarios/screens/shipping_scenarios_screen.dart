@@ -412,7 +412,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       Expanded(
                         child: _buildMetricCard(
                           'أسرع خط ملاحي وصولاً (Earliest Line)',
-                          earliestItemMap != null ? '${(earliestItemMap["item"] as ShippingScenarioItemModel).providerName}' : 'N/A',
+                          earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
                           Icons.speed,
                           AppTheme.cobalt,
                           subtitle: earliestItemMap != null ? 'تاريخ الوصول المتوقع: ${earliestItemMap["expectedWhDate"]}' : null,
@@ -422,7 +422,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       Expanded(
                         child: _buildMetricCard(
                           'أبطأ خط ملاحي وصولاً (Latest Line)',
-                          latestItemMap != null ? '${(latestItemMap["item"] as ShippingScenarioItemModel).providerName}' : 'N/A',
+                          latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
                           Icons.warning_amber_rounded,
                           Colors.amber.shade900,
                           subtitle: latestItemMap != null ? 'تاريخ الوصول المتوقع: ${latestItemMap["expectedWhDate"]}' : null,
@@ -895,7 +895,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
                                       _updateItem(idx, item.copyWith(
                                         customsBrokerId: val,
-                                        customsBrokerName: partner != null ? partner.partnerName : null,
+                                        customsBrokerName: partner?.partnerName,
                                       ), currenciesList);
                                     },
                                   ),
@@ -1081,7 +1081,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
                                     // Table/Grid of Cost Items (Redesigned: inputs always visible, toggles at the right side)
                                     _buildCostRow(
-                                      rowKey: 'container40ft_${idx}',
+                                      rowKey: 'container40ft_$idx',
                                       title: '1. شحن حاوية 40 قدم (Container 40ft)',
                                       applicable: item.container40ftApplicable,
                                       price: item.container40ftPrice,
@@ -1096,7 +1096,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'container20ft_${idx}',
+                                      rowKey: 'container20ft_$idx',
                                       title: '2. شحن حاوية 20 قدم (Container 20ft)',
                                       applicable: item.container20ftApplicable,
                                       price: item.container20ftPrice,
@@ -1111,7 +1111,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'lclCbm_${idx}',
+                                      rowKey: 'lclCbm_$idx',
                                       title: '3. شحن CBM لشحنة LCL (LCL CBM Cost)',
                                       applicable: item.lclCbmApplicable,
                                       price: item.lclCbmPrice,
@@ -1136,7 +1136,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
 
                                     _buildCostRow(
-                                      rowKey: 'expressCourier_${idx}',
+                                      rowKey: 'expressCourier_$idx',
                                       title: '4. البريد السريع للمستندات (Express Courier)',
                                       applicable: item.expressCourierApplicable,
                                       price: item.expressCourierPrice,
@@ -1147,7 +1147,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'eurAtr_${idx}',
+                                      rowKey: 'eurAtr_$idx',
                                       title: '5. شهادة المنشأ (EUR.1 / ATR Certificate)',
                                       applicable: item.eurAtrApplicable,
                                       price: item.eurAtrPrice,
@@ -1158,7 +1158,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'solasVgm_${idx}',
+                                      rowKey: 'solasVgm_$idx',
                                       title: '6. مصاريف التحقق من الوزن (SOLAS/VGM Fees)',
                                       applicable: item.solasVgmApplicable,
                                       price: item.solasVgmPrice,
@@ -1169,7 +1169,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'vgmNotification_${idx}',
+                                      rowKey: 'vgmNotification_$idx',
                                       title: '7. إخطار إقرار الوزن (VGM Notification Fee)',
                                       applicable: item.vgmNotificationApplicable,
                                       price: item.vgmNotificationPrice,
@@ -1183,7 +1183,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'telexRelease_${idx}',
+                                      rowKey: 'telexRelease_$idx',
                                       title: '8. إطلاق الفاكس الملاحي (Telex Release)',
                                       applicable: item.telexReleaseApplicable,
                                       price: item.telexReleasePrice,
@@ -1194,7 +1194,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'insurance_${idx}',
+                                      rowKey: 'insurance_$idx',
                                       title: '9. بوليصة التأمين البحري (Insurance)',
                                       applicable: item.insuranceApplicable,
                                       price: item.insurancePrice,
@@ -1205,7 +1205,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'bookingCancellation_${idx}',
+                                      rowKey: 'bookingCancellation_$idx',
                                       title: '10. غرامة إلغاء الحجز (Booking Cancellation)',
                                       applicable: item.bookingCancellationApplicable,
                                       price: item.bookingCancellationPrice,
@@ -1218,7 +1218,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
                                     // New Cost Rows
                                     _buildCostRow(
-                                      rowKey: 'ics2FilingFee_${idx}',
+                                      rowKey: 'ics2FilingFee_$idx',
                                       title: '11. رسوم إيداع بيان الحمول الرقمية (ICS2 Filing Fee)',
                                       applicable: item.ics2FilingFeeApplicable,
                                       price: item.ics2FilingFeePrice,
@@ -1229,7 +1229,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'documentFees_${idx}',
+                                      rowKey: 'documentFees_$idx',
                                       title: '12. مصاريف المستندات الإضافية (Document Fees)',
                                       applicable: item.documentFeesApplicable,
                                       price: item.documentFeesPrice,
@@ -1240,7 +1240,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'waiverLetterFee_${idx}',
+                                      rowKey: 'waiverLetterFee_$idx',
                                       title: '13. مصاريف خطاب التنازل (Waiver Letter / Transfer Fee)',
                                       applicable: item.waiverLetterFeeApplicable,
                                       price: item.waiverLetterFeePrice,
@@ -1251,7 +1251,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       currenciesList: currenciesList,
                                     ),
                                     _buildCostRow(
-                                      rowKey: 'othersFee_${idx}',
+                                      rowKey: 'othersFee_$idx',
                                       title: '14. مصاريف ومصاريف أخرى (Others)',
                                       applicable: item.othersFeeApplicable,
                                       price: item.othersFeePrice,
@@ -1292,7 +1292,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                   const SizedBox(height: 20),
 
                   // Comparison Summary Table
@@ -1966,7 +1966,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           ),
                         ],
                       );
-                    }).toList(),
+                    }),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -2130,22 +2130,22 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                   TableRow(
                     children: [
                       const Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية الموصى بها')),
-                      Padding(padding: EdgeInsets.all(8), child: Text(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
-                      Padding(padding: EdgeInsets.all(8), child: Text(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
                   ),
                   TableRow(
                     children: [
                       const Padding(padding: EdgeInsets.all(8), child: Text('عدد الحاويات المطلوبة')),
-                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                     ],
                   ),
                   TableRow(
                     children: [
                       const Padding(padding: EdgeInsets.all(8), child: Text('نسبة استغلال حجم الحاوية')),
-                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
-                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
                     ],
                   ),
                 ],

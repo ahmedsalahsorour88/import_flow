@@ -100,7 +100,14 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to save evaluation session: ${e.toString()}');
+      String msg = e.toString();
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && data.containsKey('detail')) {
+          msg = data['detail'].toString();
+        }
+      }
+      state = state.copyWith(errorMessage: msg);
       return false;
     }
   }
@@ -111,7 +118,14 @@ class ShippingScenariosNotifier extends StateNotifier<ShippingScenariosState> {
       await fetchSessions();
       return true;
     } catch (e) {
-      state = state.copyWith(errorMessage: 'Failed to update evaluation session: ${e.toString()}');
+      String msg = e.toString();
+      if (e is DioException && e.response?.data != null) {
+        final data = e.response!.data;
+        if (data is Map && data.containsKey('detail')) {
+          msg = data['detail'].toString();
+        }
+      }
+      state = state.copyWith(errorMessage: msg);
       return false;
     }
   }

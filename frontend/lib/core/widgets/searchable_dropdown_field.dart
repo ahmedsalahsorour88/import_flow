@@ -33,7 +33,7 @@ class SearchableDropdownField<T> extends FormField<T> {
     required this.value,
     required this.items,
     required this.onChanged,
-    required this.labelText,
+    this.labelText = '',
     this.hintText,
     this.searchHintText,
     this.isDense = true,

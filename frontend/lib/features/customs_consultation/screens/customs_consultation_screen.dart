@@ -141,14 +141,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         decoration: const InputDecoration(labelText: 'بند التعريفة الجمركية المرتبط (HS Code)', border: OutlineInputBorder()),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownField<String>(
                         value: party,
-                        decoration: const InputDecoration(labelText: 'الجهة المسؤولة عن المستند', border: OutlineInputBorder()),
+                        labelText: 'الجهة المسؤولة عن المستند',
                         items: const [
-                          DropdownMenuItem(value: 'Customs Broker', child: Text('Customs Broker (المستخلص الجمركي)')),
-                          DropdownMenuItem(value: 'Supplier / Exporter', child: Text('Supplier / Exporter (المورد الخارجي)')),
-                          DropdownMenuItem(value: 'Importer Team', child: Text('Importer Team (فريق الاستيراد)')),
-                          DropdownMenuItem(value: 'Freight Forwarder', child: Text('Freight Forwarder (شركة الشحن)')),
+                          SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (المستخلص الجمركي)'),
+                          SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter (المورد الخارجي)'),
+                          SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team (فريق الاستيراد)'),
+                          SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة الشحن)'),
                         ],
                         onChanged: (v) => setDialogState(() => party = v!),
                       ),
@@ -158,15 +158,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         decoration: const InputDecoration(labelText: 'الجهة الرقابية / العرض الجمركي (GOEIC, NTRA, Food Safety...)', border: OutlineInputBorder()),
                       ),
                       const SizedBox(height: 12),
-                      DropdownButtonFormField<String>(
+                      SearchableDropdownField<String>(
                         value: itemStatus,
-                        decoration: const InputDecoration(labelText: 'حالة المستند المبدئية', border: OutlineInputBorder()),
+                        labelText: 'حالة المستند المبدئية',
                         items: const [
-                          DropdownMenuItem(value: 'Pending', child: Text('Pending (قيد الانتظار)')),
-                          DropdownMenuItem(value: 'Received', child: Text('Received (تم الاستلام)')),
-                          DropdownMenuItem(value: 'Verified', child: Text('Verified (تم التدقيق)')),
-                          DropdownMenuItem(value: 'Approved', child: Text('Approved (معتمد جمركياً)')),
-                          DropdownMenuItem(value: 'Rejected', child: Text('Rejected (مرفوض / يتطلب إجراء)')),
+                          SearchableDropdownItem(value: 'Pending', label: 'Pending (قيد الانتظار)'),
+                          SearchableDropdownItem(value: 'Received', label: 'Received (تم الاستلام)'),
+                          SearchableDropdownItem(value: 'Verified', label: 'Verified (تم التدقيق)'),
+                          SearchableDropdownItem(value: 'Approved', label: 'Approved (معتمد جمركياً)'),
+                          SearchableDropdownItem(value: 'Rejected', label: 'Rejected (مرفوض / يتطلب إجراء)'),
                         ],
                         onChanged: (v) => setDialogState(() => itemStatus = v!),
                       ),
@@ -603,59 +603,59 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                                 child: Row(
                                   children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                          if (item.regulatoryAgency != null) Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: DropdownButton<String>(
-                                        value: item.responsibleParty,
-                                        isExpanded: true,
-                                        items: const [
-                                          DropdownMenuItem(value: 'Customs Broker', child: Text('Customs Broker', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Supplier / Exporter', child: Text('Supplier / Exporter', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Importer Team', child: Text('Importer Team', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Freight Forwarder', child: Text('Freight Forwarder', style: TextStyle(fontSize: 11))),
-                                        ],
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setState(() {
-                                              _checklist[index] = item.copyWith(responsibleParty: val);
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: DropdownButton<String>(
-                                        value: item.status,
-                                        isExpanded: true,
-                                        items: const [
-                                          DropdownMenuItem(value: 'Pending', child: Text('Pending (انتظار)', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Received', child: Text('Received (مستلم)', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Verified', child: Text('Verified (مدقق)', style: TextStyle(fontSize: 11))),
-                                          DropdownMenuItem(value: 'Approved', child: Text('Approved (معتمد)', style: TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.bold))),
-                                          DropdownMenuItem(value: 'Rejected', child: Text('Rejected (مرفوض)', style: TextStyle(fontSize: 11, color: Colors.red, fontWeight: FontWeight.bold))),
-                                        ],
-                                        onChanged: (val) {
-                                          if (val != null) {
-                                            setState(() {
-                                              _checklist[index] = item.copyWith(status: val);
-                                            });
-                                          }
-                                        },
-                                      ),
-                                    ),
+                                     Expanded(
+                                       flex: 3,
+                                       child: Column(
+                                         crossAxisAlignment: CrossAxisAlignment.start,
+                                         children: [
+                                           Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                           if (item.regulatoryAgency != null) Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                         ],
+                                       ),
+                                     ),
+                                     const SizedBox(width: 8),
+                                     Expanded(
+                                       flex: 2,
+                                       child: SearchableDropdownField<String>(
+                                         value: item.responsibleParty,
+                                         labelText: 'الجهة',
+                                         items: const [
+                                           SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
+                                           SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
+                                           SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team'),
+                                           SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder'),
+                                         ],
+                                         onChanged: (val) {
+                                           if (val != null) {
+                                             setState(() {
+                                               _checklist[index] = item.copyWith(responsibleParty: val);
+                                             });
+                                           }
+                                         },
+                                       ),
+                                     ),
+                                     const SizedBox(width: 8),
+                                     Expanded(
+                                       flex: 2,
+                                       child: SearchableDropdownField<String>(
+                                         value: item.status,
+                                         labelText: 'الحالة',
+                                         items: const [
+                                           SearchableDropdownItem(value: 'Pending', label: 'Pending'),
+                                           SearchableDropdownItem(value: 'Received', label: 'Received'),
+                                           SearchableDropdownItem(value: 'Verified', label: 'Verified'),
+                                           SearchableDropdownItem(value: 'Approved', label: 'Approved'),
+                                           SearchableDropdownItem(value: 'Rejected', label: 'Rejected'),
+                                         ],
+                                         onChanged: (val) {
+                                           if (val != null) {
+                                             setState(() {
+                                               _checklist[index] = item.copyWith(status: val);
+                                             });
+                                           }
+                                         },
+                                       ),
+                                     ),
                                     const SizedBox(width: 8),
                                     IconButton(
                                       icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
@@ -720,17 +720,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ),
                         ),
                         const SizedBox(width: 12),
-                        DropdownButton<String>(
-                          value: _statusFilter,
-                          items: const [
-                            DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                            DropdownMenuItem(value: 'Pending Review', child: Text('Pending Review')),
-                            DropdownMenuItem(value: 'In Progress', child: Text('In Progress')),
-                            DropdownMenuItem(value: 'Action Required', child: Text('Action Required')),
-                            DropdownMenuItem(value: 'Clearance Ready', child: Text('Clearance Ready')),
-                            DropdownMenuItem(value: 'Blocked', child: Text('Blocked')),
-                          ],
-                          onChanged: (v) => setState(() => _statusFilter = v!),
+                        SizedBox(
+                          width: 200,
+                          child: SearchableDropdownField<String>(
+                            value: _statusFilter,
+                            items: const [
+                              SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                              SearchableDropdownItem(value: 'Pending Review', label: 'Pending Review'),
+                              SearchableDropdownItem(value: 'In Progress', label: 'In Progress'),
+                              SearchableDropdownItem(value: 'Action Required', label: 'Action Required'),
+                              SearchableDropdownItem(value: 'Clearance Ready', label: 'Clearance Ready'),
+                              SearchableDropdownItem(value: 'Blocked', label: 'Blocked'),
+                            ],
+                            onChanged: (v) => setState(() => _statusFilter = v!),
+                          ),
                         ),
                       ],
                     ),

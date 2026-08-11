@@ -13,6 +13,34 @@ final partnersProvider = StateNotifierProvider<PartnersNotifier, AsyncValue<List
   return PartnersNotifier(ref: ref, category: category, showInactive: showInactive);
 });
 
+final allPartnersProvider = StateNotifierProvider<AllPartnersNotifier, AsyncValue<List<PartnerModel>>>((ref) {
+  return AllPartnersNotifier(ref: ref);
+});
+
+class AllPartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
+  final Ref? ref;
+  final Dio _dio = Dio();
+
+  AllPartnersNotifier({this.ref}) : super(const AsyncValue.loading()) {
+    fetchPartners();
+  }
+
+  Future<void> fetchPartners() async {
+    state = const AsyncValue.loading();
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/external-service-providers',
+        queryParameters: {'include_inactive': true},
+      );
+      final List data = response.data;
+      final list = data.map((json) => PartnerModel.fromJson(json)).toList();
+      state = AsyncValue.data(list);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+}
+
 class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   final Ref? ref;
   final Dio _dio = Dio();

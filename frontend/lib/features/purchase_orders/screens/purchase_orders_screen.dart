@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
@@ -151,19 +152,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: DropdownButtonFormField<int?>(
+                      child: SearchableDropdownField<int?>(
                         value: state.projectFilter,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Filter by Project',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
+                        labelText: 'Filter by Project',
                         items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('All Projects')),
-                          ...projectsList.map((p) => DropdownMenuItem<int?>(
+                          const SearchableDropdownItem<int?>(value: null, label: 'All Projects'),
+                          ...projectsList.map((p) => SearchableDropdownItem<int?>(
                                 value: p.projectId,
-                                child: Text('${p.projectCode} - ${p.projectName}', overflow: TextOverflow.ellipsis),
+                                label: '${p.projectCode} - ${p.projectName}',
                               )),
                         ],
                         onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setProjectFilter(v),
@@ -172,20 +168,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       flex: 2,
-                      child: DropdownButtonFormField<String?>(
+                      child: SearchableDropdownField<String?>(
                         value: state.statusFilter,
-                        isExpanded: true,
-                        decoration: const InputDecoration(
-                          labelText: 'Filter by Status',
-                          isDense: true,
-                          border: OutlineInputBorder(),
-                        ),
+                        labelText: 'Filter by Status',
                         items: const [
-                          DropdownMenuItem<String?>(value: null, child: Text('All Statuses')),
-                          DropdownMenuItem<String?>(value: 'Draft', child: Text('Draft')),
-                          DropdownMenuItem<String?>(value: 'Approved', child: Text('Approved')),
-                          DropdownMenuItem<String?>(value: 'In Transit', child: Text('In Transit')),
-                          DropdownMenuItem<String?>(value: 'Closed', child: Text('Closed')),
+                          SearchableDropdownItem<String?>(value: null, label: 'All Statuses'),
+                          SearchableDropdownItem<String?>(value: 'Draft', label: 'Draft'),
+                          SearchableDropdownItem<String?>(value: 'Approved', label: 'Approved'),
+                          SearchableDropdownItem<String?>(value: 'In Transit', label: 'In Transit'),
+                          SearchableDropdownItem<String?>(value: 'Closed', label: 'Closed'),
                         ],
                         onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
                       ),
@@ -1142,21 +1133,17 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            DropdownButtonFormField<int?>(
+                            SearchableDropdownField<int?>(
                               value: _selectedImportFileId,
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Import File (ملف الشحنة الاستيرادية)',
-                                prefixIcon: Icon(Icons.folder_special, color: AppTheme.cobalt),
-                              ),
+                              labelText: 'Import File (ملف الشحنة الاستيرادية)',
                               items: [
-                                const DropdownMenuItem<int?>(
+                                const SearchableDropdownItem<int?>(
                                   value: null,
-                                  child: Text('-- None / غير مرتبط بملف شحنة --'),
+                                  label: '-- None / غير مرتبط بملف شحنة --',
                                 ),
-                                ...importFiles.map((f) => DropdownMenuItem<int?>(
+                                ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                       value: f.importFileId,
-                                      child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
+                                      label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
                                     )),
                               ],
                               onChanged: (v) => setState(() => _selectedImportFileId = v),
@@ -1201,14 +1188,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: DropdownButtonFormField<int>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedProjectId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Project *'),
+                                    labelText: 'Project *',
                                     items: projects
-                                        .map((p) => DropdownMenuItem(
+                                        .map((p) => SearchableDropdownItem<int?>(
                                               value: p.projectId,
-                                              child: Text('${p.projectCode} (${p.projectName})', overflow: TextOverflow.ellipsis),
+                                              label: '${p.projectCode} (${p.projectName})',
                                             ))
                                         .toList(),
                                     onChanged: (v) {
@@ -1223,14 +1209,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<int>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedCompanyId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Importing Company *'),
+                                    labelText: 'Importing Company *',
                                     items: companies
-                                        .map((c) => DropdownMenuItem(
+                                        .map((c) => SearchableDropdownItem<int?>(
                                               value: c.companyId,
-                                              child: Text(c.importerName, overflow: TextOverflow.ellipsis),
+                                              label: c.importerName,
                                             ))
                                         .toList(),
                                     onChanged: (v) {
@@ -1240,14 +1225,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: DropdownButtonFormField<int>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedSupplierId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Supplier *'),
+                                    labelText: 'Supplier *',
                                     items: suppliers
-                                        .map((s) => DropdownMenuItem(
+                                        .map((s) => SearchableDropdownItem<int?>(
                                               value: s.supplierId,
-                                              child: Text(s.companyName, overflow: TextOverflow.ellipsis),
+                                              label: s.companyName,
                                             ))
                                         .toList(),
                                     onChanged: (v) {
@@ -1262,14 +1246,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: DropdownButtonFormField<int>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedIncotermId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Incoterm *'),
+                                    labelText: 'Incoterm *',
                                     items: incoterms
-                                        .map((i) => DropdownMenuItem(
+                                        .map((i) => SearchableDropdownItem<int?>(
                                               value: i.incotermId,
-                                              child: Text('${i.incotermCode} (${i.incotermName})', overflow: TextOverflow.ellipsis),
+                                              label: '${i.incotermCode} (${i.incotermName})',
                                             ))
                                         .toList(),
                                     onChanged: (v) {
@@ -1279,14 +1262,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: DropdownButtonFormField<int>(
+                                  child: SearchableDropdownField<int?>(
                                     value: _selectedCurrencyId,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Currency *'),
+                                    labelText: 'Currency *',
                                     items: currencies
-                                        .map((c) => DropdownMenuItem(
+                                        .map((c) => SearchableDropdownItem<int?>(
                                               value: c.currencyId,
-                                              child: Text('${c.currencyCode} (${c.currencyName})', overflow: TextOverflow.ellipsis),
+                                              label: '${c.currencyCode} (${c.currencyName})',
                                             ))
                                         .toList(),
                                     onChanged: (v) {
@@ -1309,12 +1291,11 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: DropdownButtonFormField<String>(
+                                  child: SearchableDropdownField<String>(
                                     value: _selectedStatus,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Status'),
+                                    labelText: 'Status',
                                     items: ['Draft', 'Approved', 'In Transit', 'Closed', 'Cancelled']
-                                        .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                                        .map((s) => SearchableDropdownItem<String>(value: s, label: s))
                                         .toList(),
                                     onChanged: (v) => setState(() => _selectedStatus = v ?? 'Draft'),
                                   ),
@@ -1323,31 +1304,27 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             ),
                             const SizedBox(height: 12),
 
-                            DropdownButtonFormField<String>(
+                            SearchableDropdownField<String>(
                               value: ['Cash in Advance / SWIFT', 'Letter of Credit / LC', 'CAD / Cash Against Documents', 'Open Account / Deferred Payment'].contains(_selectedPaymentTerms)
                                   ? _selectedPaymentTerms
                                   : 'Cash in Advance / SWIFT',
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                labelText: 'Payment Terms (شروط الدفع) *',
-                                prefixIcon: Icon(Icons.payments_outlined, color: AppTheme.cobalt),
-                              ),
+                              labelText: 'Payment Terms (شروط الدفع) *',
                               items: const [
-                                DropdownMenuItem(
+                                SearchableDropdownItem(
                                   value: 'Cash in Advance / SWIFT',
-                                  child: Text('Cash in Advance / SWIFT (تحويل سويفت مقدم)', overflow: TextOverflow.ellipsis),
+                                  label: 'Cash in Advance / SWIFT (تحويل سويفت مقدم)',
                                 ),
-                                DropdownMenuItem(
+                                SearchableDropdownItem(
                                   value: 'Letter of Credit / LC',
-                                  child: Text('Letter of Credit / LC (اعتماد مستندي)', overflow: TextOverflow.ellipsis),
+                                  label: 'Letter of Credit / LC (اعتماد مستندي)',
                                 ),
-                                DropdownMenuItem(
+                                SearchableDropdownItem(
                                   value: 'CAD / Cash Against Documents',
-                                  child: Text('CAD / Cash Against Documents (تحصيل مستندي)', overflow: TextOverflow.ellipsis),
+                                  label: 'CAD / Cash Against Documents (تحصيل مستندي)',
                                 ),
-                                DropdownMenuItem(
+                                SearchableDropdownItem(
                                   value: 'Open Account / Deferred Payment',
-                                  child: Text('Open Account / Deferred Payment (حساب مفتوح / آجل)', overflow: TextOverflow.ellipsis),
+                                  label: 'Open Account / Deferred Payment (حساب مفتوح / آجل)',
                                 ),
                               ],
                               onChanged: (v) {
@@ -1751,12 +1728,11 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
-                                                    child: DropdownButtonFormField<String>(
+                                                    child: SearchableDropdownField<String>(
                                                       value: p.packageType,
-                                                      isExpanded: true,
-                                                      decoration: const InputDecoration(labelText: 'Package Type', isDense: true),
+                                                      labelText: 'Package Type',
                                                       items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
-                                                          .map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis)))
+                                                          .map((t) => SearchableDropdownItem(value: t, label: t))
                                                           .toList(),
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = PackingListItemModel(
@@ -1785,15 +1761,14 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                               Row(
                                                 children: [
                                                   SizedBox(
-                                                    width: 85,
-                                                    child: DropdownButtonFormField<String>(
+                                                    width: 100,
+                                                    child: SearchableDropdownField<String>(
                                                       value: p.unit,
-                                                      isExpanded: true,
-                                                      decoration: const InputDecoration(labelText: 'Unit', isDense: true),
+                                                      labelText: 'Unit',
                                                       items: const [
-                                                        DropdownMenuItem(value: 'cm', child: Text('cm')),
-                                                        DropdownMenuItem(value: 'mm', child: Text('mm')),
-                                                        DropdownMenuItem(value: 'm', child: Text('m')),
+                                                         SearchableDropdownItem(value: 'cm', label: 'cm'),
+                                                         SearchableDropdownItem(value: 'mm', label: 'mm'),
+                                                         SearchableDropdownItem(value: 'm', label: 'm'),
                                                       ],
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = PackingListItemModel(
@@ -2003,13 +1978,12 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
-                                                    child: DropdownButtonFormField<bool>(
+                                                    child: SearchableDropdownField<bool>(
                                                       value: p.isStackable,
-                                                      isExpanded: true,
-                                                      decoration: const InputDecoration(labelText: 'تعليمات الرص *', isDense: true),
+                                                      labelText: 'تعليمات الرص *',
                                                       items: const [
-                                                        DropdownMenuItem(value: true, child: Text('📦 قابل للرص', style: TextStyle(fontSize: 11))),
-                                                        DropdownMenuItem(value: false, child: Text('🚫 غير قابل للرص', style: TextStyle(fontSize: 11))),
+                                                        SearchableDropdownItem(value: true, label: '📦 قابل للرص'),
+                                                        SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص'),
                                                       ],
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = PackingListItemModel(

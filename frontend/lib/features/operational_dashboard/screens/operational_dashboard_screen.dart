@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/widgets/close_shipment_dialog.dart';
 import '../providers/operational_dashboard_provider.dart';
@@ -195,13 +196,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                             const SizedBox(height: 6),
                             SizedBox(
                               width: 240,
-                              height: 38,
-                              child: DropdownButtonFormField<String>(
+                              child: SearchableDropdownField<String>(
                                 value: dashboardState.selectedBrokerName ?? 'All',
-                                decoration: const InputDecoration(isDense: true, border: OutlineInputBorder(), contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                                labelText: '',
                                 items: [
-                                  const DropdownMenuItem(value: 'All', child: Text('جميع المخلصين (All Brokers)')),
-                                  ...brokers.map((b) => DropdownMenuItem(value: b.brokerName, child: Text(b.brokerName))),
+                                  const SearchableDropdownItem(value: 'All', label: 'جميع المخلصين (All Brokers)'),
+                                  ...brokers.map((b) => SearchableDropdownItem(value: b.brokerName, label: b.brokerName)),
                                 ],
                                 onChanged: (val) => notifier.setBroker(val),
                               ),

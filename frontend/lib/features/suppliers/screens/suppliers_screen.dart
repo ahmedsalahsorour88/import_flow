@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
@@ -500,67 +501,39 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 children: [
                                   // Supplier Type Dropdown
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Supplier Type *',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        DropdownButtonFormField<String>(
-                                          value: supplierTypeOptions.contains(selectedSupplierType) ? selectedSupplierType : supplierTypeOptions.first,
-                                          decoration: InputDecoration(
-                                            prefixIcon: const Icon(Icons.category, color: AppTheme.cobalt, size: 20),
-                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                          ),
-                                          items: supplierTypeOptions
-                                              .map((type) => DropdownMenuItem(
-                                                    value: type,
-                                                    child: Text(type, style: const TextStyle(fontSize: 13)),
-                                                  ))
-                                              .toList(),
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setDialogState(() => selectedSupplierType = val);
-                                            }
-                                          },
-                                        ),
-                                      ],
+                                    child: SearchableDropdownField<String>(
+                                      value: supplierTypeOptions.contains(selectedSupplierType) ? selectedSupplierType : supplierTypeOptions.first,
+                                      labelText: 'Supplier Type *',
+                                      items: supplierTypeOptions
+                                          .map((type) => SearchableDropdownItem<String>(
+                                                value: type,
+                                                label: type,
+                                              ))
+                                          .toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setDialogState(() => selectedSupplierType = val);
+                                        }
+                                      },
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   // Registration Type Dropdown
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Text(
-                                          'Registration Type *',
-                                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        DropdownButtonFormField<String>(
-                                          value: regTypeOptions.contains(selectedRegType) ? selectedRegType : regTypeOptions.first,
-                                          decoration: InputDecoration(
-                                            prefixIcon: const Icon(Icons.domain_verification, color: AppTheme.cobalt, size: 20),
-                                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                          ),
-                                          items: regTypeOptions
-                                              .map((type) => DropdownMenuItem(
-                                                    value: type,
-                                                    child: Text(type, style: const TextStyle(fontSize: 13)),
-                                                  ))
-                                              .toList(),
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setDialogState(() => selectedRegType = val);
-                                            }
-                                          },
-                                        ),
-                                      ],
+                                    child: SearchableDropdownField<String>(
+                                      value: regTypeOptions.contains(selectedRegType) ? selectedRegType : regTypeOptions.first,
+                                      labelText: 'Registration Type *',
+                                      items: regTypeOptions
+                                          .map((type) => SearchableDropdownItem<String>(
+                                                value: type,
+                                                label: type,
+                                              ))
+                                          .toList(),
+                                      onChanged: (val) {
+                                        if (val != null) {
+                                          setDialogState(() => selectedRegType = val);
+                                        }
+                                      },
                                     ),
                                   ),
                                 ],

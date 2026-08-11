@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
 
@@ -751,13 +752,11 @@ class _CostItemsTab extends ConsumerWidget {
                         (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownField<String>(
                     value: selectedCategory,
-                    decoration:
-                        const InputDecoration(labelText: 'Category *'),
+                    labelText: 'Category *',
                     items: _categories
-                        .map((c) =>
-                            DropdownMenuItem(value: c, child: Text(c)))
+                        .map((c) => SearchableDropdownItem<String>(value: c, label: c))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -874,19 +873,22 @@ class _ResponsibilityMatrixTabState
                     const Text('Filter by Incoterm:',
                         style: TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(width: 16),
-                    DropdownButton<int?>(
-                      value: _selectedIncotermId,
-                      hint: const Text('All Incoterms (11 Terms)'),
-                      items: [
-                        const DropdownMenuItem<int?>(
-                            value: null, child: Text('All Incoterms (11 Terms)')),
-                        ...active.map((i) => DropdownMenuItem<int?>(
-                              value: i.incotermId,
-                              child: Text('${i.incotermCode} - ${i.incotermName}'),
-                            )),
-                      ],
-                      onChanged: (val) =>
-                          setState(() => _selectedIncotermId = val),
+                    SizedBox(
+                      width: 280,
+                      child: SearchableDropdownField<int?>(
+                        value: _selectedIncotermId,
+                        hintText: 'All Incoterms (11 Terms)',
+                        items: [
+                          const SearchableDropdownItem<int?>(
+                              value: null, label: 'All Incoterms (11 Terms)'),
+                          ...active.map((i) => SearchableDropdownItem<int?>(
+                                value: i.incotermId,
+                                label: '${i.incotermCode} - ${i.incotermName}',
+                              )),
+                        ],
+                        onChanged: (val) =>
+                            setState(() => _selectedIncotermId = val),
+                      ),
                     ),
                   ],
                 ),
@@ -1130,26 +1132,18 @@ class _ResponsibilityMatrixTabState
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Text('Responsible Party (الجهة المسؤولة) *',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                  const SizedBox(height: 6),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownField<String>(
                     value: selectedParty,
-                    decoration: const InputDecoration(
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
+                    labelText: 'Responsible Party (الجهة المسؤولة) *',
                     items: const [
-                      DropdownMenuItem(
+                      SearchableDropdownItem<String>(
                           value: 'Importer',
-                          child: Text('المشتري / المستورد (YES)')),
-                      DropdownMenuItem(
+                          label: 'المشتري / المستورد (YES)'),
+                      SearchableDropdownItem<String>(
                           value: 'Exporter',
-                          child: Text('البائع / الشاحن (NO)')),
-                      DropdownMenuItem(
-                          value: 'Shared', child: Text('مشترك (Shared)')),
+                          label: 'البائع / الشاحن (NO)'),
+                      SearchableDropdownItem<String>(
+                          value: 'Shared', label: 'مشترك (Shared)'),
                     ],
                     onChanged: (val) {
                       if (val != null) {

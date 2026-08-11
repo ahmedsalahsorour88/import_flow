@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/transport_location_model.dart';
 import '../providers/transport_locations_provider.dart';
 
@@ -464,11 +465,11 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       ),
                       const SizedBox(width: 12),
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownField<String>(
                           value: selectedType,
-                          decoration: const InputDecoration(labelText: 'Location Type *'),
+                          labelText: 'Location Type *',
                           items: ['Sea Port', 'Airport', 'Dry Port', 'Land Border', 'ICD', 'Rail Terminal']
-                              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                              .map((t) => SearchableDropdownItem<String>(value: t, label: t))
                               .toList(),
                           onChanged: (v) => selectedType = v ?? 'Sea Port',
                         ),

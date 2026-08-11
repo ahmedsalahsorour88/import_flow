@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
@@ -92,19 +93,22 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                       ),
                     ),
                     const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedStatusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Goods Received', child: Text('Goods Received (تم الوصول والأطقم)')),
-                        DropdownMenuItem(value: 'Discrepancy Reported', child: Text('Discrepancy Reported (مُثبت به عجز/تلف)')),
-                      ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                        }
-                      },
+                    SizedBox(
+                      width: 250,
+                      child: SearchableDropdownField<String>(
+                        value: _selectedStatusFilter,
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                          SearchableDropdownItem(value: 'Goods Received', label: 'Goods Received (تم الوصول والأطقم)'),
+                          SearchableDropdownItem(value: 'Discrepancy Reported', label: 'Discrepancy Reported (مُثبت به عجز/تلف)'),
+                        ],
+                        onChanged: (val) {
+                          if (val != null) {
+                            setState(() => _selectedStatusFilter = val);
+                            ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
+                          }
+                        },
+                      ),
                     ),
                   ],
                 ),
@@ -352,13 +356,13 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                DropdownButtonFormField<int?>(
+                SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  decoration: const InputDecoration(labelText: 'ملف الشحنة الاستيرادية *', border: OutlineInputBorder()),
+                  labelText: 'ملف الشحنة الاستيرادية *',
                   items: importFiles
-                      .map((f) => DropdownMenuItem<int?>(
+                      .map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
-                            child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}'),
+                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
@@ -556,14 +560,14 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              DropdownButtonFormField<String>(
+              SearchableDropdownField<String>(
                 value: _discrepancyType,
-                decoration: const InputDecoration(labelText: 'نوع الاختلاف/المحضر *', border: OutlineInputBorder()),
+                labelText: 'نوع الاختلاف/المحضر *',
                 items: const [
-                  DropdownMenuItem(value: 'Shortage', child: Text('Shortage (عجز بالكميات)')),
-                  DropdownMenuItem(value: 'Damage', child: Text('Damage (بضاعة تالفة)')),
-                  DropdownMenuItem(value: 'Excess', child: Text('Excess (زيادة غير مسجلة)')),
-                  DropdownMenuItem(value: 'Wrong Item', child: Text('Wrong Item (صنف مخالف)')),
+                  SearchableDropdownItem(value: 'Shortage', label: 'Shortage (عجز بالكميات)'),
+                  SearchableDropdownItem(value: 'Damage', label: 'Damage (بضاعة تالفة)'),
+                  SearchableDropdownItem(value: 'Excess', label: 'Excess (زيادة غير مسجلة)'),
+                  SearchableDropdownItem(value: 'Wrong Item', label: 'Wrong Item (صنف مخالف)'),
                 ],
                 onChanged: (v) => setState(() => _discrepancyType = v!),
               ),

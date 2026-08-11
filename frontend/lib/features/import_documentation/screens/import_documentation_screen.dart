@@ -434,19 +434,19 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                           Row(
                             children: [
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: portsList.any((p) => p.locationName == _polName) ? _polName : (portsList.isNotEmpty ? portsList.first.locationName : _polName),
-                                  decoration: const InputDecoration(labelText: 'ميناء التحميل (POL) *', border: OutlineInputBorder()),
-                                  items: portsList.map((p) => DropdownMenuItem<String>(value: p.locationName, child: Text(p.locationName))).toList(),
+                                  labelText: 'ميناء التحميل (POL) *',
+                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
                                   onChanged: (val) => setState(() => _polName = val!),
                                 ),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: portsList.any((p) => p.locationName == _podName) ? _podName : (portsList.length > 1 ? portsList[1].locationName : _podName),
-                                  decoration: const InputDecoration(labelText: 'ميناء الوصول (POD) *', border: OutlineInputBorder()),
-                                  items: portsList.map((p) => DropdownMenuItem<String>(value: p.locationName, child: Text(p.locationName))).toList(),
+                                  labelText: 'ميناء الوصول (POD) *',
+                                  items: portsList.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName)).toList(),
                                   onChanged: (val) => setState(() => _podName = val!),
                                 ),
                               ),
@@ -515,13 +515,13 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                             children: [
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<String>(
+                                child: SearchableDropdownField<String>(
                                   value: _bankDocType,
-                                  decoration: const InputDecoration(labelText: 'نوع المعاملة البنكية *', border: OutlineInputBorder()),
+                                  labelText: 'نوع المعاملة البنكية *',
                                   items: const [
-                                    DropdownMenuItem(value: 'Form 4', child: Text('Form 4 (نموذج 4 تحويلات ومستندات)')),
-                                    DropdownMenuItem(value: 'Form 9', child: Text('Form 9 (نموذج 9 تسديد مبدئي)')),
-                                    DropdownMenuItem(value: 'Letter of Credit (L/C)', child: Text('L/C (اعتماد مستندي بنكي)')),
+                                    SearchableDropdownItem(value: 'Form 4', label: 'Form 4 (نموذج 4 تحويلات ومستندات)'),
+                                    SearchableDropdownItem(value: 'Form 9', label: 'Form 9 (نموذج 9 تسديد مبدئي)'),
+                                    SearchableDropdownItem(value: 'Letter of Credit (L/C)', label: 'L/C (اعتماد مستندي بنكي)'),
                                   ],
                                   onChanged: (val) => setState(() => _bankDocType = val!),
                                 ),
@@ -610,15 +610,15 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                         children: [
                           Expanded(
                             flex: 2,
-                            child: DropdownButtonFormField<String>(
+                            child: SearchableDropdownField<String>(
                               value: _docName,
-                              decoration: const InputDecoration(labelText: 'اسم المستند *', border: OutlineInputBorder()),
+                              labelText: 'اسم المستند *',
                               items: const [
-                                DropdownMenuItem(value: 'Commercial Invoice (الفاتورة التجارية)', child: Text('Commercial Invoice (الفاتورة التجارية)')),
-                                DropdownMenuItem(value: 'Packing List (قائمة التعبئة)', child: Text('Packing List (قائمة التعبئة)')),
-                                DropdownMenuItem(value: 'Bill of Lading (بوليصة الشحن)', child: Text('Bill of Lading (بوليصة الشحن)')),
-                                DropdownMenuItem(value: 'Certificate of Origin (شهادة المنشأ)', child: Text('Certificate of Origin (شهادة المنشأ)')),
-                                DropdownMenuItem(value: 'Inspection Certificate (شهادة الفحص)', child: Text('Inspection Certificate (شهادة الفحص)')),
+                                SearchableDropdownItem(value: 'Commercial Invoice (الفاتورة التجارية)', label: 'Commercial Invoice (الفاتورة التجارية)'),
+                                SearchableDropdownItem(value: 'Packing List (قائمة التعبئة)', label: 'Packing List (قائمة التعبئة)'),
+                                SearchableDropdownItem(value: 'Bill of Lading (بوليصة الشحن)', label: 'Bill of Lading (بوليصة الشحن)'),
+                                SearchableDropdownItem(value: 'Certificate of Origin (شهادة المنشأ)', label: 'Certificate of Origin (شهادة المنشأ)'),
+                                SearchableDropdownItem(value: 'Inspection Certificate (شهادة الفحص)', label: 'Inspection Certificate (شهادة الفحص)'),
                               ],
                               onChanged: (v) => setState(() => _docName = v!),
                             ),

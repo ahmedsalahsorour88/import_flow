@@ -16,7 +16,6 @@ import '../purchase_orders/screens/purchase_orders_screen.dart';
 import '../cbm_calculator/screens/cbm_calculator_screen.dart';
 import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import '../customs_consultation/screens/customs_consultation_screen.dart';
-import '../freight_quotations/screens/freight_quotations_screen.dart';
 import '../financial_approval/screens/financial_approval_screen.dart';
 import '../import_documentation/screens/import_documentation_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
@@ -42,7 +41,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         PurchaseOrdersScreen(),
         CBMCalculatorScreen(),
         ShippingScenariosScreen(),
-        FreightQuotationsScreen(),
+        ShippingScenariosScreen(),
         CustomsConsultationScreen(),
         FinancialApprovalScreen(),
         ImportDocumentationScreen(),
@@ -74,51 +73,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           // Sidebar
           Container(
-            width: 275,
+            width: 250,
             color: AppTheme.charcoal,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Logo & Header
                 Padding(
-                  padding: const EdgeInsets.all(20.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
                     children: [
-                      Row(
+                      Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.sync_alt, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(Icons.swap_calls_rounded, color: Colors.white, size: 24),
+                          Text(
+                            'ImportFlow ERP',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          const SizedBox(width: 12),
-                          const Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'ImportFlow ERP',
-                                style: TextStyle(
-                                  color: AppTheme.cloudWhite,
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'إدارة الاستيراد والجمارك',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 10,
-                                ),
-                              ),
-                            ],
+                          Text(
+                            'إدارة الاستيراد والجمارك',
+                            style: TextStyle(color: Colors.white54, fontSize: 10),
                           ),
-                          const Spacer(),
-                          const NotificationBellWidget(),
                         ],
                       ),
+                      const Spacer(),
+                      const NotificationBellWidget(),
                     ],
                   ),
                 ),
@@ -136,8 +124,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                       // Section 2: Phase 1 Shipping & Logistics Planning
                       _buildSectionHeader('🚀 مراحل التخطيط وشغور النولون'),
-                      _buildMenuItem(Icons.alt_route, 'Shipping Scenarios (BP-007)', 4, selectedIndex),
-                      _buildMenuItem(Icons.request_quote_outlined, 'Freight RFQ (BP-008)', 5, selectedIndex),
+                      _buildMenuItem(Icons.alt_route, 'Shipping Scenarios & Quotes (BP-007/8)', 4, selectedIndex),
                       _buildMenuItem(Icons.gavel_outlined, 'Customs Broker (BP-009)', 6, selectedIndex),
 
                       // Section 3: Phases 2 - 5 Operations & Execution

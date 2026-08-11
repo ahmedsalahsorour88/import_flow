@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -13,6 +14,8 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
+import '../../currencies/models/currency_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
   const ShippingScenariosScreen({super.key});
@@ -32,8 +35,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   String? _editingSessionCode;
   String _title = '';
   DateTime _cargoReadyDate = DateTime.now().add(const Duration(days: 5));
-  int? _selectedPolId;
-  int? _selectedPodId;
+  String _pickUpAddress = '';
   int _avgForm4Days = 5;
   int _avgClearanceDays = 7;
   int? _selectedImportFileId;
@@ -46,14 +48,16 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   bool _isSaving = false;
   bool _isStackable = true;
 
+  // Track expanded quotes in UI
+  final Map<int, bool> _expandedQuotes = {};
+
   void _loadSessionForEditing(ShippingEvaluationModel sess) {
     setState(() {
       _editingSessionId = sess.sessionId;
       _editingSessionCode = sess.sessionCode;
       _title = sess.title ?? '';
       _cargoReadyDate = DateTime.tryParse(sess.cargoReadyDate) ?? DateTime.now();
-      _selectedPolId = sess.portOfLoadingId;
-      _selectedPodId = sess.portOfDischargeId;
+      _pickUpAddress = sess.pickUpAddress ?? '';
       _avgForm4Days = sess.avgForm4Days;
       _avgClearanceDays = sess.avgClearanceDays;
       _selectedImportFileId = sess.importFileId;
@@ -65,7 +69,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     _tabController.animateTo(0);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📂 تم فتح الجلسة ${sess.sessionCode} لتعديل دراسة الشحن!'),
+        content: Text('📂 تم استدعاء الجلسة ${sess.sessionCode} لإعادة الدراسة والتعديل!'),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -77,8 +81,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _editingSessionCode = null;
       _title = '';
       _cargoReadyDate = DateTime.now().add(const Duration(days: 5));
-      _selectedPolId = null;
-      _selectedPodId = null;
+      _pickUpAddress = '';
       _avgForm4Days = 5;
       _avgClearanceDays = 7;
       _selectedImportFileId = null;
@@ -103,8 +106,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     ref.read(projectsProvider.notifier).fetchProjects();
     ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
     ref.read(partnersProvider.notifier).fetchPartners();
+    ref.read(allPartnersProvider.notifier).fetchPartners();
     ref.read(transportLocationsProvider.notifier).fetchLocations();
     ref.read(importFilesProvider.notifier).fetchImportFiles();
+    ref.read(currenciesProvider.notifier).fetchCurrencies();
   }
 
   void _initDefaultItems() {
@@ -115,35 +120,27 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         providerName: 'COSCO Shipping',
         vesselName: 'COSCO UNIVERSE',
         voyageNumber: '042E',
+        polName: 'Shanghai Port (ميناء شانغهاي)',
+        podName: 'El Dekheila Port (ميناء الدخيلة)',
         sailingDate: crd.add(const Duration(days: 2)).toString().substring(0, 10),
         estimatedArrivalDate: crd.add(const Duration(days: 26)).toString().substring(0, 10),
         expectedLineDelayDays: 2,
         isRecommended: true,
         riskLevel: 'Low',
-        notes: 'أقرب موعد إبحار وتوافر حاويات HQ في ميناء شنغهاي',
+        notes: 'أقرب موعد إبحار وتوافر حاويات HQ في ميناء شانغهاي',
       ),
       ShippingScenarioItemModel(
         providerName: 'Maersk Line',
         vesselName: 'MAERSK MC-KINNEY MOLLER',
         voyageNumber: '2608W',
+        polName: 'Ningbo-Zhoushan Port (ميناء نينغبو)',
+        podName: 'Damietta Port (ميناء دمياط)',
         sailingDate: crd.add(const Duration(days: 5)).toString().substring(0, 10),
         estimatedArrivalDate: crd.add(const Duration(days: 32)).toString().substring(0, 10),
         expectedLineDelayDays: 4,
         isRecommended: false,
         riskLevel: 'Medium',
-        notes: 'ترانزيت في بيرايوس مع تكلفة شحن أقل بمقدار \$300',
-      ),
-      ShippingScenarioItemModel(
-        providerName: 'CMA CGM',
-        vesselName: 'CMA CGM JACQUES SAADE',
-        voyageNumber: '8819X',
-        sailingDate: crd.add(const Duration(days: 12)).toString().substring(0, 10),
-        estimatedArrivalDate: crd.add(const Duration(days: 48)).toString().substring(0, 10),
-        expectedLineDelayDays: 7,
-        isExcludedFromAverage: true,
-        isRecommended: false,
-        riskLevel: 'High',
-        notes: 'تاريخ إبحار متأخر جداً ومخاطرة عالية بالتأخير بالميناء الوسيط - مستبعد من المتوسط',
+        notes: r'ترانزيت في بيرايوس مع تكلفة شحن أقل بمقدار $300',
       ),
     ]);
   }
@@ -155,18 +152,102 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     super.dispose();
   }
 
+  double _calculateTotalQuoteValue(ShippingScenarioItemModel item, List<CurrencyModel> currencies) {
+    double total = 0.0;
+    final targetCurrency = item.quotationCurrency;
+    
+    double targetRate = 1.0;
+    final mainCurr = currencies.where((c) => c.currencyCode == targetCurrency).firstOrNull;
+    if (mainCurr != null) {
+      targetRate = mainCurr.latestCommercialRate ?? 1.0;
+    }
+
+    double convert(double amount, String sourceCurrency) {
+      if (sourceCurrency == targetCurrency) return amount;
+      double sourceRate = 1.0;
+      final srcCurr = currencies.where((c) => c.currencyCode == sourceCurrency).firstOrNull;
+      if (srcCurr != null) {
+        sourceRate = srcCurr.latestCommercialRate ?? 1.0;
+      }
+      return amount * (sourceRate / targetRate);
+    }
+
+    if (item.container40ftApplicable) {
+      total += convert(item.container40ftPrice * item.container40ftQty, item.container40ftCurrency);
+    }
+    if (item.container20ftApplicable) {
+      total += convert(item.container20ftPrice * item.container20ftQty, item.container20ftCurrency);
+    }
+    if (item.lclCbmApplicable) {
+      total += convert(item.lclCbmPrice * item.lclCbmQty, item.lclCbmCurrency);
+    }
+    if (item.expressCourierApplicable) {
+      total += convert(item.expressCourierPrice, item.expressCourierCurrency);
+    }
+    if (item.eurAtrApplicable) {
+      total += convert(item.eurAtrPrice, item.eurAtrCurrency);
+    }
+    if (item.solasVgmApplicable) {
+      total += convert(item.solasVgmPrice, item.solasVgmCurrency);
+    }
+    if (item.vgmNotificationApplicable) {
+      // Sum container counts only if container type is applicable to fix calculation bugs
+      final totalQty = (item.container40ftApplicable ? item.container40ftQty : 0) + 
+                       (item.container20ftApplicable ? item.container20ftQty : 0);
+      total += convert(item.vgmNotificationPrice * totalQty, item.vgmNotificationCurrency);
+    }
+    if (item.telexReleaseApplicable) {
+      total += convert(item.telexReleasePrice, item.telexReleaseCurrency);
+    }
+    if (item.insuranceApplicable) {
+      total += convert(item.insurancePrice, item.insuranceCurrency);
+    }
+    if (item.bookingCancellationApplicable) {
+      total += convert(item.bookingCancellationPrice, item.bookingCancellationCurrency);
+    }
+
+    // 4 New fee columns
+    if (item.ics2FilingFeeApplicable) {
+      total += convert(item.ics2FilingFeePrice, item.ics2FilingFeeCurrency);
+    }
+    if (item.othersFeeApplicable) {
+      total += convert(item.othersFeePrice, item.othersFeeCurrency);
+    }
+    if (item.documentFeesApplicable) {
+      total += convert(item.documentFeesPrice, item.documentFeesCurrency);
+    }
+    if (item.waiverLetterFeeApplicable) {
+      total += convert(item.waiverLetterFeePrice, item.waiverLetterFeeCurrency);
+    }
+
+    return total;
+  }
+
+  void _updateItem(int idx, ShippingScenarioItemModel updatedItem, List<CurrencyModel> currencies) {
+    final rawTotal = _calculateTotalQuoteValue(updatedItem, currencies);
+    final totalAmount = rawTotal.roundToDouble(); // Round to integer values to prevent decimals
+    setState(() {
+      _evalItems[idx] = updatedItem.copyWith(totalQuotationAmount: totalAmount);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(shippingScenariosProvider);
     final projectsState = ref.watch(projectsProvider);
     final poState = ref.watch(purchaseOrdersProvider);
-    final partnersState = ref.watch(partnersProvider);
+    final partnersState = ref.watch(allPartnersProvider);
     final portsState = ref.watch(transportLocationsProvider);
+    final currenciesAsync = ref.watch(currenciesProvider);
 
     final poList = poState.purchaseOrders;
     final projectsList = projectsState.value ?? [];
     final List<PartnerModel> partnersList = partnersState.value ?? [];
-    final List<PartnerModel> shippingLines = partnersList.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Freight') || p.partnerType.contains('Broker') || p.partnerType.contains('Carrier')).toList();
+    final List<CurrencyModel> currenciesList = currenciesAsync.value ?? [];
+
+    final List<PartnerModel> freightForwarders = partnersList.where((p) => p.partnerType.contains('Freight Forwarder')).toList();
+    final List<PartnerModel> shippingLines = partnersList.where((p) => p.partnerType.contains('Shipping Line')).toList();
+    final List<PartnerModel> customsBrokers = partnersList.where((p) => p.partnerType.contains('Customs Broker')).toList();
     final portsList = portsState.value ?? [];
 
     return Scaffold(
@@ -177,7 +258,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           children: [
             Icon(Icons.directions_boat, color: Colors.white),
             SizedBox(width: 10),
-            Text('Shipping Scenarios Evaluation (BP-007 تقييم سيناريوهات الشحن)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text('Shipping Scenarios & Quotes Evaluation (BP-007/8 سيناريو وعروض الشحن)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         actions: [
@@ -203,428 +284,320 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildEvaluatorTab(poList, projectsList, shippingLines, portsList),
+          _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList),
           _buildHistoryRegistryTab(state, poList, projectsList),
         ],
       ),
     );
   }
 
-  Widget _buildEvaluatorTab(List poList, List projectsList, List<PartnerModel> shippingLines, List portsList) {
-    // Dynamic Calculations Preview
-    final crdStr = _cargoReadyDate.toString().substring(0, 10);
-    final List<Map<String, dynamic>> calculatedScenarios = [];
-    List<int> validTransitDays = [];
+  Widget _buildEvaluatorTab(
+    ShippingScenariosState state,
+    List<PurchaseOrderModel> poList,
+    List projectsList,
+    List<PartnerModel> freightForwarders,
+    List<PartnerModel> shippingLines,
+    List<PartnerModel> customsBrokers,
+    List portsList,
+    List<CurrencyModel> currenciesList,
+  ) {
+    final crd = _cargoReadyDate;
 
-    for (int i = 0; i < _evalItems.length; i++) {
-      final item = _evalItems[i];
-      try {
-        final sDate = DateTime.parse(item.sailingDate);
-        final etaDate = DateTime.parse(item.estimatedArrivalDate);
-        final crdDate = _cargoReadyDate;
+    // Calculate Scenario lead times
+    final calculatedScenarios = _evalItems.asMap().entries.map((entry) {
+      final idx = entry.key;
+      final item = entry.value;
 
-        final vesselLeadTime = etaDate.difference(sDate).inDays;
-        final readyDays = sDate.difference(crdDate).inDays;
-        final totalDays = vesselLeadTime + readyDays + _avgForm4Days + _avgClearanceDays + item.expectedLineDelayDays;
-        final expectedWhDate = crdDate.add(Duration(days: totalDays)).toString().substring(0, 10);
+      final sDate = DateTime.tryParse(item.sailingDate) ?? crd;
+      final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? sDate.add(const Duration(days: 20));
 
-        final calcMap = {
-          'index': i,
-          'item': item,
-          'vesselLeadTime': vesselLeadTime,
-          'readyDays': readyDays,
-          'totalDays': totalDays,
-          'expectedWhDate': expectedWhDate,
-        };
-        calculatedScenarios.add(calcMap);
+      final vesselLeadTime = etaDate.difference(sDate).inDays;
+      final readyDays = sDate.difference(crd).inDays;
+      final totalDays = vesselLeadTime + readyDays + _avgForm4Days + _avgClearanceDays + item.expectedLineDelayDays;
 
-        if (!item.isExcludedFromAverage) {
-          validTransitDays.add(totalDays);
-        }
-      } catch (_) {}
-    }
+      final expectedWhDate = crd.add(Duration(days: totalDays)).toString().substring(0, 10);
 
-    final double avgTransitDays = validTransitDays.isNotEmpty
-        ? validTransitDays.reduce((a, b) => a + b) / validTransitDays.length
-        : 0.0;
-    final String avgWhDateStr = validTransitDays.isNotEmpty
-        ? _cargoReadyDate.add(Duration(days: avgTransitDays.round())).toString().substring(0, 10)
-        : '-';
+      return {
+        'index': idx,
+        'item': item,
+        'vesselLeadTime': vesselLeadTime,
+        'readyDays': readyDays,
+        'totalDays': totalDays,
+        'expectedWhDate': expectedWhDate,
+      };
+    }).toList();
 
-    String earliestProvider = '-';
-    String earliestDate = '-';
-    String latestProvider = '-';
-    String latestDate = '-';
-    String recommendedProvider = '-';
+    final validScenarios = calculatedScenarios.where((c) => !(c['item'] as ShippingScenarioItemModel).isExcludedFromAverage).toList();
+    final avgTotalDays = validScenarios.isNotEmpty
+        ? (validScenarios.fold<int>(0, (sum, c) => sum + (c['totalDays'] as int)) / validScenarios.length).round()
+        : 0;
+    final avgArrivalDate = validScenarios.isNotEmpty
+        ? crd.add(Duration(days: avgTotalDays)).toString().substring(0, 10)
+        : 'N/A';
 
-    final includedList = calculatedScenarios.where((c) => !(c['item'] as ShippingScenarioItemModel).isExcludedFromAverage).toList();
-    if (includedList.isNotEmpty) {
-      includedList.sort((a, b) => (a['totalDays'] as int).compareTo(b['totalDays'] as int));
-      earliestProvider = (includedList.first['item'] as ShippingScenarioItemModel).providerName;
-      earliestDate = includedList.first['expectedWhDate'];
+    final recItemMap = calculatedScenarios.where((c) => (c['item'] as ShippingScenarioItemModel).isRecommended).firstOrNull;
+    final recItem = recItemMap != null ? (recItemMap['item'] as ShippingScenarioItemModel) : null;
 
-      latestProvider = (includedList.last['item'] as ShippingScenarioItemModel).providerName;
-      latestDate = includedList.last['expectedWhDate'];
+    final earliestItemMap = validScenarios.isNotEmpty
+        ? validScenarios.reduce((a, b) => (a['totalDays'] as int) < (b['totalDays'] as int) ? a : b)
+        : null;
+    final latestItemMap = validScenarios.isNotEmpty
+        ? validScenarios.reduce((a, b) => (a['totalDays'] as int) > (b['totalDays'] as int) ? a : b)
+        : null;
 
-      final rec = calculatedScenarios.firstWhere(
-        (c) => (c['item'] as ShippingScenarioItemModel).isRecommended,
-        orElse: () => includedList.first,
-      );
-      recommendedProvider = '${(rec['item'] as ShippingScenarioItemModel).providerName} (${(rec['item'] as ShippingScenarioItemModel).vesselName})';
-    }
-
+    // Linked PO packing list metrics
     double totalCargoCbm = 0.0;
     double totalCargoWeightKg = 0.0;
-    int linkedPoCount = 0;
     int linkedPlCount = 0;
     bool hasNonStackableItems = false;
     bool hasExplicitPackingList = false;
 
+    List<PurchaseOrderModel> filteredPOs = [];
     if (_selectedImportFileId != null) {
-      final matchingPOs = poList.where((p) => (p as PurchaseOrderModel).importFileId == _selectedImportFileId).cast<PurchaseOrderModel>().toList();
-      linkedPoCount = matchingPOs.length;
-      for (var po in matchingPOs) {
-        if (po.packingListItems.isNotEmpty) {
-          hasExplicitPackingList = true;
-          linkedPlCount += po.packingListItems.length;
-          for (var pl in po.packingListItems) {
-            totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-            totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-            if (!pl.isStackable) {
-              hasNonStackableItems = true;
-            }
-          }
-        } else {
-          totalCargoCbm += po.totalCbm;
-          totalCargoWeightKg += po.totalGrossWeightKg;
-        }
+      final importFiles = ref.watch(importFilesProvider).value ?? [];
+      final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      if (selectedFile != null) {
+        filteredPOs = poList.where((p) => p.importFileId == selectedFile.importFileId || p.importFileCode == selectedFile.importFileCode).toList();
       }
     } else if (_selectedPoId != null) {
-      final po = poList.firstWhere((p) => (p as PurchaseOrderModel).poId == _selectedPoId, orElse: () => null) as PurchaseOrderModel?;
-      if (po != null) {
-        linkedPoCount = 1;
-        if (po.packingListItems.isNotEmpty) {
-          hasExplicitPackingList = true;
-          linkedPlCount = po.packingListItems.length;
-          for (var pl in po.packingListItems) {
-            totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-            totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-            if (!pl.isStackable) {
-              hasNonStackableItems = true;
-            }
-          }
-        } else {
-          totalCargoCbm += po.totalCbm;
-          totalCargoWeightKg += po.totalGrossWeightKg;
+      filteredPOs = poList.where((p) => p.poId == _selectedPoId).toList();
+    }
+
+    for (var po in filteredPOs) {
+      if (po.packingListItems.isNotEmpty) {
+        hasExplicitPackingList = true;
+        linkedPlCount += po.packingListItems.length;
+        for (var pl in po.packingListItems) {
+          totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+          totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
+          if (!pl.isStackable) hasNonStackableItems = true;
         }
       }
     }
 
-    final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCargoCbm, totalWeightKg: totalCargoWeightKg);
-    final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
+    final containerRec = ContainerRequirementEngine.calculate(
+      totalCbm: totalCargoCbm,
+      totalWeightKg: totalCargoWeightKg,
+      isStackable: _isStackable,
+    );
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Header Banner
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(colors: [AppTheme.charcoal, AppTheme.cobalt]),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
+    final dualRec = ContainerRequirementEngine.calculateBoth(
+      totalCbm: totalCargoCbm,
+      totalWeightKg: totalCargoWeightKg,
+    );
+
+    return Form(
+      key: _formKey,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 85),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.explore, color: Colors.white, size: 36),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _editingSessionId != null
-                              ? 'Editing Shipping Study ($_editingSessionCode)'
-                              : 'Shipping Scenarios & Transit Lead Time Evaluation (BP-007)',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  // Top Metrics Cards Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildMetricCard(
+                          'متوسط موعد التوصيل للمخزن (Avg WH Date)',
+                          avgArrivalDate,
+                          Icons.date_range,
+                          AppTheme.emerald,
+                          subtitle: 'خلال $avgTotalDays يوم من الجاهزية',
                         ),
-                        const SizedBox(height: 2),
-                        const Text('مقارنة خيارات الشحن والخطوط الملاحية وتوقع تاريخ وصول الشحنة للمخزن قبل تأكيد الحجز', style: TextStyle(color: Colors.white70, fontSize: 12)),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildMetricCard(
+                          'أسرع خط ملاحي وصولاً (Earliest Line)',
+                          earliestItemMap != null ? '${(earliestItemMap["item"] as ShippingScenarioItemModel).providerName}' : 'N/A',
+                          Icons.speed,
+                          AppTheme.cobalt,
+                          subtitle: earliestItemMap != null ? 'تاريخ الوصول المتوقع: ${earliestItemMap["expectedWhDate"]}' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildMetricCard(
+                          'أبطأ خط ملاحي وصولاً (Latest Line)',
+                          latestItemMap != null ? '${(latestItemMap["item"] as ShippingScenarioItemModel).providerName}' : 'N/A',
+                          Icons.warning_amber_rounded,
+                          Colors.amber.shade900,
+                          subtitle: latestItemMap != null ? 'تاريخ الوصول المتوقع: ${latestItemMap["expectedWhDate"]}' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _buildMetricCard(
+                          'الخط الموصى به رسمياً (Recommended)',
+                          recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : 'لم يحدد بعد',
+                          Icons.stars_rounded,
+                          Colors.purple,
+                          subtitle: recItemMap != null ? 'تاريخ التوصيل: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} يوم)' : null,
+                        ),
+                      ),
+                    ],
                   ),
-                  if (_editingSessionId != null) ...[
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(foregroundColor: Colors.white, side: const BorderSide(color: Colors.white)),
-                      icon: const Icon(Icons.add_circle_outline, size: 16),
-                      label: const Text('دراسة جديدة'),
-                      onPressed: _resetFormForNewStudy,
-                    ),
-                    const SizedBox(width: 8),
-                  ],
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                    icon: _isSaving
-                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Icon(Icons.save, size: 18),
-                    label: Text(_editingSessionId != null ? 'حفظ التعديلات' : 'حفظ الدراسة والنتائج', style: const TextStyle(fontWeight: FontWeight.bold)),
-                    onPressed: _isSaving ? null : () => _saveEvaluationSession(context),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-            // Summary Metrics Badges Row
-            Row(
-              children: [
-                Expanded(child: _buildMetricCard('متوسط مدة الترانزيت للمخزن', '${avgTransitDays.toStringAsFixed(1)} يوم', Icons.timer, AppTheme.cobalt)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMetricCard('متوسط تاريخ الوصول المتوقع', avgWhDateStr, Icons.event_available, Colors.purple)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMetricCard('أقرب تاريخ وصول متوقع', earliestDate, Icons.flight_land, AppTheme.emerald, subtitle: earliestProvider)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMetricCard('أبعد تاريخ وصول متوقع', latestDate, Icons.history_toggle_off, Colors.orange, subtitle: latestProvider)),
-                const SizedBox(width: 12),
-                Expanded(child: _buildMetricCard('الرحلة/الخط الموصى به', recommendedProvider, Icons.thumb_up, Colors.blue)),
-              ],
-            ),
-            const SizedBox(height: 20),
+                  // Study Main Settings Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('⚙️ Study Setup & Parameters (إعدادات ومعلمات الجلسة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                          const SizedBox(height: 12),
 
-            // Shipment Parameters Card (Responsive & Overflow Free Layout)
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('📌 Shipment & Logistics Parameters (بيانات الشحنة والزمن الإداري)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                        Row(
-                          children: [
-                            OutlinedButton.icon(
-                              style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6)),
-                              icon: const Icon(Icons.print, size: 14),
-                              label: const Text('طباعة الدراسة (Print)'),
-                              onPressed: () {
-                                final currentSession = ShippingEvaluationModel(
-                                  sessionCode: _editingSessionCode ?? 'DRAFT-STUDY',
-                                  title: _title,
-                                  cargoReadyDate: crdStr,
-                                  portOfLoadingId: _selectedPolId,
-                                  portOfDischargeId: _selectedPodId,
-                                  avgForm4Days: _avgForm4Days,
-                                  avgClearanceDays: _avgClearanceDays,
-                                  importFileId: _selectedImportFileId,
-                                  poId: _selectedPoId,
-                                  projectId: _selectedProjectId,
-                                  items: _evalItems,
-                                  avgExpectedTransitDays: avgTransitDays,
-                                  avgExpectedWarehouseArrivalDate: avgWhDateStr,
-                                  earliestArrivalDate: earliestDate,
-                                  earliestArrivalScenarioProvider: earliestProvider,
-                                  latestArrivalDate: latestDate,
-                                  latestArrivalScenarioProvider: latestProvider,
-                                  recommendedScenarioProvider: recommendedProvider,
-                                );
-                                _showPrintReportDialog(context, currentSession);
-                              },
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Parameters Row 1
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            initialValue: _title,
-                            decoration: const InputDecoration(labelText: 'Study Title / Reference *', hintText: 'مثال: دراسة مقارنة خيارات شحن محولات الإسماعيلية', isDense: true),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                            onChanged: (v) => _title = v.trim(),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: InkWell(
-                            onTap: () async {
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: _cargoReadyDate,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2030),
-                              );
-                              if (picked != null) setState(() => _cargoReadyDate = picked);
-                            },
-                            child: InputDecorator(
-                              decoration: const InputDecoration(labelText: 'Cargo Ready Date (CRD) *', isDense: true),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(crdStr, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
-                                  const Icon(Icons.calendar_today, size: 16, color: AppTheme.cobalt),
-                                ],
+                          // Parameters Row 1
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: TextFormField(
+                                  key: ValueKey('title_$_title'),
+                                  initialValue: _title,
+                                  decoration: const InputDecoration(labelText: 'Study Title (مسمى دراسة خيارات الشحن) *', hintText: 'مثال: دراسة شحن خطوط الشرق الأقصى - يوليو', isDense: true),
+                                  validator: (v) => v == null || v.trim().isEmpty ? 'عنوان الدراسة مطلوب' : null,
+                                  onChanged: (v) => _title = v.trim(),
+                                ),
                               ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () async {
+                                    final picked = await showDatePicker(
+                                      context: context,
+                                      initialDate: _cargoReadyDate,
+                                      firstDate: DateTime(2020),
+                                      lastDate: DateTime(2030),
+                                    );
+                                    if (picked != null) {
+                                      setState(() {
+                                        _cargoReadyDate = picked;
+                                      });
+                                    }
+                                  },
+                                  child: InputDecorator(
+                                    decoration: const InputDecoration(labelText: 'Cargo Ready Date (CRD) *', isDense: true),
+                                    child: Text(_cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedImportFileId,
+                                  labelText: 'Link Import File (ربط بملف استيراد)',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
+                                          value: f.importFileId,
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedImportFileId = v),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+
+                          // Parameters Row 2 (Pick-up Address)
+                          TextFormField(
+                            key: ValueKey('pickup_addr_$_pickUpAddress'),
+                            initialValue: _pickUpAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Pick-up Address (عنوان استلام البضاعة / مكان التجميع المصنعي)',
+                              hintText: 'أدخل عنوان المصنع أو المدينة أو مكان استلام الشحنة في بلد المنشأ (e.g. Factory A, Industrial Zone, Shanghai)',
+                              prefixIcon: Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
+                              isDense: true,
                             ),
+                            onChanged: (v) => _pickUpAddress = v.trim(),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 3,
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedImportFileId,
-                            decoration: const InputDecoration(labelText: 'Import File (ملف الشحنة)', isDense: true),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('None / Standalone')),
-                              ...(ref.watch(importFilesProvider).value ?? []).map((f) => DropdownMenuItem<int?>(
-                                    value: f.importFileId,
-                                    child: Text('[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}', overflow: TextOverflow.ellipsis),
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedImportFileId = v),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
+                          const SizedBox(height: 12),
 
-                    // Parameters Row 2 (POL & POD)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedPolId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Port of Loading (POL)', isDense: true),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('Select POL')),
-                              ...portsList.map((p) => DropdownMenuItem<int?>(
-                                    value: p.locationId,
-                                    child: Text('${p.unLocode} - ${p.locationName}', overflow: TextOverflow.ellipsis),
-                                  )),
+                          // Parameters Row 3 (PO Link & Project Link)
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedPoId,
+                                  labelText: 'Link Purchase Order (PO)',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                                    ...poList.map((po) => SearchableDropdownItem<int?>(
+                                          value: po.poId,
+                                          label: '${po.poNumber} (${po.supplierName ?? "Supplier"})',
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedPoId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedProjectId,
+                                  labelText: 'Link Project',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Unbound'),
+                                    ...projectsList.map((p) => SearchableDropdownItem<int?>(
+                                          value: p.projectId,
+                                          label: '${p.projectCode} - ${p.projectName}',
+                                        )),
+                                  ],
+                                  onChanged: (v) => setState(() => _selectedProjectId = v),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _avgForm4Days.toString(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', isDense: true, suffixText: 'أيام'),
+                                  onChanged: (v) => _avgForm4Days = int.tryParse(v) ?? 5,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  initialValue: _avgClearanceDays.toString(),
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', isDense: true, suffixText: 'أيام'),
+                                  onChanged: (v) => _avgClearanceDays = int.tryParse(v) ?? 7,
+                                ),
+                              ),
                             ],
-                            onChanged: (v) => setState(() => _selectedPolId = v),
                           ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedPodId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Port of Discharge (POD)', isDense: true),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('Select POD')),
-                              ...portsList.map((p) => DropdownMenuItem<int?>(
-                                    value: p.locationId,
-                                    child: Text('${p.unLocode} - ${p.locationName}', overflow: TextOverflow.ellipsis),
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedPodId = v),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
 
-                    // Parameters Row 3 (PO Link & Project Link)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedPoId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Link Purchase Order (PO)', isDense: true),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('None / Standalone')),
-                              ...poList.map((po) => DropdownMenuItem<int?>(
-                                    value: po.poId,
-                                    child: Text('${po.poNumber} (${po.supplierName ?? "Supplier"})', overflow: TextOverflow.ellipsis),
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedPoId = v),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: DropdownButtonFormField<int?>(
-                            value: _selectedProjectId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Link Project', isDense: true),
-                            items: [
-                              const DropdownMenuItem<int?>(value: null, child: Text('None / Unbound')),
-                              ...projectsList.map((p) => DropdownMenuItem<int?>(
-                                    value: p.projectId,
-                                    child: Text('${p.projectCode} - ${p.projectName}', overflow: TextOverflow.ellipsis),
-                                  )),
-                            ],
-                            onChanged: (v) => setState(() => _selectedProjectId = v),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Parameters Row 3 (Form 4 & Clearance Days)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _avgForm4Days.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', suffixText: 'أيام', isDense: true),
-                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
-                            onChanged: (v) => setState(() => _avgForm4Days = int.tryParse(v) ?? 5),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            initialValue: _avgClearanceDays.toString(),
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', suffixText: 'أيام', isDense: true),
-                            validator: (v) => v == null || int.tryParse(v) == null ? 'Valid number required' : null,
-                            onChanged: (v) => setState(() => _avgClearanceDays = int.tryParse(v) ?? 7),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (_selectedImportFileId != null || _selectedPoId != null) ...[
-                      const SizedBox(height: 14),
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 34),
-                            const SizedBox(width: 14),
-                            Expanded(
+                          // Linked Packing List & Container Engine Section
+                          if (_selectedImportFileId != null || _selectedPoId != null) ...[
+                            const SizedBox(height: 14),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.purple.shade200),
+                              ),
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Row(
                                     children: [
+                                      const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
+                                      const SizedBox(width: 8),
                                       const Text(
                                         '📦 إجمالي حمولة الملف المجمعة من قوائم التعبئة: ',
                                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                       ),
                                       Text(
-                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg ($linkedPoCount أمر شراء | $linkedPlCount بند تعبئة)',
+                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg (${filteredPOs.length} أمر شراء | $linkedPlCount بند تعبئة)',
                                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 13),
                                       ),
                                     ],
@@ -716,416 +689,867 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               ),
                             ),
                           ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Carrier Options Section Header
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('🚢 Shipping Carrier Options & Voyages (خيارات ورحلات شركات الشحن)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('إضافة خيار شحن جديد'),
-                  onPressed: () {
-                    setState(() {
-                      final crd = _cargoReadyDate;
-                      _evalItems.add(ShippingScenarioItemModel(
-                        providerName: 'Shipping Line ${_evalItems.length + 1}',
-                        vesselName: 'VESSEL NEW',
-                        sailingDate: crd.add(const Duration(days: 3)).toString().substring(0, 10),
-                        estimatedArrivalDate: crd.add(const Duration(days: 28)).toString().substring(0, 10),
-                        expectedLineDelayDays: 2,
-                      ));
-                    });
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Carrier Option Cards List
-            ..._evalItems.asMap().entries.map((entry) {
-              final idx = entry.key;
-              final item = entry.value;
-              final calc = calculatedScenarios.firstWhere((c) => c['index'] == idx, orElse: () => {});
-
-              return Card(
-                elevation: 1.5,
-                margin: const EdgeInsets.only(bottom: 12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: item.isRecommended ? AppTheme.emerald : item.isExcludedFromAverage ? Colors.grey.shade400 : Colors.blue.shade200, width: item.isRecommended ? 2 : 1),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          CircleAvatar(
-                            radius: 14,
-                            backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
-                            child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: DropdownButtonFormField<int?>(
-                              value: item.providerId,
-                              decoration: const InputDecoration(labelText: 'شركة الشحن / الناقل (Partners)', isDense: true),
-                              items: [
-                                const DropdownMenuItem<int?>(value: null, child: Text('ادخال يدوياً / Custom')),
-                                ...shippingLines.map((p) => DropdownMenuItem<int?>(
-                                      value: p.providerId,
-                                      child: Text(p.partnerName, overflow: TextOverflow.ellipsis),
-                                    )),
-                              ],
-                              onChanged: (val) {
-                                final partner = shippingLines.where((p) => p.providerId == val).firstOrNull;
-                                setState(() {
-                                  _evalItems[idx] = ShippingScenarioItemModel(
-                                    itemId: item.itemId,
-                                    providerId: val,
-                                    providerName: partner != null ? partner.partnerName : item.providerName,
-                                    vesselName: item.vesselName,
-                                    voyageNumber: item.voyageNumber,
-                                    sailingDate: item.sailingDate,
-                                    estimatedArrivalDate: item.estimatedArrivalDate,
-                                    expectedLineDelayDays: item.expectedLineDelayDays,
-                                    isExcludedFromAverage: item.isExcludedFromAverage,
-                                    isRecommended: item.isRecommended,
-                                    riskLevel: item.riskLevel,
-                                    notes: item.notes,
-                                  );
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              key: ValueKey('prov_${idx}_${item.providerName}'),
-                              initialValue: item.providerName,
-                              decoration: const InputDecoration(labelText: 'Shipping Provider Name *', isDense: true),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                              onChanged: (v) => _evalItems[idx] = ShippingScenarioItemModel(
-                                itemId: item.itemId,
-                                providerId: item.providerId,
-                                providerName: v.trim(),
-                                vesselName: item.vesselName,
-                                voyageNumber: item.voyageNumber,
-                                sailingDate: item.sailingDate,
-                                estimatedArrivalDate: item.estimatedArrivalDate,
-                                expectedLineDelayDays: item.expectedLineDelayDays,
-                                isExcludedFromAverage: item.isExcludedFromAverage,
-                                isRecommended: item.isRecommended,
-                                riskLevel: item.riskLevel,
-                                notes: item.notes,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 2,
-                            child: TextFormField(
-                              initialValue: item.vesselName,
-                              decoration: const InputDecoration(labelText: 'Vessel Name *', isDense: true),
-                              validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                              onChanged: (v) => _evalItems[idx] = ShippingScenarioItemModel(
-                                providerName: item.providerName,
-                                vesselName: v.trim(),
-                                voyageNumber: item.voyageNumber,
-                                sailingDate: item.sailingDate,
-                                estimatedArrivalDate: item.estimatedArrivalDate,
-                                expectedLineDelayDays: item.expectedLineDelayDays,
-                                isExcludedFromAverage: item.isExcludedFromAverage,
-                                isRecommended: item.isRecommended,
-                                riskLevel: item.riskLevel,
-                                notes: item.notes,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: item.voyageNumber ?? '',
-                              decoration: const InputDecoration(labelText: 'Voyage #', isDense: true),
-                              onChanged: (v) => _evalItems[idx] = ShippingScenarioItemModel(
-                                providerName: item.providerName,
-                                vesselName: item.vesselName,
-                                voyageNumber: v.trim(),
-                                sailingDate: item.sailingDate,
-                                estimatedArrivalDate: item.estimatedArrivalDate,
-                                expectedLineDelayDays: item.expectedLineDelayDays,
-                                isExcludedFromAverage: item.isExcludedFromAverage,
-                                isRecommended: item.isRecommended,
-                                riskLevel: item.riskLevel,
-                                notes: item.notes,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                            onPressed: _evalItems.length <= 1
-                                ? null
-                                : () {
-                                    setState(() {
-                                      _evalItems.removeAt(idx);
-                                    });
-                                  },
-                          ),
                         ],
-                      ),
-                      const SizedBox(height: 10),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final sDate = DateTime.tryParse(item.sailingDate) ?? DateTime.now();
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: sDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2030),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    _evalItems[idx] = ShippingScenarioItemModel(
-                                      providerName: item.providerName,
-                                      vesselName: item.vesselName,
-                                      voyageNumber: item.voyageNumber,
-                                      sailingDate: picked.toString().substring(0, 10),
-                                      estimatedArrivalDate: item.estimatedArrivalDate,
-                                      expectedLineDelayDays: item.expectedLineDelayDays,
-                                      isExcludedFromAverage: item.isExcludedFromAverage,
-                                      isRecommended: item.isRecommended,
-                                      riskLevel: item.riskLevel,
-                                      notes: item.notes,
-                                    );
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(labelText: 'Sailing Date *', isDense: true),
-                                child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? DateTime.now();
-                                final picked = await showDatePicker(
-                                  context: context,
-                                  initialDate: etaDate,
-                                  firstDate: DateTime(2020),
-                                  lastDate: DateTime(2030),
-                                );
-                                if (picked != null) {
-                                  setState(() {
-                                    _evalItems[idx] = ShippingScenarioItemModel(
-                                      providerName: item.providerName,
-                                      vesselName: item.vesselName,
-                                      voyageNumber: item.voyageNumber,
-                                      sailingDate: item.sailingDate,
-                                      estimatedArrivalDate: picked.toString().substring(0, 10),
-                                      expectedLineDelayDays: item.expectedLineDelayDays,
-                                      isExcludedFromAverage: item.isExcludedFromAverage,
-                                      isRecommended: item.isRecommended,
-                                      riskLevel: item.riskLevel,
-                                      notes: item.notes,
-                                    );
-                                  });
-                                }
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(labelText: 'Estimated Arrival (ETA) *', isDense: true),
-                                child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: TextFormField(
-                              initialValue: item.expectedLineDelayDays.toString(),
-                              keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(labelText: 'Expected Delay (Days)', isDense: true),
-                              onChanged: (v) {
-                                final delay = int.tryParse(v) ?? 0;
-                                setState(() {
-                                  _evalItems[idx] = ShippingScenarioItemModel(
-                                    providerName: item.providerName,
-                                    vesselName: item.vesselName,
-                                    voyageNumber: item.voyageNumber,
-                                    sailingDate: item.sailingDate,
-                                    estimatedArrivalDate: item.estimatedArrivalDate,
-                                    expectedLineDelayDays: delay,
-                                    isExcludedFromAverage: item.isExcludedFromAverage,
-                                    isRecommended: item.isRecommended,
-                                    riskLevel: item.riskLevel,
-                                    notes: item.notes,
-                                  );
-                                });
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: DropdownButtonFormField<String>(
-                              value: item.riskLevel,
-                              decoration: const InputDecoration(labelText: 'Risk Level', isDense: true),
-                              items: const [
-                                DropdownMenuItem(value: 'Low', child: Text('Low Risk 🟢')),
-                                DropdownMenuItem(value: 'Medium', child: Text('Medium Risk 🟠')),
-                                DropdownMenuItem(value: 'High', child: Text('High Risk 🔴')),
-                              ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(() {
-                                    _evalItems[idx] = ShippingScenarioItemModel(
-                                      providerName: item.providerName,
-                                      vesselName: item.vesselName,
-                                      voyageNumber: item.voyageNumber,
-                                      sailingDate: item.sailingDate,
-                                      estimatedArrivalDate: item.estimatedArrivalDate,
-                                      expectedLineDelayDays: item.expectedLineDelayDays,
-                                      isExcludedFromAverage: item.isExcludedFromAverage,
-                                      isRecommended: item.isRecommended,
-                                      riskLevel: v,
-                                      notes: item.notes,
-                                    );
-                                  });
-                                }
-                              },
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          FilterChip(
-                            label: Text(item.isExcludedFromAverage ? 'Excluded from Avg 🚫' : 'Include in Avg ✅', style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
-                            selected: item.isExcludedFromAverage,
-                            onSelected: (val) {
-                              setState(() {
-                                _evalItems[idx] = ShippingScenarioItemModel(
-                                  providerName: item.providerName,
-                                  vesselName: item.vesselName,
-                                  voyageNumber: item.voyageNumber,
-                                  sailingDate: item.sailingDate,
-                                  estimatedArrivalDate: item.estimatedArrivalDate,
-                                  expectedLineDelayDays: item.expectedLineDelayDays,
-                                  isExcludedFromAverage: val,
-                                  isRecommended: item.isRecommended,
-                                  riskLevel: item.riskLevel,
-                                  notes: item.notes,
-                                );
-                              });
-                            },
-                          ),
-                        ],
-                      ),
-
-                      // Live Calculation Badge Bar
-                      if (calc.isNotEmpty) ...[
-                        const SizedBox(height: 8),
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                          decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                          child: Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            children: [
-                              Text('Vessel Lead Time: ${calc["vesselLeadTime"]} days | Ready Days: ${calc["readyDays"]} days | Total WH Days: ${calc["totalDays"]} days', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                              Text('🎯 Expected Warehouse Arrival: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 20),
-
-            // Comparison Summary Table
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('📊 Side-by-Side Shipping Scenarios Comparison Matrix (جدول المقارنة التفصيلي)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: DataTable(
-                        headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                        headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                        columns: const [
-                          DataColumn(label: Text('#')),
-                          DataColumn(label: Text('Carrier Provider')),
-                          DataColumn(label: Text('Vessel / Voyage')),
-                          DataColumn(label: Text('Sailing Date')),
-                          DataColumn(label: Text('ETA Port')),
-                          DataColumn(label: Text('Vessel Lead Time')),
-                          DataColumn(label: Text('Form 4 + Clearance')),
-                          DataColumn(label: Text('Delay Days')),
-                          DataColumn(label: Text('Total WH Days')),
-                          DataColumn(label: Text('Expected WH Arrival')),
-                          DataColumn(label: Text('Risk Level')),
-                          DataColumn(label: Text('Avg Status')),
-                        ],
-                        rows: calculatedScenarios.map((c) {
-                          final idx = c['index'] as int;
-                          final item = c['item'] as ShippingScenarioItemModel;
-                          return DataRow(
-                            cells: [
-                              DataCell(Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                              DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                              DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
-                              DataCell(Text(item.sailingDate)),
-                              DataCell(Text(item.estimatedArrivalDate)),
-                              DataCell(Text('${c["vesselLeadTime"]} days')),
-                              DataCell(Text('${_avgForm4Days + _avgClearanceDays} days')),
-                              DataCell(Text('${item.expectedLineDelayDays} days')),
-                              DataCell(Text('${c["totalDays"]} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                              DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                              DataCell(
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: item.riskLevel == 'High' ? Colors.red.shade100 : item.riskLevel == 'Medium' ? Colors.orange.shade100 : Colors.green.shade100,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? Colors.red.shade900 : item.riskLevel == 'Medium' ? Colors.orange.shade900 : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 11)),
-                                ),
-                              ),
-                              DataCell(Text(item.isExcludedFromAverage ? 'Excluded 🚫' : 'Included ✅', style: TextStyle(color: item.isExcludedFromAverage ? Colors.red : AppTheme.cobalt, fontSize: 11))),
-                            ],
-                          );
-                        }).toList(),
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Carrier Options Section Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('🚢 Shipping Carrier Options & Quotes (خيارات وعروض شحن الشركات مدمجة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('إضافة خيار شحن جديد'),
+                        onPressed: () {
+                          setState(() {
+                            final defaultLineName = shippingLines.isNotEmpty ? shippingLines.first.partnerName : 'COSCO Shipping';
+                            _evalItems.add(ShippingScenarioItemModel(
+                              providerName: defaultLineName,
+                              vesselName: 'VESSEL NEW',
+                              polName: 'Shanghai Port (ميناء شانغهاي)',
+                              podName: 'El Dekheila Port (ميناء الدخيلة)',
+                              sailingDate: crd.add(const Duration(days: 3)).toString().substring(0, 10),
+                              estimatedArrivalDate: crd.add(const Duration(days: 28)).toString().substring(0, 10),
+                              expectedLineDelayDays: 2,
+                            ));
+                          });
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Carrier Option Cards List
+                  ..._evalItems.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final item = entry.value;
+                    final calc = calculatedScenarios.firstWhere((c) => c['index'] == idx, orElse: () => {});
+
+                    final isExpanded = _expandedQuotes[idx] ?? false;
+
+                    // Automatically compute containers total count for displays
+                    final currentContainersCount = (item.container40ftApplicable ? item.container40ftQty : 0) + 
+                                                   (item.container20ftApplicable ? item.container20ftQty : 0);
+
+                    return Card(
+                      elevation: 1.5,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: BorderSide(
+                          color: item.isRecommended 
+                              ? AppTheme.emerald 
+                              : (item.isExcludedFromAverage ? Colors.grey.shade400 : Colors.blue.shade200), 
+                          width: item.isRecommended ? 2 : 1
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          children: [
+                            // Row 1: Freight Forwarder, Shipping Line, Vessel & Voyage
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 14,
+                                  backgroundColor: item.isRecommended ? AppTheme.emerald : AppTheme.cobalt,
+                                  child: Text('${idx + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<int?>(
+                                    value: item.providerId,
+                                    labelText: 'وكيل الشحن / الناقل (Freight Forwarder)',
+                                    items: [
+                                      const SearchableDropdownItem<int?>(value: null, label: 'ادخال يدوياً / Custom'),
+                                      ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
+                                            value: p.providerId,
+                                            label: p.partnerName,
+                                          )),
+                                    ],
+                                    onChanged: (val) {
+                                      final partner = freightForwarders.where((p) => p.providerId == val).firstOrNull;
+                                      _updateItem(idx, item.copyWith(
+                                        providerId: val,
+                                        providerName: partner != null ? partner.partnerName : item.providerName,
+                                      ), currenciesList);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<String>(
+                                    value: shippingLines.any((p) => p.partnerName == item.providerName) ? item.providerName : '',
+                                    labelText: 'الخط الملاحي (Shipping Line) *',
+                                    items: [
+                                      const SearchableDropdownItem<String>(value: '', label: 'اختر الخط الملاحي (Select Line)'),
+                                      ...shippingLines.map((p) => SearchableDropdownItem<String>(
+                                            value: p.partnerName,
+                                            label: p.partnerName,
+                                          )),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null && val.isNotEmpty) {
+                                        _updateItem(idx, item.copyWith(providerName: val), currenciesList);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    initialValue: item.vesselName,
+                                    decoration: const InputDecoration(labelText: 'Vessel Name *', isDense: true),
+                                    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                    onChanged: (v) => _updateItem(idx, item.copyWith(vesselName: v.trim()), currenciesList),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFormField(
+                                    initialValue: item.voyageNumber ?? '',
+                                    decoration: const InputDecoration(labelText: 'Voyage #', isDense: true),
+                                    onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                  onPressed: _evalItems.length <= 1
+                                      ? null
+                                      : () {
+                                          setState(() {
+                                            _evalItems.removeAt(idx);
+                                            _expandedQuotes.remove(idx);
+                                          });
+                                        },
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Row 2: POL, POD & Customs Broker Selector
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SearchableDropdownField<int?>(
+                                    value: item.portOfLoadingId,
+                                    labelText: 'ميناء السفر / التحميل (Port of Loading - POL)',
+                                    items: [
+                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر ميناء السفر/التحميل (Select POL)'),
+                                      ...portsList.map((p) => SearchableDropdownItem<int?>(
+                                            value: p.locationId,
+                                            label: '${p.unLocode} - ${p.locationName} (${p.country})',
+                                          )),
+                                    ],
+                                    onChanged: (val) {
+                                      final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
+                                      _updateItem(idx, item.copyWith(
+                                        portOfLoadingId: val,
+                                        polName: selectedPort != null ? selectedPort.locationName : item.polName,
+                                      ), currenciesList);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SearchableDropdownField<int?>(
+                                    value: item.portOfDischargeId,
+                                    labelText: 'ميناء الوصول / التفريغ (Port of Discharge - POD)',
+                                    items: [
+                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر ميناء الوصول/التفريغ (Select POD)'),
+                                      ...portsList.map((p) => SearchableDropdownItem<int?>(
+                                            value: p.locationId,
+                                            label: '${p.unLocode} - ${p.locationName} (${p.country})',
+                                          )),
+                                    ],
+                                    onChanged: (val) {
+                                      final selectedPort = portsList.where((p) => p.locationId == val).firstOrNull;
+                                      _updateItem(idx, item.copyWith(
+                                        portOfDischargeId: val,
+                                        podName: selectedPort != null ? selectedPort.locationName : item.podName,
+                                      ), currenciesList);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SearchableDropdownField<int?>(
+                                    value: item.customsBrokerId,
+                                    labelText: 'المخلص الجمركي (Customs Broker)',
+                                    items: [
+                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر المخلص الجمركي (Select Broker)'),
+                                      ...customsBrokers.map((p) => SearchableDropdownItem<int?>(
+                                            value: p.providerId,
+                                            label: p.partnerName,
+                                          )),
+                                    ],
+                                    onChanged: (val) {
+                                      final partner = customsBrokers.where((p) => p.providerId == val).firstOrNull;
+                                      _updateItem(idx, item.copyWith(
+                                        customsBrokerId: val,
+                                        customsBrokerName: partner != null ? partner.partnerName : null,
+                                      ), currenciesList);
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+
+                            // Row 3: Sailing Date, ETA, Delays & Risk
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final sDate = DateTime.tryParse(item.sailingDate) ?? DateTime.now();
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: sDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2030),
+                                      );
+                                      if (picked != null) {
+                                        _updateItem(idx, item.copyWith(sailingDate: picked.toString().substring(0, 10)), currenciesList);
+                                      }
+                                    },
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(labelText: 'Sailing Date *', isDense: true),
+                                      child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final etaDate = DateTime.tryParse(item.estimatedArrivalDate) ?? DateTime.now();
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: etaDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2030),
+                                      );
+                                      if (picked != null) {
+                                        _updateItem(idx, item.copyWith(estimatedArrivalDate: picked.toString().substring(0, 10)), currenciesList);
+                                      }
+                                    },
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(labelText: 'Estimated Arrival (ETA) *', isDense: true),
+                                      child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: TextFormField(
+                                    initialValue: item.expectedLineDelayDays.toString(),
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'Expected Delay (Days)', isDense: true),
+                                    onChanged: (v) {
+                                      final delay = int.tryParse(v) ?? 0;
+                                      _updateItem(idx, item.copyWith(expectedLineDelayDays: delay), currenciesList);
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: SearchableDropdownField<String>(
+                                    value: item.riskLevel,
+                                    labelText: 'Risk Level',
+                                    items: const [
+                                      SearchableDropdownItem(value: 'Low', label: 'Low Risk 🟢'),
+                                      SearchableDropdownItem(value: 'Medium', label: 'Medium Risk 🟠'),
+                                      SearchableDropdownItem(value: 'High', label: 'High Risk 🔴'),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        _updateItem(idx, item.copyWith(riskLevel: v), currenciesList);
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                FilterChip(
+                                  label: Text(item.isExcludedFromAverage ? 'Excluded from Avg 🚫' : 'Include in Avg ✅', style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
+                                  selected: item.isExcludedFromAverage,
+                                  onSelected: (val) {
+                                    _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
+                                  },
+                                ),
+                              ],
+                            ),
+
+                            // Live Calculation & Expand Quote buttons
+                            if (calc.isNotEmpty) ...[
+                              const SizedBox(height: 8),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      '📍 POL: ${item.polName ?? "غير محدد"} ➔ POD: ${item.podName ?? "غير محدد"} | Lead Time: ${calc["vesselLeadTime"]}d | WH Days: ${calc["totalDays"]}d',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                    ),
+                                    Row(
+                                      children: [
+                                        TextButton.icon(
+                                          onPressed: () => setState(() => _expandedQuotes[idx] = !isExpanded),
+                                          icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTheme.cobalt),
+                                          label: Text(
+                                            isExpanded 
+                                                ? 'إخفاء عرض السعر (Hide Quote)' 
+                                                : 'تفاصيل عرض السعر (Edit Quote) [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Text('Expected WH Arrival: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            // Expandable Quotation Cost Form Section (BP-008 Integration)
+                            if (isExpanded) ...[
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.request_quote, color: AppTheme.cobalt, size: 18),
+                                        SizedBox(width: 6),
+                                        Text('💰 تفاصيل عرض سعر شحن الشركة والناقل الملحق (Freight Quote Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      ],
+                                    ),
+                                    const Divider(height: 16),
+                                    
+                                    // Row A: Free time & Main Quote Currency
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextFormField(
+                                            initialValue: item.freeTimeDays.toString(),
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(labelText: 'Free Time days at destination (أيام الفري تايم في الوجهة)', isDense: true, suffixText: 'أيام'),
+                                            onChanged: (v) {
+                                              final ft = int.tryParse(v) ?? 14;
+                                              _updateItem(idx, item.copyWith(freeTimeDays: ft), currenciesList);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: SearchableDropdownField<String>(
+                                            value: currenciesList.any((c) => c.currencyCode == item.quotationCurrency) ? item.quotationCurrency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
+                                            labelText: 'Main Quote Currency (عملة المقارنة الأساسية للعرض)',
+                                            items: currenciesList.map((c) => SearchableDropdownItem(
+                                                  value: c.currencyCode,
+                                                  label: '${c.currencyCode} - ${c.currencySymbol}',
+                                                )).toList(),
+                                            onChanged: (v) {
+                                              if (v != null) {
+                                                _updateItem(idx, item.copyWith(quotationCurrency: v), currenciesList);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // Table/Grid of Cost Items (Redesigned: inputs always visible, toggles at the right side)
+                                    _buildCostRow(
+                                      rowKey: 'container40ft_${idx}',
+                                      title: '1. شحن حاوية 40 قدم (Container 40ft)',
+                                      applicable: item.container40ftApplicable,
+                                      price: item.container40ftPrice,
+                                      currency: item.container40ftCurrency,
+                                      qty: item.container40ftQty.toDouble(),
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(container40ftApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(container40ftPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(container40ftCurrency: v), currenciesList),
+                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(container40ftQty: v.toInt()), currenciesList),
+                                      showQty: true,
+                                      isIntegerQty: true,
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'container20ft_${idx}',
+                                      title: '2. شحن حاوية 20 قدم (Container 20ft)',
+                                      applicable: item.container20ftApplicable,
+                                      price: item.container20ftPrice,
+                                      currency: item.container20ftCurrency,
+                                      qty: item.container20ftQty.toDouble(),
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(container20ftApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(container20ftPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(container20ftCurrency: v), currenciesList),
+                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(container20ftQty: v.toInt()), currenciesList),
+                                      showQty: true,
+                                      isIntegerQty: true,
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'lclCbm_${idx}',
+                                      title: '3. شحن CBM لشحنة LCL (LCL CBM Cost)',
+                                      applicable: item.lclCbmApplicable,
+                                      price: item.lclCbmPrice,
+                                      currency: item.lclCbmCurrency,
+                                      qty: item.lclCbmQty,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(lclCbmApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(lclCbmPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(lclCbmCurrency: v), currenciesList),
+                                      onQtyChanged: (v) => _updateItem(idx, item.copyWith(lclCbmQty: v), currenciesList),
+                                      showQty: true,
+                                      isIntegerQty: false,
+                                      currenciesList: currenciesList,
+                                    ),
+                                    
+                                    // Total containers label
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+                                      child: Text(
+                                        'إجمالي عدد الحاويات المطبقة للشحن = $currentContainersCount حاوية (تفصيل: 40ft: ${item.container40ftApplicable ? item.container40ftQty : 0} | 20ft: ${item.container20ftApplicable ? item.container20ftQty : 0})',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                                      ),
+                                    ),
+
+                                    _buildCostRow(
+                                      rowKey: 'expressCourier_${idx}',
+                                      title: '4. البريد السريع للمستندات (Express Courier)',
+                                      applicable: item.expressCourierApplicable,
+                                      price: item.expressCourierPrice,
+                                      currency: item.expressCourierCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(expressCourierApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(expressCourierPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(expressCourierCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'eurAtr_${idx}',
+                                      title: '5. شهادة المنشأ (EUR.1 / ATR Certificate)',
+                                      applicable: item.eurAtrApplicable,
+                                      price: item.eurAtrPrice,
+                                      currency: item.eurAtrCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(eurAtrApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(eurAtrPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(eurAtrCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'solasVgm_${idx}',
+                                      title: '6. مصاريف التحقق من الوزن (SOLAS/VGM Fees)',
+                                      applicable: item.solasVgmApplicable,
+                                      price: item.solasVgmPrice,
+                                      currency: item.solasVgmCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(solasVgmApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(solasVgmPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(solasVgmCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'vgmNotification_${idx}',
+                                      title: '7. إخطار إقرار الوزن (VGM Notification Fee)',
+                                      applicable: item.vgmNotificationApplicable,
+                                      price: item.vgmNotificationPrice,
+                                      currency: item.vgmNotificationCurrency,
+                                      qty: currentContainersCount.toDouble(),
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(vgmNotificationCurrency: v), currenciesList),
+                                      showQty: true,
+                                      qtyReadOnly: true,
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'telexRelease_${idx}',
+                                      title: '8. إطلاق الفاكس الملاحي (Telex Release)',
+                                      applicable: item.telexReleaseApplicable,
+                                      price: item.telexReleasePrice,
+                                      currency: item.telexReleaseCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(telexReleaseApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(telexReleasePrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(telexReleaseCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'insurance_${idx}',
+                                      title: '9. بوليصة التأمين البحري (Insurance)',
+                                      applicable: item.insuranceApplicable,
+                                      price: item.insurancePrice,
+                                      currency: item.insuranceCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(insuranceApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(insurancePrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(insuranceCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'bookingCancellation_${idx}',
+                                      title: '10. غرامة إلغاء الحجز (Booking Cancellation)',
+                                      applicable: item.bookingCancellationApplicable,
+                                      price: item.bookingCancellationPrice,
+                                      currency: item.bookingCancellationCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(bookingCancellationCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+
+                                    // New Cost Rows
+                                    _buildCostRow(
+                                      rowKey: 'ics2FilingFee_${idx}',
+                                      title: '11. رسوم إيداع بيان الحمول الرقمية (ICS2 Filing Fee)',
+                                      applicable: item.ics2FilingFeeApplicable,
+                                      price: item.ics2FilingFeePrice,
+                                      currency: item.ics2FilingFeeCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeeApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeePrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(ics2FilingFeeCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'documentFees_${idx}',
+                                      title: '12. مصاريف المستندات الإضافية (Document Fees)',
+                                      applicable: item.documentFeesApplicable,
+                                      price: item.documentFeesPrice,
+                                      currency: item.documentFeesCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(documentFeesApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(documentFeesPrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(documentFeesCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'waiverLetterFee_${idx}',
+                                      title: '13. مصاريف خطاب التنازل (Waiver Letter / Transfer Fee)',
+                                      applicable: item.waiverLetterFeeApplicable,
+                                      price: item.waiverLetterFeePrice,
+                                      currency: item.waiverLetterFeeCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeeApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeePrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(waiverLetterFeeCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    _buildCostRow(
+                                      rowKey: 'othersFee_${idx}',
+                                      title: '14. مصاريف ومصاريف أخرى (Others)',
+                                      applicable: item.othersFeeApplicable,
+                                      price: item.othersFeePrice,
+                                      currency: item.othersFeeCurrency,
+                                      onApplicableChanged: (v) => _updateItem(idx, item.copyWith(othersFeeApplicable: v), currenciesList),
+                                      onPriceChanged: (v) => _updateItem(idx, item.copyWith(othersFeePrice: v), currenciesList),
+                                      onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(othersFeeCurrency: v), currenciesList),
+                                      currenciesList: currenciesList,
+                                    ),
+                                    
+                                    const Divider(height: 16),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          const Text(
+                                            '💰 إجمالي قيمة هذا العرض (إجمالي كل البنود المطبقة بالأرقام الصحيحة):',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                          ),
+                                          Text(
+                                            '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  const SizedBox(height: 20),
+
+                  // Comparison Summary Table
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('📊 Side-by-Side Shipping Scenarios Comparison Matrix (جدول المقارنة التفصيلي مدمج النولون)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                          const SizedBox(height: 10),
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                              headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                              columns: const [
+                                DataColumn(label: Text('#')),
+                                DataColumn(label: Text('Carrier Provider')),
+                                DataColumn(label: Text('Customs Broker')),
+                                DataColumn(label: Text('POL / POD')),
+                                DataColumn(label: Text('Vessel / Voyage')),
+                                DataColumn(label: Text('Sailing Date')),
+                                DataColumn(label: Text('ETA Port')),
+                                DataColumn(label: Text('Vessel Lead Time')),
+                                DataColumn(label: Text('Free Time')),
+                                DataColumn(label: Text('Delay Days')),
+                                DataColumn(label: Text('Total WH Days')),
+                                DataColumn(label: Text('Total Quote Cost')),
+                                DataColumn(label: Text('Expected WH Arrival')),
+                                DataColumn(label: Text('Risk Level')),
+                                DataColumn(label: Text('Avg Status')),
+                              ],
+                              rows: calculatedScenarios.map((c) {
+                                final idx = c['index'] as int;
+                                final item = c['item'] as ShippingScenarioItemModel;
+                                return DataRow(
+                                  cells: [
+                                    DataCell(Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                                    DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                    DataCell(Text(item.customsBrokerName ?? '-')),
+                                    DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
+                                    DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
+                                    DataCell(Text(item.sailingDate)),
+                                    DataCell(Text(item.estimatedArrivalDate)),
+                                    DataCell(Text('${c["vesselLeadTime"]} days')),
+                                    DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+                                    DataCell(Text('${item.expectedLineDelayDays} days')),
+                                    DataCell(Text('${c["totalDays"]} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                                    DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
+                                    DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                                    DataCell(
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: item.riskLevel == 'High' ? Colors.red.shade100 : item.riskLevel == 'Medium' ? Colors.orange.shade100 : Colors.green.shade100,
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(item.riskLevel, style: TextStyle(color: item.riskLevel == 'High' ? Colors.red.shade900 : item.riskLevel == 'Medium' ? Colors.orange.shade900 : Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 11)),
+                                      ),
+                                    ),
+                                    DataCell(Text(item.isExcludedFromAverage ? 'Excluded 🚫' : 'Included ✅', style: TextStyle(color: item.isExcludedFromAverage ? Colors.red : AppTheme.cobalt, fontSize: 11))),
+                                  ],
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom Fixed Action Bar
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -3))],
+              ),
+              child: Row(
+                children: [
+                  if (_editingSessionId != null) ...[
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.charcoal,
+                        side: const BorderSide(color: AppTheme.charcoal),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      ),
+                      icon: const Icon(Icons.close),
+                      label: const Text('إلغاء التعديل (Cancel Edit)'),
+                      onPressed: _resetFormForNewStudy,
+                    ),
+                    const SizedBox(width: 12),
                   ],
-                ),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: _isSaving
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.save),
+                      label: Text(_editingSessionId != null ? 'حفظ تعديلات دراسة الشحن والعروض' : 'حفظ الدراسة والنتائج (Save Evaluation Study)'),
+                      onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCostRow({
+    required String rowKey,
+    required String title,
+    required bool applicable,
+    required double price,
+    required String currency,
+    double qty = 1.0,
+    required ValueChanged<bool> onApplicableChanged,
+    required ValueChanged<double> onPriceChanged,
+    required ValueChanged<String> onCurrencyChanged,
+    ValueChanged<double>? onQtyChanged,
+    bool showQty = false,
+    bool qtyReadOnly = false,
+    bool isIntegerQty = true,
+    required List<CurrencyModel> currenciesList,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          // Title
+          Expanded(
+            flex: 3,
+            child: Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Price field (always visible with stable key)
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_${_selectedImportFileId ?? "none"}_${_selectedPoId ?? "none"}'),
+              initialValue: price == 0.0 ? '' : price.toString(),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'سعر البند', isDense: true),
+              onChanged: (v) {
+                final p = double.tryParse(v) ?? 0.0;
+                onPriceChanged(p);
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Currency dropdown (always visible, dynamic list from DB)
+          Expanded(
+            flex: 2,
+            child: SearchableDropdownField<String>(
+              value: currenciesList.any((c) => c.currencyCode == currency) ? currency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
+              labelText: 'العملة',
+              items: currenciesList.map((c) => SearchableDropdownItem(
+                    value: c.currencyCode,
+                    label: '${c.currencyCode} (${c.currencySymbol})',
+                  )).toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  onCurrencyChanged(v);
+                }
+              },
+            ),
+          ),
+          if (showQty) ...[
+            const SizedBox(width: 8),
+            // Qty field (always visible when showQty is true with stable key)
+            Expanded(
+              flex: 2,
+              child: TextFormField(
+                key: qtyReadOnly
+                    ? ValueKey('readonly_qty_${rowKey}_$qty')
+                    : ValueKey('qty_${rowKey}_${_editingSessionId ?? "new"}_${_selectedImportFileId ?? "none"}_${_selectedPoId ?? "none"}'),
+                readOnly: qtyReadOnly,
+                initialValue: qty == 0.0 ? '' : (isIntegerQty ? qty.toInt().toString() : qty.toString()),
+                keyboardType: TextInputType.numberWithOptions(decimal: !isIntegerQty),
+                decoration: const InputDecoration(labelText: 'الكمية', isDense: true),
+                onChanged: qtyReadOnly ? null : (v) {
+                  final q = double.tryParse(v) ?? 0.0;
+                  if (onQtyChanged != null) {
+                    onQtyChanged(q);
+                  }
+                },
               ),
             ),
           ],
-        ),
+          const SizedBox(width: 12),
+          // Applicable switch (moved after inputs)
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Switch(
+                value: applicable,
+                activeColor: AppTheme.cobalt,
+                onChanged: onApplicableChanged,
+              ),
+              Text(
+                applicable ? 'مطبق' : 'غير مطبق',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: applicable ? AppTheme.emerald : Colors.red.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 12),
+          // Line total display (dynamically shows 0.0 if not applicable)
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: applicable ? Colors.green.shade50 : Colors.red.shade50,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: applicable ? Colors.green.shade200 : Colors.red.shade200),
+              ),
+              child: Text(
+                applicable 
+                    ? '${(price * qty).toStringAsFixed(0)} $currency'
+                    : '0.0 $currency',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold, 
+                  fontSize: 11, 
+                  color: applicable ? AppTheme.emerald : Colors.red.shade900
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1209,6 +1633,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               DataColumn(label: Text('Import File')),
                               DataColumn(label: Text('Title / Description')),
                               DataColumn(label: Text('CRD Date')),
+                              DataColumn(label: Text('Pick-up Address')),
                               DataColumn(label: Text('Avg Transit')),
                               DataColumn(label: Text('Avg WH Arrival')),
                               DataColumn(label: Text('Recommended Carrier')),
@@ -1241,6 +1666,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   ),
                                   DataCell(Text(sess.title ?? 'Shipping Transit Study', overflow: TextOverflow.ellipsis)),
                                   DataCell(Text(sess.cargoReadyDate)),
+                                  DataCell(Text(sess.pickUpAddress ?? '-', style: const TextStyle(fontSize: 11))),
                                   DataCell(Text('${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                   DataCell(Text(sess.avgExpectedWarehouseArrivalDate ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
                                   DataCell(
@@ -1271,10 +1697,19 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                         }
                                       },
                                       itemBuilder: (ctx) => [
-                                        const PopupMenuItem(value: 'edit', child: Text('Edit / Re-open Session (فتح وتعديل الجلسة)')),
-                                        const PopupMenuItem(value: 'view', child: Text('View Details (عرض التفاصيل)')),
-                                        const PopupMenuItem(value: 'print', child: Text('Print / Export Report (طباعة وتصدير)')),
-                                        PopupMenuItem(value: 'delete_restore', child: Text(sess.isActive ? 'Deactivate' : 'Restore')),
+                                        const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility, size: 18), SizedBox(width: 8), Text('عرض التقييم')])),
+                                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('تعديل التقييم')])),
+                                        const PopupMenuItem(value: 'print', child: Row(children: [Icon(Icons.print, size: 18), SizedBox(width: 8), Text('طباعة التقرير')])),
+                                        PopupMenuItem(
+                                          value: 'delete_restore',
+                                          child: Row(
+                                            children: [
+                                              Icon(sess.isActive ? Icons.delete : Icons.restore, color: sess.isActive ? Colors.red : Colors.green, size: 18),
+                                              const SizedBox(width: 8),
+                                              Text(sess.isActive ? 'إلغاء التفعيل' : 'استعادة'),
+                                            ],
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ),
@@ -1290,7 +1725,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     );
   }
 
-  Future<void> _saveEvaluationSession(BuildContext context) async {
+  Future<void> _saveEvaluationSession(BuildContext context, List<CurrencyModel> currenciesList) async {
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -1300,6 +1735,81 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         ),
       );
       return;
+    }
+
+    // Client-side validation of shipping scenarios items
+    final seen = <String>{};
+    for (int i = 0; i < _evalItems.length; i++) {
+      final item = _evalItems[i];
+      if (item.providerName.isEmpty || item.providerName == 'Select Line') {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1}: يرجى اختيار الخط الملاحي (Shipping Line)!'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
+      final sDate = DateTime.tryParse(item.sailingDate);
+      final etaDate = DateTime.tryParse(item.estimatedArrivalDate);
+
+      if (sDate == null || etaDate == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): يرجى تحديد التواريخ بشكل صحيح!'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
+      // Check date constraints: sailing date must be on or after CRD
+      final crdDateOnly = DateTime(_cargoReadyDate.year, _cargoReadyDate.month, _cargoReadyDate.day);
+      final sailingDateOnly = DateTime(sDate.year, sDate.month, sDate.day);
+      if (sailingDateOnly.isBefore(crdDateOnly)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): تاريخ الإبحار (${item.sailingDate}) لا يمكن أن يكون قبل تاريخ جاهزية البضاعة (CRD: ${crdDateOnly.toString().substring(0, 10)})!'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
+      // Check date constraints: ETA must be after sailing date
+      if (!etaDate.isAfter(sDate)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): تاريخ الوصول (ETA: ${item.estimatedArrivalDate}) يجب أن يكون بعد تاريخ الإبحار (${item.sailingDate})!'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
+      if (item.expectedLineDelayDays < 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): أيام التأخير المتوقعة لا يمكن أن تكون سالبة!'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+
+      // Check duplicates (same Freight Forwarder, Shipping Line, Vessel, and Sailing Date)
+      final key = '${item.providerId}_${item.providerName.trim().toLowerCase()}_${item.vesselName.trim().toLowerCase()}_${item.sailingDate}';
+      if (seen.contains(key)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ خيار الشحن #${i + 1} (${item.providerName}): مكرر! يوجد خيار آخر بنفس شركة وكيل الشحن والخط الملاحي والرحلة وتاريخ الإبحار.'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+        return;
+      }
+      seen.add(key);
     }
 
     _formKey.currentState!.save();
@@ -1315,8 +1825,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       final data = {
         'title': titleToSave,
         'cargo_ready_date': _cargoReadyDate.toString().substring(0, 10),
-        if (_selectedPolId != null) 'port_of_loading_id': _selectedPolId,
-        if (_selectedPodId != null) 'port_of_discharge_id': _selectedPodId,
+        if (_pickUpAddress.trim().isNotEmpty) 'pick_up_address': _pickUpAddress.trim(),
         'avg_form4_days': _avgForm4Days,
         'avg_clearance_days': _avgClearanceDays,
         if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
@@ -1330,8 +1839,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         sessionCode: '',
         title: titleToSave,
         cargoReadyDate: _cargoReadyDate.toString().substring(0, 10),
-        portOfLoadingId: _selectedPolId,
-        portOfDischargeId: _selectedPodId,
+        pickUpAddress: _pickUpAddress.trim().isNotEmpty ? _pickUpAddress.trim() : null,
         avgForm4Days: _avgForm4Days,
         avgClearanceDays: _avgClearanceDays,
         importFileId: _selectedImportFileId,
@@ -1346,14 +1854,24 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     setState(() => _isSaving = false);
 
     if (ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(_editingSessionId != null ? '✅ تم حفظ تعديلات الجلسة $_editingSessionCode بنجاح!' : '✅ تم حفظ دراسة خيارات وسيناريوهات الشحن بنجاح!'),
-          backgroundColor: AppTheme.emerald,
+      // Find the newly saved study from provider state
+      final freshState = ref.read(shippingScenariosProvider);
+      final savedSess = freshState.sessions.firstWhere(
+        (s) => s.title == titleToSave || s.sessionCode == _editingSessionCode,
+        orElse: () => ShippingEvaluationModel(
+          sessionCode: _editingSessionCode ?? 'NEW',
+          title: titleToSave,
+          cargoReadyDate: _cargoReadyDate.toString().substring(0, 10),
+          items: _evalItems,
+          recommendedScenarioProvider: _evalItems.firstWhere((i) => i.isRecommended, orElse: () => _evalItems.first).providerName,
         ),
       );
+
       _resetFormForNewStudy();
       _tabController.animateTo(1);
+
+      // Instantly pop up the detailed Arabic/English results summary dialog per user instructions
+      _showSaveSuccessReportDialog(context, savedSess);
     } else if (!ok && context.mounted) {
       final err = ref.read(shippingScenariosProvider).errorMessage ?? 'فشلت عملية حفظ الدراسة والنتائج';
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1366,315 +1884,279 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     }
   }
 
+  void _showSaveSuccessReportDialog(BuildContext context, ShippingEvaluationModel sess) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogCtx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: AppTheme.emerald, size: 28),
+            SizedBox(width: 10),
+            Text('🏆 تقرير نتائج دراسة الشحن والعروض المحفوظة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 850,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('رمز دراسة الشحن: ${sess.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text('عنوان الدراسة: ${sess.title ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 4),
+                      Text('تاريخ الجاهزية (CRD): ${sess.cargoReadyDate} | مكان الاستلام: ${sess.pickUpAddress ?? "غير محدد"}', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('📊 التقرير المقارن للخطوط والرحلات المقيمة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                const SizedBox(height: 8),
+                Table(
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.5),
+                    1: FlexColumnWidth(1.1),
+                    2: FlexColumnWidth(1.1),
+                    3: FlexColumnWidth(1.1),
+                    4: FlexColumnWidth(1.2),
+                    5: FlexColumnWidth(1.5),
+                    6: FlexColumnWidth(1.0),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      children: const [
+                        Padding(padding: EdgeInsets.all(8), child: Text('الناقل / الخط الملاحي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('تاريخ الإبحار', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('الوصول للميناء', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('إجمالي الأيام', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('موعد المخزن المتوقع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('إجمالي قيمة العرض', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: EdgeInsets.all(8), child: Text('الترشيح', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      ],
+                    ),
+                    ...sess.items.map((item) {
+                      return TableRow(
+                        decoration: BoxDecoration(color: item.isRecommended ? Colors.green.shade50.withOpacity(0.5) : null),
+                        children: [
+                          Padding(padding: const EdgeInsets.all(8), child: Text(item.providerName, style: TextStyle(fontWeight: item.isRecommended ? FontWeight.bold : FontWeight.normal, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(item.sailingDate, style: const TextStyle(fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(item.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text('${item.expectedTotalDaysToWarehouse} يوم', style: const TextStyle(fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(item.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red))),
+                          Padding(
+                            padding: const EdgeInsets.all(8),
+                            child: Text(
+                              item.isRecommended ? '🟢 موصى به' : (item.isExcludedFromAverage ? '🚫 مستبعد' : 'عادي'),
+                              style: TextStyle(fontWeight: FontWeight.bold, color: item.isRecommended ? AppTheme.emerald : Colors.grey, fontSize: 10),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.stars, color: Colors.blue),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'الخط الملاحي الموصى به رسميًا للربط والتعاقد: ${sess.recommendedScenarioProvider ?? "لم يحدد بعد"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: 'دراسة الشحن والأسعار ${sess.sessionCode}: ${sess.title}\nالخط الموصى به: ${sess.recommendedScenarioProvider}\nتاريخ وصول المخزن: ${sess.avgExpectedWarehouseArrivalDate}'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('📋 تم نسخ ملخص النتائج للحافظة!'), backgroundColor: AppTheme.cobalt),
+              );
+            },
+            child: const Text('نسخ ملخص النتائج'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('موافق (تم الحفظ)'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSessionDetailsDialog(BuildContext context, ShippingEvaluationModel sess) {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: Text('Shipping Transit Study Details (${sess.sessionCode})'),
         content: SizedBox(
-          width: 750,
+          width: 950,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(sess.title ?? 'Shipping Study', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text('CRD Date: ${sess.cargoReadyDate} | Form 4: ${sess.avgForm4Days}d | Clearance: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text('CRD Date: ${sess.cargoReadyDate} | Pick-up: ${sess.pickUpAddress ?? "N/A"} | Form 4: ${sess.avgForm4Days}d | Clearance: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const Divider(height: 20),
 
-                // Metrics Badges
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _buildMetricCard('Average Transit Days', '${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', Icons.timer, AppTheme.cobalt),
-                    _buildMetricCard('Average WH Arrival', sess.avgExpectedWarehouseArrivalDate ?? '-', Icons.event, Colors.purple),
-                    _buildMetricCard('Earliest Arrival', sess.earliestArrivalDate ?? '-', Icons.flight_land, AppTheme.emerald, subtitle: sess.earliestArrivalScenarioProvider),
-                    _buildMetricCard('Latest Arrival', sess.latestArrivalDate ?? '-', Icons.history_toggle_off, Colors.orange, subtitle: sess.latestArrivalScenarioProvider),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                const Text('Options Breakdown Table', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                const SizedBox(height: 8),
-
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  children: [
-                    const TableRow(
-                      decoration: BoxDecoration(color: AppTheme.cloudWhite),
-                      children: [
-                        Padding(padding: EdgeInsets.all(6), child: Text('Carrier Provider', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Vessel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Sailing Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('ETA Port', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Lead Time', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Total WH Days', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('Expected WH Date', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      ],
-                    ),
-                    ...sess.items.map(
-                      (i) => TableRow(
-                        children: [
-                          Padding(padding: const EdgeInsets.all(6), child: Text(i.providerName, style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${i.vesselName} (${i.voyageNumber ?? ""})', style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(i.sailingDate, style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(i.estimatedArrivalDate, style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${i.vesselLeadTimeDays}d', style: const TextStyle(fontSize: 11))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text('${i.expectedTotalDaysToWarehouse}d', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple))),
-                          Padding(padding: const EdgeInsets.all(6), child: Text(i.expectedWarehouseArrivalDate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: DataTable(
+                    columns: const [
+                      DataColumn(label: Text('#')),
+                      DataColumn(label: Text('Forwarder / Provider')),
+                      DataColumn(label: Text('Shipping Line')),
+                      DataColumn(label: Text('Customs Broker')),
+                      DataColumn(label: Text('Vessel')),
+                      DataColumn(label: Text('POL ➔ POD')),
+                      DataColumn(label: Text('Sailing')),
+                      DataColumn(label: Text('ETA')),
+                      DataColumn(label: Text('Free Time')),
+                      DataColumn(label: Text('Total WH Days')),
+                      DataColumn(label: Text('Total Cost')),
+                      DataColumn(label: Text('Status')),
+                    ],
+                    rows: sess.items.asMap().entries.map((e) {
+                      final item = e.value;
+                      return DataRow(
+                        cells: [
+                          DataCell(Text('${e.key + 1}')),
+                          DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(item.providerName)),
+                          DataCell(Text(item.customsBrokerName ?? '-')),
+                          DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
+                          DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
+                          DataCell(Text(item.sailingDate)),
+                          DataCell(Text(item.estimatedArrivalDate)),
+                          DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+                          DataCell(Text('${item.expectedTotalDaysToWarehouse} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                          DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
+                          DataCell(Text(item.isRecommended ? 'Recommended ⭐' : item.isExcludedFromAverage ? 'Excluded 🚫' : 'Normal')),
                         ],
-                      ),
-                    ),
-                  ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          OutlinedButton.icon(
-            icon: const Icon(Icons.edit, size: 16),
-            label: const Text('تعديل / فتح الجلسة'),
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              _loadSessionForEditing(sess);
-            },
-          ),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            icon: const Icon(Icons.print, size: 16),
-            label: const Text('طباعة / تصدير التقرير'),
-            onPressed: () {
-              Navigator.pop(dialogCtx);
-              _showPrintReportDialog(context, sess);
-            },
-          ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
         ],
       ),
     );
   }
 
   void _showPrintReportDialog(BuildContext context, ShippingEvaluationModel sess) {
-    showDialog(
-      context: context,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text('Print Shipping Evaluation Report (${sess.sessionCode})'),
-        content: SizedBox(
-          width: 750,
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('ImportFlow ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
-                        Text('Shipping Scenarios Evaluation Report (BP-007)', style: TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    Text(sess.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                  ],
-                ),
-                const Divider(height: 20),
-                Text('Study Title: ${sess.title ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                Text('CRD Date: ${sess.cargoReadyDate} | Form 4 Days: ${sess.avgForm4Days} | Clearance Days: ${sess.avgClearanceDays}'),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  color: Colors.grey.shade100,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Text('Avg Transit: ${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                      Text('Avg WH Date: ${sess.avgExpectedWarehouseArrivalDate ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
-                      Text('Earliest Arrival: ${sess.earliestArrivalDate ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            icon: const Icon(Icons.download, size: 16),
-            label: const Text('تنزيل ملف CSV'),
-            onPressed: () {
-              final buffer = StringBuffer();
-              buffer.writeln('ImportFlow ERP - Shipping Scenarios Evaluation Report');
-              buffer.writeln('Study Code,${sess.sessionCode}');
-              buffer.writeln('Title,${sess.title ?? ""}');
-              buffer.writeln('Cargo Ready Date,${sess.cargoReadyDate}');
-              buffer.writeln('Avg Expected Transit Days,${sess.avgExpectedTransitDays}');
-              buffer.writeln('Avg Expected Warehouse Date,${sess.avgExpectedWarehouseArrivalDate ?? ""}');
-              buffer.writeln('');
-              buffer.writeln('Carrier Provider,Vessel,Voyage,Sailing Date,ETA Port,Vessel Lead Time,Total WH Days,Expected WH Date,Risk Level,Excluded');
+    final buffer = StringBuffer();
+    buffer.writeln('=====================================================');
+    buffer.writeln('ImportFlow ERP - Shipping Scenario & Quote Report (${sess.sessionCode})');
+    buffer.writeln('Study Title: ${sess.title ?? "N/A"}');
+    buffer.writeln('Cargo Ready Date: ${sess.cargoReadyDate} | Pick-up: ${sess.pickUpAddress ?? "N/A"}');
+    buffer.writeln('Linked Import File: ${sess.importFileCode ?? "N/A"} | PO: ${sess.poNumber ?? "N/A"}');
+    buffer.writeln('Avg Transit: ${sess.avgExpectedTransitDays} days | WH Arrival: ${sess.avgExpectedWarehouseArrivalDate ?? "N/A"}');
+    buffer.writeln('Recommended Line: ${sess.recommendedScenarioProvider ?? "N/A"}');
+    buffer.writeln('=====================================================\n');
+    buffer.writeln('Provider,Shipping Line,Customs Broker,Vessel,Voyage,POL,POD,Sailing,ETA,Free Time,Delay,Total WH Days,Total Cost,Risk,Status');
+    for (var item in sess.items) {
+      buffer.writeln('"${item.providerName}","${item.providerName}","${item.customsBrokerName ?? "-"}","${item.vesselName}","${item.voyageNumber ?? "-"}","${item.polName ?? "-"}","${item.podName ?? "-"}","${item.sailingDate}","${item.estimatedArrivalDate}",${item.freeTimeDays},${item.expectedLineDelayDays},${item.expectedTotalDaysToWarehouse},"${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}","${item.riskLevel}","${item.isRecommended ? "Recommended" : item.isExcludedFromAverage ? "Excluded" : "Normal"}"');
+    }
 
-              for (final i in sess.items) {
-                buffer.writeln('${i.providerName},${i.vesselName},${i.voyageNumber ?? ""},${i.sailingDate},${i.estimatedArrivalDate},${i.vesselLeadTimeDays},${i.expectedTotalDaysToWarehouse},${i.expectedWarehouseArrivalDate},${i.riskLevel},${i.isExcludedFromAverage}');
-              }
-
-              Clipboard.setData(ClipboardData(text: buffer.toString()));
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تم نسخ وتنزيل تقرير الدراسة ${sess.sessionCode} بصيغة CSV بنجاح!'), backgroundColor: AppTheme.emerald),
-              );
-            },
-          ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
-        ],
+    Clipboard.setData(ClipboardData(text: buffer.toString()));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('🖨️ تم نسخ تقرير الدراسة والعروض للحافظة بنجاح! جاهز للطباعة (Ctrl+P)'),
+        backgroundColor: AppTheme.cobalt,
       ),
     );
   }
 
-  void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+  void _showContainerComparisonDialog(
+    BuildContext context,
+    ContainerDualRecommendationResult dualRec,
+    double cbm,
+    double weightKg,
+  ) {
     showDialog(
       context: context,
-      builder: (context) {
-        return DefaultTabController(
-          length: 2,
-          child: AlertDialog(
-            title: Row(
-              children: [
-                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('تحليل خيارات ومواصفات الحاويات (MD-019.1 Engine Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+      builder: (dialogCtx) => AlertDialog(
+        title: const Text('🚚 مقارنة حالة الرص القابل وغير القابل للرص (Dual Container Matrix)'),
+        content: SizedBox(
+          width: 650,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('إجمالي CBM الشحنة: ${cbm.toStringAsFixed(3)} m³ | إجمالي الوزن: ${weightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              const SizedBox(height: 12),
+              Table(
+                border: TableBorder.all(color: Colors.grey.shade300),
+                children: [
+                  TableRow(
+                    decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                    children: const [
+                      Padding(padding: EdgeInsets.all(8), child: Text('الخاصية / Scenario', style: TextStyle(fontWeight: FontWeight.bold))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('📦 قابل للرص (Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('🚫 غير قابل للرص (Non-Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange))),
                     ],
                   ),
-                ),
-              ],
-            ),
-            content: SizedBox(
-              width: 750,
-              height: 480,
-              child: Column(
-                children: [
-                  Container(
-                    color: AppTheme.charcoal,
-                    child: const TabBar(
-                      indicatorColor: AppTheme.cobalt,
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.white70,
-                      tabs: [
-                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
-                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
-                      ],
-                    ),
+                  TableRow(
+                    children: [
+                      const Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية الموصى بها')),
+                      Padding(padding: EdgeInsets.all(8), child: Text(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Padding(padding: EdgeInsets.all(8), child: Text(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    ],
                   ),
-                  Expanded(
-                    child: TabBarView(
-                      children: [
-                        _buildComparisonTable(dualRec.stackableResult),
-                        _buildComparisonTable(dualRec.nonStackableResult),
-                      ],
-                    ),
+                  TableRow(
+                    children: [
+                      const Padding(padding: EdgeInsets.all(8), child: Text('عدد الحاويات المطلوبة')),
+                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                    ],
+                  ),
+                  TableRow(
+                    children: [
+                      const Padding(padding: EdgeInsets.all(8), child: Text('نسبة استغلال حجم الحاوية')),
+                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                      Padding(padding: EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
+                    ],
                   ),
                 ],
               ),
-            ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: rec.isStackable ? AppTheme.emerald.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
-            ),
-            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
-          ),
-          const SizedBox(height: 12),
-          Table(
-            border: TableBorder.all(color: Colors.grey.shade300),
-            columnWidths: const {
-              0: FlexColumnWidth(2.0),
-              1: FlexColumnWidth(1.2),
-              2: FlexColumnWidth(1.5),
-              3: FlexColumnWidth(1.5),
-              4: FlexColumnWidth(1.5),
-            },
-            children: [
-              TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                children: const [
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('نوع الحاوية (Spec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('العدد المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال المساحة %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال الوزن %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('التوصية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                ],
-              ),
-              ...rec.comparisonDetails.map((detail) {
-                final spec = detail['spec'] as ContainerSpec;
-                final int count = detail['reqCount'] as int;
-                final double volUtil = detail['spaceUtil'] as double;
-                final double weightUtil = detail['payloadUtil'] as double;
-                final isBest = spec.code == rec.recommendedContainerCode;
-
-                return TableRow(
-                  decoration: isBest ? BoxDecoration(color: AppTheme.emerald.withOpacity(0.12)) : null,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                          Text('السعة: ${spec.internalVolumeCbm} CBM | الحمولة: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('$count x ${spec.code}', style: TextStyle(fontWeight: FontWeight.bold, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('${volUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: volUtil > 90 ? Colors.green : Colors.orange)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Text('${weightUtil.toStringAsFixed(1)}%', style: TextStyle(fontWeight: FontWeight.bold, color: weightUtil > 90 ? Colors.green : Colors.orange)),
-                    ),
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: isBest
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                              child: const Text('🌟 الخيار الأنسب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
-                            )
-                          : const Text('بديل قابل للتطبيق', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                    ),
-                  ],
-                );
-              }),
-            ],
-          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
         ],
       ),
     );
   }
 }
-

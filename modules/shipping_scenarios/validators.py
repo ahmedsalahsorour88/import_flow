@@ -56,10 +56,10 @@ class ShippingScenarioValidator:
                     detail=f"Option #{idx} ({item.provider_name}): Expected delay days cannot be negative.",
                 )
 
-            key = (item.provider_name.strip().lower(), item.vessel_name.strip().lower(), item.sailing_date)
+            key = (item.provider_id, item.provider_name.strip().lower(), item.vessel_name.strip().lower(), item.sailing_date)
             if key in seen_keys:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail=f"Duplicate shipping option found for provider '{item.provider_name}' on vessel '{item.vessel_name}' with sailing date {item.sailing_date}.",
+                    detail=f"Duplicate shipping option found for Freight Forwarder ID '{item.provider_id}', Shipping Line '{item.provider_name}' on vessel '{item.vessel_name}' with sailing date {item.sailing_date}.",
                 )
             seen_keys.add(key)

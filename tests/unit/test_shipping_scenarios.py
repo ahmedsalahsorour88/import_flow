@@ -176,12 +176,14 @@ class TestShippingScenariosBackend:
         sailing = crd + timedelta(days=2)
         eta = crd + timedelta(days=20)
         item1 = ShippingScenarioItemCreate(
+            provider_id=1,
             provider_name="COSCO",
             vessel_name="VESSEL A",
             sailing_date=sailing,
             estimated_arrival_date=eta,
         )
         item2 = ShippingScenarioItemCreate(
+            provider_id=1,
             provider_name="COSCO",
             vessel_name="VESSEL A",
             sailing_date=sailing,
@@ -199,6 +201,22 @@ class TestShippingScenariosBackend:
 
         assert exc_info.value.status_code == 400
         assert "Duplicate shipping option found" in exc_info.value.detail
+
+        # Allowed if provider_id is different (different freight forwarder offering same shipping line option)
+        item3 = ShippingScenarioItemCreate(
+            provider_id=2,
+            provider_name="COSCO",
+            vessel_name="VESSEL A",
+            sailing_date=sailing,
+            estimated_arrival_date=eta,
+        )
+        payload2 = ShippingEvaluationCreate(
+            title="Allowed Non-Duplicate Study",
+            cargo_ready_date=crd,
+            items=[item1, item3],
+        )
+        sess = ShippingScenarioService.create_session_service(db, payload2)
+        assert sess is not None
 
     def test_list_and_update_shipping_evaluation(self, db: Session):
         crd = date.today()

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -621,14 +622,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<int>(
+                          child: SearchableDropdownField<int?>(
                             value: selectedSupplierId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Primary Supplier *'),
+                            labelText: 'Primary Supplier *',
                             items: suppliers
-                                .map((s) => DropdownMenuItem(
+                                .map((s) => SearchableDropdownItem<int?>(
                                       value: s.supplierId,
-                                      child: Text(s.companyName, overflow: TextOverflow.ellipsis, maxLines: 1),
+                                      label: s.companyName,
                                     ))
                                 .toList(),
                             onChanged: (v) {
@@ -638,14 +638,13 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<int>(
+                          child: SearchableDropdownField<int?>(
                             value: selectedIncotermId,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Default Incoterm *'),
+                            labelText: 'Default Incoterm *',
                             items: incoterms
-                                .map((i) => DropdownMenuItem(
+                                .map((i) => SearchableDropdownItem<int?>(
                                       value: i.incotermId,
-                                      child: Text('${i.incotermCode} (${i.incotermName})', overflow: TextOverflow.ellipsis, maxLines: 1),
+                                      label: '${i.incotermCode} (${i.incotermName})',
                                     ))
                                 .toList(),
                             onChanged: (v) {
@@ -660,28 +659,26 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: selectedImportType,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Import Type *'),
+                            labelText: 'Import Type *',
                             items: [
                               'Direct Commercial',
                               'Free Zone',
                               'Temporary Release / السماح المؤقت',
                               'Drawback',
                               'Project Equipment / معدات مشروعات'
-                            ].map((t) => DropdownMenuItem(value: t, child: Text(t, overflow: TextOverflow.ellipsis, maxLines: 1))).toList(),
+                            ].map((t) => SearchableDropdownItem<String>(value: t, label: t)).toList(),
                             onChanged: (v) => setDialogState(() => selectedImportType = v ?? 'Direct Commercial'),
                           ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: selectedPriority,
-                            isExpanded: true,
-                            decoration: const InputDecoration(labelText: 'Priority *'),
+                            labelText: 'Priority *',
                             items: ['Low', 'Medium', 'High', 'Urgent / حرج']
-                                .map((p) => DropdownMenuItem(value: p, child: Text(p, overflow: TextOverflow.ellipsis, maxLines: 1)))
+                                .map((p) => SearchableDropdownItem<String>(value: p, label: p))
                                 .toList(),
                             onChanged: (v) => setDialogState(() => selectedPriority = v ?? 'Medium'),
                           ),
@@ -690,12 +687,11 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    DropdownButtonFormField<String>(
+                    SearchableDropdownField<String>(
                       value: selectedStatus,
-                      isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Project Status *'),
+                      labelText: 'Project Status *',
                       items: ['Open', 'Closed', 'On Hold']
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s, overflow: TextOverflow.ellipsis, maxLines: 1)))
+                          .map((s) => SearchableDropdownItem<String>(value: s, label: s))
                           .toList(),
                       onChanged: (v) => setDialogState(() => selectedStatus = v ?? 'Open'),
                     ),

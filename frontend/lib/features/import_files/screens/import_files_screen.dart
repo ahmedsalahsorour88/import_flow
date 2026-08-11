@@ -21,6 +21,7 @@ import '../../projects/models/project_model.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
+import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
 
 class ImportFilesScreen extends ConsumerStatefulWidget {
@@ -71,24 +72,20 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<int?>(
+                    SearchableDropdownField<int?>(
                       value: selectedFileId,
-                      decoration: const InputDecoration(
-                        labelText: 'رقم الشحنة / ملف الاستيراد (Shipment File No)',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                      ),
+                      labelText: 'رقم الشحنة / ملف الاستيراد (Shipment File No)',
                       items: [
-                        const DropdownMenuItem<int?>(
+                        const SearchableDropdownItem<int?>(
                           value: null,
-                          child: Text('🌐 جميع الشحنات والملفات (All Shipment Files)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          label: '🌐 جميع الشحنات والملفات (All Shipment Files)',
                         ),
-                        ...report.files.map((f) => DropdownMenuItem<int?>(
+                        ...report.files.map((f) => SearchableDropdownItem<int?>(
                               value: f.importFileId,
-                              child: Text('📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})', overflow: TextOverflow.ellipsis),
+                              label: '📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
                             )),
                       ],
-                      onChanged: (v) => setPromptState(() => selectedFileId = v),
+                      onChanged: (val) => setPromptState(() => selectedFileId = val),
                     ),
                   ],
                 ),
@@ -252,23 +249,17 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             const Text('تصفية التقرير برقم الشحنة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                             const SizedBox(width: 10),
                             Expanded(
-                              child: DropdownButtonFormField<int?>(
+                              child: SearchableDropdownField<int?>(
                                 value: selectedFileId,
-                                decoration: const InputDecoration(
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                                  border: OutlineInputBorder(),
-                                  fillColor: Colors.white,
-                                  filled: true,
-                                ),
+                                labelText: '',
                                 items: [
-                                  const DropdownMenuItem<int?>(
+                                  const SearchableDropdownItem<int?>(
                                     value: null,
-                                    child: Text('🌐 جميع الشحنات والملفات (All Shipment Files)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                    label: '🌐 جميع الشحنات والملفات (All Shipment Files)',
                                   ),
-                                  ...report.files.map((f) => DropdownMenuItem<int?>(
+                                  ...report.files.map((f) => SearchableDropdownItem<int?>(
                                         value: f.importFileId,
-                                        child: Text('📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})', overflow: TextOverflow.ellipsis),
+                                        label: '📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
                                       )),
                                 ],
                                 onChanged: (val) {
@@ -703,6 +694,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     Future.microtask(() {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
       ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      ref.read(shippingScenariosProvider.notifier).fetchSessions();
     });
   }
 
@@ -752,6 +744,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           totalPackingListCbm: totalPackingListCbm,
           totalPackingListWeight: totalPackingListWeight,
           totalPackingListsCount: totalPackingListsCount,
+          onEditPressed: () => _showAddEditFileDialog(file),
         );
       },
     );
@@ -791,52 +784,70 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                      onPressed: () => _showAddEditFileDialog(),
-                      icon: const Icon(Icons.add_box, color: Colors.white),
-                      label: const Text('إضافة ملف استيراد شحنة جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                    const SizedBox(width: 12),
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
-                      onPressed: _promptAndShowMasterReport,
-                      icon: const Icon(Icons.summarize, color: AppTheme.cobalt),
-                      label: const Text('استخراج تقرير الشحنات الشامل', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 250,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث بكود الشحنة أو الشركة...',
-                          prefixIcon: Icon(Icons.search),
-                          isDense: true,
-                          border: OutlineInputBorder(),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                          onPressed: () => _showAddEditFileDialog(),
+                          icon: const Icon(Icons.add_box, color: Colors.white),
+                          label: const Text('إضافة ملف استيراد شحنة جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
-                        onChanged: (val) {
-                          ref.read(importFilesProvider.notifier).fetchImportFiles(search: val, status: _selectedStatusFilter);
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    DropdownButton<String>(
-                      value: _selectedStatusFilter,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                        DropdownMenuItem(value: 'Open', child: Text('Open (مفتوح)')),
-                        DropdownMenuItem(value: 'In Progress', child: Text('In Progress (قيد التنفيذ)')),
-                        DropdownMenuItem(value: 'Closed', child: Text('Closed (مغلق)')),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
+                          onPressed: _promptAndShowMasterReport,
+                          icon: const Icon(Icons.summarize, color: AppTheme.cobalt),
+                          label: const Text('استخراج تقرير الشحنات الشامل', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
                       ],
-                      onChanged: (val) {
-                        if (val != null) {
-                          setState(() => _selectedStatusFilter = val);
-                          ref.read(importFilesProvider.notifier).fetchImportFiles(search: _searchController.text, status: val);
-                        }
-                      },
+                    ),
+                    Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        SizedBox(
+                          width: 250,
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              hintText: 'بحث بكود الشحنة أو الشركة...',
+                              prefixIcon: Icon(Icons.search),
+                              isDense: true,
+                              border: OutlineInputBorder(),
+                            ),
+                            onChanged: (val) {
+                              ref.read(importFilesProvider.notifier).fetchImportFiles(search: val, status: _selectedStatusFilter);
+                            },
+                          ),
+                        ),
+                        SizedBox(
+                          width: 200,
+                          child: SearchableDropdownField<String>(
+                            value: _selectedStatusFilter,
+                            labelText: '',
+                            items: const [
+                              SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                              SearchableDropdownItem(value: 'Open', label: 'Open (مفتوح)'),
+                              SearchableDropdownItem(value: 'In Progress', label: 'In Progress (قيد التنفيذ)'),
+                              SearchableDropdownItem(value: 'Closed', label: 'Closed (مغلق)'),
+                            ],
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedStatusFilter = val);
+                                ref.read(importFilesProvider.notifier).fetchImportFiles(search: _searchController.text, status: val);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1006,6 +1017,7 @@ class _ImportFileDetailsDialogWidget extends StatefulWidget {
   final double totalPackingListCbm;
   final double totalPackingListWeight;
   final int totalPackingListsCount;
+  final VoidCallback? onEditPressed;
 
   const _ImportFileDetailsDialogWidget({
     required this.file,
@@ -1014,6 +1026,7 @@ class _ImportFileDetailsDialogWidget extends StatefulWidget {
     required this.totalPackingListCbm,
     required this.totalPackingListWeight,
     required this.totalPackingListsCount,
+    this.onEditPressed,
   });
 
   @override
@@ -1403,6 +1416,167 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                     ),
                     const SizedBox(height: 10),
 
+                    // SECTION: Saved Shipping Scenarios Evaluation Studies
+                    const SizedBox(height: 14),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final shippingState = ref.watch(shippingScenariosProvider);
+                        final linkedStudies = shippingState.sessions.where((s) => s.importFileId == widget.file.importFileId).toList();
+
+                        return Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50.withOpacity(0.4),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
+                                  const SizedBox(width: 8),
+                                  const Text(
+                                    '🚢 دراسات وسيناريوهات الشحن المسجلة للشحنة (Saved Shipping Evaluation Studies)',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              if (linkedStudies.isEmpty)
+                                const Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 6),
+                                  child: Text(
+                                    'لا توجد دراسات تقييم شحن مسجلة لهذا الملف حالياً (يمكن إنشاؤها وربطها من شاشة سيناريوهات الشحن).',
+                                    style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 11.5),
+                                  ),
+                                )
+                              else
+                                Column(
+                                  children: linkedStudies.map((s) {
+                                    return Container(
+                                      margin: const EdgeInsets.only(bottom: 8),
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        border: Border.all(color: Colors.blue.shade300),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text('كود الدراسة: ${s.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                              const SizedBox(width: 10),
+                                              Expanded(child: Text(s.title ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
+                                                child: Text('الخط الموصى به: ${s.recommendedScenarioProvider ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 8),
+
+                                          // Mini report summary card for files
+                                          Container(
+                                            padding: const EdgeInsets.all(8),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey.shade50,
+                                              borderRadius: BorderRadius.circular(6),
+                                              border: Border.all(color: Colors.grey.shade200),
+                                            ),
+                                            child: Column(
+                                              children: [
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          const Text('📅 موعد الوصول للمخزن المتوقع', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.avgExpectedWarehouseArrivalDate ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          const Text('⏱️ عدد أيام الجاهزية', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text('${s.items.isNotEmpty ? s.items.first.readyForShippingDays : 0} يوم', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                                const Divider(height: 12),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          const Text('⚡ أسرع خط وصولاً', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.earliestArrivalScenarioProvider ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                          Text('وصول: ${s.earliestArrivalDate ?? ""}', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                    Expanded(
+                                                      child: Column(
+                                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                                        children: [
+                                                          const Text('🐢 أبطأ خط وصولاً', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.latestArrivalScenarioProvider ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
+                                                          Text('وصول: ${s.latestArrivalDate ?? ""}', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                        ],
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          Text(
+                                            'CRD: ${s.cargoReadyDate} | مكان الاستلام: ${s.pickUpAddress ?? "غير محدد"} | متوسط مدة الترانزيت: ${s.avgExpectedTransitDays} يوم',
+                                            style: const TextStyle(fontSize: 10.5, color: Colors.black87),
+                                          ),
+                                          if (s.items.isNotEmpty) ...[
+                                            const SizedBox(height: 6),
+                                            Wrap(
+                                              spacing: 8,
+                                              runSpacing: 4,
+                                              children: s.items.map((opt) {
+                                                return Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: opt.isRecommended ? Colors.green.shade50 : Colors.grey.shade50,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: opt.isRecommended ? Colors.green : Colors.grey.shade300),
+                                                  ),
+                                                  child: Text(
+                                                    '${opt.providerName} (${opt.vesselName}) | POL: ${opt.polName ?? "-"} ➔ POD: ${opt.podName ?? "-"} | إبحار: ${opt.sailingDate} | وصول: ${opt.expectedWarehouseArrivalDate}',
+                                                    style: TextStyle(fontSize: 10.5, fontWeight: opt.isRecommended ? FontWeight.bold : FontWeight.normal, color: AppTheme.charcoal),
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+
                     // Smart Recommendation Banner Box
                     Container(
                       padding: const EdgeInsets.all(12),
@@ -1470,6 +1644,16 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
         ),
       ),
       actions: [
+        if (file.status != 'Closed' && widget.onEditPressed != null)
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            icon: const Icon(Icons.edit, color: Colors.white, size: 16),
+            label: const Text('تعديل ملف الاستيراد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.pop(context);
+              widget.onEditPressed!();
+            },
+          ),
         if (file.status != 'Closed')
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
@@ -1906,14 +2090,14 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: ['Sea FCL', 'Sea LCL', 'Air', 'Land'].contains(_shipmentMode) ? _shipmentMode : 'Sea FCL',
-                        decoration: const InputDecoration(labelText: 'وسيلة النقل (Shipment Mode) *', border: OutlineInputBorder()),
+                        labelText: 'وسيلة النقل (Shipment Mode) *',
                         items: const [
-                          DropdownMenuItem(value: 'Sea FCL', child: Text('Sea FCL (شحن بحري حاوية كاملة)')),
-                          DropdownMenuItem(value: 'Sea LCL', child: Text('Sea LCL (شحن بحري طرد/جزئي)')),
-                          DropdownMenuItem(value: 'Air', child: Text('Air (شحن جوي)')),
-                          DropdownMenuItem(value: 'Land', child: Text('Land (شحن بري)')),
+                          SearchableDropdownItem(value: 'Sea FCL', label: 'Sea FCL (شحن بحري حاوية كاملة)'),
+                          SearchableDropdownItem(value: 'Sea LCL', label: 'Sea LCL (شحن بحري طرد/جزئي)'),
+                          SearchableDropdownItem(value: 'Air', label: 'Air (شحن جوي)'),
+                          SearchableDropdownItem(value: 'Land', label: 'Land (شحن بري)'),
                         ],
                         onChanged: (v) => setState(() => _shipmentMode = v!),
                       ),

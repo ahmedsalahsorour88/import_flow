@@ -6,8 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 class ShippingScenarioItemBase(BaseModel):
     provider_id: Optional[int] = None
     provider_name: str = Field(..., min_length=2, max_length=150)
+    customs_broker_id: Optional[int] = None
+    customs_broker_name: Optional[str] = None
     vessel_name: str = Field(..., min_length=2, max_length=150)
     voyage_number: Optional[str] = None
+    port_of_loading_id: Optional[int] = None
+    port_of_discharge_id: Optional[int] = None
+    pol_name: Optional[str] = None
+    pod_name: Optional[str] = None
     sailing_date: date
     estimated_arrival_date: date
     expected_line_delay_days: int = Field(0, ge=0)
@@ -17,6 +23,70 @@ class ShippingScenarioItemBase(BaseModel):
     risk_level: str = "Low"
     notes: Optional[str] = None
 
+    # Quotation fields
+    free_time_days: int = 14
+    quotation_currency: str = "USD"
+    total_quotation_amount: float = 0.0
+
+    container_40ft_applicable: bool = False
+    container_40ft_price: float = 0.0
+    container_40ft_currency: str = "USD"
+    container_40ft_qty: int = 0
+
+    container_20ft_applicable: bool = False
+    container_20ft_price: float = 0.0
+    container_20ft_currency: str = "USD"
+    container_20ft_qty: int = 0
+
+    lcl_cbm_applicable: bool = False
+    lcl_cbm_price: float = 0.0
+    lcl_cbm_currency: str = "USD"
+    lcl_cbm_qty: float = 0.0
+
+    express_courier_applicable: bool = False
+    express_courier_price: float = 0.0
+    express_courier_currency: str = "USD"
+
+    eur_atr_applicable: bool = False
+    eur_atr_price: float = 0.0
+    eur_atr_currency: str = "USD"
+
+    solas_vgm_applicable: bool = False
+    solas_vgm_price: float = 0.0
+    solas_vgm_currency: str = "USD"
+
+    vgm_notification_applicable: bool = False
+    vgm_notification_price: float = 0.0
+    vgm_notification_currency: str = "USD"
+
+    telex_release_applicable: bool = False
+    telex_release_price: float = 0.0
+    telex_release_currency: str = "USD"
+
+    insurance_applicable: bool = False
+    insurance_price: float = 0.0
+    insurance_currency: str = "USD"
+
+    booking_cancellation_applicable: bool = False
+    booking_cancellation_price: float = 0.0
+    booking_cancellation_currency: str = "USD"
+
+    ics2_filing_fee_applicable: bool = False
+    ics2_filing_fee_price: float = 0.0
+    ics2_filing_fee_currency: str = "USD"
+
+    others_fee_applicable: bool = False
+    others_fee_price: float = 0.0
+    others_fee_currency: str = "USD"
+
+    document_fees_applicable: bool = False
+    document_fees_price: float = 0.0
+    document_fees_currency: str = "USD"
+
+    waiver_letter_fee_applicable: bool = False
+    waiver_letter_fee_price: float = 0.0
+    waiver_letter_fee_currency: str = "USD"
+
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
     pass
@@ -25,8 +95,14 @@ class ShippingScenarioItemCreate(ShippingScenarioItemBase):
 class ShippingScenarioItemUpdate(BaseModel):
     provider_id: Optional[int] = None
     provider_name: Optional[str] = None
+    customs_broker_id: Optional[int] = None
+    customs_broker_name: Optional[str] = None
     vessel_name: Optional[str] = None
     voyage_number: Optional[str] = None
+    port_of_loading_id: Optional[int] = None
+    port_of_discharge_id: Optional[int] = None
+    pol_name: Optional[str] = None
+    pod_name: Optional[str] = None
     sailing_date: Optional[date] = None
     estimated_arrival_date: Optional[date] = None
     expected_line_delay_days: Optional[int] = None
@@ -35,6 +111,69 @@ class ShippingScenarioItemUpdate(BaseModel):
     is_selected: Optional[bool] = None
     risk_level: Optional[str] = None
     notes: Optional[str] = None
+
+    free_time_days: Optional[int] = None
+    quotation_currency: Optional[str] = None
+    total_quotation_amount: Optional[float] = None
+
+    container_40ft_applicable: Optional[bool] = None
+    container_40ft_price: Optional[float] = None
+    container_40ft_currency: Optional[str] = None
+    container_40ft_qty: Optional[int] = None
+
+    container_20ft_applicable: Optional[bool] = None
+    container_20ft_price: Optional[float] = None
+    container_20ft_currency: Optional[str] = None
+    container_20ft_qty: Optional[int] = None
+
+    lcl_cbm_applicable: Optional[bool] = None
+    lcl_cbm_price: Optional[float] = None
+    lcl_cbm_currency: Optional[str] = None
+    lcl_cbm_qty: Optional[float] = None
+
+    express_courier_applicable: Optional[bool] = None
+    express_courier_price: Optional[float] = None
+    express_courier_currency: Optional[str] = None
+
+    eur_atr_applicable: Optional[bool] = None
+    eur_atr_price: Optional[float] = None
+    eur_atr_currency: Optional[str] = None
+
+    solas_vgm_applicable: Optional[bool] = None
+    solas_vgm_price: Optional[float] = None
+    solas_vgm_currency: Optional[str] = None
+
+    vgm_notification_applicable: Optional[bool] = None
+    vgm_notification_price: Optional[float] = None
+    vgm_notification_currency: Optional[str] = None
+
+    telex_release_applicable: Optional[bool] = None
+    telex_release_price: Optional[float] = None
+    telex_release_currency: Optional[str] = None
+
+    insurance_applicable: Optional[bool] = None
+    insurance_price: Optional[float] = None
+    insurance_currency: Optional[str] = None
+
+    booking_cancellation_applicable: Optional[bool] = None
+    booking_cancellation_price: Optional[float] = None
+    booking_cancellation_currency: Optional[str] = None
+
+    ics2_filing_fee_applicable: Optional[bool] = None
+    ics2_filing_fee_price: Optional[float] = None
+    ics2_filing_fee_currency: Optional[str] = None
+
+    others_fee_applicable: Optional[bool] = None
+    others_fee_price: Optional[float] = None
+    others_fee_currency: Optional[str] = None
+
+    document_fees_applicable: Optional[bool] = None
+    document_fees_price: Optional[float] = None
+    document_fees_currency: Optional[str] = None
+
+    waiver_letter_fee_applicable: Optional[bool] = None
+    waiver_letter_fee_price: Optional[float] = None
+    waiver_letter_fee_currency: Optional[str] = None
 
 
 class ShippingScenarioItemCalculated(ShippingScenarioItemBase):
@@ -50,6 +189,7 @@ class ShippingScenarioItemCalculated(ShippingScenarioItemBase):
 class ShippingEvaluationBase(BaseModel):
     title: Optional[str] = None
     cargo_ready_date: date
+    pick_up_address: Optional[str] = None
     port_of_loading_id: Optional[int] = None
     port_of_discharge_id: Optional[int] = None
     avg_form4_days: int = Field(5, ge=0)
@@ -67,6 +207,7 @@ class ShippingEvaluationCreate(ShippingEvaluationBase):
 class ShippingEvaluationUpdate(BaseModel):
     title: Optional[str] = None
     cargo_ready_date: Optional[date] = None
+    pick_up_address: Optional[str] = None
     port_of_loading_id: Optional[int] = None
     port_of_discharge_id: Optional[int] = None
     avg_form4_days: Optional[int] = None

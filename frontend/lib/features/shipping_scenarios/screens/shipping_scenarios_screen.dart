@@ -398,6 +398,43 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (_editingSessionId != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.orange.shade400),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_note, color: Colors.orange, size: 24),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              '⚠️ وضع التعديل نشط: أنت تقوم الآن بتعديل الدراسة رقم $_editingSessionCode (${_title.isNotEmpty ? _title : "بدون اسم"}). سيتم حفظ التعديلات على نفس الدراسة والمسمى.',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13),
+                            ),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
+                            icon: const Icon(Icons.cancel_outlined, size: 18),
+                            label: const Text('إلغاء التعديل والبدء من جديد', style: TextStyle(fontWeight: FontWeight.bold)),
+                            onPressed: () {
+                              _resetFormForNewStudy();
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('🔄 تم إلغاء وضع التعديل وتصفير الحقول لبدء دراسة جديدة.'),
+                                  backgroundColor: AppTheme.charcoal,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                   // Top Metrics Cards Row
                   Row(
                     children: [
@@ -1329,6 +1366,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               columns: const [
                                 DataColumn(label: Text('#')),
                                 DataColumn(label: Text('Carrier Provider')),
+                                DataColumn(label: Text('Total Quote Cost')),
+                                DataColumn(label: Text('Expected WH Arrival')),
+                                DataColumn(label: Text('Total WH Days')),
                                 DataColumn(label: Text('Customs Broker')),
                                 DataColumn(label: Text('POL / POD')),
                                 DataColumn(label: Text('Vessel / Voyage')),
@@ -1337,9 +1377,6 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 DataColumn(label: Text('Vessel Lead Time')),
                                 DataColumn(label: Text('Free Time')),
                                 DataColumn(label: Text('Delay Days')),
-                                DataColumn(label: Text('Total WH Days')),
-                                DataColumn(label: Text('Total Quote Cost')),
-                                DataColumn(label: Text('Expected WH Arrival')),
                                 DataColumn(label: Text('Risk Level')),
                                 DataColumn(label: Text('Avg Status')),
                               ],
@@ -1350,6 +1387,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   cells: [
                                     DataCell(Text('${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold))),
                                     DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                    DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
+                                    DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                                    DataCell(Text('${c["totalDays"]} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                     DataCell(Text(item.customsBrokerName ?? '-')),
                                     DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
                                     DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
@@ -1358,9 +1398,6 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     DataCell(Text('${c["vesselLeadTime"]} days')),
                                     DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
                                     DataCell(Text('${item.expectedLineDelayDays} days')),
-                                    DataCell(Text('${c["totalDays"]} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                                    DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
-                                    DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
                                     DataCell(
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1694,36 +1731,37 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   DataCell(Text('${sess.items.length} options')),
                                   DataCell(Text(sess.poNumber != null ? 'PO: ${sess.poNumber}' : sess.projectName != null ? 'PRJ: ${sess.projectName}' : 'Standalone', style: TextStyle(color: sess.poNumber != null ? AppTheme.emerald : Colors.grey, fontSize: 11))),
                                   DataCell(
-                                    PopupMenuButton<String>(
-                                      icon: const Icon(Icons.more_vert),
-                                      onSelected: (val) async {
-                                        if (val == 'edit') {
-                                          _loadSessionForEditing(sess);
-                                        } else if (val == 'view') {
-                                          _showSessionDetailsDialog(context, sess);
-                                        } else if (val == 'print') {
-                                          _showPrintReportDialog(context, sess);
-                                        } else if (val == 'delete_restore') {
-                                          if (sess.isActive) {
-                                            await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
-                                          } else {
-                                            await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
-                                          }
-                                        }
-                                      },
-                                      itemBuilder: (ctx) => [
-                                        const PopupMenuItem(value: 'view', child: Row(children: [Icon(Icons.visibility, size: 18), SizedBox(width: 8), Text('عرض التقييم')])),
-                                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit, size: 18), SizedBox(width: 8), Text('تعديل التقييم')])),
-                                        const PopupMenuItem(value: 'print', child: Row(children: [Icon(Icons.print, size: 18), SizedBox(width: 8), Text('طباعة التقرير')])),
-                                        PopupMenuItem(
-                                          value: 'delete_restore',
-                                          child: Row(
-                                            children: [
-                                              Icon(sess.isActive ? Icons.delete : Icons.restore, color: sess.isActive ? Colors.red : Colors.green, size: 18),
-                                              const SizedBox(width: 8),
-                                              Text(sess.isActive ? 'إلغاء التفعيل' : 'استعادة'),
-                                            ],
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.visibility, color: AppTheme.cobalt, size: 18),
+                                          tooltip: 'عرض التقييم',
+                                          onPressed: () => _showSessionDetailsDialog(context, sess),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.edit, color: Colors.orange, size: 18),
+                                          tooltip: 'تعديل التقييم',
+                                          onPressed: () => _loadSessionForEditing(sess),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.print, color: AppTheme.charcoal, size: 18),
+                                          tooltip: 'طباعة التقرير',
+                                          onPressed: () => _showPrintReportDialog(context, sess),
+                                        ),
+                                        IconButton(
+                                          icon: Icon(sess.isActive ? Icons.delete : Icons.restore,
+                                            color: sess.isActive ? AppTheme.crimson : Colors.green,
+                                            size: 18,
                                           ),
+                                          tooltip: sess.isActive ? 'إلغاء التفعيل' : 'استعادة التفعيل',
+                                          onPressed: () async {
+                                            if (sess.isActive) {
+                                              await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
+                                            } else {
+                                              await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
+                                            }
+                                          },
                                         ),
                                       ],
                                     ),
@@ -2046,15 +2084,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                     columns: const [
                       DataColumn(label: Text('#')),
                       DataColumn(label: Text('Forwarder / Provider')),
-                      DataColumn(label: Text('Shipping Line')),
+                      DataColumn(label: Text('Total Cost')),
+                      DataColumn(label: Text('Total WH Days')),
                       DataColumn(label: Text('Customs Broker')),
                       DataColumn(label: Text('Vessel')),
                       DataColumn(label: Text('POL ➔ POD')),
                       DataColumn(label: Text('Sailing')),
                       DataColumn(label: Text('ETA')),
                       DataColumn(label: Text('Free Time')),
-                      DataColumn(label: Text('Total WH Days')),
-                      DataColumn(label: Text('Total Cost')),
                       DataColumn(label: Text('Status')),
                     ],
                     rows: sess.items.asMap().entries.map((e) {
@@ -2063,15 +2100,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         cells: [
                           DataCell(Text('${e.key + 1}')),
                           DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(item.providerName)),
+                          DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
+                          DataCell(Text('${item.expectedTotalDaysToWarehouse} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                           DataCell(Text(item.customsBrokerName ?? '-')),
                           DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
                           DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
                           DataCell(Text(item.sailingDate)),
                           DataCell(Text(item.estimatedArrivalDate)),
                           DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
-                          DataCell(Text('${item.expectedTotalDaysToWarehouse} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                          DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
                           DataCell(Text(item.isRecommended ? 'Recommended ⭐' : item.isExcludedFromAverage ? 'Excluded 🚫' : 'Normal')),
                         ],
                       );

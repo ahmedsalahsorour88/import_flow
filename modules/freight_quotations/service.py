@@ -55,7 +55,7 @@ class FreightQuotationService:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_rfq.import_file_id).first()
             if imp:
-                import_file_code = imp.file_code or imp.custom_file_number
+                import_file_code = imp.import_file_code or imp.custom_file_number
 
         res = FreightRFQRequestResponse.model_validate(db_rfq)
         res.total_quotations_count = total_count

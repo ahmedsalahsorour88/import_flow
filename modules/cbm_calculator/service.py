@@ -289,7 +289,7 @@ class CBMService:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == calc.import_file_id).first()
             if imp:
-                import_file_code = imp.file_code or imp.custom_file_number
+                import_file_code = imp.import_file_code or imp.custom_file_number
 
         resp = CBMCalculationResponse.model_validate(calc)
         resp.project_name = project_name

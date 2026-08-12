@@ -149,7 +149,7 @@ class ShippingScenarioService:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == session_obj.import_file_id).first()
             if imp:
-                import_file_code = imp.file_code or imp.custom_file_number
+                import_file_code = imp.import_file_code or imp.custom_file_number
 
         return ShippingEvaluationResponse(
             session_id=session_obj.session_id,

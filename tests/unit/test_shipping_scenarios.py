@@ -269,3 +269,44 @@ class TestShippingScenariosBackend:
         # Restore
         restored = ShippingScenarioService.restore_service(db, created.session_id)
         assert restored.is_active is True
+
+    def test_link_shipping_evaluation_to_import_file(self, db: Session):
+        from modules.import_files.model import ImportFile
+        # Seed an import file record
+        imp_file = ImportFile(
+            import_file_code="IMP-2026-9999",
+            company_name="Test Company",
+            supplier_name="Test Supplier",
+            shipment_mode="Sea",
+            incoterm_code="FOB",
+            priority="High",
+            shipment_category="New Purchase",
+        )
+        db.add(imp_file)
+        db.commit()
+        db.refresh(imp_file)
+
+        crd = date.today()
+        payload = ShippingEvaluationCreate(
+            title="Linked Study Test",
+            cargo_ready_date=crd,
+            import_file_id=imp_file.import_file_id,
+            items=[
+                ShippingScenarioItemCreate(
+                    provider_name="Linked Carrier",
+                    vessel_name="Vessel Link",
+                    sailing_date=crd + timedelta(days=2),
+                    estimated_arrival_date=crd + timedelta(days=12),
+                    is_recommended=True,
+                )
+            ],
+        )
+
+        res = ShippingScenarioService.create_session_service(db, payload)
+        assert res.import_file_id == imp_file.import_file_id
+        assert res.import_file_code == "IMP-2026-9999"
+
+        # Check that ImportFile.selected_scenario was updated to the recommended provider
+        db.refresh(imp_file)
+        assert imp_file.selected_scenario == "Linked Carrier (Vessel Link)"
+

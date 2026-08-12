@@ -55,7 +55,7 @@ class CustomsConsultationService:
             from modules.import_files.model import ImportFile
             imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_session.import_file_id).first()
             if imp:
-                import_file_code = imp.file_code or imp.custom_file_number
+                import_file_code = imp.import_file_code or imp.custom_file_number
 
         res = CustomsConsultationResponse.model_validate(db_session)
         res.total_documents_count = total_count

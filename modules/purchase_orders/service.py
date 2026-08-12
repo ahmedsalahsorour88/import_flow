@@ -169,7 +169,7 @@ class PurchaseOrderService:
 
         import_file_code = None
         if hasattr(po, "import_file") and po.import_file:
-            import_file_code = getattr(po.import_file, "file_code", None) or getattr(po.import_file, "custom_file_number", None)
+            import_file_code = getattr(po.import_file, "import_file_code", None) or getattr(po.import_file, "custom_file_number", None)
 
         return PurchaseOrderResponse(
             po_id=po.po_id,

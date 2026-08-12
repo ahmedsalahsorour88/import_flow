@@ -45,7 +45,7 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegi
         from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
-            import_file_code = imp.file_code or imp.custom_file_number
+            import_file_code = imp.import_file_code or imp.custom_file_number
 
     return AcidRegistrationResponse(
         acid_id=item.acid_id,
@@ -87,7 +87,7 @@ def enrich_banking_response(db: Session, item: BankingDocumentSession):
         from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
-            import_file_code = imp.file_code or imp.custom_file_number
+            import_file_code = imp.import_file_code or imp.custom_file_number
 
     from modules.import_documentation.schemas import BankingDocumentResponse
     res = BankingDocumentResponse.model_validate(item)
@@ -101,7 +101,7 @@ def enrich_shipment_doc_response(db: Session, item: ShipmentDocumentItem):
         from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
-            import_file_code = imp.file_code or imp.custom_file_number
+            import_file_code = imp.import_file_code or imp.custom_file_number
 
     from modules.import_documentation.schemas import ShipmentDocumentResponse
     res = ShipmentDocumentResponse.model_validate(item)

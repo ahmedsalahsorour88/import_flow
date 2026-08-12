@@ -247,8 +247,19 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
                         ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                          ),
+                          icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                          label: const Text('مخطط رص الحاويات (Load Plan)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: () => _showVisualLoadPlanDialog(context, _quickItems),
+                        ),
                       ],
                     ),
+
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -1651,4 +1662,346 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       ),
     );
   }
+
+  void _showVisualLoadPlanDialog(BuildContext context, List<CBMItemModel> quickItems) {
+    // 1. Convert CBMItemModel list to CargoItem list
+    final List<CargoItem> cargoItems = [];
+    int itemCounter = 1;
+
+    for (final item in quickItems) {
+      for (int q = 0; q < item.quantity; q++) {
+        // Convert dimension to cm based on the unit
+        double lCm = item.length;
+        double wCm = item.width;
+        double hCm = item.height;
+        if (item.unit == 'mm') {
+          lCm /= 10;
+          wCm /= 10;
+          hCm /= 10;
+        } else if (item.unit == 'm') {
+          lCm *= 100;
+          wCm *= 100;
+          hCm *= 100;
+        }
+
+        // Convert weight to kg based on unit
+        final double weightKg = item.grossWeightPerUnitKg;
+
+        cargoItems.add(CargoItem(
+          itemId: '$itemCounter',
+          length: lCm,
+          width: wCm,
+          height: hCm,
+          weight: weightKg,
+          rotate: true,
+        ));
+        itemCounter++;
+      }
+    }
+
+    if (cargoItems.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('تنبيه'),
+          content: const Text('الرجاء إضافة أصناف شحنة أولاً لحساب خطة الرص.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('موافق')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    // 2. Run the multi-container plan algorithm in Dart
+    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.view_in_ar, color: AppTheme.emerald),
+              SizedBox(width: 8),
+              Text(
+                'مخطط رص الحاويات ثنائي الأبعاد (Visual Load Planner)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 900,
+            height: 600,
+            child: Column(
+              children: [
+                // 1. Table summary of container loads
+                Table(
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.2),
+                    1: FlexColumnWidth(2.0),
+                    2: FlexColumnWidth(1.2),
+                    3: FlexColumnWidth(2.2),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      children: const [
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      ],
+                    ),
+                    ...plan.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final res = entry.value;
+                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+                      
+                      String statusText = '';
+                      if (res.containerCode == 'FAILED') {
+                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                      } else {
+                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
+                        // Determine alerts
+                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
+                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
+                        } else if (spaceUtil < 25) {
+                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
+                        } else {
+                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
+                        }
+                      }
+
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(placedIds.isEmpty ? '-' : placedIds),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: statusText.contains('ممتلئة')
+                                    ? Colors.red.shade800
+                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                // 2. Tab view or list for visual container layout drawings
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: plan.length,
+                    itemBuilder: (ctx, pIdx) {
+                      final res = plan[pIdx];
+                      if (res.containerCode == 'FAILED') {
+                        return Center(
+                          child: Text(
+                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        elevation: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
+
+class ContainerLoadPlanPainter extends CustomPainter {
+  final ContainerPackingResult plan;
+  final bool isTopView;
+
+  ContainerLoadPlanPainter({
+    required this.plan,
+    required this.isTopView,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final spec = plan.spec;
+    final double contL = spec.internalLength;
+    final double contH = isTopView ? spec.internalWidth : spec.internalHeight;
+
+    const double margin = 10.0;
+    final double drawW = size.width - (2 * margin);
+    final double drawH = size.height - (2 * margin);
+
+    final double scaleX = drawW / contL;
+    final double scaleY = drawH / contH;
+    final double scale = scaleX < scaleY ? scaleX : scaleY;
+
+    final double offsetX = margin + (drawW - (contL * scale)) / 2;
+    final double offsetY = margin + (drawH - (contH * scale)) / 2;
+
+    final Rect containerRect = Rect.fromLTWH(offsetX, offsetY, contL * scale, contH * scale);
+    final Paint borderPaint = Paint()
+      ..color = Colors.black
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    canvas.drawRect(containerRect, borderPaint);
+
+    final List<Color> colors = [
+      Colors.red.shade400,
+      Colors.blue.shade400,
+      Colors.purple.shade400,
+      Colors.green.shade400,
+      Colors.orange.shade400,
+      Colors.teal.shade400,
+      Colors.pink.shade400,
+      Colors.indigo.shade400,
+      Colors.amber.shade700,
+    ];
+
+    final TextPainter textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+
+    for (final p in plan.placedItems) {
+      int itemIdx = 0;
+      try {
+        itemIdx = (int.parse(p.item.itemId) - 1) % colors.length;
+      } catch (_) {
+        itemIdx = p.item.itemId.hashCode % colors.length;
+      }
+      final Color color = colors[itemIdx.abs()];
+
+      double itemX = offsetX + (p.x * scale);
+      double itemY = 0.0;
+      double itemW = p.length * scale;
+      double itemH = 0.0;
+
+      if (isTopView) {
+        itemY = offsetY + (contH - p.y - p.width) * scale;
+        itemH = p.width * scale;
+      } else {
+        itemY = offsetY + (contH - p.item.height) * scale;
+        itemH = p.item.height * scale;
+      }
+
+      final Rect itemRect = Rect.fromLTWH(itemX, itemY, itemW, itemH);
+      final Paint itemPaint = Paint()
+        ..color = color.withOpacity(0.8)
+        ..style = PaintingStyle.fill;
+      canvas.drawRect(itemRect, itemPaint);
+
+      final Paint itemBorderPaint = Paint()
+        ..color = Colors.black
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0;
+      canvas.drawRect(itemRect, itemBorderPaint);
+
+      textPainter.text = TextSpan(
+        text: p.item.itemId,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 10,
+        ),
+      );
+      textPainter.layout();
+      final double textX = itemX + (itemW - textPainter.width) / 2;
+      final double textY = itemY + (itemH - textPainter.height) / 2;
+      textPainter.paint(canvas, Offset(textX, textY));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant ContainerLoadPlanPainter oldDelegate) {
+    return oldDelegate.plan != plan || oldDelegate.isTopView != isTopView;
+  }
+}
+

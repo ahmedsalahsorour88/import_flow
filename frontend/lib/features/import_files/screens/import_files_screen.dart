@@ -19,6 +19,7 @@ import '../../customs_consultation/providers/customs_consultation_provider.dart'
 import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../projects/models/project_model.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/container_load_plan_painter.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
@@ -34,6 +35,233 @@ class ImportFilesScreen extends ConsumerStatefulWidget {
 class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+
+  void _showVisualLoadPlanDialogForReport(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
+    final List<CargoItem> cargoItems = [];
+    int itemCounter = 1;
+
+    for (final po in pos) {
+      for (final pl in po.packingListItems) {
+        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
+          double lCm = pl.lengthCm;
+          double wCm = pl.widthCm;
+          double hCm = pl.heightCm;
+          if (pl.unit == 'mm') {
+            lCm /= 10;
+            wCm /= 10;
+            hCm /= 10;
+          } else if (pl.unit == 'm') {
+            lCm *= 100;
+            wCm *= 100;
+            hCm *= 100;
+          }
+
+          cargoItems.add(CargoItem(
+            itemId: '$itemCounter',
+            length: lCm,
+            width: wCm,
+            height: hCm,
+            weight: pl.grossWeightUnitKg,
+            rotate: true,
+          ));
+          itemCounter++;
+        }
+      }
+    }
+
+    if (cargoItems.isEmpty) {
+      cargoItems.add(CargoItem(
+        itemId: 'Simulated Cargo',
+        length: 120,
+        width: 80,
+        height: 100,
+        weight: totalWeight > 0 ? totalWeight : 500.0,
+        rotate: true,
+      ));
+    }
+
+    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.view_in_ar, color: AppTheme.emerald),
+              SizedBox(width: 8),
+              Text(
+                'مخطط رص الحاويات للشحنة (Visual Load Planner)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 900,
+            height: 600,
+            child: Column(
+              children: [
+                Table(
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.2),
+                    1: FlexColumnWidth(2.0),
+                    2: FlexColumnWidth(1.2),
+                    3: FlexColumnWidth(2.2),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      children: const [
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      ],
+                    ),
+                    ...plan.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final res = entry.value;
+                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+                      
+                      String statusText = '';
+                      if (res.containerCode == 'FAILED') {
+                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                      } else {
+                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
+                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
+                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
+                        } else if (spaceUtil < 25) {
+                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
+                        } else {
+                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
+                        }
+                      }
+
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(placedIds.isEmpty ? '-' : placedIds),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: statusText.contains('ممتلئة')
+                                    ? Colors.red.shade800
+                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: plan.length,
+                    itemBuilder: (ctx, pIdx) {
+                      final res = plan[pIdx];
+                      if (res.containerCode == 'FAILED') {
+                        return Center(
+                          child: Text(
+                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        elevation: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   void _showAddEditFileDialog([ImportFileModel? fileToEdit]) {
     showDialog(
@@ -584,6 +812,29 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                         }).toList(),
                                       ),
                                     ),
+                                    const SizedBox(height: 12),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: AppTheme.emerald,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        ),
+                                        icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                                        label: const Text(
+                                          'مخطط رص الحاويات (Load Plan)',
+                                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                        ),
+                                        onPressed: () {
+                                          _showVisualLoadPlanDialogForReport(
+                                            context,
+                                            linkedPOs,
+                                            fileTotalCbm,
+                                            fileTotalWeight,
+                                          );
+                                        },
+                                      ),
+                                    ),
                                 ],
                               ),
                             );
@@ -1018,6 +1269,234 @@ class _ImportFileDetailsDialogWidget extends StatefulWidget {
 class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialogWidget> {
   bool _isStackable = true;
 
+  void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
+    final List<CargoItem> cargoItems = [];
+    int itemCounter = 1;
+
+    for (final po in pos) {
+      for (final pl in po.packingListItems) {
+        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
+          double lCm = pl.lengthCm;
+          double wCm = pl.widthCm;
+          double hCm = pl.heightCm;
+          if (pl.unit == 'mm') {
+            lCm /= 10;
+            wCm /= 10;
+            hCm /= 10;
+          } else if (pl.unit == 'm') {
+            lCm *= 100;
+            wCm *= 100;
+            hCm *= 100;
+          }
+
+          cargoItems.add(CargoItem(
+            itemId: '$itemCounter',
+            length: lCm,
+            width: wCm,
+            height: hCm,
+            weight: pl.grossWeightUnitKg,
+            rotate: true,
+          ));
+          itemCounter++;
+        }
+      }
+    }
+
+    if (cargoItems.isEmpty) {
+      final fallbackWeight = widget.totalPackingListWeight > 0 ? widget.totalPackingListWeight : 500.0;
+      cargoItems.add(CargoItem(
+        itemId: 'Simulated Cargo',
+        length: 120,
+        width: 80,
+        height: 100,
+        weight: fallbackWeight,
+        rotate: true,
+      ));
+    }
+
+    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.view_in_ar, color: AppTheme.emerald),
+              SizedBox(width: 8),
+              Text(
+                'مخطط رص الحاويات للشحنة (Visual Load Planner)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 900,
+            height: 600,
+            child: Column(
+              children: [
+                Table(
+                  border: TableBorder.all(color: Colors.grey.shade300),
+                  columnWidths: const {
+                    0: FlexColumnWidth(1.2),
+                    1: FlexColumnWidth(2.0),
+                    2: FlexColumnWidth(1.2),
+                    3: FlexColumnWidth(2.2),
+                  },
+                  children: [
+                    TableRow(
+                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                      children: const [
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      ],
+                    ),
+                    ...plan.asMap().entries.map((entry) {
+                      final idx = entry.key + 1;
+                      final res = entry.value;
+                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+                      
+                      String statusText = '';
+                      if (res.containerCode == 'FAILED') {
+                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                      } else {
+                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
+                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
+                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
+                        } else if (spaceUtil < 25) {
+                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
+                        } else {
+                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
+                        }
+                      }
+
+                      return TableRow(
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(placedIds.isEmpty ? '-' : placedIds),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: statusText.contains('ممتلئة')
+                                    ? Colors.red.shade800
+                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: plan.length,
+                    itemBuilder: (ctx, pIdx) {
+                      final res = plan[pIdx];
+                      if (res.containerCode == 'FAILED') {
+                        return Center(
+                          child: Text(
+                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        );
+                      }
+                      
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        elevation: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      children: [
+                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        const SizedBox(height: 4),
+                                        Container(
+                                          height: 160,
+                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          child: CustomPaint(
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                            child: Container(),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
     showDialog(
       context: context,
@@ -1391,6 +1870,19 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                                 totalPackingListCbm,
                                 totalPackingListWeight,
                               ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.emerald,
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              ),
+                              icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                              label: const Text(
+                                'مخطط رص الحاويات (Load Plan)',
+                                style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _showVisualLoadPlanDialog(context, linkedPOs),
                             ),
                           ],
                         ),

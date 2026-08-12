@@ -400,7 +400,6 @@ class ContainerRequirementEngine {
         }
       }
 
-      // If nothing fits all remaining, pick the container type that packs the most items.
       if (bestResult == null) {
         ContainerPackingResult? mostPlacedResult;
         int maxPlacedCount = -1;
@@ -409,10 +408,16 @@ class ContainerRequirementEngine {
           if (res.placedItems.length > maxPlacedCount) {
             maxPlacedCount = res.placedItems.length;
             mostPlacedResult = res;
+          } else if (res.placedItems.length == maxPlacedCount && mostPlacedResult != null) {
+            // If they pack the same number of items, prefer 40HC over 40GP for better height/volume safety
+            if (spec.code == '40HC' && mostPlacedResult.containerCode == '40GP') {
+              mostPlacedResult = res;
+            }
           }
         }
         bestResult = mostPlacedResult;
       }
+
 
       if (bestResult == null || bestResult.placedItems.isEmpty) {
         // Unplaced item that can't fit anywhere

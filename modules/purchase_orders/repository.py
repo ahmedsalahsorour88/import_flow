@@ -132,10 +132,13 @@ class PurchaseOrderRepository:
 
                 if unit_str == "mm":
                     l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
+                    l_cm_val, w_cm_val, h_cm_val = l_val / 10.0, w_val / 10.0, h_val / 10.0
                 elif unit_str == "m":
                     l_m, w_m, h_m = l_val, w_val, h_val
+                    l_cm_val, w_cm_val, h_cm_val = l_val * 100.0, w_val * 100.0, h_val * 100.0
                 else:
                     l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
+                    l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
 
                 tot_cbm = round(pitem.qty_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
@@ -151,9 +154,9 @@ class PurchaseOrderRepository:
                     qty_pcs=pitem.qty_pcs,
                     qty_pkg=pitem.qty_pkg,
                     package_type=pitem.package_type.strip() if pitem.package_type else "Carton",
-                    length_cm=l_val,
-                    width_cm=w_val,
-                    height_cm=h_val,
+                    length_cm=l_cm_val,
+                    width_cm=w_cm_val,
+                    height_cm=h_cm_val,
                     net_weight_unit_kg=pitem.net_weight_unit_kg,
                     gross_weight_unit_kg=pitem.gross_weight_unit_kg,
                     total_net_weight_kg=tot_net,
@@ -258,10 +261,13 @@ class PurchaseOrderRepository:
 
                 if unit_str == "mm":
                     l_m, w_m, h_m = l_val / 1000.0, w_val / 1000.0, h_val / 1000.0
+                    l_cm_val, w_cm_val, h_cm_val = l_val / 10.0, w_val / 10.0, h_val / 10.0
                 elif unit_str == "m":
                     l_m, w_m, h_m = l_val, w_val, h_val
+                    l_cm_val, w_cm_val, h_cm_val = l_val * 100.0, w_val * 100.0, h_val * 100.0
                 else:
                     l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
+                    l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
 
                 tot_net = round(q_pcs * net_u, 2)
                 tot_gross = round(q_pcs * gross_u, 2)
@@ -279,9 +285,9 @@ class PurchaseOrderRepository:
                     qty_pcs=q_pcs,
                     qty_pkg=q_pkg,
                     package_type=pitem.get("package_type", "Carton"),
-                    length_cm=l_val,
-                    width_cm=w_val,
-                    height_cm=h_val,
+                    length_cm=l_cm_val,
+                    width_cm=w_cm_val,
+                    height_cm=h_cm_val,
                     net_weight_unit_kg=net_u,
                     gross_weight_unit_kg=gross_u,
                     total_net_weight_kg=tot_net,

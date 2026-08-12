@@ -1675,8 +1675,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                   : SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
                       child: Card(
-                        child: SizedBox(
-                          width: double.infinity,
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
                           child: DataTable(
                             headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),

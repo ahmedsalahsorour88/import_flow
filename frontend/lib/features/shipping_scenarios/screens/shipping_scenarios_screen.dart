@@ -99,19 +99,33 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     _tabController = TabController(length: 2, vsync: this);
     _initDefaultItems();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _refreshData();
+      _refreshData(force: false);
     });
   }
 
-  void _refreshData() {
+  void _refreshData({bool force = false}) {
     ref.read(shippingScenariosProvider.notifier).fetchSessions();
-    ref.read(projectsProvider.notifier).fetchProjects();
-    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
-    ref.read(partnersProvider.notifier).fetchPartners();
-    ref.read(allPartnersProvider.notifier).fetchPartners();
-    ref.read(transportLocationsProvider.notifier).fetchLocations();
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
-    ref.read(currenciesProvider.notifier).fetchCurrencies();
+    if (force || ref.read(projectsProvider).value == null) {
+      ref.read(projectsProvider.notifier).fetchProjects();
+    }
+    if (force || ref.read(purchaseOrdersProvider).purchaseOrders.isEmpty) {
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    }
+    if (force || ref.read(allPartnersProvider).value == null) {
+      ref.read(allPartnersProvider.notifier).fetchPartners();
+    }
+    if (force || ref.read(partnersProvider).value == null) {
+      ref.read(partnersProvider.notifier).fetchPartners();
+    }
+    if (force || ref.read(transportLocationsProvider).value == null) {
+      ref.read(transportLocationsProvider.notifier).fetchLocations();
+    }
+    if (force || ref.read(importFilesProvider).value == null) {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    }
+    if (force || ref.read(currenciesProvider).value == null) {
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+    }
   }
 
   void _initDefaultItems() {
@@ -267,7 +281,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Live Refresh (تحديث حي)',
-            onPressed: _refreshData,
+            onPressed: () => _refreshData(force: true),
           ),
           const SizedBox(width: 12),
         ],
@@ -1680,18 +1694,18 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           child: DataTable(
                             headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                             headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                            columns: const [
+                             columns: const [
                               DataColumn(label: Text('Study Code')),
                               DataColumn(label: Text('Import File')),
                               DataColumn(label: Text('Title / Description')),
-                              DataColumn(label: Text('CRD Date')),
-                              DataColumn(label: Text('Pick-up Address')),
                               DataColumn(label: Text('Avg Transit')),
                               DataColumn(label: Text('Avg WH Arrival')),
                               DataColumn(label: Text('Recommended Carrier')),
+                              DataColumn(label: Text('Actions')),
                               DataColumn(label: Text('Options Count')),
                               DataColumn(label: Text('Linked PO / Project')),
-                              DataColumn(label: Text('Actions')),
+                              DataColumn(label: Text('CRD Date')),
+                              DataColumn(label: Text('Pick-up Address')),
                             ],
                             rows: state.sessions.map((sess) {
                               return DataRow(
@@ -1717,8 +1731,6 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                   ),
                                   DataCell(Text(sess.title ?? 'Shipping Transit Study', overflow: TextOverflow.ellipsis)),
-                                  DataCell(Text(sess.cargoReadyDate)),
-                                  DataCell(Text(sess.pickUpAddress ?? '-', style: const TextStyle(fontSize: 11))),
                                   DataCell(Text('${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                   DataCell(Text(sess.avgExpectedWarehouseArrivalDate ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
                                   DataCell(
@@ -1728,8 +1740,6 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       child: Text(sess.recommendedScenarioProvider ?? '-', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
                                     ),
                                   ),
-                                  DataCell(Text('${sess.items.length} options')),
-                                  DataCell(Text(sess.poNumber != null ? 'PO: ${sess.poNumber}' : sess.projectName != null ? 'PRJ: ${sess.projectName}' : 'Standalone', style: TextStyle(color: sess.poNumber != null ? AppTheme.emerald : Colors.grey, fontSize: 11))),
                                   DataCell(
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1766,6 +1776,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       ],
                                     ),
                                   ),
+                                  DataCell(Text('${sess.items.length} options')),
+                                  DataCell(Text(sess.poNumber != null ? 'PO: ${sess.poNumber}' : sess.projectName != null ? 'PRJ: ${sess.projectName}' : 'Standalone', style: TextStyle(color: sess.poNumber != null ? AppTheme.emerald : Colors.grey, fontSize: 11))),
+                                  DataCell(Text(sess.cargoReadyDate)),
+                                  DataCell(Text(sess.pickUpAddress ?? '-', style: const TextStyle(fontSize: 11))),
                                 ],
                               );
                             }).toList(),

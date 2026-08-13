@@ -43,6 +43,7 @@ from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.notifications.model import SystemNotification
 from modules.smart_tasks.model import SmartTask
+from modules.shipment_updates.model import ShipmentUpdateLog
 
 
 # ==================================================
@@ -77,6 +78,7 @@ from modules.notifications.router import router as notifications_router
 from modules.integrations.router import router as integrations_router
 from modules.container_loader.router import container_loader_router
 from modules.smart_tasks.router import router as smart_tasks_router
+from modules.shipment_updates.router import router as shipment_updates_router
 
 
 # ==================================================
@@ -133,6 +135,7 @@ app.include_router(file_closure_router)
 app.include_router(notifications_router)
 app.include_router(integrations_router)
 app.include_router(smart_tasks_router)
+app.include_router(shipment_updates_router)
 
 
 # ==================================================

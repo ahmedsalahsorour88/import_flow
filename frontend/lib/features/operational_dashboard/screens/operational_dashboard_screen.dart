@@ -7,6 +7,8 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/widgets/close_shipment_dialog.dart';
 import '../../import_files/widgets/shipment_milestone_tracker.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../shipment_updates/providers/shipment_updates_provider.dart';
+import '../../shipment_updates/widgets/shipment_update_dialog.dart';
 import '../providers/operational_dashboard_provider.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
@@ -78,6 +80,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   _buildKpiCardsBar(data),
                   const SizedBox(height: 16),
                   _buildRiskAlertsBanner(data.shipments),
+                  const SizedBox(height: 16),
+                  _buildDailyCheckinsCard(),
                   const SizedBox(height: 16),
                 ],
               ),
@@ -609,6 +613,69 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
       child: Text(priority, style: TextStyle(fontWeight: FontWeight.bold, color: fg, fontSize: 11)),
+    );
+  }
+
+  Widget _buildDailyCheckinsCard() {
+    final updatesState = ref.watch(shipmentUpdatesProvider);
+    final logs = updatesState.logs;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 8),
+                const Text('سجل التحديثات التشغيلية واليومية المباشرة (Daily Check-ins & Live Log):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                const Spacer(),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
+                  onPressed: () => ShipmentUpdateDialog.show(context),
+                  icon: const Icon(Icons.add, size: 14, color: Colors.white),
+                  label: const Text('إضافة تحديث يومي', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            if (logs.isEmpty)
+              const Text('لا توجد تحديثات يومية مسجلة اليوم.', style: TextStyle(fontSize: 12, color: Colors.grey))
+            else
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: logs.take(5).map((l) {
+                  return Container(
+                    padding: const EdgeInsets.all(10),
+                    width: 260,
+                    decoration: BoxDecoration(color: Colors.white, border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(8)),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(l.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                            const Spacer(),
+                            Text(l.logDate, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text('${l.targetPhase} — ${l.updateCategory}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal)),
+                        const SizedBox(height: 4),
+                        Text(l.note, style: const TextStyle(fontSize: 11, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

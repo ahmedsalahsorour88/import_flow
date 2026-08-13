@@ -25,6 +25,7 @@ import '../customs_clearance/screens/customs_clearance_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
 import '../file_closure/screens/file_closure_screen.dart';
+import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../notifications/widgets/notification_bell_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -36,7 +37,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   List<Widget> get _screens => const [
-        DashboardTab(),
+        OperationalDashboardScreen(),
         ImportFilesScreen(),
         PurchaseOrdersScreen(),
         CBMCalculatorScreen(),
@@ -115,42 +116,39 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: ListView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     children: [
-                      // Section 1: Core Operations
-                      _buildSectionHeader('📊 الرئيسية وأوامر الشراء'),
-                      _buildMenuItem(Icons.dashboard_outlined, 'Dashboard (لوحة التحليلات)', 0, selectedIndex),
-                      _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات)', 1, selectedIndex),
+                      // Section 1: Dashboard & Workspace
+                      _buildSectionHeader('📊 لوحة التحكم ومتابعة الشحنات'),
+                      _buildMenuItem(Icons.dashboard_customize_outlined, 'Dashboard (لوحة التحليلات والتحكم)', 0, selectedIndex),
+                      _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات النشطة)', 1, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 2, selectedIndex),
-                      _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأحجام)', 3, selectedIndex),
+                      _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأوزان والأحجام)', 3, selectedIndex),
 
-                      // Section 2: Phase 1 Shipping & Logistics Planning
-                      _buildSectionHeader('🚀 مراحل التخطيط وشغور النولون'),
-                      _buildMenuItem(Icons.alt_route, 'Shipping Scenarios & Quotes (BP-007/8)', 4, selectedIndex),
-                      _buildMenuItem(Icons.gavel_outlined, 'Customs Broker (BP-009)', 6, selectedIndex),
+                      // Section 2: Chronological Phases 1 -> 10 Workflow
+                      _buildSectionHeader('🚀 دورة العمليات الاستيرادية (Phase 1 → 10)'),
+                      _buildMenuItem(Icons.alt_route, 'Phase 1: سيناريوهات الشحن وعروض الأسعار', 4, selectedIndex),
+                      _buildMenuItem(Icons.gavel_outlined, 'Phase 1: استشارة المخلص الجمركي', 6, selectedIndex),
+                      _buildMenuItem(Icons.account_balance_wallet_outlined, 'Phase 2: الاعتماد والموافقة المالية', 7, selectedIndex),
+                      _buildMenuItem(Icons.verified_user_outlined, 'Phase 3: مستندات الشحن وتصريح ACID', 8, selectedIndex),
+                      _buildMenuItem(Icons.directions_boat_outlined, 'Phase 4: حجز الشحن وتحديد الناقل', 9, selectedIndex),
+                      _buildMenuItem(Icons.local_shipping_outlined, 'Phase 5: تجهيز البضاعة وتتبع CargoX', 10, selectedIndex),
+                      _buildMenuItem(Icons.gavel, 'Phase 6-7: الإقرار والمعاينة والتخليص', 20, selectedIndex),
+                      _buildMenuItem(Icons.inventory_outlined, 'Phase 8: استلام المخازن وتوليد GRN', 21, selectedIndex),
+                      _buildMenuItem(Icons.calculate, 'Phase 9: تسوية تكلفة الوصول Landed Cost', 22, selectedIndex),
+                      _buildMenuItem(Icons.archive_outlined, 'Phase 10: إغلاق الملف والأرشفة التاريخية', 23, selectedIndex),
 
-                      // Section 3: Phases 2 - 5 Operations & Execution
-                      _buildSectionHeader('⚡ المراحل الإجرائية والتخليص'),
-                      _buildMenuItem(Icons.account_balance_wallet_outlined, 'Financial Approval (Phase 2)', 7, selectedIndex),
-                      _buildMenuItem(Icons.verified_user_outlined, 'Import Docs & ACID (Phase 3)', 8, selectedIndex),
-                      _buildMenuItem(Icons.directions_boat_outlined, 'Freight Booking (Phase 4)', 9, selectedIndex),
-                      _buildMenuItem(Icons.local_shipping_outlined, 'Cargo & CargoX (Phase 5)', 10, selectedIndex),
-                      _buildMenuItem(Icons.gavel_outlined, 'Customs Clearance (Phase 7)', 20, selectedIndex),
-                      _buildMenuItem(Icons.inventory_outlined, 'Warehouse Receiving (Phase 8)', 21, selectedIndex),
-                      _buildMenuItem(Icons.calculate_outlined, 'Financial Settlement (Phase 9)', 22, selectedIndex),
-                      _buildMenuItem(Icons.archive_outlined, 'File Closure & Archiving (Phase 10)', 23, selectedIndex),
-
-                      // Section 4: Master Data
-                      _buildSectionHeader('🏢 البيانات الأساسية للمؤسسة'),
-                      _buildMenuItem(Icons.domain_outlined, 'Import Companies (شركات الاستيراد)', 12, selectedIndex),
+                      // Section 3: Master Data
+                      _buildSectionHeader('🏢 البيانات الأساسية (Master Data)'),
+                      _buildMenuItem(Icons.assignment_outlined, 'Projects (المشاريع ومراكز التكلفة)', 11, selectedIndex),
+                      _buildMenuItem(Icons.domain_outlined, 'Import Companies (الشركات المستوردة)', 12, selectedIndex),
                       _buildMenuItem(Icons.business_outlined, 'Suppliers (الموردون الخارجيون)', 13, selectedIndex),
                       _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks (البنوك والشركاء)', 14, selectedIndex),
-                      _buildMenuItem(Icons.assignment_outlined, 'Projects (المشاريع والمراكز)', 11, selectedIndex),
 
-                      // Section 5: Reference Data & Tariff Rules
-                      _buildSectionHeader('⚙️ الجداول المرجعية والتعريفات'),
-                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules (MD-006)', 16, selectedIndex),
-                      _buildMenuItem(Icons.description_outlined, 'Customs Tariff (MD-008)', 17, selectedIndex),
-                      _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations (MD-009)', 18, selectedIndex),
-                      _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates (MD-004)', 19, selectedIndex),
+                      // Section 4: Reference Rules & Audit
+                      _buildSectionHeader('⚙️ الجداول المرجعية وتدقيق النظام'),
+                      _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules (الشروط التجارية MD-006)', 16, selectedIndex),
+                      _buildMenuItem(Icons.description_outlined, 'Customs Tariff (جدول التعريفة MD-008)', 17, selectedIndex),
+                      _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations (الموانئ والمواقع MD-009)', 18, selectedIndex),
+                      _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates (العملات MD-004)', 19, selectedIndex),
                       _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs (سجل الأنشطة)', 15, selectedIndex),
                     ],
                   ),

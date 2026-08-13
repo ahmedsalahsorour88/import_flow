@@ -8,6 +8,115 @@ final importFilesProvider =
   return ImportFilesNotifier();
 });
 
+class PaginatedImportFilesState {
+  final List<ImportFileModel> items;
+  final int total;
+  final int page;
+  final int pageSize;
+  final int totalPages;
+  final bool isLoading;
+  final String? error;
+
+  PaginatedImportFilesState({
+    this.items = const [],
+    this.total = 0,
+    this.page = 1,
+    this.pageSize = 50,
+    this.totalPages = 1,
+    this.isLoading = false,
+    this.error,
+  });
+
+  PaginatedImportFilesState copyWith({
+    List<ImportFileModel>? items,
+    int? total,
+    int? page,
+    int? pageSize,
+    int? totalPages,
+    bool? isLoading,
+    String? error,
+  }) {
+    return PaginatedImportFilesState(
+      items: items ?? this.items,
+      total: total ?? this.total,
+      page: page ?? this.page,
+      pageSize: pageSize ?? this.pageSize,
+      totalPages: totalPages ?? this.totalPages,
+      isLoading: isLoading ?? this.isLoading,
+      error: error ?? this.error,
+    );
+  }
+}
+
+final paginatedImportFilesProvider =
+    StateNotifierProvider<PaginatedImportFilesNotifier, PaginatedImportFilesState>((ref) {
+  return PaginatedImportFilesNotifier();
+});
+
+class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesState> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  PaginatedImportFilesNotifier() : super(PaginatedImportFilesState()) {
+    fetchPage(1);
+  }
+
+  Future<void> fetchPage(int page, {
+    String? search,
+    int? companyId,
+    int? supplierId,
+    String? status,
+    String? owner,
+  }) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final queryParams = <String, dynamic>{
+        'page': page,
+        'page_size': state.pageSize,
+      };
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (companyId != null) queryParams['company_id'] = companyId;
+      if (supplierId != null) queryParams['supplier_id'] = supplierId;
+      if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
+      if (owner != null && owner.isNotEmpty && owner != 'All') queryParams['owner'] = owner;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-files/paginated',
+        queryParameters: queryParams,
+      );
+
+      final data = response.data;
+      final List<dynamic> itemsData = data['items'];
+      final files = itemsData.map((json) => ImportFileModel.fromJson(json)).toList();
+      
+      state = state.copyWith(
+        items: files,
+        total: data['total'],
+        page: data['page'],
+        pageSize: data['page_size'],
+        totalPages: data['total_pages'],
+        isLoading: false,
+      );
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  void nextPage() {
+    if (state.page < state.totalPages && !state.isLoading) {
+      fetchPage(state.page + 1);
+    }
+  }
+
+  void prevPage() {
+    if (state.page > 1 && !state.isLoading) {
+      fetchPage(state.page - 1);
+    }
+  }
+}
+
 class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> {
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 30),

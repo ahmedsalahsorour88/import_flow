@@ -89,4 +89,48 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> convertCurrency({
+    required double amount,
+    required String fromCurrency,
+    required String toCurrency,
+    String rateType = 'commercial',
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/currencies/convert',
+        data: {
+          'amount': amount,
+          'from_currency_code': fromCurrency,
+          'to_currency_code': toCurrency,
+          'rate_type': rateType,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> calculateGainLoss({
+    required double foreignAmount,
+    required String currencyCode,
+    required double initialRate,
+    required double settlementRate,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/currencies/gain-loss',
+        data: {
+          'foreign_amount': foreignAmount,
+          'currency_code': currencyCode,
+          'initial_rate': initialRate,
+          'settlement_rate': settlementRate,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (err) {
+      return null;
+    }
+  }
 }

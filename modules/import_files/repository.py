@@ -57,6 +57,101 @@ def get_all_import_files(
     return query.order_by(ImportFile.import_file_id.desc()).all()
 
 
+def count_import_files(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+) -> int:
+    query = db.query(ImportFile)
+    if not include_inactive:
+        query = query.filter(ImportFile.is_active == True)
+
+    if company_id:
+        query = query.filter(ImportFile.company_id == company_id)
+    if supplier_id:
+        query = query.filter(ImportFile.supplier_id == supplier_id)
+    if status and status != "All":
+        query = query.filter(ImportFile.status == status)
+    if owner and owner != "All":
+        query = query.filter(ImportFile.owner == owner)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                ImportFile.import_file_code.ilike(term),
+                ImportFile.custom_file_number.ilike(term),
+                ImportFile.company_name.ilike(term),
+                ImportFile.supplier_name.ilike(term),
+                ImportFile.po_number.ilike(term),
+                ImportFile.pi_number.ilike(term),
+                ImportFile.owner.ilike(term),
+            )
+        )
+
+    return query.count()
+
+
+def get_paginated_import_files(
+    db: Session,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+) -> dict:
+    total = count_import_files(
+        db, include_inactive, search, company_id, supplier_id, status, owner
+    )
+
+    query = db.query(ImportFile)
+    if not include_inactive:
+        query = query.filter(ImportFile.is_active == True)
+
+    if company_id:
+        query = query.filter(ImportFile.company_id == company_id)
+    if supplier_id:
+        query = query.filter(ImportFile.supplier_id == supplier_id)
+    if status and status != "All":
+        query = query.filter(ImportFile.status == status)
+    if owner and owner != "All":
+        query = query.filter(ImportFile.owner == owner)
+
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            or_(
+                ImportFile.import_file_code.ilike(term),
+                ImportFile.custom_file_number.ilike(term),
+                ImportFile.company_name.ilike(term),
+                ImportFile.supplier_name.ilike(term),
+                ImportFile.po_number.ilike(term),
+                ImportFile.pi_number.ilike(term),
+                ImportFile.owner.ilike(term),
+            )
+        )
+
+    items = query.order_by(ImportFile.import_file_id.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    
+    total_pages = (total + page_size - 1) // page_size if total > 0 else 1
+
+    return {
+        "items": items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "total_pages": total_pages,
+    }
+
+
+
 def get_import_file_by_id(db: Session, import_file_id: int) -> Optional[ImportFile]:
     return db.query(ImportFile).filter(
         ImportFile.import_file_id == import_file_id,

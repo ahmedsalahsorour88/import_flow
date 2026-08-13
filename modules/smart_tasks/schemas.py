@@ -70,3 +70,14 @@ class SmartTaskSummaryMetrics(BaseModel):
     waiting_for_form4: int
     pending_requirements: int
     high_priority_alerts: int
+
+
+class ReminderEngineResponse(BaseModel):
+    """Feature 2.5 — Reminder Engine: Due, Overdue & Upcoming tasks"""
+    target_date: str
+    overdue: List[SmartTaskResponse]
+    due_today: List[SmartTaskResponse]
+    due_this_week: List[SmartTaskResponse]
+    overdue_count: int
+    due_today_count: int
+    due_this_week_count: int

@@ -10,10 +10,45 @@ from modules.currencies.schemas import (
     CurrencyUpdate,
     ExchangeRateCreate,
     ExchangeRateResponse,
+    CurrencyConversionRequest,
+    CurrencyConversionResponse,
+    ExchangeGainLossRequest,
+    ExchangeGainLossResponse,
 )
 from modules.currencies.service import CurrencyService
 
 router = APIRouter(prefix="/api/v1/currencies", tags=["Currencies & Exchange Rates (MD-004)"])
+
+
+@router.post("/convert", response_model=CurrencyConversionResponse, summary="Convert amount between currencies using commercial or customs rates")
+def convert_currency(
+    payload: CurrencyConversionRequest,
+    db: Session = Depends(get_db),
+):
+    service = CurrencyService(db)
+    return service.convert_currency(
+        amount=payload.amount,
+        from_currency_code=payload.from_currency_code,
+        to_currency_code=payload.to_currency_code,
+        rate_type=payload.rate_type,
+        as_of_date=payload.as_of_date,
+    )
+
+
+@router.post("/gain-loss", response_model=ExchangeGainLossResponse, summary="Calculate FX Gain/Loss variance between initial and settlement rates")
+def calculate_exchange_gain_loss(
+    payload: ExchangeGainLossRequest,
+    db: Session = Depends(get_db),
+):
+    service = CurrencyService(db)
+    return service.calculate_gain_loss(
+        foreign_amount=payload.foreign_amount,
+        currency_code=payload.currency_code,
+        initial_rate=payload.initial_rate,
+        settlement_rate=payload.settlement_rate,
+        initial_date=payload.initial_date,
+        settlement_date=payload.settlement_date,
+    )
 
 
 @router.get("", response_model=List[CurrencyResponse])

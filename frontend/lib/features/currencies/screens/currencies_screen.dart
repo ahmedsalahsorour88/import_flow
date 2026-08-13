@@ -57,28 +57,51 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ),
                   ],
                 ),
-                Row(
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
                     ElevatedButton.icon(
-                      onPressed: () => _showAddRateDialog(context),
-                      icon: const Icon(Icons.rate_review, size: 18),
-                      label: const Text('Update Exchange Rates'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    ElevatedButton.icon(
-                      onPressed: () => _showCurrencyDialog(context),
-                      icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Currency'),
+                      onPressed: () => _showCurrencyConverterDialog(context),
+                      icon: const Icon(Icons.currency_exchange, size: 18),
+                      label: const Text('محول العملات الحي'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showGainLossCalculatorDialog(context),
+                      icon: const Icon(Icons.trending_up, size: 18),
+                      label: const Text('فروق أسعار العملات'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.orange,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showAddRateDialog(context),
+                      icon: const Icon(Icons.rate_review, size: 18),
+                      label: const Text('تحديث أسعار الصرف'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      onPressed: () => _showCurrencyDialog(context),
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('إضافة عملة'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.charcoal,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
@@ -86,6 +109,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                 ),
               ],
             ),
+
             const SizedBox(height: 20),
 
             // Search input
@@ -562,4 +586,367 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       ),
     );
   }
+
+  // ─── Multi-Currency Conversion Dialog ─────────────────────────────────────
+
+  void _showCurrencyConverterDialog(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final amountCtrl = TextEditingController(text: '10000');
+    String fromCurr = 'USD';
+    String toCurr = 'EGP';
+    String rateType = 'commercial';
+    Map<String, dynamic>? resultData;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setSheetState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Row(
+            children: [
+              Icon(Icons.currency_exchange, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('محول العملات الحي (Multi-Currency Engine)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('قم بإدخال المبلغ واختيار العملات لنشاط التحويل المباشر:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: amountCtrl,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(
+                        labelText: 'المبلغ المراد تحويله *',
+                        hintText: '10000',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (v) {
+                        final val = double.tryParse(v ?? '');
+                        if (val == null || val <= 0) return 'أدخل مبلغ صحيح أكبر من صفر';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: fromCurr,
+                            decoration: const InputDecoration(labelText: 'من عملة', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'USD', child: Text('USD (دولار أمريكي)')),
+                              DropdownMenuItem(value: 'EUR', child: Text('EUR (يورو)')),
+                              DropdownMenuItem(value: 'GBP', child: Text('GBP (جنيه إسترليني)')),
+                              DropdownMenuItem(value: 'CNY', child: Text('CNY (يوان صيني)')),
+                              DropdownMenuItem(value: 'SAR', child: Text('SAR (ريال سعودي)')),
+                              DropdownMenuItem(value: 'AED', child: Text('AED (درهم إماراتي)')),
+                              DropdownMenuItem(value: 'EGP', child: Text('EGP (جنيه مصري)')),
+                            ],
+                            onChanged: (v) => setSheetState(() => fromCurr = v!),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: toCurr,
+                            decoration: const InputDecoration(labelText: 'إلى عملة', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'EGP', child: Text('EGP (جنيه مصري)')),
+                              DropdownMenuItem(value: 'USD', child: Text('USD (دولار أمريكي)')),
+                              DropdownMenuItem(value: 'EUR', child: Text('EUR (يورو)')),
+                              DropdownMenuItem(value: 'GBP', child: Text('GBP (جنيه إسترليني)')),
+                              DropdownMenuItem(value: 'CNY', child: Text('CNY (يوان صيني)')),
+                            ],
+                            onChanged: (v) => setSheetState(() => toCurr = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: rateType,
+                      decoration: const InputDecoration(labelText: 'نوع سعر الصرف المطبق', border: OutlineInputBorder()),
+                      items: const [
+                        DropdownMenuItem(value: 'commercial', child: Text('سعر البنك التجاري (Commercial Rate)')),
+                        DropdownMenuItem(value: 'customs', child: Text('سعر الصرف الجمركي الرسمي (Customs Rate)')),
+                      ],
+                      onChanged: (v) => setSheetState(() => rateType = v!),
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(45),
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              if (formKey.currentState!.validate()) {
+                                setSheetState(() => isLoading = true);
+                                final res = await ref.read(currenciesProvider.notifier).convertCurrency(
+                                      amount: double.parse(amountCtrl.text.trim()),
+                                      fromCurrency: fromCurr,
+                                      toCurrency: toCurr,
+                                      rateType: rateType,
+                                    );
+                                setSheetState(() {
+                                  resultData = res;
+                                  isLoading = false;
+                                });
+                              }
+                            },
+                      icon: isLoading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.calculate, color: Colors.white),
+                      label: const Text('تحويل العملة الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    if (resultData != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('المبلغ المحول:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                Text(
+                                  '${resultData!['converted_amount']} ${resultData!['to_currency_code']}',
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 14),
+                            Text('سعر الصرف المطبق: ${resultData!['applied_rate']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 4),
+                            Text('الماكفئ بالجنيه المصري (Base EGP): ${resultData!['base_currency_equivalent_egp']} EGP', style: const TextStyle(fontSize: 12)),
+                            const SizedBox(height: 6),
+                            Text(resultData!['summary_ar'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── FX Gain / Loss Engine Dialog ─────────────────────────────────────────
+
+  void _showGainLossCalculatorDialog(BuildContext context) {
+    final formKey = GlobalKey<FormState>();
+    final amountCtrl = TextEditingController(text: '50000');
+    final initialRateCtrl = TextEditingController(text: '49.00');
+    final settlementRateCtrl = TextEditingController(text: '47.50');
+    String currencyCode = 'USD';
+    Map<String, dynamic>? resultData;
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setSheetState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Row(
+            children: [
+              Icon(Icons.trending_up, color: AppTheme.orange),
+              SizedBox(width: 8),
+              Text('حاسبة فروق أسعار العملات (FX Gain/Loss)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: 480,
+            child: SingleChildScrollView(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('حساب الفرق المالي الناتج عن تغير سعر الصرف بين تاريخ الربط وتاريخ التسوية:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: amountCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'المبلغ الأجنبي *', border: OutlineInputBorder()),
+                            validator: (v) {
+                              final val = double.tryParse(v ?? '');
+                              if (val == null || val <= 0) return 'أدخل مبلغ صحيح';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: DropdownButtonFormField<String>(
+                            value: currencyCode,
+                            decoration: const InputDecoration(labelText: 'العملة', border: OutlineInputBorder()),
+                            items: const [
+                              DropdownMenuItem(value: 'USD', child: Text('USD')),
+                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
+                            ],
+                            onChanged: (v) => setSheetState(() => currencyCode = v!),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextFormField(
+                            controller: initialRateCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'سعر الربط المبدئي (R1) *', hintText: '49.00', border: OutlineInputBorder()),
+                            validator: (v) {
+                              final val = double.tryParse(v ?? '');
+                              if (val == null || val <= 0) return 'سعر غير صحيح';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextFormField(
+                            controller: settlementRateCtrl,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: const InputDecoration(labelText: 'سعر التسوية/الدفع (R2) *', hintText: '47.50', border: OutlineInputBorder()),
+                            validator: (v) {
+                              final val = double.tryParse(v ?? '');
+                              if (val == null || val <= 0) return 'سعر غير صحيح';
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.orange,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(45),
+                      ),
+                      onPressed: isLoading
+                          ? null
+                          : () async {
+                              if (formKey.currentState!.validate()) {
+                                setSheetState(() => isLoading = true);
+                                final res = await ref.read(currenciesProvider.notifier).calculateGainLoss(
+                                      foreignAmount: double.parse(amountCtrl.text.trim()),
+                                      currencyCode: currencyCode,
+                                      initialRate: double.parse(initialRateCtrl.text.trim()),
+                                      settlementRate: double.parse(settlementRateCtrl.text.trim()),
+                                    );
+                                setSheetState(() {
+                                  resultData = res;
+                                  isLoading = false;
+                                });
+                              }
+                            },
+                      icon: isLoading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : const Icon(Icons.analytics, color: Colors.white),
+                      label: const Text('حساب فروق العملة الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    if (resultData != null) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.08) : AppTheme.crimson.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: (resultData!['is_gain'] as bool) ? AppTheme.emerald.withOpacity(0.4) : AppTheme.crimson.withOpacity(0.4),
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: Text(
+                                    resultData!['status_label'] ?? '',
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
+                                ),
+                                Text(
+                                  '${resultData!['variance_egp']} EGP (${resultData!['percentage_change']}%)',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: (resultData!['is_gain'] as bool) ? AppTheme.emerald : AppTheme.crimson,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const Divider(height: 14),
+                            Text('التكلفة المبدئية عند الربط: ${resultData!['initial_amount_egp']} EGP (سعر: ${resultData!['initial_rate']})'),
+                            const SizedBox(height: 4),
+                            Text('التكلفة الفعلية عند التسوية: ${resultData!['settlement_amount_egp']} EGP (سعر: ${resultData!['settlement_rate']})'),
+                            const SizedBox(height: 8),
+                            Text(
+                              resultData!['summary_ar'] ?? '',
+                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

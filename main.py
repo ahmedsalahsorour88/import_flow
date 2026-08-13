@@ -79,6 +79,7 @@ from modules.integrations.router import router as integrations_router
 from modules.container_loader.router import container_loader_router
 from modules.smart_tasks.router import router as smart_tasks_router
 from modules.shipment_updates.router import router as shipment_updates_router
+from modules.import_requirements.router import router as import_requirements_router
 
 
 # ==================================================
@@ -136,6 +137,7 @@ app.include_router(notifications_router)
 app.include_router(integrations_router)
 app.include_router(smart_tasks_router)
 app.include_router(shipment_updates_router)
+app.include_router(import_requirements_router)
 
 
 # ==================================================

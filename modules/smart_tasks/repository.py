@@ -129,3 +129,56 @@ def restore_task(db: Session, task_id: int) -> Optional[SmartTask]:
     db.commit()
     db.refresh(db_obj)
     return db_obj
+
+
+def get_due_and_overdue_tasks(db: Session, target_date_str: Optional[str] = None) -> dict:
+    """
+    Reminder Engine (Feature 2.5):
+    Returns tasks that are due today, overdue, or due within the next N days.
+    target_date_str: ISO date string e.g. '2026-08-13'. Defaults to today (UTC).
+    """
+    today = datetime.now(timezone.utc).date()
+    target = today
+    if target_date_str:
+        try:
+            from datetime import date
+            target = date.fromisoformat(target_date_str)
+        except ValueError:
+            pass
+
+    today_str = target.isoformat()
+    all_pending = db.query(SmartTask).filter(
+        SmartTask.is_active == True,
+        SmartTask.status.in_(["Pending", "In Progress"]),
+        SmartTask.due_date.isnot(None),
+    ).all()
+
+    overdue = []
+    due_today = []
+    due_this_week = []
+
+    for task in all_pending:
+        try:
+            task_date = task.due_date[:10]  # Take first 10 chars: YYYY-MM-DD
+            if task_date < today_str:
+                overdue.append(task)
+            elif task_date == today_str:
+                due_today.append(task)
+            elif task_date > today_str:
+                # Check if within 7 days
+                from datetime import date, timedelta
+                td = date.fromisoformat(task_date)
+                if td <= (target + timedelta(days=7)):
+                    due_this_week.append(task)
+        except Exception:
+            continue
+
+    return {
+        "target_date": today_str,
+        "overdue": overdue,
+        "due_today": due_today,
+        "due_this_week": due_this_week,
+        "overdue_count": len(overdue),
+        "due_today_count": len(due_today),
+        "due_this_week_count": len(due_this_week),
+    }

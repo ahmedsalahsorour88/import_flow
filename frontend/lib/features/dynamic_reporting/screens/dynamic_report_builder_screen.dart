@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -123,6 +126,116 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
           ElevatedButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق')),
         ],
       ),
+    );
+  }
+
+  Future<void> _exportToPDF(List<ImportFileModel> files) async {
+    final visibleCols = _columns.where((c) => c.isVisible).toList();
+    final doc = pw.Document();
+
+    // Build table headers
+    final headers = visibleCols.map((c) => c.label).toList();
+
+    // Build table data rows
+    final tableData = files.map((f) {
+      return visibleCols.map((c) => _getCellValue(f, c.id)).toList();
+    }).toList();
+
+    doc.addPage(
+      pw.MultiPage(
+        pageFormat: PdfPageFormat.a4.landscape,
+        margin: const pw.EdgeInsets.all(24),
+        build: (pw.Context context) => [
+          // Title Header
+          pw.Container(
+            padding: const pw.EdgeInsets.only(bottom: 12),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.blueGrey800, width: 2)),
+            ),
+            child: pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'ImportFlow ERP — Dynamic Report',
+                      style: pw.TextStyle(
+                        fontSize: 18,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColors.blueGrey800,
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Generated: ${DateTime.now().toLocal().toString().substring(0, 16)}  |  Shipments: ${files.length}',
+                      style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          pw.SizedBox(height: 16),
+          // Data Table
+          pw.Table(
+            border: pw.TableBorder.all(color: PdfColors.blueGrey200, width: 0.5),
+            columnWidths: {
+              for (int i = 0; i < headers.length; i++)
+                i: const pw.FlexColumnWidth(1),
+            },
+            children: [
+              // Header Row
+              pw.TableRow(
+                decoration: const pw.BoxDecoration(color: PdfColors.blueGrey800),
+                children: headers.map((h) => pw.Padding(
+                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+                  child: pw.Text(
+                    h,
+                    style: pw.TextStyle(
+                      color: PdfColors.white,
+                      fontSize: 8,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                    textDirection: pw.TextDirection.rtl,
+                  ),
+                )).toList(),
+              ),
+              // Data Rows
+              ...tableData.asMap().entries.map((entry) {
+                final isEven = entry.key.isEven;
+                return pw.TableRow(
+                  decoration: pw.BoxDecoration(
+                    color: isEven ? PdfColors.blueGrey50 : PdfColors.white,
+                  ),
+                  children: entry.value.map((cell) => pw.Padding(
+                    padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    child: pw.Text(
+                      cell,
+                      style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.blueGrey900),
+                      textDirection: pw.TextDirection.rtl,
+                    ),
+                  )).toList(),
+                );
+              }),
+            ],
+          ),
+          pw.SizedBox(height: 12),
+          // Footer
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('ImportFlow ERP — Confidential', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+              pw.Text('Total: ${files.length} records', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+            ],
+          ),
+        ],
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => doc.save(),
+      name: 'ImportFlow_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
   }
 
@@ -269,11 +382,22 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                       error: (_, __) => const SizedBox.shrink(),
                       data: (files) {
                         final filtered = _filterFiles(files);
-                        return ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
-                          onPressed: () => _exportToCSV(filtered),
-                          icon: const Icon(Icons.file_download, color: Colors.white),
-                          label: Text('تصدير التقرير (Excel) [${filtered.length}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        return Row(
+                          children: [
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
+                              onPressed: () => _exportToCSV(filtered),
+                              icon: const Icon(Icons.table_chart, color: Colors.white),
+                              label: Text('تصدير Excel [${filtered.length}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFC0392B), padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12)),
+                              onPressed: () => _exportToPDF(filtered),
+                              icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
+                              label: Text('تصدير PDF [${filtered.length}]', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
                         );
                       },
                     ),

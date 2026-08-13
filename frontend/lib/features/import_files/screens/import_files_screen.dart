@@ -1005,7 +1005,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final filesState = ref.watch(importFilesProvider);
+    final paginatedState = ref.watch(paginatedImportFilesProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -1021,7 +1021,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+            onPressed: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(1),
           ),
           const SizedBox(width: 10),
         ],
@@ -1077,7 +1077,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                               border: OutlineInputBorder(),
                             ),
                             onChanged: (val) {
-                              ref.read(importFilesProvider.notifier).fetchImportFiles(search: val, status: _selectedStatusFilter);
+                              ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: val, status: _selectedStatusFilter);
                             },
                           ),
                         ),
@@ -1095,7 +1095,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             onChanged: (val) {
                               if (val != null) {
                                 setState(() => _selectedStatusFilter = val);
-                                ref.read(importFilesProvider.notifier).fetchImportFiles(search: _searchController.text, status: val);
+                                ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: _searchController.text, status: val);
                               }
                             },
                           ),
@@ -1110,14 +1110,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
             // Files Data Table
             Expanded(
-              child: filesState.when(
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('❌ Error: $err', style: const TextStyle(color: Colors.red))),
-                data: (files) {
-                  if (files.isEmpty) {
-                    return const Center(child: Text('لا توجد ملفات استيراد مسجلة بالنظام. اضغط إضافة ملف جديد.', style: TextStyle(fontSize: 16)));
-                  }
-                  return Card(
+              child: paginatedState.isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : paginatedState.error != null
+                  ? Center(child: Text('❌ Error: ${paginatedState.error}', style: const TextStyle(color: Colors.red)))
+                  : paginatedState.items.isEmpty
+                    ? const Center(child: Text('لا توجد ملفات استيراد مسجلة بالنظام. اضغط إضافة ملف جديد.', style: TextStyle(fontSize: 16)))
+                    : Card(
                     elevation: 2,
                     child: SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
@@ -1139,7 +1138,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
                           ],
-                          rows: files.map((file) {
+                          rows: paginatedState.items.map((file) {
                             return DataRow(
                               cells: [
                                 DataCell(
@@ -1210,7 +1209,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                               context,
                                               importFile: file,
                                               currentPhaseName: file.currentModule,
-                                              onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                              onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
                                             );
                                           },
                                         )
@@ -1222,7 +1221,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                             ReopenShipmentDialog.show(
                                               context,
                                               importFile: file,
-                                              onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                              onSuccess: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page),
                                             );
                                           },
                                         ),
@@ -1246,6 +1245,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           );
                                           if (confirm == true) {
                                             await ref.read(importFilesProvider.notifier).softDeleteImportFile(file.importFileId);
+                                            ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.page);
                                           }
                                         },
                                       ),
@@ -1258,10 +1258,56 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
             ),
+            
+            // Pagination controls
+            if (!paginatedState.isLoading && paginatedState.items.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.shade300),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.first_page),
+                      onPressed: paginatedState.page > 1 
+                          ? () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: _searchController.text, status: _selectedStatusFilter)
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_left),
+                      onPressed: paginatedState.page > 1 
+                          ? () => ref.read(paginatedImportFilesProvider.notifier).prevPage() 
+                          : null,
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text(
+                        'صفحة ${paginatedState.page} من ${paginatedState.totalPages} | ${paginatedState.pageSize} سجل من ${paginatedState.total}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.chevron_right),
+                      onPressed: paginatedState.page < paginatedState.totalPages 
+                          ? () => ref.read(paginatedImportFilesProvider.notifier).nextPage() 
+                          : null,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.last_page),
+                      onPressed: paginatedState.page < paginatedState.totalPages 
+                          ? () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(paginatedState.totalPages, search: _searchController.text, status: _selectedStatusFilter)
+                          : null,
+                    ),
+                  ],
+                ),
+              ),
           ],
         ),
       ),

@@ -139,3 +139,10 @@ class OperationalDashboardResponse(BaseModel):
     available_brokers: List[OperationalDashboardBroker]
     phase_counts: Dict[str, int]
 
+
+class PaginatedImportFilesResponse(BaseModel):
+    items: List[ImportFileResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

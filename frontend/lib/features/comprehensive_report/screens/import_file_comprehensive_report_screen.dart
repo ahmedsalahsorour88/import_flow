@@ -7,6 +7,10 @@ import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../shipment_updates/widgets/shipment_update_dialog.dart';
+import '../../customs_clearance/providers/customs_clearance_provider.dart';
+import '../../customs_clearance/models/customs_clearance_model.dart';
+import '../../warehouse_receiving/providers/warehouse_receiving_provider.dart';
+import '../../warehouse_receiving/models/warehouse_receiving_model.dart';
 
 // ============================================================
 // Comprehensive Import File Report Screen
@@ -55,6 +59,8 @@ class _ImportFileComprehensiveReportScreenState
       _selectedFile = file;
     });
     ref.read(shipmentUpdatesProvider.notifier).fetchLogs(importFileId: val);
+    ref.read(customsClearanceProvider.notifier).fetchRecords(importFileId: val);
+    ref.read(warehouseReceivingProvider.notifier).fetchRecords(importFileId: val);
   }
 
   int _currentPhaseIndex(ImportFileModel file) {
@@ -78,6 +84,8 @@ class _ImportFileComprehensiveReportScreenState
   Widget build(BuildContext context) {
     final importFilesState = ref.watch(importFilesProvider);
     final updatesState = ref.watch(shipmentUpdatesProvider);
+    final clearanceState = ref.watch(customsClearanceProvider);
+    final warehouseState = ref.watch(warehouseReceivingProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
@@ -200,6 +208,14 @@ class _ImportFileComprehensiveReportScreenState
 
                         // Section 4: Live Update Logs Timeline
                         _buildUpdateTimeline(_selectedFile!, updatesState),
+                        const SizedBox(height: 16),
+                        
+                        // Section 5: Customs Clearance Real-Time Data
+                        _buildClearanceSection(clearanceState),
+                        const SizedBox(height: 16),
+                        
+                        // Section 6: Warehouse Receiving & GRN Real-Time Data
+                        _buildWarehouseSection(warehouseState),
                       ],
                     ),
                   ),
@@ -1006,6 +1022,144 @@ class _ImportFileComprehensiveReportScreenState
         const SizedBox(height: 2),
         Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
       ],
+    );
+  }
+
+  Widget _buildClearanceSection(AsyncValue<List<CustomsClearanceModel>> state) {
+    return _reportCard(
+      title: 'بيانات التخليص الجمركي (Phase 7)',
+      icon: Icons.receipt_long_outlined,
+      iconColor: AppTheme.cobalt,
+      child: state.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Text('خطأ: $err', style: const TextStyle(color: AppTheme.crimson)),
+        data: (list) {
+          if (list.isEmpty) return const Text('لا توجد بيانات تخليص جمركي', style: TextStyle(color: Colors.grey));
+          final clr = list.first;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  if (clr.declaration46No != null)
+                    Chip(label: Text('إقرار: ${clr.declaration46No}', style: const TextStyle(fontSize: 12)), backgroundColor: Colors.blue.shade50),
+                  Chip(
+                    label: Text(clr.channelType, style: const TextStyle(fontSize: 12)),
+                    backgroundColor: clr.channelType.toLowerCase().contains('green') ? Colors.green.shade50 : (clr.channelType.toLowerCase().contains('red') ? Colors.red.shade50 : Colors.orange.shade50),
+                  ),
+                  Chip(label: Text(clr.customsOfficeName, style: const TextStyle(fontSize: 12)), backgroundColor: Colors.grey.shade100),
+                ],
+              ),
+              const SizedBox(height: 8),
+              if (clr.releasePermitNo != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                  child: Text('تصريح إفراج: ${clr.releasePermitNo}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              const Divider(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _miniStat('ضريبة الوارد', clr.importDutyAmount.toStringAsFixed(2)),
+                  _miniStat('القيمة المضافة', clr.vatAmount.toStringAsFixed(2)),
+                  _miniStat('ضريبة الجدول', clr.scheduleTaxAmount.toStringAsFixed(2)),
+                  _miniStat('رسوم العرض', clr.labServiceFees.toStringAsFixed(2)),
+                  _miniStat('الإجمالي', clr.totalDutyPayable.toStringAsFixed(2)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (clr.paymentDate != null) Text('تاريخ السداد: ${clr.paymentDate}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  const SizedBox(width: 16),
+                  if (clr.releaseDate != null) Text('تاريخ الإفراج: ${clr.releaseDate}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              )
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildWarehouseSection(AsyncValue<List<WarehouseReceivingModel>> state) {
+    return _reportCard(
+      title: 'استلام المخازن وسند GRN (Phase 8)',
+      icon: Icons.warehouse_outlined,
+      iconColor: AppTheme.emerald,
+      child: state.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Text('خطأ: $err', style: const TextStyle(color: AppTheme.crimson)),
+        data: (list) {
+          if (list.isEmpty) return const Text('لا توجد بيانات استلام مخازن', style: TextStyle(color: Colors.grey));
+          final wh = list.first;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                    child: Text('GRN: ${wh.grnCode}', style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12)),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(wh.warehouseName, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Text('وصول: ${wh.arrivalDatetime}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  const SizedBox(width: 16),
+                  Text('المفتش: ${wh.inspectorName}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
+              ),
+              const Divider(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _miniStat('الكمية المفوترة', wh.totalInvoicedQty.toString()),
+                  _miniStat('المقبول', wh.totalAcceptedQty.toString()),
+                  _miniStat('العجز', wh.totalShortageQty.toString()),
+                  _miniStat('التالف', wh.totalDamagedQty.toString()),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (wh.grnItems.isNotEmpty)
+                Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(border: Border.all(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(6)),
+                  child: DataTable(
+                    headingRowHeight: 36,
+                    dataRowMinHeight: 32,
+                    dataRowMaxHeight: 32,
+                    columnSpacing: 16,
+                    columns: const [
+                      DataColumn(label: Text('الكود', style: TextStyle(fontSize: 11))),
+                      DataColumn(label: Text('الصنف', style: TextStyle(fontSize: 11))),
+                      DataColumn(label: Text('فواتير', style: TextStyle(fontSize: 11))),
+                      DataColumn(label: Text('مقبول', style: TextStyle(fontSize: 11))),
+                      DataColumn(label: Text('عجز', style: TextStyle(fontSize: 11))),
+                      DataColumn(label: Text('تالف', style: TextStyle(fontSize: 11))),
+                    ],
+                    rows: wh.grnItems.map((item) => DataRow(cells: [
+                      DataCell(Text(item.itemCode, style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(item.itemName, style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(item.invoicedQty.toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(item.acceptedQty.toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(item.shortageQty.toString(), style: const TextStyle(fontSize: 11))),
+                      DataCell(Text(item.damagedQty.toString(), style: const TextStyle(fontSize: 11))),
+                    ])).toList(),
+                  ),
+                ),
+            ],
+          );
+        },
+      ),
     );
   }
 }

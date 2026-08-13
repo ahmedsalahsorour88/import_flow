@@ -11,6 +11,7 @@ from modules.import_files.schemas import (
     ImportFileCreate,
     ImportFileUpdate,
     ImportFileResponse,
+    PaginatedImportFilesResponse,
     ImportMasterReportSummary,
     OperationalDashboardResponse,
     CloseShipmentSubmit,
@@ -54,6 +55,35 @@ def list_import_files(
         supplier_id=supplier_id,
         status=status,
         owner=owner,
+    )
+
+
+@router.get(
+    "/paginated",
+    response_model=PaginatedImportFilesResponse,
+    summary="List paginated import files with filters",
+)
+def list_paginated_import_files(
+    page: int = 1,
+    page_size: int = 50,
+    include_inactive: bool = False,
+    search: Optional[str] = None,
+    company_id: Optional[int] = None,
+    supplier_id: Optional[int] = None,
+    status: Optional[str] = None,
+    owner: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_paginated_import_files(
+        db,
+        include_inactive=include_inactive,
+        search=search,
+        company_id=company_id,
+        supplier_id=supplier_id,
+        status=status,
+        owner=owner,
+        page=page,
+        page_size=page_size,
     )
 
 

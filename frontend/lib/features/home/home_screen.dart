@@ -30,6 +30,7 @@ import '../smart_tasks/screens/smart_tasks_screen.dart';
 import '../dynamic_reporting/screens/dynamic_report_builder_screen.dart';
 import '../shipment_updates/screens/shipment_update_engine_screen.dart';
 import '../comprehensive_report/screens/import_file_comprehensive_report_screen.dart';
+import '../import_requirements/screens/import_requirements_screen.dart';
 import '../notifications/widgets/notification_bell_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -92,6 +93,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         DynamicReportBuilderScreen(),
         ShipmentUpdateEngineScreen(),
         ImportFileComprehensiveReportScreen(),
+        const ImportRequirementsScreen(),
       ];
 
   @override
@@ -155,6 +157,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks (المهام والتذكيرات 2.4/2.5)', 30, selectedIndex),
                       _buildMenuItem(Icons.assessment_outlined, 'Dynamic Reports (مُنشئ التقارير 2.7)', 31, selectedIndex),
                       _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات النشطة)', 1, selectedIndex),
+                      _buildMenuItem(Icons.rule_folder_outlined, 'Import Requirements (BP-011)', 34, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 2, selectedIndex),
                       _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأوزان والأحجام)', 3, selectedIndex),
 

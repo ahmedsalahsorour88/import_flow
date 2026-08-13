@@ -55,3 +55,50 @@ class CurrencyResponse(CurrencyBase):
     exchange_rates: Optional[List[ExchangeRateResponse]] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ─── Multi-Currency Conversion Engine Schemas ─────────────────────────────────
+
+class CurrencyConversionRequest(BaseModel):
+    amount: float = Field(..., gt=0, description="Amount to convert")
+    from_currency_code: str = Field(..., min_length=3, max_length=3, description="Source currency ISO code")
+    to_currency_code: str = Field("EGP", min_length=3, max_length=3, description="Target currency ISO code")
+    rate_type: str = Field("commercial", description="'commercial' for Bank Rate or 'customs' for Customs Rate")
+    as_of_date: Optional[date] = Field(None, description="Historical date for rate lookup; defaults to latest rate")
+
+
+class CurrencyConversionResponse(BaseModel):
+    amount: float
+    from_currency_code: str
+    to_currency_code: str
+    rate_type: str
+    applied_rate: float
+    converted_amount: float
+    base_currency_equivalent_egp: float
+    rate_date: Optional[date] = None
+    summary_ar: str
+
+
+# ─── Foreign Exchange (FX) Gain / Loss Engine Schemas ─────────────────────────
+
+class ExchangeGainLossRequest(BaseModel):
+    foreign_amount: float = Field(..., gt=0, description="Amount in foreign currency (e.g. 10000 USD)")
+    currency_code: str = Field(..., min_length=3, max_length=3, description="Foreign currency code")
+    initial_rate: float = Field(..., gt=0, description="Initial rate at PO/Invoice booking date (EGP per FX)")
+    settlement_rate: float = Field(..., gt=0, description="Settlement rate at Payment/Closing date (EGP per FX)")
+    initial_date: Optional[date] = Field(None, description="Booking date")
+    settlement_date: Optional[date] = Field(None, description="Settlement date")
+
+
+class ExchangeGainLossResponse(BaseModel):
+    foreign_amount: float
+    currency_code: str
+    initial_rate: float
+    settlement_rate: float
+    initial_amount_egp: float
+    settlement_amount_egp: float
+    variance_egp: float
+    is_gain: bool
+    status_label: str  # "ربح فروق عملة" or "خسارة فروق عملة" or "تعادل"
+    percentage_change: float
+    summary_ar: str

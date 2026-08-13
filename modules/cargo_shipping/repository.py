@@ -111,3 +111,13 @@ def soft_delete_cargo_shipping(db: Session, record_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+def restore_cargo_shipping(db: Session, record_id: int) -> Optional[CargoShippingRecord]:
+    db_obj = get_cargo_shipping_by_id(db, record_id, include_inactive=True)
+    if not db_obj:
+        return None
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

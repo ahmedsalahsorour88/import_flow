@@ -133,3 +133,13 @@ def soft_delete_warehouse_receiving(db: Session, record_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+def restore_warehouse_receiving(db: Session, record_id: int) -> Optional[WarehouseReceivingRecord]:
+    db_obj = get_warehouse_receiving_by_id(db, record_id, include_inactive=True)
+    if not db_obj:
+        return None
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

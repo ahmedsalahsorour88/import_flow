@@ -16,6 +16,21 @@ class FileClosureScreen extends ConsumerStatefulWidget {
 class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(fileClosureProvider.notifier).fetchClosures();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _showCloseFileDialog() {
     showDialog(
       context: context,
@@ -171,6 +186,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                   const Spacer(),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                    tooltip: 'حذف لطفياً',
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
@@ -185,6 +201,18 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                       );
                                       if (confirm == true) {
                                         ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
+                                    tooltip: 'استعادة السجل',
+                                    onPressed: () async {
+                                      await ref.read(fileClosureProvider.notifier).restoreClosure(r.closureId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('✅ تم استعادة شهادة إغلاق الملف ${r.closureCode} بنجاح'), backgroundColor: AppTheme.emerald),
+                                        );
                                       }
                                     },
                                   ),

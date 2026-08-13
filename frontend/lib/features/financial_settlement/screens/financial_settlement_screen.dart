@@ -16,6 +16,21 @@ class FinancialSettlementScreen extends ConsumerStatefulWidget {
 class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementScreen> {
   final TextEditingController _searchController = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(financialSettlementProvider.notifier).fetchSettlements();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _showAddDialog() {
     showDialog(
       context: context,
@@ -227,6 +242,7 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                   const SizedBox(width: 8),
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                    tooltip: 'حذف لطفياً',
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
@@ -241,6 +257,18 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                       );
                                       if (confirm == true) {
                                         ref.read(financialSettlementProvider.notifier).softDeleteSettlement(r.settlementId);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
+                                    tooltip: 'استعادة السجل',
+                                    onPressed: () async {
+                                      await ref.read(financialSettlementProvider.notifier).restoreSettlement(r.settlementId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('✅ تم استعادة سجل التسوية المالية ${r.settlementCode} بنجاح'), backgroundColor: AppTheme.emerald),
+                                        );
                                       }
                                     },
                                   ),

@@ -112,3 +112,13 @@ def soft_delete_customs_clearance(db: Session, record_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+def restore_customs_clearance(db: Session, record_id: int) -> Optional[CustomsClearanceRecord]:
+    db_obj = get_customs_clearance_by_id(db, record_id, include_inactive=True)
+    if not db_obj:
+        return None
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

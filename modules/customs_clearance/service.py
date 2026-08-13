@@ -17,6 +17,7 @@ from .repository import (
     create_customs_clearance,
     update_customs_clearance,
     soft_delete_customs_clearance,
+    restore_customs_clearance,
 )
 from .validators import validate_bank_receipt_no, validate_release_permit
 from modules.import_files.model import ImportFile
@@ -111,3 +112,9 @@ def update_customs_clearance_service(db: Session, record_id: int, schema: Custom
 def soft_delete_customs_clearance_service(db: Session, record_id: int) -> bool:
     get_customs_clearance_service(db, record_id)
     return soft_delete_customs_clearance(db, record_id)
+
+def restore_customs_clearance_service(db: Session, record_id: int) -> CustomsClearanceRecord:
+    record = restore_customs_clearance(db, record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"سجل التخليص الجمركي رقم {record_id} غير موجود.")
+    return record

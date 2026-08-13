@@ -5,6 +5,16 @@ from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
 from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.incoterms.model import Incoterm
+from modules.projects.model import Project
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.customs_clearance.model import CustomsClearanceRecord
 from modules.customs_clearance.schemas import (
@@ -20,6 +30,7 @@ from modules.customs_clearance.service import (
     submit_duty_payment_service,
     complete_customs_release_service,
     soft_delete_customs_clearance_service,
+    restore_customs_clearance_service,
 )
 from modules.customs_clearance.validators import validate_bank_receipt_no, validate_release_permit
 from fastapi import HTTPException
@@ -114,6 +125,21 @@ class TestCustomsClearanceModule(unittest.TestCase):
         self.assertEqual(record.release_permit_no, "REL-PERMIT-100")
         self.assertEqual(record.status, "Final Release Granted")
         self.assertTrue(record.dispatch_authorized)
+
+    def test_soft_delete_and_restore(self):
+        schema = CustomsClearanceCreate(import_file_id=self.import_file_id)
+        record = create_customs_clearance_service(self.db, schema)
+        rec_id = record.customs_clearance_id
+
+        # Delete
+        success = soft_delete_customs_clearance_service(self.db, rec_id)
+        self.assertTrue(success)
+
+        # Restore
+        restored = restore_customs_clearance_service(self.db, rec_id)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.customs_clearance_id, rec_id)
+        self.assertTrue(restored.is_active)
 
 if __name__ == "__main__":
     unittest.main()

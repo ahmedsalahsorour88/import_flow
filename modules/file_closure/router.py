@@ -14,6 +14,7 @@ from .service import (
     list_closures_service,
     update_closure_service,
     soft_delete_closure_service,
+    restore_closure_service,
 )
 
 router = APIRouter(prefix="/api/v1/file-closure", tags=["Phase 10 - Import File Closure & Historical Archival"])
@@ -56,3 +57,10 @@ def soft_delete_closure(
 ):
     soft_delete_closure_service(db, closure_id)
     return None
+
+@router.patch("/{closure_id}/restore", response_model=FileClosureResponse)
+def restore_closure(
+    closure_id: int,
+    db: Session = Depends(get_db),
+):
+    return restore_closure_service(db, closure_id)

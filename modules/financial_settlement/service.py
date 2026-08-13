@@ -18,6 +18,7 @@ from .repository import (
     create_settlement,
     update_settlement,
     soft_delete_settlement,
+    restore_settlement,
 )
 from .validators import validate_expense_invoice, validate_items_allocation_readiness
 from modules.import_files.model import ImportFile
@@ -190,3 +191,9 @@ def list_settlements_service(
 def soft_delete_settlement_service(db: Session, settlement_id: int) -> bool:
     get_settlement_service(db, settlement_id)
     return soft_delete_settlement(db, settlement_id)
+
+def restore_settlement_service(db: Session, settlement_id: int) -> LandedCostSettlementRecord:
+    record = restore_settlement(db, settlement_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"سجل التسوية التكليفية رقم {settlement_id} غير موجود.")
+    return record

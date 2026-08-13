@@ -64,4 +64,13 @@ class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosur
       rethrow;
     }
   }
+
+  Future<void> restoreClosure(int closureId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/file-closure/$closureId/restore');
+      await fetchClosures();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

@@ -79,4 +79,13 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       rethrow;
     }
   }
+
+  Future<void> restoreSettlement(int settlementId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/financial-settlement/$settlementId/restore');
+      await fetchSettlements();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

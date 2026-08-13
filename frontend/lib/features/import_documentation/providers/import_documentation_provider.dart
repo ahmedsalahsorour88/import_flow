@@ -66,6 +66,15 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
       rethrow;
     }
   }
+
+  Future<void> restoreAcidSession(int acidId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId/restore');
+      await fetchAcidSessions();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 final bankingDocumentsProvider =

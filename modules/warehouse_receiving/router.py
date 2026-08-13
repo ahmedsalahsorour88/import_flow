@@ -16,6 +16,7 @@ from .service import (
     report_receiving_discrepancy_service,
     update_warehouse_receiving_service,
     soft_delete_warehouse_receiving_service,
+    restore_warehouse_receiving_service,
 )
 
 router = APIRouter(prefix="/api/v1/warehouse-receiving", tags=["Phase 8 - Warehouse Receiving"])
@@ -67,3 +68,10 @@ def soft_delete_warehouse_receiving(
 ):
     soft_delete_warehouse_receiving_service(db, record_id)
     return None
+
+@router.patch("/{record_id}/restore", response_model=WarehouseReceivingResponse)
+def restore_warehouse_receiving(
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    return restore_warehouse_receiving_service(db, record_id)

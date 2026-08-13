@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../external_service_providers/providers/partners_provider.dart';
 import '../models/customs_clearance_model.dart';
 import '../providers/customs_clearance_provider.dart';
 
@@ -17,6 +18,22 @@ class CustomsClearanceScreen extends ConsumerStatefulWidget {
 class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(customsClearanceProvider.notifier).fetchRecords();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(partnersProvider.notifier).fetchPartners();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showAddEditDialog([CustomsClearanceModel? recordToEdit]) {
     showDialog(
@@ -215,6 +232,18 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                         if (r.bankReceiptNo != null) Text('إيصال البنك: ${r.bankReceiptNo}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       ],
                                     ),
+                                    IconButton(
+                                      icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
+                                      tooltip: 'استعادة السجل',
+                                      onPressed: () async {
+                                        await ref.read(customsClearanceProvider.notifier).restoreRecord(r.customsClearanceId);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(content: Text('✅ تم استعادة سجل التخليص الجمركي ${r.clearanceCode} بنجاح'), backgroundColor: AppTheme.emerald),
+                                          );
+                                        }
+                                      },
+                                    ),
                                   ],
                                 ),
                               ),
@@ -243,6 +272,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                   ],
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                    tooltip: 'حذف لطفياً',
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
@@ -540,6 +570,9 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final partners = ref.watch(partnersProvider).value ?? [];
+    final banks = partners.where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('Financial')).toList();
+
     return AlertDialog(
       title: Text('توثيق سداد الرسوم الجمركية (${widget.record.clearanceCode})'),
       content: SizedBox(
@@ -557,10 +590,16 @@ class _DutyPaymentDialogState extends ConsumerState<_DutyPaymentDialog> {
                 validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال رقم الإيصال البنكي' : null,
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _bankCtrl,
-                decoration: const InputDecoration(labelText: 'اسم البنك المنفذ للسداد *', border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم البنك' : null,
+              SearchableDropdownField<String>(
+                value: banks.any((b) => b.partnerName == _bankCtrl.text) ? _bankCtrl.text : (banks.isNotEmpty ? banks.first.partnerName : _bankCtrl.text),
+                labelText: 'اسم البنك المنفذ للسداد *',
+                searchHintText: 'ابحث عن البنك المنفذ...',
+                items: banks.isNotEmpty
+                    ? banks.map((b) => SearchableDropdownItem<String>(value: b.partnerName, label: b.partnerName, subtitle: b.partnerType)).toList()
+                    : [SearchableDropdownItem<String>(value: _bankCtrl.text, label: _bankCtrl.text)],
+                onChanged: (val) {
+                  if (val != null) setState(() => _bankCtrl.text = val);
+                },
               ),
             ],
           ),

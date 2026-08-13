@@ -17,6 +17,7 @@ from modules.incoterms.model import Incoterm
 from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.purchase_orders.model import PurchaseOrder
+from modules.import_files.model import ImportFile
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,
@@ -163,3 +164,8 @@ class TestImportDocumentationBackend:
         success = repo.soft_delete_acid_session(db_session, acid_id)
         assert success is True
         assert repo.get_acid_session_by_id(db_session, acid_id) is None
+
+        # Restore
+        restored = service.restore_acid_session_service(db_session, acid_id)
+        assert restored.acid_id == acid_id
+        assert restored.is_active is True

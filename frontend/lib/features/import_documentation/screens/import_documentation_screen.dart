@@ -59,6 +59,13 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     _tabController = TabController(length: 4, vsync: this);
     Future.microtask(() {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+      ref.read(partnersProvider.notifier).fetchPartners();
+      ref.read(transportLocationsProvider.notifier).fetchLocations();
+      ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
+      ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments();
+      ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
     });
   }
 
@@ -228,6 +235,92 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     );
   }
 
+  void _showAcidDetailsDialog(BuildContext context, AcidRegistrationModel acid) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.qr_code, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'تفاصيل رقم الـ ACID: ${acid.acidCode}',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 550,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.verified, color: AppTheme.cobalt, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'رقم الـ ACID (منصة نافذة): ${acid.acidNumber}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.business, color: AppTheme.charcoal),
+                  title: Text('المستورد: ${acid.importerName}'),
+                  subtitle: Text('رقم التسجيل الضريبي: ${acid.importerTaxId}'),
+                ),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.public, color: AppTheme.charcoal),
+                  title: Text('المصدر الأجنبي: ${acid.exporterName} (${acid.exporterCountry})'),
+                  subtitle: Text('رقم السجل التجاري: ${acid.exporterRegId}'),
+                ),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.receipt_long, color: AppTheme.charcoal),
+                  title: Text('رقم الفاتورة المبدئية (PI): ${acid.proformaInvoiceNo}'),
+                  subtitle: Text('ميناء التحميل: ${acid.polName} | ميناء الوصول: ${acid.podName}'),
+                ),
+                ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.event, color: AppTheme.charcoal),
+                  title: Text('تاريخ الصلاحية: ${acid.expiryDate} (متبقي ${acid.daysToExpiry} يومًا)'),
+                  subtitle: Text('تاريخ الطلب: ${acid.requestedDate} | حالة المطابقة: ${acid.status}'),
+                ),
+                if (acid.verificationNotes != null && acid.verificationNotes!.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Text('ملاحظات وتدقيق: ${acid.verificationNotes}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final companiesState = ref.watch(importCompaniesProvider);
@@ -235,6 +328,8 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     final portsState = ref.watch(transportLocationsProvider);
     final partnersState = ref.watch(partnersProvider);
 
+    final acidSessionsState = ref.watch(acidSessionsProvider);
+    final bankingDocsState = ref.watch(bankingDocumentsProvider);
     final shipmentDocsState = ref.watch(shipmentDocumentsProvider);
 
     final companiesList = companiesState.value ?? [];
@@ -487,6 +582,124 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
+
+                  // ACID REGISTRY DATATABLE
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'سجل أرقام الـ ACID المعتمدة والمسجلة (ACID Registration Registry)',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          acidSessionsState.when(
+                            loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+                            error: (err, _) => Center(child: Text('❌ خطأ في تحميل السجل: $err')),
+                            data: (sessions) {
+                              if (sessions.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: Center(child: Text('لا توجد أرقام ACID مسجلة في السجل الحالي.')),
+                                );
+                              }
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
+                                  columns: const [
+                                    DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('كود ACID', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('رقم ACID نافذة (19 رقم)', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('المصدر الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('رقم الفاتورة PI', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('تاريخ الانتهاء', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('أيام الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('الحالة والمطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  ],
+                                  rows: sessions.map((sess) {
+                                    final isExpired = sess.daysToExpiry <= 0;
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              IconButton(
+                                                icon: const Icon(Icons.visibility, color: AppTheme.cobalt, size: 18),
+                                                tooltip: 'عرض التفاصيل',
+                                                onPressed: () => _showAcidDetailsDialog(context, sess),
+                                              ),
+                                              IconButton(
+                                                icon: Icon(
+                                                  sess.isActive ? Icons.delete_outline : Icons.restore,
+                                                  color: sess.isActive ? Colors.red : Colors.green,
+                                                  size: 18,
+                                                ),
+                                                tooltip: sess.isActive ? 'حذف' : 'استعادة',
+                                                onPressed: () async {
+                                                  if (sess.isActive) {
+                                                    await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(sess.acidId);
+                                                  } else {
+                                                    await ref.read(acidSessionsProvider.notifier).restoreAcidSession(sess.acidId);
+                                                  }
+                                                },
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        DataCell(Text(sess.acidCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                        DataCell(Text(sess.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        DataCell(Text(sess.importFileCode ?? (sess.importFileId != null ? 'File #${sess.importFileId}' : 'مستقل'))),
+                                        DataCell(Text(sess.importerName)),
+                                        DataCell(Text('${sess.exporterName} (${sess.exporterCountry})')),
+                                        DataCell(Text(sess.proformaInvoiceNo)),
+                                        DataCell(Text(sess.expiryDate)),
+                                        DataCell(
+                                          Chip(
+                                            label: Text(
+                                              isExpired ? 'منتهي' : '${sess.daysToExpiry} يومًا',
+                                              style: TextStyle(fontSize: 10, color: isExpired ? Colors.white : Colors.black87, fontWeight: FontWeight.bold),
+                                            ),
+                                            backgroundColor: isExpired ? Colors.red : Colors.amber.shade200,
+                                          ),
+                                        ),
+                                        DataCell(
+                                          Chip(
+                                            avatar: const Icon(Icons.check_circle, size: 14, color: Colors.white),
+                                            label: Text(sess.status, style: const TextStyle(fontSize: 10, color: Colors.white, fontWeight: FontWeight.bold)),
+                                            backgroundColor: AppTheme.emerald,
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -584,6 +797,72 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                               icon: const Icon(Icons.save, color: Colors.white),
                               label: const Text('تسجيل النموذج البنكي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // BANKING DOCUMENTS DATATABLE
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.account_balance, color: AppTheme.cobalt),
+                              SizedBox(width: 8),
+                              Text(
+                                'سجل المعاملات والنماذج البنكية المسجلة (Banking Documents & Form 4 Registry)',
+                                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          bankingDocsState.when(
+                            loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
+                            error: (err, _) => Center(child: Text('❌ خطأ في تحميل السجل البنكي: $err')),
+                            data: (bDocs) {
+                              if (bDocs.isEmpty) {
+                                return const Padding(
+                                  padding: EdgeInsets.all(20),
+                                  child: Center(child: Text('لا توجد نماذج بنكية مسجلة بالسجل.')),
+                                );
+                              }
+                              return SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
+                                  columns: const [
+                                    DataColumn(label: Text('كود السجل', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('نوع المعاملة', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('البنك المصري المعالج', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('رقم المرجع / نموذج 4', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('المبلغ المغطى', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('تاريخ الإصدار', style: TextStyle(fontWeight: FontWeight.bold))),
+                                    DataColumn(label: Text('الحالة البنكية', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  ],
+                                  rows: bDocs.map((doc) {
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(Text(doc.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                        DataCell(Chip(label: Text(doc.docType, style: const TextStyle(fontSize: 11)), backgroundColor: Colors.blue.shade50)),
+                                        DataCell(Text(doc.bankName)),
+                                        DataCell(Text(doc.docReferenceNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        DataCell(Text('${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                                        DataCell(Text(doc.issueDate)),
+                                        DataCell(_buildStatusBadge(doc.status)),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              );
+                            },
                           ),
                         ],
                       ),

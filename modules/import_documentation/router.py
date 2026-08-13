@@ -85,6 +85,11 @@ def soft_delete_acid_session(acid_id: int, db: Session = Depends(get_db)):
         )
 
 
+@router.patch("/acid-sessions/{acid_id}/restore", response_model=AcidRegistrationResponse)
+def restore_acid_session(acid_id: int, db: Session = Depends(get_db)):
+    return service.restore_acid_session_service(db, acid_id)
+
+
 # --- BANKING DOCUMENTS ENDPOINTS (BP-015) ---
 @router.post(
     "/banking-documents",

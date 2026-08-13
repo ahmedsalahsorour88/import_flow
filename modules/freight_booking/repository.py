@@ -116,3 +116,14 @@ def soft_delete_booking(db: Session, booking_id: int) -> bool:
     booking.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
+
+
+def restore_booking(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.booking_id == booking_id).first()
+    if not booking:
+        return None
+    booking.is_active = True
+    booking.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(booking)
+    return booking

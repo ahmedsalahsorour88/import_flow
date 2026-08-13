@@ -121,3 +121,13 @@ def soft_delete_settlement(db: Session, settlement_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+def restore_settlement(db: Session, settlement_id: int) -> Optional[LandedCostSettlementRecord]:
+    db_obj = get_settlement_by_id(db, settlement_id, include_inactive=True)
+    if not db_obj:
+        return None
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

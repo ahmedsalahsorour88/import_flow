@@ -16,6 +16,7 @@ from modules.freight_booking.service import (
     list_bookings_service,
     update_booking_service,
     soft_delete_booking_service,
+    restore_booking_service,
 )
 from modules.customs_tariff.model import CustomsTariff
 from modules.currencies.model import Currency
@@ -134,3 +135,9 @@ class TestFreightBookingBackend:
 
         fetched = get_booking_service(db_session, b_id)
         assert fetched is None
+
+        # Restore
+        restored = restore_booking_service(db_session, b_id)
+        assert restored is not None
+        assert restored.booking_id == b_id
+        assert restored.is_active is True

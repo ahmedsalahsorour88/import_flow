@@ -5,6 +5,16 @@ from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
 from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.incoterms.model import Incoterm
+from modules.projects.model import Project
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.cargo_shipping.model import CargoShippingRecord
 from modules.cargo_shipping.schemas import (
@@ -157,6 +167,22 @@ class TestCargoShippingModule(unittest.TestCase):
         self.assertEqual(record.cargox_exchange_data["envelope_status"], "Uploaded")
         self.assertIsNotNone(record.cargox_exchange_data["blockchain_tx_hash"])
         self.assertEqual(record.status, "CargoX Transfer Completed")
+
+    def test_soft_delete_and_restore(self):
+        schema = CargoShippingCreate(import_file_id=self.import_file_id)
+        record = create_cargo_shipping_service(self.db, schema)
+        rec_id = record.cargo_shipping_id
+
+        # Delete
+        success = soft_delete_cargo_shipping_service(self.db, rec_id)
+        self.assertTrue(success)
+
+        # Restore
+        from modules.cargo_shipping.service import restore_cargo_shipping_service
+        restored = restore_cargo_shipping_service(self.db, rec_id)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.cargo_shipping_id, rec_id)
+        self.assertTrue(restored.is_active)
 
 if __name__ == "__main__":
     unittest.main()

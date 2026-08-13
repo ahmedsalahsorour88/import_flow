@@ -13,6 +13,7 @@ from .repository import (
     create_closure,
     update_closure,
     soft_delete_closure,
+    restore_closure,
 )
 from .validators import validate_closure_checklist
 from modules.import_files.model import ImportFile
@@ -62,3 +63,9 @@ def update_closure_service(db: Session, closure_id: int, schema: FileClosureUpda
 def soft_delete_closure_service(db: Session, closure_id: int) -> bool:
     get_closure_service(db, closure_id)
     return soft_delete_closure(db, closure_id)
+
+def restore_closure_service(db: Session, closure_id: int) -> ImportFileClosureRecord:
+    record = restore_closure(db, closure_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"سجل أرشفة وإغلاق الملف رقم {closure_id} غير موجود.")
+    return record

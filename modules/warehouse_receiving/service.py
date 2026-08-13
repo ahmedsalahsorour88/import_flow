@@ -16,6 +16,7 @@ from .repository import (
     create_warehouse_receiving,
     update_warehouse_receiving,
     soft_delete_warehouse_receiving,
+    restore_warehouse_receiving,
 )
 from .validators import validate_seal_integrity, validate_discrepancy_claim
 from modules.import_files.model import ImportFile
@@ -79,3 +80,9 @@ def update_warehouse_receiving_service(db: Session, record_id: int, schema: Ware
 def soft_delete_warehouse_receiving_service(db: Session, record_id: int) -> bool:
     get_warehouse_receiving_service(db, record_id)
     return soft_delete_warehouse_receiving(db, record_id)
+
+def restore_warehouse_receiving_service(db: Session, record_id: int) -> WarehouseReceivingRecord:
+    record = restore_warehouse_receiving(db, record_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"سجل استلام المخزن رقم {record_id} غير موجود.")
+    return record

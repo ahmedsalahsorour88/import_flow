@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 
@@ -17,6 +18,22 @@ class CargoShippingScreen extends ConsumerStatefulWidget {
 class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(cargoShippingProvider.notifier).fetchRecords();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(freightBookingProvider.notifier).fetchBookings();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showAddEditDialog([CargoShippingModel? recordToEdit]) {
     showDialog(
@@ -229,10 +246,12 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                                     children: [
                                       IconButton(
                                         icon: const Icon(Icons.rate_review, color: AppTheme.cobalt, size: 18),
+                                        tooltip: 'تعديل والاعتماد الثنائي',
                                         onPressed: () => _showAddEditDialog(rec),
                                       ),
                                       IconButton(
                                         icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                        tooltip: 'حذف لطفياً',
                                         onPressed: () async {
                                           final confirm = await showDialog<bool>(
                                             context: context,
@@ -247,6 +266,18 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                                           );
                                           if (confirm == true) {
                                             await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
+                                          }
+                                        },
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald, size: 18),
+                                        tooltip: 'استعادة السجل',
+                                        onPressed: () async {
+                                          await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('✅ تم استعادة سجل الشحن ${rec.cargoShippingCode} بنجاح'), backgroundColor: AppTheme.emerald),
+                                            );
                                           }
                                         },
                                       ),

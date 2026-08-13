@@ -105,3 +105,13 @@ def soft_delete_closure(db: Session, closure_id: int) -> bool:
     db_obj.updated_at = datetime.utcnow()
     db.commit()
     return True
+
+def restore_closure(db: Session, closure_id: int) -> Optional[ImportFileClosureRecord]:
+    db_obj = get_closure_by_id(db, closure_id, include_inactive=True)
+    if not db_obj:
+        return None
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

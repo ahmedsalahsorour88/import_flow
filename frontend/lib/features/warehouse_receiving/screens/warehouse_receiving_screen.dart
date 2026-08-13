@@ -18,6 +18,21 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
 
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(warehouseReceivingProvider.notifier).fetchRecords();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   void _showAddEditDialog([WarehouseReceivingModel? recordToEdit]) {
     showDialog(
       context: context,
@@ -212,6 +227,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                   ],
                                   IconButton(
                                     icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                    tooltip: 'حذف لطفياً',
                                     onPressed: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
@@ -226,6 +242,18 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       );
                                       if (confirm == true) {
                                         ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
+                                      }
+                                    },
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
+                                    tooltip: 'استعادة السجل',
+                                    onPressed: () async {
+                                      await ref.read(warehouseReceivingProvider.notifier).restoreRecord(r.receivingId);
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('✅ تم استعادة محضر الاستلام ${r.grnCode} بنجاح'), backgroundColor: AppTheme.emerald),
+                                        );
                                       }
                                     },
                                   ),

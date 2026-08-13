@@ -119,4 +119,13 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
       rethrow;
     }
   }
+
+  Future<void> restoreRecord(int recordId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/cargo-shipping/$recordId/restore');
+      await fetchRecords();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

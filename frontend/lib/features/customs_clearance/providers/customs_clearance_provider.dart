@@ -94,4 +94,13 @@ class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClea
       rethrow;
     }
   }
+
+  Future<void> restoreRecord(int recordId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/customs-clearance/$recordId/restore');
+      await fetchRecords();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

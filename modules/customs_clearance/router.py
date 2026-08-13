@@ -18,6 +18,7 @@ from .service import (
     complete_customs_release_service,
     update_customs_clearance_service,
     soft_delete_customs_clearance_service,
+    restore_customs_clearance_service,
 )
 
 router = APIRouter(prefix="/api/v1/customs-clearance", tags=["Phase 7 - Customs Clearance"])
@@ -77,3 +78,10 @@ def soft_delete_customs_clearance(
 ):
     soft_delete_customs_clearance_service(db, record_id)
     return None
+
+@router.patch("/{record_id}/restore", response_model=CustomsClearanceResponse)
+def restore_customs_clearance(
+    record_id: int,
+    db: Session = Depends(get_db),
+):
+    return restore_customs_clearance_service(db, record_id)

@@ -136,6 +136,16 @@ def update_acid_session_service(
     return enrich_acid_response(db, updated)
 
 
+def restore_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationResponse:
+    item = repo.restore_acid_session(db, acid_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ACID Registration Session ID {acid_id} not found.",
+        )
+    return enrich_acid_response(db, item)
+
+
 # --- BANKING DOCUMENTS SERVICE ---
 def create_banking_document_service(
     db: Session, schema: BankingDocumentCreate

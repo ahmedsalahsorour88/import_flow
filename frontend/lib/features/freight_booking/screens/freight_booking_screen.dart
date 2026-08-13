@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../external_service_providers/providers/partners_provider.dart';
+import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/freight_booking_model.dart';
 import '../providers/freight_booking_provider.dart';
@@ -17,6 +19,23 @@ class FreightBookingScreen extends ConsumerStatefulWidget {
 class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatusFilter = 'All';
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(freightBookingProvider.notifier).fetchBookings();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(partnersProvider.notifier).fetchPartners();
+      ref.read(transportLocationsProvider.notifier).fetchLocations();
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _showAddEditBookingDialog([ShipmentBookingModel? bookingToEdit]) {
     showDialog(
@@ -367,6 +386,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final partners = ref.watch(partnersProvider).value ?? [];
+    final ports = ref.watch(transportLocationsProvider).value ?? [];
+
+    final shippingLines = partners.where((p) => p.partnerType.contains('Shipping Line') || p.partnerType.contains('Carrier') || p.partnerType.contains('Bank') || p.partnerType.contains('Freight')).toList();
+    final freightForwarders = partners.where((p) => p.partnerType.contains('Forwarder') || p.partnerType.contains('Logistics') || p.partnerType.contains('Freight')).toList();
 
     return DefaultTabController(
       length: 3,
@@ -434,18 +458,30 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    initialValue: _shippingLineName,
-                                    decoration: const InputDecoration(labelText: 'الخط الملاحي (Shipping Line) *', border: OutlineInputBorder()),
-                                    onChanged: (v) => _shippingLineName = v,
+                                  child: SearchableDropdownField<String>(
+                                    value: shippingLines.any((s) => s.partnerName == _shippingLineName) ? _shippingLineName : (shippingLines.isNotEmpty ? shippingLines.first.partnerName : _shippingLineName),
+                                    labelText: 'الخط الملاحي (Shipping Line) *',
+                                    searchHintText: 'ابحث عن الخط الملاحي...',
+                                    items: shippingLines.isNotEmpty
+                                        ? shippingLines.map((s) => SearchableDropdownItem<String>(value: s.partnerName, label: s.partnerName, subtitle: s.partnerType)).toList()
+                                        : [SearchableDropdownItem<String>(value: _shippingLineName, label: _shippingLineName)],
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _shippingLineName = val);
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: TextFormField(
-                                    initialValue: _freightForwarderName,
-                                    decoration: const InputDecoration(labelText: 'وكيل الشحن (Freight Forwarder)', border: OutlineInputBorder()),
-                                    onChanged: (v) => _freightForwarderName = v,
+                                  child: SearchableDropdownField<String>(
+                                    value: freightForwarders.any((f) => f.partnerName == _freightForwarderName) ? _freightForwarderName : (freightForwarders.isNotEmpty ? freightForwarders.first.partnerName : _freightForwarderName),
+                                    labelText: 'وكيل الشحن (Freight Forwarder)',
+                                    searchHintText: 'ابحث عن وكيل الشحن...',
+                                    items: freightForwarders.isNotEmpty
+                                        ? freightForwarders.map((f) => SearchableDropdownItem<String>(value: f.partnerName, label: f.partnerName, subtitle: f.partnerType)).toList()
+                                        : [SearchableDropdownItem<String>(value: _freightForwarderName, label: _freightForwarderName)],
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _freightForwarderName = val);
+                                    },
                                   ),
                                 ),
                               ],
@@ -454,16 +490,30 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    controller: _polController,
-                                    decoration: const InputDecoration(labelText: 'ميناء التحميل (POL) *', border: OutlineInputBorder()),
+                                  child: SearchableDropdownField<String>(
+                                    value: ports.any((p) => p.locationName == _polController.text) ? _polController.text : (ports.isNotEmpty ? ports.first.locationName : _polController.text),
+                                    labelText: 'ميناء التحميل (POL) *',
+                                    searchHintText: 'ابحث عن ميناء التحميل...',
+                                    items: ports.isNotEmpty
+                                        ? ports.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName, subtitle: p.locationType)).toList()
+                                        : [SearchableDropdownItem<String>(value: _polController.text, label: _polController.text)],
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _polController.text = val);
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: TextFormField(
-                                    controller: _podController,
-                                    decoration: const InputDecoration(labelText: 'ميناء الوصول (POD) *', border: OutlineInputBorder()),
+                                  child: SearchableDropdownField<String>(
+                                    value: ports.any((p) => p.locationName == _podController.text) ? _podController.text : (ports.length > 1 ? ports[1].locationName : _podController.text),
+                                    labelText: 'ميناء الوصول (POD) *',
+                                    searchHintText: 'ابحث عن ميناء الوصول...',
+                                    items: ports.isNotEmpty
+                                        ? ports.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName, subtitle: p.locationType)).toList()
+                                        : [SearchableDropdownItem<String>(value: _podController.text, label: _podController.text)],
+                                    onChanged: (val) {
+                                      if (val != null) setState(() => _podController.text = val);
+                                    },
                                   ),
                                 ),
                               ],

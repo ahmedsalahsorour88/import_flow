@@ -88,3 +88,12 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
 
 def soft_delete_booking_service(db: Session, booking_id: int) -> bool:
     return repo.soft_delete_booking(db, booking_id)
+
+
+def restore_booking_service(db: Session, booking_id: int) -> Optional[ShipmentBooking]:
+    booking = repo.restore_booking(db, booking_id)
+    if booking:
+        calculate_transit_time_and_costs(booking)
+        db.commit()
+        db.refresh(booking)
+    return booking

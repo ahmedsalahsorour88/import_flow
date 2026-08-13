@@ -5,6 +5,16 @@ from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
 from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.incoterms.model import Incoterm
+from modules.projects.model import Project
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.financial_settlement.model import LandedCostSettlementRecord
 from modules.financial_settlement.schemas import (
@@ -19,6 +29,8 @@ from modules.financial_settlement.service import (
     get_settlement_service,
     list_settlements_service,
     calculate_landed_cost_engine,
+    soft_delete_settlement_service,
+    restore_settlement_service,
 )
 
 class TestFinancialSettlementModule(unittest.TestCase):
@@ -121,6 +133,21 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(record.total_expenses_egp, 10000.0)
         self.assertEqual(record.total_landed_cost_egp, 110000.0)
         self.assertEqual(record.average_markup_factor, 1.1)
+
+    def test_soft_delete_and_restore(self):
+        schema = FinancialSettlementCreate(import_file_id=self.import_file_id)
+        record = create_settlement_service(self.db, schema)
+        s_id = record.settlement_id
+
+        # Delete
+        success = soft_delete_settlement_service(self.db, s_id)
+        self.assertTrue(success)
+
+        # Restore
+        restored = restore_settlement_service(self.db, s_id)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.settlement_id, s_id)
+        self.assertTrue(restored.is_active)
 
 if __name__ == "__main__":
     unittest.main()

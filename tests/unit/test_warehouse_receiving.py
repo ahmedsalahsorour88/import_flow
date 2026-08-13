@@ -5,6 +5,16 @@ from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
 from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.incoterms.model import Incoterm
+from modules.projects.model import Project
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.warehouse_receiving.model import WarehouseReceivingRecord
 from modules.warehouse_receiving.schemas import (
@@ -19,6 +29,7 @@ from modules.warehouse_receiving.service import (
     list_warehouse_receivings_service,
     report_receiving_discrepancy_service,
     soft_delete_warehouse_receiving_service,
+    restore_warehouse_receiving_service,
 )
 from modules.warehouse_receiving.validators import validate_seal_integrity, validate_discrepancy_claim
 from fastapi import HTTPException
@@ -101,6 +112,21 @@ class TestWarehouseReceivingModule(unittest.TestCase):
         self.assertTrue(record.insurance_claim_filed)
         self.assertEqual(record.insurance_claim_ref, "CLAIM-INS-99001")
         self.assertEqual(record.status, "Discrepancy Reported")
+
+    def test_soft_delete_and_restore(self):
+        schema = WarehouseReceivingCreate(import_file_id=self.import_file_id)
+        record = create_warehouse_receiving_service(self.db, schema)
+        rec_id = record.receiving_id
+
+        # Delete
+        success = soft_delete_warehouse_receiving_service(self.db, rec_id)
+        self.assertTrue(success)
+
+        # Restore
+        restored = restore_warehouse_receiving_service(self.db, rec_id)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.receiving_id, rec_id)
+        self.assertTrue(restored.is_active)
 
 if __name__ == "__main__":
     unittest.main()

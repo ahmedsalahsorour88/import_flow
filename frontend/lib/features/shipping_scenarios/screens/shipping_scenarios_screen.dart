@@ -1651,135 +1651,570 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   }
 
   Widget _buildHistoryRegistryTab(ShippingScenariosState state, List poList, List projectsList) {
+    final totalSessions = state.sessions.length;
+    final activeSessions = state.sessions.where((s) => s.isActive).length;
+    final avgTransitAll = totalSessions > 0
+        ? state.sessions.fold<double>(0, (sum, s) => sum + s.avgExpectedTransitDays) / totalSessions
+        : 0.0;
+    final withRecommendation = state.sessions.where((s) => s.recommendedScenarioProvider != null && s.recommendedScenarioProvider!.isNotEmpty).length;
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Search & Filter Header
+        // ─── Top Summary Cards ───────────────────────────────────────────────
         Container(
-          padding: const EdgeInsets.all(16),
-          color: Colors.white,
+          color: AppTheme.charcoal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: const InputDecoration(
-                    labelText: 'Search Study Code, Title, or Notes',
-                    prefixIcon: Icon(Icons.search),
-                    isDense: true,
-                  ),
-                  onChanged: (v) => ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim()),
-                ),
+              _histStatCard(
+                icon: Icons.folder_copy_rounded,
+                label: 'إجمالي الدراسات',
+                value: '$totalSessions',
+                color: AppTheme.cobalt,
               ),
-              const SizedBox(width: 12),
-              FilterChip(
-                label: const Text('Show Inactive'),
-                selected: state.showInactive,
-                onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
+              const SizedBox(width: 10),
+              _histStatCard(
+                icon: Icons.check_circle_rounded,
+                label: 'نشطة',
+                value: '$activeSessions',
+                color: AppTheme.emerald,
+              ),
+              const SizedBox(width: 10),
+              _histStatCard(
+                icon: Icons.schedule_rounded,
+                label: 'متوسط ترانزيت',
+                value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} يوم' : '-',
+                color: Colors.purple.shade300,
+              ),
+              const SizedBox(width: 10),
+              _histStatCard(
+                icon: Icons.recommend_rounded,
+                label: 'مع توصية',
+                value: '$withRecommendation',
+                color: Colors.orange.shade300,
+              ),
+              const Spacer(),
+              // Force Refresh button
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white38),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('تحديث السجل', style: TextStyle(fontSize: 13)),
+                onPressed: () => ref.read(shippingScenariosProvider.notifier).fetchSessions(),
               ),
             ],
           ),
         ),
 
-        // Data Table View
+        // ─── Search & Filter Bar ─────────────────────────────────────────────
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'ابحث بكود الدراسة، العنوان، أو الملاحظات...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
+                    suffixIcon: _searchController.text.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () {
+                              _searchController.clear();
+                              ref.read(shippingScenariosProvider.notifier).setSearchQuery('');
+                            },
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: Colors.grey.shade300)),
+                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: AppTheme.cobalt, width: 1.5)),
+                    isDense: true,
+                  ),
+                  onChanged: (v) => setState(() {
+                    ref.read(shippingScenariosProvider.notifier).setSearchQuery(v.trim());
+                  }),
+                ),
+              ),
+              const SizedBox(width: 16),
+              Row(
+                children: [
+                  const Icon(Icons.filter_alt_outlined, size: 18, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  FilterChip(
+                    avatar: Icon(
+                      state.showInactive ? Icons.visibility_off : Icons.visibility,
+                      size: 16,
+                      color: state.showInactive ? AppTheme.crimson : Colors.grey,
+                    ),
+                    label: Text(
+                      state.showInactive ? 'إظهار الملغية' : 'إخفاء الملغية',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: state.showInactive ? AppTheme.crimson : Colors.grey.shade700,
+                        fontWeight: state.showInactive ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    selected: state.showInactive,
+                    selectedColor: AppTheme.crimson.withOpacity(0.12),
+                    checkmarkColor: AppTheme.crimson,
+                    onSelected: (val) => ref.read(shippingScenariosProvider.notifier).toggleShowInactive(val),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 8),
+              // Sessions count chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  '${state.sessions.length} نتيجة',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // ─── Data Table ──────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(color: AppTheme.cobalt),
+                      SizedBox(height: 16),
+                      Text('جارٍ تحميل سجل الدراسات...', style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                )
               : state.sessions.isEmpty
-                  ? const Center(child: Text('No shipping evaluation studies found.'))
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.folder_open_rounded, size: 64, color: Colors.grey.shade300),
+                          const SizedBox(height: 16),
+                          Text(
+                            _searchController.text.isNotEmpty
+                                ? 'لا توجد نتائج مطابقة للبحث'
+                                : 'لا توجد دراسات محفوظة بعد',
+                            style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'قم بإنشاء دراسة جديدة من تبويب "Shipping Scenarios Evaluator"',
+                            style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
+                          ),
+                        ],
+                      ),
+                    )
                   : SingleChildScrollView(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                       child: Card(
+                        elevation: 2,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        clipBehavior: Clip.antiAlias,
                         child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: DataTable(
+                            headingRowHeight: 48,
+                            dataRowMinHeight: 52,
+                            dataRowMaxHeight: 60,
+                            horizontalMargin: 16,
+                            columnSpacing: 20,
+                            dividerThickness: 0.5,
                             headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
-                            headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                             columns: const [
-                              DataColumn(label: Text('Study Code')),
-                              DataColumn(label: Text('Import File')),
-                              DataColumn(label: Text('Title / Description')),
-                              DataColumn(label: Text('Avg Transit')),
-                              DataColumn(label: Text('Avg WH Arrival')),
-                              DataColumn(label: Text('Recommended Carrier')),
-                              DataColumn(label: Text('Actions')),
-                              DataColumn(label: Text('Options Count')),
-                              DataColumn(label: Text('Linked PO / Project')),
-                              DataColumn(label: Text('CRD Date')),
-                              DataColumn(label: Text('Pick-up Address')),
+                            headingTextStyle: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              letterSpacing: 0.3,
+                            ),
+                            columns: const [
+                              DataColumn(label: SizedBox(
+                                width: 168,
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                    SizedBox(width: 4),
+                                    Text('العمليات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  ],
+                                ),
+                              )),
+                              DataColumn(label: Text('📋 كود الدراسة')),
+                              DataColumn(label: Text('📁 ملف الاستيراد')),
+                              DataColumn(label: Text('📝 العنوان')),
+                              DataColumn(label: Text('⏱️ متوسط الترانزيت')),
+                              DataColumn(label: Text('🏭 موعد الوصول')),
+                              DataColumn(label: Text('⭐ الخط الموصى به')),
+                              DataColumn(label: Text('🔢 الخيارات')),
+                              DataColumn(label: Text('🔗 أمر الشراء')),
+                              DataColumn(label: Text('📅 CRD')),
+                              DataColumn(label: Text('📍 الاستلام')),
                             ],
-                            rows: state.sessions.map((sess) {
+                            rows: state.sessions.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final sess = entry.value;
+                              final isEven = idx.isEven;
+                              final rowColor = !sess.isActive
+                                  ? Colors.red.shade50
+                                  : isEven
+                                      ? Colors.white
+                                      : Colors.grey.shade50;
+
                               return DataRow(
+                                color: WidgetStateProperty.all(rowColor),
                                 onSelectChanged: (_) => _showSessionDetailsDialog(context, sess),
                                 cells: [
+                                  // ⚡ 1. ACTIONS — أول عمود دائماً مرئي
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white,
+                                        borderRadius: BorderRadius.circular(8),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withOpacity(0.06),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ],
+                                        border: Border.all(color: Colors.grey.shade200),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          // 👁️ عرض
+                                          Tooltip(
+                                            message: 'عرض التقييم',
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(6),
+                                              onTap: () => _showSessionDetailsDialog(context, sess),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.cobalt.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Icon(Icons.visibility_rounded, color: AppTheme.cobalt, size: 17),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          // ✏️ تعديل
+                                          Tooltip(
+                                            message: 'تعديل الدراسة',
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(6),
+                                              onTap: () => _loadSessionForEditing(sess),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.orange.withOpacity(0.1),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: const Icon(Icons.edit_rounded, color: Colors.orange, size: 17),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          // 🖨️ طباعة
+                                          Tooltip(
+                                            message: 'طباعة التقرير',
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(6),
+                                              onTap: () => _showPrintReportDialog(context, sess),
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.grey.shade100,
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Icon(Icons.print_rounded, color: Colors.grey.shade700, size: 17),
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          // 🗑️/♻️ حذف أو استعادة
+                                          Tooltip(
+                                            message: sess.isActive ? 'حذف الدراسة' : 'استعادة الدراسة',
+                                            child: InkWell(
+                                              borderRadius: BorderRadius.circular(6),
+                                              onTap: () async {
+                                                if (sess.isActive) {
+                                                  final confirm = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (ctx) => AlertDialog(
+                                                      title: const Row(
+                                                        children: [
+                                                          Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                          SizedBox(width: 8),
+                                                          Text('تأكيد الحذف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                        ],
+                                                      ),
+                                                      content: Text(
+                                                        'هل أنت متأكد من حذف الدراسة "${sess.sessionCode}"؟\nيمكن استعادتها لاحقاً من قائمة "إظهار الملغية".',
+                                                        style: const TextStyle(fontSize: 13),
+                                                      ),
+                                                      actions: [
+                                                        TextButton(
+                                                          onPressed: () => Navigator.pop(ctx, false),
+                                                          child: const Text('إلغاء'),
+                                                        ),
+                                                        ElevatedButton.icon(
+                                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+                                                          icon: const Icon(Icons.delete_rounded, size: 16),
+                                                          label: const Text('حذف'),
+                                                          onPressed: () => Navigator.pop(ctx, true),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                  if (confirm == true) {
+                                                    await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
+                                                  }
+                                                } else {
+                                                  await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
+                                                }
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: sess.isActive
+                                                      ? AppTheme.crimson.withOpacity(0.08)
+                                                      : AppTheme.emerald.withOpacity(0.08),
+                                                  borderRadius: BorderRadius.circular(6),
+                                                ),
+                                                child: Icon(
+                                                  sess.isActive ? Icons.delete_rounded : Icons.restore_rounded,
+                                                  color: sess.isActive ? AppTheme.crimson : AppTheme.emerald,
+                                                  size: 17,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 2. Study Code
                                   DataCell(
                                     InkWell(
                                       onTap: () => _showSessionDetailsDialog(context, sess),
-                                      child: Text(sess.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, decoration: TextDecoration.underline)),
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                        ),
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (!sess.isActive)
+                                              const Padding(
+                                                padding: EdgeInsets.only(right: 4),
+                                                child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                              ),
+                                            Text(
+                                              sess.sessionCode,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: sess.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                                fontSize: 12,
+                                                decoration: sess.isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
                                     ),
                                   ),
+
+                                  // 3. Import File
                                   DataCell(
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                        color: AppTheme.charcoal.withOpacity(0.07),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
-                                        sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '-'),
+                                        sess.importFileCode ?? (sess.importFileId != null ? 'IMP-${sess.importFileId}' : '—'),
                                         style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
                                       ),
                                     ),
                                   ),
-                                  DataCell(Text(sess.title ?? 'Shipping Transit Study', overflow: TextOverflow.ellipsis)),
-                                  DataCell(Text('${sess.avgExpectedTransitDays.toStringAsFixed(1)} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
-                                  DataCell(Text(sess.avgExpectedWarehouseArrivalDate ?? '-', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+
+                                  // 4. Title
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                      decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(6)),
-                                      child: Text(sess.recommendedScenarioProvider ?? '-', style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    SizedBox(
+                                      width: 180,
+                                      child: Text(
+                                        sess.title ?? 'Shipping Transit Study',
+                                        overflow: TextOverflow.ellipsis,
+                                        maxLines: 2,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ),
+
+                                  // 5. Avg Transit
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.purple.shade50,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        '${sess.avgExpectedTransitDays.toStringAsFixed(1)} يوم',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.purple.shade700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 6. Avg WH Arrival
                                   DataCell(
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.visibility, color: AppTheme.cobalt, size: 18),
-                                          tooltip: 'عرض التقييم',
-                                          onPressed: () => _showSessionDetailsDialog(context, sess),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.edit, color: Colors.orange, size: 18),
-                                          tooltip: 'تعديل التقييم',
-                                          onPressed: () => _loadSessionForEditing(sess),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.print, color: AppTheme.charcoal, size: 18),
-                                          tooltip: 'طباعة التقرير',
-                                          onPressed: () => _showPrintReportDialog(context, sess),
-                                        ),
-                                        IconButton(
-                                          icon: Icon(sess.isActive ? Icons.delete : Icons.restore,
-                                            color: sess.isActive ? AppTheme.crimson : Colors.green,
-                                            size: 18,
+                                        Icon(Icons.warehouse_rounded, size: 14, color: AppTheme.emerald.withOpacity(0.7)),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          sess.avgExpectedWarehouseArrivalDate ?? '—',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.emerald,
+                                            fontSize: 12,
                                           ),
-                                          tooltip: sess.isActive ? 'إلغاء التفعيل' : 'استعادة التفعيل',
-                                          onPressed: () async {
-                                            if (sess.isActive) {
-                                              await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
-                                            } else {
-                                              await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
-                                            }
-                                          },
                                         ),
                                       ],
                                     ),
                                   ),
-                                  DataCell(Text('${sess.items.length} options')),
-                                  DataCell(Text(sess.poNumber != null ? 'PO: ${sess.poNumber}' : sess.projectName != null ? 'PRJ: ${sess.projectName}' : 'Standalone', style: TextStyle(color: sess.poNumber != null ? AppTheme.emerald : Colors.grey, fontSize: 11))),
-                                  DataCell(Text(sess.cargoReadyDate)),
-                                  DataCell(Text(sess.pickUpAddress ?? '-', style: const TextStyle(fontSize: 11))),
+
+                                  // 7. Recommended Carrier
+                                  DataCell(
+                                    sess.recommendedScenarioProvider != null && sess.recommendedScenarioProvider!.isNotEmpty
+                                        ? Container(
+                                            constraints: const BoxConstraints(maxWidth: 150),
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                colors: [Colors.blue.shade600, Colors.blue.shade400],
+                                              ),
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Icon(Icons.star_rounded, size: 12, color: Colors.amber),
+                                                const SizedBox(width: 4),
+                                                Flexible(
+                                                  child: Text(
+                                                    sess.recommendedScenarioProvider!,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        : Text('—', style: TextStyle(color: Colors.grey.shade400)),
+                                  ),
+
+                                  // 8. Options Count
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blueGrey.shade50,
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Text(
+                                        '${sess.items.length} خيار',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.blueGrey.shade700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+
+                                  // 9. Linked PO / Project
+                                  DataCell(
+                                    sess.poNumber != null
+                                        ? Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const Icon(Icons.receipt_long_rounded, size: 13, color: AppTheme.emerald),
+                                              const SizedBox(width: 4),
+                                              Text('PO: ${sess.poNumber}', style: const TextStyle(color: AppTheme.emerald, fontSize: 11, fontWeight: FontWeight.w600)),
+                                            ],
+                                          )
+                                        : sess.projectName != null
+                                            ? Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Icon(Icons.folder_special_rounded, size: 13, color: Colors.orange.shade600),
+                                                  const SizedBox(width: 4),
+                                                  Text('PRJ: ${sess.projectName}', style: TextStyle(color: Colors.orange.shade700, fontSize: 11, fontWeight: FontWeight.w600)),
+                                                ],
+                                              )
+                                            : Text('مستقل', style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+                                  ),
+
+                                  // 10. CRD Date
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.event_rounded, size: 13, color: Colors.grey.shade500),
+                                        const SizedBox(width: 4),
+                                        Text(sess.cargoReadyDate, style: const TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+
+                                  // 11. Pick-up Address
+                                  DataCell(
+                                    SizedBox(
+                                      width: 140,
+                                      child: Text(
+                                        sess.pickUpAddress ?? '—',
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                                      ),
+                                    ),
+                                  ),
                                 ],
                               );
                             }).toList(),
@@ -1789,6 +2224,38 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                     ),
         ),
       ],
+    );
+  }
+
+  /// بطاقة إحصائية صغيرة في شريط الـ History
+  Widget _histStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

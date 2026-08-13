@@ -76,3 +76,15 @@ def delete_booking(booking_id: int, db: Session = Depends(get_db)):
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shipment booking not found")
     return None
+
+
+@router.patch(
+    "/{booking_id}/restore",
+    response_model=ShipmentBookingResponse,
+    summary="Restore a soft-deleted shipment booking",
+)
+def restore_booking(booking_id: int, db: Session = Depends(get_db)):
+    restored = service.restore_booking_service(db, booking_id)
+    if not restored:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Shipment booking not found")
+    return restored

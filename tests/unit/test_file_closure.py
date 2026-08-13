@@ -6,6 +6,16 @@ from fastapi import HTTPException
 
 from database.database import Base
 from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.incoterms.model import Incoterm
+from modules.projects.model import Project
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.transport_locations.model import TransportLocation
+from modules.freight_quotations.model import FreightRFQRequest
+from modules.purchase_orders.model import PurchaseOrder
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
 from modules.file_closure.model import ImportFileClosureRecord
 from modules.file_closure.schemas import (
@@ -17,6 +27,8 @@ from modules.file_closure.service import (
     close_import_file_service,
     get_closure_service,
     list_closures_service,
+    soft_delete_closure_service,
+    restore_closure_service,
 )
 
 class TestFileClosureModule(unittest.TestCase):
@@ -102,6 +114,30 @@ class TestFileClosureModule(unittest.TestCase):
         self.assertEqual(imp_file.status, "Closed")
         self.assertEqual(imp_file.progress_percent, 100.0)
         self.assertEqual(imp_file.current_module, "Phase 10 - Import File Closure & Historical Archive")
+
+    def test_soft_delete_and_restore(self):
+        schema = FileClosureCreate(
+            import_file_id=self.import_file_id,
+            closure_checklist=ClosureChecklistSchema(
+                docs_verified=True,
+                customs_cleared=True,
+                warehouse_received=True,
+                landed_cost_settled=True,
+                tasks_closed=True,
+            ),
+        )
+        record = close_import_file_service(self.db, schema)
+        c_id = record.closure_id
+
+        # Delete
+        success = soft_delete_closure_service(self.db, c_id)
+        self.assertTrue(success)
+
+        # Restore
+        restored = restore_closure_service(self.db, c_id)
+        self.assertIsNotNone(restored)
+        self.assertEqual(restored.closure_id, c_id)
+        self.assertTrue(restored.is_active)
 
 if __name__ == "__main__":
     unittest.main()

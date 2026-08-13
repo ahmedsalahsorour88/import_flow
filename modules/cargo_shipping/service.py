@@ -18,6 +18,7 @@ from .repository import (
     create_cargo_shipping,
     update_cargo_shipping,
     soft_delete_cargo_shipping,
+    restore_cargo_shipping,
 )
 from .validators import (
     validate_crd_against_cutoff,
@@ -187,3 +188,12 @@ def update_cargo_shipping_service(db: Session, record_id: int, schema: CargoShip
 def soft_delete_cargo_shipping_service(db: Session, record_id: int) -> bool:
     get_cargo_shipping_service(db, record_id)
     return soft_delete_cargo_shipping(db, record_id)
+
+def restore_cargo_shipping_service(db: Session, record_id: int) -> CargoShippingRecord:
+    record = restore_cargo_shipping(db, record_id)
+    if not record:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Cargo Shipping Record with ID {record_id} not found."
+        )
+    return record

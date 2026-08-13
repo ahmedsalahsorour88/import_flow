@@ -15,6 +15,7 @@ from .service import (
     get_settlement_service,
     list_settlements_service,
     soft_delete_settlement_service,
+    restore_settlement_service,
 )
 
 router = APIRouter(prefix="/api/v1/financial-settlement", tags=["Phase 9 - Financial Settlement & Landed Cost"])
@@ -65,3 +66,10 @@ def soft_delete_settlement(
 ):
     soft_delete_settlement_service(db, settlement_id)
     return None
+
+@router.patch("/{settlement_id}/restore", response_model=FinancialSettlementResponse)
+def restore_settlement(
+    settlement_id: int,
+    db: Session = Depends(get_db),
+):
+    return restore_settlement_service(db, settlement_id)

@@ -66,3 +66,7 @@ def advance_cargox_stage(record_id: int, target_stage: str = Query(...), db: Ses
 def soft_delete_cargo_shipping(record_id: int, db: Session = Depends(get_db)):
     soft_delete_cargo_shipping_service(db, record_id)
     return None
+
+@router.patch("/{record_id}/restore", response_model=CargoShippingResponse)
+def restore_cargo_shipping(record_id: int, db: Session = Depends(get_db)):
+    return restore_cargo_shipping_service(db, record_id)

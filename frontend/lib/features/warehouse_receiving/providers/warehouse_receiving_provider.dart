@@ -80,4 +80,13 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
       rethrow;
     }
   }
+
+  Future<void> restoreRecord(int recordId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/warehouse-receiving/$recordId/restore');
+      await fetchRecords();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

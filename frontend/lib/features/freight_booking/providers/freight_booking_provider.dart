@@ -80,4 +80,13 @@ class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBooki
       rethrow;
     }
   }
+
+  Future<void> restoreBooking(int bookingId) async {
+    try {
+      await _dio.patch('${ApiConstants.baseUrl}/freight-booking/$bookingId/restore');
+      await fetchBookings();
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

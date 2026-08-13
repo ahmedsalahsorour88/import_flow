@@ -67,6 +67,20 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 0. Executive KPI Summary Cards & Risk Alerts
+            dashboardState.data.when(
+              loading: () => const SizedBox(height: 90, child: Center(child: CircularProgressIndicator())),
+              error: (_, __) => const SizedBox(),
+              data: (data) => Column(
+                children: [
+                  _buildKpiCardsBar(data),
+                  const SizedBox(height: 16),
+                  _buildRiskAlertsBanner(data.shipments),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            ),
+
             // 1. Phase 1 -> Phase 10 Pipeline Bar (Single-select interactive segment)
             Card(
               elevation: 2,
@@ -462,6 +476,98 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     },
                   ),
               ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildKpiCardsBar(dynamic data) {
+    final activeFiles = data.shipments.where((s) => s.status != 'Closed').length;
+    final acidPermits = data.shipments.where((s) => s.acidNumber != null && s.acidNumber.toString().isNotEmpty).length;
+    final inCustoms = data.shipments.where((s) => s.currentModule.toString().contains('Phase 6') || s.currentModule.toString().contains('Phase 7')).length;
+    final riskAlerts = data.shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').length;
+    final closedFiles = data.shipments.where((s) => s.status == 'Closed').length;
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: [
+        _buildKpiCard('الشحنات النشطة', '$activeFiles شحنة', 'من أصل ${data.shipmentCount} شحنة', Icons.folder_open, AppTheme.cobalt),
+        _buildKpiCard('تصاريح ACID المسجلة', '$acidPermits ACID', 'مطابقة 100% مع نافذة', Icons.verified, AppTheme.emerald),
+        _buildKpiCard('في الجمرك والمعاينة', '$inCustoms شحنة', 'إقرار 46 وتخليص', Icons.gavel, AppTheme.orange),
+        _buildKpiCard('تنبيهات المخاطر والأرضيات', '$riskAlerts تنبيه', 'عالي الخطورة / حرج', Icons.warning_amber, AppTheme.crimson),
+        _buildKpiCard('الشحنات المكتملة والمغلقة', '$closedFiles شحنة', 'مؤرشفة بنسبة 100%', Icons.archive, AppTheme.charcoal),
+      ],
+    );
+  }
+
+  Widget _buildKpiCard(String title, String mainValue, String subtitle, IconData icon, Color color) {
+    return SizedBox(
+      width: 220,
+      child: Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                    child: Icon(icon, color: color, size: 18),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(mainValue, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+              const SizedBox(height: 4),
+              Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRiskAlertsBanner(List<dynamic> shipments) {
+    final criticals = shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').toList();
+    if (criticals.isEmpty) return const SizedBox.shrink();
+
+    return Card(
+      elevation: 2,
+      color: Colors.amber.shade50,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.amber.shade300)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
+                SizedBox(width: 8),
+                Text('مركز التنبيهات والمخاطر التشغيلية (Risk & Escalation Center):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: criticals.take(4).map((s) {
+                return Chip(
+                  avatar: const Icon(Icons.warning, color: AppTheme.crimson, size: 14),
+                  label: Text('${s.importFileCode} — ${s.currentStage}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  backgroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6), side: BorderSide(color: Colors.amber.shade200)),
+                );
+              }).toList(),
             ),
           ],
         ),

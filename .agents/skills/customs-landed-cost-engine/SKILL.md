@@ -57,6 +57,9 @@ Landed Cost = Purchase Cost (FOB/CIF)
 ## Key Principles
 1. **HS Code is King**: All rates and applicable fees are determined by the HS Code from the Tariff Schedule (MD-008).
 2. **Cost Breakdown Integrity**: System MUST preserve each cost component line item, not just store a single aggregated total.
-3. **Dynamic Tax Rules**: Never hardcode rates. Fetch active rates from HS Code tariff table with effective date range (`effective_from`, `effective_to`).
-4. **Currency Conversion**: Apply the official customs exchange rate valid at the declaration date.
-5. **Not All Items Apply**: Some HS Codes have Schedule Tax, others don't. Some have Development Fee, others don't. The system must handle optional charge items.
+3. **Dynamic Tax Rules & Effective-Dated Versioning**: Never hardcode rates. Fetch active rates from HS Code tariff table with effective date range (`effective_from`, `effective_to`). When updating tariff rules or preferential agreements, preserve historical versions without deletion to protect past confirmed calculation snapshots.
+4. **Smart Nafeza Tariff Parser**: Extract HS Code, item description, base duty rates, VAT %, and trade agreement publication notices (e.g. `ر6722` Serbia 10%, `ر6668` UK 100%, `ر6706` Mercosur 3%, `ر6631` EFTA 100%, `ر6607/ر6617` Turkey 100%/50%, `ر6663` EU Partnership 100%) directly from raw Nafeza block text.
+5. **Real-Time Color-Coded Diff Analysis**: Compare new tariff data blocks against existing DB versions, rendering color-coded badges for Added (`#27AE60` green), Removed (`#C0392B` red), and Modified (`#E67E22` orange) rules and publication notices.
+6. **Origin Country & Document Verification**: Check origin country ISO code against active agreements on calculation date. Verify certificate of origin (`EUR.1` / Mercosur Certificate). Fall back to base duty rate with explicit document warnings if certificate is missing.
+7. **Currency Conversion**: Apply the official customs exchange rate valid at the declaration date.
+8. **Not All Items Apply**: Some HS Codes have Schedule Tax, others don't. Some have Development Fee, others don't. The system must handle optional charge items.

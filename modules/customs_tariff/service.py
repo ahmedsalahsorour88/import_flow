@@ -181,7 +181,7 @@ def estimate_customs_duty_service(
     conditions_note = None
     if request.origin_country:
         origin_clean = request.origin_country.upper()
-        db_agreements = repository.get_agreements_by_hs_code(db, request.hs_code, origin_clean)
+        db_agreements = repository.get_agreements_by_hs_code(db, request.hs_code, origin_clean, on_date=on_date)
         if db_agreements:
             ag_db = db_agreements[0]
             trade_agreement_name = ag_db.agreement_name
@@ -558,6 +558,19 @@ def estimate_multi_item_customs_duty_service(
     if invoice_total_value_fc <= Decimal("0.00"):
         raise HTTPException(status_code=400, detail="Total invoice value must be greater than 0")
 
+    # Resolve Customs Exchange Rate Snapshot (Historical / Effective-Dated Pricing)
+    rate_date = on_date
+    rate_id = None
+    if request.exchange_rate is not None and request.exchange_rate > Decimal("0.00"):
+        effective_exchange_rate = request.exchange_rate
+    else:
+        from modules.currencies.service import CurrencyService
+        c_service = CurrencyService(db)
+        r_val, r_date, r_id = c_service._get_rate_to_egp(request.currency, rate_type="customs", as_of_date=on_date)
+        effective_exchange_rate = Decimal(str(r_val))
+        rate_date = r_date
+        rate_id = r_id
+
     # Step 1: Resolve Insurance & Freight (Actual vs Statutory/Deemed)
     (
         resolved_insurance_egp,
@@ -567,7 +580,7 @@ def estimate_multi_item_customs_duty_service(
         fob_value_egp,
     ) = resolve_insurance_freight(
         invoice_total_value_fc=invoice_total_value_fc,
-        exchange_rate=request.exchange_rate,
+        exchange_rate=effective_exchange_rate,
         actual_insurance_egp=request.insurance_egp,
         actual_freight_egp=request.freight_egp,
         has_insurance_document=request.has_insurance_document,
@@ -645,7 +658,7 @@ def estimate_multi_item_customs_duty_service(
         if request.cif_declared_total_egp and request.cif_declared_total_egp > Decimal("0.00"):
             cif_line_egp = _round(request.cif_declared_total_egp * value_share)
         else:
-            cif_line_egp = _round((line_taxable_fc * request.exchange_rate) + allocated_ins_freight)
+            cif_line_egp = _round((line_taxable_fc * effective_exchange_rate) + allocated_ins_freight)
 
         # Step 3: Resolve Exemptions for Line
         exemption_code_to_apply = line.exemption_code or request.exemption_code
@@ -762,7 +775,9 @@ def estimate_multi_item_customs_duty_service(
 
     return MultiItemCustomsBreakdown(
         currency=request.currency,
-        exchange_rate=request.exchange_rate,
+        exchange_rate=effective_exchange_rate,
+        rate_date=rate_date,
+        exchange_rate_id=rate_id,
         invoice_total_value_fc=invoice_total_value_fc,
         fob_value_egp=fob_value_egp,
         insurance_egp=resolved_insurance_egp,
@@ -803,6 +818,333 @@ def create_fee_code_service(
     db: Session, request: FeeCodeCreate
 ) -> repository.FeeCode:
     return repository.create_fee_code(db, request.model_dump())
+
+
+# ==================================================
+# Smart Nafeza Text Parser & Agreement Duty Engine Services
+# ==================================================
+
+from modules.customs_tariff.nafeza_text_parser import parse_nafeza_tariff_text
+from modules.customs_tariff.schemas import (
+    SmartTariffParseResponse,
+    TariffAgreementBulkSaveRequest,
+    OriginDutyCheckRequest,
+    OriginDutyCheckResponse,
+    PreferentialAgreementResponse,
+    CustomsTariffResponse,
+    TariffDiffItem,
+    TariffVersionComparisonResponse,
+)
+
+
+def compare_tariff_versions_service(
+    db: Session,
+    hs_code: str,
+    new_tariff_data: dict,
+    new_agreements: List[dict]
+) -> TariffVersionComparisonResponse:
+    """Service to compare new tariff/agreements data against existing active version for the HS Code."""
+    existing_active = repository.get_tariff_by_hs_code(db, hs_code)
+    if not existing_active:
+        return TariffVersionComparisonResponse(
+            hs_code=hs_code,
+            has_previous_version=False,
+            previous_effective_from=None,
+            previous_effective_to=None,
+            new_effective_from=date.today(),
+            added_count=len(new_agreements),
+            removed_count=0,
+            modified_count=0,
+            unchanged_count=0,
+            diff_items=[],
+            summary_ar="هذا البند جديد لا توجد له نسخة سابقة في قاعدة البيانات."
+        )
+
+    old_agreements = repository.get_agreements_by_hs_code(db, existing_active.hs_code)
+    old_ag_by_notice = {}
+    for ag in old_agreements:
+        key = ag.publication_notice or ag.agreement_name
+        old_ag_by_notice[key] = ag
+
+    new_ag_by_notice = {}
+    for ag in new_agreements:
+        key = ag.get("publication_notice") or ag.get("agreement_name")
+        new_ag_by_notice[key] = ag
+
+    diff_items = []
+    added_c = 0
+    removed_c = 0
+    modified_c = 0
+    unchanged_c = 0
+
+    # 1. Base Tax & Duty Rate changes
+    old_duty = Decimal(str(existing_active.customs_duty_rate))
+    new_duty = Decimal(str(new_tariff_data.get("customs_duty_rate", old_duty)))
+    if old_duty != new_duty:
+        modified_c += 1
+        diff_items.append(
+            TariffDiffItem(
+                change_type="modified",
+                publication_notice=None,
+                agreement_name="ضريبة الوارد النظام الأساسي",
+                origin_countries="All",
+                old_value_desc=f"{old_duty}%",
+                new_value_desc=f"{new_duty}%",
+                color_code="#E67E22",
+                summary_ar=f"تغيرت ضريبة الوارد الأساسية من {old_duty}% إلى {new_duty}%"
+            )
+        )
+
+    # 2. Agreement Lines Changes
+    for key, new_ag in new_ag_by_notice.items():
+        ag_name = new_ag.get("agreement_name", "اتفاقية جمركية")
+        pub = new_ag.get("publication_notice")
+        origin = new_ag.get("origin_countries", "")
+        new_rate = new_ag.get("preferential_duty_rate")
+        new_disc = new_ag.get("reduction_percentage")
+        new_desc = f"خصم {new_disc*100}%" if new_disc is not None else f"ضريبة {new_rate}%"
+
+        if key not in old_ag_by_notice:
+            added_c += 1
+            diff_items.append(
+                TariffDiffItem(
+                    change_type="added",
+                    publication_notice=pub,
+                    agreement_name=ag_name,
+                    origin_countries=origin,
+                    old_value_desc="غير موجود سابقاً",
+                    new_value_desc=new_desc,
+                    color_code="#27AE60",
+                    summary_ar=f"إضافة بند/منشور جديد ({pub or ag_name}): {new_desc}"
+                )
+            )
+        else:
+            old_ag = old_ag_by_notice[key]
+            old_rate = old_ag.preferential_duty_rate
+            old_disc = old_ag.reduction_percentage
+            old_desc = f"خصم {old_disc*100}%" if old_disc is not None else f"ضريبة {old_rate}%"
+
+            if old_rate != new_rate or old_disc != new_disc or old_ag.publication_notice != pub:
+                modified_c += 1
+                diff_items.append(
+                    TariffDiffItem(
+                        change_type="modified",
+                        publication_notice=pub,
+                        agreement_name=ag_name,
+                        origin_countries=origin,
+                        old_value_desc=old_desc,
+                        new_value_desc=new_desc,
+                        color_code="#E67E22",
+                        summary_ar=f"تعديل في ({pub or ag_name}): تغير التخفيض من {old_desc} إلى {new_desc}"
+                    )
+                )
+            else:
+                unchanged_c += 1
+                diff_items.append(
+                    TariffDiffItem(
+                        change_type="unchanged",
+                        publication_notice=pub,
+                        agreement_name=ag_name,
+                        origin_countries=origin,
+                        old_value_desc=old_desc,
+                        new_value_desc=new_desc,
+                        color_code="#2C3E50",
+                        summary_ar=f"دون تغيير ({pub or ag_name}): {new_desc}"
+                    )
+                )
+
+    # 3. Removed Agreements
+    for key, old_ag in old_ag_by_notice.items():
+        if key not in new_ag_by_notice:
+            removed_c += 1
+            pub = old_ag.publication_notice
+            ag_name = old_ag.agreement_name
+            old_disc = old_ag.reduction_percentage
+            old_rate = old_ag.preferential_duty_rate
+            old_desc = f"خصم {old_disc*100}%" if old_disc is not None else f"ضريبة {old_rate}%"
+            diff_items.append(
+                TariffDiffItem(
+                    change_type="removed",
+                    publication_notice=pub,
+                    agreement_name=ag_name,
+                    origin_countries=old_ag.origin_countries,
+                    old_value_desc=old_desc,
+                    new_value_desc="تم حذف/إلغاء المنشور",
+                    color_code="#C0392B",
+                    summary_ar=f"حذف/إلغاء المنشور ({pub or ag_name}): كان مطبقاً بنسبة {old_desc}"
+                )
+            )
+
+    prev_from = existing_active.effective_from
+    prev_to = date.today()
+
+    return TariffVersionComparisonResponse(
+        hs_code=hs_code,
+        has_previous_version=True,
+        previous_effective_from=prev_from,
+        previous_effective_to=prev_to,
+        new_effective_from=date.today(),
+        added_count=added_c,
+        removed_count=removed_c,
+        modified_count=modified_c,
+        unchanged_count=unchanged_c,
+        diff_items=diff_items,
+        summary_ar=f"تحليل التغيرات للبند {hs_code}: النسخة السابقة كانت مطبقة من {prev_from} حتى {prev_to}. تم اكتشاف {added_c} إضافات، {removed_c} محذوفات، {modified_c} تعديلات."
+    )
+
+
+def parse_smart_nafeza_tariff_text_service(raw_text: str, db: Optional[Session] = None) -> SmartTariffParseResponse:
+    """Service to parse raw Nafeza tariff sheet text into tariff master record + agreements, with optional diff comparison."""
+    tariff, agreements = parse_nafeza_tariff_text(raw_text)
+    summary_ar = (
+        f"تم تحليل نص البند الجمركي {tariff.hs_code} بنجاح: "
+        f"ضريبة الوارد الأساسية {tariff.customs_duty_rate}%، القيمة المضافة {tariff.vat_rate}%، "
+        f"وتم استخراج {len(agreements)} اتفاقيات تفضيلية مرتبطة."
+    )
+
+    comparison = None
+    if db is not None:
+        tariff_dict = tariff.model_dump()
+        agreements_dicts = [ag.model_dump() for ag in agreements]
+        comparison = compare_tariff_versions_service(
+            db=db, hs_code=tariff.hs_code, new_tariff_data=tariff_dict, new_agreements=agreements_dicts
+        )
+
+    return SmartTariffParseResponse(
+        tariff_data=tariff,
+        agreements=agreements,
+        parsed_agreements_count=len(agreements),
+        summary_ar=summary_ar,
+        comparison=comparison,
+    )
+
+
+def save_tariff_with_agreements_service(
+    db: Session, req: TariffAgreementBulkSaveRequest
+) -> dict:
+    """Service to save/update an HS Code master record with all its preferential agreements in a single transaction while preserving historical snapshots."""
+    tariff_dict = req.tariff.model_dump()
+    agreements_dicts = [ag.model_dump() for ag in req.agreements]
+
+    tariff, created_agreements = repository.bulk_create_or_update_tariff_with_agreements(
+        db=db, tariff_data=tariff_dict, agreements_data=agreements_dicts, update_date=req.update_date
+    )
+
+    return {
+        "tariff": CustomsTariffResponse.model_validate(tariff),
+        "agreements": [PreferentialAgreementResponse.model_validate(ag) for ag in created_agreements],
+        "summary_ar": f"تم حفظ الإصدار الجديد للبند الجمركي {tariff.hs_code} مع {len(created_agreements)} اتفاقية تفضيلية بنجاح دون المساس بالسجلات التاريخية السابقة.",
+    }
+
+
+def get_tariff_version_history_service(db: Session, hs_code: str) -> List[dict]:
+    """Service to fetch all historical versions of an HS Code with their effective date ranges and agreements."""
+    versions = repository.get_all_tariff_versions_by_hs_code(db, hs_code)
+    res = []
+    for v in versions:
+        agreements = repository.get_agreements_by_hs_code(db, v.hs_code)
+        # Filter agreements for this version's effective date range if needed
+        res.append({
+            "tariff": CustomsTariffResponse.model_validate(v),
+            "agreements": [PreferentialAgreementResponse.model_validate(ag) for ag in agreements],
+            "is_current_active": v.is_active,
+            "effective_period_desc": f"مطبق من {v.effective_from} حتى {v.effective_to or 'الآن'}"
+        })
+    return res
+
+
+def evaluate_duty_by_origin_and_document_service(
+    db: Session, req: OriginDutyCheckRequest
+) -> OriginDutyCheckResponse:
+    """
+    محرك تقييم الضريبة حسب بلد المنشأ وتأكيد المستند (Origin Country & Document Verification Engine).
+    تطبيق قواعد العمل:
+    1. إذا لم تكن الدولة مرتبطة باتفاقية -> إرجاع الضريبة الأساسية بدون تنبيهات.
+    2. إذا كانت الدولة مرتبطة باتفاقية -> إظهار تنبيه المستند المطلوب (EUR.1).
+       - مع تأكيد المستند -> تطبيق الضريبة التفضيلية المخفضة.
+       - بدون تأكيد المستند -> تطبيق الضريبة الأساسية وتثبيت التحذير.
+    """
+    target_date = req.check_date or date.today()
+    tariff = repository.get_active_tariff_on_date(db, req.hs_code, target_date, strict=False)
+    if not tariff:
+        tariff = repository.get_tariff_by_hs_code(db, req.hs_code)
+
+    if not tariff:
+        raise HTTPException(
+            status_code=404,
+            detail=f"البند الجمركي {req.hs_code} غير مسجل في النظام."
+        )
+
+    base_duty = Decimal(str(tariff.customs_duty_rate))
+    origin_code = req.origin_country.strip().upper()
+
+    all_agreements = repository.get_agreements_by_hs_code(db, req.hs_code, on_date=target_date)
+    matching_agreement = None
+    for ag in all_agreements:
+        countries = [c.strip().upper() for c in ag.origin_countries.split(",") if c.strip()]
+        if origin_code in countries:
+            matching_agreement = ag
+            break
+
+    if not matching_agreement:
+        return OriginDutyCheckResponse(
+            hs_code=req.hs_code,
+            origin_country=origin_code,
+            base_duty_rate=base_duty,
+            effective_duty_rate=base_duty,
+            applied_agreement_name=None,
+            publication_notice=None,
+            required_document=None,
+            has_matching_agreement=False,
+            document_verified=False,
+            status_label="تطبيق ضريبة الوارد للنظام الأساسي (لا توجد اتفاقية مع بلد المنشأ)",
+            warning_note=None,
+            summary_ar=f"بلد المنشأ ({origin_code}) غير مرتبط باتفاقية تفضيلية. تم تطبيق ضريبة الوارد الأساسية {base_duty}%.",
+        )
+
+    ag_name = matching_agreement.agreement_name
+    pub_notice = matching_agreement.publication_notice or "منشور جمركي"
+    req_doc = matching_agreement.required_document or "شهادة منشأ تفضيلية (EUR.1)"
+
+    if matching_agreement.preferential_duty_rate is not None:
+        pref_duty = Decimal(str(matching_agreement.preferential_duty_rate))
+    elif matching_agreement.reduction_type == "full_duty_exemption":
+        pref_duty = Decimal("0.00")
+    else:
+        discount = Decimal(str(matching_agreement.reduction_percentage))
+        pref_duty = max(Decimal("0.00"), base_duty * (Decimal("1.00") - discount))
+
+    if req.has_preferential_document:
+        return OriginDutyCheckResponse(
+            hs_code=req.hs_code,
+            origin_country=origin_code,
+            base_duty_rate=base_duty,
+            effective_duty_rate=pref_duty,
+            applied_agreement_name=ag_name,
+            publication_notice=pub_notice,
+            required_document=req_doc,
+            has_matching_agreement=True,
+            document_verified=True,
+            status_label=f"تم تطبيق تخفيض {ag_name} ({pref_duty}% بدلاً من {base_duty}%)",
+            warning_note=None,
+            summary_ar=f"تمت المطابقة مع {ag_name} ({pub_notice}). تم تأكيد {req_doc} وتطبيق الضريبة المخفضة {pref_duty}%.",
+        )
+    else:
+        warning = f"توجد اتفاقية تفضيلية ({ag_name} - {pub_notice}) بخصم إلى {pref_duty}%، ولكن يلزم إرفاق ({req_doc}) لتفعيل الإعفاء/التخفيض."
+        return OriginDutyCheckResponse(
+            hs_code=req.hs_code,
+            origin_country=origin_code,
+            base_duty_rate=base_duty,
+            effective_duty_rate=base_duty,
+            applied_agreement_name=ag_name,
+            publication_notice=pub_notice,
+            required_document=req_doc,
+            has_matching_agreement=True,
+            document_verified=False,
+            status_label=f"توجد اتفاقية ({ag_name}) — يتطلب تقديم {req_doc}",
+            warning_note=warning,
+            summary_ar=f"توجد اتفاقية مع {origin_code} ({ag_name}) ولكن لم يتم إرفاق {req_doc}. تم تطبيق الضريبة الأساسية {base_duty}% مؤقتاً.",
+        )
 
 
 

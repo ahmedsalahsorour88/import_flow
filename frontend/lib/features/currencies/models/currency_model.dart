@@ -26,6 +26,7 @@ class ExchangeRateModel {
   final double commercialRate;
   final double customsRate;
   final String effectiveDate;
+  final String? createdBy;
   final bool isActive;
   final DateTime? createdAt;
 
@@ -35,6 +36,7 @@ class ExchangeRateModel {
     required this.commercialRate,
     required this.customsRate,
     required this.effectiveDate,
+    this.createdBy,
     this.isActive = true,
     this.createdAt,
   });
@@ -46,6 +48,7 @@ class ExchangeRateModel {
       commercialRate: _numToDouble(json['commercial_rate'], 1.0),
       customsRate: _numToDouble(json['customs_rate'], 1.0),
       effectiveDate: json['effective_date'] as String? ?? '',
+      createdBy: json['created_by'] as String?,
       isActive: json['is_active'] as bool? ?? true,
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
     );
@@ -57,6 +60,7 @@ class ExchangeRateModel {
       'commercial_rate': commercialRate,
       'customs_rate': customsRate,
       'effective_date': effectiveDate,
+      if (createdBy != null) 'created_by': createdBy,
     };
   }
 }

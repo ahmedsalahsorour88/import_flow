@@ -60,6 +60,7 @@ class ExchangeRate(Base):
     is_active = Column(Boolean, default=True, nullable=False)
 
     # Audit Trail
+    created_by = Column(String(100), default="System", nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships

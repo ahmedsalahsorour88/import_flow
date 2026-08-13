@@ -171,6 +171,9 @@ class PreferentialAgreementCreate(BaseModel):
     agreement_name: str = Field(..., max_length=200)
     reduction_type: str = Field(default="percentage_of_duty", description="percentage_of_duty, full_duty_exemption, fixed_rate")
     reduction_percentage: Decimal = Field(default=Decimal("1.00"), ge=0, le=100)
+    preferential_duty_rate: Optional[Decimal] = Field(None, ge=0, le=100, description="سعر الضريبة التفضيلية المباشرة (مثل 3% للميركسور)")
+    publication_notice: Optional[str] = Field(None, max_length=100, description="رقم المنشور الجمركي (مثل ر6722)")
+    required_document: Optional[str] = Field(None, max_length=250, description="المستند أو الشهادة المطلوبة (مثل شهادة EUR.1)")
     origin_countries: str = Field(..., description="قائمة رموز الدول المعنية بالفواصل e.g. JO,TN,MA")
     conditions_note: Optional[str] = None
     effective_from: date = Field(default_factory=date.today)
@@ -184,6 +187,9 @@ class PreferentialAgreementResponse(BaseModel):
     agreement_name: str
     reduction_type: str
     reduction_percentage: Decimal
+    preferential_duty_rate: Optional[Decimal] = None
+    publication_notice: Optional[str] = None
+    required_document: Optional[str] = None
     origin_countries: str
     conditions_note: Optional[str]
     effective_from: date
@@ -191,6 +197,75 @@ class PreferentialAgreementResponse(BaseModel):
     source_url: Optional[str]
 
     model_config = {"from_attributes": True}
+
+
+# ==================================================
+# Smart Nafeza Text Parser & Origin Check Schemas
+# ==================================================
+
+class TariffDiffItem(BaseModel):
+    change_type: str = Field(..., description="added, removed, modified, unchanged")
+    publication_notice: Optional[str] = None
+    agreement_name: str
+    origin_countries: Optional[str] = None
+    old_value_desc: Optional[str] = None
+    new_value_desc: Optional[str] = None
+    color_code: str = Field(..., description="HEX color code: #27AE60 (added/green), #C0392B (removed/red), #E67E22 (modified/orange), #2C3E50 (unchanged)")
+    summary_ar: str
+
+
+class TariffVersionComparisonResponse(BaseModel):
+    hs_code: str
+    has_previous_version: bool
+    previous_effective_from: Optional[date] = None
+    previous_effective_to: Optional[date] = None
+    new_effective_from: date
+    added_count: int
+    removed_count: int
+    modified_count: int
+    unchanged_count: int
+    diff_items: List[TariffDiffItem]
+    summary_ar: str
+
+
+class SmartTariffParseRequest(BaseModel):
+    raw_text: str = Field(..., min_length=10, description="نص البند الجمركي المجمع من شيت/منظومة نافذة")
+
+
+class SmartTariffParseResponse(BaseModel):
+    tariff_data: CustomsTariffCreate
+    agreements: List[PreferentialAgreementCreate]
+    parsed_agreements_count: int
+    summary_ar: str
+    comparison: Optional[TariffVersionComparisonResponse] = None
+
+
+class TariffAgreementBulkSaveRequest(BaseModel):
+    tariff: CustomsTariffCreate
+    agreements: List[PreferentialAgreementCreate]
+    update_date: Optional[date] = Field(None, description="تاريخ بداية سريان التحديث — الافتراضي تاريخ اليوم")
+
+
+class OriginDutyCheckRequest(BaseModel):
+    hs_code: str = Field(..., min_length=4, max_length=20, description="كود البند الجمركي")
+    origin_country: str = Field(..., min_length=2, max_length=5, description="رمز بلد المنشأ ISO e.g. TR, GB, RS, CN, BR")
+    has_preferential_document: bool = Field(default=False, description="هل تم إرفاق/تأكيد المستند والشهادة المطلوبة للاتفاقية")
+    check_date: Optional[date] = Field(None, description="تاريخ الاستعلام — الافتراضي اليوم")
+
+
+class OriginDutyCheckResponse(BaseModel):
+    hs_code: str
+    origin_country: str
+    base_duty_rate: Decimal
+    effective_duty_rate: Decimal
+    applied_agreement_name: Optional[str] = None
+    publication_notice: Optional[str] = None
+    required_document: Optional[str] = None
+    has_matching_agreement: bool
+    document_verified: bool
+    status_label: str
+    warning_note: Optional[str] = None
+    summary_ar: str
 
 
 class TariffVerificationRequest(BaseModel):
@@ -311,7 +386,7 @@ class MultiItemCustomsEstimateLine(BaseModel):
 
 class MultiItemCustomsEstimateRequest(BaseModel):
     currency: str = Field(default="USD", description="عملة الفاتورة")
-    exchange_rate: Decimal = Field(..., gt=0, description="سعر التحويل / الصرف الرسمي للجمارك")
+    exchange_rate: Optional[Decimal] = Field(None, description="سعر التحويل / الصرف الرسمي للجمارك (اختياري - يتم جلبه بناءً على تاريخ السريان إن لم يحدد)")
     insurance_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي التأمين بالجنيه")
     freight_egp: Decimal = Field(default=Decimal("0.00"), ge=0, description="إجمالي النولون / الشحن بالجنيه")
     freight_currency: Optional[str] = Field("EGP", description="عملة النولون الفعلي e.g. USD, EUR, EGP")
@@ -386,6 +461,8 @@ class MultiItemCustomsLineBreakdown(BaseModel):
 class MultiItemCustomsBreakdown(BaseModel):
     currency: str
     exchange_rate: Decimal
+    rate_date: Optional[date] = None
+    exchange_rate_id: Optional[int] = None
     invoice_total_value_fc: Decimal
     fob_value_egp: Decimal
     insurance_egp: Decimal

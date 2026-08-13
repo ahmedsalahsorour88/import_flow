@@ -71,6 +71,140 @@ def get_companies(
 
 
 # ==================================================
+# Excel Template & Bulk Import
+# ==================================================
+
+from fastapi import Response, UploadFile, File
+from datetime import datetime, date
+from utils.export_import_helper import MasterDataExportImportHelper
+
+@import_router.get("/excel-template")
+def download_excel_template():
+    cols = ['importer_name', 'address', 'country', 'importer_id', 'importer_id_expiry', 'vat_id', 'vat_id_expiry', 'registration_number', 'registration_expiry', 'phone', 'email']
+    sample = {
+        'importer_name': 'Pharaohs Import & Export LLC',
+        'address': '12 Ramses St, Cairo',
+        'country': 'Egypt',
+        'importer_id': 'IMP-100200',
+        'importer_id_expiry': '2027-12-31',
+        'vat_id': 'VAT-998877665',
+        'vat_id_expiry': '2027-12-31',
+        'registration_number': 'REG-554433221',
+        'registration_expiry': '2027-12-31',
+        'phone': '+20 2 2577 8899',
+        'email': 'info@pharaohs.com',
+    }
+    content = MasterDataExportImportHelper.create_excel_template(cols, sample)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Import_Companies_Template.xlsx"},
+    )
+
+
+@import_router.post("/import-excel")
+async def import_excel_companies(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    file_bytes = await file.read()
+    cols = ['importer_name', 'address', 'country', 'importer_id', 'importer_id_expiry', 'vat_id', 'vat_id_expiry', 'registration_number', 'registration_expiry', 'phone', 'email']
+    rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
+
+    imported_count = 0
+    errors = []
+
+    for idx, r in enumerate(rows, start=2):
+        try:
+            name = r.get('importer_name')
+            imp_id = r.get('importer_id')
+            vat_id = r.get('vat_id')
+            reg_num = r.get('registration_number')
+
+            if not name or not imp_id or not vat_id or not reg_num:
+                errors.append(f"Row {idx}: Missing required fields (importer_name, importer_id, vat_id, registration_number).")
+                continue
+
+            def parse_d(val):
+                if not val:
+                    return date(2027, 12, 31)
+                try:
+                    return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
+                except Exception:
+                    return date(2027, 12, 31)
+
+            schema = ImportCompanyCreate(
+                importer_name=name,
+                address=r.get('address') or 'Cairo, Egypt',
+                country=r.get('country') or 'Egypt',
+                importer_id=imp_id,
+                importer_id_expiry=parse_d(r.get('importer_id_expiry')),
+                vat_id=vat_id,
+                vat_id_expiry=parse_d(r.get('vat_id_expiry')),
+                registration_number=reg_num,
+                registration_expiry=parse_d(r.get('registration_expiry')),
+                phone=r.get('phone'),
+                email=r.get('email'),
+            )
+            create_import_company(db, schema)
+            imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    return {"message": f"Successfully imported {imported_count} import companies.", "errors": errors}
+
+
+@import_router.get("/export-excel")
+def export_companies_excel(db: Session = Depends(get_db)):
+    companies = get_all_companies_admin_service(db)
+    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry', 'Address', 'Country', 'Phone', 'Email', 'Status']
+    rows = []
+    for c in companies:
+        rows.append([
+            c.company_id,
+            c.importer_name,
+            c.importer_id,
+            str(c.importer_id_expiry),
+            c.vat_id,
+            str(c.vat_id_expiry),
+            c.registration_number,
+            str(c.registration_expiry),
+            c.address,
+            c.country,
+            c.phone or '',
+            c.email or '',
+            'Active' if c.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Import Companies", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.xlsx"},
+    )
+
+
+@import_router.get("/export-pdf")
+def export_companies_pdf(db: Session = Depends(get_db)):
+    companies = get_all_companies_admin_service(db)
+    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'Commercial Reg #', 'Phone', 'Status']
+    rows = []
+    for c in companies:
+        rows.append([
+            c.company_id,
+            c.importer_name,
+            c.importer_id,
+            str(c.importer_id_expiry),
+            c.vat_id,
+            c.registration_number,
+            c.phone or '',
+            'Active' if c.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Egyptian Import Companies (MD-001)", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.pdf"},
+    )
+
+
+# ==================================================
 # Get Company By ID
 # ==================================================
 
@@ -177,138 +311,4 @@ def restore_company(
             detail="Import Company not found"
         )
 
-    return restored_company
-
-
-# ==================================================
-# Excel Template & Bulk Import
-# ==================================================
-
-from fastapi import Response, UploadFile, File
-from datetime import datetime, date
-from utils.export_import_helper import MasterDataExportImportHelper
-
-@import_router.get("/excel-template")
-def download_excel_template():
-    cols = ['importer_name', 'address', 'country', 'importer_id', 'importer_id_expiry', 'vat_id', 'vat_id_expiry', 'registration_number', 'registration_expiry', 'phone', 'email']
-    sample = {
-        'importer_name': 'Pharaohs Import & Export LLC',
-        'address': '12 Ramses St, Cairo',
-        'country': 'Egypt',
-        'importer_id': 'IMP-100200',
-        'importer_id_expiry': '2027-12-31',
-        'vat_id': 'VAT-998877665',
-        'vat_id_expiry': '2027-12-31',
-        'registration_number': 'REG-554433221',
-        'registration_expiry': '2027-12-31',
-        'phone': '+20 2 2577 8899',
-        'email': 'info@pharaohs.com',
-    }
-    content = MasterDataExportImportHelper.create_excel_template(cols, sample)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Template.xlsx"},
-    )
-
-
-@import_router.post("/import-excel")
-async def import_excel_companies(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    file_bytes = await file.read()
-    cols = ['importer_name', 'address', 'country', 'importer_id', 'importer_id_expiry', 'vat_id', 'vat_id_expiry', 'registration_number', 'registration_expiry', 'phone', 'email']
-    rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
-
-    imported_count = 0
-    errors = []
-
-    for idx, r in enumerate(rows, start=2):
-        try:
-            name = r.get('importer_name')
-            imp_id = r.get('importer_id')
-            vat_id = r.get('vat_id')
-            reg_num = r.get('registration_number')
-
-            if not name or not imp_id or not vat_id or not reg_num:
-                errors.append(f"Row {idx}: Missing required fields (importer_name, importer_id, vat_id, registration_number).")
-                continue
-
-            def parse_d(val):
-                if not val:
-                    return date(2027, 12, 31)
-                try:
-                    return datetime.strptime(str(val)[:10], "%Y-%m-%d").date()
-                except Exception:
-                    return date(2027, 12, 31)
-
-            schema = ImportCompanyCreate(
-                importer_name=name,
-                address=r.get('address') or 'Cairo, Egypt',
-                country=r.get('country') or 'Egypt',
-                importer_id=imp_id,
-                importer_id_expiry=parse_d(r.get('importer_id_expiry')),
-                vat_id=vat_id,
-                vat_id_expiry=parse_d(r.get('vat_id_expiry')),
-                registration_number=reg_num,
-                registration_expiry=parse_d(r.get('registration_expiry')),
-                phone=r.get('phone'),
-                email=r.get('email'),
-            )
-            create_import_company(db, schema)
-            imported_count += 1
-        except Exception as e:
-            errors.append(f"Row {idx}: {str(e)}")
-
-    return {"message": f"Successfully imported {imported_count} import companies.", "errors": errors}
-
-
-@import_router.get("/export-excel")
-def export_companies_excel(db: Session = Depends(get_db)):
-    companies = get_all_companies(db, include_inactive=True)
-    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'VAT Expiry', 'Commercial Reg #', 'Reg Expiry', 'Address', 'Country', 'Phone', 'Email', 'Status']
-    rows = []
-    for c in companies:
-        rows.append([
-            c.company_id,
-            c.importer_name,
-            c.importer_id,
-            str(c.importer_id_expiry),
-            c.vat_id,
-            str(c.vat_id_expiry),
-            c.registration_number,
-            str(c.registration_expiry),
-            c.address,
-            c.country,
-            c.phone or '',
-            c.email or '',
-            'Active' if c.is_active else 'Inactive',
-        ])
-    content = MasterDataExportImportHelper.export_to_excel("Import Companies", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.xlsx"},
-    )
-
-
-@import_router.get("/export-pdf")
-def export_companies_pdf(db: Session = Depends(get_db)):
-    companies = get_all_companies(db, include_inactive=True)
-    headers = ['ID', 'Company Name', 'Importer Card ID', 'Importer Expiry', 'VAT Registration ID', 'Commercial Reg #', 'Phone', 'Status']
-    rows = []
-    for c in companies:
-        rows.append([
-            c.company_id,
-            c.importer_name,
-            c.importer_id,
-            str(c.importer_id_expiry),
-            c.vat_id,
-            c.registration_number,
-            c.phone or '',
-            'Active' if c.is_active else 'Inactive',
-        ])
-    content = MasterDataExportImportHelper.export_to_pdf("Egyptian Import Companies (MD-001)", headers, rows)
-    return Response(
-        content=content,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=Import_Companies_Report.pdf"},
-    )
+    return restored_company

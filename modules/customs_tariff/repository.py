@@ -201,12 +201,103 @@ def create_preferential_agreement(db: Session, data: dict) -> PreferentialAgreem
 
 
 def get_agreements_by_hs_code(
-    db: Session, hs_code: str, origin_country: Optional[str] = None
+    db: Session, hs_code: str, origin_country: Optional[str] = None, on_date: Optional[date] = None
 ) -> List[PreferentialAgreement]:
     query = db.query(PreferentialAgreement).filter(PreferentialAgreement.hs_code == hs_code)
+    if on_date:
+        query = query.filter(
+            PreferentialAgreement.effective_from <= on_date,
+            or_(PreferentialAgreement.effective_to == None, PreferentialAgreement.effective_to >= on_date)
+        )
     if origin_country:
-        query = query.filter(PreferentialAgreement.origin_countries.ilike(f"%{origin_country}%"))
+        pattern = f"%{origin_country.strip().upper()}%"
+        query = query.filter(PreferentialAgreement.origin_countries.ilike(pattern))
     return query.all()
+
+
+def get_all_tariff_versions_by_hs_code(db: Session, hs_code: str) -> List[CustomsTariff]:
+    clean_hs = hs_code.strip()
+    nodots = clean_hs.replace(".", "")
+    from sqlalchemy import func
+    return (
+        db.query(CustomsTariff)
+        .filter(func.replace(CustomsTariff.hs_code, '.', '') == nodots)
+        .order_by(CustomsTariff.effective_from.desc(), CustomsTariff.tariff_id.desc())
+        .all()
+    )
+
+
+def bulk_create_or_update_tariff_with_agreements(
+    db: Session, tariff_data: dict, agreements_data: List[dict], update_date: Optional[date] = None
+) -> Tuple[CustomsTariff, List[PreferentialAgreement]]:
+    from typing import Tuple
+    eff_date = update_date or date.today()
+    hs_code = tariff_data["hs_code"].strip()
+
+    existing = get_tariff_by_hs_code(db, hs_code)
+
+    if existing:
+        if existing.effective_from == eff_date:
+            # Same day update: update fields of existing record in place
+            for key, val in tariff_data.items():
+                if val is not None and key != "hs_code":
+                    setattr(existing, key, val)
+            tariff = existing
+
+            # Replace agreements created today for this version
+            db.query(PreferentialAgreement).filter(
+                PreferentialAgreement.hs_code == hs_code,
+                PreferentialAgreement.effective_from == eff_date
+            ).delete(synchronize_session=False)
+        else:
+            # 1. Close out previous active version as a historical snapshot
+            existing.effective_to = eff_date
+            existing.is_active = False
+
+            # Close out existing agreements for old version
+            old_agreements = db.query(PreferentialAgreement).filter(
+                PreferentialAgreement.hs_code == hs_code,
+                PreferentialAgreement.effective_to == None
+            ).all()
+            for old_ag in old_agreements:
+                old_ag.effective_to = eff_date
+
+            # 2. Create new active version starting from effective_date
+            new_tariff_data = dict(tariff_data)
+            new_tariff_data["hs_code"] = hs_code
+            new_tariff_data["effective_from"] = eff_date
+            new_tariff_data["effective_to"] = None
+            new_tariff_data["is_active"] = True
+
+            tariff = CustomsTariff(**new_tariff_data)
+            db.add(tariff)
+    else:
+        # Create initial active version
+        new_tariff_data = dict(tariff_data)
+        new_tariff_data["hs_code"] = hs_code
+        new_tariff_data["effective_from"] = eff_date
+        new_tariff_data["effective_to"] = None
+        new_tariff_data["is_active"] = True
+
+        tariff = CustomsTariff(**new_tariff_data)
+        db.add(tariff)
+
+    # Create agreements linked to the active version
+    created_agreements = []
+    for ag_dict in agreements_data:
+        ag_data = dict(ag_dict)
+        ag_data["hs_code"] = hs_code
+        ag_data["effective_from"] = eff_date
+        ag_data["effective_to"] = None
+        ag = PreferentialAgreement(**ag_data)
+        db.add(ag)
+        created_agreements.append(ag)
+
+    db.commit()
+    db.refresh(tariff)
+    for ag in created_agreements:
+        db.refresh(ag)
+    return tariff, created_agreements
 
 
 # ==================================================

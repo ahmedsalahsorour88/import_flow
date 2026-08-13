@@ -79,4 +79,22 @@ class TransportLocationsNotifier extends StateNotifier<AsyncValue<List<Transport
       return false;
     }
   }
+
+  Future<Map<String, dynamic>?> uploadExcelLocations(List<int> bytes, String filename) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(bytes, filename: filename),
+      });
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/transport-locations/import-excel',
+        data: formData,
+      );
+      await fetchLocations();
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw e.response?.data?['detail']?.toString() ?? 'Failed to upload Excel file.';
+    } catch (e) {
+      throw 'An error occurred during file upload: ${e.toString()}';
+    }
+  }
 }

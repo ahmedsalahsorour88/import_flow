@@ -31,6 +31,119 @@ def get_all_locations(
     )
 
 
+# ==================================================
+# Excel Template & Bulk Import & Export (MD-009)
+# ==================================================
+
+from fastapi import Response, UploadFile, File
+from utils.export_import_helper import MasterDataExportImportHelper
+
+@router.get("/excel-template")
+def download_locations_excel_template():
+    cols = ['location_name', 'un_locode', 'location_type', 'country', 'city', 'notes']
+    sample = {
+        'location_name': 'Alexandria Port',
+        'un_locode': 'EGALY',
+        'location_type': 'Sea Port',
+        'country': 'Egypt',
+        'city': 'Alexandria',
+        'notes': 'Primary Mediterranean Container Port',
+    }
+    content = MasterDataExportImportHelper.create_excel_template(cols, sample)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Template.xlsx"},
+    )
+
+
+@router.post("/import-excel")
+async def import_excel_locations(file: UploadFile = File(...), db: Session = Depends(get_db)):
+    file_bytes = await file.read()
+    cols = ['location_name', 'un_locode', 'location_type', 'country', 'city']
+    rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
+
+    service = TransportLocationService(db)
+    imported_count = 0
+    errors = []
+
+    for idx, r in enumerate(rows, start=2):
+        try:
+            name = r.get('location_name')
+            locode = r.get('un_locode')
+            l_type = r.get('location_type') or 'Sea Port'
+            c_country = r.get('country') or 'Egypt'
+            c_city = r.get('city') or 'Alexandria'
+
+            if not name or not locode:
+                errors.append(f"Row {idx}: Missing required location_name or un_locode.")
+                continue
+
+            schema = TransportLocationCreate(
+                location_name=name,
+                un_locode=locode,
+                location_type=l_type,
+                country=c_country,
+                city=c_city,
+                notes=r.get('notes'),
+            )
+            service.create(schema)
+            imported_count += 1
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    return {"message": f"Successfully imported {imported_count} transport locations.", "errors": errors}
+
+
+@router.get("/export-excel")
+def export_locations_excel(db: Session = Depends(get_db)):
+    service = TransportLocationService(db)
+    locations = service.get_all(include_inactive=True)
+    headers = ['ID', 'UN/LOCODE', 'Location Name', 'Type', 'Country', 'City', 'Status', 'Notes']
+    rows = []
+    for loc in locations:
+        rows.append([
+            loc.location_id,
+            loc.un_locode,
+            loc.location_name,
+            loc.location_type,
+            loc.country,
+            loc.city,
+            'Active' if loc.is_active else 'Inactive',
+            loc.notes or '',
+        ])
+    content = MasterDataExportImportHelper.export_to_excel("Transport Locations", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Report.xlsx"},
+    )
+
+
+@router.get("/export-pdf")
+def export_locations_pdf(db: Session = Depends(get_db)):
+    service = TransportLocationService(db)
+    locations = service.get_all(include_inactive=True)
+    headers = ['ID', 'UN/LOCODE', 'Location Name', 'Type', 'Country', 'City', 'Status']
+    rows = []
+    for loc in locations:
+        rows.append([
+            loc.location_id,
+            loc.un_locode,
+            loc.location_name,
+            loc.location_type,
+            loc.country,
+            loc.city,
+            'Active' if loc.is_active else 'Inactive',
+        ])
+    content = MasterDataExportImportHelper.export_to_pdf("Transport Locations & Ports (MD-009)", headers, rows)
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "attachment; filename=Transport_Locations_Report.pdf"},
+    )
+
+
 @router.get("/{location_id}", response_model=TransportLocationResponse)
 def get_location_by_id(
     location_id: int,

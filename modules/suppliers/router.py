@@ -57,82 +57,6 @@ def get_suppliers(include_inactive: bool = False, db: Session = Depends(get_db))
 
 
 # ==================================================
-# Get Supplier By ID Endpoint
-# ==================================================
-
-@supplier_router.get(
-    "/{supplier_id}",
-    response_model=SupplierResponse
-)
-def get_supplier_by_id(supplier_id: int, db: Session = Depends(get_db)):
-    supplier = get_supplier_by_id_service(db, supplier_id)
-    if not supplier:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID {supplier_id} not found."
-        )
-    return supplier
-
-
-# ==================================================
-# Update Supplier Endpoint
-# ==================================================
-
-@supplier_router.put(
-    "/{supplier_id}",
-    response_model=SupplierResponse
-)
-def update_supplier(
-    supplier_id: int,
-    supplier_data: SupplierUpdate,
-    db: Session = Depends(get_db)
-):
-    updated = update_supplier_service(db, supplier_id, supplier_data)
-    if not updated:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID {supplier_id} not found."
-        )
-    return updated
-
-
-# ==================================================
-# Soft Delete Supplier Endpoint
-# ==================================================
-
-@supplier_router.delete(
-    "/{supplier_id}",
-    response_model=SupplierResponse
-)
-def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
-    deleted = delete_supplier_service(db, supplier_id)
-    if not deleted:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID {supplier_id} not found."
-        )
-    return deleted
-
-
-# ==================================================
-# Restore Supplier Endpoint
-# ==================================================
-
-@supplier_router.patch(
-    "/{supplier_id}/restore",
-    response_model=SupplierResponse
-)
-def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
-    restored = restore_supplier_service(db, supplier_id)
-    if not restored:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Supplier with ID {supplier_id} not found."
-        )
-    return restored
-
-
-# ==================================================
 # Excel Template & Bulk Import
 # ==================================================
 
@@ -228,7 +152,7 @@ async def import_excel_suppliers(file: UploadFile = File(...), db: Session = Dep
 
 @supplier_router.get("/export-excel")
 def export_suppliers_excel(db: Session = Depends(get_db)):
-    suppliers = get_all_suppliers_service(db, include_inactive=True)
+    suppliers = get_all_suppliers_admin_service(db)
     headers = [
         'Code', 'Company Name', 'Type', 'Reg Type', 'Exporter ID (Nafeza)', 'Country',
         'Country Code', 'Address', 'Phone', 'Mobile', 'Fax', 'Email', 'Secondary Email',
@@ -266,7 +190,7 @@ def export_suppliers_excel(db: Session = Depends(get_db)):
 
 @supplier_router.get("/export-pdf")
 def export_suppliers_pdf(db: Session = Depends(get_db)):
-    suppliers = get_all_suppliers_service(db, include_inactive=True)
+    suppliers = get_all_suppliers_admin_service(db)
     headers = ['Code', 'Company Name', 'Type', 'Exporter ID', 'Country', 'Phone', 'Email', 'ISO/Decree43/WhiteList', 'Status']
     rows = []
     for s in suppliers:
@@ -293,3 +217,79 @@ def export_suppliers_pdf(db: Session = Depends(get_db)):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=Foreign_Suppliers_Report.pdf"},
     )
+
+
+# ==================================================
+# Get Supplier By ID Endpoint
+# ==================================================
+
+@supplier_router.get(
+    "/{supplier_id}",
+    response_model=SupplierResponse
+)
+def get_supplier_by_id(supplier_id: int, db: Session = Depends(get_db)):
+    supplier = get_supplier_by_id_service(db, supplier_id)
+    if not supplier:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
+        )
+    return supplier
+
+
+# ==================================================
+# Update Supplier Endpoint
+# ==================================================
+
+@supplier_router.put(
+    "/{supplier_id}",
+    response_model=SupplierResponse
+)
+def update_supplier(
+    supplier_id: int,
+    supplier_data: SupplierUpdate,
+    db: Session = Depends(get_db)
+):
+    updated = update_supplier_service(db, supplier_id, supplier_data)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
+        )
+    return updated
+
+
+# ==================================================
+# Soft Delete Supplier Endpoint
+# ==================================================
+
+@supplier_router.delete(
+    "/{supplier_id}",
+    response_model=SupplierResponse
+)
+def delete_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    deleted = delete_supplier_service(db, supplier_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
+        )
+    return deleted
+
+
+# ==================================================
+# Restore Supplier Endpoint
+# ==================================================
+
+@supplier_router.patch(
+    "/{supplier_id}/restore",
+    response_model=SupplierResponse
+)
+def restore_supplier(supplier_id: int, db: Session = Depends(get_db)):
+    restored = restore_supplier_service(db, supplier_id)
+    if not restored:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Supplier with ID {supplier_id} not found."
+        )
+    return restored

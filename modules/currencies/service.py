@@ -60,6 +60,7 @@ class CurrencyService:
                 effective_date=r.effective_date,
                 is_active=r.is_active,
                 created_at=r.created_at,
+                created_by=r.created_by,
             )
             for r in rates_history
         ]
@@ -106,33 +107,37 @@ class CurrencyService:
             effective_date=rate.effective_date,
             is_active=rate.is_active,
             created_at=rate.created_at,
+            created_by=rate.created_by,
         )
 
     # ─── Multi-Currency Conversion Engine Methods ─────────────────────────────
 
-    def _get_rate_to_egp(self, currency_code: str, rate_type: str = "commercial", as_of_date: Optional[date] = None) -> tuple[float, Optional[date]]:
+    def _get_rate_to_egp(
+        self, currency_code: str, rate_type: str = "commercial", as_of_date: Optional[date] = None
+    ) -> tuple[float, Optional[date], Optional[int]]:
         code = currency_code.upper().strip()
+        ref_date = as_of_date or date.today()
         if code == "EGP":
-            return 1.0, as_of_date or date.today()
+            return 1.0, ref_date, None
 
         fallback_rates = {"USD": 48.50, "EUR": 52.80, "GBP": 61.50, "CNY": 6.75, "SAR": 12.93, "AED": 13.20}
 
         currency = self.repo.get_currency_by_code(code)
         if not currency:
             if code in fallback_rates:
-                return fallback_rates[code], as_of_date or date.today()
+                return fallback_rates[code], ref_date, None
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"العملة الكود '{code}' غير مسجلة في النظام.",
             )
 
-        rate_obj = self.repo.get_latest_rate(currency.currency_id, target_date=as_of_date)
+        rate_obj = self.repo.get_latest_rate(currency.currency_id, target_date=ref_date)
         if not rate_obj:
             rate_val = fallback_rates.get(code, 1.0)
-            return rate_val, as_of_date or date.today()
+            return rate_val, ref_date, None
 
         rate_val = float(rate_obj.commercial_rate) if rate_type == "commercial" else float(rate_obj.customs_rate)
-        return rate_val, rate_obj.effective_date
+        return rate_val, rate_obj.effective_date, rate_obj.rate_id
 
     def convert_currency(
         self,
@@ -153,8 +158,8 @@ class CurrencyService:
         from_code = from_currency_code.upper().strip()
         to_code = to_currency_code.upper().strip()
 
-        from_rate_egp, from_date = self._get_rate_to_egp(from_code, rate_type=rate_type, as_of_date=as_of_date)
-        to_rate_egp, _ = self._get_rate_to_egp(to_code, rate_type=rate_type, as_of_date=as_of_date)
+        from_rate_egp, from_date, from_rate_id = self._get_rate_to_egp(from_code, rate_type=rate_type, as_of_date=as_of_date)
+        to_rate_egp, _, _ = self._get_rate_to_egp(to_code, rate_type=rate_type, as_of_date=as_of_date)
 
         base_egp = amount * from_rate_egp
         converted_amount = base_egp / to_rate_egp
@@ -175,6 +180,7 @@ class CurrencyService:
             converted_amount=round(converted_amount, 2),
             base_currency_equivalent_egp=round(base_egp, 2),
             rate_date=from_date,
+            exchange_rate_id=from_rate_id,
             summary_ar=summary_ar,
         )
 

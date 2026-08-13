@@ -150,6 +150,15 @@ class PreferentialAgreement(Base):
     reduction_percentage = Column(Numeric(5, 2), nullable=False, default=1.00)
     """نسبة التخفيض الجمركي e.g. 1.00 تعني إعفاء 100% من ضريبة الوارد"""
 
+    preferential_duty_rate = Column(Numeric(5, 2), nullable=True)
+    """سعر الضريبة التفضيلية المحدد مباشرة e.g. 3.00% للميركسور"""
+
+    publication_notice = Column(String(100), nullable=True)
+    """رقم المنشور الجمركي e.g. 'ر6722', 'ر6668'"""
+
+    required_document = Column(String(250), nullable=True)
+    """المستند أو الشهادة المطلوبة لتطبيق التخفيض e.g. 'شهادة EUR.1'"""
+
     origin_countries = Column(String(500), nullable=False)
     """الدول المشمولة بالاتفاقية بالرمز الدولي مقسمة بفواصل e.g. 'JO,TN,MA'"""
 

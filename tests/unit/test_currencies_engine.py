@@ -18,7 +18,13 @@ from modules.currencies.schemas import (
     ExchangeGainLossRequest,
 )
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./test_currencies.db"
+# Import models required for metadata FK resolution
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import PurchaseOrder
+from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+
+SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
 engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False})
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

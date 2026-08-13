@@ -84,6 +84,7 @@ class CurrencyRepository:
             commercial_rate=data.commercial_rate,
             customs_rate=data.customs_rate,
             effective_date=data.effective_date,
+            created_by=data.created_by or "System",
             is_active=True,
         )
         self.db.add(rate)
@@ -91,13 +92,16 @@ class CurrencyRepository:
         self.db.refresh(rate)
         return rate
 
+    def get_rate_by_id(self, rate_id: int) -> Optional[ExchangeRate]:
+        return self.db.query(ExchangeRate).filter(ExchangeRate.rate_id == rate_id).first()
+
     def get_latest_rate(self, currency_id: int, target_date: Optional[date] = None) -> Optional[ExchangeRate]:
         query = self.db.query(ExchangeRate).filter(
             ExchangeRate.currency_id == currency_id,
             ExchangeRate.is_active.is_(True),
         )
-        if target_date:
-            query = query.filter(ExchangeRate.effective_date <= target_date)
+        ref_date = target_date or date.today()
+        query = query.filter(ExchangeRate.effective_date <= ref_date)
 
         return query.order_by(ExchangeRate.effective_date.desc(), ExchangeRate.created_at.desc()).first()
 

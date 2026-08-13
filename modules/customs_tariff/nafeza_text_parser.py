@@ -1,0 +1,216 @@
+import re
+from decimal import Decimal
+from typing import List, Tuple, Dict, Any, Optional
+
+from modules.customs_tariff.schemas import CustomsTariffCreate, PreferentialAgreementCreate
+
+
+AGREEMENT_COUNTRY_MAPPINGS: Dict[str, Dict[str, str]] = {
+    "ميركسور": {
+        "canonical_name": "اتفاقية أمريكا اللاتينية الميركسور (Mercosur)",
+        "origin_countries": "BR,AR,UY,PY",
+        "required_document": "شهادة منشأ اتفاقية الميركسور",
+    },
+    "صربيا": {
+        "canonical_name": "اتفاقية صربيا للتجارة الحرة",
+        "origin_countries": "RS",
+        "required_document": "شهادة منشأ صربية / EUR.1",
+    },
+    "المملكة المتحدة": {
+        "canonical_name": "اتفاقية الشراكة المصرية والمملكة المتحدة (UK Partnership)",
+        "origin_countries": "GB",
+        "required_document": "شهادة منشأ المملكة المتحدة / EUR.1",
+    },
+    "الافتا": {
+        "canonical_name": "اتفاقية دول الإفتا (EFTA)",
+        "origin_countries": "IS,LI,NO,CH",
+        "required_document": "شهادة EUR.1 / EFTA",
+    },
+    "تركيا": {
+        "canonical_name": "اتفاقية التجارة الحرة مع تركيا (Turkey FTA)",
+        "origin_countries": "TR",
+        "required_document": "شهادة EUR.1",
+    },
+    "أوربية": {
+        "canonical_name": "اتفاقية الشراكة الأوروبية (EU Partnership)",
+        "origin_countries": "DE,FR,IT,ES,NL,BE,AT,SE,DK,FI,GR,PT,IE,PL,CZ,HU,RO,BG,HR,SK,SI,CY,MT,EE,LV,LT",
+        "required_document": "شهادة EUR.1",
+    },
+    "أغادير": {
+        "canonical_name": "اتفاقية الأغادير (Agadir Agreement)",
+        "origin_countries": "JO,TN,MA,EG",
+        "required_document": "شهادة EUR.1 / Agadir",
+    },
+    "العربية الكبرى": {
+        "canonical_name": "منطقة التجارة الحرة العربية الكبرى (GAFTA)",
+        "origin_countries": "SA,AE,KW,QA,BH,OM,JO,TN,MA,DZ,LB,SY,IQ,SD,LY,YE",
+        "required_document": "شهادة منشأ جامعة الدول العربية",
+    },
+}
+
+
+def parse_nafeza_tariff_text(raw_text: str) -> Tuple[CustomsTariffCreate, List[PreferentialAgreementCreate]]:
+    """
+    محلل وصائغ النصوص الجمركية الذكي (Nafeza Smart Tariff Parser).
+    يقوم بتحليل نص البند المجمع من نافذة واستخراج:
+    - رقم البند (HS Code)
+    - وصف البند
+    - ضريبة الوارد (النظام الأساسي)
+    - ضريبة القيمة المضافة
+    - الاتفاقيات التفضيلية وتخفيضاتها والقرارات الوزارية والمستندات المطلوبة لكل دولة.
+    """
+    text = raw_text.strip()
+
+    # 1. Extract HS Code
+    hs_code_match = re.search(r"رقم\s*البند\s*:\s*([\d\.\s]+)", text)
+    if not hs_code_match:
+        # Fallback regex for raw numbers
+        hs_code_match = re.search(r"\b(\d{8,10})\b", text)
+        if not hs_code_match:
+            raise ValueError("تعذر استخراج رقم البند الجمركي (HS Code) من النص المدخل.")
+    raw_hs = hs_code_match.group(1).replace(".", "").strip()
+    hs_code = raw_hs
+
+    # 2. Extract Description
+    hs_desc = "بند جمركي"
+    desc_match = re.search(r"نص\s*البند\s*:\s*(.*?)(?=\n\s*الضرائب|\n\s*المستندات|$)", text, re.DOTALL)
+    if desc_match:
+        hs_desc = desc_match.group(1).strip()
+        hs_desc = re.sub(r"\s+", " ", hs_desc)
+
+    # 3. Extract Base Duty Rate ("النظام الأساسي")
+    customs_duty_rate = Decimal("0.00")
+    duty_match = re.search(r"ضريبة\s*الوارد\s*\(\s*النظام\s*الاساسي\s*\)\s*:\s*([\d\.]+)\s*%", text)
+    if duty_match:
+        customs_duty_rate = Decimal(duty_match.group(1))
+    else:
+        # Generic duty fallback
+        generic_duty = re.search(r"ضريبة\s*الوارد\s*:\s*([\d\.]+)\s*%", text)
+        if generic_duty:
+            customs_duty_rate = Decimal(generic_duty.group(1))
+
+    # 4. Extract VAT Rate
+    vat_rate = Decimal("14.00")
+    vat_match = re.search(r"ضريبة\s*قيمه\s*مضافه\s*:\s*([\d\.]+)\s*%", text)
+    if vat_match:
+        vat_rate = Decimal(vat_match.group(1))
+
+    # 5. Extract Specific Preferential Rates from "الضرائب" Section (e.g. Mercosur 3%)
+    specific_duty_rates: Dict[str, Decimal] = {}
+    tax_section_match = re.search(r"الضرائب\s*:(.*?)(?=\n\s*المستندات|$)", text, re.DOTALL)
+    if tax_section_match:
+        tax_lines = tax_section_match.group(1).splitlines()
+        for i, line in enumerate(tax_lines):
+            line_str = line.strip()
+            if "ضريبة الوارد" in line_str and "النظام الاساسي" not in line_str:
+                ag_name_match = re.search(r"ضريبة\s*الوارد\s*\((.*?)\)", line_str)
+                if ag_name_match:
+                    name_key = ag_name_match.group(1).strip()
+                    # Check next lines for rate %
+                    for next_line in tax_lines[i : i + 3]:
+                        rate_m = re.search(r"([\d\.]+)\s*%", next_line)
+                        if rate_m:
+                            specific_duty_rates[name_key] = Decimal(rate_m.group(1))
+                            break
+
+    # Construct CustomsTariffCreate
+    tariff = CustomsTariffCreate(
+        hs_code=hs_code,
+        hs_description=hs_desc,
+        customs_duty_rate=customs_duty_rate,
+        vat_rate=vat_rate,
+        schedule_tax_rate=Decimal("0.00"),
+        development_fee_rate=Decimal("0.00"),
+        import_fee_rate=Decimal("0.00"),
+        customs_service_fee_rate=Decimal("1.00"),
+        requires_coo=True,
+        requires_inspection=False,
+        requires_acid=True,
+    )
+
+    # 6. Parse Agreements & Decisions under "المستندات والأعمال :"
+    agreements: List[PreferentialAgreementCreate] = []
+
+    doc_section_match = re.search(r"المستندات\s*والأعمال\s*:(.*)", text, re.DOTALL)
+    if doc_section_match:
+        doc_lines = doc_section_match.group(1).splitlines()
+        for dline in doc_lines:
+            dline_str = dline.strip()
+            if not dline_str or not (dline_str.startswith("ر") or "اتفاقية" in dline_str or "تخفض" in dline_str or "يعفى" in dline_str):
+                continue
+
+            # Extract publication notice e.g. ر6722, ر6668, ر6706, ر6631, ر6607, ر6663
+            notice_match = re.search(r"(ر\d{4,5})", dline_str)
+            pub_notice = notice_match.group(1) if notice_match else None
+
+            # Detect matching agreement mapping key
+            matched_mapping_key = None
+            matched_mapping_info = None
+            for key, info in AGREEMENT_COUNTRY_MAPPINGS.items():
+                if key in dline_str:
+                    matched_mapping_key = key
+                    matched_mapping_info = info
+                    break
+
+            if not matched_mapping_info:
+                # Generic fallback if no specific keyword matched
+                matched_mapping_info = {
+                    "canonical_name": f"اتفاقية تفضيلية ({pub_notice or 'خاصة'})",
+                    "origin_countries": "OTHER",
+                    "required_document": "شهادة منشأ تفضيلية معتمدة",
+                }
+
+            canonical_name = matched_mapping_info["canonical_name"]
+            origin_countries = matched_mapping_info["origin_countries"]
+            required_document = matched_mapping_info["required_document"]
+
+            # Determine reduction type & percentages
+            reduction_type = "percentage_of_duty"
+            reduction_percentage = Decimal("1.00")
+            preferential_duty_rate: Optional[Decimal] = None
+
+            # Check if specific fixed duty rate was extracted from tax section (e.g. Mercosur 3%)
+            for tax_key, rate_val in specific_duty_rates.items():
+                if matched_mapping_key and matched_mapping_key in tax_key:
+                    preferential_duty_rate = rate_val
+                    reduction_type = "fixed_rate"
+                    break
+
+            if preferential_duty_rate is None:
+                # Check for explicit percentage in line e.g. "تخفيض 10%", "بنسبة100%"
+                pct_match = re.search(r"بنسبة\s*(\d+)%|تخفيض\s*(\d+)%", dline_str)
+                if pct_match:
+                    pct_val = Decimal(pct_match.group(1) or pct_match.group(2))
+                    if pct_val == Decimal("100"):
+                        reduction_type = "full_duty_exemption"
+                        reduction_percentage = Decimal("1.00")
+                        preferential_duty_rate = Decimal("0.00")
+                    else:
+                        reduction_type = "percentage_of_duty"
+                        reduction_percentage = pct_val / Decimal("100.0")
+                        preferential_duty_rate = _calculate_reduced_rate(customs_duty_rate, reduction_percentage)
+                elif "يعفى" in dline_str:
+                    reduction_type = "full_duty_exemption"
+                    reduction_percentage = Decimal("1.00")
+                    preferential_duty_rate = Decimal("0.00")
+
+            ag_create = PreferentialAgreementCreate(
+                hs_code=hs_code,
+                agreement_name=canonical_name,
+                reduction_type=reduction_type,
+                reduction_percentage=reduction_percentage,
+                preferential_duty_rate=preferential_duty_rate,
+                publication_notice=pub_notice,
+                required_document=required_document,
+                origin_countries=origin_countries,
+                conditions_note=dline_str,
+            )
+            agreements.append(ag_create)
+
+    return tariff, agreements
+
+
+def _calculate_reduced_rate(base_duty: Decimal, reduction_percentage: Decimal) -> Decimal:
+    """Calculates reduced duty rate e.g. 40% base with 10% discount -> 36%."""
+    reduced = base_duty * (Decimal("1.00") - reduction_percentage)
+    return max(Decimal("0.00"), round(reduced, 2))

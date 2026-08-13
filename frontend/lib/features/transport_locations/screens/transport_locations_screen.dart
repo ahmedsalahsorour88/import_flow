@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -66,6 +67,18 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                     const BackToDashboardButton(),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
+                      onPressed: () => _handleExcelImport(context, ref),
+                      icon: const Icon(Icons.file_upload_outlined, size: 18),
+                      label: const Text('Import Excel/CSV'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
                       onPressed: () => _showLocationDialog(context),
                       icon: const Icon(Icons.add_location_alt, size: 18),
                       label: const Text('Add Transport Location'),
@@ -78,7 +91,6 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                     ),
                   ],
                 ),
-
               ],
             ),
             const SizedBox(height: 20),
@@ -572,5 +584,53 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
         ],
       ),
     );
+  }
+
+  Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['xlsx', 'xls', 'csv'],
+      withData: true,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final file = result.files.first;
+    if (file.bytes == null) return;
+
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Importing transport locations from Excel/CSV...'), backgroundColor: AppTheme.cobalt),
+    );
+
+    try {
+      final res = await ref.read(transportLocationsProvider.notifier).uploadExcelLocations(file.bytes!, file.name);
+      if (!context.mounted) return;
+      final errors = (res?['errors'] as List?)?.cast<String>() ?? [];
+      if (errors.isNotEmpty) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Import Warnings'),
+            content: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: errors.map((e) => Text('• $e', style: const TextStyle(color: AppTheme.crimson, fontSize: 13))).toList(),
+              ),
+            ),
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(res?['message'] ?? 'Successfully imported transport locations!'), backgroundColor: AppTheme.emerald),
+        );
+      }
+    } catch (err) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(err.toString()), backgroundColor: AppTheme.crimson),
+      );
+    }
   }
 }

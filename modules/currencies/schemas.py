@@ -31,6 +31,7 @@ class ExchangeRateBase(BaseModel):
     commercial_rate: float = Field(..., gt=0, description="Commercial Bank Rate to EGP")
     customs_rate: float = Field(..., gt=0, description="Official Egyptian Customs Exchange Rate to EGP")
     effective_date: date
+    created_by: Optional[str] = Field(None, description="User or system who recorded the exchange rate")
 
 
 class ExchangeRateCreate(ExchangeRateBase):
@@ -41,6 +42,7 @@ class ExchangeRateResponse(ExchangeRateBase):
     rate_id: int
     is_active: bool
     created_at: datetime
+    created_by: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -76,6 +78,7 @@ class CurrencyConversionResponse(BaseModel):
     converted_amount: float
     base_currency_equivalent_egp: float
     rate_date: Optional[date] = None
+    exchange_rate_id: Optional[int] = None
     summary_ar: str
 
 

@@ -205,4 +205,54 @@ class CustomsTariffNotifier
       return 'An unexpected error occurred.';
     }
   }
+
+  Future<Map<String, dynamic>?> parseSmartNafezaText(String rawText) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/parse-text',
+        data: {'raw_text': rawText},
+      );
+      return response.data as Map<String, dynamic>;
+    } on DioException catch (e) {
+      throw e.response?.data?['detail']?.toString() ?? 'فشل في تحليل نص البند الجمركي.';
+    } catch (e) {
+      throw 'حدث خطأ غير متوقع أثناء تحليل النص.';
+    }
+  }
+
+  Future<String?> saveTariffWithAgreements(Map<String, dynamic> payload) async {
+    try {
+      await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/with-agreements',
+        data: payload,
+      );
+      ref.invalidate(systemAuditLogsProvider);
+      ref.invalidate(customsTariffProvider);
+      return null;
+    } on DioException catch (e) {
+      return e.response?.data?['detail']?.toString() ?? 'فشل في حفظ البند الجمركي بالاتفاقيات.';
+    } catch (_) {
+      return 'حدث خطأ غير متوقع أثناء الحفظ.';
+    }
+  }
+
+  Future<Map<String, dynamic>?> checkDutyForOrigin({
+    required String hsCode,
+    required String originCountry,
+    bool hasPreferentialDocument = false,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-tariff/check-duty-for-origin',
+        data: {
+          'hs_code': hsCode,
+          'origin_country': originCountry,
+          'has_preferential_document': hasPreferentialDocument,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
 }

@@ -30,43 +30,6 @@ def create_partner(
     return service.create_partner(partner_data)
 
 
-@router.get("/{provider_id}", response_model=PartnerResponse)
-def get_partner(
-    provider_id: int,
-    db: Session = Depends(get_db)
-):
-    service = ExternalServiceProviderService(db)
-    return service.get_partner_by_id(provider_id)
-
-
-@router.put("/{provider_id}", response_model=PartnerResponse)
-def update_partner(
-    provider_id: int,
-    partner_data: PartnerUpdate,
-    db: Session = Depends(get_db)
-):
-    service = ExternalServiceProviderService(db)
-    return service.update_partner(provider_id, partner_data)
-
-
-@router.delete("/{provider_id}")
-def delete_partner(
-    provider_id: int,
-    db: Session = Depends(get_db)
-):
-    service = ExternalServiceProviderService(db)
-    return service.soft_delete_partner(provider_id)
-
-
-@router.patch("/{provider_id}/restore")
-def restore_partner(
-    provider_id: int,
-    db: Session = Depends(get_db)
-):
-    service = ExternalServiceProviderService(db)
-    return service.restore_partner(provider_id)
-
-
 # ==================================================
 # Excel Template & Bulk Import & Export
 # ==================================================
@@ -111,7 +74,7 @@ async def import_excel_partners(file: UploadFile = File(...), db: Session = Depe
     cols = ['partner_name', 'partner_type', 'tax_id', 'commercial_register']
     rows = MasterDataExportImportHelper.parse_excel_file(file_bytes, cols)
 
-    service = PartnerService(db)
+    service = ExternalServiceProviderService(db)
     imported_count = 0
     errors = []
 
@@ -150,7 +113,7 @@ async def import_excel_partners(file: UploadFile = File(...), db: Session = Depe
 
 @router.get("/export-excel")
 def export_partners_excel(db: Session = Depends(get_db)):
-    service = PartnerService(db)
+    service = ExternalServiceProviderService(db)
     partners = service.get_all_partners(include_inactive=True)
     headers = [
         'Code', 'Partner Name', 'Category / Type', 'Tax ID', 'Commercial Reg #',
@@ -186,7 +149,7 @@ def export_partners_excel(db: Session = Depends(get_db)):
 
 @router.get("/export-pdf")
 def export_partners_pdf(db: Session = Depends(get_db)):
-    service = PartnerService(db)
+    service = ExternalServiceProviderService(db)
     partners = service.get_all_partners(include_inactive=True)
     headers = ['Code', 'Partner Name', 'Category', 'Tax ID', 'Phone', 'Email', 'Country', 'Status']
     rows = []
@@ -207,3 +170,40 @@ def export_partners_pdf(db: Session = Depends(get_db)):
         media_type="application/pdf",
         headers={"Content-Disposition": "attachment; filename=Partners_Banks_Report.pdf"},
     )
+
+
+@router.get("/{provider_id}", response_model=PartnerResponse)
+def get_partner(
+    provider_id: int,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.get_partner_by_id(provider_id)
+
+
+@router.put("/{provider_id}", response_model=PartnerResponse)
+def update_partner(
+    provider_id: int,
+    partner_data: PartnerUpdate,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.update_partner(provider_id, partner_data)
+
+
+@router.delete("/{provider_id}")
+def delete_partner(
+    provider_id: int,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.soft_delete_partner(provider_id)
+
+
+@router.patch("/{provider_id}/restore")
+def restore_partner(
+    provider_id: int,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.restore_partner(provider_id)

@@ -9,6 +9,12 @@ from modules.currencies.schemas import CurrencyCreate, CurrencyUpdate, ExchangeR
 from modules.currencies.service import CurrencyService
 from fastapi import HTTPException
 
+# Import models required for metadata FK resolution
+from modules.external_service_providers.model import ExternalServiceProvider
+from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import PurchaseOrder
+from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
+
 
 @pytest.fixture
 def db_session():

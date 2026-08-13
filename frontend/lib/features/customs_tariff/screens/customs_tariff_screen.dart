@@ -95,6 +95,16 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.orange,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 12),
+                      ),
+                      icon: const Icon(Icons.auto_fix_high, size: 18),
+                      label: const Text('إدخال بند ذكي (Nafeza Parser)'),
+                      onPressed: () => _showSmartNafezaParserDialog(context, ref),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
@@ -3165,6 +3175,440 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showSmartNafezaParserDialog(BuildContext context, WidgetRef ref) {
+    final textController = TextEditingController();
+    Map<String, dynamic>? parsedResult;
+    bool isParsing = false;
+    bool isSaving = false;
+    String? parseError;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 850,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            ),
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.auto_fix_high, color: AppTheme.orange, size: 24),
+                          SizedBox(width: 8),
+                          Text(
+                            'محلل البنود والاتفاقيات الجمركية الذكي (Smart Nafeza Parser)',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.charcoal,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'قم بلصق نص البند الجمركي المجمع كما هو ظاهر من صفحة/شيت نافذة وسيقوم النظام باستخراج البند والضرائب والاتفاقيات التفضيلية والمستندات المطلوبة تلقائياً.',
+                    style: TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: textController,
+                    maxLines: 6,
+                    decoration: InputDecoration(
+                      labelText: 'نص البند المجمع (Paste Nafeza Tariff Block)',
+                      hintText: 'رقم البند :\n3925900090\nنص البند :\nأصناف أخر لتجهيزات البناء من لدائن...\nالضرائب :\nضريبة الوارد (النظام الاساسي) :\n40.000 %\nضريبة قيمه مضافه :\n14.000 %...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.cobalt,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        ),
+                        icon: isParsing
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.auto_awesome, size: 18),
+                        label: const Text('تحليل وتنسيق تلقائي (Parse Text)'),
+                        onPressed: isParsing
+                            ? null
+                            : () async {
+                                if (textController.text.trim().isEmpty) return;
+                                setDialogState(() {
+                                  isParsing = true;
+                                  parseError = null;
+                                });
+                                try {
+                                  final result = await ref
+                                      .read(customsTariffProvider.notifier)
+                                      .parseSmartNafezaText(textController.text);
+                                  setDialogState(() {
+                                    parsedResult = result;
+                                    isParsing = false;
+                                  });
+                                } catch (err) {
+                                  setDialogState(() {
+                                    parseError = err.toString();
+                                    isParsing = false;
+                                  });
+                                }
+                              },
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.content_paste_go, size: 16),
+                        label: const Text('تحميل مثال تجريبي (Load Example)'),
+                        onPressed: () {
+                          textController.text = '''رقم البند :
+3925900090
+نص البند :
+أصناف أخر لتجهيزات البناء من لدائن ، غير مذكورة أو داخلة في مكان أخر .
+الضرائب :
+ضريبة الوارد (النظام الاساسي) :
+40.000 %
+ضريبة الوارد (اتفاقية أمريكا اللاتينية الميركسور) :
+3.000 %
+ضريبة قيمه مضافه :
+14.000 %
+المستندات والأعمال :
+ر6722 - اتفاقية صربيا تخفيض 10%
+ر6668 - تخفض ض .ج ورسوم بنسبة100%علىسلع صناعيةواردةفى ظل اتفاقية الشراكةالمصرية والمملكة المتحدة
+ر6706 - تحصل ض. وارد طبقا للفئات الموضحة قرين كل بند على سلع واردة فى إطار إتفاقيةالميركسور
+ر6631 - يعفى من الضريبة الجمركية والرسوم ذات الاثر المماثل الأصناف الواردة من دول الافتا بنسبة100%
+ر6607 - تخفض الرسوم الجمركية فى ظل اتفاقيةتركيا بنسبة100% على اصناف واردةبالقائمة 1 برتوكول 1
+ر6663 - تخفض ضريبةجمركيةورسوم ذات أثر مماثل بنسبة 100% علىسلع صناعيةواردةفى ظل شراكةأوربيةملحق2''';
+                        },
+                      ),
+                    ],
+                  ),
+                  if (parseError != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: AppTheme.crimson),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(parseError!, style: const TextStyle(color: AppTheme.crimson)),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (parsedResult != null) ...[
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            parsedResult!['summary_ar'] ?? '',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              Chip(
+                                label: Text('HS Code: ${parsedResult!['tariff_data']['hs_code']}'),
+                                backgroundColor: AppTheme.cobalt.withOpacity(0.1),
+                              ),
+                              Chip(
+                                label: Text('ضريبة الوارد الأساسية: ${parsedResult!['tariff_data']['customs_duty_rate']}%'),
+                                backgroundColor: AppTheme.orange.withOpacity(0.2),
+                              ),
+                              Chip(
+                                label: Text('القيمة المضافة: ${parsedResult!['tariff_data']['vat_rate']}%'),
+                                backgroundColor: AppTheme.emerald.withOpacity(0.2),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // ==================================================
+                    // Diff Comparison & Version History Section
+                    // ==================================================
+                    if (parsedResult!['comparison'] != null) ...[
+                      const SizedBox(height: 16),
+                      Builder(builder: (context) {
+                        final comp = parsedResult!['comparison'];
+                        final hasPrev = comp['has_previous_version'] == true;
+                        final prevFrom = comp['previous_effective_from'];
+                        final prevTo = comp['previous_effective_to'];
+                        final newFrom = comp['new_effective_from'];
+                        final diffItems = (comp['diff_items'] as List?) ?? [];
+
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.shade50.withOpacity(0.6),
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.amber.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  const Icon(Icons.history_edu, color: AppTheme.orange, size: 22),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    hasPrev
+                                        ? 'تحليل الاختلافات وسريان التاريخ (Tariff History & Diff)'
+                                        : 'نسخة بند جديدة (New HS Code Entry)',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 15,
+                                      color: AppTheme.charcoal,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              if (hasPrev) ...[
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.grey.shade300),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '📅 النسخة السابقة كانت مطبقة من: ${prevFrom ?? '—'} حتى ${prevTo ?? 'اليوم'}',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.crimson),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          '⚡ النسخة الجديدة سارية من: ${newFrom ?? 'اليوم'} (سجل حي)',
+                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 10),
+                              ],
+                              Text(
+                                comp['summary_ar'] ?? '',
+                                style: const TextStyle(fontSize: 13, color: AppTheme.charcoal),
+                              ),
+                              const SizedBox(height: 12),
+                              if (diffItems.isNotEmpty) ...[
+                                const Text(
+                                  'تغييرات المنشورات والاتفاقيات:',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                                const SizedBox(height: 8),
+                                ...diffItems.map((item) {
+                                  final hexColorStr = item['color_code'] ?? '#2C3E50';
+                                  final colorVal = int.tryParse(hexColorStr.replaceFirst('#', '0xFF')) ?? 0xFF2C3E50;
+                                  final itemColor = Color(colorVal);
+                                  final changeType = item['change_type'] ?? 'unchanged';
+
+                                  IconData icon = Icons.info_outline;
+                                  if (changeType == 'added') icon = Icons.add_circle_outline;
+                                  if (changeType == 'removed') icon = Icons.remove_circle_outline;
+                                  if (changeType == 'modified') icon = Icons.edit_note;
+
+                                  return Card(
+                                    color: itemColor.withOpacity(0.08),
+                                    shape: RoundedRectangleBorder(
+                                      side: BorderSide(color: itemColor.withOpacity(0.5)),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    margin: const EdgeInsets.only(bottom: 6),
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(10),
+                                      child: Row(
+                                        children: [
+                                          Icon(icon, color: itemColor, size: 20),
+                                          const SizedBox(width: 10),
+                                          Expanded(
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                Text(
+                                                  '${item['agreement_name']} ${item['publication_notice'] != null ? '(${item['publication_notice']})' : ''}',
+                                                  style: TextStyle(fontWeight: FontWeight.bold, color: itemColor, fontSize: 13),
+                                                ),
+                                                Text(
+                                                  item['summary_ar'] ?? '',
+                                                  style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: itemColor.withOpacity(0.2),
+                                              borderRadius: BorderRadius.circular(4),
+                                            ),
+                                            child: Text(
+                                              changeType.toUpperCase(),
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: itemColor),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }),
+                              ],
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
+
+                    const SizedBox(height: 16),
+                    Text(
+                      'الاتفاقيات التفضيلية المكتشفة (${parsedResult!['parsed_agreements_count']}):',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: (parsedResult!['agreements'] as List).length,
+                      itemBuilder: (context, idx) {
+                        final ag = parsedResult!['agreements'][idx];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: AppTheme.emerald.withOpacity(0.1),
+                              child: const Icon(Icons.verified, color: AppTheme.emerald, size: 20),
+                            ),
+                            title: Text(
+                              '${ag['agreement_name']} ${ag['publication_notice'] != null ? '(${ag['publication_notice']})' : ''}',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            subtitle: Text(
+                              'الدول: ${ag['origin_countries']} | المستند: ${ag['required_document'] ?? 'غير محدد'}\n'
+                              'الشرط: ${ag['conditions_note'] ?? ''}',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                ag['preferential_duty_rate'] != null
+                                    ? 'فئة الضريبة: ${ag['preferential_duty_rate']}%'
+                                    : 'تخفيض: ${((ag['reduction_percentage'] as num) * 100).toInt()}%',
+                                style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.emerald,
+                          padding: const EdgeInsets.all(14),
+                        ),
+                        icon: isSaving
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              )
+                            : const Icon(Icons.save_outlined),
+                        label: const Text(
+                          'حفظ البند الجمركي مع الاتفاقيات في قاعدة البيانات',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                setDialogState(() => isSaving = true);
+                                final saveErr = await ref
+                                    .read(customsTariffProvider.notifier)
+                                    .saveTariffWithAgreements({
+                                  'tariff': parsedResult!['tariff_data'],
+                                  'agreements': parsedResult!['agreements'],
+                                });
+                                setDialogState(() => isSaving = false);
+                                if (context.mounted) {
+                                  if (saveErr != null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(saveErr), backgroundColor: AppTheme.crimson),
+                                    );
+                                  } else {
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(parsedResult!['summary_ar']),
+                                        backgroundColor: AppTheme.emerald,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
         ),
       ),
     );

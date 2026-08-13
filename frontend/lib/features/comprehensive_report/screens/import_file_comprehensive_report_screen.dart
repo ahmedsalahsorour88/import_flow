@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
@@ -103,6 +105,8 @@ class _ImportFileComprehensiveReportScreenState
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
+          const SizedBox(width: 8),
           if (_selectedFile != null)
             Padding(
               padding: const EdgeInsets.only(right: 10),
@@ -122,6 +126,7 @@ class _ImportFileComprehensiveReportScreenState
             ),
           const SizedBox(width: 8),
         ],
+
       ),
       body: Column(
         children: [

@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 
@@ -350,11 +351,13 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
           ),
         ],
+
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

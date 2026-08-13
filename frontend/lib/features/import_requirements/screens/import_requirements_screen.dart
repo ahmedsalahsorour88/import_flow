@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/import_requirement_model.dart';
 import '../providers/import_requirements_provider.dart';
 
@@ -76,6 +77,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         ),
         backgroundColor: AppTheme.charcoal,
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () {
@@ -83,6 +85,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             },
           ),
         ],
+
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showCreateEditDialog(),

@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
@@ -80,7 +81,9 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   spacing: 10,
                   runSpacing: 8,
                   children: [
+                    const BackToDashboardButton(),
                     ElevatedButton.icon(
+
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         padding: const EdgeInsets.symmetric(

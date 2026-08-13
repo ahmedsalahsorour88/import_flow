@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -75,12 +76,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => ref.read(customsClearanceProvider.notifier).fetchRecords(),
           ),
           const SizedBox(width: 10),
         ],
+
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

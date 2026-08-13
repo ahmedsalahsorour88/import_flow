@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
+
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
@@ -73,11 +75,18 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add External Partner'),
-                  onPressed: () => _showPartnerDialog(context),
+                Row(
+                  children: [
+                    const BackToDashboardButton(),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add External Partner'),
+                      onPressed: () => _showPartnerDialog(context),
+                    ),
+                  ],
                 ),
+
               ],
             ),
             const SizedBox(height: 16),

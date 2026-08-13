@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_context_menu.dart';
@@ -65,7 +66,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 ),
                 Row(
                   children: [
+                    const BackToDashboardButton(),
+                    const SizedBox(width: 12),
                     // Show Deactivated Filter Switch
+
                     Row(
                       children: [
                         const Text('Include Deactivated:', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),

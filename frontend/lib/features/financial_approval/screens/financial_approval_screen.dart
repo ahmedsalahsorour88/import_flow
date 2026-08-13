@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -278,7 +279,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             Text('الموافقات المالية وإدارة الميزانية (Phase 2 – Financial & Management Approval)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 10),
+        ],
+
         bottom: TabBar(
+
           controller: _tabController,
           indicatorColor: AppTheme.cobalt,
           labelColor: Colors.white,

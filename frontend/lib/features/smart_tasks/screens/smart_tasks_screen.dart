@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../providers/smart_tasks_provider.dart';
 import '../widgets/smart_task_dialog.dart';
 
@@ -57,11 +58,13 @@ class _SmartTasksScreenState extends ConsumerState<SmartTasksScreen> {
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => ref.read(smartTasksProvider.notifier).fetchTasks(),
           ),
         ],
+
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

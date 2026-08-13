@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/audit_log_model.dart';
 import '../providers/audit_logs_provider.dart';
 
@@ -76,12 +77,22 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     ],
                   ),
                 ),
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Refresh Live Logs'),
-                  onPressed: () {
-                    ref.invalidate(systemAuditLogsProvider);
-                  },
+                Row(
+                  children: [
+                    const BackToDashboardButton(),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.refresh, size: 18),
+                      label: const Text('Live Refresh'),
+                      onPressed: () => ref.invalidate(systemAuditLogsProvider),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),

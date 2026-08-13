@@ -22,7 +22,9 @@ import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/import_file_model.dart';
+
 import '../providers/import_files_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
@@ -1019,12 +1021,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(1),
           ),
           const SizedBox(width: 10),
         ],
+
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),

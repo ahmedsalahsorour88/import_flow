@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -287,6 +288,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           ],
         ),
         actions: [
+          const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'Live Refresh (تحديث حي)',
@@ -294,6 +296,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           ),
           const SizedBox(width: 12),
         ],
+
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.cobalt,

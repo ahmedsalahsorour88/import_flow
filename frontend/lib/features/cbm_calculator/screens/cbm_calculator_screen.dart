@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 
@@ -100,7 +102,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                   ),
                 ),
                 const Spacer(),
+                const BackToDashboardButton(),
+                const SizedBox(width: 10),
                 TabBar(
+
                   controller: _tabController,
                   isScrollable: true,
                   indicatorColor: Colors.amber,
@@ -293,9 +298,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     ],
                   ),
                 ),
+                const BackToDashboardButton(),
+                const SizedBox(width: 8),
               ],
             ),
           ),
+
           const SizedBox(height: 12),
 
           // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)

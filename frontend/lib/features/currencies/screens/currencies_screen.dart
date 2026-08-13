@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/currency_model.dart';
 import '../providers/currencies_provider.dart';
@@ -61,7 +62,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
+                    const BackToDashboardButton(),
                     ElevatedButton.icon(
+
                       onPressed: () => _showCurrencyConverterDialog(context),
                       icon: const Icon(Icons.currency_exchange, size: 18),
                       label: const Text('محول العملات الحي'),

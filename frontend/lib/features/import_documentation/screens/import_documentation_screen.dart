@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -349,7 +350,13 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
             Text('مستندات الاستيراد والتسجيل الحكومي ACI (Phase 3 – Import Documentation & Nafeza)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 10),
+        ],
+
         bottom: TabBar(
+
           controller: _tabController,
           indicatorColor: AppTheme.cobalt,
           labelColor: Colors.white,

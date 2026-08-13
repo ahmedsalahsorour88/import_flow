@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
+
 
 class FreightQuotationsComparisonScreen extends StatefulWidget {
   const FreightQuotationsComparisonScreen({Key? key}) : super(key: key);
@@ -87,7 +89,12 @@ class _FreightQuotationsComparisonScreenState extends State<FreightQuotationsCom
         title: const Text('مقارنة عروض أسعار الشحن (Side-by-Side Comparison)', style: TextStyle(color: Colors.white)),
         backgroundColor: _charcoal,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 10),
+        ],
       ),
+
       body: Padding(
         padding: const EdgeInsets.all(24.0),
         child: Column(

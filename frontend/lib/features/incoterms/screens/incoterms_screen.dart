@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
@@ -47,10 +48,10 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
+                const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -68,9 +69,12 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                     ),
                   ],
                 ),
+                const BackToDashboardButton(),
               ],
             ),
+
             const SizedBox(height: 20),
+
 
             // Tab Bar
             Container(

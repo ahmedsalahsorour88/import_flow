@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../import_files/models/import_file_model.dart';
 
 class LandedCostComparisonScreen extends StatefulWidget {
   final int importFileId;
@@ -94,7 +97,12 @@ class _LandedCostComparisonScreenState extends State<LandedCostComparisonScreen>
         title: Text('مقارنة Landed Cost — تقديري vs فعلي [${widget.importFileCode}]', style: const TextStyle(color: Colors.white)),
         backgroundColor: _charcoal,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: const [
+          BackToDashboardButton(),
+          SizedBox(width: 10),
+        ],
       ),
+
       body: _isLoading 
           ? const Center(child: CircularProgressIndicator())
           : _error != null 

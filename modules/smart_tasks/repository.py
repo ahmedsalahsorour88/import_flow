@@ -1,0 +1,131 @@
+"""
+Database Operations for Smart Tasks Repository
+"""
+
+from typing import List, Optional
+from datetime import datetime
+from sqlalchemy.orm import Session
+from sqlalchemy import or_, and_, func
+
+from modules.smart_tasks.model import SmartTask
+from modules.smart_tasks.schemas import SmartTaskCreate, SmartTaskUpdate
+
+
+def generate_task_code(db: Session) -> str:
+    year = datetime.utcnow().year
+    count = db.query(func.count(SmartTask.task_id)).scalar() or 0
+    return f"TSK-{year}-{(count + 1):04d}"
+
+
+def create_task(db: Session, schema: SmartTaskCreate, created_by: str = "System") -> SmartTask:
+    task_code = generate_task_code(db)
+    db_obj = SmartTask(
+        task_code=task_code,
+        title=schema.title,
+        description=schema.description,
+        task_type=schema.task_type,
+        import_file_id=schema.import_file_id,
+        import_file_code=schema.import_file_code,
+        phase_name=schema.phase_name,
+        assigned_user=schema.assigned_user,
+        priority=schema.priority,
+        reminder_type=schema.reminder_type,
+        due_date=schema.due_date,
+        reminder_date=schema.reminder_date,
+        status=schema.status,
+        notes=schema.notes,
+        attachment_url=schema.attachment_url,
+        created_by=created_by,
+        updated_by=created_by,
+    )
+    db.add(db_obj)
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj
+
+
+def get_task_by_id(db: Session, task_id: int) -> Optional[SmartTask]:
+    return db.query(SmartTask).filter(
+        SmartTask.task_id == task_id,
+        SmartTask.is_active == True,
+    ).first()
+
+
+def get_all_tasks(
+    db: Session,
+    include_inactive: bool = False,
+    task_type: Optional[str] = None,
+    status: Optional[str] = None,
+    priority: Optional[str] = None,
+    import_file_id: Optional[int] = None,
+    search: Optional[str] = None,
+) -> List[SmartTask]:
+    query = db.query(SmartTask)
+
+    if not include_inactive:
+        query = query.filter(SmartTask.is_active == True)
+
+    if task_type:
+        query = query.filter(SmartTask.task_type == task_type)
+
+    if status and status != "All":
+        query = query.filter(SmartTask.status == status)
+
+    if priority and priority != "All":
+        query = query.filter(SmartTask.priority == priority)
+
+    if import_file_id:
+        query = query.filter(SmartTask.import_file_id == import_file_id)
+
+    if search:
+        term = f"%{search}%"
+        query = query.filter(
+            or_(
+                SmartTask.task_code.ilike(term),
+                SmartTask.title.ilike(term),
+                SmartTask.description.ilike(term),
+                SmartTask.import_file_code.ilike(term),
+            )
+        )
+
+    return query.order_by(SmartTask.task_id.desc()).all()
+
+
+def update_task(db: Session, task_id: int, update_data: dict, updated_by: str = "System") -> Optional[SmartTask]:
+    db_obj = get_task_by_id(db, task_id)
+    if not db_obj:
+        return None
+
+    for key, value in update_data.items():
+        if hasattr(db_obj, key):
+            setattr(db_obj, key, value)
+
+    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_by = updated_by
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj
+
+
+def soft_delete_task(db: Session, task_id: int, deleted_by: str = "System") -> bool:
+    db_obj = get_task_by_id(db, task_id)
+    if not db_obj:
+        return False
+
+    db_obj.is_active = False
+    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_by = deleted_by
+    db.commit()
+    return True
+
+
+def restore_task(db: Session, task_id: int) -> Optional[SmartTask]:
+    db_obj = db.query(SmartTask).filter(SmartTask.task_id == task_id).first()
+    if not db_obj:
+        return None
+
+    db_obj.is_active = True
+    db_obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(db_obj)
+    return db_obj

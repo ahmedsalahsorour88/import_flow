@@ -5,6 +5,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/widgets/close_shipment_dialog.dart';
+import '../../import_files/widgets/shipment_milestone_tracker.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../providers/operational_dashboard_provider.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
@@ -428,6 +430,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 ),
               ],
             ),
+            const SizedBox(height: 12),
+            // Milestone Progress Tracker (Feature 2.6)
+            ShipmentMilestoneTracker(importFile: s),
             if (s.status == 'Closed' || s.closureReason != null) ...[
               const SizedBox(height: 10),
               Container(
@@ -484,21 +489,32 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildKpiCardsBar(dynamic data) {
-    final activeFiles = data.shipments.where((s) => s.status != 'Closed').length;
-    final acidPermits = data.shipments.where((s) => s.acidNumber != null && s.acidNumber.toString().isNotEmpty).length;
-    final inCustoms = data.shipments.where((s) => s.currentModule.toString().contains('Phase 6') || s.currentModule.toString().contains('Phase 7')).length;
-    final riskAlerts = data.shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').length;
-    final closedFiles = data.shipments.where((s) => s.status == 'Closed').length;
+    final tasksState = ref.watch(smartTasksProvider);
+    final m = tasksState.metrics;
+
+    final todaysTasksCount = m?.todaysTasks ?? 0;
+    final pendingTasksCount = m?.pendingTasks ?? 0;
+    final upcomingShipmentsCount = data.shipments.where((s) => s.status != 'Closed').length;
+    final arrivingThisWeekCount = data.shipments.where((s) => s.requiredEta != null || s.currentModule.toString().contains('Phase 5')).length;
+    final etaChangesCount = data.shipments.where((s) => s.requiredEta != null).length;
+    final waitingForPaymentCount = data.shipments.where((s) => s.currentModule.toString().contains('Phase 2')).length;
+    final waitingForForm4Count = data.shipments.where((s) => s.form4No == null || s.form4No.toString().isEmpty).length;
+    final pendingRequirementsCount = data.shipments.where((s) => s.acidNumber == null || s.form46No == null).length;
+    final highPriorityAlertsCount = data.shipments.where((s) => s.priority == 'High' || s.priority == 'Critical').length;
 
     return Wrap(
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildKpiCard('الشحنات النشطة', '$activeFiles شحنة', 'من أصل ${data.shipmentCount} شحنة', Icons.folder_open, AppTheme.cobalt),
-        _buildKpiCard('تصاريح ACID المسجلة', '$acidPermits ACID', 'مطابقة 100% مع نافذة', Icons.verified, AppTheme.emerald),
-        _buildKpiCard('في الجمرك والمعاينة', '$inCustoms شحنة', 'إقرار 46 وتخليص', Icons.gavel, AppTheme.orange),
-        _buildKpiCard('تنبيهات المخاطر والأرضيات', '$riskAlerts تنبيه', 'عالي الخطورة / حرج', Icons.warning_amber, AppTheme.crimson),
-        _buildKpiCard('الشحنات المكتملة والمغلقة', '$closedFiles شحنة', 'مؤرشفة بنسبة 100%', Icons.archive, AppTheme.charcoal),
+        _buildKpiCard("Today's Tasks", '$todaysTasksCount مهام', 'المهام المطلوب تنفيذها اليوم', Icons.today, AppTheme.cobalt),
+        _buildKpiCard("Pending Tasks", '$pendingTasksCount مهام', 'المهام التي لم يتم الانتهاء منها', Icons.pending_actions, AppTheme.orange),
+        _buildKpiCard("Upcoming Shipments", '$upcomingShipmentsCount شحنات', 'متوقع وصولها القادم', Icons.near_me, AppTheme.emerald),
+        _buildKpiCard("Arriving This Week", '$arrivingThisWeekCount شحنات', 'وصول بالأسبوع الحالي', Icons.directions_boat, AppTheme.cobalt),
+        _buildKpiCard("ETA Changes", '$etaChangesCount تعديلات', 'تم تعديل موعد وصولها', Icons.edit_calendar, Colors.purple),
+        _buildKpiCard("Waiting For Payment", '$waitingForPaymentCount متوقفة', 'موافقات مالية معلقة (Phase 2)', Icons.monetization_on, AppTheme.crimson),
+        _buildKpiCard("Waiting For Form 4", '$waitingForForm4Count شحنات', 'إجراءات نموذج 4 بنك مصر', Icons.account_balance, AppTheme.orange),
+        _buildKpiCard("Pending Requirements", '$pendingRequirementsCount شحنات', 'مستندات وموافقات غير مكتملة', Icons.rule, AppTheme.crimson),
+        _buildKpiCard("High Priority Alerts", '$highPriorityAlertsCount تنبيهات', 'أولوية عالي / حرج (Critical)', Icons.warning_amber, Colors.red.shade900),
       ],
     );
   }

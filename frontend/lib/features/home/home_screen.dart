@@ -26,6 +26,8 @@ import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
 import '../file_closure/screens/file_closure_screen.dart';
 import '../operational_dashboard/screens/operational_dashboard_screen.dart';
+import '../smart_tasks/screens/smart_tasks_screen.dart';
+import '../dynamic_reporting/screens/dynamic_report_builder_screen.dart';
 import '../notifications/widgets/notification_bell_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -82,6 +84,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         TransportLocationsScreen(),
         CurrenciesScreen(),
         AuditLogsScreen(),
+
+        // Index 30..31: Smart Tasks & Dynamic Reporting
+        SmartTasksScreen(),
+        DynamicReportBuilderScreen(),
       ];
 
   @override
@@ -140,6 +146,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // Section 1: Dashboard & Workspace
                       _buildSectionHeader('📊 لوحة التحكم ومتابعة الشحنات'),
                       _buildMenuItem(Icons.dashboard_customize_outlined, 'Dashboard (لوحة التحليلات والتحكم)', 0, selectedIndex),
+                      _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks (المهام والتذكيرات 2.4/2.5)', 30, selectedIndex),
+                      _buildMenuItem(Icons.assessment_outlined, 'Dynamic Reports (مُنشئ التقارير 2.7)', 31, selectedIndex),
                       _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات النشطة)', 1, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 2, selectedIndex),
                       _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأوزان والأحجام)', 3, selectedIndex),

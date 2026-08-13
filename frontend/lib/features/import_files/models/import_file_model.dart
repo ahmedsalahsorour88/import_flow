@@ -97,6 +97,7 @@ class ImportFileModel {
   final String shipmentCategory;
   final String? requiredEta;
   final String? selectedScenario;
+  final String? acidNumber;
   final String? form4No;
   final String? swiftNo;
   final String? form46No;
@@ -137,6 +138,7 @@ class ImportFileModel {
     this.shipmentCategory = 'New Purchase',
     this.requiredEta,
     this.selectedScenario,
+    this.acidNumber,
     this.form4No,
     this.swiftNo,
     this.form46No,
@@ -183,6 +185,7 @@ class ImportFileModel {
       shipmentCategory: json['shipment_category'] ?? 'New Purchase',
       requiredEta: json['required_eta'],
       selectedScenario: json['selected_scenario'],
+      acidNumber: json['acid_number'],
       form4No: json['form4_no'],
       swiftNo: json['swift_no'],
       form46No: json['form46_no'],

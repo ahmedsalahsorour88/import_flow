@@ -11,7 +11,8 @@ import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
-  const CustomsConsultationScreen({super.key});
+  final int initialIndex;
+  const CustomsConsultationScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<CustomsConsultationScreen> createState() => _CustomsConsultationScreenState();
@@ -43,12 +44,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
     _initializeDefaultChecklist();
     Future.microtask(() {
       ref.read(customsConsultationsProvider.notifier).fetchConsultations();
       ref.read(importFilesProvider.notifier).fetchImportFiles();
     });
+  }
+
+  @override
+  void didUpdateWidget(CustomsConsultationScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      _tabController.animateTo(widget.initialIndex);
+    }
   }
 
   @override

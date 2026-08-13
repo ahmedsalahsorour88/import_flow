@@ -9,7 +9,8 @@ import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
-  const FinancialApprovalScreen({super.key});
+  final int initialIndex;
+  const FinancialApprovalScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<FinancialApprovalScreen> createState() => _FinancialApprovalScreenState();
@@ -54,10 +55,18 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialIndex);
     Future.microtask(() {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
     });
+  }
+
+  @override
+  void didUpdateWidget(FinancialApprovalScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      _tabController.animateTo(widget.initialIndex);
+    }
   }
 
   @override

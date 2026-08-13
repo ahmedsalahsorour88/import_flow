@@ -20,7 +20,8 @@ import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
-  const ShippingScenariosScreen({super.key});
+  final int initialIndex;
+  const ShippingScenariosScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<ShippingScenariosScreen> createState() => _ShippingScenariosScreenState();
@@ -96,11 +97,19 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
     _initDefaultItems();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshData(force: false);
     });
+  }
+
+  @override
+  void didUpdateWidget(ShippingScenariosScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialIndex != widget.initialIndex) {
+      _tabController.animateTo(widget.initialIndex);
+    }
   }
 
   void _refreshData({bool force = false}) {

@@ -12,7 +12,8 @@ import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
 
 class ImportDocumentationScreen extends ConsumerStatefulWidget {
-  const ImportDocumentationScreen({super.key});
+  final int initialIndex;
+  const ImportDocumentationScreen({super.key, this.initialIndex = 0});
 
   @override
   ConsumerState<ImportDocumentationScreen> createState() => _ImportDocumentationScreenState();
@@ -56,7 +57,7 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialIndex);
     Future.microtask(() {
       ref.read(importFilesProvider.notifier).fetchImportFiles();
       ref.read(importCompaniesProvider.notifier).fetchCompanies();

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
 
 from database.database import Base
@@ -17,8 +17,8 @@ class ContainerSpecModel(Base):
     door_height = Column(Float, nullable=False)
     max_payload = Column(Float, nullable=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class ContainerLoaderSessionModel(Base):
@@ -34,4 +34,4 @@ class ContainerLoaderSessionModel(Base):
     recommended_count = Column(Integer, default=1)
     floor_utilization_pct = Column(Float, default=0.0)
     evaluation_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

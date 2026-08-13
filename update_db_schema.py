@@ -92,6 +92,12 @@ def migrate_db():
                 print("Added column 'closed_at_phase' to import_files table.")
             except Exception as e:
                 print(f"Error adding column closed_at_phase: {e}")
+        if "acid_number" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN acid_number VARCHAR(50);")
+                print("Added column 'acid_number' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column acid_number: {e}")
 
     # Universal import_file_id migration for all operational tables
     target_tables = [

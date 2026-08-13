@@ -2,7 +2,7 @@
 SQLAlchemy Models for Import Files Master & Tracking (ملفات الشحنات الاستيرادية)
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from typing import List, Optional
 from sqlalchemy import (
     Column,
@@ -48,7 +48,7 @@ class ImportFile(Base):
     project_ids = Column(JSON, nullable=True) # List of linked Project IDs: [1, 2] (Must belong to company_id)
     project_names = Column(String(500), nullable=True)
 
-    shipment_mode = Column(String(50), nullable=False, default="Sea") # Sea, Air, Land
+    shipment_mode = Column(String(50), nullable=False, default="Sea FCL") # Sea FCL, Sea LCL, Air, Land
     incoterm_code = Column(String(20), nullable=False, default="FOB") # FOB, CIF, CFR, etc.
     priority = Column(String(20), nullable=False, default="High") # Low, Medium, High, Critical
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample
@@ -57,6 +57,7 @@ class ImportFile(Base):
     selected_scenario = Column(String(100), nullable=True) # e.g. MSC Option
 
     # Banking & Customs Document Links
+    acid_number = Column(String(50), nullable=True) # e.g. 1987654321098765432
     form4_no = Column(String(100), nullable=True)
     swift_no = Column(String(100), nullable=True)
     form46_no = Column(String(100), nullable=True)
@@ -78,9 +79,9 @@ class ImportFile(Base):
 
     # Audit Trail
     is_active = Column(Boolean, default=True, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     created_by = Column(String(100), default="System", nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
     updated_by = Column(String(100), default="System", nullable=False)
 
     # Relationships

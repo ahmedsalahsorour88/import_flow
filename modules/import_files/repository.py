@@ -3,7 +3,7 @@ Repository Layer for Import Files Master & Tracking Module
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -12,7 +12,7 @@ from modules.import_files.model import ImportFile
 
 def generate_import_file_code(db: Session) -> str:
     """Generates unique import file code: IMP-YYYY-XXXX"""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"IMP-{current_year}-"
     count = db.query(ImportFile).filter(ImportFile.import_file_code.like(f"{prefix}%")).count()
     return f"{prefix}{count + 1:04d}"
@@ -91,7 +91,7 @@ def update_import_file(db: Session, import_file_id: int, update_data: dict) -> O
         if hasattr(db_obj, key):
             setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj
@@ -103,7 +103,7 @@ def soft_delete_import_file(db: Session, import_file_id: int) -> bool:
         return False
 
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -195,7 +195,7 @@ def get_operational_dashboard_data(
     return {
         "shipment_count": shipment_count,
         "shipments": shipments,
-        "last_updated_at": datetime.utcnow(),
+        "last_updated_at": datetime.now(timezone.utc),
         "available_brokers": available_brokers,
         "phase_counts": phase_counts,
     }

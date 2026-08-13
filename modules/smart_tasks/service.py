@@ -3,7 +3,7 @@ Business Logic & Workflows for Smart Tasks & Reminder Engine
 """
 
 from typing import List, Optional
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -98,7 +98,7 @@ def auto_close_completed_phase_tasks(db: Session, import_file_id: int, completed
         if t.phase_name and completed_phase in t.phase_name:
             t.status = "Completed"
             t.is_auto_closed = True
-            t.updated_at = datetime.utcnow()
+            t.updated_at = datetime.now(timezone.utc)
     db.commit()
 
 

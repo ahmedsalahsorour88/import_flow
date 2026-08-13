@@ -40,12 +40,13 @@ class ImportFileBase(BaseModel):
     packing_lists_data: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Multiple Packing Lists")
     project_ids: Optional[List[int]] = Field(default_factory=list, description="List of linked Project IDs")
     project_names: Optional[str] = None
-    shipment_mode: str = Field("Sea", description="Sea, Air, Land")
+    shipment_mode: str = Field("Sea FCL", description="Sea FCL, Sea LCL, Air, Land")
     incoterm_code: str = Field("FOB", description="FOB, CIF, CFR, etc.")
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")
     required_eta: Optional[date] = None
     selected_scenario: Optional[str] = Field(None, description="e.g. MSC Option")
+    acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
     form4_no: Optional[str] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
@@ -91,6 +92,7 @@ class ImportFileUpdate(BaseModel):
     shipment_category: Optional[str] = None
     required_eta: Optional[date] = None
     selected_scenario: Optional[str] = None
+    acid_number: Optional[str] = None
     form4_no: Optional[str] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None

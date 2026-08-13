@@ -1,5 +1,5 @@
 from sqlalchemy.orm.attributes import flag_modified
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -64,7 +64,7 @@ def submit_level1_approval_service(db: Session, record_id: int, payload: DualApp
     record = get_cargo_shipping_service(db, record_id)
     record.level1_approval_status = "Approved" if payload.approved else "Rejected"
     record.level1_approved_by = payload.approved_by
-    record.level1_approved_at = datetime.utcnow()
+    record.level1_approved_at = datetime.now(timezone.utc)
     record.level1_notes = payload.notes
 
     if payload.approved:
@@ -75,7 +75,7 @@ def submit_level1_approval_service(db: Session, record_id: int, payload: DualApp
     else:
         record.dual_approval_status = "Rejected"
 
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(record)
     return record
@@ -95,10 +95,10 @@ def submit_level2_approval_service(db: Session, record_id: int, payload: DualApp
         record.dual_approval_status = "Rejected"
 
     record.level2_approved_by = payload.approved_by
-    record.level2_approved_at = datetime.utcnow()
+    record.level2_approved_at = datetime.now(timezone.utc)
     record.level2_notes = payload.notes
 
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(record)
     return record
@@ -142,7 +142,7 @@ def execute_cargox_checklist_service(db: Session, record_id: int) -> CargoShippi
 
     record.cargox_exchange_data = dict(cargox_data)
     flag_modified(record, "cargox_exchange_data")
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(record)
     return record
@@ -168,7 +168,7 @@ def advance_cargox_stage_service(db: Session, record_id: int, target_stage: str)
 
     record.cargox_exchange_data = dict(cargox_data)
     flag_modified(record, "cargox_exchange_data")
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(record)
     return record

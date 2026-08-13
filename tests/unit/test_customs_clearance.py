@@ -1,5 +1,5 @@
 import unittest
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -100,14 +100,14 @@ class TestCustomsClearanceModule(unittest.TestCase):
         with self.assertRaises(HTTPException):
             complete_customs_release_service(self.db, record.customs_clearance_id, CompleteReleaseSubmit(
                 release_permit_no="REL-PERMIT-100",
-                release_date=datetime.utcnow(),
+                release_date=datetime.now(timezone.utc),
             ))
 
         # Submit Bank Duty Payment
         payment_payload = DutyPaymentSubmit(
             bank_receipt_no="RCPT-BANK-998877",
             paying_bank_name="National Bank of Egypt (NBE)",
-            payment_date=datetime.utcnow(),
+            payment_date=datetime.now(timezone.utc),
             payment_notes="Paid via Customs e-payment portal",
         )
         record = submit_duty_payment_service(self.db, record.customs_clearance_id, payment_payload)
@@ -117,7 +117,7 @@ class TestCustomsClearanceModule(unittest.TestCase):
         # Now issue Final Customs Release Permit
         release_payload = CompleteReleaseSubmit(
             release_permit_no="REL-PERMIT-100",
-            release_date=datetime.utcnow(),
+            release_date=datetime.now(timezone.utc),
             demurrage_storage_fees=450.0,
             dispatch_authorized=True,
         )

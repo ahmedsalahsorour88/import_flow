@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -64,7 +64,7 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
     record.payment_notes = payload.payment_notes
     record.payment_status = "Paid & Verified"
     record.status = "Duty Paid"
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(record)
@@ -79,11 +79,11 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
     record.release_date = payload.release_date
     record.demurrage_storage_fees = payload.demurrage_storage_fees
     record.dispatch_authorized = payload.dispatch_authorized
-    record.dispatch_date = datetime.utcnow() if payload.dispatch_authorized else None
+    record.dispatch_date = datetime.now(timezone.utc) if payload.dispatch_authorized else None
     record.status = "Final Release Granted"
     if payload.notes:
         record.notes = payload.notes
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
 
     # Update import file operational stage
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()

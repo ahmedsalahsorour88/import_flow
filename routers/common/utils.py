@@ -1,9 +1,9 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 def utc_now():
 
-    return datetime.utcnow()
+    return datetime.now(timezone.utc)
 
 
 def to_str(value):

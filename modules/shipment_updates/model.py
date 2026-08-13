@@ -2,7 +2,7 @@
 SQLAlchemy Models for Operational & Daily Shipment Update Engine
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, Index
 from database.database import Base
 
@@ -34,9 +34,9 @@ class ShipmentUpdateLog(Base):
     assigned_user = Column(String(100), default="Kamal", nullable=False)
     
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), default="System")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     updated_by = Column(String(100), default="System")
 
     __table_args__ = (

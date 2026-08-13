@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Integer,
@@ -28,7 +28,7 @@ class WarehouseReceivingRecord(Base):
     warehouse_name = Column(String(200), default="Main Warehouse - Cairo", nullable=False)
 
     # BP-033 Truck Arrival & Seal Intact
-    arrival_datetime = Column(DateTime, default=datetime.utcnow, nullable=False)
+    arrival_datetime = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     truck_plate_number = Column(String(50), nullable=True)
     driver_name = Column(String(100), nullable=True)
     driver_phone = Column(String(50), nullable=True)
@@ -56,9 +56,9 @@ class WarehouseReceivingRecord(Base):
     notes = Column(Text, nullable=True)
 
     is_active = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), default="System")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     updated_by = Column(String(100), default="System")
 
     # Relationships

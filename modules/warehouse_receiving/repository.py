@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -8,7 +8,7 @@ from .schemas import WarehouseReceivingCreate, WarehouseReceivingUpdate
 
 def generate_grn_code(db: Session) -> str:
     """Generates unique Goods Receipt Note Code in format GRN-YYYY-XXXX."""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"GRN-{current_year}-"
     
     last_record = (
@@ -79,7 +79,7 @@ def create_warehouse_receiving(db: Session, schema: WarehouseReceivingCreate, co
         grn_code=code,
         import_file_id=schema.import_file_id,
         warehouse_name=schema.warehouse_name,
-        arrival_datetime=schema.arrival_datetime or datetime.utcnow(),
+        arrival_datetime=schema.arrival_datetime or datetime.now(timezone.utc),
         truck_plate_number=schema.truck_plate_number,
         driver_name=schema.driver_name,
         driver_phone=schema.driver_phone,
@@ -94,8 +94,8 @@ def create_warehouse_receiving(db: Session, schema: WarehouseReceivingCreate, co
         discrepancy_notes=schema.discrepancy_notes,
         inspector_name=schema.inspector_name,
         notes=schema.notes,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(db_obj)
     db.commit()
@@ -120,7 +120,7 @@ def update_warehouse_receiving(db: Session, record_id: int, schema: WarehouseRec
     for key, value in update_data.items():
         setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj
@@ -130,7 +130,7 @@ def soft_delete_warehouse_receiving(db: Session, record_id: int) -> bool:
     if not db_obj:
         return False
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -139,7 +139,7 @@ def restore_warehouse_receiving(db: Session, record_id: int) -> Optional[Warehou
     if not db_obj:
         return None
     db_obj.is_active = True
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj

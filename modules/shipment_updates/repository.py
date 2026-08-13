@@ -3,7 +3,7 @@ Database Repository for Shipment Update Engine
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 
@@ -12,7 +12,7 @@ from modules.shipment_updates.schemas import ShipmentUpdateLogCreate, ShipmentUp
 
 
 def generate_update_code(db: Session) -> str:
-    year = datetime.utcnow().year
+    year = datetime.now(timezone.utc).year
     count = db.query(func.count(ShipmentUpdateLog.update_id)).scalar() or 0
     return f"UPD-{year}-{(count + 1):05d}"
 
@@ -89,7 +89,7 @@ def update_log_record(db: Session, update_id: int, update_data: dict, updated_by
         if hasattr(db_obj, key):
             setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = updated_by
     db.commit()
     db.refresh(db_obj)
@@ -102,7 +102,7 @@ def soft_delete_update_log(db: Session, update_id: int, deleted_by: str = "Syste
         return False
 
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = deleted_by
     db.commit()
     return True

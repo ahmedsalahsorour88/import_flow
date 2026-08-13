@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -8,7 +8,7 @@ from .schemas import CargoShippingCreate, CargoShippingUpdate
 
 def generate_cargo_shipping_code(db: Session) -> str:
     """Generates unique Cargo Shipping Code in format SHP-YYYY-XXXX."""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"SHP-{current_year}-"
     
     last_record = (
@@ -71,8 +71,8 @@ def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str) -
         status=schema.status,
         owner=schema.owner,
         notes=schema.notes,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(db_obj)
     db.commit()
@@ -98,7 +98,7 @@ def update_cargo_shipping(db: Session, record_id: int, schema: CargoShippingUpda
     for key, value in update_data.items():
         setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj
@@ -108,7 +108,7 @@ def soft_delete_cargo_shipping(db: Session, record_id: int) -> bool:
     if not db_obj:
         return False
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -117,7 +117,7 @@ def restore_cargo_shipping(db: Session, record_id: int) -> Optional[CargoShippin
     if not db_obj:
         return None
     db_obj.is_active = True
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj

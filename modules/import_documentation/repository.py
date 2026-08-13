@@ -2,7 +2,7 @@
 Database Repository for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from modules.import_documentation.model import (
     AcidRegistrationSession,
@@ -23,7 +23,7 @@ from modules.import_documentation.schemas import (
 
 # --- ACID REPOSITORY (BP-014) ---
 def generate_acid_code(db: Session) -> str:
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"ACID-{current_year}-"
 
     last_record = (
@@ -94,7 +94,7 @@ def restore_acid_session(db: Session, acid_id: int) -> AcidRegistrationSession |
     if not item:
         return None
     item.is_active = True
-    item.updated_at = datetime.utcnow()
+    item.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(item)
     return item
@@ -136,7 +136,7 @@ def update_acid_session(
     for field, val in data.items():
         setattr(db_item, field, val)
 
-    db_item.updated_at = datetime.utcnow()
+    db_item.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_item)
     return db_item
@@ -147,14 +147,14 @@ def soft_delete_acid_session(db: Session, acid_id: int) -> bool:
     if not item:
         return False
     item.is_active = False
-    item.updated_at = datetime.utcnow()
+    item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
 
 # --- BANKING DOCUMENTS REPOSITORY (BP-015) ---
 def generate_bank_doc_code(db: Session) -> str:
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"FORM4-{current_year}-"
 
     last_record = (
@@ -211,7 +211,7 @@ def get_all_banking_documents(db: Session, import_file_id: int | None = None) ->
 
 # --- SHIPMENT DOCUMENT ITEMS REPOSITORY (BP-016 to BP-018) ---
 def generate_shipment_doc_code(db: Session) -> str:
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"DOC-{current_year}-"
 
     last_record = (
@@ -280,7 +280,7 @@ def update_shipment_document(
     for field, val in data.items():
         setattr(item, field, val)
 
-    item.updated_at = datetime.utcnow()
+    item.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(item)
     return item
@@ -290,7 +290,7 @@ def update_shipment_document(
 def create_customs_declaration(
     db: Session, schema: CustomsDeclarationCreate
 ) -> CustomsDeclarationDraft:
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     code = f"DEC46-{current_year}-001"
 
     db_item = CustomsDeclarationDraft(

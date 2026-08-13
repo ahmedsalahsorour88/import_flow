@@ -2,7 +2,7 @@
 SQLAlchemy Models for Smart Task Management & Reminder Engine (Feature 2.4 & 2.5)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, ForeignKey, Index
 from database.database import Base
 
@@ -28,9 +28,9 @@ class SmartTask(Base):
     attachment_url = Column(String(255), nullable=True)
     is_auto_closed = Column(Boolean, default=False)
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), default="System")
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     updated_by = Column(String(100), default="System")
 
     __table_args__ = (

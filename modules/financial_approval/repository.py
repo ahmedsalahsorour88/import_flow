@@ -2,7 +2,7 @@
 Database Repository for Financial & Management Approval (BP-012 & BP-013)
 """
 
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
@@ -17,7 +17,7 @@ from modules.financial_approval.schemas import (
 # --- PAYMENT REQUEST REPOSITORY ---
 def generate_payment_code(db: Session) -> str:
     """Generates unique Payment Request Code in format PAY-YYYY-XXX."""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"PAY-{current_year}-"
 
     last_record = (
@@ -125,7 +125,7 @@ def update_payment_request(
 
     # Recalculate EGP if amount or rate changed
     db_item.requested_amount_egp = db_item.requested_amount * db_item.exchange_rate
-    db_item.updated_at = datetime.utcnow()
+    db_item.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(db_item)
@@ -137,7 +137,7 @@ def soft_delete_payment_request(db: Session, payment_id: int) -> bool:
     if not item:
         return False
     item.is_active = False
-    item.updated_at = datetime.utcnow()
+    item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -151,7 +151,7 @@ def restore_payment_request(db: Session, payment_id: int) -> bool:
     if not item:
         return False
     item.is_active = True
-    item.updated_at = datetime.utcnow()
+    item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -159,7 +159,7 @@ def restore_payment_request(db: Session, payment_id: int) -> bool:
 # --- IMPORT BUDGET REPOSITORY ---
 def generate_budget_code(db: Session) -> str:
     """Generates unique Budget Code in format BGT-YYYY-XXX."""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"BGT-{current_year}-"
 
     last_record = (
@@ -267,7 +267,7 @@ def update_import_budget(
     if schema.budget_status == "Budget Approved" and not db_item.approved_date:
         db_item.approved_date = date.today()
 
-    db_item.updated_at = datetime.utcnow()
+    db_item.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_item)
     return db_item

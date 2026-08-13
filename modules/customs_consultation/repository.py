@@ -2,7 +2,7 @@
 Customs Consultation Database Repository (BP-009)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -17,7 +17,7 @@ class CustomsConsultationRepository:
         """
         Generates auto-incremented consultation code in format CUS-YYYY-XXX (e.g. CUS-2026-001).
         """
-        current_year = datetime.utcnow().year
+        current_year = datetime.now(timezone.utc).year
         prefix = f"CUS-{current_year}-"
         
         last_session = (
@@ -162,7 +162,7 @@ class CustomsConsultationRepository:
                 )
                 db.add(db_item)
 
-        db_session.updated_at = datetime.utcnow()
+        db_session.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_session)
         return db_session
@@ -170,7 +170,7 @@ class CustomsConsultationRepository:
     @staticmethod
     def soft_delete(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationSession:
         db_session.is_active = False
-        db_session.updated_at = datetime.utcnow()
+        db_session.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_session)
         return db_session
@@ -178,7 +178,7 @@ class CustomsConsultationRepository:
     @staticmethod
     def restore(db: Session, db_session: CustomsConsultationSession) -> CustomsConsultationSession:
         db_session.is_active = True
-        db_session.updated_at = datetime.utcnow()
+        db_session.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_session)
         return db_session

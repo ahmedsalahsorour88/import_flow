@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -8,7 +8,7 @@ from .schemas import FinancialSettlementCreate, FinancialSettlementUpdate
 
 def generate_settlement_code(db: Session) -> str:
     """Generates unique Landed Cost Settlement Code in format LCS-YYYY-XXXX."""
-    current_year = datetime.utcnow().year
+    current_year = datetime.now(timezone.utc).year
     prefix = f"LCS-{current_year}-"
     
     last_record = (
@@ -78,8 +78,8 @@ def create_settlement(db: Session, schema: FinancialSettlementCreate, code: str)
         item_landed_costs=items,
         accountant_name=schema.accountant_name,
         notes=schema.notes,
-        created_at=datetime.utcnow(),
-        updated_at=datetime.utcnow(),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
     )
     db.add(db_obj)
     db.commit()
@@ -108,7 +108,7 @@ def update_settlement(db: Session, settlement_id: int, schema: FinancialSettleme
     for key, value in update_data.items():
         setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj
@@ -118,7 +118,7 @@ def soft_delete_settlement(db: Session, settlement_id: int) -> bool:
     if not db_obj:
         return False
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
 
@@ -127,7 +127,7 @@ def restore_settlement(db: Session, settlement_id: int) -> Optional[LandedCostSe
     if not db_obj:
         return None
     db_obj.is_active = True
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj

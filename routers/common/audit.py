@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 # ==================================================
@@ -10,9 +10,9 @@ def set_created_info(
     user: str = "system"
 ):
 
-    entity.created_at = datetime.utcnow()
+    entity.created_at = datetime.now(timezone.utc)
 
-    entity.updated_at = datetime.utcnow()
+    entity.updated_at = datetime.now(timezone.utc)
 
     entity.created_by = user
 
@@ -30,7 +30,7 @@ def set_updated_info(
     user: str = "system"
 ):
 
-    entity.updated_at = datetime.utcnow()
+    entity.updated_at = datetime.now(timezone.utc)
 
     entity.updated_by = user
 
@@ -48,7 +48,7 @@ def set_deleted_info(
 
     entity.is_active = False
 
-    entity.updated_at = datetime.utcnow()
+    entity.updated_at = datetime.now(timezone.utc)
 
     entity.updated_by = user
 
@@ -66,7 +66,7 @@ def set_restored_info(
 
     entity.is_active = True
 
-    entity.updated_at = datetime.utcnow()
+    entity.updated_at = datetime.now(timezone.utc)
 
     entity.updated_by = user
 

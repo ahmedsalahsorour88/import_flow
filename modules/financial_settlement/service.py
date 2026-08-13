@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -162,7 +162,7 @@ def recalculate_settlement_service(db: Session, settlement_id: int) -> LandedCos
     record.average_markup_factor = calc_res["average_markup_factor"]
     record.item_landed_costs = calc_res["item_landed_costs"]
     record.status = "Calculated"
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(record)

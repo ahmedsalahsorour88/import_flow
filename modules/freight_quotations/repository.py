@@ -2,7 +2,7 @@
 Freight Quotations Repository Layer (BP-008)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
@@ -16,7 +16,7 @@ class FreightQuotationRepository:
         """
         Generates auto-incremented RFQ code in format RFQ-YYYY-XXX (e.g. RFQ-2026-001).
         """
-        current_year = datetime.utcnow().year
+        current_year = datetime.now(timezone.utc).year
         prefix = f"RFQ-{current_year}-"
 
         last_rfq = (
@@ -179,7 +179,7 @@ class FreightQuotationRepository:
                 )
                 db.add(db_quote)
 
-        db_rfq.updated_at = datetime.utcnow()
+        db_rfq.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_rfq)
         return db_rfq
@@ -187,7 +187,7 @@ class FreightQuotationRepository:
     @staticmethod
     def soft_delete(db: Session, db_rfq: FreightRFQRequest) -> FreightRFQRequest:
         db_rfq.is_active = False
-        db_rfq.updated_at = datetime.utcnow()
+        db_rfq.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_rfq)
         return db_rfq
@@ -195,7 +195,7 @@ class FreightQuotationRepository:
     @staticmethod
     def restore(db: Session, db_rfq: FreightRFQRequest) -> FreightRFQRequest:
         db_rfq.is_active = True
-        db_rfq.updated_at = datetime.utcnow()
+        db_rfq.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(db_rfq)
         return db_rfq

@@ -3,7 +3,7 @@ Database Operations for Smart Tasks Repository
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, and_, func
 
@@ -12,7 +12,7 @@ from modules.smart_tasks.schemas import SmartTaskCreate, SmartTaskUpdate
 
 
 def generate_task_code(db: Session) -> str:
-    year = datetime.utcnow().year
+    year = datetime.now(timezone.utc).year
     count = db.query(func.count(SmartTask.task_id)).scalar() or 0
     return f"TSK-{year}-{(count + 1):04d}"
 
@@ -100,7 +100,7 @@ def update_task(db: Session, task_id: int, update_data: dict, updated_by: str = 
         if hasattr(db_obj, key):
             setattr(db_obj, key, value)
 
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = updated_by
     db.commit()
     db.refresh(db_obj)
@@ -113,7 +113,7 @@ def soft_delete_task(db: Session, task_id: int, deleted_by: str = "System") -> b
         return False
 
     db_obj.is_active = False
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db_obj.updated_by = deleted_by
     db.commit()
     return True
@@ -125,7 +125,7 @@ def restore_task(db: Session, task_id: int) -> Optional[SmartTask]:
         return None
 
     db_obj.is_active = True
-    db_obj.updated_at = datetime.utcnow()
+    db_obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(db_obj)
     return db_obj

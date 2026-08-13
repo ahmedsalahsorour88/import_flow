@@ -72,6 +72,7 @@ class TestImportFilesBackend:
             shipment_category="New Purchase",
             required_eta=date(2026, 8, 15),
             selected_scenario="MSC Option",
+            acid_number="1987654321098765432",
             estimated_cost=24500.0,
             owner="Kamal",
         )
@@ -79,6 +80,7 @@ class TestImportFilesBackend:
 
         assert res.import_file_id is not None
         assert res.custom_file_number == "6701068100"
+        assert res.acid_number == "1987654321098765432"
         assert res.company_name == "Egyptian Import Co"
         assert res.supplier_name == "ABC China"
         assert len(res.invoices_data) == 2

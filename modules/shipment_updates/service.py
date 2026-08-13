@@ -3,7 +3,7 @@ Business Logic & Workflows for Operational & Daily Shipment Update Engine
 """
 
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -41,11 +41,11 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
         # If Cost Adjustment (Type B)
         if schema.update_category == "Phase Cost Adjustment" and schema.new_cost and schema.new_cost > 0:
             import_file.estimated_cost = schema.new_cost
-            import_file.updated_at = datetime.utcnow()
+            import_file.updated_at = datetime.now(timezone.utc)
 
         # Update last notes on ImportFile
         import_file.notes = f"[{schema.log_date} - {schema.target_phase}]: {schema.note}"
-        import_file.updated_at = datetime.utcnow()
+        import_file.updated_at = datetime.now(timezone.utc)
 
     log_record = repo.create_update_log(db, schema, created_by=user_name)
     return log_record

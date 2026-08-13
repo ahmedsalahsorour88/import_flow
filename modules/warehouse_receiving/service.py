@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
@@ -67,7 +67,7 @@ def report_receiving_discrepancy_service(db: Session, record_id: int, payload: D
     record.insurance_claim_filed = payload.insurance_claim_filed
     record.insurance_claim_ref = payload.insurance_claim_ref
     record.status = "Discrepancy Reported"
-    record.updated_at = datetime.utcnow()
+    record.updated_at = datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(record)

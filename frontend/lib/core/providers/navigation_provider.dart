@@ -19,9 +19,14 @@ import '../../features/suppliers/providers/suppliers_provider.dart';
 import '../../features/transport_locations/providers/transport_locations_provider.dart';
 import '../../features/warehouse_receiving/providers/warehouse_receiving_provider.dart';
 
+import '../../features/import_files/providers/import_files_provider.dart';
+import '../../features/smart_tasks/providers/smart_tasks_provider.dart';
+import '../../features/import_requirements/providers/import_requirements_provider.dart';
+
 // ============================================================
 // Navigation Index Provider
 // ============================================================
+
 // Screen indices (must match home_screen.dart _screens list):
 //  0  = Dashboard (OperationalDashboardScreen)
 //  1  = ImportFilesScreen
@@ -49,9 +54,9 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 //  23 = FileClosureScreen
 // ============================================================
 
-const int _totalScreens = 24;
+const int _totalScreens = 50;
 
-final navigationIndexProvider = StateProvider<int>((ref) => 13);
+final navigationIndexProvider = StateProvider<int>((ref) => 0);
 
 void selectNavigationIndex(WidgetRef ref, int index) {
   if (index < 0 || index >= _totalScreens) return;
@@ -116,6 +121,18 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
 
     // --- Reference Data ---
+    case 1:
+    case 31:
+    case 33:
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      break;
+    case 30:
+      ref.read(smartTasksProvider.notifier).fetchTasks();
+      break;
+    case 34:
+      ref.read(importRequirementsProvider.notifier).refreshData();
+      break;
+
     case 16:
       ref.read(incotermsProvider.notifier).fetchIncoterms();
       break;
@@ -133,3 +150,4 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
   }
 }
+

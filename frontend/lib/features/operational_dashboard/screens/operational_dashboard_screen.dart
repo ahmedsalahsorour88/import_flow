@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/providers/navigation_provider.dart';
 import '../../import_files/models/import_file_model.dart';
+
 import '../../import_files/widgets/close_shipment_dialog.dart';
 import '../../import_files/widgets/shipment_milestone_tracker.dart';
 import '../../smart_tasks/providers/smart_tasks_provider.dart';
@@ -79,11 +81,14 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 children: [
                   _buildKpiCardsBar(data),
                   const SizedBox(height: 16),
+                  _buildQuickActionsBar(),
+                  const SizedBox(height: 16),
                   _buildRiskAlertsBanner(data.shipments),
                   const SizedBox(height: 16),
                   _buildDailyCheckinsCard(),
                   const SizedBox(height: 16),
                 ],
+
               ),
             ),
 
@@ -678,4 +683,121 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       ),
     );
   }
+
+  // ─── Quick Actions & Registration Shortcuts Bar ───────────────────────────
+
+  Widget _buildQuickActionsBar() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(
+              children: [
+                Icon(Icons.bolt, color: AppTheme.cobalt, size: 22),
+                SizedBox(width: 8),
+                Text(
+                  'روابط الاختصارات السريعة لإنشاء وإدخال السجلات (Quick Create & Register Shortcuts):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildQuickActionButton(
+                  'إنشاء مشروع جديد',
+                  Icons.assignment_outlined,
+                  AppTheme.cobalt,
+                  () => selectNavigationIndex(ref, 21), // Projects
+                ),
+                _buildQuickActionButton(
+                  'إنشاء ملف استيرادي',
+                  Icons.folder_special_outlined,
+                  AppTheme.emerald,
+                  () => selectNavigationIndex(ref, 1), // Import Files
+                ),
+                _buildQuickActionButton(
+                  'إنشاء شركة مستوردة',
+                  Icons.domain_outlined,
+                  AppTheme.orange,
+                  () => selectNavigationIndex(ref, 22), // Import Companies
+                ),
+                _buildQuickActionButton(
+                  'إنشاء مورد خارجي',
+                  Icons.business_outlined,
+                  AppTheme.charcoal,
+                  () => selectNavigationIndex(ref, 23), // Foreign Suppliers
+                ),
+                _buildQuickActionButton(
+                  'إنشاء بنك / شريك',
+                  Icons.account_balance_outlined,
+                  AppTheme.cobalt,
+                  () => selectNavigationIndex(ref, 24), // Partners & Banks
+                ),
+                _buildQuickActionButton(
+                  'إدخال تعريفة جمركية',
+                  Icons.description_outlined,
+                  AppTheme.orange,
+                  () => selectNavigationIndex(ref, 26), // Customs Tariff
+                ),
+                _buildQuickActionButton(
+                  'إدخال موانئ ومواقع',
+                  Icons.location_on_outlined,
+                  AppTheme.emerald,
+                  () => selectNavigationIndex(ref, 27), // Ports & Locations
+                ),
+                _buildQuickActionButton(
+                  'إدخال عملة جديدة',
+                  Icons.currency_exchange_outlined,
+                  AppTheme.charcoal,
+                  () => selectNavigationIndex(ref, 28), // Currencies
+                ),
+                _buildQuickActionButton(
+                  'تعديل سعر صرف جديد',
+                  Icons.rate_review_outlined,
+                  AppTheme.cobalt,
+                  () => selectNavigationIndex(ref, 28), // Exchange Rates
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.arrow_forward_ios, size: 10, color: color.withOpacity(0.6)),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

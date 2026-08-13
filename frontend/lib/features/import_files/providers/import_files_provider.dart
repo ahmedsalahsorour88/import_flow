@@ -104,6 +104,22 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
     }
   }
 
+  Future<ImportFileModel?> reopenShipment(int importFileId, String reopenReason) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/reopen-shipment',
+        data: {
+          'reopen_reason': reopenReason,
+        },
+      );
+      final reopened = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return reopened;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<ImportMasterReportSummaryModel> fetchMasterReport() async {
     try {
       final response = await _dio.get('${ApiConstants.baseUrl}/import-files/report/master');

@@ -14,6 +14,7 @@ from modules.import_files.schemas import (
     ImportMasterReportSummary,
     OperationalDashboardResponse,
     CloseShipmentSubmit,
+    ReopenShipmentSubmit,
 )
 import modules.import_files.service as service
 import modules.import_files.repository as repo
@@ -157,3 +158,16 @@ def close_shipment(
     db: Session = Depends(get_db),
 ):
     return service.close_shipment_service(db, import_file_id, payload)
+
+
+@router.post(
+    "/{import_file_id}/reopen-shipment",
+    response_model=ImportFileResponse,
+    summary="Reopen closed shipment and restore to its original phase with reason notes",
+)
+def reopen_shipment(
+    import_file_id: int,
+    payload: ReopenShipmentSubmit,
+    db: Session = Depends(get_db),
+):
+    return service.reopen_shipment_service(db, import_file_id, payload)

@@ -204,3 +204,41 @@ def close_shipment_service(
     }
 
     return repo.update_import_file(db, import_file_id, update_dict)
+
+
+def reopen_shipment_service(
+    db: Session,
+    import_file_id: int,
+    payload: "ReopenShipmentSubmit",
+) -> ImportFile:
+    existing = repo.get_import_file_by_id(db, import_file_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    if existing.status != "Closed":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="الشحنة ليست مغلقة لإعادة فتحها.",
+        )
+
+    if not payload.reopen_reason or not payload.reopen_reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يلزم إدخال سبب إعادة فتح وتنشيط الشحنة.",
+        )
+
+    restored_phase = existing.closed_at_phase or "Phase 1 - Import Planning & Feasibility"
+
+    update_dict = {
+        "status": "Active",
+        "current_module": restored_phase,
+        "current_stage": f"Reopened at {restored_phase} - {payload.reopen_reason.strip()}",
+        "next_action": f"Resume Operations at {restored_phase}",
+        "closure_reason": None,
+        "closed_at_phase": None,
+    }
+
+    return repo.update_import_file(db, import_file_id, update_dict)

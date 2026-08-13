@@ -62,6 +62,10 @@ class CloseShipmentSubmit(BaseModel):
     closed_at_phase: str = Field(..., description="Operational phase e.g. Phase 3 - Import Documentation")
 
 
+class ReopenShipmentSubmit(BaseModel):
+    reopen_reason: str = Field(..., min_length=3, description="Reason for reopening closed shipment")
+
+
 class ImportFileCreate(ImportFileBase):
     pass
 

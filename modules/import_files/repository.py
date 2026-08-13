@@ -88,7 +88,7 @@ def update_import_file(db: Session, import_file_id: int, update_data: dict) -> O
         return None
 
     for key, value in update_data.items():
-        if hasattr(db_obj, key) and value is not None:
+        if hasattr(db_obj, key):
             setattr(db_obj, key, value)
 
     db_obj.updated_at = datetime.utcnow()

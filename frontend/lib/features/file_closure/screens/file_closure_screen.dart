@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/file_closure_provider.dart';
 
@@ -102,6 +103,92 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Closed Shipments Reopening Banner
+            ref.watch(importFilesProvider).when(
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                  data: (files) {
+                    final closedFiles = files.where((f) => f.status == 'Closed').toList();
+                    if (closedFiles.isEmpty) return const SizedBox.shrink();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Card(
+                          elevation: 2,
+                          color: Colors.amber.shade50,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: Colors.amber.shade300)),
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    const Icon(Icons.history, color: AppTheme.orange, size: 22),
+                                    const SizedBox(width: 8),
+                                    Text('سجل الشحنات المغلقة مسبقاً (${closedFiles.length} شحنة مغلقة بالأرشيف):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                Wrap(
+                                  spacing: 12,
+                                  runSpacing: 10,
+                                  children: closedFiles.map((cf) {
+                                    return Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(cf.importFileCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 13)),
+                                              const SizedBox(width: 8),
+                                              Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                                                child: Text(cf.closedAtPhase ?? 'Closed', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                              ),
+                                            ],
+                                          ),
+                                          if (cf.closureReason != null && cf.closureReason!.isNotEmpty) ...[
+                                            const SizedBox(height: 4),
+                                            Text('سبب الإيقاف: ${cf.closureReason}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87)),
+                                          ],
+                                          const SizedBox(height: 8),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.emerald,
+                                              foregroundColor: Colors.white,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            ),
+                                            onPressed: () {
+                                              ReopenShipmentDialog.show(
+                                                context,
+                                                importFile: cf,
+                                                onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                              );
+                                            },
+                                            icon: const Icon(Icons.restart_alt, size: 14),
+                                            label: const Text('إعادة فتح وتنشيط الشحنة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }).toList(),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    );
+                  },
+                ),
 
             // Closure Records Grid/List
             Expanded(

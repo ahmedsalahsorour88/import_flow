@@ -174,3 +174,30 @@ class TestImportFilesBackend:
         assert closed_file.progress_percent == 100.0
         assert closed_file.closure_reason == "إلغاء الطلب من المورد الخارجي لظروف الشحن"
         assert closed_file.closed_at_phase == "Phase 3 - Import Documentation"
+
+    def test_reopen_shipment_service(self, db_session):
+        from modules.import_files.schemas import CloseShipmentSubmit, ReopenShipmentSubmit
+        payload = ImportFileCreate(
+            custom_file_number="6701068105",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+        )
+        created = service.create_import_file_service(db_session, payload)
+
+        close_payload = CloseShipmentSubmit(
+            closure_reason="إلغاء المؤقت",
+            closed_at_phase="Phase 4 - Freight Booking",
+        )
+        closed_file = service.close_shipment_service(db_session, created.import_file_id, close_payload)
+        assert closed_file.status == "Closed"
+
+        reopen_payload = ReopenShipmentSubmit(
+            reopen_reason="تم حل المشكلة وتحديد موعد إبحار جديد مع الخط الملاحي",
+        )
+        reopened_file = service.reopen_shipment_service(db_session, created.import_file_id, reopen_payload)
+
+        assert reopened_file.status == "Active"
+        assert reopened_file.current_module == "Phase 4 - Freight Booking"
+        assert reopened_file.closure_reason is None
+        assert reopened_file.closed_at_phase is None

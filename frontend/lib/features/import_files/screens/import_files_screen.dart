@@ -20,6 +20,8 @@ import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../projects/models/project_model.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../../core/widgets/stop_shipment_dialog.dart';
+import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
@@ -1197,7 +1199,33 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                 ),
                                 DataCell(
                                   Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
+                                      if (file.status != 'Closed')
+                                        IconButton(
+                                          icon: const Icon(Icons.cancel_outlined, color: AppTheme.crimson, size: 18),
+                                          tooltip: 'إغلاق وإيقاف الشحنة عند هذه المرحلة (Phase 10 Archive)',
+                                          onPressed: () {
+                                            StopShipmentDialog.show(
+                                              context,
+                                              importFile: file,
+                                              currentPhaseName: file.currentModule,
+                                              onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                            );
+                                          },
+                                        )
+                                      else
+                                        IconButton(
+                                          icon: const Icon(Icons.play_arrow, color: AppTheme.emerald, size: 18),
+                                          tooltip: 'إعادة فتح وتنشيط الشحنة المغلقة (Reopen Shipment)',
+                                          onPressed: () {
+                                            ReopenShipmentDialog.show(
+                                              context,
+                                              importFile: file,
+                                              onSuccess: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
+                                            );
+                                          },
+                                        ),
                                       IconButton(
                                         icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
                                         onPressed: () => _showAddEditFileDialog(file),

@@ -114,15 +114,17 @@ class CustomCORSMiddleware:
 
         headers = dict(scope.get("headers", []))
         origin = headers.get(b"origin", b"").decode("utf-8")
+        allowed_origin = origin.encode() if origin else b"*"
 
         if scope["method"] == "OPTIONS":
             req_headers = headers.get(b"access-control-request-headers", b"*").decode("utf-8")
             response_headers = [
-                (b"access-control-allow-origin", origin.encode() if origin else b"*"),
+                (b"access-control-allow-origin", allowed_origin),
                 (b"access-control-allow-methods", b"GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"),
                 (b"access-control-allow-headers", req_headers.encode() if req_headers else b"*"),
                 (b"access-control-allow-credentials", b"true"),
                 (b"access-control-allow-private-network", b"true"),
+                (b"access-control-expose-headers", b"*"),
                 (b"access-control-max-age", b"86400"),
                 (b"content-length", b"0"),
             ]
@@ -139,10 +141,13 @@ class CustomCORSMiddleware:
 
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
-                resp_headers = list(message.get("headers", []))
-                resp_headers.append((b"access-control-allow-origin", origin.encode() if origin else b"*"))
+                resp_headers = [h for h in list(message.get("headers", [])) if not h[0].lower().startswith(b"access-control-")]
+                resp_headers.append((b"access-control-allow-origin", allowed_origin))
                 resp_headers.append((b"access-control-allow-credentials", b"true"))
+                resp_headers.append((b"access-control-allow-methods", b"GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"))
+                resp_headers.append((b"access-control-allow-headers", b"*"))
                 resp_headers.append((b"access-control-allow-private-network", b"true"))
+                resp_headers.append((b"access-control-expose-headers", b"*"))
                 message["headers"] = resp_headers
             await send(message)
 

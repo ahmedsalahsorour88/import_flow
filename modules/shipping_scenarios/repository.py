@@ -128,6 +128,15 @@ class ShippingScenarioRepository:
                 waiver_letter_fee_applicable=item_data.waiver_letter_fee_applicable,
                 waiver_letter_fee_price=item_data.waiver_letter_fee_price,
                 waiver_letter_fee_currency=item_data.waiver_letter_fee_currency,
+                dthc_applicable=item_data.dthc_applicable,
+                dthc_price=item_data.dthc_price,
+                dthc_currency=item_data.dthc_currency,
+                storage_per_week_applicable=item_data.storage_per_week_applicable,
+                storage_per_week_price=item_data.storage_per_week_price,
+                storage_per_week_currency=item_data.storage_per_week_currency,
+                extra_day_storage_applicable=item_data.extra_day_storage_applicable,
+                extra_day_storage_price=item_data.extra_day_storage_price,
+                extra_day_storage_currency=item_data.extra_day_storage_currency,
             )
             db.add(item_obj)
 
@@ -274,6 +283,15 @@ class ShippingScenarioRepository:
                     waiver_letter_fee_applicable=item_data.waiver_letter_fee_applicable,
                     waiver_letter_fee_price=item_data.waiver_letter_fee_price,
                     waiver_letter_fee_currency=item_data.waiver_letter_fee_currency,
+                    dthc_applicable=item_data.dthc_applicable,
+                    dthc_price=item_data.dthc_price,
+                    dthc_currency=item_data.dthc_currency,
+                    storage_per_week_applicable=item_data.storage_per_week_applicable,
+                    storage_per_week_price=item_data.storage_per_week_price,
+                    storage_per_week_currency=item_data.storage_per_week_currency,
+                    extra_day_storage_applicable=item_data.extra_day_storage_applicable,
+                    extra_day_storage_price=item_data.extra_day_storage_price,
+                    extra_day_storage_currency=item_data.extra_day_storage_currency,
                 )
                 db.add(item_obj)
 

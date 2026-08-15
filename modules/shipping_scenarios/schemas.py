@@ -87,6 +87,18 @@ class ShippingScenarioItemBase(BaseModel):
     waiver_letter_fee_price: float = 0.0
     waiver_letter_fee_currency: str = "USD"
 
+    dthc_applicable: bool = False
+    dthc_price: float = 0.0
+    dthc_currency: str = "USD"
+
+    storage_per_week_applicable: bool = False
+    storage_per_week_price: float = 0.0
+    storage_per_week_currency: str = "USD"
+
+    extra_day_storage_applicable: bool = False
+    extra_day_storage_price: float = 0.0
+    extra_day_storage_currency: str = "USD"
+
 
 class ShippingScenarioItemCreate(ShippingScenarioItemBase):
     pass
@@ -174,6 +186,18 @@ class ShippingScenarioItemUpdate(BaseModel):
     waiver_letter_fee_applicable: Optional[bool] = None
     waiver_letter_fee_price: Optional[float] = None
     waiver_letter_fee_currency: Optional[str] = None
+
+    dthc_applicable: Optional[bool] = None
+    dthc_price: Optional[float] = None
+    dthc_currency: Optional[str] = None
+
+    storage_per_week_applicable: Optional[bool] = None
+    storage_per_week_price: Optional[float] = None
+    storage_per_week_currency: Optional[str] = None
+
+    extra_day_storage_applicable: Optional[bool] = None
+    extra_day_storage_price: Optional[float] = None
+    extra_day_storage_currency: Optional[str] = None
 
 
 class ShippingScenarioItemCalculated(ShippingScenarioItemBase):

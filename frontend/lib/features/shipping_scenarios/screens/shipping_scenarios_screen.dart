@@ -4,8 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
@@ -232,7 +235,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       total += convert(item.bookingCancellationPrice, item.bookingCancellationCurrency);
     }
 
-    // 4 New fee columns
+    // 4 Previous fee columns
     if (item.ics2FilingFeeApplicable) {
       total += convert(item.ics2FilingFeePrice, item.ics2FilingFeeCurrency);
     }
@@ -244,6 +247,17 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     }
     if (item.waiverLetterFeeApplicable) {
       total += convert(item.waiverLetterFeePrice, item.waiverLetterFeeCurrency);
+    }
+
+    // 3 New quotation fee items: DTHC, Storage per week, Extra day storage
+    if (item.dthcApplicable) {
+      total += convert(item.dthcPrice, item.dthcCurrency);
+    }
+    if (item.storagePerWeekApplicable) {
+      total += convert(item.storagePerWeekPrice, item.storagePerWeekCurrency);
+    }
+    if (item.extraDayStorageApplicable) {
+      total += convert(item.extraDayStoragePrice, item.extraDayStorageCurrency);
     }
 
     return total;
@@ -385,7 +399,11 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       final importFiles = ref.watch(importFilesProvider).value ?? [];
       final selectedFile = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
       if (selectedFile != null) {
-        filteredPOs = poList.where((p) => p.importFileId == selectedFile.importFileId || p.importFileCode == selectedFile.importFileCode).toList();
+        final filePoIds = selectedFile.poIds ?? [];
+        filteredPOs = poList.where((p) =>
+            (p.poId != null && filePoIds.contains(p.poId)) ||
+            (p.importFileId != null && p.importFileId == selectedFile.importFileId) ||
+            (selectedFile.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == selectedFile.importFileCode)).toList();
       }
     } else if (_selectedPoId != null) {
       filteredPOs = poList.where((p) => p.poId == _selectedPoId).toList();
@@ -1339,6 +1357,39 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(othersFeeCurrency: v), currenciesList),
                                       currenciesList: currenciesList,
                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'dthc_$idx',
+                                       title: '15. تفريغ ومناولة ميناء الوصول (DTHC)',
+                                       applicable: item.dthcApplicable,
+                                       price: item.dthcPrice,
+                                       currency: item.dthcCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(dthcApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(dthcPrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(dthcCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'storagePerWeek_$idx',
+                                       title: '16. أرضيات / تخزين لأول أسبوع (Storage per one week)',
+                                       applicable: item.storagePerWeekApplicable,
+                                       price: item.storagePerWeekPrice,
+                                       currency: item.storagePerWeekCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekPrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(storagePerWeekCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
+                                     _buildCostRow(
+                                       rowKey: 'extraDayStorage_$idx',
+                                       title: '17. أرضيات / تخزين لليوم الإضافي (Extra day storage)',
+                                       applicable: item.extraDayStorageApplicable,
+                                       price: item.extraDayStoragePrice,
+                                       currency: item.extraDayStorageCurrency,
+                                       onApplicableChanged: (v) => _updateItem(idx, item.copyWith(extraDayStorageApplicable: v), currenciesList),
+                                       onPriceChanged: (v) => _updateItem(idx, item.copyWith(extraDayStoragePrice: v), currenciesList),
+                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(extraDayStorageCurrency: v), currenciesList),
+                                       currenciesList: currenciesList,
+                                     ),
                                     
                                     const Divider(height: 16),
                                     Container(
@@ -1722,6 +1773,16 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           ),
         ),
 
+        // Data Actions Toolbar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: MasterDataToolbarWidget(
+            moduleEndpoint: 'shipping-evaluations',
+            title: 'Shipping_Evaluations',
+            onRefreshNeeded: () => ref.read(shippingScenariosProvider.notifier).fetchSessions(),
+          ),
+        ),
+
         // ─── Search & Filter Bar ─────────────────────────────────────────────
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -1900,134 +1961,51 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 cells: [
                                   // ⚡ 1. ACTIONS — أول عمود دائماً مرئي
                                   DataCell(
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                      decoration: BoxDecoration(
-                                        color: Colors.white,
-                                        borderRadius: BorderRadius.circular(8),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(0.06),
-                                            blurRadius: 4,
-                                            offset: const Offset(0, 1),
-                                          ),
-                                        ],
-                                        border: Border.all(color: Colors.grey.shade200),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          // 👁️ عرض
-                                          Tooltip(
-                                            message: 'عرض التقييم',
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(6),
-                                              onTap: () => _showSessionDetailsDialog(context, sess),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: AppTheme.cobalt.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: const Icon(Icons.visibility_rounded, color: AppTheme.cobalt, size: 17),
+                                    RowActionsPill(
+                                      onView: () => _showSessionDetailsDialog(context, sess),
+                                      onEdit: () => _loadSessionForEditing(sess),
+                                      onPrint: () => _showPrintReportDialog(context, sess),
+                                      onDelete: () async {
+                                        if (sess.isActive) {
+                                          final confirm = await showDialog<bool>(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Row(
+                                                children: [
+                                                  Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                  SizedBox(width: 8),
+                                                  Text('تأكيد الحذف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                ],
                                               ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          // ✏️ تعديل
-                                          Tooltip(
-                                            message: 'تعديل الدراسة',
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(6),
-                                              onTap: () => _loadSessionForEditing(sess),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.orange.withOpacity(0.1),
-                                                  borderRadius: BorderRadius.circular(6),
-                                                ),
-                                                child: const Icon(Icons.edit_rounded, color: Colors.orange, size: 17),
+                                              content: Text(
+                                                'هل أنت متأكد من حذف الدراسة "${sess.sessionCode}"؟\nيمكن استعادتها لاحقاً من قائمة "إظهار الملغية".',
+                                                style: const TextStyle(fontSize: 13),
                                               ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          // 🖨️ طباعة
-                                          Tooltip(
-                                            message: 'طباعة التقرير',
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(6),
-                                              onTap: () => _showPrintReportDialog(context, sess),
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.grey.shade100,
-                                                  borderRadius: BorderRadius.circular(6),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx, false),
+                                                  child: const Text('إلغاء'),
                                                 ),
-                                                child: Icon(Icons.print_rounded, color: Colors.grey.shade700, size: 17),
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 4),
-                                          // 🗑️/♻️ حذف أو استعادة
-                                          Tooltip(
-                                            message: sess.isActive ? 'حذف الدراسة' : 'استعادة الدراسة',
-                                            child: InkWell(
-                                              borderRadius: BorderRadius.circular(6),
-                                              onTap: () async {
-                                                if (sess.isActive) {
-                                                  final confirm = await showDialog<bool>(
-                                                    context: context,
-                                                    builder: (ctx) => AlertDialog(
-                                                      title: const Row(
-                                                        children: [
-                                                          Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                          SizedBox(width: 8),
-                                                          Text('تأكيد الحذف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                                        ],
-                                                      ),
-                                                      content: Text(
-                                                        'هل أنت متأكد من حذف الدراسة "${sess.sessionCode}"؟\nيمكن استعادتها لاحقاً من قائمة "إظهار الملغية".',
-                                                        style: const TextStyle(fontSize: 13),
-                                                      ),
-                                                      actions: [
-                                                        TextButton(
-                                                          onPressed: () => Navigator.pop(ctx, false),
-                                                          child: const Text('إلغاء'),
-                                                        ),
-                                                        ElevatedButton.icon(
-                                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-                                                          icon: const Icon(Icons.delete_rounded, size: 16),
-                                                          label: const Text('حذف'),
-                                                          onPressed: () => Navigator.pop(ctx, true),
-                                                        ),
-                                                      ],
-                                                    ),
-                                                  );
-                                                  if (confirm == true) {
-                                                    await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
-                                                  }
-                                                } else {
-                                                  await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
-                                                }
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: sess.isActive
-                                                      ? AppTheme.crimson.withOpacity(0.08)
-                                                      : AppTheme.emerald.withOpacity(0.08),
-                                                  borderRadius: BorderRadius.circular(6),
+                                                ElevatedButton.icon(
+                                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+                                                  icon: const Icon(Icons.delete_rounded, size: 16),
+                                                  label: const Text('حذف'),
+                                                  onPressed: () => Navigator.pop(ctx, true),
                                                 ),
-                                                child: Icon(
-                                                  sess.isActive ? Icons.delete_rounded : Icons.restore_rounded,
-                                                  color: sess.isActive ? AppTheme.crimson : AppTheme.emerald,
-                                                  size: 17,
-                                                ),
-                                              ),
+                                              ],
                                             ),
-                                          ),
-                                        ],
-                                      ),
+                                          );
+                                          if (confirm == true) {
+                                            await ref.read(shippingScenariosProvider.notifier).deleteSession(sess.sessionId!);
+                                          }
+                                        } else {
+                                          await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
+                                        }
+                                      },
+                                      viewTooltip: 'عرض التقييم والدراسة',
+                                      editTooltip: 'تعديل دراسة الشحن',
+                                      printTooltip: 'طباعة تقرير الدراسة',
+                                      deleteTooltip: sess.isActive ? 'حذف الدراسة' : 'استعادة الدراسة',
                                     ),
                                   ),
 
@@ -2368,6 +2346,164 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
     bool ok = false;
     if (_editingSessionId != null) {
+      final oldSession = ref.read(shippingScenariosProvider).sessions.where((s) => s.sessionId == _editingSessionId).firstOrNull;
+      if (oldSession != null) {
+        final List<FieldChangeItem> changes = [];
+
+        // 1. General & Header Data
+        if (FieldChangeItem.isDifferent(oldSession.title, titleToSave)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'عنوان دراسة الشحن',
+            oldValue: oldSession.title,
+            newValue: titleToSave,
+          ));
+        }
+
+        final newCrd = _cargoReadyDate.toString().substring(0, 10);
+        if (FieldChangeItem.isDifferent(oldSession.cargoReadyDate, newCrd)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'تاريخ جاهزية البضاعة (CRD)',
+            oldValue: oldSession.cargoReadyDate,
+            newValue: newCrd,
+          ));
+        }
+
+        final newPickup = _pickUpAddress.trim().isNotEmpty ? _pickUpAddress.trim() : null;
+        if (FieldChangeItem.isDifferent(oldSession.pickUpAddress, newPickup)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'موقع وعنوان الاستلام',
+            oldValue: oldSession.pickUpAddress,
+            newValue: newPickup,
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldSession.avgForm4Days, _avgForm4Days)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'أيام إصدار نموذج 4 المتوقعة',
+            oldValue: '${oldSession.avgForm4Days} يوم',
+            newValue: '$_avgForm4Days يوم',
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldSession.avgClearanceDays, _avgClearanceDays)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'أيام التخليص الجمركي المتوقعة',
+            oldValue: '${oldSession.avgClearanceDays} يوم',
+            newValue: '$_avgClearanceDays يوم',
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldSession.importFileId, _selectedImportFileId)) {
+          changes.add(FieldChangeItem(
+            section: 'الربط التشغيلي',
+            fieldName: 'ملف الاستيراد المرتبط',
+            oldValue: oldSession.importFileCode ?? (oldSession.importFileId != null ? 'ID: ${oldSession.importFileId}' : null),
+            newValue: _selectedImportFileId != null ? 'ID: $_selectedImportFileId' : null,
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldSession.poId, _selectedPoId)) {
+          changes.add(FieldChangeItem(
+            section: 'الربط التشغيلي',
+            fieldName: 'أمر الشراء المرتبط (PO)',
+            oldValue: oldSession.poNumber ?? (oldSession.poId != null ? 'ID: ${oldSession.poId}' : null),
+            newValue: _selectedPoId != null ? 'ID: $_selectedPoId' : null,
+          ));
+        }
+
+        // 2. Shipping Options / Quotation Items
+        if (oldSession.items.length != _evalItems.length) {
+          changes.add(FieldChangeItem(
+            section: 'عروض أسعار الشحن المقارنة',
+            fieldName: 'عدد عروض الشحن المدرجة',
+            oldValue: '${oldSession.items.length} عرض',
+            newValue: '${_evalItems.length} عرض',
+          ));
+        } else {
+          for (int i = 0; i < _evalItems.length; i++) {
+            final o = oldSession.items[i];
+            final n = _evalItems[i];
+            final quoteTitle = 'عرض #${i + 1} (${n.providerName.isNotEmpty ? n.providerName : "ناقل"})';
+
+            if (FieldChangeItem.isDifferent(o.providerName, n.providerName)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - وكيل الشحن (Forwarder)',
+                oldValue: o.providerName,
+                newValue: n.providerName,
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.vesselName, n.vesselName)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - الخط الملاحي / الباخرة (Carrier / Vessel)',
+                oldValue: o.vesselName,
+                newValue: n.vesselName,
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.sailingDate, n.sailingDate)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - تاريخ الإبحار (ETD)',
+                oldValue: o.sailingDate,
+                newValue: n.sailingDate,
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.estimatedArrivalDate, n.estimatedArrivalDate)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - تاريخ الوصول المتوقع (ETA)',
+                oldValue: o.estimatedArrivalDate,
+                newValue: n.estimatedArrivalDate,
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.freeTimeDays, n.freeTimeDays)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - أيام السماح (Free Time)',
+                oldValue: '${o.freeTimeDays} يوم',
+                newValue: '${n.freeTimeDays} يوم',
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.totalQuotationAmount, n.totalQuotationAmount)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - إجمالي قيمة العرض (${n.quotationCurrency})',
+                oldValue: '${o.totalQuotationAmount.toStringAsFixed(2)} ${o.quotationCurrency}',
+                newValue: '${n.totalQuotationAmount.toStringAsFixed(2)} ${n.quotationCurrency}',
+              ));
+            }
+            if (FieldChangeItem.isDifferent(o.isExcludedFromAverage, n.isExcludedFromAverage)) {
+              changes.add(FieldChangeItem(
+                section: 'عروض أسعار الشحن المقارنة',
+                fieldName: '$quoteTitle - استبعاد من المتوسط الحسابي',
+                oldValue: o.isExcludedFromAverage ? 'مستبعد' : 'محتسب',
+                newValue: n.isExcludedFromAverage ? 'مستبعد' : 'محتسب',
+              ));
+            }
+          }
+        }
+
+        if (changes.isNotEmpty) {
+          if (!context.mounted) return;
+          final confirmed = await showChangeDiffConfirmationDialog(
+            context,
+            title: 'مراجعة وتأكيد تعديلات دراسة وعروض الشحن',
+            itemReference: oldSession.sessionCode.isNotEmpty ? oldSession.sessionCode : titleToSave,
+            changes: changes,
+          );
+          if (!confirmed) {
+            setState(() => _isSaving = false);
+            return;
+          }
+        }
+      }
+
       final data = {
         'title': titleToSave,
         'cargo_ready_date': _cargoReadyDate.toString().substring(0, 10),
@@ -2705,7 +2841,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   }
 
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
-    final List<CargoItem> cargoItems = [];
+    final List<CargoItem> baseCargoItems = [];
     int itemCounter = 1;
 
     for (final po in pos) {
@@ -2724,210 +2860,391 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
             hCm *= 100;
           }
 
-          cargoItems.add(CargoItem(
+          baseCargoItems.add(CargoItem(
             itemId: '$itemCounter',
             length: lCm,
             width: wCm,
             height: hCm,
-            weight: pl.grossWeightUnitKg,
+            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
             rotate: true,
+            isStackable: pl.isStackable,
+            packageType: pl.packageType,
           ));
           itemCounter++;
         }
       }
     }
 
-    if (cargoItems.isEmpty) {
-      cargoItems.add(CargoItem(
-        itemId: 'Simulated Cargo',
+    if (baseCargoItems.isEmpty) {
+      baseCargoItems.add(CargoItem(
+        itemId: '1',
         length: 120,
         width: 80,
         height: 100,
         weight: totalWeight > 0 ? totalWeight : 500.0,
         rotate: true,
+        isStackable: true,
       ));
     }
 
-    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
+    bool? activeStackingMode = baseCargoItems.any((i) => !i.isStackable) ? null : true;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.view_in_ar, color: AppTheme.emerald),
-              SizedBox(width: 8),
-              Text(
-                'مخطط رص الحاويات للشحنة (Visual Load Planner)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 900,
-            height: 600,
-            child: Column(
-              children: [
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.2),
-                    1: FlexColumnWidth(2.0),
-                    2: FlexColumnWidth(1.2),
-                    3: FlexColumnWidth(2.2),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      ],
-                    ),
-                    ...plan.asMap().entries.map((entry) {
-                      final idx = entry.key + 1;
-                      final res = entry.value;
-                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-                      
-                      String statusText = '';
-                      if (res.containerCode == 'FAILED') {
-                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
-                      } else {
-                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
-                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
-                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
-                        } else if (spaceUtil < 25) {
-                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
-                        } else {
-                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
-                        }
-                      }
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            // Compute plan dynamically based on the selected mode
+            final plan = ContainerRequirementEngine.planShipment(
+              baseCargoItems,
+              forceStackable: activeStackingMode,
+            );
 
-                      return TableRow(
+            // Compute summary metrics for active plan
+            final totalPkgs = baseCargoItems.length;
+            final stackableInActive = activeStackingMode == true
+                ? totalPkgs
+                : (activeStackingMode == false ? 0 : baseCargoItems.where((c) => c.isStackable).length);
+            final nonStackableInActive = totalPkgs - stackableInActive;
+
+            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
+            final Map<String, int> containerCounts = {};
+            for (final p in plan) {
+              if (p.containerCode != 'FAILED') {
+                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+              }
+            }
+            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cobalt),
+                    ),
+                    child: Text(
+                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 980,
+                height: 640,
+                child: Column(
+                  children: [
+                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                            ),
+                          const Text(
+                            '🔄 اختر سيناريو الرص للمعاينة:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(placedIds.isEmpty ? '-' : placedIds),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: statusText.contains('ممتلئة')
-                                    ? Colors.red.shade800
-                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: plan.length,
-                    itemBuilder: (ctx, pIdx) {
-                      final res = plan[pIdx];
-                      if (res.containerCode == 'FAILED') {
-                        return Center(
-                          child: Text(
-                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      }
-                      
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ChoiceChip(
+                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                selected: activeStackingMode == true,
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = true);
+                                },
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                selected: activeStackingMode == false,
+                                selectedColor: Colors.orange.shade800,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = false);
+                                },
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                selected: activeStackingMode == null,
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = null);
+                                },
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. Metrics Strip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.charcoal.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              _buildLoadMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              const SizedBox(width: 8),
+                              _buildLoadMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              const SizedBox(width: 8),
+                              _buildLoadMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              _buildLoadMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              const SizedBox(width: 8),
+                              _buildLoadMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 3. Table summary of container loads
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.2),
+                        1: FlexColumnWidth(1.8),
+                        2: FlexColumnWidth(1.2),
+                        3: FlexColumnWidth(1.2),
+                        4: FlexColumnWidth(2.4),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          children: const [
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                        ...plan.asMap().entries.map((entry) {
+                          final idx = entry.key + 1;
+                          final res = entry.value;
+                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+
+                          String statusText = '';
+                          if (res.containerCode == 'FAILED') {
+                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                          } else {
+                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
+                            if (nonStackInThis > 0) {
+                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                            } else {
+                              statusText = 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                            }
+                          }
+
+                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
+
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  statusText,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusText.contains('فشل')
+                                        ? Colors.red.shade800
+                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 4. Tab view or list for visual container layout drawings
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: plan.length,
+                        itemBuilder: (ctx, pIdx) {
+                          final res = plan[pIdx];
+                          if (res.containerCode == 'FAILED') {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              child: Text(
+                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            );
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                      ),
+                                      Row(
+                                        children: [
+                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Side View (Left Wall Removed) - High Fidelity Realistic Container
+                                  Container(
+                                    height: 190,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                      child: Container(),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Top View (Roof Removed)
+                                  Container(
+                                    height: 140,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                      child: Container(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton.icon(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  label: const Text('إغلاق المخطط'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
-            ),
-          ],
+            );
+          },
         );
       },
+    );
+  }
+
+  static Widget _buildLoadMetricPill(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 4),
+          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }

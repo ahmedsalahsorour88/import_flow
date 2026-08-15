@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -823,6 +825,15 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                 padding: const EdgeInsets.all(20),
                 child: Column(
                   children: [
+                    // Data Actions Toolbar
+                    MasterDataToolbarWidget(
+                      moduleEndpoint: 'freight-quotations',
+                      title: 'Freight_Quotations',
+                      onRefreshNeeded: () => ref.read(freightQuotationsProvider.notifier).fetchRFQs(),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Search & Filter
                     Row(
                       children: [
                         Expanded(
@@ -871,7 +882,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                   DataColumn(label: Text('أسرع ترانزيت', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('العرض المعتمد', style: TextStyle(fontWeight: FontWeight.bold))),
                                   DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                                  DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                                  DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
                                 ],
                                 rows: filtered.map((rfq) {
                                   return DataRow(
@@ -896,9 +907,41 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                       DataCell(Text(rfq.awardedProviderName ?? 'لم يعتمد')),
                                       DataCell(_buildStatusBadge(rfq.status)),
                                       DataCell(
-                                        IconButton(
-                                          icon: const Icon(Icons.visibility, color: AppTheme.cobalt),
-                                          onPressed: () => _showRFQDetailsDialog(rfq),
+                                        RowActionsPill(
+                                          onView: () => _showRFQDetailsDialog(rfq),
+                                          onEdit: () => _showRFQDetailsDialog(rfq),
+                                          onPrint: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('طباعة مقارنة وعروض أسعار الشحن: ${rfq.rfqCode} (${rfq.title})'),
+                                                backgroundColor: AppTheme.charcoal,
+                                                duration: const Duration(seconds: 2),
+                                              ),
+                                            );
+                                          },
+                                          onDelete: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('تأكيد الإجراء'),
+                                                content: Text('هل أنت متأكد من حذف أو إلغاء طلب عرض السعر (${rfq.rfqCode})؟'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                  ElevatedButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                                                    child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirm == true && context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('تم حذف طلب عرض الأسعار بنجاح')),
+                                              );
+                                            }
+                                          },
+                                          deleteTooltip: 'حذف طلب عرض السعر',
                                         ),
                                       ),
                                     ],

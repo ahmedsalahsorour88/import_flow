@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
@@ -318,43 +320,51 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 ),
               ),
 
-              // Action Buttons: Edit, History Log & Toggle Active
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
-                    tooltip: 'View Change History Logs',
-                    onPressed: () {
-                      if (company.companyId != null) {
-                        RowHistoryDialog.show(
-                          context,
-                          entityType: 'ImportCompany',
-                          entityId: company.companyId!,
-                          entityTitle: company.importerName,
-                        );
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                    tooltip: 'Edit Importer Details',
-                    onPressed: () => _showCompanyDialog(context, company),
-                  ),
-                  Tooltip(
-                    message: isActive ? 'Deactivate Company' : 'Reactivate Company',
-                    child: Switch(
-                      value: isActive,
-                      activeColor: AppTheme.emerald,
-                      inactiveThumbColor: AppTheme.crimson,
-                      onChanged: (newStatus) {
-                        if (company.companyId != null) {
-                          ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
-                        }
-                      },
+              // Standard 4-Action Row Pill: View, Edit, Print, Delete
+              RowActionsPill(
+                onView: () {
+                  if (company.companyId != null) {
+                    RowHistoryDialog.show(
+                      context,
+                      entityType: 'ImportCompany',
+                      entityId: company.companyId!,
+                      entityTitle: company.importerName,
+                    );
+                  }
+                },
+                onEdit: () => _showCompanyDialog(context, company),
+                onPrint: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('طباعة بيانات الشركة: ${company.importerName}'),
+                      backgroundColor: AppTheme.charcoal,
+                      duration: const Duration(seconds: 2),
                     ),
-                  ),
-                ],
+                  );
+                },
+                onDelete: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('تأكيد الإجراء'),
+                      content: Text(isActive
+                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشركة (${company.importerName})؟'
+                          : 'هل أنت متأكد من إعادة تفعيل الشركة (${company.importerName})؟'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && company.companyId != null) {
+                    ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
+                  }
+                },
+                deleteTooltip: isActive ? 'إيقاف تفعيل الشركة (Deactivate)' : 'إعادة تفعيل الشركة (Activate)',
               ),
             ],
           ),
@@ -694,6 +704,39 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
 
                           String? errorMessage;
                           if (isEditing && companyToEdit.companyId != null) {
+                            final List<FieldChangeItem> changes = [];
+                            if (FieldChangeItem.isDifferent(companyToEdit.importerName, company.importerName)) {
+                              changes.add(FieldChangeItem(fieldName: 'اسم الشركة المستوردة', oldValue: companyToEdit.importerName, newValue: company.importerName));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.importerId, company.importerId)) {
+                              changes.add(FieldChangeItem(fieldName: 'رقم البطاقة الاستيرادية', oldValue: companyToEdit.importerId, newValue: company.importerId));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.importerIdExpiry.toString().substring(0, 10), company.importerIdExpiry.toString().substring(0, 10))) {
+                              changes.add(FieldChangeItem(fieldName: 'تاريخ انتهاء البطاقة الاستيرادية', oldValue: companyToEdit.importerIdExpiry.toString().substring(0, 10), newValue: company.importerIdExpiry.toString().substring(0, 10)));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.vatId, company.vatId)) {
+                              changes.add(FieldChangeItem(fieldName: 'رقم التسجيل الضريبي (VAT ID)', oldValue: companyToEdit.vatId, newValue: company.vatId));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.registrationNumber, company.registrationNumber)) {
+                              changes.add(FieldChangeItem(fieldName: 'رقم السجل التجاري', oldValue: companyToEdit.registrationNumber, newValue: company.registrationNumber));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.address, company.address)) {
+                              changes.add(FieldChangeItem(fieldName: 'العنوان', oldValue: companyToEdit.address, newValue: company.address));
+                            }
+                            if (FieldChangeItem.isDifferent(companyToEdit.phone, company.phone)) {
+                              changes.add(FieldChangeItem(fieldName: 'رقم الهاتف', oldValue: companyToEdit.phone, newValue: company.phone));
+                            }
+
+                            if (changes.isNotEmpty) {
+                              final confirmed = await showChangeDiffConfirmationDialog(
+                                context,
+                                title: 'مراجعة وتأكيد تعديلات الشركة المستوردة',
+                                itemReference: companyToEdit.importerName,
+                                changes: changes,
+                              );
+                              if (!confirmed) return;
+                            }
+
                             errorMessage = await ref.read(importCompaniesProvider.notifier).updateCompany(companyToEdit.companyId!, company);
                           } else {
                             errorMessage = await ref.read(importCompaniesProvider.notifier).createCompany(company);

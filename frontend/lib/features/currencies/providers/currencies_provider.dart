@@ -133,4 +133,13 @@ class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> 
       return null;
     }
   }
+
+  Future<CurrencyModel?> fetchCurrencyHistory(int currencyId) async {
+    try {
+      final response = await _dio.get('${ApiConstants.baseUrl}/currencies/$currencyId');
+      return CurrencyModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      return null;
+    }
+  }
 }

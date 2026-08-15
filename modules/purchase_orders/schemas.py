@@ -76,10 +76,14 @@ class PackingListSummaryByHSCode(BaseModel):
     total_net_weight_kg: float
     total_gross_weight_kg: float
     total_cbm: float
+    invoice_pcs: float = 0.0
+    discrepancy_pcs: float = 0.0
+    is_matched: bool = True
 
 
 class PackingListValidationReport(BaseModel):
     is_valid: bool
+    has_discrepancy: bool = False
     errors: List[str] = Field(default_factory=list)
     warnings: List[str] = Field(default_factory=list)
     total_items: int = 0
@@ -89,6 +93,10 @@ class PackingListValidationReport(BaseModel):
     total_gross_weight_kg: float = 0.0
     total_cbm: float = 0.0
     chargeable_weight_kg: float = 0.0
+    total_invoice_pcs: float = 0.0
+    total_packing_pcs: float = 0.0
+    missing_hs_in_packing: List[str] = Field(default_factory=list)
+    missing_hs_in_invoice: List[str] = Field(default_factory=list)
     hs_code_summary: List[PackingListSummaryByHSCode] = Field(default_factory=list)
 
 

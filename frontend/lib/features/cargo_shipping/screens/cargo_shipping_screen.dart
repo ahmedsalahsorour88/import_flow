@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
@@ -81,6 +83,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'cargo-shipping',
+              title: 'Cargo_Shipping',
+              onRefreshNeeded: () => ref.read(cargoShippingProvider.notifier).fetchRecords(),
+            ),
+            const SizedBox(height: 12),
+
             // Toolbar
             Card(
               elevation: 2,
@@ -245,46 +255,35 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> {
                                   ),
                                 ),
                                 DataCell(
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(Icons.rate_review, color: AppTheme.cobalt, size: 18),
-                                        tooltip: 'تعديل والاعتماد الثنائي',
-                                        onPressed: () => _showAddEditDialog(rec),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                        tooltip: 'حذف لطفياً',
-                                        onPressed: () async {
-                                          final confirm = await showDialog<bool>(
-                                            context: context,
-                                            builder: (c) => AlertDialog(
-                                              title: const Text('تأكيد الحذف'),
-                                              content: Text('هل أنت تأكد من حذف سجل شحن البضاعة ${rec.cargoShippingCode}؟'),
-                                              actions: [
-                                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                                ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(c, true), child: const Text('حذف')),
-                                              ],
-                                            ),
-                                          );
-                                          if (confirm == true) {
-                                            await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
-                                          }
-                                        },
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald, size: 18),
-                                        tooltip: 'استعادة السجل',
-                                        onPressed: () async {
-                                          await ref.read(cargoShippingProvider.notifier).restoreRecord(rec.cargoShippingId);
-                                          if (context.mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              SnackBar(content: Text('✅ تم استعادة سجل الشحن ${rec.cargoShippingCode} بنجاح'), backgroundColor: AppTheme.emerald),
-                                            );
-                                          }
-                                        },
-                                      ),
-                                    ],
+                                  RowActionsPill(
+                                    onView: () => _showAddEditDialog(rec),
+                                    onEdit: () => _showAddEditDialog(rec),
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة بيانات ومتابعة شحن البضاعة: ${rec.cargoShippingCode} (${rec.courierTrackingData.courierProvider})'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          title: const Text('تأكيد الحذف'),
+                                          content: Text('هل أنت متأكد من حذف سجل شحن البضاعة ${rec.cargoShippingCode}؟'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(c, true), child: const Text('حذف')),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        await ref.read(cargoShippingProvider.notifier).softDeleteRecord(rec.cargoShippingId);
+                                      }
+                                    },
+                                    deleteTooltip: 'حذف سجل الشحن (Soft Delete)',
                                   ),
                                 ),
                               ],

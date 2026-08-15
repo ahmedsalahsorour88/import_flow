@@ -4,7 +4,7 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 
 
 class FreightQuotationsComparisonScreen extends StatefulWidget {
-  const FreightQuotationsComparisonScreen({Key? key}) : super(key: key);
+  const FreightQuotationsComparisonScreen({super.key});
 
   @override
   State<FreightQuotationsComparisonScreen> createState() => _FreightQuotationsComparisonScreenState();
@@ -74,8 +74,7 @@ class _FreightQuotationsComparisonScreenState extends State<FreightQuotationsCom
     });
     // Call API to mark as awarded
     try {
-       final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8000/api/v1'));
-       // await dio.post('/freight-quotations/$quotationId/award');
+       // await Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8000/api/v1')).post('/freight-quotations/$quotationId/award');
        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم اختيار عرض السعر بنجاح')));
     } catch (e) {
        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/warehouse_receiving_model.dart';
@@ -80,6 +82,14 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'warehouse-receiving',
+              title: 'Warehouse_Receiving',
+              onRefreshNeeded: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
+            ),
+            const SizedBox(height: 12),
+
             // Toolbar Bar
             Card(
               elevation: 2,
@@ -223,20 +233,29 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
                                       icon: const Icon(Icons.warning_amber, size: 16, color: Colors.white),
-                                      label: const Text('إثبات عجز/تلف وتوجيه للعزل Quarantine (BP-035)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('إثبات عجز/تلف (BP-035)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showDiscrepancyDialog(r),
                                     ),
                                     const SizedBox(width: 8),
                                   ],
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                    tooltip: 'حذف لطفياً',
-                                    onPressed: () async {
+                                  RowActionsPill(
+                                    onView: () => _showAddEditDialog(r),
+                                    onEdit: () => _showAddEditDialog(r),
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة محضر استلام البضاعة GRN: ${r.grnCode} (${r.warehouseName})'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
                                           title: const Text('حذف محضر الاستلام'),
-                                          content: const Text('هل أنت تأكد من نقل محضر الاستلام للمحذوفات؟'),
+                                          content: const Text('هل أنت متأكد من نقل محضر الاستلام للمحذوفات؟'),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
                                             TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
@@ -247,18 +266,10 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
                                       }
                                     },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-                                    tooltip: 'استعادة السجل',
-                                    onPressed: () async {
-                                      await ref.read(warehouseReceivingProvider.notifier).restoreRecord(r.receivingId);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ تم استعادة محضر الاستلام ${r.grnCode} بنجاح'), backgroundColor: AppTheme.emerald),
-                                        );
-                                      }
-                                    },
+                                    viewTooltip: 'عرض محضر الاستلام',
+                                    editTooltip: 'تعديل محضر الاستلام',
+                                    printTooltip: 'طباعة محضر GRN',
+                                    deleteTooltip: 'حذف محضر الاستلام (Soft Delete)',
                                   ),
                                 ],
                               ),

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/transport_location_model.dart';
 import '../providers/transport_locations_provider.dart';
@@ -67,18 +69,6 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                     const BackToDashboardButton(),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
-                      onPressed: () => _handleExcelImport(context, ref),
-                      icon: const Icon(Icons.file_upload_outlined, size: 18),
-                      label: const Text('Import Excel/CSV'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    ElevatedButton.icon(
                       onPressed: () => _showLocationDialog(context),
                       icon: const Icon(Icons.add_location_alt, size: 18),
                       label: const Text('Add Transport Location'),
@@ -93,7 +83,17 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                 ),
               ],
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'transport-locations',
+              title: 'Transport_Locations',
+              onRefreshNeeded: () => ref.read(transportLocationsProvider.notifier).fetchLocations(),
+              onImportExcel: () => _handleExcelImport(context, ref),
+            ),
+
+            const SizedBox(height: 16),
 
             // Type Filter Chips & Search Bar
             Row(
@@ -222,7 +222,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                 3: FlexColumnWidth(2),
                                 4: FlexColumnWidth(2),
                                 5: FixedColumnWidth(85),
-                                6: FixedColumnWidth(110),
+                                6: FixedColumnWidth(150),
                               },
                               children: [
                                 // Table Header
@@ -348,32 +348,43 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                         ),
                                       ),
 
-                                      // Actions
+                                      // Actions: View (Details), Edit, Print, Delete
                                       _cell(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                              tooltip: 'Edit Location',
-                                              onPressed: () => _showLocationDialog(context, location: loc),
-                                            ),
-                                            Tooltip(
-                                              message: isActive ? 'Deactivate Location' : 'Reactivate Location',
-                                              child: Switch(
-                                                value: isActive,
-                                                activeColor: AppTheme.emerald,
-                                                inactiveThumbColor: AppTheme.crimson,
-                                                onChanged: (_) {
-                                                  if (loc.locationId != null) {
-                                                    ref
-                                                        .read(transportLocationsProvider.notifier)
-                                                        .toggleActive(loc.locationId!, isActive);
-                                                  }
-                                                },
+                                        child: RowActionsPill(
+                                          onView: () => _showLocationDialog(context, location: loc),
+                                          onEdit: () => _showLocationDialog(context, location: loc),
+                                          onPrint: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('طباعة بيانات المنفذ/الميناء: ${loc.locationName} (${loc.unLocode})'),
+                                                backgroundColor: AppTheme.charcoal,
+                                                duration: const Duration(seconds: 2),
                                               ),
-                                            ),
-                                          ],
+                                            );
+                                          },
+                                          onDelete: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('تأكيد الإجراء'),
+                                                content: Text(isActive
+                                                    ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الميناء/المنفذ (${loc.locationName})؟'
+                                                    : 'هل أنت متأكد من إعادة تفعيل الميناء/المنفذ (${loc.locationName})؟'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                  ElevatedButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                    child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirm == true && loc.locationId != null) {
+                                              ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
+                                            }
+                                          },
+                                          deleteTooltip: isActive ? 'إيقاف تفعيل المنفذ (Deactivate)' : 'إعادة تفعيل المنفذ (Activate)',
                                         ),
                                       ),
                                     ],
@@ -587,7 +598,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
   }
 
   Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {
-    final result = await FilePicker.platform.pickFiles(
+    final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls', 'csv'],
       withData: true,

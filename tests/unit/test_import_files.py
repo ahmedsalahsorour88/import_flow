@@ -203,3 +203,19 @@ class TestImportFilesBackend:
         assert reopened_file.current_module == "Phase 4 - Freight Booking"
         assert reopened_file.closure_reason is None
         assert reopened_file.closed_at_phase is None
+
+    def test_invoices_currency_mismatch_raises_error(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068199",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            invoices_data=[
+                {"invoice_no": "PI-001", "amount": 10000.0, "currency": "EUR"},
+                {"invoice_no": "PI-002", "amount": 5000.0, "currency": "USD"},
+            ],
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            service.create_import_file_service(db_session, payload)
+        assert exc_info.value.status_code == 400
+        assert "يجب أن تكون جميع الفواتير المربوطة بملف الشحنة بنفس العملة الموحدة" in exc_info.value.detail

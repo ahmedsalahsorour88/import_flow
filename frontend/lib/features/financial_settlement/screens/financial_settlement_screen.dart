@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/financial_settlement_provider.dart';
+import 'odoo_journal_entry_dialog.dart';
 
 class FinancialSettlementScreen extends ConsumerStatefulWidget {
   const FinancialSettlementScreen({super.key});
@@ -40,6 +43,16 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
     );
   }
 
+  void _showOdooDialog(int settlementId, String settlementCode) {
+    showDialog(
+      context: context,
+      builder: (context) => OdooJournalEntryDialog(
+        settlementId: settlementId,
+        settlementCode: settlementCode,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final recordsState = ref.watch(financialSettlementProvider);
@@ -70,6 +83,14 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'financial-settlement',
+              title: 'Financial_Settlement',
+              onRefreshNeeded: () => ref.read(financialSettlementProvider.notifier).fetchSettlements(),
+            ),
+            const SizedBox(height: 12),
+
             // Top Action Toolbar
             Card(
               elevation: 2,
@@ -235,23 +256,48 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
                                   ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.charcoal,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                    ),
+                                    icon: const Icon(Icons.receipt_long, size: 16, color: Colors.amber),
+                                    label: const Text('📒 تصدير قيد اليومية لـ Odoo / ERP', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _showOdooDialog(r.settlementId, r.settlementCode),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton.icon(
                                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                     icon: const Icon(Icons.autorenew, size: 16, color: Colors.white),
-                                    label: const Text('إعادة توزيع التكاليف واحتساب Landed Cost', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    label: const Text('إعادة احتساب التكاليف', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                     onPressed: () {
                                       ref.read(financialSettlementProvider.notifier).recalculateSettlement(r.settlementId);
                                     },
                                   ),
                                   const SizedBox(width: 8),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                    tooltip: 'حذف لطفياً',
-                                    onPressed: () async {
+                                  RowActionsPill(
+                                    onView: () => _showOdooDialog(r.settlementId, r.settlementCode),
+                                    onEdit: () {
+                                      ref.read(financialSettlementProvider.notifier).recalculateSettlement(r.settlementId);
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('تمت إعادة توزيع التكاليف لسجل التسوية: ${r.settlementCode}'), backgroundColor: AppTheme.cobalt),
+                                      );
+                                    },
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة كشف ومطابقة التكلفة الشاملة Landed Cost: ${r.settlementCode} (إجمالي: ${r.totalLandedCostEgp.toStringAsFixed(2)} ج.م)'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
                                           title: const Text('حذف سجل التسوية'),
-                                          content: const Text('هل أنت تأكد من نقل سجل التسوية المالية للمحذوفات؟'),
+                                          content: const Text('هل أنت متأكد من نقل سجل التسوية المالية للمحذوفات؟'),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
                                             TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
@@ -262,18 +308,10 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                         ref.read(financialSettlementProvider.notifier).softDeleteSettlement(r.settlementId);
                                       }
                                     },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-                                    tooltip: 'استعادة السجل',
-                                    onPressed: () async {
-                                      await ref.read(financialSettlementProvider.notifier).restoreSettlement(r.settlementId);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ تم استعادة سجل التسوية المالية ${r.settlementCode} بنجاح'), backgroundColor: AppTheme.emerald),
-                                        );
-                                      }
-                                    },
+                                    viewTooltip: 'عرض تفاصيل التسوية',
+                                    editTooltip: 'تعديل وإعادة احتساب',
+                                    printTooltip: 'طباعة كشف Landed Cost',
+                                    deleteTooltip: 'حذف سجل التسوية (Soft Delete)',
                                   ),
                                 ],
                               ),

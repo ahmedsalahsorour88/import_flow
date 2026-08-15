@@ -8,12 +8,20 @@ class MasterDataToolbarWidget extends StatefulWidget {
   final String moduleEndpoint; // e.g. "import-companies", "suppliers", "external-service-providers", "projects"
   final String title;
   final VoidCallback onRefreshNeeded;
+  final VoidCallback? onDownloadTemplate;
+  final VoidCallback? onImportExcel;
+  final VoidCallback? onExportExcel;
+  final VoidCallback? onExportPdf;
 
   const MasterDataToolbarWidget({
     super.key,
     required this.moduleEndpoint,
     required this.title,
     required this.onRefreshNeeded,
+    this.onDownloadTemplate,
+    this.onImportExcel,
+    this.onExportExcel,
+    this.onExportPdf,
   });
 
   @override
@@ -160,7 +168,7 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
             children: [
               // 1. Download Template
               OutlinedButton.icon(
-                onPressed: () => _downloadFile('excel-template', '${widget.title}_Template.xlsx'),
+                onPressed: widget.onDownloadTemplate ?? () => _downloadFile('excel-template', '${widget.title}_Template.xlsx'),
                 icon: const Icon(Icons.download, size: 16, color: AppTheme.charcoal),
                 label: const Text('Download Excel Template', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
                 style: OutlinedButton.styleFrom(
@@ -172,7 +180,7 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
 
               // 2. Upload Excel
               ElevatedButton.icon(
-                onPressed: _isUploading ? null : _handleImportExcel,
+                onPressed: _isUploading ? null : (widget.onImportExcel ?? _handleImportExcel),
                 icon: _isUploading
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.upload_file, size: 16, color: Colors.white),
@@ -186,7 +194,7 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
 
               // 3. Export Excel
               ElevatedButton.icon(
-                onPressed: () => _downloadFile('export-excel', '${widget.title}_Report.xlsx'),
+                onPressed: widget.onExportExcel ?? () => _downloadFile('export-excel', '${widget.title}_Report.xlsx'),
                 icon: const Icon(Icons.description, size: 16, color: Colors.white),
                 label: const Text('Export Excel', style: TextStyle(fontSize: 12, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
@@ -198,7 +206,7 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
 
               // 4. Export PDF
               ElevatedButton.icon(
-                onPressed: () => _downloadFile('export-pdf', '${widget.title}_Report.pdf'),
+                onPressed: widget.onExportPdf ?? () => _downloadFile('export-pdf', '${widget.title}_Report.pdf'),
                 icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
                 label: const Text('Export PDF', style: TextStyle(fontSize: 12, color: Colors.white)),
                 style: ElevatedButton.styleFrom(

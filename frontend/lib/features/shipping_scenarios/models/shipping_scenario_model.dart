@@ -90,6 +90,19 @@ class ShippingScenarioItemModel {
   final double waiverLetterFeePrice;
   final String waiverLetterFeeCurrency;
 
+  // New quotation fees: DTHC, Storage per week, Extra day storage
+  final bool dthcApplicable;
+  final double dthcPrice;
+  final String dthcCurrency;
+
+  final bool storagePerWeekApplicable;
+  final double storagePerWeekPrice;
+  final String storagePerWeekCurrency;
+
+  final bool extraDayStorageApplicable;
+  final double extraDayStoragePrice;
+  final String extraDayStorageCurrency;
+
   ShippingScenarioItemModel({
     this.itemId,
     this.providerId,
@@ -179,6 +192,18 @@ class ShippingScenarioItemModel {
     this.waiverLetterFeeApplicable = false,
     this.waiverLetterFeePrice = 0.0,
     this.waiverLetterFeeCurrency = 'USD',
+
+    this.dthcApplicable = false,
+    this.dthcPrice = 0.0,
+    this.dthcCurrency = 'USD',
+
+    this.storagePerWeekApplicable = false,
+    this.storagePerWeekPrice = 0.0,
+    this.storagePerWeekCurrency = 'USD',
+
+    this.extraDayStorageApplicable = false,
+    this.extraDayStoragePrice = 0.0,
+    this.extraDayStorageCurrency = 'USD',
   });
 
   factory ShippingScenarioItemModel.fromJson(Map<String, dynamic> json) {
@@ -282,6 +307,18 @@ class ShippingScenarioItemModel {
       waiverLetterFeeApplicable: json['waiver_letter_fee_applicable'] ?? false,
       waiverLetterFeePrice: toDouble(json['waiver_letter_fee_price']),
       waiverLetterFeeCurrency: json['waiver_letter_fee_currency'] ?? 'USD',
+
+      dthcApplicable: json['dthc_applicable'] ?? false,
+      dthcPrice: toDouble(json['dthc_price']),
+      dthcCurrency: json['dthc_currency'] ?? 'USD',
+
+      storagePerWeekApplicable: json['storage_per_week_applicable'] ?? false,
+      storagePerWeekPrice: toDouble(json['storage_per_week_price']),
+      storagePerWeekCurrency: json['storage_per_week_currency'] ?? 'USD',
+
+      extraDayStorageApplicable: json['extra_day_storage_applicable'] ?? false,
+      extraDayStoragePrice: toDouble(json['extra_day_storage_price']),
+      extraDayStorageCurrency: json['extra_day_storage_currency'] ?? 'USD',
     );
   }
 
@@ -370,6 +407,18 @@ class ShippingScenarioItemModel {
       'waiver_letter_fee_applicable': waiverLetterFeeApplicable,
       'waiver_letter_fee_price': waiverLetterFeePrice,
       'waiver_letter_fee_currency': waiverLetterFeeCurrency,
+
+      'dthc_applicable': dthcApplicable,
+      'dthc_price': dthcPrice,
+      'dthc_currency': dthcCurrency,
+
+      'storage_per_week_applicable': storagePerWeekApplicable,
+      'storage_per_week_price': storagePerWeekPrice,
+      'storage_per_week_currency': storagePerWeekCurrency,
+
+      'extra_day_storage_applicable': extraDayStorageApplicable,
+      'extra_day_storage_price': extraDayStoragePrice,
+      'extra_day_storage_currency': extraDayStorageCurrency,
     };
   }
 
@@ -446,6 +495,18 @@ class ShippingScenarioItemModel {
     bool? waiverLetterFeeApplicable,
     double? waiverLetterFeePrice,
     String? waiverLetterFeeCurrency,
+
+    bool? dthcApplicable,
+    double? dthcPrice,
+    String? dthcCurrency,
+
+    bool? storagePerWeekApplicable,
+    double? storagePerWeekPrice,
+    String? storagePerWeekCurrency,
+
+    bool? extraDayStorageApplicable,
+    double? extraDayStoragePrice,
+    String? extraDayStorageCurrency,
   }) {
     return ShippingScenarioItemModel(
       itemId: itemId ?? this.itemId,
@@ -521,6 +582,18 @@ class ShippingScenarioItemModel {
       waiverLetterFeeApplicable: waiverLetterFeeApplicable ?? this.waiverLetterFeeApplicable,
       waiverLetterFeePrice: waiverLetterFeePrice ?? this.waiverLetterFeePrice,
       waiverLetterFeeCurrency: waiverLetterFeeCurrency ?? this.waiverLetterFeeCurrency,
+
+      dthcApplicable: dthcApplicable ?? this.dthcApplicable,
+      dthcPrice: dthcPrice ?? this.dthcPrice,
+      dthcCurrency: dthcCurrency ?? this.dthcCurrency,
+
+      storagePerWeekApplicable: storagePerWeekApplicable ?? this.storagePerWeekApplicable,
+      storagePerWeekPrice: storagePerWeekPrice ?? this.storagePerWeekPrice,
+      storagePerWeekCurrency: storagePerWeekCurrency ?? this.storagePerWeekCurrency,
+
+      extraDayStorageApplicable: extraDayStorageApplicable ?? this.extraDayStorageApplicable,
+      extraDayStoragePrice: extraDayStoragePrice ?? this.extraDayStoragePrice,
+      extraDayStorageCurrency: extraDayStorageCurrency ?? this.extraDayStorageCurrency,
     );
   }
 }

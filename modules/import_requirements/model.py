@@ -17,6 +17,8 @@ class ImportRequirementAssessment(Base):
     hs_code = Column(String(20), nullable=True)
     commodity_description = Column(Text, nullable=True)
     country_of_origin = Column(String(100), nullable=True)
+    currency = Column(String(10), nullable=False, default="USD")
+    shipment_value = Column(Float, nullable=False, default=0.0)
     shipment_value_usd = Column(Float, nullable=False, default=0.0)
     
     # Certificate of Origin (COO)
@@ -47,9 +49,24 @@ class ImportRequirementAssessment(Base):
     permit_status = Column(String(50), nullable=False, default="Not Required")  # Not Required, Applied, Approved, Rejected
     permit_notes = Column(Text, nullable=True)
     
-    # Decree 43 / White List
+    # Decree 43 / White List (المحور 1: قرار 43 وتسجيل المصانع)
+    supplier_id = Column(Integer, ForeignKey("suppliers.supplier_id"), nullable=True)
+    supplier_name = Column(String(200), nullable=True)
     decree_43_applicable = Column(Boolean, nullable=False, default=False)
     white_list_required = Column(Boolean, nullable=False, default=False)
+    white_list_verified = Column(Boolean, nullable=False, default=False)
+    factory_registration_no = Column(String(100), nullable=True)  # رقم قيد المصنع/المورد بالهيئة
+    
+    # Inspection Certificate (المحور 3: فحص ما قبل الشحن)
+    inspection_report_no = Column(String(100), nullable=True)
+    
+    # Import Permit (المحور 4: موافقات وتصاريح الجهات الرقابية)
+    permit_number = Column(String(100), nullable=True)
+    
+    # Technical & Special Certs (المحور 5: شهادات خاصة)
+    coa_required = Column(Boolean, nullable=False, default=False)
+    coa_status = Column(String(50), nullable=False, default="Not Required")
+    coa_notes = Column(Text, nullable=True)
     
     # Other Requirements (flexible JSON)
     other_requirements = Column(JSON, nullable=True)  # [{name, required, status, notes}]

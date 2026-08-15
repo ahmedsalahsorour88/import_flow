@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/incoterm_model.dart';
 import '../providers/incoterms_provider.dart';
@@ -48,10 +50,10 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            Row(
+            const Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -69,12 +71,23 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                     ),
                   ],
                 ),
-                const BackToDashboardButton(),
+                BackToDashboardButton(),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
 
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'incoterms',
+              title: 'Incoterms_Master',
+              onRefreshNeeded: () {
+                ref.read(incotermsProvider.notifier).fetchIncoterms();
+                ref.read(costItemsProvider.notifier).fetchCostItems();
+              },
+            ),
+
+            const SizedBox(height: 16),
 
             // Tab Bar
             Container(
@@ -319,28 +332,42 @@ class _IncotermsTab extends ConsumerWidget {
                       ),
                     ),
                     _cell(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                            tooltip: 'Edit Incoterm',
-                            onPressed: () => _showIncotermDialog(context, ref, incoterm: i),
-                          ),
-                          Tooltip(
-                            message: i.isActive ? 'Deactivate Incoterm' : 'Reactivate Incoterm',
-                            child: Switch(
-                              value: i.isActive,
-                              activeColor: AppTheme.emerald,
-                              inactiveThumbColor: AppTheme.crimson,
-                              onChanged: (_) async {
-                                await ref
-                                    .read(incotermsProvider.notifier)
-                                    .toggleActive(i.incotermId, i.isActive);
-                              },
+                      child: RowActionsPill(
+                        onView: () => _showIncotermDialog(context, ref, incoterm: i),
+                        onEdit: () => _showIncotermDialog(context, ref, incoterm: i),
+                        onPrint: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('طباعة بيانات شرط التجارة الدولي: ${i.incotermCode} (${i.incotermName})'),
+                              backgroundColor: AppTheme.charcoal,
+                              duration: const Duration(seconds: 2),
                             ),
-                          ),
-                        ],
+                          );
+                        },
+                        onDelete: () async {
+                          final isActive = i.isActive;
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('تأكيد الإجراء'),
+                              content: Text(isActive
+                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل شرط التجارة (${i.incotermCode})؟'
+                                  : 'هل أنت متأكد من إعادة تفعيل شرط التجارة (${i.incotermCode})؟'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                  child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await ref.read(incotermsProvider.notifier).toggleActive(i.incotermId, i.isActive);
+                          }
+                        },
+                        deleteTooltip: i.isActive ? 'إيقاف تفعيل الشرط (Deactivate)' : 'إعادة تفعيل الشرط (Activate)',
                       ),
                     ),
                   ],
@@ -682,28 +709,42 @@ class _CostItemsTab extends ConsumerWidget {
                       ),
                     ),
                     _cell(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                            tooltip: 'Edit Cost Item',
-                            onPressed: () => _showCostItemDialog(context, ref, item: item),
-                          ),
-                          Tooltip(
-                            message: item.isActive ? 'Deactivate Cost Item' : 'Reactivate Cost Item',
-                            child: Switch(
-                              value: item.isActive,
-                              activeColor: AppTheme.emerald,
-                              inactiveThumbColor: AppTheme.crimson,
-                              onChanged: (_) async {
-                                await ref
-                                    .read(costItemsProvider.notifier)
-                                    .toggleActive(item.costItemId, item.isActive);
-                              },
+                      child: RowActionsPill(
+                        onView: () => _showCostItemDialog(context, ref, item: item),
+                        onEdit: () => _showCostItemDialog(context, ref, item: item),
+                        onPrint: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('طباعة بيانات بند التكلفة: ${item.costItemCode} (${item.costItemName})'),
+                              backgroundColor: AppTheme.charcoal,
+                              duration: const Duration(seconds: 2),
                             ),
-                          ),
-                        ],
+                          );
+                        },
+                        onDelete: () async {
+                          final isActive = item.isActive;
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('تأكيد الإجراء'),
+                              content: Text(isActive
+                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل بند التكلفة (${item.costItemCode})؟'
+                                  : 'هل أنت متأكد من إعادة تفعيل بند التكلفة (${item.costItemCode})؟'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                  child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
+                            await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
+                          }
+                        },
+                        deleteTooltip: item.isActive ? 'إيقاف تفعيل بند التكلفة (Deactivate)' : 'إعادة تفعيل بند التكلفة (Activate)',
                       ),
                     ),
                   ],

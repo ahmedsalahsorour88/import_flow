@@ -149,6 +149,48 @@ class PackingListItemModel {
     return qtyPkg * (lengthM * widthM * heightM);
   }
 
+  PackingListItemModel copyWith({
+    int? packingItemId,
+    int? poId,
+    String? hsCode,
+    String? itemCode,
+    double? qtyPcs,
+    double? qtyPkg,
+    String? packageType,
+    String? unit,
+    double? lengthCm,
+    double? widthCm,
+    double? heightCm,
+    double? netWeightUnitKg,
+    double? grossWeightUnitKg,
+    double? totalNetWeightKg,
+    double? totalGrossWeightKg,
+    double? totalCbm,
+    double? chargeableWeightKg,
+    bool? isStackable,
+  }) {
+    return PackingListItemModel(
+      packingItemId: packingItemId ?? this.packingItemId,
+      poId: poId ?? this.poId,
+      hsCode: hsCode ?? this.hsCode,
+      itemCode: itemCode ?? this.itemCode,
+      qtyPcs: qtyPcs ?? this.qtyPcs,
+      qtyPkg: qtyPkg ?? this.qtyPkg,
+      packageType: packageType ?? this.packageType,
+      unit: unit ?? this.unit,
+      lengthCm: lengthCm ?? this.lengthCm,
+      widthCm: widthCm ?? this.widthCm,
+      heightCm: heightCm ?? this.heightCm,
+      netWeightUnitKg: netWeightUnitKg ?? this.netWeightUnitKg,
+      grossWeightUnitKg: grossWeightUnitKg ?? this.grossWeightUnitKg,
+      totalNetWeightKg: totalNetWeightKg ?? this.totalNetWeightKg,
+      totalGrossWeightKg: totalGrossWeightKg ?? this.totalGrossWeightKg,
+      totalCbm: totalCbm ?? this.totalCbm,
+      chargeableWeightKg: chargeableWeightKg ?? this.chargeableWeightKg,
+      isStackable: isStackable ?? this.isStackable,
+    );
+  }
+
   factory PackingListItemModel.fromJson(Map<String, dynamic> json) {
     return PackingListItemModel(
       packingItemId: _numToInt(json['packing_item_id']),

@@ -17,25 +17,27 @@ class AuditLogService:
         entity_code: Optional[str] = None,
         old_data: Optional[Dict[str, Any]] = None,
         new_data: Optional[Dict[str, Any]] = None,
-        performed_by: str = "System Admin"
+        performed_by: str = "System Admin",
+        changes_summary: Optional[str] = None,
     ) -> AuditLog:
         changes = []
         old_json = json.dumps(old_data, default=str) if old_data else None
         new_json = json.dumps(new_data, default=str) if new_data else None
 
-        if action == "CREATE":
-            changes_summary = f"Created new {entity_type} record"
-        elif action == "DELETE":
-            changes_summary = f"Deactivated {entity_type} record"
-        elif action == "RESTORE":
-            changes_summary = f"Reactivated {entity_type} record"
-        elif action == "UPDATE" and old_data and new_data:
-            for key, new_val in new_data.items():
-                if key in old_data and old_data[key] != new_val:
-                    changes.append(f"{key}: '{old_data[key]}' -> '{new_val}'")
-            changes_summary = "Updated fields: " + (", ".join(changes) if changes else "No field values changed")
-        else:
-            changes_summary = f"Performed {action} on {entity_type}"
+        if changes_summary is None:
+            if action == "CREATE":
+                changes_summary = f"Created new {entity_type} record"
+            elif action == "DELETE":
+                changes_summary = f"Deactivated {entity_type} record"
+            elif action == "RESTORE":
+                changes_summary = f"Reactivated {entity_type} record"
+            elif action == "UPDATE" and old_data and new_data:
+                for key, new_val in new_data.items():
+                    if key in old_data and old_data[key] != new_val:
+                        changes.append(f"{key}: '{old_data[key]}' -> '{new_val}'")
+                changes_summary = "Updated fields: " + (", ".join(changes) if changes else "No field values changed")
+            else:
+                changes_summary = f"Performed {action} on {entity_type}"
 
         log_obj = AuditLog(
             entity_type=entity_type,

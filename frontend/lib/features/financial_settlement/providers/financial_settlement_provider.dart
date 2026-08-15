@@ -88,4 +88,16 @@ class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCo
       rethrow;
     }
   }
+
+  Future<OdooJournalEntryModel> fetchOdooJournalEntry(int settlementId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/financial-settlement/$settlementId/odoo-journal-entry',
+      );
+      return OdooJournalEntryModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+

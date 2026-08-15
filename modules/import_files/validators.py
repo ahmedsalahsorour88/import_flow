@@ -62,3 +62,25 @@ def validate_custom_file_number_unique(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"رقم ملف الاستيراد '{custom_file_number}' مستخدم بالفعل لشحنة أخرى في النظام.",
         )
+
+
+def validate_invoices_currency_consistency(invoices_data: Optional[List[dict]]):
+    """
+    Validates that all invoices linked to an import file share the exact same currency code.
+    Rule: القيمة ليست ثابته بالدولار فقط وتكون بأكثر من عملة لكن يجب أن تكون كل الفواتير المربوطة على ملف شحنة بنفس العملة
+    """
+    if not invoices_data or len(invoices_data) <= 1:
+        return
+
+    currencies = set()
+    for inv in invoices_data:
+        if isinstance(inv, dict):
+            curr = (inv.get("currency") or "USD").strip().upper()
+            currencies.add(curr)
+
+    if len(currencies) > 1:
+        curr_list = ", ".join(sorted(currencies))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"يجب أن تكون جميع الفواتير المربوطة بملف الشحنة بنفس العملة الموحدة. تم اكتشاف عملات متعددة: [{curr_list}]. يرجى توحيد العملة لجميع الفواتير المرتبطة بالملف.",
+        )

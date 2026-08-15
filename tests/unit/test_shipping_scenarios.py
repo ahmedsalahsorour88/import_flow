@@ -310,3 +310,43 @@ class TestShippingScenariosBackend:
         db.refresh(imp_file)
         assert imp_file.selected_scenario == "Linked Carrier (Vessel Link)"
 
+    def test_quotation_breakdown_with_dthc_and_storage(self, db: Session):
+        crd = date.today()
+        item = ShippingScenarioItemCreate(
+            provider_name="Hapag-Lloyd",
+            vessel_name="AL JASRAH",
+            sailing_date=crd + timedelta(days=3),
+            estimated_arrival_date=crd + timedelta(days=20),
+            free_time_days=21,
+            quotation_currency="USD",
+            total_quotation_amount=2450.0,
+            dthc_applicable=True,
+            dthc_price=350.0,
+            dthc_currency="USD",
+            storage_per_week_applicable=True,
+            storage_per_week_price=120.0,
+            storage_per_week_currency="USD",
+            extra_day_storage_applicable=True,
+            extra_day_storage_price=30.0,
+            extra_day_storage_currency="USD",
+        )
+        payload = ShippingEvaluationCreate(
+            title="Quotation Study with DTHC and Storage",
+            cargo_ready_date=crd,
+            items=[item],
+        )
+
+        res = ShippingScenarioService.create_session_service(db, payload)
+        assert len(res.items) == 1
+        created_item = res.items[0]
+        assert created_item.dthc_applicable is True
+        assert created_item.dthc_price == 350.0
+        assert created_item.dthc_currency == "USD"
+        assert created_item.storage_per_week_applicable is True
+        assert created_item.storage_per_week_price == 120.0
+        assert created_item.storage_per_week_currency == "USD"
+        assert created_item.extra_day_storage_applicable is True
+        assert created_item.extra_day_storage_price == 30.0
+        assert created_item.extra_day_storage_currency == "USD"
+
+

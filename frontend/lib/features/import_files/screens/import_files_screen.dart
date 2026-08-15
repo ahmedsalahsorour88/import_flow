@@ -20,9 +20,12 @@ import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../projects/models/project_model.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
-import '../../../core/widgets/stop_shipment_dialog.dart';
-import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/reopen_shipment_dialog.dart';
+import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/stop_shipment_dialog.dart';
 import '../models/import_file_model.dart';
 
 import '../providers/import_files_provider.dart';
@@ -210,13 +213,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   Expanded(
                                     child: Column(
                                       children: [
-                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                         const SizedBox(height: 4),
                                         Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          height: 190,
+                                          decoration: BoxDecoration(color: Colors.grey.shade900, borderRadius: BorderRadius.circular(4)),
                                           child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
                                             child: Container(),
                                           ),
                                         ),
@@ -231,13 +234,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   Expanded(
                                     child: Column(
                                       children: [
-                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                         const SizedBox(height: 4),
                                         Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
+                                          height: 140,
+                                          decoration: BoxDecoration(color: Colors.grey.shade900, borderRadius: BorderRadius.circular(4)),
                                           child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
                                             child: Container(),
                                           ),
                                         ),
@@ -954,10 +957,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   }
 
   void _showImportFileDetailsDialog(BuildContext context, ImportFileModel file) {
-    final poState = ref.read(purchaseOrdersProvider);
-    final allPOs = poState.purchaseOrders;
-
-    final linkedPOs = allPOs.where((p) => p.importFileId == file.importFileId || (p.importFileCode != null && p.importFileCode == file.importFileCode)).toList();
+    final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final linkedPOs = allPOs.where((p) =>
+        (p.importFileId != null && p.importFileId == file.importFileId) ||
+        (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
+        (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
 
     final invoiceNumbers = <String>{};
     if (file.piNumber != null && file.piNumber!.isNotEmpty) {
@@ -1112,6 +1116,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
             ),
             const SizedBox(height: 16),
 
+            // Master Data Toolbar (Actions & Export/Import)
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'import-files',
+              title: 'Import_Files',
+              onRefreshNeeded: () => ref.read(paginatedImportFilesProvider.notifier).fetchPage(1),
+            ),
+            const SizedBox(height: 12),
+
             // Files Data Table
             Expanded(
               child: paginatedState.isLoading 
@@ -1229,13 +1241,20 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                             );
                                           },
                                         ),
-                                      IconButton(
-                                        icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                        onPressed: () => _showAddEditFileDialog(file),
-                                      ),
-                                      IconButton(
-                                        icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                        onPressed: () async {
+                                      const SizedBox(width: 4),
+                                      RowActionsPill(
+                                        onView: () => _showImportFileDetailsDialog(context, file),
+                                        onEdit: () => _showAddEditFileDialog(file),
+                                        onPrint: () {
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('طباعة ملف الشحنة الشامل والتاريخ التشغيلي: ${file.customFileNumber ?? file.importFileCode}'),
+                                              backgroundColor: AppTheme.charcoal,
+                                              duration: const Duration(seconds: 2),
+                                            ),
+                                          );
+                                        },
+                                        onDelete: () async {
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (c) => AlertDialog(
@@ -1321,7 +1340,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
 }
 
-class _ImportFileDetailsDialogWidget extends StatefulWidget {
+class _ImportFileDetailsDialogWidget extends ConsumerStatefulWidget {
   final ImportFileModel file;
   final List<PurchaseOrderModel> linkedPOs;
   final Set<String> invoiceNumbers;
@@ -1341,14 +1360,12 @@ class _ImportFileDetailsDialogWidget extends StatefulWidget {
   });
 
   @override
-  State<_ImportFileDetailsDialogWidget> createState() => _ImportFileDetailsDialogWidgetState();
+  ConsumerState<_ImportFileDetailsDialogWidget> createState() => _ImportFileDetailsDialogWidgetState();
 }
 
-class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialogWidget> {
-  bool _isStackable = true;
-
+class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetailsDialogWidget> {
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
-    final List<CargoItem> cargoItems = [];
+    final List<CargoItem> baseCargoItems = [];
     int itemCounter = 1;
 
     for (final po in pos) {
@@ -1367,211 +1384,392 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
             hCm *= 100;
           }
 
-          cargoItems.add(CargoItem(
+          baseCargoItems.add(CargoItem(
             itemId: '$itemCounter',
             length: lCm,
             width: wCm,
             height: hCm,
-            weight: pl.grossWeightUnitKg,
+            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
             rotate: true,
+            isStackable: pl.isStackable,
+            packageType: pl.packageType,
           ));
           itemCounter++;
         }
       }
     }
 
-    if (cargoItems.isEmpty) {
+    if (baseCargoItems.isEmpty) {
       final fallbackWeight = widget.totalPackingListWeight > 0 ? widget.totalPackingListWeight : 500.0;
-      cargoItems.add(CargoItem(
-        itemId: 'Simulated Cargo',
+      baseCargoItems.add(CargoItem(
+        itemId: '1',
         length: 120,
         width: 80,
         height: 100,
         weight: fallbackWeight,
         rotate: true,
+        isStackable: true,
       ));
     }
 
-    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
+    bool? activeStackingMode = baseCargoItems.any((i) => !i.isStackable) ? null : true;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.view_in_ar, color: AppTheme.emerald),
-              SizedBox(width: 8),
-              Text(
-                'مخطط رص الحاويات للشحنة (Visual Load Planner)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 900,
-            height: 600,
-            child: Column(
-              children: [
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.2),
-                    1: FlexColumnWidth(2.0),
-                    2: FlexColumnWidth(1.2),
-                    3: FlexColumnWidth(2.2),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      ],
-                    ),
-                    ...plan.asMap().entries.map((entry) {
-                      final idx = entry.key + 1;
-                      final res = entry.value;
-                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-                      
-                      String statusText = '';
-                      if (res.containerCode == 'FAILED') {
-                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
-                      } else {
-                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
-                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
-                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
-                        } else if (spaceUtil < 25) {
-                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
-                        } else {
-                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
-                        }
-                      }
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            // Compute plan dynamically based on the selected mode
+            final plan = ContainerRequirementEngine.planShipment(
+              baseCargoItems,
+              forceStackable: activeStackingMode,
+            );
 
-                      return TableRow(
+            // Compute summary metrics for active plan
+            final totalPkgs = baseCargoItems.length;
+            final stackableInActive = activeStackingMode == true
+                ? totalPkgs
+                : (activeStackingMode == false ? 0 : baseCargoItems.where((c) => c.isStackable).length);
+            final nonStackableInActive = totalPkgs - stackableInActive;
+
+            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
+            final Map<String, int> containerCounts = {};
+            for (final p in plan) {
+              if (p.containerCode != 'FAILED') {
+                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+              }
+            }
+            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cobalt),
+                    ),
+                    child: Text(
+                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 980,
+                height: 640,
+                child: Column(
+                  children: [
+                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                            ),
+                          const Text(
+                            '🔄 اختر سيناريو الرص للمعاينة:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(placedIds.isEmpty ? '-' : placedIds),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: statusText.contains('ممتلئة')
-                                    ? Colors.red.shade800
-                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: plan.length,
-                    itemBuilder: (ctx, pIdx) {
-                      final res = plan[pIdx];
-                      if (res.containerCode == 'FAILED') {
-                        return Center(
-                          child: Text(
-                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      }
-                      
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ChoiceChip(
+                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                selected: activeStackingMode == true,
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = true);
+                                },
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                selected: activeStackingMode == false,
+                                selectedColor: Colors.orange.shade800,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = false);
+                                },
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                selected: activeStackingMode == null,
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = null);
+                                },
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. Metrics Strip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.charcoal.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              _buildFileMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              const SizedBox(width: 8),
+                              _buildFileMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              const SizedBox(width: 8),
+                              _buildFileMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              _buildFileMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              const SizedBox(width: 8),
+                              _buildFileMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 3. Table summary of container loads
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.2),
+                        1: FlexColumnWidth(1.8),
+                        2: FlexColumnWidth(1.2),
+                        3: FlexColumnWidth(1.2),
+                        4: FlexColumnWidth(2.4),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          children: const [
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                        ...plan.asMap().entries.map((entry) {
+                          final idx = entry.key + 1;
+                          final res = entry.value;
+                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+
+                          String statusText = '';
+                          if (res.containerCode == 'FAILED') {
+                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                          } else {
+                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
+                            if (nonStackInThis > 0) {
+                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                            } else {
+                              statusText = 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                            }
+                          }
+
+                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
+
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  statusText,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusText.contains('فشل')
+                                        ? Colors.red.shade800
+                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 4. Tab view or list for visual container layout drawings
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: plan.length,
+                        itemBuilder: (ctx, pIdx) {
+                          final res = plan[pIdx];
+                          if (res.containerCode == 'FAILED') {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              child: Text(
+                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            );
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                      ),
+                                      Row(
+                                        children: [
+                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Side View (Left Wall Removed) - High Fidelity Realistic Container
+                                  Container(
+                                    height: 190,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                      child: Container(),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Top View (Roof Removed)
+                                  Container(
+                                    height: 140,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                      child: Container(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton.icon(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  label: const Text('إغلاق المخطط'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
-            ),
-          ],
+            );
+          },
         );
       },
+    );
+  }
+
+  static Widget _buildFileMetricPill(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 4),
+          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 
@@ -1580,7 +1778,7 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
       context: context,
       builder: (context) {
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: AlertDialog(
             title: Row(
               children: [
@@ -1598,8 +1796,8 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
               ],
             ),
             content: SizedBox(
-              width: 750,
-              height: 480,
+              width: 820,
+              height: 500,
               child: Column(
                 children: [
                   Container(
@@ -1609,8 +1807,9 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white70,
                       tabs: [
-                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
-                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                        Tab(icon: Icon(Icons.layers), text: '📦 1. قابل للرص (Stackable)'),
+                        Tab(icon: Icon(Icons.view_array), text: '🚫 2. غير قابل للرص (Non-Stackable)'),
+                        Tab(icon: Icon(Icons.shuffle), text: '🔀 3. مزيج يقبل ولا يقبل (Mixed)'),
                       ],
                     ),
                   ),
@@ -1619,6 +1818,7 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                       children: [
                         _buildComparisonTable(dualRec.stackableResult),
                         _buildComparisonTable(dualRec.nonStackableResult),
+                        _buildComparisonTable(dualRec.stackableResult),
                       ],
                     ),
                   ),
@@ -1708,18 +1908,124 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
   @override
   Widget build(BuildContext context) {
     final file = widget.file;
-    final linkedPOs = widget.linkedPOs;
+    final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final liveLinkedPOs = allPOs.where((p) =>
+        (p.importFileId != null && p.importFileId == file.importFileId) ||
+        (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
+        (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
+    final linkedPOs = liveLinkedPOs.isNotEmpty ? liveLinkedPOs : widget.linkedPOs;
+
+    // Recalculate live CBM & Gross Weight & Packing List counts from the linked POs
+    double liveCbm = 0.0;
+    double liveWeight = 0.0;
+    int livePlCount = 0;
+    for (final po in linkedPOs) {
+      if (po.packingListItems.isNotEmpty) {
+        livePlCount += po.packingListItems.length;
+        for (final pl in po.packingListItems) {
+          liveCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
+          liveWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.qtyPkg * pl.grossWeightUnitKg));
+        }
+      } else {
+        liveCbm += po.totalCbm;
+        liveWeight += po.totalGrossWeightKg;
+      }
+    }
+
+    final totalPackingListCbm = liveCbm > 0 ? liveCbm : widget.totalPackingListCbm;
+    final totalPackingListWeight = liveWeight > 0 ? liveWeight : widget.totalPackingListWeight;
+    final totalPackingListsCount = livePlCount > 0 ? livePlCount : widget.totalPackingListsCount;
     final invoiceNumbers = widget.invoiceNumbers;
-    final totalPackingListCbm = widget.totalPackingListCbm;
-    final totalPackingListWeight = widget.totalPackingListWeight;
-    final totalPackingListsCount = widget.totalPackingListsCount;
 
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: totalPackingListCbm,
       totalWeightKg: totalPackingListWeight,
     );
-    final currentRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
     final modeRec = dualRec.modeRecommendation;
+
+    final List<CargoItem> baseCargoItems = [];
+    int itemCounter = 1;
+    for (final po in linkedPOs) {
+      for (final pl in po.packingListItems) {
+        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
+          double lCm = pl.lengthCm;
+          double wCm = pl.widthCm;
+          double hCm = pl.heightCm;
+          if (pl.unit == 'mm') {
+            lCm /= 10;
+            wCm /= 10;
+            hCm /= 10;
+          } else if (pl.unit == 'm') {
+            lCm *= 100;
+            wCm *= 100;
+            hCm *= 100;
+          }
+
+          baseCargoItems.add(CargoItem(
+            itemId: '$itemCounter',
+            length: lCm,
+            width: wCm,
+            height: hCm,
+            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
+            rotate: true,
+            isStackable: pl.isStackable,
+            packageType: pl.packageType,
+          ));
+          itemCounter++;
+        }
+      }
+    }
+
+    if (baseCargoItems.isEmpty) {
+      final fallbackWeight = totalPackingListWeight > 0 ? totalPackingListWeight : 500.0;
+      baseCargoItems.add(CargoItem(
+        itemId: '1',
+        length: 120,
+        width: 80,
+        height: 100,
+        weight: fallbackWeight,
+        rotate: true,
+        isStackable: true,
+      ));
+    }
+
+    // Run the 3 plans
+    final planStackable = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: true);
+    final planNonStackable = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: false);
+    final planMixed = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: null);
+
+    // Helpers to compute fleet string and metrics
+    String getFleetText(List<ContainerPackingResult> pList) {
+      final Map<String, int> counts = {};
+      for (final p in pList) {
+        if (p.containerCode != 'FAILED') {
+          counts[p.containerCode] = (counts[p.containerCode] ?? 0) + 1;
+        }
+      }
+      return counts.isEmpty ? '1 x 40HC' : counts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+    }
+
+    final stackableFleet = getFleetText(planStackable);
+    final nonStackableFleet = getFleetText(planNonStackable);
+    final mixedFleet = getFleetText(planMixed);
+
+    final stackableTotalCapVol = planStackable.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final stackableTotalCapPay = planStackable.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final stackableSpaceUtil = stackableTotalCapVol > 0 ? (planStackable.fold(0.0, (s, p) => s + p.totalVolume) / stackableTotalCapVol * 100) : 0.0;
+    final stackablePayloadUtil = stackableTotalCapPay > 0 ? (planStackable.fold(0.0, (s, p) => s + p.totalWeight) / stackableTotalCapPay * 100) : 0.0;
+
+    final nonStackableTotalCapVol = planNonStackable.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final nonStackableTotalCapPay = planNonStackable.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final nonStackableSpaceUtil = nonStackableTotalCapVol > 0 ? (planNonStackable.fold(0.0, (s, p) => s + p.totalVolume) / nonStackableTotalCapVol * 100) : 0.0;
+    final nonStackablePayloadUtil = nonStackableTotalCapPay > 0 ? (planNonStackable.fold(0.0, (s, p) => s + p.totalWeight) / nonStackableTotalCapPay * 100) : 0.0;
+
+    final mixedTotalCapVol = planMixed.fold(0.0, (s, p) => s + p.spec.internalVolumeCbm);
+    final mixedTotalCapPay = planMixed.fold(0.0, (s, p) => s + p.spec.maxPayloadKg);
+    final mixedSpaceUtil = mixedTotalCapVol > 0 ? (planMixed.fold(0.0, (s, p) => s + p.totalVolume) / mixedTotalCapVol * 100) : 0.0;
+    final mixedPayloadUtil = mixedTotalCapPay > 0 ? (planMixed.fold(0.0, (s, p) => s + p.totalWeight) / mixedTotalCapPay * 100) : 0.0;
+
+    final mixedStackCount = baseCargoItems.where((i) => i.isStackable).length;
+    final mixedNonStackCount = baseCargoItems.where((i) => !i.isStackable).length;
 
     return AlertDialog(
       title: Row(
@@ -1888,50 +2194,21 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 12,
-                      runSpacing: 8,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         const Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
                             SizedBox(width: 8),
                             Text(
-                              '🚚 تعليمات التحميل (Cargo Stacking): ',
+                              '🚚 نتائج احتمالات رص الحاويات وتوزيع الشحنة (Cargo Stacking Scenarios):',
                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                             ),
                           ],
                         ),
                         Row(
-                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            ChoiceChip(
-                              label: const Text('📦 قابل للرص (Stackable)'),
-                              selected: _isStackable,
-                              selectedColor: AppTheme.cobalt,
-                              labelStyle: TextStyle(
-                                color: _isStackable ? Colors.white : AppTheme.charcoal,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                              onSelected: (val) => setState(() => _isStackable = true),
-                            ),
-                            const SizedBox(width: 8),
-                            ChoiceChip(
-                              label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
-                              selected: !_isStackable,
-                              selectedColor: Colors.orange.shade800,
-                              labelStyle: TextStyle(
-                                color: !_isStackable ? Colors.white : AppTheme.charcoal,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 11,
-                              ),
-                              onSelected: (val) => setState(() => _isStackable = false),
-                            ),
-                            const SizedBox(width: 8),
                             ElevatedButton.icon(
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.cobalt,
@@ -1939,7 +2216,7 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                               ),
                               icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
                               label: const Text(
-                                'مقارنة الحالتين (Matrix)',
+                                'مقارنة الحالات (Matrix)',
                                 style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                               onPressed: () => _showContainerComparisonDialog(
@@ -1966,7 +2243,47 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
+
+                    // 3 Scenarios stacked under each other:
+                    // 1. All Stackable
+                    _buildScenarioResultCard(
+                      title: '📦 الاحتمال الأول: بضائع تقبل الرص بالكامل (All Stackable Cargo)',
+                      fleet: stackableFleet,
+                      description: 'رص متعدد الطبقات (Multi-Layer Stacking) لكافة الطرود لاستغلال كامل ارتفاع وسعة الحاوية.',
+                      badgeColor: AppTheme.emerald,
+                      containerCount: planStackable.length,
+                      spaceUtil: stackableSpaceUtil,
+                      payloadUtil: stackablePayloadUtil,
+                      detailsText: 'الأسطول الموصى به: $stackableFleet',
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. All Non-Stackable
+                    _buildScenarioResultCard(
+                      title: '🚫 الاحتمال الثاني: بضائع لا تقبل الرص (All Non-Stackable Cargo)',
+                      fleet: nonStackableFleet,
+                      description: 'إلزام وضع كافة الطرود على أرضية الحاوية فوق طبالي خشبية (z = 0) وحجز الفراغ الرأسي لمنع التلف.',
+                      badgeColor: Colors.orange.shade800,
+                      containerCount: planNonStackable.length,
+                      spaceUtil: nonStackableSpaceUtil,
+                      payloadUtil: nonStackablePayloadUtil,
+                      detailsText: 'الأسطول الموصى به: $nonStackableFleet',
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 3. Mixed Stacking (Actual cargo composition)
+                    _buildScenarioResultCard(
+                      title: '🔀 الاحتمال الثالث: مزيج يقبل ولا يقبل الرص (Mixed Stacking Cargo)',
+                      fleet: mixedFleet,
+                      description: 'توزيع الشحنة الفعلي: $mixedNonStackCount طرد غير قابل للرص على الأرضية + $mixedStackCount طرد قابل للرص متعدد الطبقات.',
+                      badgeColor: AppTheme.cobalt,
+                      containerCount: planMixed.length,
+                      spaceUtil: mixedSpaceUtil,
+                      payloadUtil: mixedPayloadUtil,
+                      detailsText: 'الأسطول الفعلي للشحنة: $mixedFleet',
+                      isHighlighted: true,
+                    ),
 
                     // SECTION: Saved Shipping Scenarios Evaluation Studies
                     const SizedBox(height: 14),
@@ -2130,6 +2447,7 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                     ),
 
                     // Smart Recommendation Banner Box
+                    const SizedBox(height: 12),
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
@@ -2137,24 +2455,24 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Row(
-                            children: [
-                              Icon(
-                                modeRec.isAirSuggested
-                                    ? Icons.airplanemode_active
-                                    : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
-                                color: modeRec.isAirSuggested
-                                    ? Colors.purple
-                                    : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
-                                size: 22,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  modeRec.reasonAr,
+                          Icon(
+                            modeRec.isAirSuggested
+                                ? Icons.airplanemode_active
+                                : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
+                            color: modeRec.isAirSuggested
+                                ? Colors.purple
+                                : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                            size: 24,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '🚢 ${modeRec.reasonAr}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -2163,27 +2481,13 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
                                         : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const Divider(height: 16),
-                          Row(
-                            children: [
-                              const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
-                              const SizedBox(width: 6),
-                              const Text('عدد الحاويات وطريقة الشحن المقترحة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
-                              Expanded(
-                                child: Text(
-                                  '${currentRec.requiredContainersCount} x ${currentRec.recommendedContainerCode} (${modeRec.recommendedModeAr})',
-                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'الأسطول الموصى به للشحنة: $mixedFleet (${modeRec.recommendedModeAr})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11.5),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'توصية استغلال المساحة والوزن: ${currentRec.recommendationSummary}',
-                            style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -2225,6 +2529,71 @@ class _ImportFileDetailsDialogWidgetState extends State<_ImportFileDetailsDialog
           ),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
       ],
+    );
+  }
+
+  Widget _buildScenarioResultCard({
+    required String title,
+    required String fleet,
+    required String description,
+    required Color badgeColor,
+    required int containerCount,
+    required double spaceUtil,
+    required double payloadUtil,
+    required String detailsText,
+    bool isHighlighted = false,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isHighlighted ? badgeColor.withOpacity(0.06) : Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isHighlighted ? badgeColor : Colors.grey.shade300,
+          width: isHighlighted ? 1.5 : 1.0,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                title,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: badgeColor),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(color: badgeColor),
+                ),
+                child: Text(
+                  fleet,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: badgeColor),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            description,
+            style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _buildFileMetricPill('عدد الحاويات', '$containerCount حاوية', badgeColor),
+              const SizedBox(width: 8),
+              _buildFileMetricPill('استغلال المساحة والحجم', '${spaceUtil.toStringAsFixed(1)}%', Colors.orange.shade900),
+              const SizedBox(width: 8),
+              _buildFileMetricPill('استغلال الوزن', '${payloadUtil.toStringAsFixed(1)}%', AppTheme.charcoal),
+            ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -2448,6 +2817,58 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
       if (widget.fileToEdit == null) {
         await ref.read(importFilesProvider.notifier).createImportFile(payload);
       } else {
+        final oldFile = widget.fileToEdit!;
+        final List<FieldChangeItem> changes = [];
+
+        if (FieldChangeItem.isDifferent(oldFile.customFileNumber, payload['custom_file_number'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'رقم الملف الجمركي / الداخلي',
+            oldValue: oldFile.customFileNumber,
+            newValue: payload['custom_file_number'],
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.companyId, payload['company_id'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'الشركة المستوردة',
+            oldValue: oldFile.companyName,
+            newValue: 'ID: ${payload['company_id']}',
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.supplierId, payload['supplier_id'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'المورد الأجنبي',
+            oldValue: oldFile.supplierName,
+            newValue: 'ID: ${payload['supplier_id']}',
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.status, payload['status'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'حالة ملف الاستيراد',
+            oldValue: oldFile.status,
+            newValue: payload['status'],
+          ));
+        }
+        if (FieldChangeItem.isDifferent(oldFile.notes, payload['notes'])) {
+          changes.add(FieldChangeItem(
+            fieldName: 'الملاحظات والتعليمات',
+            oldValue: oldFile.notes,
+            newValue: payload['notes'],
+          ));
+        }
+
+        if (changes.isNotEmpty) {
+          final confirmed = await showChangeDiffConfirmationDialog(
+            context,
+            title: 'مراجعة وتأكيد تعديلات ملف الاستيراد',
+            itemReference: oldFile.customFileNumber ?? oldFile.importFileCode,
+            changes: changes,
+          );
+          if (!confirmed) {
+            setState(() => _isSaving = false);
+            return;
+          }
+        }
+
         await ref.read(importFilesProvider.notifier).updateImportFile(widget.fileToEdit!.importFileId, payload);
       }
 

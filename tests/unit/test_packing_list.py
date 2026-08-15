@@ -203,3 +203,142 @@ class TestPackingListBackend:
         assert report.is_valid is False
         assert len(report.errors) > 0
         assert "cannot be less than Net weight" in report.errors[0]
+
+    def test_packing_list_reconciliation_exact_match(self, db_session):
+        from modules.purchase_orders.schemas import POLineItemCreate
+        service = PurchaseOrderService(db_session)
+
+        # Create tariff in db
+        tariff = CustomsTariff(
+            hs_code="8415.20.00",
+            hs_description="Air conditioner",
+            customs_duty_rate=5.0,
+            vat_rate=14.0,
+            is_active=True,
+        )
+        db_session.add(tariff)
+        db_session.commit()
+
+        po_create = PurchaseOrderCreate(
+            proforma_invoice_number="PI-MATCH",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            items=[
+                POLineItemCreate(
+                    description_ar="تكييف هواء",
+                    item_code="AC-001",
+                    tariff_id=tariff.tariff_id,
+                    quantity=10.0,
+                    unit_price=500.0,
+                )
+            ],
+            packing_list_items=[
+                PackingListItemCreate(
+                    hs_code="8415.20.00",
+                    item_code="AC-001",
+                    qty_pcs=10.0,
+                    qty_pkg=2.0,
+                    package_type="Carton",
+                    length_cm=60.0,
+                    width_cm=50.0,
+                    height_cm=40.0,
+                    net_weight_unit_kg=20.0,
+                    gross_weight_unit_kg=22.0,
+                )
+            ],
+        )
+        po_resp = service.create(po_create)
+        report = service.get_packing_list_report(po_resp.po_id)
+
+        assert report.is_valid is True
+        assert report.has_discrepancy is False
+        assert report.total_invoice_pcs == 10.0
+        assert report.total_packing_pcs == 10.0
+        assert len(report.missing_hs_in_packing) == 0
+        assert len(report.missing_hs_in_invoice) == 0
+        assert len(report.hs_code_summary) == 1
+        assert report.hs_code_summary[0].is_matched is True
+        assert report.hs_code_summary[0].discrepancy_pcs == 0.0
+
+    def test_packing_list_reconciliation_discrepancy_and_missing_hs(self, db_session):
+        from modules.purchase_orders.schemas import POLineItemCreate
+        service = PurchaseOrderService(db_session)
+
+        tariff1 = CustomsTariff(
+            hs_code="8415.20.00",
+            hs_description="AC unit",
+            is_active=True,
+        )
+        tariff2 = CustomsTariff(
+            hs_code="3925.90.00",
+            hs_description="Plastic fittings",
+            is_active=True,
+        )
+        db_session.add_all([tariff1, tariff2])
+        db_session.commit()
+
+        # Invoice has 2 ACs (8415.20.00) and 100 Fittings (3925.90.00)
+        # Packing has 4 ACs (8415.20.00) [discrepancy: +2] and NO fittings [missing in packing]
+        # and has 8504.40.90 [missing in invoice]
+        po_create = PurchaseOrderCreate(
+            proforma_invoice_number="PI-DISCREPANCY",
+            project_id=1,
+            company_id=1,
+            supplier_id=1,
+            incoterm_id=1,
+            currency_id=1,
+            items=[
+                POLineItemCreate(
+                    description_ar="تكييف",
+                    tariff_id=tariff1.tariff_id,
+                    quantity=2.0,
+                    unit_price=1000.0,
+                ),
+                POLineItemCreate(
+                    description_ar="عوازل",
+                    tariff_id=tariff2.tariff_id,
+                    quantity=100.0,
+                    unit_price=5.0,
+                ),
+            ],
+            packing_list_items=[
+                PackingListItemCreate(
+                    hs_code="8415.20.00",
+                    item_code="AC-001",
+                    qty_pcs=4.0,  # Diff: +2 PCS
+                    qty_pkg=4.0,
+                    package_type="Carton",
+                    length_cm=50.0,
+                    width_cm=50.0,
+                    height_cm=50.0,
+                    net_weight_unit_kg=10.0,
+                    gross_weight_unit_kg=12.0,
+                ),
+                PackingListItemCreate(
+                    hs_code="8504.40.90",  # Missing in invoice
+                    item_code="EXTRA-ITEM",
+                    qty_pcs=1.0,
+                    qty_pkg=1.0,
+                    package_type="Carton",
+                    length_cm=10.0,
+                    width_cm=10.0,
+                    height_cm=10.0,
+                    net_weight_unit_kg=2.0,
+                    gross_weight_unit_kg=3.0,
+                ),
+            ],
+        )
+        po_resp = service.create(po_create)
+        report = service.get_packing_list_report(po_resp.po_id)
+
+        assert report.is_valid is True  # Physically valid weights
+        assert report.has_discrepancy is True
+        assert "3925.90.00" in report.missing_hs_in_packing
+        assert "8504.40.90" in report.missing_hs_in_invoice
+        assert report.total_invoice_pcs == 102.0
+        assert report.total_packing_pcs == 5.0
+        assert any("differs from Invoice Qty" in w for w in report.warnings)
+

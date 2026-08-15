@@ -26,6 +26,7 @@ class CBMItemModel {
   final double totalCbm;
   final double volumetricWeightKg;
   final double totalGrossWeightKg;
+  final bool isStackable;
 
   CBMItemModel({
     this.itemId,
@@ -40,6 +41,7 @@ class CBMItemModel {
     this.totalCbm = 0.0,
     this.volumetricWeightKg = 0.0,
     this.totalGrossWeightKg = 0.0,
+    this.isStackable = true,
   });
 
   double get lengthM => unit == 'mm' ? length / 1000.0 : (unit == 'cm' ? length / 100.0 : length);
@@ -69,6 +71,7 @@ class CBMItemModel {
       totalCbm: _numToDouble(json['total_cbm']),
       volumetricWeightKg: _numToDouble(json['volumetric_weight_kg']),
       totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
+      isStackable: json['is_stackable'] as bool? ?? (json['stackable'] as bool? ?? true),
     );
   }
 
@@ -86,6 +89,7 @@ class CBMItemModel {
       'width_cm': widthCm,
       'height_cm': heightCm,
       'gross_weight_per_unit_kg': grossWeightPerUnitKg,
+      'is_stackable': isStackable,
     };
   }
 
@@ -98,6 +102,7 @@ class CBMItemModel {
       'height': height > 0 ? height : 1.0,
       'unit': unit,
       'gross_weight_per_unit_kg': grossWeightPerUnitKg >= 0 ? grossWeightPerUnitKg : 0.0,
+      'is_stackable': isStackable,
     };
   }
 }

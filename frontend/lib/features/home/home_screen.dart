@@ -7,6 +7,7 @@ import '../external_service_providers/screens/partners_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../incoterms/screens/incoterms_screen.dart';
 import '../customs_tariff/screens/customs_tariff_screen.dart';
+import '../customs_tariff/screens/hs_code_search_screen.dart';
 import '../transport_locations/screens/transport_locations_screen.dart';
 import '../currencies/screens/currencies_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
@@ -29,8 +30,8 @@ import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../smart_tasks/screens/smart_tasks_screen.dart';
 import '../dynamic_reporting/screens/dynamic_report_builder_screen.dart';
 import '../shipment_updates/screens/shipment_update_engine_screen.dart';
-import '../comprehensive_report/screens/import_file_comprehensive_report_screen.dart';
 import '../import_requirements/screens/import_requirements_screen.dart';
+import '../demurrage_detention/screens/demurrage_detention_screen.dart';
 import '../notifications/widgets/notification_bell_widget.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -88,12 +89,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         CurrenciesScreen(),
         AuditLogsScreen(),
 
-        // Index 30..33: Smart Tasks, Dynamic Reporting, Update Engine & Comprehensive Report
+        // Index 30..35: Smart Engines & Demurrage
         SmartTasksScreen(),
         DynamicReportBuilderScreen(),
         ShipmentUpdateEngineScreen(),
-        ImportFileComprehensiveReportScreen(),
-        const ImportRequirementsScreen(),
+        ImportRequirementsScreen(),
+        DemurrageDetentionScreen(),
+        HsCodeSearchScreen(),
       ];
 
   @override
@@ -157,7 +159,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks (المهام والتذكيرات 2.4/2.5)', 30, selectedIndex),
                       _buildMenuItem(Icons.assessment_outlined, 'Dynamic Reports (مُنشئ التقارير 2.7)', 31, selectedIndex),
                       _buildMenuItem(Icons.folder_special_outlined, 'Import Files (ملفات الشحنات النشطة)', 1, selectedIndex),
-                      _buildMenuItem(Icons.rule_folder_outlined, 'Import Requirements (BP-011)', 34, selectedIndex),
+                      _buildMenuItem(Icons.rule_folder_outlined, 'Import Requirements (BP-011)', 33, selectedIndex),
+                      _buildMenuItem(Icons.timer_outlined, 'غرامات وفترات السماح (Demurrage & Detention)', 34, selectedIndex),
                       _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders (أوامر الشراء)', 2, selectedIndex),
                       _buildMenuItem(Icons.calculate_outlined, 'CBM Calculator (حاسبة الأوزان والأحجام)', 3, selectedIndex),
 
@@ -202,6 +205,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
                       // Section 8: Reference Rules & Audit
                       _buildSectionHeader('⚙️ الجداول المرجعية وتدقيق النظام'),
+                      _buildMenuItem(Icons.saved_search, 'HS Explorer (البحث الجمركي الشامل)', 35, selectedIndex),
                       _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules (الشروط التجارية MD-006)', 25, selectedIndex),
                       _buildMenuItem(Icons.description_outlined, 'Customs Tariff (جدول التعريفة MD-008)', 26, selectedIndex),
                       _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations (الموانئ والمواقع MD-009)', 27, selectedIndex),

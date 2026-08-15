@@ -61,4 +61,13 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       throw Exception('Failed to update requirement: $e');
     }
   }
+
+  Future<void> deleteRequirement(int id) async {
+    try {
+      await _dio.delete('$_baseUrl/import-requirements/$id');
+      await refreshData();
+    } catch (e) {
+      throw Exception('Failed to delete requirement: $e');
+    }
+  }
 }

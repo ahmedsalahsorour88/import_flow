@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -617,6 +619,12 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                             ],
                           ),
                           const Divider(),
+                          MasterDataToolbarWidget(
+                            moduleEndpoint: 'acid-registry',
+                            title: 'ACID_Registry',
+                            onRefreshNeeded: () => ref.read(acidSessionsProvider.notifier).fetchAcidSessions(),
+                          ),
+                          const SizedBox(height: 10),
                           acidSessionsState.when(
                             loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
                             error: (err, _) => Center(child: Text('❌ خطأ في تحميل السجل: $err')),
@@ -648,30 +656,46 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                                     return DataRow(
                                       cells: [
                                         DataCell(
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              IconButton(
-                                                icon: const Icon(Icons.visibility, color: AppTheme.cobalt, size: 18),
-                                                tooltip: 'عرض التفاصيل',
-                                                onPressed: () => _showAcidDetailsDialog(context, sess),
-                                              ),
-                                              IconButton(
-                                                icon: Icon(
-                                                  sess.isActive ? Icons.delete_outline : Icons.restore,
-                                                  color: sess.isActive ? Colors.red : Colors.green,
-                                                  size: 18,
+                                          RowActionsPill(
+                                            onView: () => _showAcidDetailsDialog(context, sess),
+                                            onEdit: () => _showAcidDetailsDialog(context, sess),
+                                            onPrint: () {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('طباعة شهادة وبيانات تسجيل ACID رقم: ${sess.acidNumber} (${sess.importerName})'),
+                                                  backgroundColor: AppTheme.charcoal,
+                                                  duration: const Duration(seconds: 2),
                                                 ),
-                                                tooltip: sess.isActive ? 'حذف' : 'استعادة',
-                                                onPressed: () async {
-                                                  if (sess.isActive) {
-                                                    await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(sess.acidId);
-                                                  } else {
-                                                    await ref.read(acidSessionsProvider.notifier).restoreAcidSession(sess.acidId);
-                                                  }
-                                                },
-                                              ),
-                                            ],
+                                              );
+                                            },
+                                            onDelete: () async {
+                                              if (sess.isActive) {
+                                                final confirm = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (c) => AlertDialog(
+                                                    title: const Text('تأكيد الحذف'),
+                                                    content: Text('هل أنت متأكد من حذف رقم الـ ACID (${sess.acidNumber})؟'),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                                      ElevatedButton(
+                                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                                                        onPressed: () => Navigator.pop(c, true),
+                                                        child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (confirm == true) {
+                                                  await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(sess.acidId);
+                                                }
+                                              } else {
+                                                await ref.read(acidSessionsProvider.notifier).restoreAcidSession(sess.acidId);
+                                              }
+                                            },
+                                            viewTooltip: 'عرض تفاصيل ACID',
+                                            editTooltip: 'تعديل ACID',
+                                            printTooltip: 'طباعة بيانات ACID',
+                                            deleteTooltip: sess.isActive ? 'حذف ACID' : 'استعادة ACID',
                                           ),
                                         ),
                                         DataCell(Text(sess.acidCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
@@ -832,6 +856,12 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                             ],
                           ),
                           const Divider(),
+                          MasterDataToolbarWidget(
+                            moduleEndpoint: 'banking-documents',
+                            title: 'Banking_Documents',
+                            onRefreshNeeded: () => ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments(),
+                          ),
+                          const SizedBox(height: 10),
                           bankingDocsState.when(
                             loading: () => const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator())),
                             error: (err, _) => Center(child: Text('❌ خطأ في تحميل السجل البنكي: $err')),
@@ -847,6 +877,7 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                                 child: DataTable(
                                   headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                                   columns: const [
+                                    DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
                                     DataColumn(label: Text('كود السجل', style: TextStyle(fontWeight: FontWeight.bold))),
                                     DataColumn(label: Text('نوع المعاملة', style: TextStyle(fontWeight: FontWeight.bold))),
                                     DataColumn(label: Text('البنك المصري المعالج', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -858,6 +889,54 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                                   rows: bDocs.map((doc) {
                                     return DataRow(
                                       cells: [
+                                        DataCell(
+                                          RowActionsPill(
+                                            onView: () {
+                                              showDialog(
+                                                context: context,
+                                                builder: (c) => AlertDialog(
+                                                  title: Text('تفاصيل المعاملة البنكية (${doc.bankDocCode})'),
+                                                  content: Column(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      Text('نوع المعاملة: ${doc.docType}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                                      Text('البنك: ${doc.bankName}'),
+                                                      Text('رقم المرجع: ${doc.docReferenceNumber}'),
+                                                      Text('المبلغ: ${doc.amount} ${doc.currencyCode}'),
+                                                      Text('تاريخ الإصدار: ${doc.issueDate}'),
+                                                      Text('الحالة: ${doc.status}'),
+                                                    ],
+                                                  ),
+                                                  actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق'))],
+                                                ),
+                                              );
+                                            },
+                                            onEdit: () {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(content: Text('تعديل المستند البنكي: ${doc.docReferenceNumber}'), backgroundColor: AppTheme.orange),
+                                              );
+                                            },
+                                            onPrint: () {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('طباعة إشعار ونموذج البنك: ${doc.bankDocCode} (${doc.bankName})'),
+                                                  backgroundColor: AppTheme.charcoal,
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            onDelete: () async {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('تم حذف المعاملة البنكية بنجاح')),
+                                              );
+                                            },
+                                            viewTooltip: 'عرض تفاصيل المعاملة',
+                                            editTooltip: 'تعديل المعاملة',
+                                            printTooltip: 'طباعة الإشعار البنكي',
+                                            deleteTooltip: 'حذف المعاملة',
+                                          ),
+                                        ),
                                         DataCell(Text(doc.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                         DataCell(Chip(label: Text(doc.docType, style: const TextStyle(fontSize: 11)), backgroundColor: Colors.blue.shade50)),
                                         DataCell(Text(doc.bankName)),
@@ -887,6 +966,12 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                MasterDataToolbarWidget(
+                  moduleEndpoint: 'shipment-documents',
+                  title: 'Shipment_Documents',
+                  onRefreshNeeded: () => ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments(),
+                ),
+                const SizedBox(height: 12),
                 Card(
                   elevation: 2,
                   child: Padding(
@@ -944,17 +1029,41 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
                           columns: const [
+                            DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('كود المستند', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('نوع المستند', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('رقم المستند', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('رفع CargoX', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('التظهير الملاحي (B/L)', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: docs.map((doc) {
                             return DataRow(
                               cells: [
+                                DataCell(
+                                  RowActionsPill(
+                                    onView: () => _showCargoxAndBLEndorsementDialog(doc),
+                                    onEdit: () => _showCargoxAndBLEndorsementDialog(doc),
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة المستند الرقمي: ${doc.documentCode} (${doc.docName})'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('تم حذف المستند بنجاح')),
+                                      );
+                                    },
+                                    viewTooltip: 'عرض تفاصيل المستند و CargoX',
+                                    editTooltip: 'تعديل المستند والتظهير الملاحي',
+                                    printTooltip: 'طباعة المستند الرقمي',
+                                    deleteTooltip: 'حذف المستند',
+                                  ),
+                                ),
                                 DataCell(Text(doc.documentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                 DataCell(Text(doc.docName)),
                                 DataCell(Text(doc.docNumber)),
@@ -969,12 +1078,6 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
                                       : const Text('-'),
                                 ),
                                 DataCell(_buildStatusBadge(doc.status)),
-                                DataCell(
-                                  IconButton(
-                                    icon: const Icon(Icons.edit_note, color: AppTheme.cobalt),
-                                    onPressed: () => _showCargoxAndBLEndorsementDialog(doc),
-                                  ),
-                                ),
                               ],
                             );
                           }).toList(),

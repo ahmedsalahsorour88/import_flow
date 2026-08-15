@@ -264,7 +264,8 @@ class TestCustomsTariffAgreementsEngine:
         assert removed_item.color_code == "#C0392B"
 
         # 4. Save updated version into DB with effective update date tomorrow
-        next_day = date(2026, 8, 14)
+        from datetime import timedelta
+        next_day = date.today() + timedelta(days=1)
         save_tariff_with_agreements_service(
             db_session,
             TariffAgreementBulkSaveRequest(
@@ -285,3 +286,74 @@ class TestCustomsTariffAgreementsEngine:
         assert old_ver.effective_to == next_day
         assert new_ver.effective_from == next_day
         assert new_ver.effective_to is None
+
+    def test_parse_user_provided_air_conditioner_tariff(self, db_session):
+        """
+        اختبار صريح لتحليل النص الكامل المقدم من المستخدم (أجهزة تكييف HS: 8415820010)
+        مع ضريبة الوارد 60%، ضريبة الجدول 8%، القيمة المضافة 14%، 6 اشتراطات رقابية، و8 اتفاقيات تفضيلية.
+        """
+        raw_user_text = """رقم البند :
+8415820010
+نص البند :
+آلات وأجهزة تكييف أخر متضمنة وحدة تبريد ، وحدات كاملة .
+الضرائب :
+ضريبة الوارد :
+60.000 %
+ضريبة الجدول :
+8.000 %
+ضريبة قيمه مضافه :
+14.000 %
+المستندات والأعمال :
+ر6722 - اتفاقية صربيا تخفيض 10%
+
+ق4518 - لايصرح باستيراد صنف الا بموافقة مختومة بخاتم شعارجمهوريةمن هـ .ع.ص.وطبقا لملحق8 وتعديلاته
+
+ر6668 - تخفض ض .ج ورسوم بنسبة100%علىسلع صناعيةواردةفى ظل اتفاقية الشراكةالمصرية والمملكة المتحدة
+
+ق9994 - لايفرج عن صنف بضاعة مرشدةللمنطقة الحرة الابحصص لكل مستورد يحددهاجهاز تنفيذى للمنطقةالحرة
+
+ر6704 - فى ظل اتفاق التجارة الحرة بين ج م ع وتجمع الميركسور تخفض الضريبة الجمركية - قائمة هـ
+
+ر7042 - يحصل ضريبة قيمة مضافة بمقدار14% [عام]
+
+ر6607 - تخفض الرسوم الجمركية فى ظل اتفاقيةتركيا بنسبة100% على اصناف واردةبالقائمة 1 برتوكول 1
+
+ر6631 - يعفى من الضريبة الجمركية والرسوم ذات الاثر المماثل الأصناف الواردة من دول الافتا بنسبة100%
+
+ق4547 - يشترط للافراج عن الصنف وارد اتجار أن يكون انتاج مصانع مسجلة من شركات مالكة للعلامة
+
+ق4538 - عدامايرداستخدام خاص وشخصى يشترط للافراج عن الصنف أن يكون من أحد منتجين بـ هـ.ع.ص.و
+
+ر6663 - تخفض ضريبةجمركيةورسوم ذات أثر مماثل بنسبة 100% علىسلع صناعيةواردةفى ظل شراكةأوربيةملحق2
+
+ق4010 - لا يتم استيراد المواد المستنفذه لطبقه الاوزون الابموافقة مسبقة من شئون البيئة
+
+ر6501 - تحصل ضريبة الوارد 20% على ما تستورده المنشآت الفندقيةوالسياحية أو ضريبة الوارد أيهما أقل.
+
+ق9023 - الصنف مخصص للاستعمال كقطع غيار اولـــوازم للسيـــارات اضافة 333-بورسعيد-"""
+
+        tariff, agreements = parse_nafeza_tariff_text(raw_user_text)
+
+        assert tariff.hs_code == "8415820010"
+        assert tariff.customs_duty_rate == Decimal("60.00")
+        assert tariff.schedule_tax_rate == Decimal("8.00")
+        assert tariff.vat_rate == Decimal("14.00")
+        assert tariff.requires_inspection is True
+        assert "GOEIC" in tariff.regulatory_authority
+        assert "EEAA" in tariff.regulatory_authority
+        assert "ق4518" in tariff.prior_approval_note
+        assert "ق4010" in tariff.prior_approval_note
+
+        assert len(agreements) == 8
+
+        # Verify bulk saving to SQLite
+        res = save_tariff_with_agreements_service(
+            db_session,
+            TariffAgreementBulkSaveRequest(
+                tariff=tariff,
+                agreements=agreements,
+            )
+        )
+        assert res["tariff"].hs_code == "8415820010"
+        assert res["tariff"].schedule_tax_rate == Decimal("8.00")
+        assert len(res["agreements"]) == 8

@@ -438,6 +438,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   height: item.height,
                                   unit: item.unit,
                                   grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                  isStackable: item.isStackable,
                                 );
                               });
                             }
@@ -468,6 +469,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   height: item.height,
                                   unit: u,
                                   grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                  isStackable: item.isStackable,
                                 );
                               });
                             }
@@ -492,6 +494,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 height: item.height,
                                 unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                isStackable: item.isStackable,
                               );
                             });
                           },
@@ -515,6 +518,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 height: item.height,
                                 unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                isStackable: item.isStackable,
                               );
                             });
                           },
@@ -538,6 +542,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 height: item.height,
                                 unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                isStackable: item.isStackable,
                               );
                             });
                           },
@@ -561,8 +566,39 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 height: h,
                                 unit: item.unit,
                                 grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                isStackable: item.isStackable,
                               );
                             });
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      // Cargo Stacking Type (Stackable vs Non-Stackable)
+                      SizedBox(
+                        width: 145,
+                        child: SearchableDropdownField<bool>(
+                          value: item.isStackable,
+                          labelText: 'الرص (Stacking)',
+                          searchHintText: 'نوع الرص...',
+                          items: const [
+                            SearchableDropdownItem<bool>(value: true, label: '📦 يقبل الرص'),
+                            SearchableDropdownItem<bool>(value: false, label: '🚫 لا يقبل الرص'),
+                          ],
+                          onChanged: (st) {
+                            if (st != null) {
+                              setState(() {
+                                _quickItems[idx] = CBMItemModel(
+                                  packageType: item.packageType,
+                                  quantity: item.quantity,
+                                  length: item.length,
+                                  width: item.width,
+                                  height: item.height,
+                                  unit: item.unit,
+                                  grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                  isStackable: st,
+                                );
+                              });
+                            }
                           },
                         ),
                       ),
@@ -584,6 +620,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   height: item.height,
                                   unit: item.unit,
                                   grossWeightPerUnitKg: gw,
+                                  isStackable: item.isStackable,
                                 );
                               });
                             },
@@ -1674,7 +1711,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   }
 
   void _showVisualLoadPlanDialog(BuildContext context, List<CBMItemModel> quickItems) {
-    // 1. Convert CBMItemModel list to CargoItem list
+    // 1. Convert CBMItemModel list to CargoItem list with individual stackability
     final List<CargoItem> cargoItems = [];
     int itemCounter = 1;
 
@@ -1704,6 +1741,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
           height: hCm,
           weight: weightKg,
           rotate: true,
+          isStackable: item.isStackable,
+          packageType: item.packageType,
         ));
         itemCounter++;
       }
@@ -1723,190 +1762,365 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       return;
     }
 
-    // 2. Run the multi-container plan algorithm in Dart
-    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+    // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
+    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
 
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.view_in_ar, color: AppTheme.emerald),
-              SizedBox(width: 8),
-              Text(
-                'مخطط رص الحاويات ثنائي الأبعاد (Visual Load Planner)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ],
-          ),
-          content: SizedBox(
-            width: 900,
-            height: 600,
-            child: Column(
-              children: [
-                // 1. Table summary of container loads
-                Table(
-                  border: TableBorder.all(color: Colors.grey.shade300),
-                  columnWidths: const {
-                    0: FlexColumnWidth(1.2),
-                    1: FlexColumnWidth(2.0),
-                    2: FlexColumnWidth(1.2),
-                    3: FlexColumnWidth(2.2),
-                  },
-                  children: [
-                    TableRow(
-                      decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                      ],
-                    ),
-                    ...plan.asMap().entries.map((entry) {
-                      final idx = entry.key + 1;
-                      final res = entry.value;
-                      final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
-                      
-                      String statusText = '';
-                      if (res.containerCode == 'FAILED') {
-                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
-                      } else {
-                        final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
-                        // Determine alerts
-                        if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
-                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
-                        } else if (spaceUtil < 25) {
-                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
-                        } else {
-                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
-                        }
-                      }
+        return StatefulBuilder(
+          builder: (dialogCtx, setDialogState) {
+            // Compute plan dynamically based on the selected mode
+            final plan = ContainerRequirementEngine.planShipment(
+              cargoItems,
+              forceStackable: activeStackingMode,
+            );
 
-                      return TableRow(
+            // Compute summary metrics for active plan
+            final totalPkgs = cargoItems.length;
+            final stackableInActive = activeStackingMode == true
+                ? totalPkgs
+                : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
+            final nonStackableInActive = totalPkgs - stackableInActive;
+
+            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+            // Determine container fleet text (e.g. 2 x 40HC or 2 x 40HC + 1 x 20GP)
+            final Map<String, int> containerCounts = {};
+            for (final p in plan) {
+              if (p.containerCode != 'FAILED') {
+                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+              }
+            }
+            final fleetSummaryText = containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+            return AlertDialog(
+              title: Row(
+                children: [
+                  const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: AppTheme.cobalt),
+                    ),
+                    child: Text(
+                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 980,
+                height: 640,
+                child: Column(
+                  children: [
+                    // 1. Scenario / Stacking Mode Switcher (All 3 required states)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
-                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                            ),
+                          const Text(
+                            '🔄 اختر سيناريو الرص للمعاينة:',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(placedIds.isEmpty ? '-' : placedIds),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg'),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Text(
-                              statusText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                                color: statusText.contains('ممتلئة')
-                                    ? Colors.red.shade800
-                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
-                              ),
-                            ),
-                          ),
-                        ],
-                      );
-                    }),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // 2. Tab view or list for visual container layout drawings
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: plan.length,
-                    itemBuilder: (ctx, pIdx) {
-                      final res = plan[pIdx];
-                      if (res.containerCode == 'FAILED') {
-                        return Center(
-                          child: Text(
-                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                            style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                          ),
-                        );
-                      }
-                      
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 24),
-                        elevation: 3,
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          Row(
                             children: [
-                              Text(
-                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                              ChoiceChip(
+                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                selected: activeStackingMode == true,
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == true ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = true);
+                                },
                               ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                selected: activeStackingMode == false,
+                                selectedColor: Colors.orange.shade800,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == false ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = false);
+                                },
                               ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      children: [
-                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                        const SizedBox(height: 4),
-                                        Container(
-                                          height: 160,
-                                          decoration: BoxDecoration(color: Colors.grey.shade50, border: Border.all(color: Colors.grey.shade300)),
-                                          child: CustomPaint(
-                                            painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
-                                            child: Container(),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(width: 8),
+                              ChoiceChip(
+                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                selected: activeStackingMode == null,
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(
+                                  color: activeStackingMode == null ? Colors.white : AppTheme.charcoal,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                                onSelected: (val) {
+                                  if (val) setDialogState(() => activeStackingMode = null);
+                                },
                               ),
                             ],
                           ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. Metrics Strip
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.charcoal.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              _buildMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              const SizedBox(width: 8),
+                              _buildMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              const SizedBox(width: 8),
+                              _buildMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              _buildMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              const SizedBox(width: 8),
+                              _buildMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 2. Table summary of container loads
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      columnWidths: const {
+                        0: FlexColumnWidth(1.2),
+                        1: FlexColumnWidth(1.8),
+                        2: FlexColumnWidth(1.2),
+                        3: FlexColumnWidth(1.2),
+                        4: FlexColumnWidth(2.4),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                          children: const [
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          ],
                         ),
-                      );
-                    },
-                  ),
+                        ...plan.asMap().entries.map((entry) {
+                          final idx = entry.key + 1;
+                          final res = entry.value;
+                          final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+
+                          String statusText = '';
+                          if (res.containerCode == 'FAILED') {
+                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                          } else {
+                            final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
+                            final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
+                            if (nonStackInThis > 0) {
+                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                            } else {
+                              statusText = 'رص متعدد الطبقات متوافق (${spaceUtil.toStringAsFixed(1)}%)';
+                            }
+                          }
+
+                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
+
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(res.containerCode == 'FAILED' ? '-' : '${res.totalWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(6.0),
+                                child: Text(
+                                  statusText,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusText.contains('فشل')
+                                        ? Colors.red.shade800
+                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+
+                    // 3. Tab view or list for visual container layout drawings
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: plan.length,
+                        itemBuilder: (ctx, pIdx) {
+                          final res = plan[pIdx];
+                          if (res.containerCode == 'FAILED') {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
+                              child: Text(
+                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              ),
+                            );
+                          }
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 3,
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                      ),
+                                      Row(
+                                        children: [
+                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          const SizedBox(width: 10),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
+                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+
+                                  // Side View (Left Wall Removed) - Matches the Reference Image!
+                                  Container(
+                                    height: 190,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: false),
+                                      child: Container(),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 10),
+
+                                  // Top View (Roof Removed)
+                                  Container(
+                                    height: 140,
+                                    width: double.infinity,
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade900,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: CustomPaint(
+                                      painter: ContainerLoadPlanPainter(plan: res, isTopView: true),
+                                      child: Container(),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton.icon(
+                  icon: const Icon(Icons.close),
+                  onPressed: () => Navigator.pop(context),
+                  label: const Text('إغلاق المخطط'),
                 ),
               ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
-            ),
-          ],
+            );
+          },
         );
       },
+    );
+  }
+
+  static Widget _buildMetricPill(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 4),
+          Text(value, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
     );
   }
 }

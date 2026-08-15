@@ -1023,11 +1023,37 @@ def save_tariff_with_agreements_service(
     db: Session, req: TariffAgreementBulkSaveRequest
 ) -> dict:
     """Service to save/update an HS Code master record with all its preferential agreements in a single transaction while preserving historical snapshots."""
+    from modules.audit_logs.service import AuditLogService
+
     tariff_dict = req.tariff.model_dump()
     agreements_dicts = [ag.model_dump() for ag in req.agreements]
 
+    existing_before = repository.get_tariff_by_hs_code(db, req.tariff.hs_code)
+    is_update = existing_before is not None
+
     tariff, created_agreements = repository.bulk_create_or_update_tariff_with_agreements(
         db=db, tariff_data=tariff_dict, agreements_data=agreements_dicts, update_date=req.update_date
+    )
+
+    action_name = "UPDATE" if is_update else "CREATE"
+    summary_text = (
+        f"تحديث البند الجمركي {tariff.hs_code} مع ربط {len(created_agreements)} اتفاقية تفضيلية"
+        if is_update
+        else f"إنشاء وتسجيل بند جمركي جديد {tariff.hs_code} مع {len(created_agreements)} اتفاقية تفضيلية"
+    )
+
+    AuditLogService(db).log_activity(
+        action=action_name,
+        entity_type="CustomsTariff",
+        entity_id=tariff.tariff_id,
+        entity_code=tariff.hs_code,
+        performed_by="System Admin",
+        changes_summary=summary_text,
+        new_data={
+            "customs_duty_rate": str(tariff.customs_duty_rate),
+            "vat_rate": str(tariff.vat_rate),
+            "agreements_count": len(created_agreements),
+        },
     )
 
     return {
@@ -1037,20 +1063,89 @@ def save_tariff_with_agreements_service(
     }
 
 
-def get_tariff_version_history_service(db: Session, hs_code: str) -> List[dict]:
-    """Service to fetch all historical versions of an HS Code with their effective date ranges and agreements."""
+def get_tariff_version_history_service(db: Session, hs_code: str) -> dict:
+    """Service to fetch all historical versions, diff changes, and audit logs of an HS Code."""
+    from sqlalchemy import and_, or_
+    from modules.audit_logs.model import AuditLog
+
+    clean_hs = hs_code.strip()
+    nodots = clean_hs.replace(".", "")
     versions = repository.get_all_tariff_versions_by_hs_code(db, hs_code)
-    res = []
-    for v in versions:
+
+    tariff_ids = [v.tariff_id for v in versions]
+    logs = (
+        db.query(AuditLog)
+        .filter(
+            or_(
+                AuditLog.entity_code == clean_hs,
+                AuditLog.entity_code == nodots,
+                and_(
+                    AuditLog.entity_type.in_(["CustomsTariff", "customs_tariffs", "preferential_agreements"]),
+                    AuditLog.entity_id.in_(tariff_ids) if tariff_ids else False,
+                )
+            )
+        )
+        .order_by(AuditLog.log_id.desc())
+        .all()
+    )
+
+    version_items = []
+    for idx, v in enumerate(versions):
         agreements = repository.get_agreements_by_hs_code(db, v.hs_code)
-        # Filter agreements for this version's effective date range if needed
-        res.append({
-            "tariff": CustomsTariffResponse.model_validate(v),
-            "agreements": [PreferentialAgreementResponse.model_validate(ag) for ag in agreements],
+        version_items.append({
+            "tariff_id": v.tariff_id,
+            "hs_code": v.hs_code,
+            "hs_description": v.hs_description,
+            "customs_duty_rate": float(v.customs_duty_rate) if v.customs_duty_rate is not None else 0.0,
+            "vat_rate": float(v.vat_rate) if v.vat_rate is not None else 14.0,
+            "schedule_tax_rate": float(v.schedule_tax_rate) if v.schedule_tax_rate is not None else 0.0,
+            "development_fee_rate": float(v.development_fee_rate) if v.development_fee_rate is not None else 0.0,
+            "import_fee_rate": float(v.import_fee_rate) if v.import_fee_rate is not None else 0.0,
+            "customs_service_fee_rate": float(v.customs_service_fee_rate) if v.customs_service_fee_rate is not None else 1.0,
+            "regulatory_authority": v.regulatory_authority,
+            "prior_approval_note": v.prior_approval_note,
+            "effective_from": v.effective_from.isoformat() if v.effective_from else None,
+            "effective_to": v.effective_to.isoformat() if v.effective_to else None,
+            "created_at": v.created_at.isoformat() if v.created_at else None,
+            "updated_at": v.updated_at.isoformat() if v.updated_at else None,
             "is_current_active": v.is_active,
-            "effective_period_desc": f"مطبق من {v.effective_from} حتى {v.effective_to or 'الآن'}"
+            "agreements_count": len(agreements),
+            "agreements": [
+                {
+                    "agreement_id": ag.agreement_id,
+                    "agreement_name": ag.agreement_name,
+                    "publication_notice": ag.publication_notice,
+                    "preferential_duty_rate": float(ag.preferential_duty_rate) if ag.preferential_duty_rate is not None else None,
+                    "reduction_percentage": float(ag.reduction_percentage) if ag.reduction_percentage is not None else None,
+                    "reduction_type": ag.reduction_type,
+                    "origin_countries": ag.origin_countries,
+                    "required_document": ag.required_document,
+                    "conditions_note": ag.conditions_note,
+                }
+                for ag in agreements
+            ],
+            "effective_period_desc": f"مطبق من {v.effective_from} حتى {v.effective_to or 'الآن (ساري)'}"
         })
-    return res
+
+    audit_items = [
+        {
+            "log_id": log.log_id,
+            "action": log.action,
+            "changes_summary": log.changes_summary,
+            "performed_by": log.performed_by,
+            "created_at": log.performed_at.isoformat() if log.performed_at else None,
+            "old_values": log.old_values,
+            "new_values": log.new_values,
+        }
+        for log in logs
+    ]
+
+    return {
+        "hs_code": hs_code,
+        "total_versions": len(versions),
+        "versions": version_items,
+        "audit_logs": audit_items,
+    }
 
 
 def evaluate_duty_by_origin_and_document_service(

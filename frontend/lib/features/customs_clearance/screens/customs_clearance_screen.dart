@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -90,6 +92,14 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'customs-clearance',
+              title: 'Customs_Clearance',
+              onRefreshNeeded: () => ref.read(customsClearanceProvider.notifier).fetchRecords(),
+            ),
+            const SizedBox(height: 12),
+
             // Toolbar Bar
             Card(
               elevation: 2,
@@ -259,7 +269,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
                                       icon: const Icon(Icons.receipt_long, size: 16, color: Colors.white),
-                                      label: const Text('تسجيل وتوثيق سداد الرسوم الجمركية (BP-031)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('تسجيل سداد الرسوم (BP-031)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showDutyPaymentDialog(r),
                                     ),
                                     const SizedBox(width: 8),
@@ -268,20 +278,29 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                       icon: const Icon(Icons.verified, size: 16, color: Colors.white),
-                                      label: const Text('إصدار الإفراج الجمركي النهائي وتصريح الخروج (BP-032)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('الإفراج النهائي (BP-032)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showFinalReleaseDialog(r),
                                     ),
                                     const SizedBox(width: 8),
                                   ],
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                    tooltip: 'حذف لطفياً',
-                                    onPressed: () async {
+                                  RowActionsPill(
+                                    onView: () => _showAddEditDialog(r),
+                                    onEdit: () => _showAddEditDialog(r),
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة بيان ومعاينة التخليص الجمركي: ${r.clearanceCode} (إقرار 46: ${r.declaration46No ?? "-"})'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
                                           title: const Text('حذف معاملة التخليص'),
-                                          content: const Text('هل أنت تأكد من نقل هذه المعاملة للمحذوفات؟'),
+                                          content: const Text('هل أنت متأكد من نقل هذه المعاملة للمحذوفات؟'),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
                                             TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
@@ -292,6 +311,10 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                         ref.read(customsClearanceProvider.notifier).softDeleteRecord(r.customsClearanceId);
                                       }
                                     },
+                                    viewTooltip: 'عرض تفاصيل المعاملة',
+                                    editTooltip: 'تعديل المعاملة',
+                                    printTooltip: 'طباعة بيان التخليص',
+                                    deleteTooltip: 'حذف المعاملة (Soft Delete)',
                                   ),
                                 ],
                               ),

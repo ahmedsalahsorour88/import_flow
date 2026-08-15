@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/reopen_shipment_dialog.dart';
+import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/file_closure_provider.dart';
 
@@ -71,6 +73,14 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'file-closure',
+              title: 'File_Closure',
+              onRefreshNeeded: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
+            ),
+            const SizedBox(height: 12),
+
             // Top Toolbar
             Card(
               elevation: 2,
@@ -274,15 +284,47 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                 children: [
                                   Text('المراجع المسؤول: ${r.auditorName}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                   const Spacer(),
-                                  IconButton(
-                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                    tooltip: 'حذف لطفياً',
-                                    onPressed: () async {
+                                  RowActionsPill(
+                                    onView: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          title: Text('شهادة الإغلاق والأرشفة: ${r.closureCode}'),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('رقم ملف الشحنة: #${r.importFileId}'),
+                                              Text('موقع الأرشيف: ${r.archiveLocation}'),
+                                              Text('المراجع: ${r.auditorName}'),
+                                              Text('تاريخ الإغلاق: ${r.closedAt}'),
+                                              if (r.archivalNotes != null) Text('الملاحظات: ${r.archivalNotes}'),
+                                            ],
+                                          ),
+                                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق'))],
+                                        ),
+                                      );
+                                    },
+                                    onEdit: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('تعديل بيانات وأرشفة الملف: ${r.closureCode}'), backgroundColor: AppTheme.orange),
+                                      );
+                                    },
+                                    onPrint: () {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('طباعة شهادة الإغلاق الرسمي والأرشفة النهائية: ${r.closureCode} (ملف #${r.importFileId})'),
+                                          backgroundColor: AppTheme.charcoal,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    },
+                                    onDelete: () async {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
                                           title: const Text('حذف سجل الأرشفة'),
-                                          content: const Text('هل أنت تأكد من نقل سجل الإغلاق للمحذوفات؟'),
+                                          content: const Text('هل أنت متأكد من نقل سجل الإغلاق للمحذوفات؟'),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
                                             TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
@@ -293,18 +335,10 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                         ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
                                       }
                                     },
-                                  ),
-                                  IconButton(
-                                    icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-                                    tooltip: 'استعادة السجل',
-                                    onPressed: () async {
-                                      await ref.read(fileClosureProvider.notifier).restoreClosure(r.closureId);
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ تم استعادة شهادة إغلاق الملف ${r.closureCode} بنجاح'), backgroundColor: AppTheme.emerald),
-                                        );
-                                      }
-                                    },
+                                    viewTooltip: 'عرض شهادة الإغلاق',
+                                    editTooltip: 'تعديل الأرشفة',
+                                    printTooltip: 'طباعة شهادة الإغلاق والأرشفة',
+                                    deleteTooltip: 'حذف سجل الإغلاق (Soft Delete)',
                                   ),
                                 ],
                               ),

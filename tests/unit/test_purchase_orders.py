@@ -158,3 +158,92 @@ class TestPurchaseOrdersBackend:
 
         restored = service.restore(po_resp.po_id)
         assert restored.is_active is True
+
+    def test_packing_list_is_stackable_create_and_update(self, db_session):
+        from modules.purchase_orders.schemas import PackingListItemCreate
+        service = PurchaseOrderService(db_session)
+        comp = db_session.query(ImportCompany).first()
+        supp = db_session.query(Supplier).first()
+        inco = db_session.query(Incoterm).first()
+        curr = db_session.query(Currency).first()
+        proj = db_session.query(Project).first()
+
+        pkg1 = PackingListItemCreate(
+            hs_code="8415820010",
+            item_code="ITEM-001",
+            qty_pcs=2.0,
+            qty_pkg=2.0,
+            package_type="Pallet",
+            length_cm=395.0,
+            width_cm=225.0,
+            height_cm=225.0,
+            net_weight_unit_kg=1125.0,
+            gross_weight_unit_kg=1135.0,
+            is_stackable=False,
+        )
+
+        po = service.create(
+            PurchaseOrderCreate(
+                project_id=proj.project_id,
+                company_id=comp.company_id,
+                supplier_id=supp.supplier_id,
+                incoterm_id=inco.incoterm_id,
+                currency_id=curr.currency_id,
+                items=[],
+                packing_list_items=[pkg1],
+            )
+        )
+
+        assert len(po.packing_list_items) == 1
+        assert po.packing_list_items[0].is_stackable is False
+
+        # Now update to is_stackable = True
+        pkg1_updated = PackingListItemCreate(
+            hs_code="8415820010",
+            item_code="ITEM-001",
+            qty_pcs=2.0,
+            qty_pkg=2.0,
+            package_type="Pallet",
+            length_cm=395.0,
+            width_cm=225.0,
+            height_cm=225.0,
+            net_weight_unit_kg=1125.0,
+            gross_weight_unit_kg=1135.0,
+            is_stackable=True,
+        )
+
+        updated_po = service.update(
+            po.po_id,
+            PurchaseOrderUpdate(
+                packing_list_items=[pkg1_updated],
+            ),
+        )
+
+        assert len(updated_po.packing_list_items) == 1
+        assert updated_po.packing_list_items[0].is_stackable is True
+
+        # Now update back to is_stackable = False
+        pkg1_false = PackingListItemCreate(
+            hs_code="8415820010",
+            item_code="ITEM-001",
+            qty_pcs=2.0,
+            qty_pkg=2.0,
+            package_type="Pallet",
+            length_cm=395.0,
+            width_cm=225.0,
+            height_cm=225.0,
+            net_weight_unit_kg=1125.0,
+            gross_weight_unit_kg=1135.0,
+            is_stackable=False,
+        )
+
+        updated_po2 = service.update(
+            po.po_id,
+            PurchaseOrderUpdate(
+                packing_list_items=[pkg1_false],
+            ),
+        )
+
+        assert len(updated_po2.packing_list_items) == 1
+        assert updated_po2.packing_list_items[0].is_stackable is False
+

@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../audit_logs/widgets/row_history_dialog.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -410,30 +412,50 @@ class _ProjectsScreenState extends ConsumerState<ProjectsScreen> {
 
                                       // Actions
                                       _cell(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                              tooltip: 'Edit Project',
-                                              onPressed: () => _showProjectDialog(context, project: p),
-                                            ),
-                                            Tooltip(
-                                              message: isActive ? 'Deactivate Project' : 'Reactivate Project',
-                                              child: Switch(
-                                                value: isActive,
-                                                activeColor: AppTheme.emerald,
-                                                inactiveThumbColor: AppTheme.crimson,
-                                                onChanged: (_) {
-                                                  if (p.projectId != null) {
-                                                    ref
-                                                        .read(projectsProvider.notifier)
-                                                        .toggleActive(p.projectId!, isActive);
-                                                  }
-                                                },
+                                        child: RowActionsPill(
+                                          onView: () {
+                                            if (p.projectId != null) {
+                                              RowHistoryDialog.show(
+                                                context,
+                                                entityType: 'Project',
+                                                entityId: p.projectId!,
+                                                entityTitle: p.projectName,
+                                              );
+                                            }
+                                          },
+                                          onEdit: () => _showProjectDialog(context, project: p),
+                                          onPrint: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('طباعة بيانات المشروع ومراكز التكلفة: ${p.projectName} (${p.projectCode})'),
+                                                backgroundColor: AppTheme.charcoal,
+                                                duration: const Duration(seconds: 2),
                                               ),
-                                            ),
-                                          ],
+                                            );
+                                          },
+                                          onDelete: () async {
+                                            final confirm = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('تأكيد الإجراء'),
+                                                content: Text(isActive
+                                                    ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل المشروع (${p.projectName})؟'
+                                                    : 'هل أنت متأكد من إعادة تفعيل المشروع (${p.projectName})؟'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                  ElevatedButton(
+                                                    onPressed: () => Navigator.pop(ctx, true),
+                                                    style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                    child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                  ),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirm == true && p.projectId != null) {
+                                              ref.read(projectsProvider.notifier).toggleActive(p.projectId!, isActive);
+                                            }
+                                          },
+                                          deleteTooltip: isActive ? 'إيقاف تفعيل المشروع (Deactivate)' : 'إعادة تفعيل المشروع (Activate)',
                                         ),
                                       ),
                                     ],

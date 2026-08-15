@@ -92,3 +92,53 @@ def test_soft_delete_assessment():
 
     get_res = client.get(f"/api/v1/import-requirements/{assessment_id}")
     assert get_res.status_code == 404
+
+
+def test_create_full_5_pillars_assessment():
+    payload = {
+        "hs_code": "8415820010",
+        "commodity_description": "Air Conditioning Units",
+        "country_of_origin": "China",
+        "shipment_value_usd": 65000.0,
+        # Pillar 1
+        "decree_43_applicable": True,
+        "white_list_required": True,
+        "white_list_verified": True,
+        "factory_registration_no": "GOEIC-REG-12345",
+        "supplier_name": "Gree Electric Appliances",
+        # Pillar 2
+        "coo_required": True,
+        "coo_type": "EUR.1",
+        "coo_status": "Obtained",
+        "coo_notes": "100% duty reduction under agreement",
+        # Pillar 3
+        "inspection_required": True,
+        "inspection_body": "SGS",
+        "inspection_status": "Completed",
+        "inspection_report_no": "SGS-2026-9900",
+        # Pillar 4
+        "import_permit_required": True,
+        "permit_issuing_authority": "EEAA",
+        "permit_number": "EEAA-9988",
+        "permit_status": "Approved",
+        # Pillar 5
+        "msds_required": True,
+        "msds_status": "Obtained",
+        "coa_required": True,
+        "coa_status": "Obtained",
+        # Summary
+        "overall_status": "Complete",
+        "risk_level": "Low",
+        "assessed_by": "Kamal"
+    }
+    response = client.post("/api/v1/import-requirements", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["factory_registration_no"] == "GOEIC-REG-12345"
+    assert data["inspection_report_no"] == "SGS-2026-9900"
+    assert data["permit_number"] == "EEAA-9988"
+    assert data["decree_43_applicable"] is True
+    assert data["white_list_verified"] is True
+    assert data["coa_required"] is True
+    assert data["overall_status"] == "Complete"
+

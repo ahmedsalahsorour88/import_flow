@@ -159,4 +159,16 @@ class ShippingScenarioItem(Base):
     waiver_letter_fee_price = Column(Float, default=0.0, nullable=False)
     waiver_letter_fee_currency = Column(String(10), default="USD", nullable=False)
 
+    dthc_applicable = Column(Boolean, default=False, nullable=False)
+    dthc_price = Column(Float, default=0.0, nullable=False)
+    dthc_currency = Column(String(10), default="USD", nullable=False)
+
+    storage_per_week_applicable = Column(Boolean, default=False, nullable=False)
+    storage_per_week_price = Column(Float, default=0.0, nullable=False)
+    storage_per_week_currency = Column(String(10), default="USD", nullable=False)
+
+    extra_day_storage_applicable = Column(Boolean, default=False, nullable=False)
+    extra_day_storage_price = Column(Float, default=0.0, nullable=False)
+    extra_day_storage_currency = Column(String(10), default="USD", nullable=False)
+
     session = relationship("ShippingEvaluationSession", back_populates="items")

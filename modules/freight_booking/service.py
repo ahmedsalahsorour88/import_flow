@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,22 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking):
         booking.transit_time_days = max(0, delta.days)
     else:
         booking.transit_time_days = 0
+
+    # Calculate departure delay days if actual departure (ATD) is recorded
+    if booking.atd and booking.etd:
+        delay = (booking.atd.date() - booking.etd.date()).days
+        booking.departure_delay_days = max(0, delay)
+    else:
+        booking.departure_delay_days = 0
+
+    # Calculate expected warehouse arrival date based on ETA + warehouse lead days
+    wh_days = booking.expected_warehouse_days if booking.expected_warehouse_days is not None else 7
+    if booking.eta:
+        # If there was an actual departure delay, adjust ETA if ETA was not already updated
+        adjusted_eta = booking.eta + timedelta(days=booking.departure_delay_days or 0)
+        booking.expected_warehouse_arrival_date = adjusted_eta + timedelta(days=wh_days)
+    elif booking.expected_warehouse_arrival_date is None and booking.etd:
+        booking.expected_warehouse_arrival_date = booking.etd + timedelta(days=booking.transit_time_days + wh_days)
 
     # Calculate total container count
     total_containers = 0

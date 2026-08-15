@@ -74,14 +74,17 @@ def create_import_file_service(db: Session, payload: ImportFileCreate) -> Import
     # 2. Validate multi-project ownership rule
     validators.validate_company_project_ownership(db, payload.company_id, payload.project_ids)
 
-    # 3. Generate file code if custom file number not given
+    # 3. Validate invoice currency consistency (all invoices must share the exact same currency)
+    validators.validate_invoices_currency_consistency(payload.invoices_data)
+
+    # 4. Generate file code if custom file number not given
     file_code = repo.generate_import_file_code(db)
     if not payload.custom_file_number:
         custom_num = file_code.replace("IMP-", "FILE-")
     else:
         custom_num = payload.custom_file_number.strip()
 
-    # 4. Compute formulas
+    # 5. Compute formulas
     formulas = compute_file_formulas(
         form46_no=payload.form46_no,
         form4_no=payload.form4_no,
@@ -118,6 +121,10 @@ def update_import_file_service(
     target_company_id = payload.company_id or existing.company_id
     target_project_ids = payload.project_ids if payload.project_ids is not None else existing.project_ids
     validators.validate_company_project_ownership(db, target_company_id, target_project_ids)
+
+    # Validate invoice currency consistency
+    if payload.invoices_data is not None:
+        validators.validate_invoices_currency_consistency(payload.invoices_data)
 
     update_dict = payload.model_dump(exclude_unset=True)
 

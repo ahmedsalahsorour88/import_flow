@@ -44,6 +44,7 @@ from modules.file_closure.model import ImportFileClosureRecord
 from modules.notifications.model import SystemNotification
 from modules.smart_tasks.model import SmartTask
 from modules.shipment_updates.model import ShipmentUpdateLog
+from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
 
 
 # ==================================================
@@ -80,6 +81,7 @@ from modules.container_loader.router import container_loader_router
 from modules.smart_tasks.router import router as smart_tasks_router
 from modules.shipment_updates.router import router as shipment_updates_router
 from modules.import_requirements.router import router as import_requirements_router
+from modules.demurrage_detention.router import router as demurrage_detention_router
 
 
 # ==================================================
@@ -97,10 +99,12 @@ app = FastAPI(
 # CORS Middleware Setup
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex="https?://.*",
+    allow_origins=["*"],
+    allow_origin_regex=r".*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 
@@ -138,6 +142,7 @@ app.include_router(integrations_router)
 app.include_router(smart_tasks_router)
 app.include_router(shipment_updates_router)
 app.include_router(import_requirements_router)
+app.include_router(demurrage_detention_router)
 
 
 # ==================================================

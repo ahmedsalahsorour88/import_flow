@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/currency_model.dart';
 import '../providers/currencies_provider.dart';
@@ -113,7 +115,16 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+
+            // Data Actions Toolbar
+            MasterDataToolbarWidget(
+              moduleEndpoint: 'currencies',
+              title: 'Currencies',
+              onRefreshNeeded: () => ref.read(currenciesProvider.notifier).fetchCurrencies(),
+            ),
+
+            const SizedBox(height: 16),
 
             // Search input
             Row(
@@ -207,7 +218,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                 3: FlexColumnWidth(2.5),
                                 4: FlexColumnWidth(2.5),
                                 5: FixedColumnWidth(85),
-                                6: FixedColumnWidth(110),
+                                6: FixedColumnWidth(150),
                               },
                               children: [
                                 // Header
@@ -280,13 +291,36 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Currency Name
                                       _cell(
-                                        child: Text(
-                                          c.currencyName,
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
-                                            color: isActive ? AppTheme.charcoal : Colors.grey.shade700,
-                                            decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                        child: InkWell(
+                                          onTap: () => _showCurrencyRateHistoryDialog(context, ref, c),
+                                          borderRadius: BorderRadius.circular(6),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(vertical: 4),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Flexible(
+                                                  child: Text(
+                                                    c.currencyName,
+                                                    style: TextStyle(
+                                                      fontWeight: FontWeight.bold,
+                                                      fontSize: 14,
+                                                      color: isActive ? AppTheme.cobalt : Colors.grey.shade700,
+                                                      decoration: isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 6),
+                                                Tooltip(
+                                                  message: 'عرض السجل التاريخي لتحديث أسعار الصرف',
+                                                  child: Icon(
+                                                    Icons.history_edu,
+                                                    size: 16,
+                                                    color: AppTheme.cobalt.withOpacity(0.7),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -344,29 +378,45 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
                                       // Actions
                                       _cell(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                              tooltip: 'Edit Currency',
-                                              onPressed: () => _showCurrencyDialog(context, currency: c),
-                                            ),
-                                            if (!c.isBaseCurrency)
-                                              Tooltip(
-                                                message: isActive ? 'Deactivate Currency' : 'Reactivate Currency',
-                                                child: Switch(
-                                                  value: isActive,
-                                                  activeColor: AppTheme.emerald,
-                                                  inactiveThumbColor: AppTheme.crimson,
-                                                  onChanged: (_) {
-                                                    if (c.currencyId != null) {
-                                                      ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
-                                                    }
-                                                  },
-                                                ),
+                                        child: RowActionsPill(
+                                          onView: () => _showCurrencyRateHistoryDialog(context, ref, c),
+                                          onEdit: () => _showCurrencyDialog(context, currency: c),
+                                          onPrint: () {
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(
+                                                content: Text('طباعة بيانات وسجل أسعار العملة: ${c.currencyCode} (${c.currencyName})'),
+                                                backgroundColor: AppTheme.charcoal,
+                                                duration: const Duration(seconds: 2),
                                               ),
-                                          ],
+                                            );
+                                          },
+                                          onDelete: c.isBaseCurrency
+                                              ? null
+                                              : () async {
+                                                  final confirm = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (ctx) => AlertDialog(
+                                                      title: const Text('تأكيد الإجراء'),
+                                                      content: Text(isActive
+                                                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل عملة (${c.currencyCode} - ${c.currencyName})؟'
+                                                          : 'هل أنت متأكد من إعادة تفعيل عملة (${c.currencyCode} - ${c.currencyName})؟'),
+                                                      actions: [
+                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                        ElevatedButton(
+                                                          onPressed: () => Navigator.pop(ctx, true),
+                                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                  if (confirm == true && c.currencyId != null) {
+                                                    ref.read(currenciesProvider.notifier).toggleActive(c.currencyId!, isActive);
+                                                  }
+                                                },
+                                          deleteTooltip: c.isBaseCurrency
+                                              ? 'لا يمكن تعطيل عملة الأساس (EGP)'
+                                              : (isActive ? 'إيقاف تفعيل العملة (Deactivate)' : 'إعادة تفعيل العملة (Activate)'),
                                         ),
                                       ),
                                     ],
@@ -478,12 +528,405 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     );
   }
 
-  void _showAddRateDialog(BuildContext context) {
+  Widget _historyStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCurrencyRateHistoryDialog(BuildContext context, WidgetRef ref, CurrencyModel initialCurrency) {
+    if (initialCurrency.currencyId == null) return;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: 850,
+          constraints: const BoxConstraints(maxHeight: 720),
+          padding: const EdgeInsets.all(24),
+          child: FutureBuilder<CurrencyModel?>(
+            future: ref.read(currenciesProvider.notifier).fetchCurrencyHistory(initialCurrency.currencyId!),
+            builder: (context, snapshot) {
+              final currency = snapshot.data ?? initialCurrency;
+              final isLoading = snapshot.connectionState == ConnectionState.waiting;
+              final rates = currency.exchangeRates ?? [];
+
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Dialog Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: (currency.isBaseCurrency ? AppTheme.emerald : AppTheme.cobalt),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '${currency.currencyCode} (${currency.currencySymbol})',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 16,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'السجل التاريخي لأسعار الصرف — ${currency.currencyName}',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                currency.isBaseCurrency
+                                    ? 'العملة الأساسية للنظام (الجنيه المصري EGP)'
+                                    : 'سجل التحديثات والتغيرات في أسعار البنك والجمارك الرسمية',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24, thickness: 1),
+
+                  // Top Stats Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _historyStatCard(
+                          title: 'سعر البنك التجاري الحالي',
+                          value: currency.isBaseCurrency
+                              ? '1.0000 EGP'
+                              : (currency.latestCommercialRate != null
+                                  ? '${currency.latestCommercialRate!.toStringAsFixed(4)} EGP'
+                                  : 'غير محدد'),
+                          icon: Icons.account_balance,
+                          color: AppTheme.cobalt,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _historyStatCard(
+                          title: 'سعر الصرف الجمركي الرسمي',
+                          value: currency.isBaseCurrency
+                              ? '1.0000 EGP'
+                              : (currency.latestCustomsRate != null
+                                  ? '${currency.latestCustomsRate!.toStringAsFixed(4)} EGP'
+                                  : 'غير محدد'),
+                          icon: Icons.gavel,
+                          color: AppTheme.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _historyStatCard(
+                          title: 'الفارق بين السعرين',
+                          value: (currency.latestCommercialRate != null && currency.latestCustomsRate != null)
+                              ? '${(currency.latestCommercialRate! - currency.latestCustomsRate!).toStringAsFixed(4)} EGP'
+                              : '0.0000 EGP',
+                          icon: Icons.compare_arrows,
+                          color: AppTheme.emerald,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _historyStatCard(
+                          title: 'عدد التحديثات التاريخية',
+                          value: '${rates.length} سجلات',
+                          icon: Icons.history,
+                          color: AppTheme.charcoal,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Action Button
+                  if (!currency.isBaseCurrency)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'سجل التحديثات الزمنية لأسعار الصرف (Timeline):',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
+                          },
+                          icon: const Icon(Icons.add_chart, size: 16, color: Colors.white),
+                          label: const Text('تحديث سعر صرف جديد',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  const SizedBox(height: 12),
+
+                  // History Table
+                  Expanded(
+                    child: isLoading
+                        ? const Center(child: CircularProgressIndicator(color: AppTheme.cobalt))
+                        : (currency.isBaseCurrency
+                            ? Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: Colors.green.shade200),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 48),
+                                      const SizedBox(height: 12),
+                                      const Text(
+                                        'الجنيه المصري (EGP) هو عملة الأساس في النظام',
+                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'سعر الصرف دائماً 1.0000 ولا يتطلب تحديث أسعار تاريخية مقابل نفسه.',
+                                        style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              )
+                            : (rates.isEmpty
+                                ? Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade400),
+                                        const SizedBox(height: 12),
+                                        Text(
+                                          'لا يوجد سجل أسعار تاريخي مسجل لعملة (${currency.currencyCode}) حتى الآن.',
+                                          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton.icon(
+                                          onPressed: () {
+                                            Navigator.pop(ctx);
+                                            _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
+                                          },
+                                          icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                                          label: const Text('تسجيل أول سعر صرف',
+                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppTheme.cobalt,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Colors.grey.shade200),
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(10),
+                                      child: ListView.separated(
+                                        itemCount: rates.length,
+                                        separatorBuilder: (_, __) => const Divider(height: 1),
+                                        itemBuilder: (context, idx) {
+                                          final rate = rates[idx];
+                                          final diff = rate.commercialRate - rate.customsRate;
+                                          final diffPct = rate.customsRate > 0 ? (diff / rate.customsRate) * 100 : 0.0;
+                                          final isLatest = idx == 0;
+
+                                          return Container(
+                                            color: isLatest ? AppTheme.cobalt.withOpacity(0.04) : Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                            child: Row(
+                                              children: [
+                                                // Date Badge
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: isLatest ? AppTheme.cobalt : Colors.grey.shade100,
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(color: isLatest ? AppTheme.cobalt : Colors.grey.shade300),
+                                                  ),
+                                                  child: Column(
+                                                    children: [
+                                                      Text(
+                                                        rate.effectiveDate,
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 12,
+                                                          color: isLatest ? Colors.white : AppTheme.charcoal,
+                                                        ),
+                                                      ),
+                                                      if (isLatest)
+                                                        const Text(
+                                                          'السعر الحالي الساري',
+                                                          style: TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.bold),
+                                                        ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 16),
+
+                                                // Commercial Rate
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      const Text('سعر البنك (Commercial):',
+                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        '${rate.commercialRate.toStringAsFixed(4)} EGP',
+                                                        style: const TextStyle(
+                                                            fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                // Customs Rate
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      const Text('سعر الجمارك (Customs):',
+                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        '${rate.customsRate.toStringAsFixed(4)} EGP',
+                                                        style: const TextStyle(
+                                                            fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.orange),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                // Variance / Spread
+                                                Expanded(
+                                                  child: Column(
+                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    children: [
+                                                      const Text('الفارق (Spread):',
+                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      const SizedBox(height: 2),
+                                                      Text(
+                                                        '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(4)} (${diffPct >= 0 ? "+" : ""}${diffPct.toStringAsFixed(2)}%)',
+                                                        style: TextStyle(
+                                                          fontWeight: FontWeight.bold,
+                                                          fontSize: 12,
+                                                          color: diff.abs() > 0.5 ? AppTheme.crimson : AppTheme.emerald,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ),
+
+                                                // Source / Created By
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.grey.shade100,
+                                                    borderRadius: BorderRadius.circular(6),
+                                                  ),
+                                                  child: Text(
+                                                    'بواسطة: ${rate.createdBy ?? "System"}',
+                                                    style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        },
+                                      ),
+                                    ),
+                                  ))),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAddRateDialog(BuildContext context, {int? preSelectedCurrencyId}) {
     final formKey = GlobalKey<FormState>();
     final currencies = ref.read(currenciesProvider).value?.where((c) => !c.isBaseCurrency).toList() ?? [];
     if (currencies.isEmpty) return;
 
-    int selectedCurrencyId = currencies.first.currencyId!;
+    int selectedCurrencyId = preSelectedCurrencyId ?? currencies.first.currencyId!;
     final commCtrl = TextEditingController();
     final custCtrl = TextEditingController();
     DateTime selectedDate = DateTime.now();

@@ -26,6 +26,7 @@ from modules.suppliers.model import Supplier
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.transport_locations.model import TransportLocation
 from modules.freight_quotations.model import FreightRFQRequest
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 from modules.incoterms.model import Incoterm
 from modules.projects.model import Project
 from modules.import_files.model import ImportFile
@@ -141,3 +142,75 @@ class TestFreightBookingBackend:
         assert restored is not None
         assert restored.booking_id == b_id
         assert restored.is_active is True
+
+    def test_create_booking_linked_to_shipping_scenario_quote(self, db_session):
+        payload = ShipmentBookingCreate(
+            import_file_id=1,
+            scenario_session_id=10,
+            scenario_item_id=25,
+            scenario_provider_name="Mediterranean Shipping Company (MSC)",
+            booking_confirmation_no="MSC-EGY-2026-99",
+            freight_forwarder_name="El-Ahram Logistics",
+            shipping_line_name="MSC",
+            vessel_name="MSC Oscar",
+            voyage_number="VY-2026-X8",
+            shipment_type="Ocean FCL",
+            pol_name="Shanghai Port",
+            pod_name="Alexandria Port",
+            etd=datetime(2026, 8, 10, 10, 0, tzinfo=timezone.utc),
+            eta=datetime(2026, 8, 28, 10, 0, tzinfo=timezone.utc),
+            free_demurrage_days=21,
+            containers_data=[
+                ContainerAllocationItem(container_type="40HC", quantity=2, container_numbers=["MSCU1000000", "MSCU1111111"])
+            ],
+            cost_charges_data=[
+                BookingChargeItem(charge_type="Sea Freight 40ft", unit="Per Container", quantity=2, rate=2200.0, total=4400.0),
+                BookingChargeItem(charge_type="DTHC", unit="Per Shipment", quantity=1, rate=350.0, total=350.0),
+                BookingChargeItem(charge_type="Storage per one week", unit="Per Week", quantity=1, rate=200.0, total=200.0),
+            ],
+            status="Draft",
+            owner="Kamal",
+        )
+
+        booking = create_booking_service(db_session, payload)
+        assert booking.booking_id is not None
+        assert booking.scenario_session_id == 10
+        assert booking.scenario_item_id == 25
+        assert booking.scenario_provider_name == "Mediterranean Shipping Company (MSC)"
+        assert booking.vessel_name == "MSC Oscar"
+        assert booking.free_demurrage_days == 21
+        assert len(booking.containers_data) == 1
+        assert len(booking.cost_charges_data) == 3
+        assert booking.total_freight_cost_usd == (2200.0 * 2) + 350.0 + 200.0
+
+    def test_actual_departure_delay_and_warehouse_arrival_calc(self, db_session):
+        payload = ShipmentBookingCreate(
+            import_file_id=1,
+            booking_confirmation_no="MSC-DELAY-001",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            etd=datetime(2026, 8, 1, 0, 0, tzinfo=timezone.utc),
+            eta=datetime(2026, 8, 20, 0, 0, tzinfo=timezone.utc),
+            atd=datetime(2026, 8, 5, 0, 0, tzinfo=timezone.utc),  # 4 days delay
+            expected_warehouse_days=5,
+            container_mismatch_reason="Client requested 40HC instead of 20GP due to volumetric cargo expansion",
+            containers_data=[
+                ContainerAllocationItem(
+                    container_type="40HC",
+                    quantity=1,
+                    container_numbers=["MSCU998877"],
+                    sealNumbers=["SL-12345"] if hasattr(ContainerAllocationItem, "sealNumbers") else []
+                )
+            ],
+            quotation_details_data={"dthc_app": True, "dthc_price": 400.0},
+        )
+
+        booking = create_booking_service(db_session, payload)
+        assert booking.departure_delay_days == 4
+        # ETA was Aug 20, adjusted ETA with 4 days delay = Aug 24 + 5 days warehouse = Aug 29
+        assert booking.expected_warehouse_arrival_date is not None
+        assert booking.expected_warehouse_arrival_date.day == 29
+        assert booking.container_mismatch_reason == "Client requested 40HC instead of 20GP due to volumetric cargo expansion"
+        assert booking.quotation_details_data.get("dthc_price") == 400.0
+
+

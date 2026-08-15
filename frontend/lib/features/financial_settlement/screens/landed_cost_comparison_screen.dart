@@ -1,18 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../import_files/models/import_file_model.dart';
 
 class LandedCostComparisonScreen extends StatefulWidget {
   final int importFileId;
   final String importFileCode;
 
   const LandedCostComparisonScreen({
-    Key? key,
+    super.key,
     required this.importFileId,
     required this.importFileCode,
-  }) : super(key: key);
+  });
 
   @override
   State<LandedCostComparisonScreen> createState() => _LandedCostComparisonScreenState();
@@ -30,8 +28,6 @@ class _LandedCostComparisonScreenState extends State<LandedCostComparisonScreen>
   final Color _cobalt = const Color(0xFF3498DB);
   final Color _emerald = const Color(0xFF27AE60);
   final Color _crimson = const Color(0xFFC0392B);
-  final Color _orange = const Color(0xFFE67E22);
-  final Color _white = const Color(0xFFECF0F1);
 
   @override
   void initState() {
@@ -249,7 +245,7 @@ class _LandedCostComparisonScreenState extends State<LandedCostComparisonScreen>
   Widget _buildExpenseTable() {
     final expenses = _settlementRecord?['expense_invoices'] as List? ?? [];
     return DataTable(
-      headingRowColor: MaterialStateProperty.all(_charcoal.withOpacity(0.05)),
+      headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
       columns: const [
         DataColumn(label: Text('الفئة', style: TextStyle(fontWeight: FontWeight.bold))),
         DataColumn(label: Text('المورد', style: TextStyle(fontWeight: FontWeight.bold))),
@@ -281,7 +277,7 @@ class _LandedCostComparisonScreenState extends State<LandedCostComparisonScreen>
   Widget _buildItemLandedCostTable() {
     final items = _settlementRecord?['item_landed_costs'] as List? ?? [];
     return DataTable(
-      headingRowColor: MaterialStateProperty.all(_charcoal.withOpacity(0.05)),
+      headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
       columns: const [
         DataColumn(label: Text('الكود', style: TextStyle(fontWeight: FontWeight.bold))),
         DataColumn(label: Text('الصنف', style: TextStyle(fontWeight: FontWeight.bold))),

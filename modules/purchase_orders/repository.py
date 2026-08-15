@@ -163,6 +163,7 @@ class PurchaseOrderRepository:
                     total_gross_weight_kg=tot_gross,
                     total_cbm=tot_cbm,
                     chargeable_weight_kg=chg_wt,
+                    is_stackable=bool(getattr(pitem, "is_stackable", True)),
                 )
                 po.packing_list_items.append(pli)
 
@@ -294,6 +295,7 @@ class PurchaseOrderRepository:
                     total_gross_weight_kg=tot_gross,
                     total_cbm=tot_cbm,
                     chargeable_weight_kg=chg_wt,
+                    is_stackable=bool(pitem.get("is_stackable", True)),
                 )
                 po.packing_list_items.append(pli)
 

@@ -24,6 +24,9 @@ class ShipmentBookingBase(BaseModel):
     booking_confirmation_no: Optional[str] = None
     import_file_id: Optional[int] = None
     rfq_request_id: Optional[int] = None
+    scenario_session_id: Optional[int] = None
+    scenario_item_id: Optional[int] = None
+    scenario_provider_name: Optional[str] = None
     freight_forwarder_id: Optional[int] = None
     freight_forwarder_name: Optional[str] = None
     shipping_line_id: Optional[int] = None
@@ -35,6 +38,10 @@ class ShipmentBookingBase(BaseModel):
     pod_name: Optional[str] = None
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
+    atd: Optional[datetime] = None
+    departure_delay_days: Optional[int] = 0
+    expected_warehouse_days: Optional[int] = 7
+    expected_warehouse_arrival_date: Optional[datetime] = None
     free_demurrage_days: int = 14
     cargo_cutoff_date: Optional[datetime] = None
     si_cutoff_date: Optional[datetime] = None
@@ -42,8 +49,10 @@ class ShipmentBookingBase(BaseModel):
     voyage_number: Optional[str] = None
     container_release_order_no: Optional[str] = None
     freight_terms: str = "Collect"
+    container_mismatch_reason: Optional[str] = None
     containers_data: List[ContainerAllocationItem] = Field(default_factory=list)
     cost_charges_data: List[BookingChargeItem] = Field(default_factory=list)
+    quotation_details_data: Optional[dict] = Field(default_factory=dict)
     status: str = "Draft"
     owner: str = "Kamal"
     notes: Optional[str] = None
@@ -55,6 +64,9 @@ class ShipmentBookingCreate(ShipmentBookingBase):
 
 class ShipmentBookingUpdate(BaseModel):
     booking_confirmation_no: Optional[str] = None
+    scenario_session_id: Optional[int] = None
+    scenario_item_id: Optional[int] = None
+    scenario_provider_name: Optional[str] = None
     freight_forwarder_name: Optional[str] = None
     shipping_line_name: Optional[str] = None
     shipment_type: Optional[str] = None
@@ -62,6 +74,10 @@ class ShipmentBookingUpdate(BaseModel):
     pod_name: Optional[str] = None
     etd: Optional[datetime] = None
     eta: Optional[datetime] = None
+    atd: Optional[datetime] = None
+    departure_delay_days: Optional[int] = None
+    expected_warehouse_days: Optional[int] = None
+    expected_warehouse_arrival_date: Optional[datetime] = None
     free_demurrage_days: Optional[int] = None
     cargo_cutoff_date: Optional[datetime] = None
     si_cutoff_date: Optional[datetime] = None
@@ -69,8 +85,10 @@ class ShipmentBookingUpdate(BaseModel):
     voyage_number: Optional[str] = None
     container_release_order_no: Optional[str] = None
     freight_terms: Optional[str] = None
+    container_mismatch_reason: Optional[str] = None
     containers_data: Optional[List[ContainerAllocationItem]] = None
     cost_charges_data: Optional[List[BookingChargeItem]] = None
+    quotation_details_data: Optional[dict] = None
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None

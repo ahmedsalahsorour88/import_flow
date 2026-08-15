@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
 
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -288,7 +290,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 2: FlexColumnWidth(2.5),
                                 3: FlexColumnWidth(2),
                                 4: FixedColumnWidth(85),
-                                5: FixedColumnWidth(120),
+                                5: FixedColumnWidth(150),
                               },
                               children: [
                                 // Table Header
@@ -421,46 +423,54 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         ),
                                       ),
 
-                                      // Actions
-                                      _cell(
-                                        child: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 18),
-                                              tooltip: 'View History',
-                                              onPressed: () {
-                                                if (partner.providerId != null) {
-                                                  RowHistoryDialog.show(
-                                                    context,
-                                                    entityType: 'ExternalServiceProvider',
-                                                    entityId: partner.providerId!,
-                                                    entityTitle: partner.partnerName,
-                                                  );
-                                                }
-                                              },
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                              tooltip: 'Edit Partner',
-                                              onPressed: () => _showPartnerDialog(context, partner),
-                                            ),
-                                            Tooltip(
-                                              message: isActive ? 'Deactivate Partner' : 'Reactivate Partner',
-                                              child: Switch(
-                                                value: isActive,
-                                                activeColor: AppTheme.emerald,
-                                                inactiveThumbColor: AppTheme.crimson,
-                                                onChanged: (_) {
-                                                  if (partner.providerId != null) {
-                                                    ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                                                  }
-                                                },
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
+                                       // Actions: View, Edit, Print, Delete
+                                       _cell(
+                                         child: RowActionsPill(
+                                           onView: () {
+                                             if (partner.providerId != null) {
+                                               RowHistoryDialog.show(
+                                                 context,
+                                                 entityType: 'ExternalServiceProvider',
+                                                 entityId: partner.providerId!,
+                                                 entityTitle: partner.partnerName,
+                                               );
+                                             }
+                                           },
+                                           onEdit: () => _showPartnerDialog(context, partner),
+                                           onPrint: () {
+                                             ScaffoldMessenger.of(context).showSnackBar(
+                                               SnackBar(
+                                                 content: Text('طباعة بيانات الشريك: ${partner.partnerName} (${partner.partnerCode})'),
+                                                 backgroundColor: AppTheme.charcoal,
+                                                 duration: const Duration(seconds: 2),
+                                               ),
+                                             );
+                                           },
+                                           onDelete: () async {
+                                             final confirm = await showDialog<bool>(
+                                               context: context,
+                                               builder: (ctx) => AlertDialog(
+                                                 title: const Text('تأكيد الإجراء'),
+                                                 content: Text(isActive
+                                                     ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشريك (${partner.partnerName})؟'
+                                                     : 'هل أنت متأكد من إعادة تفعيل الشريك (${partner.partnerName})؟'),
+                                                 actions: [
+                                                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                   ElevatedButton(
+                                                     onPressed: () => Navigator.pop(ctx, true),
+                                                     style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                     child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                   ),
+                                                 ],
+                                               ),
+                                             );
+                                             if (confirm == true && partner.providerId != null) {
+                                               ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                                             }
+                                           },
+                                           deleteTooltip: isActive ? 'إيقاف تفعيل الشريك (Deactivate)' : 'إعادة تفعيل الشريك (Activate)',
+                                         ),
+                                       ),
                                     ],
                                   );
                                 }),
@@ -936,6 +946,39 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                               String? errorMessage;
                               if (isEditing && partnerToEdit.providerId != null) {
+                                final List<FieldChangeItem> changes = [];
+                                if (FieldChangeItem.isDifferent(partnerToEdit.partnerName, partner.partnerName)) {
+                                  changes.add(FieldChangeItem(fieldName: 'اسم مقدم الخدمة / الشريك', oldValue: partnerToEdit.partnerName, newValue: partner.partnerName));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.partnerType, partner.partnerType)) {
+                                  changes.add(FieldChangeItem(fieldName: 'نوع الشريك (Partner Type)', oldValue: partnerToEdit.partnerType, newValue: partner.partnerType));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.email, partner.email)) {
+                                  changes.add(FieldChangeItem(fieldName: 'البريد الإلكتروني', oldValue: partnerToEdit.email, newValue: partner.email));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.phone, partner.phone)) {
+                                  changes.add(FieldChangeItem(fieldName: 'الهاتف', oldValue: partnerToEdit.phone, newValue: partner.phone));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.address, partner.address)) {
+                                  changes.add(FieldChangeItem(fieldName: 'العنوان', oldValue: partnerToEdit.address, newValue: partner.address));
+                                }
+                                if (FieldChangeItem.isDifferent(partnerToEdit.country, partner.country)) {
+                                  changes.add(FieldChangeItem(fieldName: 'الدولة', oldValue: partnerToEdit.country, newValue: partner.country));
+                                }
+
+                                if (changes.isNotEmpty) {
+                                  final confirmed = await showChangeDiffConfirmationDialog(
+                                    context,
+                                    title: 'مراجعة وتأكيد تعديلات مقدم الخدمة / الشريك',
+                                    itemReference: '${partnerToEdit.partnerCode} (${partnerToEdit.partnerName})',
+                                    changes: changes,
+                                  );
+                                  if (!confirmed) {
+                                    setDialogState(() => isSubmitting = false);
+                                    return;
+                                  }
+                                }
+
                                 errorMessage = await ref.read(partnersProvider.notifier).updatePartner(partnerToEdit.providerId!, partner);
                               } else {
                                 errorMessage = await ref.read(partnersProvider.notifier).createPartner(partner);

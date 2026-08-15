@@ -18,6 +18,9 @@ class ShipmentBooking(Base):
     # Relationships & Linked Entities
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True)
     rfq_request_id = Column(Integer, ForeignKey("freight_rfq_requests.rfq_id"), nullable=True, index=True)
+    scenario_session_id = Column(Integer, ForeignKey("shipping_evaluation_sessions.session_id"), nullable=True, index=True)
+    scenario_item_id = Column(Integer, ForeignKey("shipping_scenario_items.item_id"), nullable=True, index=True)
+    scenario_provider_name = Column(String(150), nullable=True)
     freight_forwarder_id = Column(Integer, ForeignKey("external_service_providers.provider_id"), nullable=True)
     freight_forwarder_name = Column(String(150), nullable=True)
     shipping_line_id = Column(Integer, ForeignKey("external_service_providers.provider_id"), nullable=True)
@@ -35,6 +38,10 @@ class ShipmentBooking(Base):
     booking_confirmation_date = Column(DateTime, nullable=True)
     etd = Column(DateTime, nullable=True)  # Estimated Time of Departure
     eta = Column(DateTime, nullable=True)  # Estimated Time of Arrival
+    atd = Column(DateTime, nullable=True)  # Actual Time of Departure
+    departure_delay_days = Column(Integer, nullable=True, default=0)
+    expected_warehouse_days = Column(Integer, nullable=True, default=7)
+    expected_warehouse_arrival_date = Column(DateTime, nullable=True)
     transit_time_days = Column(Integer, nullable=True, default=0)
     free_demurrage_days = Column(Integer, nullable=True, default=14)
     cargo_cutoff_date = Column(DateTime, nullable=True)
@@ -45,10 +52,12 @@ class ShipmentBooking(Base):
     voyage_number = Column(String(50), nullable=True)
     container_release_order_no = Column(String(100), nullable=True)
     freight_terms = Column(String(50), nullable=False, default="Collect")  # Prepaid, Collect
+    container_mismatch_reason = Column(Text, nullable=True)
 
     # Complex JSON Structures
     containers_data = Column(JSON, nullable=True, default=list)
     cost_charges_data = Column(JSON, nullable=True, default=list)
+    quotation_details_data = Column(JSON, nullable=True, default=dict)
 
     # Financials & Status
     total_freight_cost_usd = Column(Float, nullable=False, default=0.0)

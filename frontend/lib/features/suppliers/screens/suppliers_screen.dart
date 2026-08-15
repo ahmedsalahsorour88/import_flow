@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/custom_text_field.dart';
 
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../models/supplier_model.dart';
@@ -379,43 +381,51 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 ),
               ),
 
-              // Actions: Edit, History Log & Switch
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.history, color: AppTheme.charcoal, size: 20),
-                    tooltip: 'View Change History Logs',
-                    onPressed: () {
-                      if (supplier.supplierId != null) {
-                        RowHistoryDialog.show(
-                          context,
-                          entityType: 'Supplier',
-                          entityId: supplier.supplierId!,
-                          entityTitle: supplier.companyName,
-                        );
-                      }
-                    },
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 20),
-                    tooltip: 'Edit Foreign Supplier',
-                    onPressed: () => _showSupplierDialog(context, supplierToEdit: supplier),
-                  ),
-                  Tooltip(
-                    message: isActive ? 'Deactivate Supplier' : 'Reactivate Supplier',
-                    child: Switch(
-                      value: isActive,
-                      activeColor: AppTheme.emerald,
-                      inactiveThumbColor: AppTheme.crimson,
-                      onChanged: (newStatus) {
-                        if (supplier.supplierId != null) {
-                          ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
-                        }
-                      },
+              // Standard 4-Action Row Pill: View, Edit, Print, Delete
+              RowActionsPill(
+                onView: () {
+                  if (supplier.supplierId != null) {
+                    RowHistoryDialog.show(
+                      context,
+                      entityType: 'Supplier',
+                      entityId: supplier.supplierId!,
+                      entityTitle: supplier.companyName,
+                    );
+                  }
+                },
+                onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+                onPrint: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('طباعة بيانات المورد: ${supplier.companyName} (${supplier.supplierCode})'),
+                      backgroundColor: AppTheme.charcoal,
+                      duration: const Duration(seconds: 2),
                     ),
-                  ),
-                ],
+                  );
+                },
+                onDelete: () async {
+                  final confirm = await showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('تأكيد الإجراء'),
+                      content: Text(isActive
+                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل المورد (${supplier.companyName})؟'
+                          : 'هل أنت متأكد من إعادة تفعيل المورد (${supplier.companyName})؟'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                        ElevatedButton(
+                          onPressed: () => Navigator.pop(ctx, true),
+                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                  if (confirm == true && supplier.supplierId != null) {
+                    ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
+                  }
+                },
+                deleteTooltip: isActive ? 'إيقاف تفعيل المورد (Deactivate)' : 'إعادة تفعيل المورد (Activate)',
               ),
             ],
           ),
@@ -762,6 +772,39 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
 
                               String? errorMessage;
                               if (isEditing && supplierToEdit.supplierId != null) {
+                                final List<FieldChangeItem> changes = [];
+                                if (FieldChangeItem.isDifferent(supplierToEdit.companyName, supplier.companyName)) {
+                                  changes.add(FieldChangeItem(fieldName: 'اسم شركة المورد', oldValue: supplierToEdit.companyName, newValue: supplier.companyName));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.supplierType, supplier.supplierType)) {
+                                  changes.add(FieldChangeItem(fieldName: 'نوع المورد', oldValue: supplierToEdit.supplierType, newValue: supplier.supplierType));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.registrationType, supplier.registrationType)) {
+                                  changes.add(FieldChangeItem(fieldName: 'نوع التسجيل', oldValue: supplierToEdit.registrationType, newValue: supplier.registrationType));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterId, supplier.foreignExporterId)) {
+                                  changes.add(FieldChangeItem(fieldName: 'معرف المصدر الأجنبي (CargoX / Exporter ID)', oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterCountry, supplier.foreignExporterCountry)) {
+                                  changes.add(FieldChangeItem(fieldName: 'دولة المورد', oldValue: supplierToEdit.foreignExporterCountry, newValue: supplier.foreignExporterCountry));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.email, supplier.email)) {
+                                  changes.add(FieldChangeItem(fieldName: 'البريد الإلكتروني', oldValue: supplierToEdit.email, newValue: supplier.email));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.phone, supplier.phone)) {
+                                  changes.add(FieldChangeItem(fieldName: 'الهاتف', oldValue: supplierToEdit.phone, newValue: supplier.phone));
+                                }
+
+                                if (changes.isNotEmpty) {
+                                  final confirmed = await showChangeDiffConfirmationDialog(
+                                    context,
+                                    title: 'مراجعة وتأكيد تعديلات المورد الأجنبي',
+                                    itemReference: '${supplierToEdit.supplierCode} (${supplierToEdit.companyName})',
+                                    changes: changes,
+                                  );
+                                  if (!confirmed) return;
+                                }
+
                                 errorMessage = await ref.read(suppliersProvider.notifier).updateSupplier(supplierToEdit.supplierId!, supplier);
                               } else {
                                 errorMessage = await ref.read(suppliersProvider.notifier).createSupplier(supplier);

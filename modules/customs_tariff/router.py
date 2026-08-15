@@ -38,8 +38,12 @@ customs_tariff_router = APIRouter(prefix="/api/v1/customs-tariff", tags=["Custom
 
 
 @customs_tariff_router.get("", response_model=List[CustomsTariffResponse])
-def get_all_tariffs(include_inactive: bool = Query(False), db: Session = Depends(get_db)):
-    return get_all_tariffs_service(db, include_inactive)
+def get_all_tariffs(
+    include_inactive: bool = Query(False),
+    search: Optional[str] = Query(None),
+    db: Session = Depends(get_db),
+):
+    return get_all_tariffs_service(db, include_inactive=include_inactive, search=search)
 
 
 @customs_tariff_router.post("", response_model=CustomsTariffResponse)

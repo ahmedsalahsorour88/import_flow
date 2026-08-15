@@ -48,6 +48,43 @@ class CustomsTariffNotifier
     }
   }
 
+  String _formatDioError(dynamic e, String defaultMsg) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map) {
+        final detail = data['detail'];
+        if (detail is String) return detail;
+        if (detail is List) {
+          final lines = <String>[];
+          for (var item in detail) {
+            if (item is Map) {
+              final loc = (item['loc'] as List?)
+                      ?.where((p) => p.toString() != 'body')
+                      .join(' ➔ ') ??
+                  '';
+              final msg = item['msg']?.toString() ?? item.toString();
+              lines.add(loc.isNotEmpty ? '• $loc: $msg' : '• $msg');
+            } else {
+              lines.add('• ${item.toString()}');
+            }
+          }
+          return 'أخطاء في التحقق من البيانات:\n${lines.join('\n')}';
+        }
+        if (data['message'] != null) return data['message'].toString();
+        return data.toString();
+      }
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.receiveTimeout) {
+        return 'انتهت مهلة الاتصال بالخادم. يرجى التأكد من تشغيل السيرفر.';
+      }
+      if (e.type == DioExceptionType.connectionError) {
+        return 'تعذر الاتصال بخادم الباك إند (127.0.0.1:8000). يرجى التأكد من تشغيل السيرفر.';
+      }
+      return e.message ?? defaultMsg;
+    }
+    return '$defaultMsg\nالتفاصيل: ${e.toString()}';
+  }
+
   Future<String?> createTariff(Map<String, dynamic> data) async {
     try {
       await _dio.post(
@@ -55,13 +92,12 @@ class CustomsTariffNotifier
         data: data,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return null;
     } on DioException catch (e) {
-      return e.response?.data?['detail']?.toString() ??
-          'Failed to create tariff entry.';
-    } catch (_) {
-      return 'An unexpected error occurred.';
+      return _formatDioError(e, 'فشل في إضافة البند الجمركي.');
+    } catch (e) {
+      return 'حدث خطأ أثناء الإضافة:\n$e';
     }
   }
 
@@ -72,13 +108,12 @@ class CustomsTariffNotifier
         data: data,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return null;
     } on DioException catch (e) {
-      return e.response?.data?['detail']?.toString() ??
-          'Failed to update tariff entry.';
-    } catch (_) {
-      return 'An unexpected error occurred.';
+      return _formatDioError(e, 'فشل في تحديث البند الجمركي.');
+    } catch (e) {
+      return 'حدث خطأ أثناء التحديث:\n$e';
     }
   }
 
@@ -90,7 +125,7 @@ class CustomsTariffNotifier
         await _dio.patch('${ApiConstants.baseUrl}/customs-tariff/$tariffId/restore');
       }
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return true;
     } catch (_) {
       return false;
@@ -120,10 +155,9 @@ class CustomsTariffNotifier
       );
       return CustomsDutyBreakdownModel.fromJson(response.data);
     } on DioException catch (e) {
-      throw Exception(
-          e.response?.data?['detail']?.toString() ?? 'Failed to calculate duty.');
+      throw Exception(_formatDioError(e, 'فشل في احتساب الضريبة الجمركية.'));
     } catch (e) {
-      throw Exception('An unexpected error occurred during calculation.');
+      throw Exception('حدث خطأ أثناء الحساب: $e');
     }
   }
 
@@ -135,10 +169,9 @@ class CustomsTariffNotifier
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw Exception(
-          e.response?.data?['detail']?.toString() ?? 'Failed to calculate multi-item duties.');
+      throw Exception(_formatDioError(e, 'فشل في احتساب الرسوم للأصناف المتعددة.'));
     } catch (e) {
-      throw Exception('An unexpected error occurred during calculation.');
+      throw Exception('حدث خطأ أثناء الحساب: $e');
     }
   }
 
@@ -152,12 +185,12 @@ class CustomsTariffNotifier
         data: formData,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw e.response?.data?['detail']?.toString() ?? 'Failed to upload Excel file.';
+      throw _formatDioError(e, 'فشل في رفع ملف الإكسيل.');
     } catch (e) {
-      throw 'An error occurred during file upload: ${e.toString()}';
+      throw 'حدث خطأ أثناء رفع الملف:\n$e';
     }
   }
 
@@ -168,13 +201,12 @@ class CustomsTariffNotifier
         data: data,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return null;
     } on DioException catch (e) {
-      return e.response?.data?['detail']?.toString() ??
-          'Failed to verify/update tariff entry.';
-    } catch (_) {
-      return 'An unexpected error occurred.';
+      return _formatDioError(e, 'فشل في التحقق/تحديث البند الجمركي.');
+    } catch (e) {
+      return 'حدث خطأ أثناء التحقق:\n$e';
     }
   }
 
@@ -196,13 +228,12 @@ class CustomsTariffNotifier
         data: data,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return null;
     } on DioException catch (e) {
-      return e.response?.data?['detail']?.toString() ??
-          'Failed to create preferential trade agreement.';
-    } catch (_) {
-      return 'An unexpected error occurred.';
+      return _formatDioError(e, 'فشل في إضافة الاتفاقية التفضيلية.');
+    } catch (e) {
+      return 'حدث خطأ أثناء إضافة الاتفاقية:\n$e';
     }
   }
 
@@ -214,9 +245,9 @@ class CustomsTariffNotifier
       );
       return response.data as Map<String, dynamic>;
     } on DioException catch (e) {
-      throw e.response?.data?['detail']?.toString() ?? 'فشل في تحليل نص البند الجمركي.';
+      throw _formatDioError(e, 'فشل في تحليل نص البند الجمركي.');
     } catch (e) {
-      throw 'حدث خطأ غير متوقع أثناء تحليل النص.';
+      throw 'حدث خطأ أثناء تحليل النص:\n$e';
     }
   }
 
@@ -227,12 +258,12 @@ class CustomsTariffNotifier
         data: payload,
       );
       ref.invalidate(systemAuditLogsProvider);
-      ref.invalidate(customsTariffProvider);
+      await fetchTariffs();
       return null;
     } on DioException catch (e) {
-      return e.response?.data?['detail']?.toString() ?? 'فشل في حفظ البند الجمركي بالاتفاقيات.';
-    } catch (_) {
-      return 'حدث خطأ غير متوقع أثناء الحفظ.';
+      return _formatDioError(e, 'فشل في حفظ البند الجمركي بالاتفاقيات.');
+    } catch (e) {
+      return 'حدث خطأ أثناء الحفظ:\n$e';
     }
   }
 
@@ -249,6 +280,17 @@ class CustomsTariffNotifier
           'origin_country': originCountry,
           'has_preferential_document': hasPreferentialDocument,
         },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<Map<String, dynamic>?> fetchTariffHistory(String hsCode) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/customs-tariff/history/$hsCode',
       );
       return response.data as Map<String, dynamic>;
     } catch (_) {

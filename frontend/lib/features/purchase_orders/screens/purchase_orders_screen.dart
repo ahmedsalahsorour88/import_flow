@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/change_diff_dialog.dart';
+import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 
 import '../../currencies/models/currency_model.dart';
@@ -122,6 +125,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               ],
             ),
           ),
+
+          // Data Actions Toolbar
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: MasterDataToolbarWidget(
+              moduleEndpoint: 'purchase-orders',
+              title: 'Purchase_Orders',
+              onRefreshNeeded: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
+            ),
+          ),
+
+          const SizedBox(height: 8),
 
           // Filter & Search Bar
           Padding(
@@ -377,15 +392,38 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       ),
                     ),
                     DataCell(
-                      PopupMenuButton<String>(
-                        icon: const Icon(Icons.more_vert, color: AppTheme.charcoal, size: 20),
-                        tooltip: 'Actions',
-                        onSelected: (val) async {
-                          if (val == 'view') {
-                            _showPODetailsDialog(context, po);
-                          } else if (val == 'edit') {
-                            _showPODialog(context, po);
-                          } else if (val == 'delete_restore') {
+                      RowActionsPill(
+                        onView: () => _showPODetailsDialog(context, po),
+                        onEdit: () => _showPODialog(context, po),
+                        onPrint: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('طباعة أمر الشراء وقائمة التعبئة: ${po.poNumber} (${po.proformaInvoiceNumber ?? ""})'),
+                              backgroundColor: AppTheme.charcoal,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        },
+                        onDelete: () async {
+                          final isActive = po.isActive;
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder: (ctx) => AlertDialog(
+                              title: const Text('تأكيد الإجراء'),
+                              content: Text(isActive
+                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل أمر الشراء (${po.poNumber})؟'
+                                  : 'هل أنت متأكد من استعادة أمر الشراء (${po.poNumber})؟'),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                ElevatedButton(
+                                  onPressed: () => Navigator.pop(ctx, true),
+                                  style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                  child: Text(isActive ? 'إيقاف التفعيل' : 'استعادة', style: const TextStyle(color: Colors.white)),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (confirm == true) {
                             if (po.isActive) {
                               await ref.read(purchaseOrdersProvider.notifier).deletePurchaseOrder(po.poId!);
                             } else {
@@ -393,42 +431,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                             }
                           }
                         },
-                        itemBuilder: (ctx) => [
-                          const PopupMenuItem(
-                            value: 'view',
-                            child: Row(
-                              children: [
-                                Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
-                                SizedBox(width: 8),
-                                Text('View Details & Packing List (BP-003)'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'edit',
-                            child: Row(
-                              children: [
-                                Icon(Icons.edit, color: AppTheme.orange, size: 18),
-                                SizedBox(width: 8),
-                                Text('Edit PO & Packing List'),
-                              ],
-                            ),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete_restore',
-                            child: Row(
-                              children: [
-                                Icon(
-                                  po.isActive ? Icons.delete_outline : Icons.restore,
-                                  color: po.isActive ? AppTheme.crimson : AppTheme.emerald,
-                                  size: 18,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(po.isActive ? 'Deactivate' : 'Restore'),
-                              ],
-                            ),
-                          ),
-                        ],
+                        deleteTooltip: po.isActive ? 'إيقاف تفعيل أمر الشراء (Deactivate)' : 'استعادة أمر الشراء (Restore)',
                       ),
                     ),
                   ],
@@ -442,6 +445,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   void _showPODetailsDialog(BuildContext context, PurchaseOrderModel po) {
+    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final reconciliation = _evaluateReconciliation(
+      invoiceItems: po.items,
+      packingItems: po.packingListItems,
+      tariffs: tariffs,
+    );
+
     // Group packing list items by HS Code for the HS Summary Report
     final Map<String, Map<String, dynamic>> hsSummaryMap = {};
     for (final p in po.packingListItems) {
@@ -458,8 +468,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       }
       hsSummaryMap[hs]!['qty_pcs'] += p.qtyPcs;
       hsSummaryMap[hs]!['qty_pkg'] += p.qtyPkg;
-      hsSummaryMap[hs]!['total_net'] += p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPcs * p.netWeightUnitKg);
-      hsSummaryMap[hs]!['total_gross'] += p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPcs * p.grossWeightUnitKg);
+      hsSummaryMap[hs]!['total_net'] += p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg);
+      hsSummaryMap[hs]!['total_gross'] += p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg);
       hsSummaryMap[hs]!['total_cbm'] += p.totalCbm;
     }
 
@@ -599,8 +609,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                             ),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('${itemCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange))),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Text(
+                                                '\$${item.totalPrice.toStringAsFixed(2)}',
+                                                style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                              ),
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.all(6),
+                                              child: Text(
+                                                '${itemCbm.toStringAsFixed(3)} m³',
+                                                style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
                                           ],
                                         );
                                       },
@@ -618,6 +640,71 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // Reconciliation & Discrepancy Status Banner
+                            if (po.packingListItems.isNotEmpty) ...[
+                              if (reconciliation.hasDiscrepancy)
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.amber.shade400),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 18),
+                                          SizedBox(width: 6),
+                                          Text(
+                                            'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية',
+                                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ...reconciliation.discrepancySummaryList.map(
+                                        (d) => Padding(
+                                          padding: const EdgeInsets.only(top: 2, left: 24),
+                                          child: Text('• $d', style: const TextStyle(fontSize: 11, color: Colors.brown)),
+                                        ),
+                                      ),
+                                      if (po.notes != null && po.notes!.contains('[مبررات اختلاف الفاتورة والباكينج]')) ...[
+                                        const Divider(height: 14),
+                                        Text(
+                                          'المبرر المعتمد: ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                )
+                              else
+                                Container(
+                                  width: double.infinity,
+                                  padding: const EdgeInsets.all(10),
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.green.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(color: Colors.green.shade300),
+                                  ),
+                                  child: const Row(
+                                    children: [
+                                      Icon(Icons.verified_outlined, color: Colors.green, size: 18),
+                                      SizedBox(width: 6),
+                                      Text(
+                                        'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.',
+                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+
                             // Validation Status Banner
                             if (validationErrors.isNotEmpty)
                               Container(
@@ -701,8 +788,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                         Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPcs * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPcs * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                         Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
                                       ],
                                     ),
@@ -788,6 +875,462 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => _PODialogWidget(po: po),
+    );
+  }
+}
+
+// ==================================================
+// PO & Packing List Reconciliation Helper & Dialog
+// ==================================================
+
+class POReconciliationItem {
+  final String hsCode;
+  final double invoiceQty;
+  final double packingQty;
+  final double difference; // packingQty - invoiceQty
+  final bool isMatched;
+  final bool isMissingInPacking;
+  final bool isMissingInInvoice;
+
+  POReconciliationItem({
+    required this.hsCode,
+    required this.invoiceQty,
+    required this.packingQty,
+    required this.difference,
+    required this.isMatched,
+    this.isMissingInPacking = false,
+    this.isMissingInInvoice = false,
+  });
+}
+
+class POReconciliationReport {
+  final bool hasDiscrepancy;
+  final double totalInvoiceQty;
+  final double totalPackingQty;
+  final double totalDifference;
+  final List<POReconciliationItem> items;
+  final List<String> discrepancySummaryList;
+
+  POReconciliationReport({
+    required this.hasDiscrepancy,
+    required this.totalInvoiceQty,
+    required this.totalPackingQty,
+    required this.totalDifference,
+    required this.items,
+    required this.discrepancySummaryList,
+  });
+}
+
+POReconciliationReport _evaluateReconciliation({
+  required List<POLineItemModel> invoiceItems,
+  required List<PackingListItemModel> packingItems,
+  required List<CustomsTariffModel> tariffs,
+}) {
+  if (packingItems.isEmpty) {
+    return POReconciliationReport(
+      hasDiscrepancy: false,
+      totalInvoiceQty: invoiceItems.fold(0.0, (s, i) => s + i.quantity),
+      totalPackingQty: 0.0,
+      totalDifference: 0.0,
+      items: [],
+      discrepancySummaryList: [],
+    );
+  }
+
+  final Map<String, double> invoiceHsMap = {};
+  double totalInv = 0.0;
+  for (final item in invoiceItems) {
+    totalInv += item.quantity;
+    String hs = 'بدون بند جمركي (Unassigned)';
+    if (item.tariffId != null) {
+      final match = tariffs.cast<CustomsTariffModel?>().firstWhere(
+        (t) => t?.tariffId == item.tariffId,
+        orElse: () => null,
+      );
+      if (match != null && match.hsCode.isNotEmpty) {
+        hs = match.hsCode;
+      }
+    } else if (item.hsCode != null && item.hsCode!.isNotEmpty) {
+      hs = item.hsCode!;
+    }
+    invoiceHsMap[hs] = (invoiceHsMap[hs] ?? 0.0) + item.quantity;
+  }
+
+  final Map<String, double> packingHsMap = {};
+  double totalPkg = 0.0;
+  for (final p in packingItems) {
+    totalPkg += p.qtyPcs;
+    final hs = p.hsCode.isNotEmpty ? p.hsCode : 'بدون بند جمركي (Unassigned)';
+    packingHsMap[hs] = (packingHsMap[hs] ?? 0.0) + p.qtyPcs;
+  }
+
+  final Set<String> allHs = {...invoiceHsMap.keys, ...packingHsMap.keys};
+  final List<POReconciliationItem> items = [];
+  final List<String> warnings = [];
+  bool hasDiscrepancy = false;
+
+  for (final hs in allHs) {
+    final invQty = invoiceHsMap[hs] ?? 0.0;
+    final pkgQty = packingHsMap[hs] ?? 0.0;
+    final diff = pkgQty - invQty;
+    final matched = (diff.abs() < 0.001);
+
+    final isMissingInPkg = (invQty > 0 && pkgQty == 0);
+    final isMissingInInv = (pkgQty > 0 && invQty == 0);
+
+    if (isMissingInPkg) {
+      hasDiscrepancy = true;
+      warnings.add('البند الجمركي $hs موجود بالفاتورة (كمية: $invQty) وغير موجود ببيان التعبئة');
+    } else if (isMissingInInv) {
+      hasDiscrepancy = true;
+      warnings.add('البند الجمركي $hs موجود ببيان التعبئة (كمية: $pkgQty) وغير موجود بالفاتورة');
+    } else if (!matched) {
+      hasDiscrepancy = true;
+      warnings.add('البند الجمركي $hs: كمية الفاتورة ($invQty) تختلف عن كمية الباكينج ($pkgQty) بفارق ($diff)');
+    }
+
+    items.add(
+      POReconciliationItem(
+        hsCode: hs,
+        invoiceQty: invQty,
+        packingQty: pkgQty,
+        difference: diff,
+        isMatched: matched,
+        isMissingInPacking: isMissingInPkg,
+        isMissingInInvoice: isMissingInInv,
+      ),
+    );
+  }
+
+  final totalDiff = totalPkg - totalInv;
+  if (totalDiff.abs() > 0.001) {
+    hasDiscrepancy = true;
+    warnings.add('إجمالي عدد القطع: الفاتورة ($totalInv) والباكينج ($totalPkg) بفارق ($totalDiff)');
+  }
+
+  return POReconciliationReport(
+    hasDiscrepancy: hasDiscrepancy,
+    totalInvoiceQty: totalInv,
+    totalPackingQty: totalPkg,
+    totalDifference: totalDiff,
+    items: items,
+    discrepancySummaryList: warnings,
+  );
+}
+
+class _ReconciliationWarningDialog extends StatefulWidget {
+  final POReconciliationReport report;
+
+  const _ReconciliationWarningDialog({required this.report});
+
+  @override
+  State<_ReconciliationWarningDialog> createState() => _ReconciliationWarningDialogState();
+}
+
+class _ReconciliationWarningDialogState extends State<_ReconciliationWarningDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _reasonCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _reasonCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final report = widget.report;
+
+    return AlertDialog(
+      titlePadding: EdgeInsets.zero,
+      title: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.amber.shade800,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+            SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'تنبيه: عدم تطابق بين الفاتورة المبدئية وبيان التعبئة',
+                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    'Packing List & Commercial Invoice Discrepancy Alert',
+                    style: TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      content: SizedBox(
+        width: 750,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Summary Cards
+              Row(
+                children: [
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.blue.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('إجمالي قطع الفاتورة', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text('${report.totalInvoiceQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('إجمالي قطع الباكينج', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text('${report.totalPackingQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: report.totalDifference != 0 ? Colors.red.shade50 : Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: report.totalDifference != 0 ? Colors.red.shade300 : Colors.green.shade300),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text('فارق الكمية الكلي', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${report.totalDifference > 0 ? "+" : ""}${report.totalDifference.toStringAsFixed(1)} PCS',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: report.totalDifference != 0 ? Colors.red.shade700 : Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+
+              const Text(
+                'جدول المقارنة التفصيلي حسب البند الجمركي (HS Code Breakdown):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              ),
+              const SizedBox(height: 8),
+
+              Table(
+                border: TableBorder.all(color: Colors.grey.shade300),
+                columnWidths: const {
+                  0: FlexColumnWidth(2.5),
+                  1: FlexColumnWidth(1.2),
+                  2: FlexColumnWidth(1.2),
+                  3: FlexColumnWidth(1.2),
+                  4: FlexColumnWidth(2.0),
+                },
+                children: [
+                  const TableRow(
+                    decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                    children: [
+                      Padding(padding: EdgeInsets.all(8), child: Text('البند الجمركي (HS Code)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('الفاتورة (Qty)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('الباكينج (Qty)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('الفارق (Diff)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: EdgeInsets.all(8), child: Text('الحالة (Status)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                    ],
+                  ),
+                  ...report.items.map((item) {
+                    Color rowBg = Colors.white;
+                    Color statusColor = Colors.green;
+                    String statusText = 'متطابق (Matched)';
+
+                    if (item.isMissingInPacking) {
+                      rowBg = Colors.red.shade50.withOpacity(0.5);
+                      statusColor = Colors.red.shade700;
+                      statusText = 'غير موجود بالباكينج';
+                    } else if (item.isMissingInInvoice) {
+                      rowBg = Colors.amber.shade50.withOpacity(0.5);
+                      statusColor = Colors.amber.shade900;
+                      statusText = 'غير موجود بالفاتورة';
+                    } else if (!item.isMatched) {
+                      rowBg = Colors.orange.shade50.withOpacity(0.5);
+                      statusColor = Colors.deepOrange;
+                      statusText = 'اختلاف بالكمية';
+                    }
+
+                    return TableRow(
+                      decoration: BoxDecoration(color: rowBg),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            item.hsCode,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text('${item.invoiceQty}', style: const TextStyle(fontSize: 12)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text('${item.packingQty}', style: const TextStyle(fontSize: 12)),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Text(
+                            '${item.difference > 0 ? "+" : ""}${item.difference}',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: item.difference != 0 ? Colors.red.shade700 : Colors.green,
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: statusColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: statusColor.withOpacity(0.4)),
+                            ),
+                            child: Text(
+                              statusText,
+                              style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                      ],
+                    );
+                  }),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Discrepancy Bullet points
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.amber.shade300),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.brown, size: 16),
+                        SizedBox(width: 6),
+                        Text('أسباب عدم التطابق المرصودة:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown, fontSize: 12)),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    ...report.discrepancySummaryList.map(
+                      (msg) => Padding(
+                        padding: const EdgeInsets.only(top: 2, left: 16),
+                        child: Text('• $msg', style: const TextStyle(fontSize: 11, color: Colors.brown)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
+              // Mandatory Justification Form
+              Form(
+                key: _formKey,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'لإتمام الحفظ، يجب توضيح سبب الاستمرار وتبرير الفروقات:',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red),
+                    ),
+                    const SizedBox(height: 6),
+                    TextFormField(
+                      controller: _reasonCtrl,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        labelText: 'سبب الاستمرار وتبرير الاختلاف (Discrepancy Justification Reason) *',
+                        hintText: 'مثال: كل قطعة بالفاتورة تتكون من كرتونتين مكملتين في بيان التعبئة، أو شحنة مجزأة...',
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.amber.shade800, width: 2)),
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'يجب إدخال سبب وتبرير استمرار الحفظ رغم وجود الاختلاف.';
+                        }
+                        if (val.trim().length < 5) {
+                          return 'الرجاء إدخال تبرير واضح ومفصل (5 أحرف على الأقل).';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('الرجوع للتعديل (Back to Edit)'),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
+          onPressed: () => Navigator.pop(context, null),
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.check_circle_outline, size: 16),
+          label: const Text('الاستمرار وحفظ أمر الشراء (Continue & Save)'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber.shade800,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context, _reasonCtrl.text.trim());
+            }
+          },
+        ),
+      ],
     );
   }
 }
@@ -1679,20 +2222,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                         final picked = await _showHsCodeSearchPicker(context, tariffs);
                                                         if (picked != null) {
                                                           setState(() {
-                                                            _dialogPackingItems[idx] = PackingListItemModel(
-                                                              hsCode: picked.hsCode,
-                                                              itemCode: p.itemCode,
-                                                              qtyPcs: p.qtyPcs,
-                                                              qtyPkg: p.qtyPkg,
-                                                              packageType: p.packageType,
-                                                              unit: p.unit,
-                                                              lengthCm: p.lengthCm,
-                                                              widthCm: p.widthCm,
-                                                              heightCm: p.heightCm,
-                                                              netWeightUnitKg: p.netWeightUnitKg,
-                                                              grossWeightUnitKg: p.grossWeightUnitKg,
-                                                              isStackable: p.isStackable,
-                                                            );
+                                                            _dialogPackingItems[idx] = p.copyWith(hsCode: picked.hsCode);
                                                           });
                                                         }
                                                       },
@@ -1716,19 +2246,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       initialValue: p.itemCode,
                                                       decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                                      onChanged: (v) => _dialogPackingItems[idx] = PackingListItemModel(
-                                                        hsCode: p.hsCode,
-                                                        itemCode: v,
-                                                        qtyPcs: p.qtyPcs,
-                                                        qtyPkg: p.qtyPkg,
-                                                        packageType: p.packageType,
-                                                        unit: p.unit,
-                                                        lengthCm: p.lengthCm,
-                                                        widthCm: p.widthCm,
-                                                        heightCm: p.heightCm,
-                                                        netWeightUnitKg: p.netWeightUnitKg,
-                                                        grossWeightUnitKg: p.grossWeightUnitKg,
-                                                      ),
+                                                      onChanged: (v) => _dialogPackingItems[idx] = p.copyWith(itemCode: v),
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -1740,19 +2258,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                           .map((t) => SearchableDropdownItem(value: t, label: t))
                                                           .toList(),
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: v ?? 'Carton',
-                                                          unit: p.unit,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        _dialogPackingItems[idx] = p.copyWith(packageType: v ?? 'Carton');
                                                       }),
                                                     ),
                                                   ),
@@ -1776,19 +2282,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                          SearchableDropdownItem(value: 'm', label: 'm'),
                                                       ],
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          unit: v ?? 'cm',
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                        );
+                                                        _dialogPackingItems[idx] = p.copyWith(unit: v ?? 'cm');
                                                       }),
                                                     ),
                                                   ),
@@ -1801,19 +2295,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: q,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(qtyPcs: q);
                                                         });
                                                       },
                                                     ),
@@ -1827,19 +2309,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: q,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(qtyPkg: q);
                                                         });
                                                       },
                                                     ),
@@ -1853,19 +2323,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final l = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: l,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(lengthCm: l);
                                                         });
                                                       },
                                                     ),
@@ -1879,19 +2337,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final w = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: w,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(widthCm: w);
                                                         });
                                                       },
                                                     ),
@@ -1905,20 +2351,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final h = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: h,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                            isStackable: p.isStackable,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(heightCm: h);
                                                         });
                                                       },
                                                     ),
@@ -1936,20 +2369,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final nw = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: nw,
-                                                            grossWeightUnitKg: p.grossWeightUnitKg,
-                                                            isStackable: p.isStackable,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(netWeightUnitKg: nw);
                                                         });
                                                       },
                                                     ),
@@ -1963,20 +2383,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final gw = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = PackingListItemModel(
-                                                            hsCode: p.hsCode,
-                                                            itemCode: p.itemCode,
-                                                            qtyPcs: p.qtyPcs,
-                                                            qtyPkg: p.qtyPkg,
-                                                            packageType: p.packageType,
-                                                            unit: p.unit,
-                                                            lengthCm: p.lengthCm,
-                                                            widthCm: p.widthCm,
-                                                            heightCm: p.heightCm,
-                                                            netWeightUnitKg: p.netWeightUnitKg,
-                                                            grossWeightUnitKg: gw,
-                                                            isStackable: p.isStackable,
-                                                          );
+                                                          _dialogPackingItems[idx] = p.copyWith(grossWeightUnitKg: gw);
                                                         });
                                                       },
                                                     ),
@@ -1991,20 +2398,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                         SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص'),
                                                       ],
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = PackingListItemModel(
-                                                          hsCode: p.hsCode,
-                                                          itemCode: p.itemCode,
-                                                          qtyPcs: p.qtyPcs,
-                                                          qtyPkg: p.qtyPkg,
-                                                          packageType: p.packageType,
-                                                          unit: p.unit,
-                                                          lengthCm: p.lengthCm,
-                                                          widthCm: p.widthCm,
-                                                          heightCm: p.heightCm,
-                                                          netWeightUnitKg: p.netWeightUnitKg,
-                                                          grossWeightUnitKg: p.grossWeightUnitKg,
-                                                          isStackable: v ?? true,
-                                                        );
+                                                        _dialogPackingItems[idx] = p.copyWith(isStackable: v ?? true);
                                                       }),
                                                     ),
                                                   ),
@@ -2030,7 +2424,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                           Column(
                                                             children: [
                                                               const Text('Total Gross Wt', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                              Text('${(p.qtyPcs * p.grossWeightUnitKg).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
+                                                              Text('${(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                           Column(
@@ -2102,9 +2496,38 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                       return;
                     }
 
-                    setState(() => _isSubmitting = true);
                     final messenger = ScaffoldMessenger.of(context);
+                    final tariffs = ref.read(customsTariffProvider).value ?? [];
+                    final reconciliation = _evaluateReconciliation(
+                      invoiceItems: _dialogItems,
+                      packingItems: _dialogPackingItems,
+                      tariffs: tariffs,
+                    );
+
+                    String? discrepancyJustification;
+                    if (reconciliation.hasDiscrepancy) {
+                      discrepancyJustification = await showDialog<String?>(
+                        context: context,
+                        barrierDismissible: false,
+                        builder: (ctx) => _ReconciliationWarningDialog(report: reconciliation),
+                      );
+
+                      // User chose "الرجوع للتعديل" (Back to Edit)
+                      if (discrepancyJustification == null || !mounted) {
+                        return;
+                      }
+                    }
+
+                    if (!mounted) return;
+                    setState(() => _isSubmitting = true);
                     final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+
+                    // Build final notes with justification if provided
+                    String? effectiveNotes = _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim();
+                    if (discrepancyJustification != null && discrepancyJustification.isNotEmpty) {
+                      final header = '[مبررات اختلاف الفاتورة والباكينج]: $discrepancyJustification';
+                      effectiveNotes = effectiveNotes == null ? header : '$effectiveNotes\n$header';
+                    }
 
                     if (widget.po == null) {
                       final newPO = PurchaseOrderModel(
@@ -2120,7 +2543,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         exchangeRate: rate,
                         paymentTerms: _selectedPaymentTerms,
                         status: _selectedStatus,
-                        notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+                        notes: effectiveNotes,
                         items: _dialogItems,
                         packingListItems: _dialogPackingItems,
                       );
@@ -2143,6 +2566,219 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         if (context.mounted) Navigator.pop(context);
                       }
                     } else {
+                      final oldPO = widget.po!;
+                      final List<FieldChangeItem> changes = [];
+
+                      // 1. Header changes
+                      final newPi = _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim();
+                      if (FieldChangeItem.isDifferent(oldPO.proformaInvoiceNumber, newPi)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'رقم الفاتورة المبدئية (PI Number)',
+                          oldValue: oldPO.proformaInvoiceNumber,
+                          newValue: newPi,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.projectId, _selectedProjectId)) {
+                        final oldProj = projects.where((p) => p.projectId == oldPO.projectId).firstOrNull?.projectName ?? '${oldPO.projectId}';
+                        final newProj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull?.projectName ?? '$_selectedProjectId';
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'المشروع الاستيرادي',
+                          oldValue: oldProj,
+                          newValue: newProj,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.companyId, _selectedCompanyId)) {
+                        final oldComp = companies.where((c) => c.companyId == oldPO.companyId).firstOrNull?.importerName ?? '${oldPO.companyId}';
+                        final newComp = companies.where((c) => c.companyId == _selectedCompanyId).firstOrNull?.importerName ?? '$_selectedCompanyId';
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'الشركة المستوردة',
+                          oldValue: oldComp,
+                          newValue: newComp,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.supplierId, _selectedSupplierId)) {
+                        final oldSupp = suppliers.where((s) => s.supplierId == oldPO.supplierId).firstOrNull?.companyName ?? '${oldPO.supplierId}';
+                        final newSupp = suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull?.companyName ?? '$_selectedSupplierId';
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'المورد الأجنبي',
+                          oldValue: oldSupp,
+                          newValue: newSupp,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.incotermId, _selectedIncotermId)) {
+                        final oldInco = incoterms.where((i) => i.incotermId == oldPO.incotermId).firstOrNull?.incotermCode ?? '${oldPO.incotermId}';
+                        final newInco = incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull?.incotermCode ?? '$_selectedIncotermId';
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'شرط الشحن (Incoterm)',
+                          oldValue: oldInco,
+                          newValue: newInco,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.currencyId, _selectedCurrencyId)) {
+                        final oldCurr = currencies.where((c) => c.currencyId == oldPO.currencyId).firstOrNull?.currencyCode ?? '${oldPO.currencyId}';
+                        final newCurr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull?.currencyCode ?? '$_selectedCurrencyId';
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'عملة أمر الشراء',
+                          oldValue: oldCurr,
+                          newValue: newCurr,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.exchangeRate, rate)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'سعر الصرف',
+                          oldValue: oldPO.exchangeRate,
+                          newValue: rate,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.paymentTerms, _selectedPaymentTerms)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'شروط السداد والدفع',
+                          oldValue: oldPO.paymentTerms,
+                          newValue: _selectedPaymentTerms,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.status, _selectedStatus)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'حالة أمر الشراء',
+                          oldValue: oldPO.status,
+                          newValue: _selectedStatus,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.notes, effectiveNotes)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'الملاحظات',
+                          oldValue: oldPO.notes,
+                          newValue: effectiveNotes,
+                        ));
+                      }
+
+                      // 2. Line Items
+                      if (oldPO.items.length != _dialogItems.length) {
+                        changes.add(FieldChangeItem(
+                          section: 'بنود الفاتورة المبدئية',
+                          fieldName: 'عدد بنود الفاتورة',
+                          oldValue: '${oldPO.items.length} بند',
+                          newValue: '${_dialogItems.length} بند',
+                        ));
+                      } else {
+                        for (int i = 0; i < _dialogItems.length; i++) {
+                          final o = oldPO.items[i];
+                          final n = _dialogItems[i];
+                          if (FieldChangeItem.isDifferent(o.descriptionAr, n.descriptionAr)) {
+                            changes.add(FieldChangeItem(
+                              section: 'بنود الفاتورة المبدئية',
+                              fieldName: 'بند #${i + 1} - الوصف العربي',
+                              oldValue: o.descriptionAr,
+                              newValue: n.descriptionAr,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.quantity, n.quantity)) {
+                            changes.add(FieldChangeItem(
+                              section: 'بنود الفاتورة المبدئية',
+                              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - الكمية',
+                              oldValue: o.quantity,
+                              newValue: n.quantity,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.unitPrice, n.unitPrice)) {
+                            changes.add(FieldChangeItem(
+                              section: 'بنود الفاتورة المبدئية',
+                              fieldName: 'بند #${i + 1} (${n.itemCode ?? ""}) - سعر الوحدة',
+                              oldValue: o.unitPrice,
+                              newValue: n.unitPrice,
+                            ));
+                          }
+                        }
+                      }
+
+                      // 3. Packing List Items
+                      if (oldPO.packingListItems.length != _dialogPackingItems.length) {
+                        changes.add(FieldChangeItem(
+                          section: 'قائمة التعبئة (Packing List)',
+                          fieldName: 'عدد طرود قائمة التعبئة',
+                          oldValue: '${oldPO.packingListItems.length} طرد',
+                          newValue: '${_dialogPackingItems.length} طرد',
+                        ));
+                      } else {
+                        for (int i = 0; i < _dialogPackingItems.length; i++) {
+                          final o = oldPO.packingListItems[i];
+                          final n = _dialogPackingItems[i];
+                          if (FieldChangeItem.isDifferent(o.itemCode, n.itemCode)) {
+                            changes.add(FieldChangeItem(
+                              section: 'قائمة التعبئة (Packing List)',
+                              fieldName: 'طرد #${i + 1} - كود البند',
+                              oldValue: o.itemCode,
+                              newValue: n.itemCode,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.packageType, n.packageType)) {
+                            changes.add(FieldChangeItem(
+                              section: 'قائمة التعبئة (Packing List)',
+                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - نوع الطرد',
+                              oldValue: o.packageType,
+                              newValue: n.packageType,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.qtyPkg, n.qtyPkg)) {
+                            changes.add(FieldChangeItem(
+                              section: 'قائمة التعبئة (Packing List)',
+                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - عدد الطرود',
+                              oldValue: o.qtyPkg,
+                              newValue: n.qtyPkg,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.grossWeightUnitKg, n.grossWeightUnitKg)) {
+                            changes.add(FieldChangeItem(
+                              section: 'قائمة التعبئة (Packing List)',
+                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - وزن الطرد (kg)',
+                              oldValue: o.grossWeightUnitKg,
+                              newValue: n.grossWeightUnitKg,
+                            ));
+                          }
+                          if (FieldChangeItem.isDifferent(o.isStackable, n.isStackable)) {
+                            changes.add(FieldChangeItem(
+                              section: 'قائمة التعبئة (Packing List)',
+                              fieldName: 'طرد #${i + 1} (${n.itemCode}) - تعليمات الرص',
+                              oldValue: o.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
+                              newValue: n.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص',
+                            ));
+                          }
+                        }
+                      }
+
+                      if (changes.isNotEmpty) {
+                        if (!context.mounted) return;
+                        final confirmed = await showChangeDiffConfirmationDialog(
+                          context,
+                          title: 'مراجعة وتأكيد تعديلات أمر الشراء',
+                          itemReference: oldPO.poNumber,
+                          changes: changes,
+                        );
+                        if (!confirmed) {
+                          if (mounted) setState(() => _isSubmitting = false);
+                          return;
+                        }
+                      }
+
                       final updateData = {
                         'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
                         'import_file_id': _selectedImportFileId,
@@ -2155,7 +2791,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         'exchange_rate': rate,
                         'payment_terms': _selectedPaymentTerms,
                         'status': _selectedStatus,
-                        'notes': _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+                        'notes': effectiveNotes,
                         'items': _dialogItems.map((i) => i.toJson()).toList(),
                         'packing_list_items': _dialogPackingItems.map((i) => i.toJson()).toList(),
                       };

@@ -273,12 +273,12 @@ def get_operational_dashboard_data(
     from modules.external_service_providers.model import ExternalServiceProvider
     ext_brokers = db.query(ExternalServiceProvider).filter(
         ExternalServiceProvider.is_active == True,
-        ExternalServiceProvider.provider_type == "Customs Broker",
+        ExternalServiceProvider.partner_type == "Customs Broker",
     ).all()
 
     broker_dict = {}
     for p in ext_brokers:
-        broker_dict[p.provider_name] = p.provider_id
+        broker_dict[p.partner_name] = p.provider_id
     for b_id, b_name in brokers_query:
         if b_name and b_name not in broker_dict:
             broker_dict[b_name] = b_id

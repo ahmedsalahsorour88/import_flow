@@ -46,7 +46,7 @@ class IncotermsNotifier
   Future<String?> createIncoterm(Map<String, dynamic> data) async {
     try {
       await _dio.post('${ApiConstants.baseUrl}/incoterms', data: data);
-      ref.invalidate(incotermsProvider);
+      await fetchIncoterms();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -59,7 +59,7 @@ class IncotermsNotifier
   Future<String?> updateIncoterm(int id, Map<String, dynamic> data) async {
     try {
       await _dio.put('${ApiConstants.baseUrl}/incoterms/$id', data: data);
-      ref.invalidate(incotermsProvider);
+      await fetchIncoterms();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -76,7 +76,7 @@ class IncotermsNotifier
       } else {
         await _dio.patch('${ApiConstants.baseUrl}/incoterms/$id/restore');
       }
-      ref.invalidate(incotermsProvider);
+      await fetchIncoterms();
       return true;
     } catch (_) {
       return false;
@@ -127,7 +127,7 @@ class CostItemsNotifier
   Future<String?> createCostItem(Map<String, dynamic> data) async {
     try {
       await _dio.post('${ApiConstants.baseUrl}/cost-items', data: data);
-      ref.invalidate(costItemsProvider);
+      await fetchCostItems();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -140,7 +140,7 @@ class CostItemsNotifier
   Future<String?> updateCostItem(int id, Map<String, dynamic> data) async {
     try {
       await _dio.put('${ApiConstants.baseUrl}/cost-items/$id', data: data);
-      ref.invalidate(costItemsProvider);
+      await fetchCostItems();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -157,7 +157,7 @@ class CostItemsNotifier
       } else {
         await _dio.patch('${ApiConstants.baseUrl}/cost-items/$id/restore');
       }
-      ref.invalidate(costItemsProvider);
+      await fetchCostItems();
       return true;
     } catch (_) {
       return false;
@@ -218,7 +218,7 @@ class ResponsibilityMatrixNotifier
     try {
       await _dio.post('${ApiConstants.baseUrl}/incoterm-responsibilities',
           data: data);
-      ref.invalidate(responsibilityMatrixProvider);
+      await fetchAll();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -234,7 +234,7 @@ class ResponsibilityMatrixNotifier
       await _dio.put(
           '${ApiConstants.baseUrl}/incoterm-responsibilities/$id',
           data: data);
-      ref.invalidate(responsibilityMatrixProvider);
+      await fetchAll();
       return null;
     } on DioException catch (e) {
       return e.response?.data?['detail']?.toString() ??
@@ -248,7 +248,7 @@ class ResponsibilityMatrixNotifier
     try {
       await _dio
           .delete('${ApiConstants.baseUrl}/incoterm-responsibilities/$id');
-      ref.invalidate(responsibilityMatrixProvider);
+      await fetchAll();
       return true;
     } catch (_) {
       return false;

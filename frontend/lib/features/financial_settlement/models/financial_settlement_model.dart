@@ -201,3 +201,102 @@ class LandedCostSettlementModel {
     };
   }
 }
+
+class OdooJournalLineItemModel {
+  final String accountCode;
+  final String accountName;
+  final String partnerName;
+  final String label;
+  final double debit;
+  final double credit;
+  final String currency;
+  final double? amountCurrency;
+  final String? analyticAccount;
+  final String costCategory;
+
+  OdooJournalLineItemModel({
+    required this.accountCode,
+    required this.accountName,
+    required this.partnerName,
+    required this.label,
+    this.debit = 0.0,
+    this.credit = 0.0,
+    this.currency = 'EGP',
+    this.amountCurrency,
+    this.analyticAccount,
+    this.costCategory = 'Goods',
+  });
+
+  factory OdooJournalLineItemModel.fromJson(Map<String, dynamic> json) {
+    return OdooJournalLineItemModel(
+      accountCode: json['account_code'] ?? '',
+      accountName: json['account_name'] ?? '',
+      partnerName: json['partner_name'] ?? '',
+      label: json['label'] ?? '',
+      debit: (json['debit'] as num?)?.toDouble() ?? 0.0,
+      credit: (json['credit'] as num?)?.toDouble() ?? 0.0,
+      currency: json['currency'] ?? 'EGP',
+      amountCurrency: (json['amount_currency'] as num?)?.toDouble(),
+      analyticAccount: json['analytic_account'],
+      costCategory: json['cost_category'] ?? 'Goods',
+    );
+  }
+}
+
+class OdooJournalEntryModel {
+  final int settlementId;
+  final String settlementCode;
+  final String importFileCode;
+  final String companyName;
+  final String supplierName;
+  final String? projectName;
+  final String entryDate;
+  final String journalName;
+  final String reference;
+  final double totalDebit;
+  final double totalCredit;
+  final bool isBalanced;
+  final double difference;
+  final List<OdooJournalLineItemModel> lines;
+  final List<dynamic> itemsBreakdown;
+
+  OdooJournalEntryModel({
+    required this.settlementId,
+    required this.settlementCode,
+    required this.importFileCode,
+    required this.companyName,
+    required this.supplierName,
+    this.projectName,
+    required this.entryDate,
+    required this.journalName,
+    required this.reference,
+    required this.totalDebit,
+    required this.totalCredit,
+    required this.isBalanced,
+    this.difference = 0.0,
+    this.lines = const [],
+    this.itemsBreakdown = const [],
+  });
+
+  factory OdooJournalEntryModel.fromJson(Map<String, dynamic> json) {
+    var rawLines = json['lines'] as List<dynamic>? ?? [];
+    return OdooJournalEntryModel(
+      settlementId: json['settlement_id'] ?? 0,
+      settlementCode: json['settlement_code'] ?? '',
+      importFileCode: json['import_file_code'] ?? '',
+      companyName: json['company_name'] ?? '',
+      supplierName: json['supplier_name'] ?? '',
+      projectName: json['project_name'],
+      entryDate: json['entry_date'] ?? '',
+      journalName: json['journal_name'] ?? 'Miscellaneous Operations',
+      reference: json['reference'] ?? '',
+      totalDebit: (json['total_debit'] as num?)?.toDouble() ?? 0.0,
+      totalCredit: (json['total_credit'] as num?)?.toDouble() ?? 0.0,
+      isBalanced: json['is_balanced'] ?? false,
+      difference: (json['difference'] as num?)?.toDouble() ?? 0.0,
+      lines: rawLines.map((l) => OdooJournalLineItemModel.fromJson(l)).toList(),
+      itemsBreakdown: json['items_breakdown'] as List<dynamic>? ?? [],
+    );
+  }
+}
+

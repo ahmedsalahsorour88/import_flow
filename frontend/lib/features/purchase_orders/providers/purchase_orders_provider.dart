@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../import_files/providers/import_files_provider.dart';
+import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../models/purchase_order_model.dart';
 
 class PurchaseOrdersState {
@@ -46,8 +48,9 @@ class PurchaseOrdersState {
 
 class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
   final Dio _dio;
+  final Ref _ref;
 
-  PurchaseOrdersNotifier(this._dio) : super(PurchaseOrdersState()) {
+  PurchaseOrdersNotifier(this._dio, this._ref) : super(PurchaseOrdersState()) {
     fetchPurchaseOrders();
   }
 
@@ -98,6 +101,8 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.post('/purchase-orders', data: po.toJson());
       await fetchPurchaseOrders();
+      _ref.read(importFilesProvider.notifier).fetchImportFiles();
+      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return null;
     } on DioException catch (e) {
       final detail = e.response?.data?['detail'];
@@ -124,6 +129,8 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.put('/purchase-orders/$poId', data: data);
       await fetchPurchaseOrders();
+      _ref.read(importFilesProvider.notifier).fetchImportFiles();
+      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return null;
     } on DioException catch (e) {
       final detail = e.response?.data?['detail'];
@@ -150,6 +157,8 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.delete('/purchase-orders/$poId');
       await fetchPurchaseOrders();
+      _ref.read(importFilesProvider.notifier).fetchImportFiles();
+      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: 'Failed to delete purchase order: ${e.toString()}');
@@ -161,6 +170,8 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     try {
       await _dio.post('/purchase-orders/$poId/restore');
       await fetchPurchaseOrders();
+      _ref.read(importFilesProvider.notifier).fetchImportFiles();
+      _ref.read(shippingScenariosProvider.notifier).fetchSessions();
       return true;
     } catch (e) {
       state = state.copyWith(errorMessage: 'Failed to restore purchase order: ${e.toString()}');
@@ -179,5 +190,5 @@ final purchaseOrdersDioProvider = Provider<Dio>((ref) {
 
 final purchaseOrdersProvider = StateNotifierProvider<PurchaseOrdersNotifier, PurchaseOrdersState>((ref) {
   final dio = ref.watch(purchaseOrdersDioProvider);
-  return PurchaseOrdersNotifier(dio);
+  return PurchaseOrdersNotifier(dio, ref);
 });

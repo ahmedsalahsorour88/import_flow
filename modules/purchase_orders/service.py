@@ -95,15 +95,83 @@ class PurchaseOrderService:
             hs_map[hs]["total_gross_weight_kg"] += t_gross
             hs_map[hs]["total_cbm"] += t_cbm
 
-        # Check total PCS vs PO Invoice Line Items
-        po_total_pcs = sum(float(i.quantity) for i in po.line_items)
-        if po.line_items and abs(tot_pcs - po_total_pcs) > 0.01:
-            warnings.append(f"Packing List total PCS ({tot_pcs}) differs from PO line items total PCS ({po_total_pcs}).")
+        # Invoice HS Code Map
+        invoice_hs_map = {}
+        po_total_pcs = 0.0
+        for l_item in po.line_items:
+            l_qty = float(l_item.quantity or 0.0)
+            po_total_pcs += l_qty
+            l_hs = l_item.tariff.hs_code if (l_item.tariff and l_item.tariff.hs_code) else "UNASSIGNED"
+            invoice_hs_map[l_hs] = invoice_hs_map.get(l_hs, 0.0) + l_qty
 
-        hs_summary = [PackingListSummaryByHSCode(**data) for data in hs_map.values()]
+        # Detect Missing HS Codes
+        missing_hs_in_packing = []
+        if po.line_items and po.packing_list_items:
+            for inv_hs in invoice_hs_map.keys():
+                if inv_hs not in hs_map:
+                    missing_hs_in_packing.append(inv_hs)
+                    warnings.append(f"HS Code '{inv_hs}' exists in Commercial Invoice but is missing from Packing List.")
+
+        missing_hs_in_invoice = []
+        if po.line_items and po.packing_list_items:
+            for pkg_hs in hs_map.keys():
+                if pkg_hs not in invoice_hs_map:
+                    missing_hs_in_invoice.append(pkg_hs)
+                    warnings.append(f"HS Code '{pkg_hs}' exists in Packing List but is missing from Commercial Invoice.")
+
+        # Populate all combined HS codes in summary
+        all_hs_keys = set(hs_map.keys()).union(set(invoice_hs_map.keys()))
+        has_qty_mismatch = False
+
+        hs_summary = []
+        for hs_key in sorted(all_hs_keys):
+            pkg_data = hs_map.get(hs_key, {
+                "hs_code": hs_key,
+                "qty_pcs": 0.0,
+                "qty_pkg": 0.0,
+                "total_net_weight_kg": 0.0,
+                "total_gross_weight_kg": 0.0,
+                "total_cbm": 0.0,
+            })
+            inv_qty = invoice_hs_map.get(hs_key, 0.0)
+            pkg_qty = pkg_data["qty_pcs"]
+            diff = pkg_qty - inv_qty
+            matched = abs(diff) < 0.001
+
+            if not matched and po.line_items and po.packing_list_items:
+                has_qty_mismatch = True
+                warnings.append(f"HS Code '{hs_key}': Packing List Qty ({pkg_qty}) differs from Invoice Qty ({inv_qty}) [Diff: {diff:+.2f}].")
+
+            hs_summary.append(
+                PackingListSummaryByHSCode(
+                    hs_code=pkg_data["hs_code"],
+                    qty_pcs=pkg_data["qty_pcs"],
+                    qty_pkg=pkg_data["qty_pkg"],
+                    total_net_weight_kg=pkg_data["total_net_weight_kg"],
+                    total_gross_weight_kg=pkg_data["total_gross_weight_kg"],
+                    total_cbm=pkg_data["total_cbm"],
+                    invoice_pcs=inv_qty,
+                    discrepancy_pcs=diff,
+                    is_matched=matched,
+                )
+            )
+
+        # Check total PCS vs PO Invoice Line Items
+        total_qty_mismatch = False
+        if po.line_items and po.packing_list_items and abs(tot_pcs - po_total_pcs) > 0.01:
+            total_qty_mismatch = True
+            warnings.append(f"Total Quantity Mismatch: Packing List total PCS ({tot_pcs}) differs from Invoice total PCS ({po_total_pcs}) [Diff: {tot_pcs - po_total_pcs:+.2f}].")
+
+        has_discrepancy = bool(
+            missing_hs_in_packing
+            or missing_hs_in_invoice
+            or has_qty_mismatch
+            or total_qty_mismatch
+        )
 
         return PackingListValidationReport(
             is_valid=len(errors) == 0,
+            has_discrepancy=has_discrepancy,
             errors=errors,
             warnings=warnings,
             total_items=len(po.packing_list_items),
@@ -113,6 +181,10 @@ class PurchaseOrderService:
             total_gross_weight_kg=tot_gross,
             total_cbm=tot_cbm,
             chargeable_weight_kg=tot_chg,
+            total_invoice_pcs=po_total_pcs,
+            total_packing_pcs=tot_pcs,
+            missing_hs_in_packing=missing_hs_in_packing,
+            missing_hs_in_invoice=missing_hs_in_invoice,
             hs_code_summary=hs_summary,
         )
 
@@ -163,6 +235,7 @@ class PurchaseOrderService:
                     total_gross_weight_kg=float(pitem.total_gross_weight_kg),
                     total_cbm=float(pitem.total_cbm),
                     chargeable_weight_kg=float(pitem.chargeable_weight_kg),
+                    is_stackable=bool(pitem.is_stackable) if pitem.is_stackable is not None else True,
                     created_at=pitem.created_at,
                 )
             )

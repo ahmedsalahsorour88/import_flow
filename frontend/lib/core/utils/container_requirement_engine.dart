@@ -5,6 +5,9 @@ class CargoItem {
   final double height; // cm
   final double weight; // kg
   final bool rotate;
+  final bool isStackable;
+  final String? packageType;
+  final String? description;
 
   CargoItem({
     required this.itemId,
@@ -13,25 +16,35 @@ class CargoItem {
     required this.height,
     required this.weight,
     this.rotate = true,
+    this.isStackable = true,
+    this.packageType,
+    this.description,
   });
 
   double get volumeM3 => (length * width * height) / 1000000;
+  double get floorAreaM2 => (length * width) / 10000;
 }
 
 class PlacedItem {
   final CargoItem item;
-  final double x;
-  final double y;
+  final double x; // offset along length (cm)
+  final double y; // offset along width (cm)
+  final double z; // elevation from floor (cm)
   final double length; // placed length (cm) after possible rotation
   final double width;  // placed width (cm) after possible rotation
+  final double height; // placed height (cm)
 
   PlacedItem({
     required this.item,
     required this.x,
     required this.y,
+    this.z = 0.0,
     required this.length,
     required this.width,
+    required this.height,
   });
+
+  bool get isOnFloor => z <= 0.01;
 }
 
 class ContainerPackingResult {
@@ -244,7 +257,25 @@ class ContainerRequirementEngine {
     final double bestVol = best['spaceUtil'] as double;
     final double bestWeight = best['payloadUtil'] as double;
 
-    final summary = '$bestCount x ${bestSpec.code} Container(s) [$modeTag] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
+    // Optimized Container Fleet Mix Calculation (e.g. 2x 40HC vs 2x 40HC + 1x 20GP)
+    String fleetCombination = '';
+    if (isStackable) {
+      final int count40HC = (totalCbm / 76.4).ceil();
+      fleetCombination = '$count40HC x 40HC Container(s)';
+    } else {
+      // Non-stackable floor usage:
+      final int full40HC = (totalCbm / 50.0).floor();
+      final double remCbm = totalCbm - (full40HC * 50.0);
+      if (remCbm <= 0) {
+        fleetCombination = '${full40HC < 1 ? 1 : full40HC} x 40HC';
+      } else if (remCbm <= 25.0) {
+        fleetCombination = full40HC > 0 ? '$full40HC x 40HC + 1 x 20GP' : '1 x 20GP';
+      } else {
+        fleetCombination = '${full40HC + 1} x 40HC';
+      }
+    }
+
+    final summary = '$fleetCombination [$modeTag] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
 
     return ContainerRecommendationResult(
       isStackable: isStackable,
@@ -271,30 +302,98 @@ class ContainerRequirementEngine {
     );
   }
 
+  /// Advanced 3D/2.5D Cargo Packing Algorithm supporting mixed Stackable and Non-Stackable Cargo:
+  /// - Non-stackable cargo: Placed strictly on the container floor (z = 0) and blocks all vertical space above.
+  /// - Stackable cargo: Can be placed on the floor (z = 0) or stacked on top of compatible stackable items below.
   static ContainerPackingResult packCargo({
     required List<CargoItem> items,
     required ContainerSpec spec,
   }) {
-    // Sort by max footprint dimension descending
+    // Universal 3D Bin Packing: Sort ALL items primarily by physical footprint/volume descending (Largest First!)
     final sortedItems = List<CargoItem>.from(items)
       ..sort((a, b) {
-        final maxA = a.length > a.width ? a.length : a.width;
-        final maxB = b.length > b.width ? b.length : b.width;
-        return maxB.compareTo(maxA);
+        final areaA = (a.length * a.width);
+        final areaB = (b.length * b.width);
+        if ((areaA - areaB).abs() > 1.0) {
+          return areaB.compareTo(areaA);
+        }
+        final volA = a.volumeM3;
+        final volB = b.volumeM3;
+        if ((volA - volB).abs() > 0.01) {
+          return volB.compareTo(volA);
+        }
+        // If same dimensions, place non-stackable first on floor
+        if (a.isStackable != b.isStackable) {
+          return a.isStackable ? 1 : -1;
+        }
+        return b.length.compareTo(a.length);
       });
 
     final List<PlacedItem> placed = [];
     final List<CargoItem> unplaced = [];
 
-    // Shelves: list of [y_start, shelf_depth, x_cursor]
+    // Shelves along container floor: [y_start, shelf_depth, x_cursor]
     final List<List<double>> shelves = [];
 
     for (final item in sortedItems) {
-      if (item.height > spec.internalHeight) {
+      if (item.height > spec.internalHeight || item.length > spec.internalLength || item.width > spec.internalWidth) {
+        // Exceeds raw container physical dimensions
         unplaced.add(item);
         continue;
       }
 
+      bool isPlaced = false;
+
+      // 1. If item is stackable, check if it can be stacked vertically on top of an already placed stackable item
+      if (item.isStackable) {
+        for (int i = 0; i < placed.length; i++) {
+          final base = placed[i];
+          if (!base.item.isStackable) continue; // Cannot stack on non-stackable item
+
+          final double topZ = base.z + base.height;
+          if (topZ + item.height > spec.internalHeight) continue; // Exceeds ceiling height
+
+          // Check if top space is already occupied
+          final bool alreadyOccupiedAbove = placed.any((p) =>
+              p.z >= topZ &&
+              p.x < (base.x + base.length) &&
+              (p.x + p.length) > base.x &&
+              p.y < (base.y + base.width) &&
+              (p.y + p.width) > base.y);
+          if (alreadyOccupiedAbove) continue;
+
+          // Check footprint compatibility
+          if (item.length <= base.length && item.width <= base.width) {
+            placed.add(PlacedItem(
+              item: item,
+              x: base.x,
+              y: base.y,
+              z: topZ,
+              length: item.length,
+              width: item.width,
+              height: item.height,
+            ));
+            isPlaced = true;
+            break;
+          } else if (item.rotate && item.width <= base.length && item.length <= base.width) {
+            placed.add(PlacedItem(
+              item: item,
+              x: base.x,
+              y: base.y,
+              z: topZ,
+              length: item.width,
+              width: item.length,
+              height: item.height,
+            ));
+            isPlaced = true;
+            break;
+          }
+        }
+      }
+
+      if (isPlaced) continue;
+
+      // 2. Place on floor (z = 0) in existing floor shelves
       int? bestShelfIdx;
       List<double>? bestOrientation; // [placedLength, placedWidth]
 
@@ -303,12 +402,10 @@ class ContainerRequirementEngine {
         orientations.add([item.width, item.length]);
       }
 
-      // Try existing shelves
       for (int i = 0; i < shelves.length; i++) {
         final shelf = shelves[i];
         final shelfDepth = shelf[1];
         final xCursor = shelf[2];
-
 
         for (final orient in orientations) {
           final L = orient[0];
@@ -330,14 +427,16 @@ class ContainerRequirementEngine {
           item: item,
           x: shelf[2],
           y: shelf[0],
+          z: 0.0,
           length: L,
           width: W,
+          height: item.height,
         ));
-        shelf[2] = shelf[2] + L; // increment cursor
+        shelf[2] = shelf[2] + L; // Increment shelf cursor
         continue;
       }
 
-      // Open new shelf
+      // 3. Open a new shelf on the floor
       double currentWidthUsed = 0.0;
       for (final s in shelves) {
         currentWidthUsed += s[1];
@@ -353,8 +452,10 @@ class ContainerRequirementEngine {
             item: item,
             x: 0.0,
             y: currentWidthUsed,
+            z: 0.0,
             length: L,
             width: W,
+            height: item.height,
           ));
           placedOnNewShelf = true;
           break;
@@ -381,64 +482,98 @@ class ContainerRequirementEngine {
     );
   }
 
-  static List<ContainerPackingResult> planShipment(List<CargoItem> items) {
-    List<CargoItem> remaining = List<CargoItem>.from(items);
+  static List<ContainerPackingResult> planShipment(
+    List<CargoItem> items, {
+    bool? forceStackable,
+  }) {
+    // If forceStackable is specified, override isStackable for all items
+    final List<CargoItem> effectiveItems = items.map((i) => CargoItem(
+      itemId: i.itemId,
+      length: i.length,
+      width: i.width,
+      height: i.height,
+      weight: i.weight,
+      rotate: i.rotate,
+      isStackable: forceStackable ?? i.isStackable,
+      packageType: i.packageType,
+      description: i.description,
+    )).toList();
+
+    List<CargoItem> remaining = List<CargoItem>.from(effectiveItems);
     final List<ContainerPackingResult> plan = [];
     int guard = 0;
 
-    while (remaining.isNotEmpty && guard < items.length + 5) {
+    // Standard container specs for maritime shipping
+    final spec20GP = specs.firstWhere((s) => s.code == '20GP');
+    final spec40HC = specs.firstWhere((s) => s.code == '40HC');
+    final spec40GP = specs.firstWhere((s) => s.code == '40GP');
+    final spec45HC = specs.firstWhere((s) => s.code == '45HC');
+
+    while (remaining.isNotEmpty && guard < items.length + 15) {
       guard++;
 
-      ContainerPackingResult? bestResult;
-      
-      // Try containers from smallest to largest: 20GP, 40GP, 40HC, 45HC
-      for (final spec in specs) {
-        final res = packCargo(items: remaining, spec: spec);
-        if (res.fits) {
-          bestResult = res;
+      // 1. Check if all remaining items fit in a 20GP
+      final res20 = packCargo(items: remaining, spec: spec20GP);
+      if (res20.fits) {
+        plan.add(res20);
+        break;
+      }
+
+      // 2. Check if all remaining items fit in a 40GP
+      final res40 = packCargo(items: remaining, spec: spec40GP);
+      if (res40.fits) {
+        plan.add(res40);
+        break;
+      }
+
+      // 3. Check if all remaining items fit in a 40HC (The universal standard high cube)
+      final res40HC = packCargo(items: remaining, spec: spec40HC);
+      if (res40HC.fits) {
+        plan.add(res40HC);
+        break;
+      }
+
+      // 4. Check if all remaining items fit in a 45HC (only if items exceed 40HC dimensions)
+      final hasExtraLongItem = remaining.any((i) => i.length > 1203 || (i.rotate && i.width > 1203));
+      if (hasExtraLongItem) {
+        final res45HC = packCargo(items: remaining, spec: spec45HC);
+        if (res45HC.fits) {
+          plan.add(res45HC);
           break;
         }
       }
 
-      if (bestResult == null) {
-        ContainerPackingResult? mostPlacedResult;
-        int maxPlacedCount = -1;
-        for (final spec in specs) {
-          final res = packCargo(items: remaining, spec: spec);
-          if (res.placedItems.length > maxPlacedCount) {
-            maxPlacedCount = res.placedItems.length;
-            mostPlacedResult = res;
-          } else if (res.placedItems.length == maxPlacedCount && mostPlacedResult != null) {
-            // If they pack the same number of items, prefer 40HC over 40GP for better height/volume safety
-            if (spec.code == '40HC' && mostPlacedResult.containerCode == '40GP') {
-              mostPlacedResult = res;
-            }
-          }
+      // 5. Multi-container packing step: Fill a standard 40HC first (or 45HC if oversized)
+      final targetSpec = hasExtraLongItem ? spec45HC : spec40HC;
+      final res = packCargo(items: remaining, spec: targetSpec);
+
+      if (res.placedItems.isEmpty) {
+        // Fallback to largest available spec
+        final fallbackRes = packCargo(items: remaining, spec: spec45HC);
+        if (fallbackRes.placedItems.isEmpty) {
+          plan.add(ContainerPackingResult(
+            containerCode: 'FAILED',
+            spec: spec40HC,
+            placedItems: [],
+            unplacedItems: remaining,
+            totalWeight: 0,
+            totalVolume: 0,
+            fits: false,
+          ));
+          break;
         }
-        bestResult = mostPlacedResult;
+        plan.add(fallbackRes);
+        final placedIds = fallbackRes.placedItems.map((p) => p.item.itemId).toSet();
+        remaining = remaining.where((i) => !placedIds.contains(i.itemId)).toList();
+      } else {
+        plan.add(res);
+        final placedIds = res.placedItems.map((p) => p.item.itemId).toSet();
+        remaining = remaining.where((i) => !placedIds.contains(i.itemId)).toList();
       }
-
-
-      if (bestResult == null || bestResult.placedItems.isEmpty) {
-        // Unplaced item that can't fit anywhere
-        plan.add(ContainerPackingResult(
-          containerCode: 'FAILED',
-          spec: specs.last,
-          placedItems: [],
-          unplacedItems: remaining,
-          totalWeight: 0,
-          totalVolume: 0,
-          fits: false,
-        ));
-        break;
-      }
-
-      plan.add(bestResult);
-      final placedIds = bestResult.placedItems.map((p) => p.item.itemId).toSet();
-      remaining = remaining.where((i) => !placedIds.contains(i.itemId)).toList();
     }
 
     return plan;
   }
 }
+
 

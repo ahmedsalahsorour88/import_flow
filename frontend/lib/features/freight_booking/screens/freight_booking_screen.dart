@@ -194,32 +194,125 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       scrollDirection: Axis.horizontal,
                       child: SingleChildScrollView(
                         child: DataTable(
-                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
+                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                          horizontalMargin: 12,
+                          columnSpacing: 16,
                           columns: const [
-                            DataColumn(label: Text('رقم كود الحجز', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('العمليات ⚡', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('كود الحجز', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('رقم تأكيد الحجز', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الخط الملاحي / الوكيل', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('موانئ الشحن (POL -> POD)', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('موانئ الشحن (POL ➔ POD)', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('السفينة / رقم الرحلة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('المغادرة (ETD / ATD)', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الوصول (ETA / المخزن)', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الحاويات المخصصة', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('إجمالي النولون USD', style: TextStyle(fontWeight: FontWeight.bold))),
                             DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('العمليات ⚡', style: TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: bookings.map((bkg) {
                             final hasDelay = bkg.departureDelayDays > 0;
                             return DataRow(
                               cells: [
-                                DataCell(Text(bkg.bookingCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                DataCell(Text(bkg.bookingConfirmationNo ?? 'Draft Pending', style: const TextStyle(fontWeight: FontWeight.w600))),
+                                // 1. Operations Pill in Column 1
+                                DataCell(
+                                  RowActionsPill(
+                                    onView: () => _showViewBookingDialog(bkg),
+                                    onEdit: () => _showAddEditBookingDialog(bkg),
+                                    onPrint: () => _showPrintBookingDialog(bkg),
+                                    onDelete: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (c) => AlertDialog(
+                                          title: const Text('تأكيد الحذف'),
+                                          content: Text('هل أنت متأكد من حذف حجز الشحن ${bkg.bookingCode}؟'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                            ElevatedButton(
+                                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+                                              onPressed: () => Navigator.pop(c, true),
+                                              child: const Text('حذف'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        await ref.read(freightBookingProvider.notifier).softDeleteBooking(bkg.bookingId);
+                                      }
+                                    },
+                                    viewTooltip: 'عرض تفاصيل الحجز',
+                                    editTooltip: 'تعديل حجز الشحن',
+                                    printTooltip: 'طباعة بطاقة الحجز',
+                                    deleteTooltip: 'حذف حجز الشحن',
+                                  ),
+                                ),
+
+                                // 2. Booking Code (Clickable Badge)
+                                DataCell(
+                                  InkWell(
+                                    onTap: () => _showViewBookingDialog(bkg),
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (!bkg.isActive)
+                                            const Padding(
+                                              padding: EdgeInsets.only(right: 4),
+                                              child: Icon(Icons.block, size: 12, color: AppTheme.crimson),
+                                            ),
+                                          Text(
+                                            bkg.bookingCode,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: bkg.isActive ? AppTheme.cobalt : AppTheme.crimson,
+                                              fontSize: 12,
+                                              decoration: bkg.isActive ? TextDecoration.none : TextDecoration.lineThrough,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // 3. Linked Import File
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.charcoal.withOpacity(0.07),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '—'),
+                                      style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
+                                    ),
+                                  ),
+                                ),
+
+                                // 4. Confirmation No
+                                DataCell(
+                                  Text(
+                                    bkg.bookingConfirmationNo ?? 'Draft Pending',
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                  ),
+                                ),
+
+                                // 5. Shipping Line / Forwarder
                                 DataCell(
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text(bkg.shippingLineName ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                      Text(bkg.shippingLineName ?? 'N/A', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                       if (bkg.scenarioProviderName != null)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -237,14 +330,29 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                     ],
                                   ),
                                 ),
-                                DataCell(Text('${bkg.polName ?? "-"} -> ${bkg.podName ?? "-"}')),
-                                DataCell(Text('${bkg.vesselName ?? "-"} (${bkg.voyageNumber ?? "-"})')),
+
+                                // 6. POL ➔ POD
+                                DataCell(
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.location_on_outlined, size: 13, color: AppTheme.cobalt),
+                                      const SizedBox(width: 3),
+                                      Text('${bkg.polName ?? "-"} ➔ ${bkg.podName ?? "-"}', style: const TextStyle(fontSize: 11.5)),
+                                    ],
+                                  ),
+                                ),
+
+                                // 7. Vessel & Voyage
+                                DataCell(Text('${bkg.vesselName ?? "-"} (${bkg.voyageNumber ?? "-"})', style: const TextStyle(fontSize: 11.5))),
+
+                                // 8. Departure (ETD / ATD)
                                 DataCell(
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('ETD: ${bkg.etd != null ? bkg.etd!.substring(0, 10) : "-"}'),
+                                      Text('ETD: ${bkg.etd != null ? bkg.etd!.substring(0, 10) : "-"}', style: const TextStyle(fontSize: 11)),
                                       if (bkg.atd != null)
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
@@ -263,59 +371,70 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                     ],
                                   ),
                                 ),
+
+                                // 9. Arrival (ETA / WH)
                                 DataCell(
                                   Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      Text('ETA: ${bkg.eta != null ? bkg.eta!.substring(0, 10) : "-"}', style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                      Text('ETA: ${bkg.eta != null ? bkg.eta!.substring(0, 10) : "-"}', style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11)),
                                       if (bkg.expectedWarehouseArrivalDate != null)
                                         Text('مخزن: ${bkg.expectedWarehouseArrivalDate!.substring(0, 10)}', style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
                                     ],
                                   ),
                                 ),
+
+                                // 10. Allocated Containers
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blueGrey.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      bkg.containersData.isNotEmpty
+                                          ? bkg.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', ')
+                                          : '—',
+                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ),
+
+                                // 11. Total Freight USD
                                 DataCell(
                                   Text(
-                                    bkg.containersData.map((c) => '${c.quantity}x ${c.containerType}').join(', '),
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    '\$ ${bkg.totalFreightCostUsd.toStringAsFixed(2)}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12),
                                   ),
                                 ),
-                                DataCell(Text('\$ ${bkg.totalFreightCostUsd.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+
+                                // 12. Status Pill
                                 DataCell(
-                                  Chip(
-                                    label: Text(bkg.status, style: const TextStyle(fontSize: 10, color: Colors.white)),
-                                    backgroundColor: bkg.status == 'Confirmed' || bkg.status == 'Sailed' ? Colors.green : Colors.orange,
-                                  ),
-                                ),
-                                DataCell(
-                                  RowActionsPill(
-                                    onView: () => _showViewBookingDialog(bkg),
-                                    onEdit: () => _showAddEditBookingDialog(bkg),
-                                    onPrint: () => _showPrintBookingDialog(bkg),
-                                    onDelete: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) => AlertDialog(
-                                          title: const Text('تأكيد الحذف'),
-                                          content: Text('هل أنت متأكد من حذف حجز الشحن ${bkg.bookingCode}؟'),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                            ElevatedButton(
-                                              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-                                              onPressed: () => Navigator.pop(c, true),
-                                              child: const Text('حذف', style: TextStyle(color: Colors.white)),
-                                            ),
-                                          ],
-                                        ),
-                                      );
-                                      if (confirm == true) {
-                                        await ref.read(freightBookingProvider.notifier).softDeleteBooking(bkg.bookingId);
-                                      }
-                                    },
-                                    viewTooltip: 'عرض تفاصيل الحجز',
-                                    editTooltip: 'تعديل حجز الشحن',
-                                    printTooltip: 'طباعة بطاقة الحجز',
-                                    deleteTooltip: 'حذف حجز الشحن',
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                    decoration: BoxDecoration(
+                                      color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                          ? AppTheme.emerald.withOpacity(0.15)
+                                          : AppTheme.orange.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                            ? AppTheme.emerald.withOpacity(0.4)
+                                            : AppTheme.orange.withOpacity(0.4),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      bkg.status,
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: bkg.status == 'Confirmed' || bkg.status == 'Sailed'
+                                            ? AppTheme.emerald
+                                            : AppTheme.orange,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ],
@@ -1031,11 +1150,136 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       }
     } catch (e) {
       if (mounted) {
+        final errStr = e.toString();
+        if (errStr.contains('يوجد بالفعل حجز شحن') || errStr.contains('مسجل لهذا الملف')) {
+          final existingBookings = ref.read(freightBookingProvider).value ?? [];
+          final duplicate = existingBookings.where((b) => b.importFileId == _selectedImportFileId && b.isActive).toList();
+          if (duplicate.isNotEmpty) {
+            _showDuplicateBookingWarningDialog(duplicate.first);
+            return;
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _showDuplicateBookingWarningDialog(ShipmentBookingModel existing) {
+    final importFiles = ref.read(importFilesProvider).value ?? [];
+    final curFile = importFiles.where((f) => f.importFileId == existing.importFileId).toList();
+    final fileLabel = curFile.isNotEmpty
+        ? '${curFile.first.customFileNumber ?? curFile.first.importFileCode} (${curFile.first.companyName})'
+        : 'IMP-${existing.importFileId}';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade100,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'تنبيه: الشحنة مسجلة بالفعل!',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+              ),
+            ),
+          ],
+        ),
+        content: Container(
+          width: 500,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade50.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.orange.shade200),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'ملف الشحنة الاستيرادية المختار مرتبط بالفعل بحجز شحن محفوظ:',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900),
+              ),
+              const SizedBox(height: 10),
+              _buildDuplicateInfoRow('📁 ملف الشحنة:', fileLabel),
+              _buildDuplicateInfoRow('🔖 كود الحجز:', existing.bookingCode),
+              _buildDuplicateInfoRow('📝 رقم تأكيد الحجز:', existing.bookingConfirmationNo ?? 'Draft Pending'),
+              _buildDuplicateInfoRow('🚢 الخط الملاحي:', existing.shippingLineName ?? 'N/A'),
+              _buildDuplicateInfoRow('⚡ الحالة الحالية:', existing.status),
+              const Divider(height: 20),
+              const Text(
+                'قواعد النظام تمنع إنشاء أكثر من حجز لنفس الملف الاستيرادي. يمكنك التحويل لتعديل الحجز الحالي فوراً.',
+                style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              setState(() {
+                _selectedImportFileId = null;
+              });
+            },
+            child: const Text('إلغاء والتراجع', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            icon: const Icon(Icons.edit_note_rounded, size: 18),
+            label: const Text('🔄 التحويل إلى التعديل', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.pop(ctx); // Close warning dialog
+              Navigator.pop(context); // Close current form dialog
+              // Open edit dialog for existing booking
+              Future.microtask(() {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (c) => _FreightBookingFormDialog(bookingToEdit: existing),
+                );
+              });
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDuplicateInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 130,
+            child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87)),
+          ),
+          Expanded(
+            child: Text(value, style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildCostItemRow({
@@ -1243,6 +1487,23 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                             ))
                                         .toList(),
                                     onChanged: (val) {
+                                      if (val == null) {
+                                        setState(() => _selectedImportFileId = null);
+                                        return;
+                                      }
+                                      // Check if there is already an active booking for this file
+                                      final existingBookings = ref.read(freightBookingProvider).value ?? [];
+                                      final duplicate = existingBookings.where((b) =>
+                                          b.importFileId == val &&
+                                          b.isActive &&
+                                          (widget.bookingToEdit == null || b.bookingId != widget.bookingToEdit!.bookingId)
+                                      ).toList();
+
+                                      if (duplicate.isNotEmpty) {
+                                        _showDuplicateBookingWarningDialog(duplicate.first);
+                                        return;
+                                      }
+
                                       setState(() {
                                         _selectedImportFileId = val;
                                         // If there are evaluated quotes, auto-select recommended

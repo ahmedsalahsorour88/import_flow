@@ -68,6 +68,7 @@ def calculate_transit_time_and_costs(booking: ShipmentBooking):
 
 def create_booking_service(db: Session, payload: ShipmentBookingCreate) -> ShipmentBooking:
     validators.validate_container_allocation(payload.shipment_type, payload.containers_data)
+    validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id)
     booking = repo.create_booking(db, payload)
     calculate_transit_time_and_costs(booking)
     db.commit()
@@ -93,6 +94,9 @@ def update_booking_service(db: Session, booking_id: int, payload: ShipmentBookin
     booking = repo.get_booking_by_id(db, booking_id)
     if not booking:
         return None
+
+    if payload.import_file_id is not None:
+        validators.validate_no_duplicate_booking_for_file(db, payload.import_file_id, current_booking_id=booking_id)
 
     updated = repo.update_booking(db, booking_id, payload)
     if updated:

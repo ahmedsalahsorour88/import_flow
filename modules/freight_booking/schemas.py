@@ -63,6 +63,7 @@ class ShipmentBookingCreate(ShipmentBookingBase):
 
 
 class ShipmentBookingUpdate(BaseModel):
+    import_file_id: Optional[int] = None
     booking_confirmation_no: Optional[str] = None
     scenario_session_id: Optional[int] = None
     scenario_item_id: Optional[int] = None

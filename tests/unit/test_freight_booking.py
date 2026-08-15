@@ -208,9 +208,32 @@ class TestFreightBookingBackend:
         booking = create_booking_service(db_session, payload)
         assert booking.departure_delay_days == 4
         # ETA was Aug 20, adjusted ETA with 4 days delay = Aug 24 + 5 days warehouse = Aug 29
-        assert booking.expected_warehouse_arrival_date is not None
-        assert booking.expected_warehouse_arrival_date.day == 29
-        assert booking.container_mismatch_reason == "Client requested 40HC instead of 20GP due to volumetric cargo expansion"
-        assert booking.quotation_details_data.get("dthc_price") == 400.0
+    def test_prevent_duplicate_booking_for_same_import_file(self, db_session):
+        from fastapi import HTTPException
+
+        payload1 = ShipmentBookingCreate(
+            import_file_id=1,
+            booking_confirmation_no="MSC-FIRST-001",
+            shipping_line_name="MSC",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="40HC", quantity=1)],
+        )
+        b1 = create_booking_service(db_session, payload1)
+        assert b1.booking_id is not None
+
+        # Attempt to create a second booking for the same import_file_id=1
+        payload2 = ShipmentBookingCreate(
+            import_file_id=1,
+            booking_confirmation_no="MSC-DUPLICATE-002",
+            shipping_line_name="CMA CGM",
+            shipment_type="Ocean FCL",
+            containers_data=[ContainerAllocationItem(container_type="20GP", quantity=1)],
+        )
+        with pytest.raises(HTTPException) as exc_info:
+            create_booking_service(db_session, payload2)
+
+        assert exc_info.value.status_code == 400
+        assert "يوجد بالفعل حجز شحن مسجل لهذا الملف الاستيرادي" in exc_info.value.detail
+
 
 

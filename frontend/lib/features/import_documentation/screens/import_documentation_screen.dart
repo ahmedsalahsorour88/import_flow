@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -302,8 +303,11 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ حدث خطأ أثناء حفظ الطلب: $e'), backgroundColor: Colors.red),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ فشل حفظ طلب الـ ACID',
+          error: e,
+          subtitle: 'يرجى مراجعة البيانات المدخلة وتصحيح الأخطاء التالية:',
         );
       }
     } finally {
@@ -498,8 +502,11 @@ Please note that the required documents for the mentioned shipment must be uploa
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ حدث خطأ أثناء الاعتماد: $e'), backgroundColor: Colors.red),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ فشل اعتماد وتوثيق رقم الـ ACID',
+          error: e,
+          subtitle: 'يرجى مراجعة البيانات المدخلة أو رقم الـ ACID وتصحيح الأخطاء التالية:',
         );
       }
     } finally {

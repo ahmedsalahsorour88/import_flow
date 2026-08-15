@@ -9,9 +9,11 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/import_documentation_model.dart';
@@ -131,10 +133,34 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     ref.read(suppliersProvider.notifier).fetchSuppliers();
     ref.read(partnersProvider.notifier).fetchPartners();
     ref.read(transportLocationsProvider.notifier).fetchLocations();
+    ref.read(currenciesProvider.notifier).fetchCurrencies();
+    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
     ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
     ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
     ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments();
     ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
+  }
+
+  String _getCurrencySymbol(String code) {
+    switch (code.toUpperCase()) {
+      case 'EUR':
+        return '€';
+      case 'USD':
+        return '\$';
+      case 'GBP':
+        return '£';
+      case 'CNY':
+      case 'JPY':
+        return '¥';
+      case 'EGP':
+        return 'EGP';
+      case 'SAR':
+        return 'SAR';
+      case 'AED':
+        return 'AED';
+      default:
+        return code;
+    }
   }
 
   @override
@@ -2656,7 +2682,7 @@ Please note that the required documents for the mentioned shipment must be uploa
       _selectedBankId = doc.bankId;
       _bankName = doc.bankName;
       _bankAmountController.text = doc.amount.toStringAsFixed(2);
-      _form4Currency = doc.currencyCode;
+      _form4Currency = doc.currencyCode.toUpperCase();
       _form4RequestDateCtrl.text = doc.requestDate ?? doc.issueDate;
       _form4NotesCtrl.text = doc.notes ?? '';
       _form4SubTab = 0; // Switch to Request Tab
@@ -2793,17 +2819,36 @@ Please note that the required documents for the mentioned shipment must be uploa
                                 if (id != null) {
                                   final file = importFiles.where((f) => f.importFileId == id).firstOrNull;
                                   if (file != null) {
-                                    if (file.estimatedCost > 0) {
+                                    // 1. First priority: Extract currency and amount from invoicesData
+                                    if (file.invoicesData.isNotEmpty) {
+                                      final firstInv = file.invoicesData.first;
+                                      if (firstInv.currency.isNotEmpty) {
+                                        _form4Currency = firstInv.currency.trim().toUpperCase();
+                                      }
+                                      final totalInvoicesAmount = file.invoicesData.fold(0.0, (sum, i) => sum + i.amount);
+                                      if (totalInvoicesAmount > 0) {
+                                        _bankAmountController.text = totalInvoicesAmount.toStringAsFixed(2);
+                                      } else if (firstInv.amount > 0) {
+                                        _bankAmountController.text = firstInv.amount.toStringAsFixed(2);
+                                      } else if (file.estimatedCost > 0) {
+                                        _bankAmountController.text = file.estimatedCost.toStringAsFixed(2);
+                                      }
+                                    } else if (file.poIds != null && file.poIds!.isNotEmpty) {
+                                      // 2. Second priority: Extract from linked purchase orders
+                                      final poState = ref.read(purchaseOrdersProvider);
+                                      final linkedPos = poState.purchaseOrders.where((p) => file.poIds!.contains(p.poId)).toList();
+                                      if (linkedPos.isNotEmpty) {
+                                        final firstPo = linkedPos.first;
+                                        if (firstPo.currencyCode != null && firstPo.currencyCode!.isNotEmpty) {
+                                          _form4Currency = firstPo.currencyCode!.trim().toUpperCase();
+                                        }
+                                        final totalPoAmount = linkedPos.fold(0.0, (sum, p) => sum + p.totalAmountFob);
+                                        if (totalPoAmount > 0) {
+                                          _bankAmountController.text = totalPoAmount.toStringAsFixed(2);
+                                        }
+                                      }
+                                    } else if (file.estimatedCost > 0) {
                                       _bankAmountController.text = file.estimatedCost.toStringAsFixed(2);
-                                    }
-                                    if (file.invoicesData != null && (file.invoicesData as List).isNotEmpty) {
-                                      final firstInv = (file.invoicesData as List).first;
-                                      if (firstInv is Map && firstInv['currency'] != null) {
-                                        _form4Currency = firstInv['currency'].toString().toUpperCase();
-                                      }
-                                      if (firstInv is Map && firstInv['amount'] != null && (firstInv['amount'] as num) > 0) {
-                                        _bankAmountController.text = (firstInv['amount'] as num).toDouble().toStringAsFixed(2);
-                                      }
                                     }
                                   }
                                 }
@@ -2917,6 +2962,12 @@ Please note that the required documents for the mentioned shipment must be uploa
                                     _buildSummaryChip('أمر الشراء PO:', selectedFile.poNumber!, AppTheme.emerald),
                                   if (selectedFile.piNumber != null)
                                     _buildSummaryChip('الفاتورة PI:', selectedFile.piNumber!, Colors.deepPurple),
+                                  if (selectedFile.invoicesData.isNotEmpty)
+                                    _buildSummaryChip(
+                                      'عملة وقيمة الفاتورة:',
+                                      '${selectedFile.invoicesData.first.currency} ${selectedFile.invoicesData.fold(0.0, (s, i) => s + i.amount).toStringAsFixed(2)}',
+                                      Colors.deepPurple,
+                                    ),
                                   _buildSummaryChip('طريقة الشحن:', selectedFile.shipmentMode, Colors.teal),
                                 ],
                               ),
@@ -2940,7 +2991,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                             decoration: InputDecoration(
                               labelText: 'المبلغ الإجمالي للمعاملة *',
                               hintText: 'e.g. 62300.00',
-                              prefixIcon: const Icon(Icons.attach_money_rounded),
+                              prefixIcon: Container(
+                                width: 48,
+                                alignment: Alignment.center,
+                                child: Text(
+                                  _getCurrencySymbol(_form4Currency),
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
+                                ),
+                              ),
                               border: const OutlineInputBorder(),
                               helperText: 'يتم استدعاؤه آلياً من ملف الشحنة أو الفاتورة المبدئية',
                             ),
@@ -2957,23 +3015,39 @@ Please note that the required documents for the mentioned shipment must be uploa
                         // Currency
                         Expanded(
                           flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            value: _form4Currency,
-                            decoration: const InputDecoration(
-                              labelText: 'عملة المعاملة *',
-                              prefixIcon: Icon(Icons.monetization_on_outlined),
-                              border: OutlineInputBorder(),
-                            ),
-                            items: const [
-                              DropdownMenuItem(value: 'USD', child: Text('دولار أمريكي (USD)')),
-                              DropdownMenuItem(value: 'EUR', child: Text('يورو أوروبي (EUR)')),
-                              DropdownMenuItem(value: 'GBP', child: Text('جنيه إسترليني (GBP)')),
-                              DropdownMenuItem(value: 'CNY', child: Text('يوان صيني (CNY)')),
-                              DropdownMenuItem(value: 'EGP', child: Text('جنيه مصري (EGP)')),
-                              DropdownMenuItem(value: 'AED', child: Text('درهم إماراتي (AED)')),
-                              DropdownMenuItem(value: 'SAR', child: Text('ريال سعودي (SAR)')),
-                            ],
-                            onChanged: (v) => setState(() => _form4Currency = v ?? 'USD'),
+                          child: Builder(
+                            builder: (context) {
+                              final currenciesList = ref.watch(currenciesProvider).value ?? [];
+                              final List<String> availableCurrencyCodes = ['USD', 'EUR', 'GBP', 'CNY', 'EGP', 'AED', 'SAR', 'JPY', 'CHF', 'TRY'];
+                              for (var c in currenciesList) {
+                                if (!availableCurrencyCodes.contains(c.currencyCode.toUpperCase())) {
+                                  availableCurrencyCodes.add(c.currencyCode.toUpperCase());
+                                }
+                              }
+                              if (!availableCurrencyCodes.contains(_form4Currency.toUpperCase())) {
+                                availableCurrencyCodes.add(_form4Currency.toUpperCase());
+                              }
+
+                              return SearchableDropdownField<String>(
+                                value: _form4Currency,
+                                labelText: 'عملة المعاملة *',
+                                searchHintText: 'ابحث عن العملة...',
+                                items: availableCurrencyCodes.map((code) {
+                                  final curModel = currenciesList.where((c) => c.currencyCode.toUpperCase() == code).firstOrNull;
+                                  final name = curModel != null ? curModel.currencyName : code;
+                                  return SearchableDropdownItem<String>(
+                                    value: code,
+                                    label: '$code - $name',
+                                    subtitle: 'الرمز: ${_getCurrencySymbol(code)}',
+                                  );
+                                }).toList(),
+                                onChanged: (v) {
+                                  if (v != null) {
+                                    setState(() => _form4Currency = v);
+                                  }
+                                },
+                              );
+                            },
                           ),
                         ),
                         const SizedBox(width: 14),

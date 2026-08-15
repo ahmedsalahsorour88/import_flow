@@ -1,4 +1,6 @@
 class ContainerLoadingModel {
+  final String containerType;
+  final int quantity;
   final String containerNo;
   final String sealNo;
   final double tareWeightKg;
@@ -6,8 +8,11 @@ class ContainerLoadingModel {
   final double grossWeightKg;
   final String vgmStatus;
   final String? vgmRefNo;
+  final List<Map<String, String>> individualUnits;
 
   ContainerLoadingModel({
+    this.containerType = '40HC',
+    this.quantity = 1,
     required this.containerNo,
     required this.sealNo,
     this.tareWeightKg = 0.0,
@@ -15,10 +20,13 @@ class ContainerLoadingModel {
     this.grossWeightKg = 0.0,
     this.vgmStatus = "Submitted",
     this.vgmRefNo,
+    this.individualUnits = const [],
   });
 
   factory ContainerLoadingModel.fromJson(Map<String, dynamic> json) {
     return ContainerLoadingModel(
+      containerType: json['container_type'] ?? '40HC',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       containerNo: json['container_no'] ?? '',
       sealNo: json['seal_no'] ?? '',
       tareWeightKg: (json['tare_weight_kg'] as num?)?.toDouble() ?? 0.0,
@@ -26,11 +34,17 @@ class ContainerLoadingModel {
       grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
       vgmStatus: json['vgm_status'] ?? 'Submitted',
       vgmRefNo: json['vgm_ref_no'],
+      individualUnits: (json['individual_units'] as List<dynamic>?)
+              ?.map((e) => Map<String, String>.from(e))
+              .toList() ??
+          [],
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'container_type': containerType,
+      'quantity': quantity,
       'container_no': containerNo,
       'seal_no': sealNo,
       'tare_weight_kg': tareWeightKg,
@@ -38,6 +52,7 @@ class ContainerLoadingModel {
       'gross_weight_kg': grossWeightKg,
       'vgm_status': vgmStatus,
       'vgm_ref_no': vgmRefNo,
+      'individual_units': individualUnits,
     };
   }
 }

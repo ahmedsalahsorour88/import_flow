@@ -1434,14 +1434,14 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
     final DateTime computedWhArrival = _eta.add(Duration(days: (delayDays > 0 ? delayDays : 0) + whDays));
 
     return DefaultTabController(
-      length: 3,
+      length: 2,
       child: AlertDialog(
         title: Row(
           children: [
             const Icon(Icons.directions_boat, color: AppTheme.cobalt),
             const SizedBox(width: 8),
             Text(
-              widget.bookingToEdit == null ? 'إنشاء حجز شحن وتخصيص الحاويات (New Carrier Booking)' : 'تعديل حجز الشحن: ${widget.bookingToEdit!.bookingCode}',
+              widget.bookingToEdit == null ? 'إنشاء حجز شحن ملاحي (New Carrier Booking)' : 'تعديل حجز الشحن: ${widget.bookingToEdit!.bookingCode}',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
@@ -1457,8 +1457,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                 indicatorColor: AppTheme.cobalt,
                 tabs: [
                   Tab(icon: Icon(Icons.description), text: '1. تفاصيل الحجز وعروض الشحن'),
-                  Tab(icon: Icon(Icons.inventory_2), text: '2. تخصيص الحاويات والمعدات'),
-                  Tab(icon: Icon(Icons.attach_money), text: '3. بنود التكلفة والنولون'),
+                  Tab(icon: Icon(Icons.attach_money), text: '2. بنود التكلفة والنولون'),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1928,232 +1927,95 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      ),
+                            const SizedBox(height: 12),
 
-                      // ================= TAB 2: CONTAINER EQUIPMENT ALLOCATION =================
-                      SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Stacking & Container Recommendation Banner
+                            // Booking Equipment Specification
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<String>(
+                                    value: _containers.isNotEmpty ? _containers.first.containerType : '40HC',
+                                    labelText: 'نوع الحاوية المطلوب حجزها (Container Type)',
+                                    searchHintText: 'ابحث عن النوع...',
+                                    items: const [
+                                      SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
+                                      SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
+                                      SearchableDropdownItem(value: '40HC', label: '40HC High Cube'),
+                                      SearchableDropdownItem(value: '45HC', label: '45HC High Cube'),
+                                      SearchableDropdownItem(value: '20RF', label: '20RF Reefer'),
+                                      SearchableDropdownItem(value: '40RF', label: '40RF Reefer'),
+                                    ],
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setState(() {
+                                          if (_containers.isEmpty) {
+                                            _containers.add(ContainerAllocationModel(containerType: val, quantity: 1));
+                                          } else {
+                                            _containers[0] = ContainerAllocationModel(
+                                              containerType: val,
+                                              quantity: _containers[0].quantity,
+                                              individualContainers: _containers[0].individualContainers,
+                                              vgmWeightKg: _containers[0].vgmWeightKg,
+                                            );
+                                          }
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 1,
+                                  child: TextFormField(
+                                    initialValue: _containers.isNotEmpty ? _containers.first.quantity.toString() : '1',
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'عدد الحاويات المحجوزة (Qty)', border: OutlineInputBorder()),
+                                    onChanged: (val) {
+                                      final q = int.tryParse(val) ?? 1;
+                                      setState(() {
+                                        if (_containers.isEmpty) {
+                                          _containers.add(ContainerAllocationModel(containerType: '40HC', quantity: q));
+                                        } else {
+                                          _containers[0] = ContainerAllocationModel(
+                                            containerType: _containers[0].containerType,
+                                            quantity: q,
+                                            individualContainers: _containers[0].individualContainers,
+                                            vgmWeightKg: _containers[0].vgmWeightKg,
+                                          );
+                                        }
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
                             Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                               decoration: BoxDecoration(
-                                color: Colors.purple.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.purple.shade200),
+                                color: Colors.blueGrey.shade50,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(color: Colors.blueGrey.shade200),
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                              child: const Row(
                                 children: [
-                                  Row(
-                                    children: [
-                                      const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        '(حمولة الملف المجمعة من قوائم التعبئة: ${totalCargoCbm.toStringAsFixed(2)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg)',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    children: [
-                                      const Text('نوع التحميل والتخزين (Cargo Stacking):', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                      const SizedBox(width: 8),
-                                      ChoiceChip(
-                                        label: const Text('قابل للرص (Stackable)'),
-                                        selected: _isStackable,
-                                        onSelected: (val) => setState(() => _isStackable = val),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      ChoiceChip(
-                                        label: const Text('غير قابل للرص (Non-Stackable)'),
-                                        selected: !_isStackable,
-                                        onSelected: (val) => setState(() => _isStackable = !val),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade100,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: Colors.green.shade400),
-                                    ),
+                                  Icon(Icons.info_outline, size: 16, color: AppTheme.cobalt),
+                                  SizedBox(width: 6),
+                                  Expanded(
                                     child: Text(
-                                      'اقتراح الحاوية التلقائي (MD-019.1 Engine): ${activeContainerRec.requiredContainersCount} x ${activeContainerRec.recommendedContainerCode} (استغلال المساحة: ${activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1)}% | استغلال الوزن: ${activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1)}%)',
-                                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                      'ℹ️ ملاحظة: تخصيص الحاويات التفصيلي، أرقام السيل، أوزان VGM، والفحص يتم في مرحلة (متابعة وتجهيز التحميل).',
+                                      style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 14),
-
-                            Row(
-                              children: [
-                                const Text('بيانات الحاويات المخصصة وأرقام السيل:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                const Spacer(),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                                  onPressed: () {
-                                    setState(() {
-                                      _containers.add(ContainerAllocationModel(
-                                        containerType: '40HC',
-                                        quantity: 1,
-                                        containerNumbers: ['MSCU${DateTime.now().millisecondsSinceEpoch.toString().substring(6)}'],
-                                        sealNumbers: ['SL-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'],
-                                        vgmWeightKg: 24000,
-                                      ));
-                                    });
-                                  },
-                                  icon: const Icon(Icons.add, color: Colors.white, size: 18),
-                                  label: const Text('إضافة نوع حاوية جديد', style: TextStyle(color: Colors.white)),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-
-                            ListView.separated(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              itemCount: _containers.length,
-                              separatorBuilder: (c, i) => const Divider(height: 24),
-                              itemBuilder: (context, index) {
-                                final item = _containers[index];
-                                return Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(color: Colors.grey.shade300),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child: SearchableDropdownField<String>(
-                                              value: item.containerType,
-                                              labelText: 'نوع الحاوية',
-                                              searchHintText: 'ابحث عن النوع...',
-                                              items: const [
-                                                SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
-                                                SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
-                                                SearchableDropdownItem(value: '40HC', label: '40HC High Cube'),
-                                                SearchableDropdownItem(value: '45HC', label: '45HC High Cube'),
-                                              ],
-                                              onChanged: (val) {
-                                                if (val != null) {
-                                                  setState(() {
-                                                    _containers[index] = ContainerAllocationModel(
-                                                      containerType: val,
-                                                      quantity: item.quantity,
-                                                      individualContainers: item.individualContainers,
-                                                      vgmWeightKg: item.vgmWeightKg,
-                                                    );
-                                                  });
-                                                }
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            flex: 1,
-                                            child: TextFormField(
-                                              initialValue: item.quantity.toString(),
-                                              keyboardType: TextInputType.number,
-                                              decoration: const InputDecoration(labelText: 'العدد (Qty)', border: OutlineInputBorder()),
-                                              onChanged: (val) {
-                                                final q = int.tryParse(val) ?? 1;
-                                                setState(() {
-                                                  _containers[index] = ContainerAllocationModel(
-                                                    containerType: item.containerType,
-                                                    quantity: q,
-                                                    vgmWeightKg: item.vgmWeightKg,
-                                                  );
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Expanded(
-                                            flex: 1,
-                                            child: TextFormField(
-                                              initialValue: item.vgmWeightKg.toStringAsFixed(0),
-                                              keyboardType: TextInputType.number,
-                                              decoration: const InputDecoration(labelText: 'إجمالي VGM (Kg)', border: OutlineInputBorder()),
-                                              onChanged: (val) {
-                                                final w = double.tryParse(val) ?? 0.0;
-                                                setState(() {
-                                                  _containers[index] = ContainerAllocationModel(
-                                                    containerType: item.containerType,
-                                                    quantity: item.quantity,
-                                                    individualContainers: item.individualContainers,
-                                                    vgmWeightKg: w,
-                                                  );
-                                                });
-                                              },
-                                            ),
-                                          ),
-                                          IconButton(
-                                            icon: const Icon(Icons.delete, color: Colors.red),
-                                            onPressed: () => setState(() => _containers.removeAt(index)),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 10),
-                                      const Text('تفاصيل أرقام الحاويات والسيل لكل وحدة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
-                                      const SizedBox(height: 6),
-                                      ListView.builder(
-                                        shrinkWrap: true,
-                                        physics: const NeverScrollableScrollPhysics(),
-                                        itemCount: item.individualContainers.length,
-                                        itemBuilder: (ctx, iIdx) {
-                                          final indiv = item.individualContainers[iIdx];
-                                          return Padding(
-                                            padding: const EdgeInsets.only(bottom: 6),
-                                            child: Row(
-                                              children: [
-                                                Text('حاوية #${iIdx + 1}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: TextFormField(
-                                                    initialValue: indiv.containerNumber,
-                                                    decoration: const InputDecoration(labelText: 'رقم الحاوية (Container No)', isDense: true, border: OutlineInputBorder()),
-                                                    onChanged: (v) => indiv.containerNumber = v.trim(),
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Expanded(
-                                                  child: TextFormField(
-                                                    initialValue: indiv.sealNumber,
-                                                    decoration: const InputDecoration(labelText: 'رقم السيل / القفل (Seal No)', isDense: true, border: OutlineInputBorder()),
-                                                    onChanged: (v) => indiv.sealNumber = v.trim(),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    ],
-                                  ),
-                                );
-                              },
-                            ),
                           ],
                         ),
                       ),
 
-                      // ================= TAB 3: COMPLETE 17 FREIGHT QUOTE DETAILS =================
+                      // ================= TAB 2: COMPLETE 17 FREIGHT QUOTE DETAILS =================
                       SingleChildScrollView(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

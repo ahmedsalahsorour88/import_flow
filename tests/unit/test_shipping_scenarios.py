@@ -349,4 +349,51 @@ class TestShippingScenariosBackend:
         assert created_item.extra_day_storage_price == 30.0
         assert created_item.extra_day_storage_currency == "USD"
 
+    def test_soft_delete_and_update_reactivates_study(self, db: Session):
+        crd = date.today() + timedelta(days=2)
+        item = ShippingScenarioItemCreate(
+            provider_name="ONE Line",
+            vessel_name="ONE APUS",
+            sailing_date=crd + timedelta(days=3),
+            estimated_arrival_date=crd + timedelta(days=25),
+        )
+        payload = ShippingEvaluationCreate(
+            title="Study to be soft deleted and reactivated on edit",
+            cargo_ready_date=crd,
+            items=[item],
+        )
+
+        session_res = ShippingScenarioService.create_session_service(db, payload)
+        session_id = session_res.session_id
+        assert session_res.is_active is True
+
+        # Soft delete the session
+        ShippingScenarioService.soft_delete_service(db, session_id)
+        get_res = ShippingScenarioService.get_session_service(db, session_id)
+        assert get_res.is_active is False
+
+        # User clicks Edit in UI and saves modifications -> must be reactivated (is_active = True)
+        update_payload = ShippingEvaluationUpdate(
+            title="Updated Reactivated Study",
+            items=[
+                ShippingScenarioItemCreate(
+                    provider_name="ONE Line Updated",
+                    vessel_name="ONE APUS v2",
+                    sailing_date=crd + timedelta(days=4),
+                    estimated_arrival_date=crd + timedelta(days=26),
+                    free_time_days=21,
+                    total_quotation_amount=3200.0,
+                )
+            ],
+        )
+        updated_res = ShippingScenarioService.update_session_service(db, session_id, update_payload)
+        assert updated_res.is_active is True
+        assert updated_res.title == "Updated Reactivated Study"
+        assert len(updated_res.items) == 1
+        assert updated_res.items[0].provider_name == "ONE Line Updated"
+        assert updated_res.items[0].vessel_name == "ONE APUS v2"
+        assert updated_res.items[0].free_time_days == 21
+        assert updated_res.items[0].total_quotation_amount == 3200.0
+
+
 

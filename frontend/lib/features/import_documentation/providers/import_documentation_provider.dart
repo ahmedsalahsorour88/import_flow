@@ -58,6 +58,66 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
     }
   }
 
+  Future<AcidRegistrationModel?> updateAcidSession(int acidId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId',
+        data: payload,
+      );
+      final updated = AcidRegistrationModel.fromJson(response.data);
+      await fetchAcidSessions();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> parseAcidText(String rawText, {int? importFileId}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/acid/parse-text',
+        data: {
+          'raw_text': rawText,
+          if (importFileId != null) 'import_file_id': importFileId,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<AcidComparisonResult> compareAcid(Map<String, dynamic> requested, Map<String, dynamic> generated) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/acid/compare',
+        data: {
+          'requested': requested,
+          'generated': generated,
+        },
+      );
+      return AcidComparisonResult.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, String>> generateTemplates(Map<String, dynamic> reqData) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/acid/templates',
+        data: reqData,
+      );
+      return {
+        'whatsapp_text': response.data['whatsapp_text']?.toString() ?? '',
+        'email_subject': response.data['email_subject']?.toString() ?? '',
+        'email_body': response.data['email_body']?.toString() ?? '',
+      };
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> softDeleteAcidSession(int acidId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/import-documentation/acid-sessions/$acidId');
@@ -177,3 +237,31 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
     }
   }
 }
+
+final acidTrackerProvider =
+    StateNotifierProvider<AcidTrackerNotifier, AsyncValue<AcidTrackerSummaryModel>>((ref) {
+  return AcidTrackerNotifier();
+});
+
+class AcidTrackerNotifier extends StateNotifier<AsyncValue<AcidTrackerSummaryModel>> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  AcidTrackerNotifier() : super(const AsyncValue.loading()) {
+    fetchAcidTracker();
+  }
+
+  Future<void> fetchAcidTracker() async {
+    state = const AsyncValue.loading();
+    try {
+      final response = await _dio.get('${ApiConstants.baseUrl}/import-documentation/acid/tracker');
+      final summary = AcidTrackerSummaryModel.fromJson(response.data);
+      state = AsyncValue.data(summary);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+}
+

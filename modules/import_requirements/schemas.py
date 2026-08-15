@@ -56,6 +56,15 @@ class ImportRequirementBase(BaseModel):
     
     other_requirements: Optional[List[Dict[str, Any]]] = None
     
+    # Post-ACID Confirmation & Linkage (مرحلة تأكيدية بعد إصدار ACID)
+    acid_number: Optional[str] = None
+    consultation_id: Optional[int] = None
+    consultation_code: Optional[str] = None
+    confirmation_status: str = Field("Pending Confirmation")
+    is_post_acid_confirmed: bool = False
+    confirmed_at: Optional[datetime] = None
+    confirmed_by: Optional[str] = None
+
     # Overall Assessment & Risk
     overall_status: str = Field("Draft")
     risk_level: str = Field("Low")
@@ -114,10 +123,70 @@ class ImportRequirementUpdate(BaseModel):
     coa_notes: Optional[str] = None
     
     other_requirements: Optional[List[Dict[str, Any]]] = None
+    acid_number: Optional[str] = None
+    consultation_id: Optional[int] = None
+    consultation_code: Optional[str] = None
+    confirmation_status: Optional[str] = None
+    is_post_acid_confirmed: Optional[bool] = None
+    confirmed_at: Optional[datetime] = None
+    confirmed_by: Optional[str] = None
     overall_status: Optional[str] = None
     risk_level: Optional[str] = None
     assessed_by: Optional[str] = None
     assessment_notes: Optional[str] = None
+
+
+class ImportRequirementPrefillResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    importer_name: Optional[str] = None
+    supplier_id: Optional[int] = None
+    supplier_name: Optional[str] = None
+    country_of_origin: Optional[str] = None
+    foreign_exporter_id: Optional[str] = None
+    currency: str = "USD"
+    shipment_value: float = 0.0
+    po_number: Optional[str] = None
+    pi_number: Optional[str] = None
+    acid_number: Optional[str] = None
+    hs_code: Optional[str] = None
+    commodity_description: Optional[str] = None
+    
+    # Linked Consultation Session Details
+    consultation_id: Optional[int] = None
+    consultation_code: Optional[str] = None
+    broker_name: Optional[str] = None
+    consultation_status: Optional[str] = None
+    readiness_percentage: float = 0.0
+    
+    # 5 Pillars Extracted from Consultation & Tariff
+    decree_43_applicable: bool = False
+    white_list_required: bool = False
+    white_list_verified: bool = False
+    factory_registration_no: Optional[str] = None
+    
+    coo_required: bool = False
+    coo_type: Optional[str] = None
+    coo_status: str = "Not Required"
+    coo_notes: Optional[str] = None
+    
+    inspection_required: bool = False
+    inspection_body: Optional[str] = None
+    inspection_status: str = "Not Required"
+    inspection_notes: Optional[str] = None
+    
+    import_permit_required: bool = False
+    permit_issuing_authority: Optional[str] = None
+    permit_status: str = "Not Required"
+    permit_notes: Optional[str] = None
+    
+    msds_required: bool = False
+    msds_status: str = "Not Required"
+    halal_cert_required: bool = False
+    halal_cert_status: str = "Not Required"
+    coa_required: bool = False
+    coa_status: str = "Not Required"
+    special_notes: Optional[str] = None
 
 
 class ImportRequirementResponse(ImportRequirementBase):
@@ -130,3 +199,4 @@ class ImportRequirementResponse(ImportRequirementBase):
     updated_at: datetime
     created_by: str
     updated_by: str
+

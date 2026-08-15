@@ -48,32 +48,54 @@ def generate_acid_code(db: Session) -> str:
 def create_acid_session(db: Session, schema: AcidRegistrationCreate) -> AcidRegistrationSession:
     code = generate_acid_code(db)
     req_date = schema.requested_date or date.today()
-    gen_date = schema.generated_date or date.today()
+    gen_date = schema.generated_date
+    exp_date = schema.expiry_date or (date.today() if not gen_date else gen_date)
 
     db_item = AcidRegistrationSession(
         acid_code=code,
-        acid_number=schema.acid_number.strip(),
+        acid_number=(schema.acid_number or "PENDING").strip(),
         import_file_id=schema.import_file_id,
         po_id=schema.po_id,
+        po_number=schema.po_number,
+        po_date=schema.po_date,
         importer_id=schema.importer_id,
         importer_name=schema.importer_name,
         importer_tax_id=schema.importer_tax_id,
+        importer_address=schema.importer_address,
         supplier_id=schema.supplier_id,
         exporter_name=schema.exporter_name,
+        exporter_reg_type=schema.exporter_reg_type or "VAT Number",
         exporter_reg_id=schema.exporter_reg_id,
         exporter_country=schema.exporter_country,
+        exporter_country_code=schema.exporter_country_code,
+        exporter_address=schema.exporter_address,
+        exporter_phone=schema.exporter_phone,
+        cargox_id=schema.cargox_id,
         proforma_invoice_no=schema.proforma_invoice_no,
+        proforma_invoice_date=schema.proforma_invoice_date,
+        invoice_date=schema.invoice_date,
+        invoice_type=schema.invoice_type or "Proforma Invoice",
+        invoice_attachment_name=schema.invoice_attachment_name,
         pol_name=schema.pol_name,
         pod_name=schema.pod_name,
+        customs_broker_id=schema.customs_broker_id,
+        customs_broker_name=schema.customs_broker_name,
+        customs_broker_phone=schema.customs_broker_phone,
         requested_date=req_date,
         generated_date=gen_date,
-        expiry_date=schema.expiry_date,
+        expiry_date=exp_date,
+        raw_nafeza_text=schema.raw_nafeza_text,
+        requested_data=schema.requested_data,
+        generated_data=schema.generated_data,
+        discrepancies_data=schema.discrepancies_data,
+        discrepancy_override_reason=schema.discrepancy_override_reason,
         is_importer_matched=True,
         is_exporter_matched=True,
         is_invoice_matched=True,
         is_ports_matched=True,
+        has_discrepancies=False,
         verification_notes=schema.verification_notes,
-        status="Verified",
+        status="Requested" if (schema.acid_number == "PENDING" or not gen_date) else "Verified",
         is_active=True,
     )
     db.add(db_item)

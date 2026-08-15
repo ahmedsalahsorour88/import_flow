@@ -103,6 +103,31 @@ def migrate_db():
                 print("Added column 'acid_number' to import_files table.")
             except Exception as e:
                 print(f"Error adding column acid_number: {e}")
+        if "acid_issue_date" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN acid_issue_date DATE;")
+                print("Added column 'acid_issue_date' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column acid_issue_date: {e}")
+        if "acid_expiry_date" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN acid_expiry_date DATE;")
+                print("Added column 'acid_expiry_date' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column acid_expiry_date: {e}")
+        if "is_customs_released" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN is_customs_released BOOLEAN DEFAULT 0;")
+                print("Added column 'is_customs_released' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column is_customs_released: {e}")
+        if "customs_released_at" not in imp_cols:
+            try:
+                cursor.execute("ALTER TABLE import_files ADD COLUMN customs_released_at DATETIME;")
+                print("Added column 'customs_released_at' to import_files table.")
+            except Exception as e:
+                print(f"Error adding column customs_released_at: {e}")
+
 
     # Universal import_file_id migration for all operational tables
     target_tables = [
@@ -241,9 +266,67 @@ def migrate_db():
                 except Exception as e:
                     print(f"Error adding column {col_name} to payment_request_sessions: {e}")
 
+    # Migration for import_requirement_assessments table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='import_requirement_assessments'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(import_requirement_assessments)")
+        ira_cols = [info[1] for info in cursor.fetchall()]
+        ira_new_cols = [
+            ("acid_number", "VARCHAR(50)"),
+            ("consultation_id", "INTEGER"),
+            ("consultation_code", "VARCHAR(50)"),
+            ("confirmation_status", "VARCHAR(50) DEFAULT 'Pending Confirmation'"),
+            ("is_post_acid_confirmed", "BOOLEAN DEFAULT 0"),
+            ("confirmed_at", "DATETIME"),
+            ("confirmed_by", "VARCHAR(100)"),
+        ]
+        for col_name, col_type in ira_new_cols:
+            if col_name not in ira_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE import_requirement_assessments ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to import_requirement_assessments table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to import_requirement_assessments: {e}")
+
+    # Migration for acid_registration_sessions table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='acid_registration_sessions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(acid_registration_sessions)")
+        acid_cols = [info[1] for info in cursor.fetchall()]
+        acid_new_cols = [
+            ("po_number", "VARCHAR(100)"),
+            ("po_date", "DATE"),
+            ("importer_address", "VARCHAR(300)"),
+            ("exporter_reg_type", "VARCHAR(100) DEFAULT 'VAT Number'"),
+            ("exporter_country_code", "VARCHAR(10)"),
+            ("exporter_address", "VARCHAR(300)"),
+            ("exporter_phone", "VARCHAR(50)"),
+            ("cargox_id", "VARCHAR(100)"),
+            ("invoice_date", "DATE"),
+            ("invoice_type", "VARCHAR(50) DEFAULT 'Proforma Invoice'"),
+            ("invoice_attachment_name", "VARCHAR(255)"),
+            ("customs_broker_id", "INTEGER"),
+            ("customs_broker_name", "VARCHAR(200)"),
+            ("customs_broker_phone", "VARCHAR(50)"),
+            ("raw_nafeza_text", "TEXT"),
+            ("requested_data", "JSON"),
+            ("generated_data", "JSON"),
+            ("discrepancies_data", "JSON"),
+            ("discrepancy_override_reason", "TEXT"),
+            ("has_discrepancies", "BOOLEAN DEFAULT 0"),
+        ]
+        for col_name, col_type in acid_new_cols:
+            if col_name not in acid_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE acid_registration_sessions ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to acid_registration_sessions table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to acid_registration_sessions: {e}")
+
     conn.commit()
     conn.close()
     print("Database migration completed successfully.")
+
 
 if __name__ == "__main__":
     migrate_db()

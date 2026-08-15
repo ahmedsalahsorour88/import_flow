@@ -142,3 +142,88 @@ def test_create_full_5_pillars_assessment():
     assert data["coa_required"] is True
     assert data["overall_status"] == "Complete"
 
+
+def test_import_file_prefill_endpoint():
+    db = TestingSessionLocal()
+    from modules.import_files.model import ImportFile
+    from modules.suppliers.model import Supplier
+    from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
+
+    supp = Supplier(
+        supplier_code="SUP-TEST-001",
+        company_name="Suzhou Yuheng Textile Co., Ltd.",
+        supplier_type="Manufacturer",
+        foreign_exporter_country="China",
+        foreign_exporter_country_code="CN",
+        foreign_exporter_id="CN99887766",
+        registration_type="Tax Number",
+        address="Suzhou Industrial Park, China",
+    )
+    db.add(supp)
+    db.commit()
+    db.refresh(supp)
+
+    file_obj = ImportFile(
+        import_file_code="IMP-2026-0002",
+        company_name="Arki Brands",
+        supplier_id=supp.supplier_id,
+        supplier_name=supp.company_name,
+        po_number="PO-2026-888",
+        acid_number="7595528271015010011",
+        invoices_data=[{"invoice_no": "INV-001", "amount": 45000.0, "currency": "USD"}],
+        shipment_mode="Sea Freight",
+        incoterm_code="FOB",
+        status="Active",
+        owner="Kamal",
+    )
+    db.add(file_obj)
+    db.commit()
+    db.refresh(file_obj)
+
+    # Add Consultation session
+    consult = CustomsConsultationSession(
+        consultation_code="CS-2026-0001",
+        title="Customs study for Textile Import",
+        broker_id=1,
+        broker_name="El-Ahram Brokerage",
+        import_file_id=file_obj.import_file_id,
+        overall_status="Clearance Ready",
+        readiness_percentage=100.0,
+    )
+    db.add(consult)
+    db.commit()
+    db.refresh(consult)
+
+    item1 = CustomsChecklistItem(
+        consultation_id=consult.consultation_id,
+        document_type="قرار 43 وتسجيل المصانع المؤهلة (GOEIC)",
+        regulatory_agency="الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)",
+        status="Verified",
+        is_required=True,
+    )
+    item2 = CustomsChecklistItem(
+        consultation_id=consult.consultation_id,
+        document_type="Certificate of Origin (EUR.1 / Agadir)",
+        status="Obtained",
+        is_required=True,
+        remarks="100% preferential reduction",
+    )
+    db.add_all([item1, item2])
+    file_id = file_obj.import_file_id
+    db.commit()
+    db.close()
+
+    res = client.get(f"/api/v1/import-requirements/prefill/{file_id}")
+    assert res.status_code == 200
+    pdata = res.json()
+    assert pdata["import_file_code"] == "IMP-2026-0002"
+    assert pdata["supplier_name"] == "Suzhou Yuheng Textile Co., Ltd."
+    assert pdata["country_of_origin"] == "China"
+    assert pdata["acid_number"] == "7595528271015010011"
+    assert pdata["consultation_code"] == "CS-2026-0001"
+    assert pdata["decree_43_applicable"] is True
+    assert pdata["white_list_verified"] is True
+    assert pdata["coo_required"] is True
+    assert pdata["coo_status"] == "Obtained"
+
+

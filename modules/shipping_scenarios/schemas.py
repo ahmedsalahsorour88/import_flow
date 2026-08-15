@@ -240,6 +240,7 @@ class ShippingEvaluationUpdate(BaseModel):
     po_id: Optional[int] = None
     project_id: Optional[int] = None
     notes: Optional[str] = None
+    is_active: Optional[bool] = None
     items: Optional[List[ShippingScenarioItemCreate]] = None
 
 

@@ -11,10 +11,20 @@ import modules.import_requirements.repository as repo
 router = APIRouter(prefix="/api/v1/import-requirements", tags=["Import Requirements Assessment (BP-011)"])
 
 
+@router.get("/prefill/{import_file_id}", response_model=service.ImportRequirementPrefillResponse,
+    summary="Auto-extract all requirement and compliance prefill data from Import File and Customs Consultation")
+def get_file_prefill(import_file_id: int, db: Session = Depends(get_db)):
+    try:
+        return service.get_import_file_prefill_service(db, import_file_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
 @router.post("", response_model=ImportRequirementResponse, status_code=status.HTTP_201_CREATED,
     summary="Create a new Import Requirements Assessment (BP-011)")
 def create_assessment(payload: ImportRequirementCreate, db: Session = Depends(get_db)):
     return service.create_assessment_service(db, payload)
+
 
 
 @router.get("", response_model=List[ImportRequirementResponse],

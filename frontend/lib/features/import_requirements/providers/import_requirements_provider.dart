@@ -62,6 +62,18 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
     }
   }
 
+  Future<ImportRequirementPrefillModel?> fetchPrefillData(int importFileId) async {
+    try {
+      final response = await _dio.get('$_baseUrl/import-requirements/prefill/$importFileId');
+      if (response.statusCode == 200) {
+        return ImportRequirementPrefillModel.fromJson(response.data);
+      }
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   Future<void> deleteRequirement(int id) async {
     try {
       await _dio.delete('$_baseUrl/import-requirements/$id');
@@ -71,3 +83,4 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
     }
   }
 }
+

@@ -11,6 +11,11 @@ from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
     AcidRegistrationUpdate,
     AcidRegistrationResponse,
+    AcidTextParseRequest,
+    AcidTextParseResponse,
+    AcidComparisonRequest,
+    AcidRequestTemplateResponse,
+    AcidTrackerSummary,
     BankingDocumentCreate,
     BankingDocumentResponse,
     ShipmentDocumentCreate,
@@ -25,7 +30,57 @@ import modules.import_documentation.repository as repo
 router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Documentation"])
 
 
-# --- ACID REGISTRATION ENDPOINTS (BP-014) ---
+# --- ACID REGISTRATION & TRACKER ENDPOINTS (BP-014) ---
+@router.get(
+    "/acid/tracker",
+    response_model=AcidTrackerSummary,
+    status_code=status.HTTP_200_OK,
+)
+def get_acid_tracker(db: Session = Depends(get_db)):
+    """
+    ACID Expiry Tracker: Lists all active ACID registrations and import files with
+    calculated days remaining, validity %, and customs release status (alerts removed once customs released).
+    """
+    return service.get_acid_tracker_service(db)
+
+
+@router.post(
+    "/acid/parse-text",
+    response_model=AcidTextParseResponse,
+    status_code=status.HTTP_200_OK,
+)
+def parse_acid_text(payload: AcidTextParseRequest, db: Session = Depends(get_db)):
+    """
+    Smart Nafeza Text Parser: Extracts structured ACID fields from raw MTS text notifications
+    and optionally computes live discrepancy comparison against the selected import file.
+    """
+    res = service.parse_acid_text_service(db, payload.raw_text, payload.import_file_id)
+    return res
+
+
+@router.post(
+    "/acid/compare",
+    status_code=status.HTTP_200_OK,
+)
+def compare_acid_data(payload: AcidComparisonRequest):
+    """
+    Compares requested shipment parameters with generated ACID data and returns a discrepancy matrix.
+    """
+    return service.compare_acid_datasets_service(payload.requested, payload.generated)
+
+
+@router.post(
+    "/acid/templates",
+    response_model=AcidRequestTemplateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def generate_acid_templates(payload: dict):
+    """
+    Generates ready-to-use WhatsApp and Email templates for customs broker communication.
+    """
+    return service.generate_acid_templates_service(payload)
+
+
 @router.post(
     "/acid-sessions",
     response_model=AcidRegistrationResponse,

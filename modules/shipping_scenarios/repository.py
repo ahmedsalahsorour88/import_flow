@@ -295,6 +295,11 @@ class ShippingScenarioRepository:
                 )
                 db.add(item_obj)
 
+        if payload.is_active is not None:
+            session_obj.is_active = payload.is_active
+        else:
+            session_obj.is_active = True  # Automatically reactivate study when edited & saved
+
         session_obj.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(session_obj)

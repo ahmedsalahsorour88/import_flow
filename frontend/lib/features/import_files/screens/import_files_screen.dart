@@ -2126,6 +2126,120 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
               ),
               const SizedBox(height: 16),
 
+              // ACID & Expiry Tracking Card
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: file.isCustomsReleased
+                      ? Colors.green.shade50.withOpacity(0.5)
+                      : (file.acidNumber != null ? Colors.blue.shade50.withOpacity(0.5) : Colors.grey.shade50),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: file.isCustomsReleased
+                        ? Colors.green.shade300
+                        : (file.acidNumber != null ? Colors.blue.shade300 : Colors.grey.shade300),
+                  ),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundColor: file.isCustomsReleased
+                          ? AppTheme.emerald.withOpacity(0.15)
+                          : (file.acidNumber != null ? AppTheme.cobalt.withOpacity(0.15) : Colors.grey.shade200),
+                      child: Icon(
+                        file.isCustomsReleased
+                            ? Icons.verified_user
+                            : (file.acidNumber != null ? Icons.hourglass_top : Icons.pending_actions),
+                        color: file.isCustomsReleased
+                            ? AppTheme.emerald
+                            : (file.acidNumber != null ? AppTheme.cobalt : Colors.grey),
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                '📌 بيانات القيد الجمركي المبدئي (ACID Status & Expiry):',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: file.isCustomsReleased
+                                      ? AppTheme.emerald
+                                      : (file.acidNumber != null ? AppTheme.cobalt : AppTheme.charcoal),
+                                ),
+                              ),
+                              if (file.isCustomsReleased)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.emerald,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    '✅ صُرفت من الجمرك (معفى من التنبيهات)',
+                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                )
+                              else if (file.acidNumber != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade800,
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text(
+                                    '⏳ قيد التخليص والصرف',
+                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          if (file.acidNumber != null && file.acidNumber!.isNotEmpty) ...[
+                            Row(
+                              children: [
+                                const Text('رقم الـ ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                SelectableText(
+                                  file.acidNumber!,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                ),
+                                const SizedBox(width: 16),
+                                if (file.acidIssueDate != null) ...[
+                                  const Text('تاريخ الإصدار: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text(file.acidIssueDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                  const SizedBox(width: 16),
+                                ],
+                                if (file.acidExpiryDate != null) ...[
+                                  const Text('تاريخ الانتهاء: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                  Text(
+                                    file.acidExpiryDate!,
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ] else ...[
+                            const Text(
+                              'لم يتم استخراج رقم ACID بعد لهذا الملف. يمكنك بدء إجراءات طلب واستخراج الـ ACID من موديول التوثيق (BP-014).',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // Linked Purchase Orders Table
               const Text(
                 '🛒 قائمة أوامر الشراء التفصيلية المرتبطة بهذا الملف (Linked Purchase Orders):',

@@ -40,6 +40,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   // Evaluator Form State
   int? _editingSessionId;
   String? _editingSessionCode;
+  int _editFormVersion = 0;
   String _title = '';
   DateTime _cargoReadyDate = DateTime.now().add(const Duration(days: 5));
   String _pickUpAddress = '';
@@ -60,6 +61,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   void _loadSessionForEditing(ShippingEvaluationModel sess) {
     setState(() {
+      _editFormVersion++;
       _editingSessionId = sess.sessionId;
       _editingSessionCode = sess.sessionCode;
       _title = sess.title ?? '';
@@ -72,11 +74,15 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _selectedProjectId = sess.projectId;
       _evalItems.clear();
       _evalItems.addAll(sess.items);
+      _expandedQuotes.clear();
+      for (int i = 0; i < sess.items.length; i++) {
+        _expandedQuotes[i] = true;
+      }
     });
     _tabController.animateTo(0);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📂 تم استدعاء الجلسة ${sess.sessionCode} لإعادة الدراسة والتعديل!'),
+        content: Text('📂 تم استدعاء وتحميل كافة بيانات الجلسة (${sess.sessionCode}) للتعديل وإعادة التفعيل!'),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -84,6 +90,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   void _resetFormForNewStudy() {
     setState(() {
+      _editFormVersion++;
       _editingSessionId = null;
       _editingSessionCode = null;
       _title = '';
@@ -94,6 +101,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _selectedImportFileId = null;
       _selectedPoId = null;
       _selectedProjectId = null;
+      _expandedQuotes.clear();
       _initDefaultItems();
     });
   }
@@ -437,12 +445,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       child: Stack(
         children: [
           Positioned.fill(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 85),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (_editingSessionId != null) ...[
+            child: KeyedSubtree(
+              key: ValueKey('evaluator_form_${_editingSessionId ?? "new"}_$_editFormVersion'),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 85),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_editingSessionId != null) ...[
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       decoration: BoxDecoration(
@@ -543,7 +553,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               Expanded(
                                 flex: 2,
                                 child: TextFormField(
-                                  key: ValueKey('title_$_title'),
+                                  key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _title,
                                   decoration: const InputDecoration(labelText: 'Study Title (مسمى دراسة خيارات الشحن) *', hintText: 'مثال: دراسة شحن خطوط الشرق الأقصى - يوليو', isDense: true),
                                   validator: (v) => v == null || v.trim().isEmpty ? 'عنوان الدراسة مطلوب' : null,
@@ -593,7 +603,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
                           // Parameters Row 2 (Pick-up Address)
                           TextFormField(
-                            key: ValueKey('pickup_addr_$_pickUpAddress'),
+                            key: ValueKey('pickup_addr_${_editingSessionId ?? "new"}_$_editFormVersion'),
                             initialValue: _pickUpAddress,
                             decoration: const InputDecoration(
                               labelText: 'Pick-up Address (عنوان استلام البضاعة / مكان التجميع المصنعي)',
@@ -640,6 +650,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               const SizedBox(width: 12),
                               Expanded(
                                 child: TextFormField(
+                                  key: ValueKey('avg_form4_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _avgForm4Days.toString(),
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', isDense: true, suffixText: 'أيام'),
@@ -649,6 +660,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               const SizedBox(width: 12),
                               Expanded(
                                 child: TextFormField(
+                                  key: ValueKey('avg_clearance_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _avgClearanceDays.toString(),
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', isDense: true, suffixText: 'أيام'),
@@ -901,6 +913,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 Expanded(
                                   flex: 2,
                                   child: TextFormField(
+                                    key: ValueKey('vessel_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.vesselName,
                                     decoration: const InputDecoration(labelText: 'Vessel Name *', isDense: true),
                                     validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -910,6 +923,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: TextFormField(
+                                    key: ValueKey('voyage_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.voyageNumber ?? '',
                                     decoration: const InputDecoration(labelText: 'Voyage #', isDense: true),
                                     onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
@@ -1047,6 +1061,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: TextFormField(
+                                    key: ValueKey('delay_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.expectedLineDelayDays.toString(),
                                     keyboardType: TextInputType.number,
                                     decoration: const InputDecoration(labelText: 'Expected Delay (Days)', isDense: true),
@@ -1146,6 +1161,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       children: [
                                         Expanded(
                                           child: TextFormField(
+                                            key: ValueKey('freetime_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                             initialValue: item.freeTimeDays.toString(),
                                             keyboardType: TextInputType.number,
                                             decoration: const InputDecoration(labelText: 'Free Time days at destination (أيام الفري تايم في الوجهة)', isDense: true, suffixText: 'أيام'),
@@ -1499,6 +1515,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
               ),
             ),
           ),
+        ),
 
           // Bottom Fixed Action Bar
           Positioned(
@@ -1584,7 +1601,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           Expanded(
             flex: 2,
             child: TextFormField(
-              key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_${_selectedImportFileId ?? "none"}_${_selectedPoId ?? "none"}'),
+              key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
               initialValue: price == 0.0 ? '' : price.toString(),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'سعر البند', isDense: true),
@@ -1620,7 +1637,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
               child: TextFormField(
                 key: qtyReadOnly
                     ? ValueKey('readonly_qty_${rowKey}_$qty')
-                    : ValueKey('qty_${rowKey}_${_editingSessionId ?? "new"}_${_selectedImportFileId ?? "none"}_${_selectedPoId ?? "none"}'),
+                    : ValueKey('qty_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
                 readOnly: qtyReadOnly,
                 initialValue: qty == 0.0 ? '' : (isIntegerQty ? qty.toInt().toString() : qty.toString()),
                 keyboardType: TextInputType.numberWithOptions(decimal: !isIntegerQty),
@@ -2513,6 +2530,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
         if (_selectedPoId != null) 'po_id': _selectedPoId,
         if (_selectedProjectId != null) 'project_id': _selectedProjectId,
+        'is_active': true,
         'items': _evalItems.map((i) => i.toCreateJson()).toList(),
       };
       ok = await ref.read(shippingScenariosProvider.notifier).updateSession(_editingSessionId!, data);

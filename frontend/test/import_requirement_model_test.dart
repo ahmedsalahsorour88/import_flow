@@ -12,7 +12,14 @@ void main() {
         'hs_code': '8415820010',
         'commodity_description': 'آلات وأجهزة تكييف أخر متضمنة وحدة تبريد',
         'country_of_origin': 'China',
+        'currency': 'USD',
+        'shipment_value': 45000.0,
         'shipment_value_usd': 45000.0,
+        'acid_number': '7595528271015010011',
+        'consultation_id': 12,
+        'consultation_code': 'CS-2026-0012',
+        'confirmation_status': 'Confirmed & Cleared',
+        'is_post_acid_confirmed': true,
         // Pillar 1
         'supplier_id': 3,
         'supplier_name': 'Gree Electric Appliances Inc.',
@@ -64,6 +71,9 @@ void main() {
       expect(model.whiteListVerified, true);
       expect(model.factoryRegistrationNo, 'GOEIC-REG-987654');
       expect(model.supplierName, 'Gree Electric Appliances Inc.');
+      expect(model.acidNumber, '7595528271015010011');
+      expect(model.consultationCode, 'CS-2026-0012');
+      expect(model.isPostAcidConfirmed, true);
 
       // Verify Pillar 2
       expect(model.cooRequired, true);
@@ -94,9 +104,56 @@ void main() {
       expect(serialized['assessment_code'], 'BP011-2026-0001');
       expect(serialized['currency'], 'USD');
       expect(serialized['shipment_value'], 45000.0);
+      expect(serialized['acid_number'], '7595528271015010011');
       expect(serialized['factory_registration_no'], 'GOEIC-REG-987654');
       expect(serialized['inspection_report_no'], 'SGS-CN-2026-8899');
       expect(serialized['permit_number'], 'EEAA-PERMIT-4421');
+    });
+
+    test('ImportRequirementPrefillModel.fromJson parses prefill data accurately', () {
+      final json = {
+        'import_file_id': 2,
+        'import_file_code': 'IMP-2026-0002',
+        'supplier_id': 8,
+        'supplier_name': 'Suzhou Yuheng Textile Co., Ltd.',
+        'country_of_origin': 'China',
+        'foreign_exporter_id': 'CN99887766',
+        'currency': 'USD',
+        'shipment_value': 32000.0,
+        'po_number': 'PO-8899',
+        'acid_number': '7595528271015010011',
+        'consultation_id': 4,
+        'consultation_code': 'CS-2026-0004',
+        'broker_name': 'El-Ahram Brokerage',
+        'consultation_status': 'Clearance Ready',
+        'readiness_percentage': 100.0,
+        'decree_43_applicable': true,
+        'white_list_required': true,
+        'white_list_verified': true,
+        'factory_registration_no': 'CN99887766',
+        'coo_required': true,
+        'coo_type': 'EUR.1',
+        'coo_status': 'Obtained',
+        'inspection_required': true,
+        'inspection_body': 'SGS',
+        'inspection_status': 'Completed',
+        'import_permit_required': true,
+        'permit_issuing_authority': 'EEAA',
+        'permit_status': 'Approved',
+        'msds_required': false,
+        'halal_cert_required': false,
+        'coa_required': false,
+      };
+
+      final prefill = ImportRequirementPrefillModel.fromJson(json);
+      expect(prefill.importFileCode, 'IMP-2026-0002');
+      expect(prefill.acidNumber, '7595528271015010011');
+      expect(prefill.consultationCode, 'CS-2026-0004');
+      expect(prefill.decree43Applicable, true);
+      expect(prefill.whiteListVerified, true);
+      expect(prefill.cooRequired, true);
+      expect(prefill.inspectionBody, 'SGS');
+      expect(prefill.readinessPercentage, 100.0);
     });
   });
 }

@@ -85,13 +85,15 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
         record.notes = payload.notes
     record.updated_at = datetime.now(timezone.utc)
 
-    # Update import file operational stage
+    # Update import file operational stage and release state
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == record.import_file_id).first()
     if imp_file:
         imp_file.current_module = "Phase 7 - Customs Clearance & Inspection"
         imp_file.current_stage = "Customs Release Permit Issued"
         imp_file.progress_percent = 75.0
         imp_file.next_action = "Warehouse Receiving & Dispatch"
+        imp_file.is_customs_released = True
+        imp_file.customs_released_at = payload.release_date or datetime.now(timezone.utc)
 
     db.commit()
     db.refresh(record)

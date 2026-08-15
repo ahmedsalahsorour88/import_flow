@@ -3,7 +3,7 @@ Import Documentation & Regulatory Compliance Models (Phase 3 - BP-014 to BP-019)
 """
 
 from datetime import datetime, date, timezone
-from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text
+from sqlalchemy import String, Float, Integer, DateTime, Date, ForeignKey, Boolean, Text, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database.database import Base
 
@@ -12,6 +12,7 @@ class AcidRegistrationSession(Base):
     """
     ACID Registration & Verification Session (BP-014).
     Stores Nafeza 19-digit ACID Number, issue/expiry dates, matching verification flags, and approval status.
+    Supports smart MTS parsing and discrepancy detection between requested & generated data.
     """
 
     __tablename__ = "acid_registration_sessions"
@@ -23,7 +24,7 @@ class AcidRegistrationSession(Base):
         String(50), unique=True, index=True, nullable=False
     )
     acid_number: Mapped[str] = mapped_column(
-        String(50), unique=True, index=True, nullable=False
+        String(50), index=True, nullable=False
     )
 
     import_file_id: Mapped[int] = mapped_column(
@@ -32,35 +33,68 @@ class AcidRegistrationSession(Base):
     po_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
     )
+    po_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    po_date: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Importer Details
     importer_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("import_companies.company_id"), nullable=True, index=True
     )
     importer_name: Mapped[str] = mapped_column(String(200), nullable=False)
     importer_tax_id: Mapped[str] = mapped_column(String(50), nullable=False)
+    importer_address: Mapped[str] = mapped_column(String(300), nullable=True)
 
+    # Foreign Exporter Details
     supplier_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("suppliers.supplier_id"), nullable=True, index=True
     )
     exporter_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    exporter_reg_type: Mapped[str] = mapped_column(String(100), default="VAT Number", nullable=True)
     exporter_reg_id: Mapped[str] = mapped_column(String(100), nullable=False)
     exporter_country: Mapped[str] = mapped_column(String(100), nullable=False)
+    exporter_country_code: Mapped[str] = mapped_column(String(10), nullable=True)
+    exporter_address: Mapped[str] = mapped_column(String(300), nullable=True)
+    exporter_phone: Mapped[str] = mapped_column(String(50), nullable=True)
+    cargox_id: Mapped[str] = mapped_column(String(100), nullable=True)
 
+    # Invoice & Shipping Details
     proforma_invoice_no: Mapped[str] = mapped_column(String(100), nullable=False)
+    proforma_invoice_date: Mapped[date] = mapped_column(Date, nullable=True)
+    invoice_date: Mapped[date] = mapped_column(Date, nullable=True)
+    invoice_type: Mapped[str] = mapped_column(String(50), default="Proforma Invoice", nullable=True)
+    invoice_attachment_name: Mapped[str] = mapped_column(String(255), nullable=True)
+
     pol_name: Mapped[str] = mapped_column(String(150), nullable=False)
     pod_name: Mapped[str] = mapped_column(String(150), nullable=False)
 
+    # Customs Broker Details
+    customs_broker_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("external_service_providers.provider_id"), nullable=True, index=True
+    )
+    customs_broker_name: Mapped[str] = mapped_column(String(200), nullable=True)
+    customs_broker_phone: Mapped[str] = mapped_column(String(50), nullable=True)
+
+    # Dates
     requested_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     generated_date: Mapped[date] = mapped_column(Date, nullable=True)
     expiry_date: Mapped[date] = mapped_column(Date, nullable=False)
+
+    # Raw MTS Text & Smart Parsing Snapshots
+    raw_nafeza_text: Mapped[str] = mapped_column(Text, nullable=True)
+    requested_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    generated_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    discrepancies_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    discrepancy_override_reason: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Verification Match Flags
     is_importer_matched: Mapped[bool] = mapped_column(Boolean, default=True)
     is_exporter_matched: Mapped[bool] = mapped_column(Boolean, default=True)
     is_invoice_matched: Mapped[bool] = mapped_column(Boolean, default=True)
     is_ports_matched: Mapped[bool] = mapped_column(Boolean, default=True)
+    has_discrepancies: Mapped[bool] = mapped_column(Boolean, default=False)
     verification_notes: Mapped[str] = mapped_column(Text, nullable=True)
 
-    # Status: 'Requested', 'Generated', 'Verified', 'Expired', 'Cancelled'
+    # Status: 'Requested', 'Generated', 'Verified', 'Discrepancy_Accepted', 'Rejected_For_Revision', 'Expired', 'Cancelled'
     status: Mapped[str] = mapped_column(
         String(50), default="Generated", nullable=False, index=True
     )

@@ -5,11 +5,81 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../customs_consultation/providers/customs_consultation_provider.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/import_requirement_model.dart';
 import '../providers/import_requirements_provider.dart';
+
+Color _getStatusColor(String status) {
+  switch (status) {
+    case 'Obtained':
+    case 'Completed':
+    case 'Approved':
+    case 'Cleared':
+    case 'Confirmed':
+    case 'تم الاستلام والتحقق':
+    case 'تم الفحص واجتياز المطابقة':
+    case 'تمت الموافقة والاعتماد':
+    case 'معتمد ومصرح للشحن':
+    case 'مؤكد ومصرح للشحن':
+      return AppTheme.emerald;
+    case 'Pending':
+    case 'In Progress':
+    case 'Applied':
+    case 'Scheduled':
+    case 'مطلوبة':
+    case 'قيد الاستيفاء':
+    case 'قيد الاستيفاء والتأكيد':
+    case 'تم تقديم الطلب':
+    case 'تم التكليف والتنسيق':
+      return AppTheme.orange;
+    case 'Rejected':
+    case 'مرفوض':
+    case 'مرفوضة':
+      return AppTheme.crimson;
+    case 'Waived':
+    case 'تم الإعفاء':
+      return AppTheme.cobalt;
+    default:
+      return Colors.grey.shade600;
+  }
+}
+
+Color _getRiskLevelColor(String risk) {
+  switch (risk) {
+    case 'Low':
+    case 'منخفض':
+    case 'منخفض (Low)':
+      return AppTheme.emerald;
+    case 'Medium':
+    case 'متوسط':
+    case 'متوسط (Medium)':
+      return AppTheme.orange;
+    case 'High':
+    case 'مرتفع':
+    case 'مرتفع (High)':
+      return AppTheme.crimson;
+    default:
+      return Colors.grey;
+  }
+}
+
+Widget _buildPillChip({required String label, required Color color}) {
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.1),
+      borderRadius: BorderRadius.circular(12),
+      border: Border.all(color: color.withOpacity(0.5)),
+    ),
+    child: Text(
+      label,
+      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
+    ),
+  );
+}
 
 class ImportRequirementsScreen extends ConsumerStatefulWidget {
   const ImportRequirementsScreen({super.key});
@@ -30,6 +100,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       ref.read(importFilesProvider.notifier).fetchImportFiles();
       ref.read(suppliersProvider.notifier).fetchSuppliers();
       ref.read(customsTariffProvider.notifier).fetchTariffs();
+      ref.read(customsConsultationsProvider.notifier).fetchConsultations();
     });
   }
 
@@ -41,53 +112,6 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     );
   }
 
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'Obtained':
-      case 'Completed':
-      case 'Approved':
-      case 'Cleared':
-      case 'تم الاستلام والتحقق':
-      case 'تم الفحص واجتياز المطابقة':
-      case 'تمت الموافقة والاعتماد':
-      case 'معتمد ومصرح للشحن':
-        return AppTheme.emerald;
-      case 'Pending':
-      case 'In Progress':
-      case 'Applied':
-      case 'Scheduled':
-      case 'مطلوبة':
-      case 'قيد الاستيفاء':
-      case 'تم تقديم الطلب':
-      case 'تم التكليف والتنسيق':
-        return AppTheme.orange;
-      case 'Rejected':
-      case 'مرفوض':
-      case 'مرفوضة':
-        return AppTheme.crimson;
-      case 'Waived':
-      case 'تم الإعفاء':
-        return AppTheme.cobalt;
-      default:
-        return Colors.grey.shade600;
-    }
-  }
-
-  Color _getRiskLevelColor(String risk) {
-    switch (risk) {
-      case 'Low':
-      case 'منخفض':
-        return AppTheme.emerald;
-      case 'Medium':
-      case 'متوسط':
-        return AppTheme.orange;
-      case 'High':
-      case 'مرتفع':
-        return AppTheme.crimson;
-      default:
-        return Colors.grey;
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -99,10 +123,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       appBar: AppBar(
         title: const Row(
           children: [
-            Icon(Icons.rule_folder_outlined, color: Colors.white, size: 22),
+            Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 24),
             SizedBox(width: 10),
             Text(
-              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية (BP-011)',
+              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية (BP-011 التأكيد اللاحق للـ ACID)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
           ],
@@ -118,6 +142,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               ref.read(importFilesProvider.notifier).fetchImportFiles();
               ref.read(suppliersProvider.notifier).fetchSuppliers();
               ref.read(customsTariffProvider.notifier).fetchTariffs();
+              ref.read(customsConsultationsProvider.notifier).fetchConsultations();
             },
           ),
         ],
@@ -151,7 +176,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     child: TextField(
                       controller: _searchController,
                       decoration: InputDecoration(
-                        hintText: 'بحث برقم التقييم، البند الجمركي HS Code، المورد، أو الوصف...',
+                        hintText: 'بحث برقم التقييم، البند الجمركي HS Code، رقم الـ ACID، المورد، أو الوصف...',
                         prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         isDense: true,
@@ -172,6 +197,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                           (f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
                             label: '${f.importFileCode} - ${f.supplierName}',
+                            subtitle: 'ACID: ${f.acidNumber ?? "Pending"}',
                           ),
                         ),
                       ],
@@ -181,8 +207,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   const SizedBox(width: 12),
                   ElevatedButton.icon(
                     onPressed: () => _showCreateEditDialog(),
-                    icon: const Icon(Icons.add, color: Colors.white),
-                    label: const Text('إضافة تقييم استيراد جديد', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    icon: const Icon(Icons.add_task, color: Colors.white),
+                    label: const Text('إضافة تأكيد استيرادي شامل', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.emerald,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -194,13 +220,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             const SizedBox(height: 16),
 
-            // 5 Pillars Overview Banner
+            // 5 Pillars Overview Banner with ACID Confirmation Reminder
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: AppTheme.charcoal.withOpacity(0.04),
+                color: AppTheme.cobalt.withOpacity(0.06),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.charcoal.withOpacity(0.1)),
+                border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
               ),
               child: const Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -209,7 +235,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   _PillarHeaderItem(icon: Icons.public_outlined, title: 'المحور 2: شهادة المنشأ والاتفاقيات'),
                   _PillarHeaderItem(icon: Icons.verified_outlined, title: 'المحور 3: فحص ما قبل الشحن'),
                   _PillarHeaderItem(icon: Icons.account_balance_outlined, title: 'المحور 4: موافقات جهات العرض'),
-                  _PillarHeaderItem(icon: Icons.science_outlined, title: 'المحور 5: شهادات فنية (MSDS/Halal)'),
+                  _PillarHeaderItem(icon: Icons.science_outlined, title: 'المحور 5: شهادات خاصة (MSDS/Halal/COA)'),
                 ],
               ),
             ),
@@ -224,6 +250,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     final matchesQuery = r.assessmentCode.toLowerCase().contains(query) ||
                         (r.hsCode?.toLowerCase().contains(query) ?? false) ||
                         (r.supplierName?.toLowerCase().contains(query) ?? false) ||
+                        (r.acidNumber?.toLowerCase().contains(query) ?? false) ||
                         (r.commodityDescription?.toLowerCase().contains(query) ?? false);
                     final matchesFile = _selectedFileFilter == null || r.importFileId == _selectedFileFilter;
                     return matchesQuery && matchesFile;
@@ -241,7 +268,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                           ElevatedButton.icon(
                             onPressed: () => _showCreateEditDialog(),
                             icon: const Icon(Icons.add, color: Colors.white),
-                            label: const Text('إضافة أول تقييم استيراد', style: TextStyle(color: Colors.white)),
+                            label: const Text('إضافة أول تأكيد استيرادي', style: TextStyle(color: Colors.white)),
                             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                           ),
                         ],
@@ -252,7 +279,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   return GridView.builder(
                     gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
-                      childAspectRatio: 1.55,
+                      childAspectRatio: 1.5,
                       crossAxisSpacing: 14,
                       mainAxisSpacing: 14,
                     ),
@@ -300,7 +327,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       ),
                     ),
                     if (req.importFileCode != null) ...[
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
@@ -311,6 +338,28 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                         child: Text(
                           'ملف: ${req.importFileCode}',
                           style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                    if (req.acidNumber != null && req.acidNumber!.isNotEmpty) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.verified, size: 12, color: Colors.green),
+                            const SizedBox(width: 4),
+                            Text(
+                              'ACID: ${req.acidNumber}',
+                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -334,7 +383,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       onPrint: () {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('طباعة تقرير استيفاء المتطلبات الاستيرادية (5 محاور): ${req.assessmentCode} (HS: ${req.hsCode ?? "-"})'),
+                            content: Text('طباعة تقرير استيفاء المتطلبات الاستيرادية (5 محاور): ${req.assessmentCode} (ACID: ${req.acidNumber ?? "-"})'),
                             backgroundColor: AppTheme.charcoal,
                             duration: const Duration(seconds: 2),
                           ),
@@ -360,7 +409,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                           ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
                         }
                       },
-                      viewTooltip: 'عرض تفاصيل التقييم والمحاور',
+                      viewTooltip: 'عرض تفاصيل التقييم والتأكيد',
                       editTooltip: 'تعديل التقييم الاستيرادي',
                       printTooltip: 'طباعة تقرير المتطلبات',
                       deleteTooltip: 'حذف التقييم الاستيرادي',
@@ -380,7 +429,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     children: [
                       Text(
                         'HS Code: ${req.hsCode ?? "غير محدد"}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                       ),
                       Text(
                         req.commodityDescription ?? 'بدون وصف للصنف',
@@ -414,7 +463,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 ],
               ],
             ),
-            const Divider(height: 14),
+            const Divider(height: 12),
 
             // The 5 Pillars Visual Grid
             Expanded(
@@ -476,7 +525,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'بلد المنشأ: ${req.countryOfOrigin ?? "غير محدد"} | القيمة: \$${req.shipmentValueUsd.toStringAsFixed(0)}',
+                  'بلد المنشأ: ${req.countryOfOrigin ?? "غير محدد"} | القيمة: ${req.shipmentValue.toStringAsFixed(0)} ${req.currency}',
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
                 ),
                 Text(
@@ -487,21 +536,6 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPillChip({required String label, required Color color}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.5)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
       ),
     );
   }
@@ -611,8 +645,14 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
   late TextEditingController _countryCtrl;
   late TextEditingController _valCtrl;
 
-  // Extracted invoice items from the linked file
-  List<Map<String, dynamic>> _fileInvoiceItems = [];
+  // Post-ACID & Consultation Linkage Info
+  String? _acidNumber;
+  int? _consultationId;
+  String? _consultationCode;
+  String? _brokerName;
+  String? _consultationStatus;
+  double _readinessPercentage = 0.0;
+  bool _isPrefilling = false;
 
   // Pillar 1: Decree 43 & Foreign Suppliers
   bool _decree43 = false;
@@ -650,7 +690,7 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
   late TextEditingController _specialNotesCtrl;
 
   // Summary & Risk
-  String _overallStatus = 'مسودة (Draft)';
+  String _overallStatus = 'قيد الاستيفاء والتأكيد';
   String _riskLevel = 'منخفض (Low)';
   late TextEditingController _assessedByCtrl;
   late TextEditingController _assessmentNotesCtrl;
@@ -669,6 +709,9 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     _selectedSupplierId = req?.supplierId;
     _selectedSupplierName = req?.supplierName;
     _selectedCurrency = req?.currency ?? 'USD';
+    _acidNumber = req?.acidNumber;
+    _consultationId = req?.consultationId;
+    _consultationCode = req?.consultationCode;
 
     _descCtrl = TextEditingController(text: req?.commodityDescription);
     _countryCtrl = TextEditingController(text: req?.countryOfOrigin);
@@ -713,63 +756,165 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     _specialNotesCtrl = TextEditingController(text: req?.coaNotes ?? req?.msdsNotes ?? req?.halalCertNotes);
 
     // Summary
-    _overallStatus = req?.overallStatus ?? 'مسودة (Draft)';
+    _overallStatus = req?.overallStatus ?? 'قيد الاستيفاء والتأكيد';
     _riskLevel = req?.riskLevel ?? 'منخفض (Low)';
     _assessedByCtrl = TextEditingController(text: req?.assessedBy ?? 'Kamal');
     _assessmentNotesCtrl = TextEditingController(text: req?.assessmentNotes);
 
-    // Initial extraction if file already linked
-    if (_selectedFileId != null) {
+    // If already editing with a file linked, run auto-prefill once if fields are empty
+    if (_selectedFileId != null && widget.requirement == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        _extractDataFromLinkedFile(_selectedFileId);
+        _triggerAutoPrefillFromLinkedFile(_selectedFileId);
       });
     }
   }
 
-  void _extractDataFromLinkedFile(int? fileId) {
+  Future<void> _triggerAutoPrefillFromLinkedFile(int? fileId) async {
     if (fileId == null) {
       setState(() {
-        _fileInvoiceItems = [];
+        _acidNumber = null;
+        _consultationId = null;
+        _consultationCode = null;
+        _brokerName = null;
+        _consultationStatus = null;
+        _readinessPercentage = 0.0;
       });
       return;
     }
 
-    final importFiles = ref.read(importFilesProvider).value ?? [];
-    final file = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+    setState(() => _isPrefilling = true);
+
+    try {
+      final prefill = await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
+      if (prefill != null) {
+        setState(() {
+          _selectedFileCode = prefill.importFileCode;
+          _selectedSupplierId = prefill.supplierId;
+          _selectedSupplierName = prefill.supplierName;
+          _countryCtrl.text = prefill.countryOfOrigin ?? 'China';
+          _selectedCurrency = prefill.currency;
+          _valCtrl.text = prefill.shipmentValue > 0 ? prefill.shipmentValue.toString() : _valCtrl.text;
+          _acidNumber = prefill.acidNumber;
+
+          _consultationId = prefill.consultationId;
+          _consultationCode = prefill.consultationCode;
+          _brokerName = prefill.brokerName;
+          _consultationStatus = prefill.consultationStatus;
+          _readinessPercentage = prefill.readinessPercentage;
+
+          if (prefill.hsCode != null && prefill.hsCode!.isNotEmpty) {
+            _selectedHsCode = prefill.hsCode;
+          }
+          if (prefill.commodityDescription != null && prefill.commodityDescription!.isNotEmpty) {
+            _descCtrl.text = prefill.commodityDescription!;
+          }
+
+          // 5 Pillars Auto Extraction from Customs Consultation & Tariff
+          _decree43 = prefill.decree43Applicable;
+          _whiteList = prefill.whiteListRequired;
+          _whiteListVerified = prefill.whiteListVerified;
+          _factoryRegCtrl.text = prefill.factoryRegistrationNo ?? '';
+
+          _cooRequired = prefill.cooRequired;
+          if (prefill.cooType != null) _cooType = prefill.cooType!;
+          _cooStatus = prefill.cooStatus;
+          _cooNotesCtrl.text = prefill.cooNotes ?? '';
+
+          _inspRequired = prefill.inspectionRequired;
+          if (prefill.inspectionBody != null) _inspBody = prefill.inspectionBody!;
+          _inspStatus = prefill.inspectionStatus;
+          _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
+
+          _permitRequired = prefill.importPermitRequired;
+          if (prefill.permitIssuingAuthority != null) _permitAuth = prefill.permitIssuingAuthority!;
+          _permitStatus = prefill.permitStatus;
+          _permitNotesCtrl.text = prefill.permitNotes ?? '';
+
+          _msdsRequired = prefill.msdsRequired;
+          _msdsStatus = prefill.msdsStatus;
+          _halalRequired = prefill.halalCertRequired;
+          _halalStatus = prefill.halalCertStatus;
+          _coaRequired = prefill.coaRequired;
+          _coaStatus = prefill.coaStatus;
+          _specialNotesCtrl.text = prefill.specialNotes ?? '';
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                _consultationCode != null
+                    ? '✨ تم استدعاء بيانات الشحنة والـ ACID ودراسة الاستشارة الجمركية (${_consultationCode!}) بنجاح!'
+                    : '✨ تم استدعاء بيانات الشحنة والمورد والـ ACID بنجاح!',
+              ),
+              backgroundColor: AppTheme.cobalt,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      } else {
+        // Fallback: local lookup in loaded providers
+        _fallbackLocalExtraction(fileId);
+      }
+    } catch (_) {
+      _fallbackLocalExtraction(fileId);
+    } finally {
+      if (mounted) setState(() => _isPrefilling = false);
+    }
+  }
+
+  void _fallbackLocalExtraction(int fileId) {
+    final files = ref.read(importFilesProvider).value ?? [];
+    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) return;
 
-    final items = <Map<String, dynamic>>[];
-    String fileCurr = 'USD';
-    double totalInvoiceAmount = 0.0;
-
-    if (file.invoicesData.isNotEmpty) {
-      fileCurr = file.invoicesData.first.currency;
-      for (var inv in file.invoicesData) {
-        totalInvoiceAmount += inv.amount;
-        items.add({
-          'invoice_no': inv.invoiceNo,
-          'invoice_type': inv.invoiceType,
-          'amount': inv.amount,
-          'currency': inv.currency,
-          'hs_code': null, // In case invoice has sub-items
-          'description': 'فاتورة رقم: ${inv.invoiceNo} (${inv.amount} ${inv.currency})',
-        });
-      }
-    }
+    final consultations = ref.read(customsConsultationsProvider).value ?? [];
+    final consult = consultations.where((c) => c.importFileId == fileId).firstOrNull;
 
     setState(() {
       _selectedFileCode = file.importFileCode;
-      _selectedCurrency = fileCurr;
-      _fileInvoiceItems = items;
+      _selectedSupplierId = file.supplierId;
+      _selectedSupplierName = file.supplierName;
+      _acidNumber = file.acidNumber;
 
-      if (_valCtrl.text == '0' || _valCtrl.text.isEmpty) {
-        _valCtrl.text = totalInvoiceAmount > 0 ? totalInvoiceAmount.toString() : '0';
+      if (file.invoicesData.isNotEmpty) {
+        _selectedCurrency = file.invoicesData.first.currency;
+        double total = 0;
+        for (var inv in file.invoicesData) {
+          total += inv.amount;
+        }
+        _valCtrl.text = total.toString();
       }
 
-      if (file.supplierId != null) {
-        _onSupplierChanged(file.supplierId);
+      if (consult != null) {
+        _consultationId = consult.consultationId;
+        _consultationCode = consult.consultationCode;
+        _brokerName = consult.brokerName;
+        _consultationStatus = consult.overallStatus;
+        _readinessPercentage = consult.readinessPercentage;
       }
     });
+  }
+
+  void _confirmAndApproveAllPillars() {
+    setState(() {
+      if (_decree43) _whiteListVerified = true;
+      if (_cooRequired) _cooStatus = 'تم الاستلام والتحقق';
+      if (_inspRequired) _inspStatus = 'تم الفحص واجتياز المطابقة';
+      if (_permitRequired) _permitStatus = 'تمت الموافقة والاعتماد';
+      if (_msdsRequired) _msdsStatus = 'تم الاستلام والتحقق';
+      if (_halalRequired) _halalStatus = 'تم الاستلام والتحقق';
+      if (_coaRequired) _coaStatus = 'تم الاستلام والتحقق';
+      _overallStatus = 'مؤكد ومصرح للشحن';
+      _riskLevel = 'منخفض (Low)';
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✅ تم تأكيد واستيفاء كافة المحاور التنظيمية وتصريح الشحن بنجاح!'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
   }
 
   @override
@@ -864,7 +1009,13 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
       'country_of_origin': _countryCtrl.text.trim(),
       'currency': _selectedCurrency,
       'shipment_value': shipmentVal,
-      'shipment_value_usd': shipmentVal, // Stored for backward compatibility
+      'shipment_value_usd': shipmentVal,
+      'acid_number': _acidNumber,
+      'consultation_id': _consultationId,
+      'consultation_code': _consultationCode,
+      'confirmation_status': _overallStatus == 'مؤكد ومصرح للشحن' ? 'Confirmed & Cleared' : 'In Progress',
+      'is_post_acid_confirmed': _overallStatus == 'مؤكد ومصرح للشحن',
+      'confirmed_by': 'Kamal (Lead Import Auditor)',
 
       // Pillar 1
       'supplier_id': _selectedSupplierId,
@@ -923,8 +1074,8 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(widget.requirement == null
-                ? '✅ تم إنشاء تقييم المتطلبات الاستيرادية بنجاح!'
-                : '✅ تم تحديث تقييم المتطلبات الاستيرادية بنجاح!'),
+                ? '✅ تم حفظ واعتماد تقييم المتطلبات الاستيرادية التأكيدي بنجاح!'
+                : '✅ تم تحديث التقييم الاستيرادي التأكيدي بنجاح!'),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -948,27 +1099,27 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        width: 950,
-        height: 750,
+        width: 1000,
+        height: 790,
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Dialog Header
+              // Dialog Header with Post-ACID Verification Title
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(Icons.rule_folder, color: AppTheme.cobalt, size: 24),
-                      const SizedBox(width: 8),
+                      const Icon(Icons.verified, color: AppTheme.cobalt, size: 26),
+                      const SizedBox(width: 10),
                       Text(
                         widget.requirement == null
-                            ? 'إضافة تقييم متطلبات استيرادية شامل (BP-011)'
-                            : 'تعديل تقييم المتطلبات الاستيرادية (${widget.requirement!.assessmentCode})',
-                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            ? 'المرحلة التأكيدية بعد إصدار ACID — تقييم ومطابقة المتطلبات التنظيمية (BP-011)'
+                            : 'تحديث ومطابقة المتطلبات التأكيدية (${widget.requirement!.assessmentCode})',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                     ],
                   ),
@@ -978,9 +1129,58 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                   ),
                 ],
               ),
-              const Divider(height: 16),
+              const Divider(height: 12),
 
-              // General Section: Import File, HS Code, Supplier
+              // Post-ACID Confirmation Banner & Consultation Linkage Info
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade50 : Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade300 : Colors.amber.shade300,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _acidNumber != null && _acidNumber!.isNotEmpty ? Icons.verified : Icons.warning_amber_rounded,
+                      color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green : Colors.amber.shade800,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _acidNumber != null && _acidNumber!.isNotEmpty
+                            ? 'رقم القيد الجمركي المسبق الصادر (ACID: $_acidNumber) | حالة التأكيد: مرحلة الفحص النهائي والمطابقة الخماسية قبل الإفراج الجمركي.'
+                            : '⚠️ لم يتم ربط أو إصدار رقم ACID بعد لهذا الملف — سيتم السحب الأولي لمطابقة الاشتراطات الرقابية.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade900 : Colors.brown,
+                        ),
+                      ),
+                    ),
+                    if (_consultationCode != null) ...[
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
+                        child: Text(
+                          'نتائج الاستشارة: $_consultationCode (${_brokerName ?? "المخلص الجمركي"}) - ${_consultationStatus ?? "جاهز"} (${_readinessPercentage.toStringAsFixed(0)}%)',
+                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (_isPrefilling) ...[
+                const SizedBox(height: 4),
+                const LinearProgressIndicator(minHeight: 2),
+              ],
+              const SizedBox(height: 10),
+
+              // General Section: Import File (Auto Pull Trigger), HS Code, Supplier
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -995,16 +1195,15 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                         Expanded(
                           child: SearchableDropdownField<int?>(
                             value: _selectedFileId,
-                            labelText: 'ملف الشحنة المربوط (Import File)',
+                            labelText: 'ملف الشحنة المربوط (Import File) *',
+                            searchHintText: 'ابحث برقم الملف، المورد أو ACID...',
                             items: [
-                              const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط بملف محدد'),
+                              const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة للسحب التلقائي الشامل --'),
                               ...importFiles.map(
                                 (f) => SearchableDropdownItem<int?>(
                                   value: f.importFileId,
-                                  label: '${f.importFileCode} - ${f.supplierName}',
-                                  subtitle: f.invoicesData.isNotEmpty
-                                      ? 'عملة الفواتير: ${f.invoicesData.first.currency} | عدد الفواتير: ${f.invoicesData.length}'
-                                      : 'بدون فواتير مسجلة',
+                                  label: '[${f.importFileCode}] ${f.supplierName}',
+                                  subtitle: 'ACID: ${f.acidNumber ?? "Pending"} | العملة: ${f.invoicesData.isNotEmpty ? f.invoicesData.first.currency : "USD"}',
                                 ),
                               ),
                             ],
@@ -1012,7 +1211,7 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                               setState(() {
                                 _selectedFileId = val;
                               });
-                              _extractDataFromLinkedFile(val);
+                              _triggerAutoPrefillFromLinkedFile(val);
                             },
                           ),
                         ),
@@ -1022,12 +1221,13 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                             value: _selectedHsCode,
                             labelText: 'بند التعريفة الجمركية (HS Code MD-008) *',
                             isRequired: true,
+                            searchHintText: 'ابحث برقم البند أو الوصف...',
                             items: [
                               ...tariffs.map(
                                 (t) => SearchableDropdownItem<String?>(
                                   value: t.hsCode,
                                   label: '${t.hsCode} - ${t.hsDescription}',
-                                  subtitle: 'وارد: ${t.customsDutyRate}% | ق.م: ${t.vatRate}%',
+                                  subtitle: 'وارد: ${t.customsDutyRate}% | ق.م: ${t.vatRate}% | جهة العرض: ${t.regulatoryAuthority ?? "لا توجد"}',
                                 ),
                               ),
                             ],
@@ -1037,27 +1237,6 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                         ),
                       ],
                     ),
-                    if (_selectedFileId != null && _fileInvoiceItems.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.08),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.receipt_long, size: 16, color: AppTheme.cobalt),
-                            const SizedBox(width: 6),
-                            Text(
-                              'تم استدعاء بيانات الفواتير المرتبطة: عملة الملف الموحدة ($_selectedCurrency) — إجمالي فواتير الشحنة: ${_valCtrl.text} $_selectedCurrency',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -1065,13 +1244,14 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                           child: SearchableDropdownField<int?>(
                             value: _selectedSupplierId,
                             labelText: 'المورد الخارجي / المصنع (Foreign Supplier MD-002)',
+                            searchHintText: 'ابحث عن المورد الخارجي...',
                             items: [
                               const SearchableDropdownItem<int?>(value: null, label: 'بدون تحديد مورد'),
                               ...suppliers.map(
                                 (s) => SearchableDropdownItem<int?>(
                                   value: s.supplierId,
                                   label: '${s.companyName} (${s.foreignExporterCountry})',
-                                  subtitle: 'كود المصدر: ${s.foreignExporterId}',
+                                  subtitle: 'كود المصدر: ${s.foreignExporterId} | قرار 43: ${s.registeredDecree43 ? "مسجل ✔" : "غير مسجل"}',
                                 ),
                               ),
                             ],
@@ -1098,15 +1278,15 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                             decoration: InputDecoration(
                               labelText: 'قيمة الشحنة بالعملة ($_selectedCurrency) *',
                               isDense: true,
-                              border: const OutlineInputBorder(),
                               prefixText: '$_selectedCurrency ',
+                              border: const OutlineInputBorder(),
                             ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                            validator: (v) => v == null || double.tryParse(v.trim()) == null ? 'قيمة غير صحيحة' : null,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 10),
                     TextFormField(
                       controller: _descCtrl,
                       decoration: const InputDecoration(
@@ -1114,27 +1294,36 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                         isDense: true,
                         border: OutlineInputBorder(),
                       ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                      validator: (v) => v == null || v.trim().isEmpty ? 'وصف الصنف مطلوب' : null,
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
 
               // 5 Pillars Tab Bar
-              TabBar(
-                controller: _tabController,
-                labelColor: AppTheme.cobalt,
-                unselectedLabelColor: Colors.grey.shade600,
-                indicatorColor: AppTheme.cobalt,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                tabs: const [
-                  Tab(icon: Icon(Icons.factory_outlined, size: 18), text: '1. قرار 43 وتسجيل المصانع'),
-                  Tab(icon: Icon(Icons.public_outlined, size: 18), text: '2. شهادة المنشأ والاتفاقيات'),
-                  Tab(icon: Icon(Icons.verified_outlined, size: 18), text: '3. فحص ما قبل الشحن'),
-                  Tab(icon: Icon(Icons.account_balance_outlined, size: 18), text: '4. موافقات جهات العرض'),
-                  Tab(icon: Icon(Icons.science_outlined, size: 18), text: '5. شهادات خاصة وملخص'),
-                ],
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: TabBar(
+                  controller: _tabController,
+                  indicator: BoxDecoration(
+                    color: AppTheme.cobalt,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  labelColor: Colors.white,
+                  unselectedLabelColor: AppTheme.charcoal,
+                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                  tabs: const [
+                    Tab(icon: Icon(Icons.factory, size: 16), text: 'قرار 43 وتسجيل المصانع .1'),
+                    Tab(icon: Icon(Icons.public, size: 16), text: 'شهادة المنشأ والاتفاقيات .2'),
+                    Tab(icon: Icon(Icons.verified, size: 16), text: 'فحص ما قبل الشحن .3'),
+                    Tab(icon: Icon(Icons.account_balance, size: 16), text: 'موافقات جهات العرض .4'),
+                    Tab(icon: Icon(Icons.science, size: 16), text: 'شهادات خاصة وملخص .5'),
+                  ],
+                ),
               ),
               const SizedBox(height: 8),
 
@@ -1143,65 +1332,63 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                 child: TabBarView(
                   controller: _tabController,
                   children: [
-                    // Tab 1: Decree 43 & Foreign Suppliers
-                    _buildPillar1Decree43Tab(),
-
-                    // Tab 2: COO & Trade Agreements
-                    _buildPillar2CooTab(),
-
-                    // Tab 3: Pre-Shipment Inspection
-                    _buildPillar3InspectionTab(),
-
-                    // Tab 4: Prior Regulatory Approvals
-                    _buildPillar4RegulatoryPermitsTab(),
-
-                    // Tab 5: Technical Certs & Summary
-                    _buildPillar5SpecialAndSummaryTab(),
+                    _buildPillar1Tab(),
+                    _buildPillar2Tab(),
+                    _buildPillar3Tab(),
+                    _buildPillar4Tab(),
+                    _buildPillar5Tab(),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
 
-              const Divider(height: 16),
-
-              // Actions
+              // Bottom Action Bar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.blue.shade200),
-                        ),
-                        child: Text(
-                          'الحالة: $_overallStatus | المخاطر: $_riskLevel',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
-                        ),
+                      _buildPillChip(
+                        label: 'الحالة: $_overallStatus',
+                        color: _getStatusColor(_overallStatus),
+                      ),
+                      const SizedBox(width: 8),
+                      _buildPillChip(
+                        label: 'المخاطر: $_riskLevel',
+                        color: _getRiskLevelColor(_riskLevel),
                       ),
                     ],
                   ),
                   Row(
                     children: [
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        icon: const Icon(Icons.auto_fix_high, color: AppTheme.cobalt, size: 16),
+                        label: const Text('⚡ استيفاء وتأكيد كافة المحاور', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                        onPressed: _confirmAndApproveAllPillars,
+                      ),
+                      const SizedBox(width: 10),
                       TextButton(
-                        onPressed: _isSaving ? null : () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(context),
                         child: const Text('إلغاء'),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 10),
                       ElevatedButton.icon(
                         onPressed: _isSaving ? null : _save,
                         icon: _isSaving
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check, color: Colors.white),
+                            : const Icon(Icons.check_circle_outline, color: Colors.white),
                         label: Text(
-                          _isSaving ? 'جاري الحفظ...' : 'حفظ التقييم الاستيرادي',
+                          _isSaving ? 'جاري الحفظ...' : 'حفظ واعتماد التقييم التأكيدي',
                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.emerald,
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                         ),
                       ),
                     ],
@@ -1215,30 +1402,28 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     );
   }
 
-  // ==========================================
-  // Pillar 1: Decree 43 & Foreign Suppliers
-  // ==========================================
-  Widget _buildPillar1Decree43Tab() {
+  // --- PILLAR 1: DECREE 43 & FACTORY REGISTRATION ---
+  Widget _buildPillar1Tab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.amber.shade300),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(color: Colors.amber.shade200),
             ),
             child: const Row(
               children: [
-                Icon(Icons.info_outline, color: AppTheme.orange, size: 20),
+                Icon(Icons.info_outline, color: Colors.amber, size: 20),
                 SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    'القرار الوزاري رقم 43 لسنة 2016 يلزم تسجيل المصانع والشركات المالكة للعلامات التجارية المؤهلة للتصدير لجمهورية مصر العربية بالهيئة العامة للرقابة على الصادرات والواردات (GOEIC) للإفراج عن السلع المحددة.',
-                    style: TextStyle(fontSize: 12, height: 1.4, color: AppTheme.charcoal),
+                    'القرار الوزاري رقم 43 لسنة 2016 يلزم تسجيل المصانع والشركات المالكة للعلامات التجارية المؤهلة للتصدير بالهيئة العامة للرقابة على الصادرات والواردات (GOEIC) للإفراج عن السلع المحددة.',
+                    style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
                   ),
                 ),
               ],
@@ -1246,33 +1431,26 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
           ),
           const SizedBox(height: 12),
           SwitchListTile(
-            title: const Text('هل يخضع الصنف للقرار 43 لسنة 2016؟ (تسجيل المصانع المؤهلة للتصدير)', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('يشترط للافراج عن الصنف وارد اتجار أن يكون إنتاج مصانع مسجلة بالهيئة'),
+            title: const Text('هل يخضع الصنف للقرار 43 لسنة 2016؟ (تسجيل المصانع المؤهلة للتصدير)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: const Text('يشترط للإفراج عن الصنف وارد اتجار أن يكون إنتاج مصانع مسجلة بالهيئة'),
             value: _decree43,
             onChanged: (v) => setState(() => _decree43 = v),
           ),
           if (_decree43) ...[
             const Divider(),
-            SwitchListTile(
-              title: const Text('اشتراط القيد بالقائمة البيضاء (White List Required)'),
-              subtitle: const Text('التحقق من وجود المورد/المصنع ضمن قائمة المصانع المعتمدة للتصدير لمصر'),
-              value: _whiteList,
-              onChanged: (v) => setState(() => _whiteList = v),
-            ),
-            SwitchListTile(
-              title: const Text('تم التحقق والتأكد من قيد المصنع بالهيئة هـ.ع.ص.و'),
-              subtitle: const Text('المورد والمصنع مستوفي القيد وساري المفعول'),
+            CheckboxListTile(
+              title: const Text('المصنع / الشركة مسجلة بالقائمة البيضاء (White List Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              subtitle: const Text('تم التحقق من صدور القرار الوزاري بقيد المصنع أو العلامة التجارية بسجلات الهيئة'),
               value: _whiteListVerified,
-              onChanged: (v) => setState(() => _whiteListVerified = v),
+              onChanged: (v) => setState(() => _whiteListVerified = v ?? false),
             ),
             const SizedBox(height: 8),
             TextFormField(
               controller: _factoryRegCtrl,
               decoration: const InputDecoration(
-                labelText: 'رقم وتاريخ قرار القيد بالهيئة هـ.ع.ص.و / كود المصنع المسجل',
+                labelText: 'رقم قيد المصنع أو قرار القيد بالهيئة (Factory Registration / Decree No)',
                 border: OutlineInputBorder(),
                 isDense: true,
-                prefixIcon: Icon(Icons.numbers, color: AppTheme.cobalt),
               ),
             ),
           ],
@@ -1281,18 +1459,16 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     );
   }
 
-  // ==========================================
-  // Pillar 2: Certificate of Origin (COO)
-  // ==========================================
-  Widget _buildPillar2CooTab() {
+  // --- PILLAR 2: CERTIFICATE OF ORIGIN & TRADE AGREEMENTS ---
+  Widget _buildPillar2Tab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SwitchListTile(
-            title: const Text('هل شهادة المنشأ مطلوبة للاستفادة من الاتفاقيات التفضيلية؟', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('تخفيض أو إعفاء كامل من ضريبة الوارد الجمركية بناءً على شهادة المنشأ المعتمدة'),
+            title: const Text('شهادة المنشأ الرسمية والاتفاقيات التفضيلية (Certificate of Origin / FTA)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: const Text('ضرورية للاستفادة من الإعفاءات والتخفيضات الجمركية (EUR.1 / Agadir / GAFTA / Mercosur)'),
             value: _cooRequired,
             onChanged: (v) => setState(() => _cooRequired = v),
           ),
@@ -1303,49 +1479,41 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _cooType,
-                    decoration: const InputDecoration(
-                      labelText: 'نوع شهادة المنشأ التفضيلية',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)',
-                      'شهادة الميركسور (Mercosur - البرازيل/الأرجنتين)',
-                      'شهادة جامعة الدول العربية (GAFTA)',
-                      'شهادة اتفاقية صربيا',
-                      'شهادة الكوميسا (COMESA)',
-                      'شهادة المملكة المتحدة (UK Partnership)',
-                      'شهادة عادية (Form A / Chamber of Commerce)',
-                    ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                    onChanged: (v) => setState(() => _cooType = v!),
+                    decoration: const InputDecoration(labelText: 'نوع شهادة المنشأ / الاتفاقية', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)', child: Text('EUR.1 (الشراكة الأوروبية / إفتا / تركيا)')),
+                      DropdownMenuItem(value: 'Agadir (اتفاقية أغادير)', child: Text('Agadir (اتفاقية أغادير)')),
+                      DropdownMenuItem(value: 'Arab League GAFTA (التيسير العربية)', child: Text('Arab League GAFTA (التيسير العربية)')),
+                      DropdownMenuItem(value: 'Mercosur (اتفاقية الميركسور)', child: Text('Mercosur (اتفاقية الميركسور)')),
+                      DropdownMenuItem(value: 'COMESA (الكوميسا)', child: Text('COMESA (الكوميسا)')),
+                      DropdownMenuItem(value: 'General Certificate of Origin (عادية)', child: Text('General COO (شهادة منشأ عامة)')),
+                    ],
+                    onChanged: (v) => setState(() => _cooType = v ?? _cooType),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _cooStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'حالة شهادة المنشأ',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: ['مطلوبة', 'تم الاستلام والتحقق', 'تم الإعفاء', 'مرفوضة']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _cooStatus = v!),
+                    decoration: const InputDecoration(labelText: 'حالة الاستيفاء والمطابقة', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'مطلوبة', child: Text('مطلوبة (قيد الانتظار)')),
+                      DropdownMenuItem(value: 'تم الاستلام والتحقق', child: Text('تم الاستلام والتحقق (Obtained & Verified)')),
+                      DropdownMenuItem(value: 'تم الإعفاء', child: Text('تم الإعفاء (Waived)')),
+                    ],
+                    onChanged: (v) => setState(() => _cooStatus = v ?? 'مطلوبة'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             TextFormField(
               controller: _cooNotesCtrl,
               decoration: const InputDecoration(
-                labelText: 'ملاحظات الاتفاقية التفضيلية ونسبة التخفيض الجمركي (ر...)',
+                labelText: 'ملاحظات الاتفاقية التفضيلية ونسبة التخفيض الجمركي المستفادة',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),
-              maxLines: 2,
             ),
           ],
         ],
@@ -1353,18 +1521,16 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     );
   }
 
-  // ==========================================
-  // Pillar 3: Pre-Shipment Inspection Certificate
-  // ==========================================
-  Widget _buildPillar3InspectionTab() {
+  // --- PILLAR 3: PRE-SHIPMENT INSPECTION CERTIFICATE ---
+  Widget _buildPillar3Tab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SwitchListTile(
-            title: const Text('هل يتطلب الصنف شهادة فحص ومطابقة مسبقة قبل الشحن؟', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('شهادة فحص صادرة من جهات التفتيش الدولية المعتمدة لمطابقة المواصفات القياسية المصرية (ES)'),
+            title: const Text('شهادة الفحص والمطابقة المسبقة قبل الشحن (Pre-Shipment Inspection Certificate)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: const Text('إلزامية للبضائع الخاضعة للفحص الظاهري والمخبري للتأكد من مطابقة المواصفات القياسية المصرية (ES)'),
             value: _inspRequired,
             onChanged: (v) => setState(() => _inspRequired = v),
           ),
@@ -1375,59 +1541,59 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _inspBody,
-                    decoration: const InputDecoration(
-                      labelText: 'جهة الفحص الدولية المعتمدة',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      'SGS',
-                      'Bureau Veritas (BV)',
-                      'TÜV Rheinland',
-                      'QIMA',
-                      'Intertek',
-                      'Cotecna',
-                      'مختبرات فحص معتمدة أخرى',
-                    ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                    onChanged: (v) => setState(() => _inspBody = v!),
+                    decoration: const InputDecoration(labelText: 'شركة الفحص الدولية المعتمدة (ILAC Inspection Body)', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'SGS', child: Text('SGS (سوسيتيه جنرال دي سرفيانس)')),
+                      DropdownMenuItem(value: 'Bureau Veritas', child: Text('Bureau Veritas (بيرو فيريتاس)')),
+                      DropdownMenuItem(value: 'TÜV Rheinland', child: Text('TÜV Rheinland / TÜV SÜD')),
+                      DropdownMenuItem(value: 'Intertek', child: Text('Intertek (إنترتك)')),
+                      DropdownMenuItem(value: 'QIMA', child: Text('QIMA Inspection')),
+                      DropdownMenuItem(value: 'Other Accredited Lab', child: Text('معمل آخر معتمد دولياً')),
+                    ],
+                    onChanged: (v) => setState(() => _inspBody = v ?? _inspBody),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _inspStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'حالة شهادة الفحص',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: ['مطلوب', 'تم التكليف والتنسيق', 'تم الفحص واجتياز المطابقة', 'مرفوض']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _inspStatus = v!),
+                    decoration: const InputDecoration(labelText: 'حالة شهادة الفحص', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'مطلوب', child: Text('مطلوب (Pending)')),
+                      DropdownMenuItem(value: 'تم التكليف والتنسيق', child: Text('تم التكليف والتنسيق (Scheduled)')),
+                      DropdownMenuItem(value: 'تم الفحص واجتياز المطابقة', child: Text('تم الفحص واجتياز المطابقة (Completed & Passed)')),
+                      DropdownMenuItem(value: 'مرفوض', child: Text('مرفوض (Failed Inspection)')),
+                    ],
+                    onChanged: (v) => setState(() => _inspStatus = v ?? 'مطلوب'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _inspReportNoCtrl,
-              decoration: const InputDecoration(
-                labelText: 'رقم تقرير / شهادة الفحص الدولية (Inspection Certificate No)',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.assignment_turned_in, color: AppTheme.cobalt),
-              ),
-            ),
             const SizedBox(height: 10),
-            TextFormField(
-              controller: _inspNotesCtrl,
-              decoration: const InputDecoration(
-                labelText: 'ملاحظات الفحص واشتراطات المواصفات القياسية',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              maxLines: 2,
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _inspReportNoCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم تقرير / شهادة الفحص (Inspection Certificate No)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _inspNotesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'المواصفة القياسية ورقم العينة (Egyptian Standard ES Compliance)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -1435,18 +1601,16 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     );
   }
 
-  // ==========================================
-  // Pillar 4: Prior Regulatory Approvals & Permits
-  // ==========================================
-  Widget _buildPillar4RegulatoryPermitsTab() {
+  // --- PILLAR 4: PRIOR IMPORT PERMIT & REGULATORY AUTHORITIES ---
+  Widget _buildPillar4Tab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SwitchListTile(
-            title: const Text('هل يتطلب إذن استيراد أو موافقة جهة رقابية مسبقة؟ (Permits / Approvals)', style: TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: const Text('موافقات مسبقة من أجهزة البيئة أو الدواء أو الاتصالات أو سلامة الغذاء قبل الشحن'),
+            title: const Text('موافقات وتصاريح جهات العرض المسبقة (Prior Regulatory Approvals & Permits)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            subtitle: const Text('الجهات المختصة بمراجعة السلع وإصدار أذون الإفراج المسبقة أو المشروطة'),
             value: _permitRequired,
             onChanged: (v) => setState(() => _permitRequired = v),
           ),
@@ -1457,59 +1621,60 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _permitAuth,
-                    decoration: const InputDecoration(
-                      labelText: 'الجهة الرقابية المختصة',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: [
-                      'جهاز شئون البيئة (EEAA)',
-                      'هيئة الدواء المصرية (EDA)',
-                      'الهيئة القومية لسلامة الغذاء (NFSA)',
-                      'الجهاز القومي لتنظيم الاتصالات (NTRA)',
-                      'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)',
-                      'الهيئة العامة للخدمات البيطرية / الحجر الزراعي',
-                      'هيئة الطاقة الذرية / الأمن العام',
-                    ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                    onChanged: (v) => setState(() => _permitAuth = v!),
+                    decoration: const InputDecoration(labelText: 'جهة العرض والرقابة المختصة (Regulatory Authority)', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'جهاز شئون البيئة (EEAA)', child: Text('جهاز شئون البيئة (EEAA)')),
+                      DropdownMenuItem(value: 'هيئة الدواء المصرية (EDA)', child: Text('هيئة الدواء المصرية (EDA)')),
+                      DropdownMenuItem(value: 'الهيئة القومية لسلامة الغذاء (NFSA)', child: Text('الهيئة القومية لسلامة الغذاء (NFSA)')),
+                      DropdownMenuItem(value: 'الجهاز القومي لتنظيم الاتصالات (NTRA)', child: Text('الجهاز القومي لتنظيم الاتصالات (NTRA)')),
+                      DropdownMenuItem(value: 'هيئة الطاقة الذرية (EAEA)', child: Text('هيئة الطاقة الذرية (EAEA)')),
+                      DropdownMenuItem(value: 'مصلحة الكيمياء', child: Text('مصلحة الكيمياء')),
+                      DropdownMenuItem(value: 'الهيئة العامة للخدمات البيطرية', child: Text('الهيئة العامة للخدمات البيطرية')),
+                    ],
+                    onChanged: (v) => setState(() => _permitAuth = v ?? _permitAuth),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     value: _permitStatus,
-                    decoration: const InputDecoration(
-                      labelText: 'حالة إذن / موافقة الاستيراد',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: ['مطلوب', 'تم تقديم الطلب', 'تمت الموافقة والاعتماد', 'مرفوض']
-                        .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12))))
-                        .toList(),
-                    onChanged: (v) => setState(() => _permitStatus = v!),
+                    decoration: const InputDecoration(labelText: 'حالة التصريح / الموافقة', border: OutlineInputBorder(), isDense: true),
+                    items: const [
+                      DropdownMenuItem(value: 'مطلوب', child: Text('مطلوب (Pending)')),
+                      DropdownMenuItem(value: 'تم تقديم الطلب', child: Text('تم تقديم الطلب (Applied)')),
+                      DropdownMenuItem(value: 'تمت الموافقة والاعتماد', child: Text('تمت الموافقة والاعتماد (Approved)')),
+                      DropdownMenuItem(value: 'مرفوضة', child: Text('مرفوضة (Rejected)')),
+                    ],
+                    onChanged: (v) => setState(() => _permitStatus = v ?? 'مطلوب'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _permitNoCtrl,
-              decoration: const InputDecoration(
-                labelText: 'رقم وتاريخ تصريح / إذن الاستيراد المسبق',
-                border: OutlineInputBorder(),
-                isDense: true,
-                prefixIcon: Icon(Icons.gavel, color: AppTheme.cobalt),
-              ),
-            ),
             const SizedBox(height: 10),
-            TextFormField(
-              controller: _permitNotesCtrl,
-              decoration: const InputDecoration(
-                labelText: 'اشتراطات وقرارات الموافقة المسبقة (ق...)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              maxLines: 2,
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _permitNoCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'رقم التصريح أو إذن الاستيراد المسبق (Permit / Approval No)',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _permitNotesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'شروط الإفراج والقرار الوزاري المطبق',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -1517,29 +1682,27 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
     );
   }
 
-  // ==========================================
-  // Pillar 5: Technical Certs & Overall Summary
-  // ==========================================
-  Widget _buildPillar5SpecialAndSummaryTab() {
+  // --- PILLAR 5: TECHNICAL CERTIFICATES & FINAL ASSESSMENT SUMMARY ---
+  Widget _buildPillar5Tab() {
     return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('الشهادات الفنية والخاصة:', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-          const SizedBox(height: 6),
+          const Text('الشهادات الفنية والخاصة الإلزامية (Technical & Special Certificates):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+          const SizedBox(height: 8),
           Row(
             children: [
               Expanded(
                 child: CheckboxListTile(
-                  title: const Text('شهادة سلامة المواد (MSDS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  title: const Text('شهادة صحيفة بيانات الأمان (MSDS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   value: _msdsRequired,
                   onChanged: (v) => setState(() => _msdsRequired = v ?? false),
                 ),
               ),
               Expanded(
                 child: CheckboxListTile(
-                  title: const Text('شهادة الذبح الحلال (Halal)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  title: const Text('شهادة الذبح الحلال (Halal Certificate)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   value: _halalRequired,
                   onChanged: (v) => setState(() => _halalRequired = v ?? false),
                 ),
@@ -1553,43 +1716,32 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
               ),
             ],
           ),
-          const Divider(),
-          const Text('ملخص التقييم والاعتماد الشامل:', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-          const SizedBox(height: 10),
+          const Divider(height: 16),
           Row(
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _overallStatus,
-                  decoration: const InputDecoration(
-                    labelText: 'حالة التقييم العامة',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    'مسودة (Draft)',
-                    'قيد الاستيفاء (In Progress)',
-                    'مكتمل ومطابق (Complete)',
-                    'معتمد ومصرح للشحن (Cleared)',
-                  ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                  onChanged: (v) => setState(() => _overallStatus = v!),
+                  decoration: const InputDecoration(labelText: 'الحالة العامة للاستيفاء التأكيدي *', border: OutlineInputBorder(), isDense: true),
+                  items: const [
+                    DropdownMenuItem(value: 'مسودة (Draft)', child: Text('مسودة (Draft)')),
+                    DropdownMenuItem(value: 'قيد الاستيفاء والتأكيد', child: Text('قيد الاستيفاء والتأكيد (In Progress)')),
+                    DropdownMenuItem(value: 'مؤكد ومصرح للشحن', child: Text('مؤكد ومصرح للشحن (Confirmed & Cleared)')),
+                  ],
+                  onChanged: (v) => setState(() => _overallStatus = v ?? _overallStatus),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
                   value: _riskLevel,
-                  decoration: const InputDecoration(
-                    labelText: 'مستوى المخاطر الاستيرادية (Risk Level)',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    'منخفض (Low)',
-                    'متوسط (Medium)',
-                    'مرتفع (High)',
-                  ].map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12)))).toList(),
-                  onChanged: (v) => setState(() => _riskLevel = v!),
+                  decoration: const InputDecoration(labelText: 'مستوى المخاطر الجمركية *', border: OutlineInputBorder(), isDense: true),
+                  items: const [
+                    DropdownMenuItem(value: 'منخفض (Low)', child: Text('منخفض (Low Risk)')),
+                    DropdownMenuItem(value: 'متوسط (Medium)', child: Text('متوسط (Medium Risk)')),
+                    DropdownMenuItem(value: 'مرتفع (High)', child: Text('مرتفع (High Risk)')),
+                  ],
+                  onChanged: (v) => setState(() => _riskLevel = v ?? _riskLevel),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1597,7 +1749,7 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
                 child: TextFormField(
                   controller: _assessedByCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'المراجع المسؤول',
+                    labelText: 'مسؤول المراجعة والاعتماد *',
                     border: OutlineInputBorder(),
                     isDense: true,
                   ),
@@ -1605,15 +1757,15 @@ class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirement
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           TextFormField(
             controller: _assessmentNotesCtrl,
+            maxLines: 2,
             decoration: const InputDecoration(
-              labelText: 'ملاحظات التقييم الختامية وتوصيات إدارة الاستيراد',
+              labelText: 'ملاحظات وتوصيات بوابة المطابقة والتأكيد النهائي (Confirmation Notes)',
               border: OutlineInputBorder(),
               isDense: true,
             ),
-            maxLines: 2,
           ),
         ],
       ),

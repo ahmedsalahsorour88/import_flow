@@ -71,8 +71,17 @@ class ImportRequirementAssessment(Base):
     # Other Requirements (flexible JSON)
     other_requirements = Column(JSON, nullable=True)  # [{name, required, status, notes}]
     
+    # Post-ACID Confirmation & Linkage (مرحلة تأكيدية بعد إصدار ACID)
+    acid_number = Column(String(50), nullable=True)
+    consultation_id = Column(Integer, ForeignKey("customs_consultation_sessions.consultation_id"), nullable=True)
+    consultation_code = Column(String(50), nullable=True)
+    confirmation_status = Column(String(50), nullable=False, default="Pending Confirmation")  # Pending Confirmation, Confirmed, Approved for Shipping
+    is_post_acid_confirmed = Column(Boolean, nullable=False, default=False)
+    confirmed_at = Column(DateTime, nullable=True)
+    confirmed_by = Column(String(100), nullable=True)
+
     # Assessment Summary
-    overall_status = Column(String(50), nullable=False, default="Draft")  # Draft, In Progress, Complete, Cleared
+    overall_status = Column(String(50), nullable=False, default="Draft")  # Draft, In Progress, Complete, Cleared, Confirmed
     risk_level = Column(String(20), nullable=False, default="Low")  # Low, Medium, High
     assessed_by = Column(String(100), nullable=False, default="Kamal")
     assessment_notes = Column(Text, nullable=True)
@@ -83,3 +92,4 @@ class ImportRequirementAssessment(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     created_by = Column(String(100), nullable=False, default="System")
     updated_by = Column(String(100), nullable=False, default="System")
+

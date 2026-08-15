@@ -1,3 +1,146 @@
+class ImportRequirementPrefillModel {
+  final int importFileId;
+  final String importFileCode;
+  final String? importerName;
+  final int? supplierId;
+  final String? supplierName;
+  final String? countryOfOrigin;
+  final String? foreignExporterId;
+  final String currency;
+  final double shipmentValue;
+  final String? poNumber;
+  final String? piNumber;
+  final String? acidNumber;
+  final String? hsCode;
+  final String? commodityDescription;
+
+  final int? consultationId;
+  final String? consultationCode;
+  final String? brokerName;
+  final String? consultationStatus;
+  final double readinessPercentage;
+
+  final bool decree43Applicable;
+  final bool whiteListRequired;
+  final bool whiteListVerified;
+  final String? factoryRegistrationNo;
+
+  final bool cooRequired;
+  final String? cooType;
+  final String cooStatus;
+  final String? cooNotes;
+
+  final bool inspectionRequired;
+  final String? inspectionBody;
+  final String inspectionStatus;
+  final String? inspectionNotes;
+
+  final bool importPermitRequired;
+  final String? permitIssuingAuthority;
+  final String permitStatus;
+  final String? permitNotes;
+
+  final bool msdsRequired;
+  final String msdsStatus;
+  final bool halalCertRequired;
+  final String halalCertStatus;
+  final bool coaRequired;
+  final String coaStatus;
+  final String? specialNotes;
+
+  ImportRequirementPrefillModel({
+    required this.importFileId,
+    required this.importFileCode,
+    this.importerName,
+    this.supplierId,
+    this.supplierName,
+    this.countryOfOrigin,
+    this.foreignExporterId,
+    this.currency = 'USD',
+    this.shipmentValue = 0.0,
+    this.poNumber,
+    this.piNumber,
+    this.acidNumber,
+    this.hsCode,
+    this.commodityDescription,
+    this.consultationId,
+    this.consultationCode,
+    this.brokerName,
+    this.consultationStatus,
+    this.readinessPercentage = 0.0,
+    this.decree43Applicable = false,
+    this.whiteListRequired = false,
+    this.whiteListVerified = false,
+    this.factoryRegistrationNo,
+    this.cooRequired = false,
+    this.cooType,
+    this.cooStatus = 'Not Required',
+    this.cooNotes,
+    this.inspectionRequired = false,
+    this.inspectionBody,
+    this.inspectionStatus = 'Not Required',
+    this.inspectionNotes,
+    this.importPermitRequired = false,
+    this.permitIssuingAuthority,
+    this.permitStatus = 'Not Required',
+    this.permitNotes,
+    this.msdsRequired = false,
+    this.msdsStatus = 'Not Required',
+    this.halalCertRequired = false,
+    this.halalCertStatus = 'Not Required',
+    this.coaRequired = false,
+    this.coaStatus = 'Not Required',
+    this.specialNotes,
+  });
+
+  factory ImportRequirementPrefillModel.fromJson(Map<String, dynamic> json) {
+    return ImportRequirementPrefillModel(
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code'] ?? '',
+      importerName: json['importer_name'],
+      supplierId: json['supplier_id'],
+      supplierName: json['supplier_name'],
+      countryOfOrigin: json['country_of_origin'],
+      foreignExporterId: json['foreign_exporter_id'],
+      currency: json['currency'] ?? 'USD',
+      shipmentValue: (json['shipment_value'] as num?)?.toDouble() ?? 0.0,
+      poNumber: json['po_number'],
+      piNumber: json['pi_number'],
+      acidNumber: json['acid_number'],
+      hsCode: json['hs_code'],
+      commodityDescription: json['commodity_description'],
+      consultationId: json['consultation_id'],
+      consultationCode: json['consultation_code'],
+      brokerName: json['broker_name'],
+      consultationStatus: json['consultation_status'],
+      readinessPercentage: (json['readiness_percentage'] as num?)?.toDouble() ?? 0.0,
+      decree43Applicable: json['decree_43_applicable'] ?? false,
+      whiteListRequired: json['white_list_required'] ?? false,
+      whiteListVerified: json['white_list_verified'] ?? false,
+      factoryRegistrationNo: json['factory_registration_no'],
+      cooRequired: json['coo_required'] ?? false,
+      cooType: json['coo_type'],
+      cooStatus: json['coo_status'] ?? 'Not Required',
+      cooNotes: json['coo_notes'],
+      inspectionRequired: json['inspection_required'] ?? false,
+      inspectionBody: json['inspection_body'],
+      inspectionStatus: json['inspection_status'] ?? 'Not Required',
+      inspectionNotes: json['inspection_notes'],
+      importPermitRequired: json['import_permit_required'] ?? false,
+      permitIssuingAuthority: json['permit_issuing_authority'],
+      permitStatus: json['permit_status'] ?? 'Not Required',
+      permitNotes: json['permit_notes'],
+      msdsRequired: json['msds_required'] ?? false,
+      msdsStatus: json['msds_status'] ?? 'Not Required',
+      halalCertRequired: json['halal_cert_required'] ?? false,
+      halalCertStatus: json['halal_cert_status'] ?? 'Not Required',
+      coaRequired: json['coa_required'] ?? false,
+      coaStatus: json['coa_status'] ?? 'Not Required',
+      specialNotes: json['special_notes'],
+    );
+  }
+}
+
 class ImportRequirementModel {
   final int? assessmentId;
   final String assessmentCode;
@@ -9,6 +152,15 @@ class ImportRequirementModel {
   final String currency;
   final double shipmentValue;
   final double shipmentValueUsd;
+
+  // Post-ACID & Consultation confirmation fields
+  final String? acidNumber;
+  final int? consultationId;
+  final String? consultationCode;
+  final String confirmationStatus;
+  final bool isPostAcidConfirmed;
+  final DateTime? confirmedAt;
+  final String? confirmedBy;
 
   // Pillar 1: Decree 43 & Foreign Suppliers
   final int? supplierId;
@@ -71,6 +223,13 @@ class ImportRequirementModel {
     this.currency = 'USD',
     this.shipmentValue = 0.0,
     required this.shipmentValueUsd,
+    this.acidNumber,
+    this.consultationId,
+    this.consultationCode,
+    this.confirmationStatus = 'Pending Confirmation',
+    this.isPostAcidConfirmed = false,
+    this.confirmedAt,
+    this.confirmedBy,
     this.supplierId,
     this.supplierName,
     required this.decree43Applicable,
@@ -121,6 +280,13 @@ class ImportRequirementModel {
       currency: json['currency'] ?? 'USD',
       shipmentValue: (json['shipment_value'] ?? json['shipment_value_usd'] ?? 0.0).toDouble(),
       shipmentValueUsd: (json['shipment_value_usd'] ?? 0.0).toDouble(),
+      acidNumber: json['acid_number'],
+      consultationId: json['consultation_id'],
+      consultationCode: json['consultation_code'],
+      confirmationStatus: json['confirmation_status'] ?? 'Pending Confirmation',
+      isPostAcidConfirmed: json['is_post_acid_confirmed'] ?? false,
+      confirmedAt: json['confirmed_at'] != null ? DateTime.tryParse(json['confirmed_at']) : null,
+      confirmedBy: json['confirmed_by'],
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'],
       decree43Applicable: json['decree_43_applicable'] ?? false,
@@ -172,6 +338,13 @@ class ImportRequirementModel {
       'currency': currency,
       'shipment_value': shipmentValue,
       'shipment_value_usd': shipmentValueUsd,
+      'acid_number': acidNumber,
+      'consultation_id': consultationId,
+      'consultation_code': consultationCode,
+      'confirmation_status': confirmationStatus,
+      'is_post_acid_confirmed': isPostAcidConfirmed,
+      'confirmed_at': confirmedAt?.toIso8601String(),
+      'confirmed_by': confirmedBy,
       'supplier_id': supplierId,
       'supplier_name': supplierName,
       'decree_43_applicable': decree43Applicable,

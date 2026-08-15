@@ -98,6 +98,10 @@ class ImportFileModel {
   final String? requiredEta;
   final String? selectedScenario;
   final String? acidNumber;
+  final String? acidIssueDate;
+  final String? acidExpiryDate;
+  final bool isCustomsReleased;
+  final String? customsReleasedAt;
   final String? form4No;
   final String? swiftNo;
   final String? form46No;
@@ -139,6 +143,10 @@ class ImportFileModel {
     this.requiredEta,
     this.selectedScenario,
     this.acidNumber,
+    this.acidIssueDate,
+    this.acidExpiryDate,
+    this.isCustomsReleased = false,
+    this.customsReleasedAt,
     this.form4No,
     this.swiftNo,
     this.form46No,
@@ -186,6 +194,10 @@ class ImportFileModel {
       requiredEta: json['required_eta'],
       selectedScenario: json['selected_scenario'],
       acidNumber: json['acid_number'],
+      acidIssueDate: json['acid_issue_date'],
+      acidExpiryDate: json['acid_expiry_date'],
+      isCustomsReleased: json['is_customs_released'] ?? false,
+      customsReleasedAt: json['customs_released_at'],
       form4No: json['form4_no'],
       swiftNo: json['swift_no'],
       form46No: json['form46_no'],
@@ -229,6 +241,11 @@ class ImportFileModel {
       'shipment_category': shipmentCategory,
       'required_eta': requiredEta,
       'selected_scenario': selectedScenario,
+      'acid_number': acidNumber,
+      'acid_issue_date': acidIssueDate,
+      'acid_expiry_date': acidExpiryDate,
+      'is_customs_released': isCustomsReleased,
+      'customs_released_at': customsReleasedAt,
       'form4_no': form4No,
       'swift_no': swiftNo,
       'form46_no': form46No,

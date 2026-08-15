@@ -38,14 +38,28 @@ def create_update_log_service(db: Session, schema: ShipmentUpdateLogCreate, user
     # Sync with ImportFile if needed
     import_file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
     if import_file:
+        old_phase = import_file.current_module
         # If Cost Adjustment (Type B)
         if schema.update_category == "Phase Cost Adjustment" and schema.new_cost and schema.new_cost > 0:
             import_file.estimated_cost = schema.new_cost
-            import_file.updated_at = datetime.now(timezone.utc)
+
+        # Update target phase if milestone progression
+        if schema.update_category == "Milestone Phase Progression" and schema.target_phase and schema.target_phase.strip():
+            import_file.current_module = schema.target_phase
 
         # Update last notes on ImportFile
         import_file.notes = f"[{schema.log_date} - {schema.target_phase}]: {schema.note}"
         import_file.updated_at = datetime.now(timezone.utc)
+        db.commit()
+
+        # Trigger smart tasks auto-generation & close previous phase
+        try:
+            from modules.smart_tasks.service import auto_generate_system_tasks_for_file, auto_close_completed_phase_tasks
+            if old_phase and old_phase != import_file.current_module:
+                auto_close_completed_phase_tasks(db, import_file.import_file_id, old_phase)
+            auto_generate_system_tasks_for_file(db, import_file)
+        except Exception:
+            pass
 
     log_record = repo.create_update_log(db, schema, created_by=user_name)
     return log_record

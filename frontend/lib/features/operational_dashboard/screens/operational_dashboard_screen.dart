@@ -442,6 +442,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             const SizedBox(height: 12),
             // Milestone Progress Tracker (Feature 2.6)
             ShipmentMilestoneTracker(importFile: s),
+
+            // 🎯 Next Step & Target Action Card
+            _buildNextStepCard(s),
+
+            // 📋 Linked Smart Tasks TO-DO List
+            _buildLinkedTasksSection(s),
+
             if (s.status == 'Closed' || s.closureReason != null) ...[
               const SizedBox(height: 10),
               Container(
@@ -470,11 +477,27 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.cobalt,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.post_add_rounded, size: 14),
+                  label: const Text('تسجيل تحديث يومي', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  onPressed: () => ShipmentUpdateDialog.show(
+                    context,
+                    initialFileId: s.importFileId,
+                    initialFileCode: s.customFileNumber ?? s.importFileCode,
+                    initialTargetPhase: s.currentModule,
+                  ),
+                ),
+                const SizedBox(width: 8),
                 if (s.status != 'Closed')
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                     icon: const Icon(Icons.cancel_outlined, size: 14, color: Colors.white),
-                    label: const Text('إغلاق وإيقاف الشحنة عند هذه المرحلة', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: const Text('إغلاق وإيقاف الشحنة', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     onPressed: () async {
                       final closed = await showDialog<bool>(
                         context: context,
@@ -493,6 +516,208 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNextStepCard(ImportFileModel s) {
+    if (s.status == 'Closed') return const SizedBox.shrink();
+
+    String nextStepTitle = 'متابعة الإجراءات التشغيلية';
+    String nextStepDesc = 'استكمال متطلبات المرحلة الحالية';
+    String responsible = 'فريق الاستيراد';
+    int targetNavIndex = 1;
+    IconData actionIcon = Icons.arrow_forward;
+
+    final mod = s.currentModule.toString();
+    if (mod.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
+      nextStepTitle = 'P2: الاعتماد المالي وصرف الدفعة';
+      nextStepDesc = 'مراجعة الميزانية وإصدار طلب الصرف والتحويل البنكي للمورد';
+      responsible = 'المدير المالي / الإدارة المالية';
+      targetNavIndex = 8;
+      actionIcon = Icons.monetization_on_outlined;
+    } else if (mod.contains('Phase 2') || mod.contains('BP-012')) {
+      nextStepTitle = 'P3: استخراج رقم ACID وتوثيق مستندات CargoX';
+      nextStepDesc = 'تسجيل الشحنة على نافذة واستخراج الـ ACID المكون من 19 رقماً';
+      responsible = 'أخصائي الاستيراد / نافذة';
+      targetNavIndex = 11;
+      actionIcon = Icons.description_outlined;
+    } else if (mod.contains('Phase 3') || mod.contains('BP-015') || mod.contains('BP-019')) {
+      nextStepTitle = 'P4: حجز الشحن وتأكيد رص الحاويات B/L';
+      nextStepDesc = 'تأكيد حجز الباخرة مع الخط الملاحي وإصدار مسودة البوليصة وتأكيد الشحن';
+      responsible = 'شركة الشحن / Freight Forwarder';
+      targetNavIndex = 15;
+      actionIcon = Icons.directions_boat_outlined;
+    } else if (mod.contains('Phase 4')) {
+      nextStepTitle = 'P5: تتبع الإبحار وتوثيق CargoX ومراقبة الوصول';
+      nextStepDesc = 'متابعة إبحار السفينة وتاريخ الـ ETA المتوقع واستلام مستندات الشاحن';
+      responsible = 'الناقل / المورد الأجنبي';
+      targetNavIndex = 16;
+      actionIcon = Icons.sailing_outlined;
+    } else if (mod.contains('Phase 5')) {
+      nextStepTitle = 'P6: وصول التنويه Arrival Notice وقيد إقرار 46 جمارك';
+      nextStepDesc = 'استلام إخطار الوصول وتكليف المخلص الجمركي بفتح ملف الكشف الجمركي';
+      responsible = 'المستخلص الجمركي (Customs Broker)';
+      targetNavIndex = 17;
+      actionIcon = Icons.receipt_long_outlined;
+    } else if (mod.contains('Phase 6')) {
+      nextStepTitle = 'P7: استكمال الكشف وسداد الرسوم وإصدار إذن الإفراج';
+      nextStepDesc = 'متابعة المعاينة الجمركية وسحب العينات وسداد الضرائب والرسوم';
+      responsible = 'المستخلص الجمركي (Customs Broker)';
+      targetNavIndex = 17;
+      actionIcon = Icons.verified_user_outlined;
+    } else if (mod.contains('Phase 7')) {
+      nextStepTitle = 'P8: النقل الداخلي واستلام المخازن وتوليد إذن GRN';
+      nextStepDesc = 'تنسيق سيارات النقل واستلام البضاعة في المخازن وفحص الكميات والجودة';
+      responsible = 'أمين المخزن / إدارة المخازن';
+      targetNavIndex = 18;
+      actionIcon = Icons.warehouse_outlined;
+    } else if (mod.contains('Phase 8')) {
+      nextStepTitle = 'P9: تسوية تكلفة الوصول الشاملة Landed Cost';
+      nextStepDesc = 'تجميع كافة الفواتير ومصاريف النولون والجمارك واحتساب التكلفة الفعلية';
+      responsible = 'الحسابات والمراجعة المالية';
+      targetNavIndex = 19;
+      actionIcon = Icons.calculate_outlined;
+    } else if (mod.contains('Phase 9')) {
+      nextStepTitle = 'P10: مراجعة شروط الأرشفة وإغلاق الملف التاريخي';
+      nextStepDesc = 'التحقق من اكتمال كافة الفواتير والمستندات وإغلاق الملف نهائياً';
+      responsible = 'مدير الاستيراد (Import Manager)';
+      targetNavIndex = 20;
+      actionIcon = Icons.archive_outlined;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.cobalt.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(actionIcon, color: Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Text('🎯 النقطة التالية والإجراء القادم:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt)),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(4)),
+                      child: Text('المسؤول: $responsible', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown.shade800)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(nextStepTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                Text(nextStepDesc, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            ),
+            onPressed: () => selectNavigationIndex(ref, targetNavIndex),
+            icon: const Icon(Icons.bolt, size: 14, color: Colors.white),
+            label: const Text('تنفيذ الخطوة الآن', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLinkedTasksSection(ImportFileModel s) {
+    final tasksState = ref.watch(smartTasksProvider);
+    final linkedTasks = tasksState.tasks.where((t) => t.importFileId == s.importFileId && t.status != 'Completed').toList();
+    if (linkedTasks.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.checklist_rounded, color: AppTheme.charcoal, size: 16),
+              const SizedBox(width: 6),
+              Text('مهام الـ TO-DO المفتوحة للشحنة (${linkedTasks.length} مهام):',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: () => selectNavigationIndex(ref, 30),
+                icon: const Icon(Icons.open_in_new, size: 12),
+                label: const Text('إدارة كل المهام', style: TextStyle(fontSize: 11)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          ...linkedTasks.map((t) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: t.status == 'Completed',
+                    visualDensity: VisualDensity.compact,
+                    activeColor: AppTheme.emerald,
+                    onChanged: (val) async {
+                      if (val == true) {
+                        await ref.read(smartTasksProvider.notifier).updateTask(t.taskId, {'status': 'Completed'});
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('✅ تم إنجاز المهمة بنجاح: ${t.title}'),
+                              backgroundColor: AppTheme.emerald,
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                  ),
+                  Expanded(
+                    child: Text(
+                      t.title,
+                      style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w500),
+                    ),
+                  ),
+                  if (t.priority == 'Critical')
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                      child: const Text('Critical', style: TextStyle(color: Colors.red, fontSize: 9.5, fontWeight: FontWeight.bold)),
+                    ),
+                  const SizedBox(width: 8),
+                  Text(
+                    t.dueDate ?? '',
+                    style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
       ),
     );
   }

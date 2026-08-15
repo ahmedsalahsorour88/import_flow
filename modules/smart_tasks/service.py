@@ -139,3 +139,22 @@ def get_dashboard_summary_metrics_service(db: Session) -> SmartTaskSummaryMetric
         pending_requirements=pending_requirements_cnt,
         high_priority_alerts=high_priority_alerts_cnt,
     )
+
+
+def sync_all_active_shipments_tasks(db: Session) -> int:
+    """
+    Synchronizes tasks across all active ImportFile records:
+    Generates missing system tasks for the current phase, closes previous phases,
+    and checks for critical conditions.
+    """
+    active_files = db.query(ImportFile).filter(
+        ImportFile.is_active == True,
+        ImportFile.status != "Closed",
+    ).all()
+
+    processed_count = 0
+    for f in active_files:
+        auto_generate_system_tasks_for_file(db, f)
+        processed_count += 1
+
+    return processed_count

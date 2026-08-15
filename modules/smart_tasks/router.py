@@ -203,3 +203,16 @@ def complete_phase_tasks(
         "completed_phase": completed_phase,
         "message": f"تم إغلاق جميع مهام المرحلة {completed_phase} تلقائياً.",
     }
+
+
+@router.post(
+    "/sync-all-active-files",
+    summary="Synchronize and generate pending tasks for all active import files",
+    response_model=dict,
+)
+def sync_all_active_files(db: Session = Depends(get_db)):
+    count = service.sync_all_active_shipments_tasks(db)
+    return {
+        "processed_files_count": count,
+        "message": f"تمت مزامنة وتوليد المهام الذكية لـ {count} ملف استيرادي نشط بنجاح.",
+    }

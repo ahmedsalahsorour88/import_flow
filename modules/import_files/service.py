@@ -98,7 +98,13 @@ def create_import_file_service(db: Session, payload: ImportFileCreate) -> Import
     data_dict["custom_file_number"] = custom_num
     data_dict.update(formulas)
 
-    return repo.create_import_file(db, data_dict)
+    created_file = repo.create_import_file(db, data_dict)
+    try:
+        from modules.smart_tasks.service import auto_generate_system_tasks_for_file
+        auto_generate_system_tasks_for_file(db, created_file)
+    except Exception:
+        pass
+    return created_file
 
 
 def update_import_file_service(
@@ -144,7 +150,14 @@ def update_import_file_service(
     )
     update_dict.update(formulas)
 
-    return repo.update_import_file(db, import_file_id, update_dict)
+    updated_file = repo.update_import_file(db, import_file_id, update_dict)
+    if updated_file:
+        try:
+            from modules.smart_tasks.service import auto_generate_system_tasks_for_file
+            auto_generate_system_tasks_for_file(db, updated_file)
+        except Exception:
+            pass
+    return updated_file
 
 
 def generate_master_report_service(

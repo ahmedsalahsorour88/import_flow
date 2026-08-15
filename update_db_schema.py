@@ -178,6 +178,23 @@ def migrate_db():
                     except Exception as e:
                         print(f"Error adding column {col_name} to customs_tariffs: {e}")
 
+    # Migration for customs_consultation_sessions table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='customs_consultation_sessions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(customs_consultation_sessions)")
+        cc_cols = [info[1] for info in cursor.fetchall()]
+        cc_new_cols = [
+            ("total_broker_fees_egp", "FLOAT DEFAULT 0.0"),
+            ("broker_price_list_id", "INTEGER"),
+        ]
+        for col_name, col_type in cc_new_cols:
+            if col_name not in cc_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE customs_consultation_sessions ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to customs_consultation_sessions table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to customs_consultation_sessions: {e}")
+
     conn.commit()
     conn.close()
     print("Database migration completed successfully.")

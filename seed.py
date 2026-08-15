@@ -1500,6 +1500,13 @@ def seed_data():
             db.commit()
             print("Phase 5 Cargo Shipping seeded successfully.")
 
+        # Seed Clearance Expense Types and Broker Price Lists
+        try:
+            from seed_clearance_expenses import seed_clearance_data
+            seed_clearance_data()
+        except Exception as err:
+            print(f"Error seeding clearance expenses: {err}")
+
         print("All Database Seeder Data populated successfully!")
 
     except Exception as e:

@@ -1,23 +1,191 @@
 """
-Customs Consultation REST Router (BP-009)
+Customs Consultation & Broker Price Lists REST Router (BP-009)
 """
 
 from typing import List, Optional
+from datetime import date
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.database import get_db
 from modules.customs_consultation.schemas import (
+    ClearanceExpenseTypeCreate,
+    ClearanceExpenseTypeUpdate,
+    ClearanceExpenseTypeResponse,
+    BrokerPriceListCreate,
+    BrokerPriceListUpdate,
+    BrokerPriceListResponse,
     CustomsConsultationCreate,
     CustomsConsultationUpdate,
     CustomsConsultationResponse,
 )
-from modules.customs_consultation.service import CustomsConsultationService
+from modules.customs_consultation.service import (
+    ClearanceExpenseTypeService,
+    BrokerPriceListService,
+    CustomsConsultationService,
+)
 
 router = APIRouter(
     prefix="/api/v1/customs-consultations",
-    tags=["Customs Consultation (BP-009)"],
+    tags=["Customs Consultation & Broker Price Lists (BP-009)"],
 )
 
+
+# ==============================================================================
+# Clearance Expense Types Endpoints (تكويد أنواع المصروفات)
+# ==============================================================================
+
+@router.get(
+    "/expense-types",
+    response_model=List[ClearanceExpenseTypeResponse],
+    summary="List all Clearance & Logistics Expense Types",
+)
+def list_expense_types(
+    include_inactive: bool = Query(False, description="Include inactive expense types"),
+    category: Optional[str] = Query(None, description="Filter by category"),
+    search: Optional[str] = Query(None, description="Search by code or name"),
+    db: Session = Depends(get_db),
+):
+    return ClearanceExpenseTypeService.list_expense_types(
+        db, include_inactive=include_inactive, category=category, search=search
+    )
+
+
+@router.post(
+    "/expense-types",
+    response_model=ClearanceExpenseTypeResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new Expense Type in the catalog",
+)
+def create_expense_type(
+    schema: ClearanceExpenseTypeCreate,
+    db: Session = Depends(get_db),
+):
+    return ClearanceExpenseTypeService.create_expense_type(db, schema)
+
+
+@router.get(
+    "/expense-types/{expense_id}",
+    response_model=ClearanceExpenseTypeResponse,
+    summary="Get Expense Type by ID",
+)
+def get_expense_type(
+    expense_id: int,
+    db: Session = Depends(get_db),
+):
+    return ClearanceExpenseTypeService.get_expense_type(db, expense_id)
+
+
+@router.put(
+    "/expense-types/{expense_id}",
+    response_model=ClearanceExpenseTypeResponse,
+    summary="Update Expense Type",
+)
+def update_expense_type(
+    expense_id: int,
+    schema: ClearanceExpenseTypeUpdate,
+    db: Session = Depends(get_db),
+):
+    return ClearanceExpenseTypeService.update_expense_type(db, expense_id, schema)
+
+
+@router.delete(
+    "/expense-types/{expense_id}",
+    response_model=ClearanceExpenseTypeResponse,
+    summary="Deactivate / Delete Expense Type",
+)
+def delete_expense_type(
+    expense_id: int,
+    db: Session = Depends(get_db),
+):
+    return ClearanceExpenseTypeService.delete_expense_type(db, expense_id)
+
+
+# ==============================================================================
+# Broker Price Lists Endpoints (قوائم أسعار المخلصين)
+# ==============================================================================
+
+@router.get(
+    "/price-lists",
+    response_model=List[BrokerPriceListResponse],
+    summary="List all Broker Price Lists / Tariffs",
+)
+def list_price_lists(
+    include_inactive: bool = Query(False, description="Include inactive price lists"),
+    broker_id: Optional[int] = Query(None, description="Filter by Broker ID"),
+    search: Optional[str] = Query(None, description="Search by code, title, broker name"),
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.list_price_lists(
+        db, include_inactive=include_inactive, broker_id=broker_id, search=search
+    )
+
+
+@router.get(
+    "/price-lists/active/{broker_id}",
+    response_model=Optional[BrokerPriceListResponse],
+    summary="Get current active Price List for a Broker by target date",
+)
+def get_active_price_list_for_broker(
+    broker_id: int,
+    target_date: Optional[date] = Query(None, description="Target date (defaults to today)"),
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.get_active_price_list_for_broker(db, broker_id, target_date)
+
+
+@router.post(
+    "/price-lists",
+    response_model=BrokerPriceListResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new Broker Price List / Tariff",
+)
+def create_price_list(
+    schema: BrokerPriceListCreate,
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.create_price_list(db, schema)
+
+
+@router.get(
+    "/price-lists/{price_list_id}",
+    response_model=BrokerPriceListResponse,
+    summary="Get Broker Price List by ID",
+)
+def get_price_list(
+    price_list_id: int,
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.get_price_list(db, price_list_id)
+
+
+@router.put(
+    "/price-lists/{price_list_id}",
+    response_model=BrokerPriceListResponse,
+    summary="Update Broker Price List",
+)
+def update_price_list(
+    price_list_id: int,
+    schema: BrokerPriceListUpdate,
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.update_price_list(db, price_list_id, schema)
+
+
+@router.delete(
+    "/price-lists/{price_list_id}",
+    response_model=BrokerPriceListResponse,
+    summary="Soft delete Broker Price List",
+)
+def delete_price_list(
+    price_list_id: int,
+    db: Session = Depends(get_db),
+):
+    return BrokerPriceListService.soft_delete_price_list(db, price_list_id)
+
+
+# ==============================================================================
+# Consultation Sessions Endpoints (دراسات الاستشارة والفحص الجمركي)
+# ==============================================================================
 
 @router.post(
     "",

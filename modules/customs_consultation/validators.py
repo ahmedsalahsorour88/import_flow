@@ -1,11 +1,11 @@
 """
-Customs Consultation Business Validators (BP-009)
+Customs Consultation & Broker Price Lists Business Validators (BP-009)
 """
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from modules.external_service_providers.model import ExternalServiceProvider
-from modules.customs_consultation.schemas import CustomsConsultationCreate, CustomsConsultationUpdate
+from modules.customs_consultation.model import ClearanceExpenseType
 
 
 def validate_broker_exists(db: Session, broker_id: int) -> ExternalServiceProvider:
@@ -23,6 +23,17 @@ def validate_broker_exists(db: Session, broker_id: int) -> ExternalServiceProvid
             detail=f"Customs Broker with ID '{broker_id}' not found.",
         )
     return broker
+
+
+def validate_expense_code_unique(db: Session, code: str, current_id: int | None = None) -> None:
+    query = db.query(ClearanceExpenseType).filter(ClearanceExpenseType.expense_code == code)
+    if current_id:
+        query = query.filter(ClearanceExpenseType.expense_id != current_id)
+    if query.first():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Expense code '{code}' already exists.",
+        )
 
 
 def validate_checklist_items(items: list) -> None:

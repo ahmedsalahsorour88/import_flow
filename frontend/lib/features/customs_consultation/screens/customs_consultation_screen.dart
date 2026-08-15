@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
@@ -16,6 +17,7 @@ import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
+import '../services/customs_export_service.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
@@ -112,6 +114,18 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   int? _selectedProjectId;
 
   final List<CustomsChecklistItemModel> _checklist = [];
+  final List<CustomsBrokerQuoteItemModel> _brokerQuoteItems = [];
+  int? _brokerPriceListId;
+  String? _brokerPriceListTitle;
+  bool _isBrokerQuoteExpanded = true;
+  bool _isLoadingPriceList = false;
+  String _brokerExpenseCategoryFilter = 'All';
+
+  // Management Tab State
+  int _managementSubTabIndex = 0;
+  int? _selectedMgmtBrokerId;
+  String _mgmtExpenseSearch = '';
+  String _mgmtExpenseCategory = 'All';
   bool _isSaving = false;
 
   // History Tab Filter State
@@ -121,7 +135,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this, initialIndex: widget.initialIndex);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialIndex);
     _initializeDefaultChecklist();
     Future.microtask(() {
       ref.read(customsConsultationsProvider.notifier).fetchConsultations();
@@ -132,6 +146,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ref.read(shippingScenariosProvider.notifier).fetchSessions();
       ref.read(partnersProvider.notifier).fetchPartners();
       ref.read(projectsProvider.notifier).fetchProjects();
+      ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+      ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
     });
   }
 
@@ -219,6 +235,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             if (bPartner != null) {
               _brokerContactPerson = bPartner.contactPerson;
             }
+            _loadBrokerPriceList(file.brokerId!, preserveExisting: true);
           }
           if (file.poIds != null && file.poIds!.isNotEmpty) {
             _selectedPoId = file.poIds!.first;
@@ -750,8 +767,185 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       _notesController.text = session.notes ?? '';
       _checklist.clear();
       _checklist.addAll(session.checklistItems);
+      _brokerQuoteItems.clear();
+      _brokerQuoteItems.addAll(session.brokerQuoteItems.map((q) => q.copyWith()));
+      _brokerPriceListId = session.brokerPriceListId;
       _tabController.animateTo(0);
     });
+  }
+
+
+  Future<void> _loadBrokerPriceList(int brokerId, {bool preserveExisting = false}) async {
+    if (preserveExisting && _brokerQuoteItems.isNotEmpty) return;
+
+    setState(() => _isLoadingPriceList = true);
+    try {
+      final activePl = await ref
+          .read(brokerPriceListsProvider.notifier)
+          .getActivePriceListForBroker(brokerId);
+
+      if (activePl != null && activePl.items.isNotEmpty) {
+        setState(() {
+          _brokerPriceListId = activePl.priceListId;
+          _brokerPriceListTitle = activePl.title;
+          _brokerQuoteItems.clear();
+          for (final itm in activePl.items) {
+            _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
+              expenseTypeId: itm.expenseTypeId,
+              expenseName: itm.expenseName,
+              category: itm.category,
+              unitType: itm.unitType,
+              unitPrice: itm.standardPrice,
+              currency: itm.currency,
+              qty: 1.0,
+              isApplicable: false, // Default to false until enabled
+              totalAmount: 0.0,
+              notes: itm.notes,
+            ));
+          }
+        });
+      } else {
+        // Fallback to Master Expense Catalog
+        final catalog = ref.read(clearanceExpenseTypesProvider).value ?? [];
+        setState(() {
+          _brokerPriceListId = null;
+          _brokerPriceListTitle = 'قائمة أسعار مخصصة (لم يتم العثور على قائمة معتمدة مسجلة)';
+          _brokerQuoteItems.clear();
+          for (final exp in catalog) {
+            _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
+              expenseTypeId: exp.expenseId,
+              expenseName: exp.nameAr,
+              category: exp.category,
+              unitType: exp.defaultUnit,
+              unitPrice: 0.0, // defaults to 0.0 as requested
+              currency: exp.defaultCurrency,
+              qty: 1.0,
+              isApplicable: false,
+              totalAmount: 0.0,
+            ));
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading broker price list: $e');
+    } finally {
+      if (mounted) setState(() => _isLoadingPriceList = false);
+    }
+  }
+
+  void _updateBrokerQuoteItem(int index, CustomsBrokerQuoteItemModel updated) {
+    setState(() {
+      final lineTotal = updated.isApplicable ? (updated.unitPrice * updated.qty) : 0.0;
+      _brokerQuoteItems[index] = updated.copyWith(totalAmount: lineTotal);
+    });
+  }
+
+  void _addCustomBrokerExpenseRow() {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '0.0');
+    final qtyCtrl = TextEditingController(text: '1.0');
+    String selectedCategory = 'Other Fees (مصاريف أخرى)';
+    String selectedUnit = 'Fixed (مبلغ ثابت)';
+    String selectedCurrency = 'EGP';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.add_circle, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('إضافة بند مصروف تخليص / نقل مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          content: SizedBox(
+            width: 450,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'اسم البند / نوع المصروف *', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedCategory,
+                  decoration: const InputDecoration(labelText: 'التصنيف', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
+                    DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
+                    DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
+                    DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
+                    DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
+                  ],
+                  onChanged: (v) => setDlgState(() => selectedCategory = v ?? selectedCategory),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: priceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'السعر', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: selectedCurrency,
+                        decoration: const InputDecoration(labelText: 'العملة', border: OutlineInputBorder()),
+                        items: const [
+                          DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                          DropdownMenuItem(value: 'USD', child: Text('USD')),
+                          DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        ],
+                        onChanged: (v) => setDlgState(() => selectedCurrency = v ?? 'EGP'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: qtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+                final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
+                setState(() {
+                  _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
+                    expenseName: name,
+                    category: selectedCategory,
+                    unitType: selectedUnit,
+                    unitPrice: price,
+                    currency: selectedCurrency,
+                    qty: qty,
+                    isApplicable: true,
+                    totalAmount: price * qty,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('إضافة البند للعرض', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _saveConsultation() async {
@@ -771,6 +965,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     final titleToSave = _titleController.text.trim();
     final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
+    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
 
     // Change Diff Confirmation Dialog for Edits
     if (_editingConsultationId != null) {
@@ -849,8 +1044,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         if (_selectedPoId != null) 'po_id': _selectedPoId,
         if (_selectedProjectId != null) 'project_id': _selectedProjectId,
         'estimated_duties_egp': estimatedDuties,
+        'total_broker_fees_egp': totalBrokerFees,
+        if (_brokerPriceListId != null) 'broker_price_list_id': _brokerPriceListId,
         'notes': _notesController.text.trim(),
         'checklist_items': _checklist.map((item) => item.toJson()).toList(),
+        'broker_quote_items': _brokerQuoteItems.map((item) => item.toJson()).toList(),
       };
 
       if (_editingConsultationId != null) {
@@ -1200,6 +1398,59 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     ],
                   ),
                   const SizedBox(height: 16),
+
+                  if (session.brokerQuoteItems.isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                          child: Text('إجمالي مصاريف المخلص: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300),
+                      columnWidths: const {
+                        0: FlexColumnWidth(2.8),
+                        1: FlexColumnWidth(1.8),
+                        2: FlexColumnWidth(1.2),
+                        3: FlexColumnWidth(0.8),
+                        4: FlexColumnWidth(1.4),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
+                          children: const [
+                            Padding(padding: EdgeInsets.all(8), child: Text('نوع المصروف / الخدمة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('التصنيف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('سعر البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          ],
+                        ),
+                        ...session.brokerQuoteItems.where((q) => q.isApplicable).map((quote) {
+                          return TableRow(
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6), child: Text(quote.expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(quote.category.split('(').first.trim(), style: const TextStyle(fontSize: 10))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${quote.unitPrice.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text('${quote.qty}', style: const TextStyle(fontSize: 11))),
+                              Padding(
+                                padding: const EdgeInsets.all(6),
+                                child: Text('${quote.totalAmount.toStringAsFixed(2)} ${quote.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+
                   const Text('قائمة فحص المستندات والاشتراطات الجمركية (Checklist):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
                   Table(
@@ -1246,6 +1497,56 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             ),
           ),
           actions: [
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal),
+              onPressed: () async {
+                await Printing.layoutPdf(
+                  onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),
+                  name: 'Customs_Consultation_${session.consultationCode}',
+                );
+              },
+              icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
+              label: const Text('📄 طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              onPressed: () async {
+                final nafezaRes = CustomsExportService.computeNafezaFeeBreakdown(
+                  totalDutyEgp: session.estimatedDutiesEgp * 0.45,
+                  totalVatEgp: session.estimatedDutiesEgp * 0.45,
+                  totalServiceFeeEgp: session.estimatedDutiesEgp * 0.10,
+                  totalScheduleTaxEgp: 0.0,
+                );
+                try {
+                  final saved = await CustomsExportService.exportCustomsStudyToExcel(
+                    context: context,
+                    title: session.title,
+                    importFileCode: session.importFileCode,
+                    brokerName: session.brokerName,
+                    currency: 'EGP',
+                    exchangeRate: 1.0,
+                    totalFreightEgp: 0.0,
+                    totalInsuranceEgp: 0.0,
+                    calcLines: [],
+                    nafezaResult: nafezaRes,
+                    brokerQuoteItems: session.brokerQuoteItems,
+                  );
+                  if (saved != null && context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('✅ تم تصدير دراسة الاستشارة بنجاح: $saved'), backgroundColor: AppTheme.emerald),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
+                  }
+                }
+              },
+              icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
+              label: const Text('📊 تصدير EXCEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+            ),
+            const Spacer(),
             TextButton(
               onPressed: () => Navigator.pop(context),
               child: const Text('إغلاق'),
@@ -1264,6 +1565,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final brokersList = partnersList.where((p) => p.partnerType.contains('Customs') || p.partnerType.contains('Broker')).toList();
     final projectsList = ref.watch(projectsProvider).value ?? [];
     final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final List<CurrencyModel> currenciesList = ref.watch(currenciesProvider).value ?? [];
 
     // Live Checklist Statistics
     final totalDocs = _checklist.length;
@@ -1278,6 +1580,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final double totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
     final double totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
     final double totalTaxesAndDutiesEgp = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
+    final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
+    final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -1291,6 +1596,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           tabs: const [
             Tab(icon: Icon(Icons.assignment_turned_in), text: 'Customs Workspace (مركز الاستشارة والفحص)'),
             Tab(icon: Icon(Icons.history), text: 'Saved Consultations Log (سجل الدراسات المحفوظة)'),
+            Tab(icon: Icon(Icons.price_change), text: 'Broker Price Lists & Catalog (قوائم الأسعار وتكويد المصروفات)'),
           ],
         ),
       ),
@@ -1483,6 +1789,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ),
                   const SizedBox(height: 20),
 
+                  // BROKER CLEARANCE & LOGISTICS QUOTE DETAILS CARD
+                  _buildBrokerQuoteDetailsCard(currenciesList),
+                  const SizedBox(height: 20),
+
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
                   Card(
                     elevation: 3,
@@ -1583,6 +1893,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
+
                               ],
                             ),
                             const SizedBox(height: 16),
@@ -1709,6 +2020,19 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       icon: const Icon(Icons.done_all, color: Colors.white, size: 16),
                                       label: const Text('اعتماد وربط التقدير المالي للدراسة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
+                              const SizedBox(height: 16),
+
+                              // NAFEZA STATEMENT FEE BREAKDOWN CARD (تفاصيل بنود التحصيل والإقرارات الرسمية)
+                              _buildNafezaFeeBreakdownCard(
+                                calcLines: calcLines,
+                                totalDutyEgp: totalDutyEgp,
+                                totalVatEgp: totalVatEgp,
+                                totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
+                                totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
+                                totalFreightEgp: totalFreightEgp,
+                                totalInsuranceEgp: totalInsuranceEgp,
+                                exchangeRate: exchangeRate,
+                              ),
                                   ],
                                 ),
                               ),
@@ -2432,10 +2756,1560 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
               );
             },
           ),
+
+          // TAB 3: BROKER PRICE LISTS & CATALOG MANAGEMENT
+          _buildPriceListsAndCatalogTab(),
         ],
       ),
     );
   }
+
+
+
+  Widget _buildNafezaFeeBreakdownCard({
+    required List<CustomsItemCalcRow> calcLines,
+    required double totalDutyEgp,
+    required double totalVatEgp,
+    required double totalServiceFeeEgp,
+    required double totalScheduleTaxEgp,
+    required double totalFreightEgp,
+    required double totalInsuranceEgp,
+    required double exchangeRate,
+  }) {
+    final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
+      totalDutyEgp: totalDutyEgp,
+      totalVatEgp: totalVatEgp,
+      totalServiceFeeEgp: totalServiceFeeEgp,
+      totalScheduleTaxEgp: totalScheduleTaxEgp,
+    );
+
+    return Container(
+      margin: const EdgeInsets.only(top: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header Bar matching Image 2
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt.withOpacity(0.08),
+              borderRadius: const BorderRadius.only(topLeft: Radius.circular(9), topRight: Radius.circular(9)),
+              border: Border(bottom: BorderSide(color: AppTheme.cobalt.withOpacity(0.2))),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'تفاصيل بنود التحصيل والإقرارات الرسمية (Nafeza Statement Fee Breakdown)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                  ),
+                ),
+                Text(
+                  '${nafezaResult.grandTotal.toStringAsFixed(2)} EGP إجمالي البيان:',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                ),
+                const SizedBox(width: 12),
+                // PDF Export Button
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.charcoal,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () async {
+                    final session = CustomsConsultationModel(
+                      consultationId: _editingConsultationId ?? 0,
+                      consultationCode: _editingConsultationCode ?? 'DRAFT-STMT',
+                      brokerId: _selectedBrokerId ?? 0,
+                      brokerName: _selectedBrokerName ?? 'مستخلص جمركي معتمد',
+                      title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'دراسة استشارة جمركية',
+                      overallStatus: 'Pending Review',
+                      estimatedDutiesEgp: nafezaResult.grandTotal,
+                      totalBrokerFeesEgp: _brokerQuoteItems.fold(0.0, (s, i) => s + (i.isApplicable ? i.totalAmount : 0.0)),
+                      checklistItems: _checklist,
+                      brokerQuoteItems: _brokerQuoteItems,
+                      createdAt: DateTime.now().toIso8601String(),
+                      updatedAt: DateTime.now().toIso8601String(),
+                    );
+                    await Printing.layoutPdf(
+                      onLayout: (format) => CustomsConsultationPdfService.generateConsultationPdf(session),
+                      name: 'Nafeza_Statement_${DateTime.now().millisecondsSinceEpoch}',
+                    );
+                  },
+                  icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
+                  label: const Text('📄 حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+                // Excel Export Button
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  onPressed: () async {
+                    try {
+                      final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
+                        context: context,
+                        title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'دراسة استشارة جمركية',
+                        importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
+                        brokerName: _selectedBrokerName ?? 'غير محدد',
+                        currency: _customsCurrency,
+                        exchangeRate: exchangeRate,
+                        totalFreightEgp: totalFreightEgp,
+                        totalInsuranceEgp: totalInsuranceEgp,
+                        calcLines: calcLines,
+                        nafezaResult: nafezaResult,
+                        brokerQuoteItems: _brokerQuoteItems,
+                      );
+                      if (savedFile != null && mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('✅ تم تصدير وحفظ شيت الإكسيل بنجاح: $savedFile'), backgroundColor: AppTheme.emerald),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('❌ خطأ أثناء التصدير: $e'), backgroundColor: Colors.red),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
+                  label: const Text('📊 تصدير EXCEL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            ),
+          ),
+
+          // Grouped Fee Items Matching Image 2
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              children: nafezaResult.groups.map((group) {
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    children: [
+                      // Group Header
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade100.withOpacity(0.4),
+                          borderRadius: const BorderRadius.only(topLeft: Radius.circular(5), topRight: Radius.circular(5)),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'تحصيل ${group.groupName}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            ),
+                            Text(
+                              '${group.totalAmount.toStringAsFixed(2)} ج.م',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Items inside group
+                      ...group.items.map((item) {
+                        final typeLabel = item.calculationType == 'flat'
+                            ? 'قطعي'
+                            : (item.calculationType == 'reference' ? 'مرجعي' : 'مشتق');
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          child: Row(
+                            children: [
+                              // Code Badge
+                              Container(
+                                width: 44,
+                                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: Text(
+                                  '[${item.code}]',
+                                  style: const TextStyle(fontSize: 11, color: Colors.blueGrey, fontWeight: FontWeight.bold),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              // Item Name
+                              Expanded(
+                                child: Text(
+                                  item.nameAr,
+                                  style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
+                                ),
+                              ),
+                              // Calculation Type
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: item.calculationType == 'flat' ? Colors.blue.shade50 : Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  typeLabel,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: item.calculationType == 'flat' ? Colors.blue.shade800 : Colors.teal.shade800,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              // Amount
+                              SizedBox(
+                                width: 110,
+                                child: Text(
+                                  '${item.calculatedAmount.toStringAsFixed(2)} ج.م',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                  textAlign: TextAlign.end,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrokerCostRow({
+    required int index,
+    required CustomsBrokerQuoteItemModel item,
+    required List<CurrencyModel> currenciesList,
+  }) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: item.isApplicable ? AppTheme.emerald.withOpacity(0.04) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: item.isApplicable ? AppTheme.emerald.withOpacity(0.3) : Colors.grey.shade300),
+      ),
+      child: Row(
+        children: [
+          // Title & Category
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.expenseName,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                Text(
+                  '${item.category.split('(').first.trim()} | ${item.unitType}',
+                  style: const TextStyle(fontSize: 10, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Price field
+          Expanded(
+            flex: 2,
+            child: TextFormField(
+              key: ValueKey('price_${item.expenseTypeId ?? item.expenseName}_${item.unitPrice}'),
+              initialValue: item.unitPrice == 0.0 ? '' : item.unitPrice.toString(),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'سعر البند',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              onChanged: (v) {
+                final p = double.tryParse(v) ?? 0.0;
+                _updateBrokerQuoteItem(index, item.copyWith(unitPrice: p));
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Currency dropdown
+          Expanded(
+            flex: 2,
+            child: SearchableDropdownField<String>(
+              value: currenciesList.any((c) => c.currencyCode == item.currency)
+                  ? item.currency
+                  : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'EGP'),
+              labelText: 'العملة',
+              items: currenciesList
+                  .map((c) => SearchableDropdownItem(
+                        value: c.currencyCode,
+                        label: '${c.currencyCode} (${c.currencySymbol})',
+                      ))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) {
+                  _updateBrokerQuoteItem(index, item.copyWith(currency: v));
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Qty field
+          Expanded(
+            flex: 1,
+            child: TextFormField(
+              key: ValueKey('qty_${item.expenseTypeId ?? item.expenseName}_${item.qty}'),
+              initialValue: item.qty == 0.0 ? '1' : (item.qty == item.qty.roundToDouble() ? item.qty.toInt().toString() : item.qty.toString()),
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'الكمية',
+                isDense: true,
+                border: OutlineInputBorder(),
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              ),
+              onChanged: (v) {
+                final q = double.tryParse(v) ?? 1.0;
+                _updateBrokerQuoteItem(index, item.copyWith(qty: q));
+              },
+            ),
+          ),
+          const SizedBox(width: 10),
+          // Applicable switch
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Switch(
+                value: item.isApplicable,
+                activeColor: AppTheme.emerald,
+                onChanged: (v) => _updateBrokerQuoteItem(index, item.copyWith(isApplicable: v)),
+              ),
+              Text(
+                item.isApplicable ? 'مطبق' : 'غير مطبق',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: item.isApplicable ? AppTheme.emerald : Colors.red.shade900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: 10),
+          // Line total display
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              decoration: BoxDecoration(
+                color: item.isApplicable ? AppTheme.emerald.withOpacity(0.12) : Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                item.isApplicable
+                    ? '${(item.unitPrice * item.qty).toStringAsFixed(2)} ${item.currency}'
+                    : '0.00 ${item.currency}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                  color: item.isApplicable ? AppTheme.emerald : Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrokerQuoteDetailsCard(List<CurrencyModel> currenciesList) {
+    if (_selectedBrokerId == null) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '💡 يرجى تحديد المستخلص الجمركي أعلاه لاستدعاء قائمة أسعار التخليص والنقل الخاصة به تلقائياً وتفعيل بنود المصروفات.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.charcoal),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isLoadingPriceList) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(strokeWidth: 2.5),
+                SizedBox(width: 14),
+                Text('جاري جلب قائمة أسعار التخليص والنقل للمستخلص...', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
+    final appliedCount = _brokerQuoteItems.where((i) => i.isApplicable).length;
+
+    // Filter items by category
+    final categories = [
+      'All',
+      'Clearance Fees (أتعاب ومصاريف تخليص)',
+      'Procedures & Approvals (إجراءات وموافقات وفحص)',
+      'Inland Transport (نقل بري وشاحنات)',
+      'Port & Handling (موانئ وتعتيق وتفريغ)',
+      'Other Fees (مصاريف أخرى)',
+    ];
+
+    final filteredItems = _brokerExpenseCategoryFilter == 'All'
+        ? _brokerQuoteItems
+        : _brokerQuoteItems.where((i) => i.category == _brokerExpenseCategoryFilter).toList();
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.request_quote, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص (Customs Broker Quote Details)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                      ),
+                      if (_brokerPriceListTitle != null)
+                        Text(
+                          '📋 المصدر: $_brokerPriceListTitle (${_brokerQuoteItems.length} بنود مسعرة)',
+                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
+                        ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
+                  onPressed: _addCustomBrokerExpenseRow,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('إضافة بند مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(_isBrokerQuoteExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
+                  tooltip: _isBrokerQuoteExpanded ? 'طي عرض الأسعار' : 'توسيع عرض الأسعار',
+                  onPressed: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
+                ),
+              ],
+            ),
+            if (_isBrokerQuoteExpanded) ...[
+              const Divider(height: 20),
+
+              // Category Filter Bar & Bulk Actions
+              Row(
+                children: [
+                  const Text('تصفية الفئات: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: categories.map((cat) {
+                          final isSelected = _brokerExpenseCategoryFilter == cat;
+                          final label = cat == 'All' ? 'الكل (${_brokerQuoteItems.length})' : cat.split('(').first.trim();
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: ChoiceChip(
+                              label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                              selected: isSelected,
+                              selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                              onSelected: (_) => setState(() => _brokerExpenseCategoryFilter = cat),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          final itm = _brokerQuoteItems[i];
+                          final lineTotal = itm.unitPrice * itm.qty;
+                          _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
+                    label: const Text('تطبيق الكل', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
+                    label: const Text('تعطيل الكل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Items List
+              if (filteredItems.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                  child: const Text('لا توجد بنود مصروفات في هذا التصنيف. يمكنك النقر على "إضافة بند مخصص" لإدراج مصروف جديد.'),
+                )
+              else
+                ...filteredItems.map((item) {
+                  final idx = _brokerQuoteItems.indexOf(item);
+                  return _buildBrokerCostRow(
+                    index: idx,
+                    item: item,
+                    currenciesList: currenciesList,
+                  );
+                }).toList(),
+
+              const Divider(height: 24),
+
+              // Summary Bar matching Image 4 design
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          '💰 إجمالي عرض أسعار المخلص الجمركي والنقل المطبق ($appliedCount بند مطبق):',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${totalBrokerFees.toStringAsFixed(2)} EGP',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget _buildPriceListsAndCatalogTab() {
+    final priceListsAsync = ref.watch(brokerPriceListsProvider);
+    final expenseTypesAsync = ref.watch(clearanceExpenseTypesProvider);
+    final brokersList = (ref.watch(partnersProvider).value ?? [])
+        .where((p) => p.partnerType.toLowerCase().contains('customs broker') || p.partnerType.toLowerCase().contains('مخلص'))
+        .toList();
+
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Sub-Tab Switcher (Segmented Control)
+          Row(
+            children: [
+              ChoiceChip(
+                label: const Text('📋 قوائم أسعار المخلصين (Broker Price Lists)', style: TextStyle(fontWeight: FontWeight.bold)),
+                selected: _managementSubTabIndex == 0,
+                selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                onSelected: (_) => setState(() => _managementSubTabIndex = 0),
+              ),
+              const SizedBox(width: 12),
+              ChoiceChip(
+                label: const Text('🏷️ دليل وتكويد بنود المصروفات (Clearance Expense Catalog)', style: TextStyle(fontWeight: FontWeight.bold)),
+                selected: _managementSubTabIndex == 1,
+                selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                onSelected: (_) => setState(() => _managementSubTabIndex = 1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Sub-Tab Content
+          Expanded(
+            child: _managementSubTabIndex == 0
+                ? _buildBrokerPriceListsView(priceListsAsync, brokersList)
+                : _buildExpenseCatalogView(expenseTypesAsync),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBrokerPriceListsView(AsyncValue<List<BrokerPriceListModel>> priceListsAsync, List<dynamic> brokersList) {
+    return priceListsAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('❌ Error: $e')),
+      data: (priceLists) {
+        final filteredLists = priceLists.where((pl) {
+          if (_selectedMgmtBrokerId != null && pl.brokerId != _selectedMgmtBrokerId) return false;
+          return true;
+        }).toList();
+
+        return Column(
+          children: [
+            // Filter Bar
+            Card(
+              elevation: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 300,
+                      child: SearchableDropdownField<int?>(
+                        value: _selectedMgmtBrokerId,
+                        labelText: 'تصفية حسب المخلص الجمركي',
+                        searchHintText: 'ابحث عن مخلص...',
+                        items: [
+                          const SearchableDropdownItem(value: null, label: 'جميع المخلصين'),
+                          ...brokersList.map((b) => SearchableDropdownItem<int?>(
+                                value: b.providerId,
+                                label: b.partnerName,
+                              )),
+                        ],
+                        onChanged: (v) => setState(() => _selectedMgmtBrokerId = v),
+                      ),
+                    ),
+                    const Spacer(),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      onPressed: () => _showPriceListFormDialog(brokersList: brokersList),
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text('إنشاء قائمة أسعار جديدة لمخلص', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Price Lists Table / Grid
+            Expanded(
+              child: filteredLists.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
+                          const SizedBox(height: 12),
+                          const Text('لا توجد قوائم أسعار مسجلة للمخلصين المحددين.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () => _showPriceListFormDialog(brokersList: brokersList),
+                            icon: const Icon(Icons.add),
+                            label: const Text('إضافة قائمة أسعار الآن'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      itemCount: filteredLists.length,
+                      itemBuilder: (ctx, idx) {
+                        final pl = filteredLists[idx];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          child: ExpansionTile(
+                            leading: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                              child: const Icon(Icons.price_change, color: AppTheme.cobalt),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(pl.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                const SizedBox(width: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: pl.isActive ? Colors.green.shade100 : Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                                  child: Text(pl.isActive ? 'سارية' : 'مؤرشفة', style: TextStyle(color: pl.isActive ? Colors.green.shade900 : Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                                const Spacer(),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.cobalt,
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                  ),
+                                  onPressed: () => _showPriceListFormDialog(existingPriceList: pl, brokersList: brokersList),
+                                  icon: const Icon(Icons.edit, color: Colors.white, size: 14),
+                                  label: const Text('تعديل الأسعار والبنود', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                                const SizedBox(width: 6),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                                  tooltip: 'أرشفة قائمة الأسعار',
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('تأكيد أرشفة قائمة الأسعار'),
+                                        content: Text('هل أنت متأكد من رغبتك في أرشفة قائمة الأسعار "${pl.title}"؟'),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                          ElevatedButton(
+                                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                                            onPressed: () => Navigator.pop(ctx, true),
+                                            child: const Text('أرشفة', style: TextStyle(color: Colors.white)),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      await ref.read(brokerPriceListsProvider.notifier).softDeletePriceList(pl.priceListId);
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                            subtitle: Text('المخلص: ${pl.brokerName} | الميناء: ${pl.portName ?? "عام"} | السريان: من ${pl.effectiveFrom} ${pl.effectiveTo != null ? "إلى ${pl.effectiveTo}" : "(مفتوح)"} | عدد البنود: ${pl.items.length}'),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (pl.notes != null && pl.notes!.isNotEmpty) ...[
+                                      Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
+                                        child: Text('📝 ملاحظات وشروط: ${pl.notes}', style: const TextStyle(fontSize: 12)),
+                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    Table(
+                                      border: TableBorder.all(color: Colors.grey.shade300),
+                                      columnWidths: const {
+                                        0: FlexColumnWidth(3.0),
+                                        1: FlexColumnWidth(2.0),
+                                        2: FlexColumnWidth(1.2),
+                                        3: FlexColumnWidth(1.5),
+                                        4: FlexColumnWidth(2.0),
+                                      },
+                                      children: [
+                                        TableRow(
+                                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                                          children: const [
+                                            Padding(padding: EdgeInsets.all(6), child: Text('اسم المصروف / البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('التصنيف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('الوحدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('السعر المعتمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('نطاق السعر / ملاحظات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                          ],
+                                        ),
+                                        ...pl.items.map((itm) => TableRow(
+                                              children: [
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(itm.expenseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(itm.category.split('(').first.trim(), style: const TextStyle(fontSize: 10))),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text(itm.unitType, style: const TextStyle(fontSize: 10))),
+                                                Padding(padding: const EdgeInsets.all(6), child: Text('${itm.standardPrice.toStringAsFixed(2)} ${itm.currency}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11))),
+                                                Padding(
+                                                  padding: const EdgeInsets.all(6),
+                                                  child: Text(
+                                                    itm.minPrice != null && itm.maxPrice != null
+                                                        ? '${itm.minPrice!.toStringAsFixed(0)} - ${itm.maxPrice!.toStringAsFixed(0)} ${itm.currency}'
+                                                        : (itm.notes ?? '-'),
+                                                    style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                                  ),
+                                                ),
+                                              ],
+                                            )),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildExpenseCatalogView(AsyncValue<List<ClearanceExpenseTypeModel>> expenseTypesAsync) {
+    return expenseTypesAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('❌ Error: $e')),
+      data: (expenses) {
+        final filtered = expenses.where((exp) {
+          if (_mgmtExpenseCategory != 'All' && exp.category != _mgmtExpenseCategory) return false;
+          if (_mgmtExpenseSearch.isNotEmpty) {
+            final q = _mgmtExpenseSearch.toLowerCase();
+            return exp.expenseCode.toLowerCase().contains(q) || exp.nameAr.toLowerCase().contains(q) || (exp.nameEn?.toLowerCase().contains(q) ?? false);
+          }
+          return true;
+        }).toList();
+
+        return Column(
+          children: [
+            // Toolbar
+            Card(
+              elevation: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 250,
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'بحث في دليل المصروفات...',
+                          prefixIcon: const Icon(Icons.search, size: 18),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() => _mgmtExpenseSearch = v),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    DropdownButton<String>(
+                      value: _mgmtExpenseCategory,
+                      items: const [
+                        DropdownMenuItem(value: 'All', child: Text('جميع التصنيفات')),
+                        DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
+                        DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
+                        DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
+                        DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
+                        DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
+                      ],
+                      onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
+                    ),
+                    const Spacer(),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      onPressed: _showAddExpenseTypeDialog,
+                      icon: const Icon(Icons.add, color: Colors.white),
+                      label: const Text('تكويد نوع مصروف جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Table of Expenses
+            Expanded(
+              child: Card(
+                elevation: 2,
+                child: SingleChildScrollView(
+                  child: DataTable(
+                    headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
+                    headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    columns: const [
+                      DataColumn(label: Text('الكود')),
+                      DataColumn(label: Text('اسم المصروف (عربي)')),
+                      DataColumn(label: Text('اسم المصروف (إنجليزي)')),
+                      DataColumn(label: Text('التصنيف')),
+                      DataColumn(label: Text('وحدة الحساب')),
+                      DataColumn(label: Text('العملة الافتراضية')),
+                    ],
+                    rows: filtered.map((exp) {
+                      return DataRow(
+                        cells: [
+                          DataCell(Text(exp.expenseCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                          DataCell(Text(exp.nameAr, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(exp.nameEn ?? '-')),
+                          DataCell(Text(exp.category.split('(').first.trim())),
+                          DataCell(Text(exp.defaultUnit)),
+                          DataCell(Text(exp.defaultCurrency)),
+                        ],
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddExpenseTypeDialog() {
+    final codeCtrl = TextEditingController();
+    final nameArCtrl = TextEditingController();
+    final nameEnCtrl = TextEditingController();
+    String category = 'Clearance Fees (أتعاب ومصاريف تخليص)';
+    String defaultUnit = 'Per Invoice (لكل فاتورة)';
+    String currency = 'EGP';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Text('تكويد نوع مصروف جديد في الدليل', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SizedBox(
+            width: 480,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: codeCtrl,
+                  decoration: const InputDecoration(labelText: 'كود المصروف (مثال: EXP-CLR-050)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: nameArCtrl,
+                  decoration: const InputDecoration(labelText: 'اسم المصروف بالعربية *', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: nameEnCtrl,
+                  decoration: const InputDecoration(labelText: 'اسم المصروف بالإنجليزية (اختياري)', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: category,
+                  decoration: const InputDecoration(labelText: 'التصنيف', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('Clearance Fees (أتعاب ومصاريف تخليص)')),
+                    DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('Procedures & Approvals (إجراءات وموافقات وفحص)')),
+                    DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('Inland Transport (نقل بري وشاحنات)')),
+                    DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('Port & Handling (موانئ وتعتيق وتفريغ)')),
+                    DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('Other Fees (مصاريف أخرى)')),
+                  ],
+                  onChanged: (v) => setDlgState(() => category = v ?? category),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        initialValue: defaultUnit,
+                        decoration: const InputDecoration(labelText: 'وحدة الحساب الافتراضية', border: OutlineInputBorder()),
+                        onChanged: (v) => defaultUnit = v,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: currency,
+                        decoration: const InputDecoration(labelText: 'العملة الافتراضية', border: OutlineInputBorder()),
+                        items: const [
+                          DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                          DropdownMenuItem(value: 'USD', child: Text('USD')),
+                          DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                        ],
+                        onChanged: (v) => setDlgState(() => currency = v ?? 'EGP'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              onPressed: () async {
+                final nameAr = nameArCtrl.text.trim();
+                if (nameAr.isEmpty) return;
+                try {
+                  await ref.read(clearanceExpenseTypesProvider.notifier).createExpenseType({
+                    'expense_code': codeCtrl.text.trim().isNotEmpty ? codeCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch % 1000}',
+                    'name_ar': nameAr,
+                    'name_en': nameEnCtrl.text.trim().isNotEmpty ? nameEnCtrl.text.trim() : null,
+                    'category': category,
+                    'default_unit': defaultUnit,
+                    'default_currency': currency,
+                    'display_order': 99,
+                    'is_active': true,
+                  });
+                  if (mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red));
+                }
+              },
+              child: const Text('حفظ المصروف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  void _showPriceListFormDialog({
+    BrokerPriceListModel? existingPriceList,
+    required List<dynamic> brokersList,
+  }) {
+    if (brokersList.isEmpty && existingPriceList == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يوجد مخلصين جمركيين مسجلين في الشركاء.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    final isEditing = existingPriceList != null;
+    int selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : 0);
+    final titleCtrl = TextEditingController(text: existingPriceList?.title ?? 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026');
+    final portCtrl = TextEditingController(text: existingPriceList?.portName ?? 'ميناء الإسكندرية والدخيلة');
+    final notesCtrl = TextEditingController(text: existingPriceList?.notes ?? '');
+    final dateCtrl = TextEditingController(text: existingPriceList?.effectiveFrom ?? DateTime.now().toIso8601String().split('T').first);
+    int version = existingPriceList?.version ?? 1;
+
+    // Load items either from existing price list or from master expense catalog
+    final catalog = ref.read(clearanceExpenseTypesProvider).value ?? [];
+    final List<Map<String, dynamic>> itemsState = [];
+
+    if (isEditing) {
+      for (final itm in existingPriceList.items) {
+        itemsState.add({
+          'item_id': itm.itemId,
+          'expense_type_id': itm.expenseTypeId,
+          'expense_name': itm.expenseName,
+          'category': itm.category,
+          'unit_type': itm.unitType,
+          'standard_price': itm.standardPrice,
+          'currency': itm.currency,
+          'min_price': itm.minPrice,
+          'max_price': itm.maxPrice,
+          'notes': itm.notes ?? '',
+          'is_active': itm.isActive,
+        });
+      }
+    } else {
+      for (final exp in catalog) {
+        itemsState.add({
+          'expense_type_id': exp.expenseId,
+          'expense_name': exp.nameAr,
+          'category': exp.category,
+          'unit_type': exp.defaultUnit,
+          'standard_price': 0.0,
+          'currency': exp.defaultCurrency,
+          'min_price': null,
+          'max_price': null,
+          'notes': '',
+          'is_active': true,
+        });
+      }
+    }
+
+    String itemSearchQuery = '';
+    String selectedCategoryFilter = 'All';
+
+    final standardRatesMap = <String, double>{
+      'أتعاب تخليص LCL': 1250.0,
+      'واحد طن LCL مصاريف تخليص': 4750.0,
+      'لكل طن زيادة LCL': 1000.0,
+      'أتعاب تخليص حاوية 20 قدم': 2500.0,
+      'مصاريف تخليص أول حاوية 20 قدم': 7500.0,
+      'مصاريف تخليص كل حاوية 20 قدم زيادة': 1500.0,
+      'أتعاب تخليص حاوية 40 قدم': 2500.0,
+      'مصاريف تخليص أول حاوية 40 قدم': 7500.0,
+      'مصاريف تخليص كل حاوية 40 قدم زيادة': 2000.0,
+      'بريد - دمغات': 250.0,
+      'عرض الواردات + اعتماد الإيلاك': 3000.0,
+      'ACID رسوم استخراج وإصدار': 1000.0,
+      'زراعة ومهمل وسيل': 1150.0,
+      'أمن عام + مندوب الأمن العام + سحب العينات': 1500.0,
+      'عرض أمن عام للقاهرة': 5000.0,
+      'وثيقة تأمين': 500.0,
+      '(X-Ray) عرض إكس راي': 250.0,
+      'تطبيق الاتفاقيات التفضيلية': 1000.0,
+      'الإفراج تحت التحفظ': 350.0,
+      'غسيل جمركي': 250.0,
+      'مطافئ': 1000.0,
+      'دمغة وموازين': 1000.0,
+      'مفرقعات': 1000.0,
+      'إفراج نهائي': 500.0,
+      'إشعاع': 1000.0,
+      'عرض زراعة مشمول': 1500.0,
+      'عرض مصلحة الكيمياء': 1500.0,
+      'سحب إذن / تصوير / تعديل منافستو': 750.0,
+      'مصاريف وزن قماش': 1500.0,
+      'إنهاء إجراءات زيادة الوزن': 750.0,
+      'سيارة 1 طن (دبابة) إسكندرية - قاهرة': 6150.0,
+      'سيارة جامبو حتى 4 طن إسكندرية - قاهرة': 8200.0,
+      'سيارة فرداني حتى 7 طن إسكندرية - قاهرة': 14150.0,
+      'حاوية 20 قدم حتى 10 طن إسكندرية - قاهرة': 14800.0,
+      'حاوية 20 قدم أكثر من 10 طن إسكندرية - قاهرة': 18400.0,
+      'حاويتين 20*2 قدم إسكندرية - قاهرة': 23300.0,
+      'حاوية 40 قدم إسكندرية - قاهرة': 18400.0,
+      'بياتة شاحنة 20*2': 4200.0,
+      'بياتة شاحنة 40*1': 3600.0,
+      'بياتة شاحنة 20*1': 3000.0,
+      'تعتيق ميناء أبوقير': 4250.0,
+      'نقل الحاوية للوزن داخل الميناء': 3500.0,
+      'كشف عمال وكلارك': 1250.0,
+    };
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) {
+          final filteredItems = itemsState.where((itm) {
+            final name = (itm['expense_name'] as String).toLowerCase();
+            final cat = (itm['category'] as String);
+            final matchSearch = itemSearchQuery.isEmpty || name.contains(itemSearchQuery.toLowerCase());
+            final matchCat = selectedCategoryFilter == 'All' || cat == selectedCategoryFilter;
+            return matchSearch && matchCat;
+          }).toList();
+
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            child: Container(
+              width: 950,
+              height: 750,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Title Header
+                  Row(
+                    children: [
+                      Icon(isEditing ? Icons.edit_note : Icons.add_circle, color: AppTheme.cobalt, size: 26),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          isEditing ? 'تعديل وتحديث أسعار قائمة المستخلص: ${existingPriceList.title}' : 'إنشاء وتحديد أسعار قائمة جديدة للمستخلص الجمركي',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+
+                  // Header Form Inputs
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.charcoal.withOpacity(0.03),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            if (!isEditing)
+                              Expanded(
+                                flex: 2,
+                                child: DropdownButtonFormField<int>(
+                                  value: selectedBroker,
+                                  decoration: const InputDecoration(labelText: 'المستخلص الجمركي *', isDense: true, border: OutlineInputBorder()),
+                                  items: brokersList.map((b) => DropdownMenuItem<int>(value: b.providerId, child: Text(b.partnerName))).toList(),
+                                  onChanged: (v) => setDlgState(() => selectedBroker = v ?? selectedBroker),
+                                ),
+                              )
+                            else
+                              Expanded(
+                                flex: 2,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
+                                  child: Text('المستخلص: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                              ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 3,
+                              child: TextFormField(
+                                controller: titleCtrl,
+                                decoration: const InputDecoration(labelText: 'عنوان قائمة الأسعار *', isDense: true, border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: portCtrl,
+                                decoration: const InputDecoration(labelText: 'الميناء المعني', isDense: true, border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              flex: 2,
+                              child: TextFormField(
+                                controller: dateCtrl,
+                                decoration: const InputDecoration(labelText: 'تاريخ السريان', isDense: true, border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: notesCtrl,
+                          decoration: const InputDecoration(labelText: 'ملاحظات وشروط عامة', isDense: true, border: OutlineInputBorder()),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Table Toolbar: Search, Category Filter & Quick Actions
+                  Row(
+                    children: [
+                      // Search Box
+                      SizedBox(
+                        width: 220,
+                        child: TextField(
+                          decoration: InputDecoration(
+                            hintText: 'بحث في بنود المصروفات...',
+                            prefixIcon: const Icon(Icons.search, size: 16),
+                            isDense: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                          onChanged: (v) => setDlgState(() => itemSearchQuery = v),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Category Filter
+                      DropdownButton<String>(
+                        value: selectedCategoryFilter,
+                        items: const [
+                          DropdownMenuItem(value: 'All', child: Text('جميع التصنيفات')),
+                          DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
+                          DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
+                          DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
+                          DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
+                          DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
+                        ],
+                        onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                      ),
+                      const Spacer(),
+                      // Quick Fill Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
+                        onPressed: () {
+                          setDlgState(() {
+                            for (var itm in itemsState) {
+                              final name = itm['expense_name'] as String;
+                              for (var entry in standardRatesMap.entries) {
+                                if (name.contains(entry.key) || entry.key.contains(name)) {
+                                  itm['standard_price'] = entry.value;
+                                  break;
+                                }
+                              }
+                            }
+                          });
+                          ScaffoldMessenger.of(ctx).showSnackBar(
+                            const SnackBar(content: Text('⚡ تم استدعاء وتعبئة الأسعار الاسترشادية القياسية المصرية بنجاح!'), backgroundColor: AppTheme.cobalt),
+                          );
+                        },
+                        icon: const Icon(Icons.flash_on, size: 14),
+                        label: const Text('تعبئة بالأسعار الاسترشادية', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 6),
+                      // Zero Out Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(foregroundColor: Colors.red.shade800),
+                        onPressed: () {
+                          setDlgState(() {
+                            for (var itm in itemsState) {
+                              itm['standard_price'] = 0.0;
+                            }
+                          });
+                        },
+                        icon: const Icon(Icons.clear_all, size: 14),
+                        label: const Text('تصفير الكل', style: TextStyle(fontSize: 11)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Interactive Items Table
+                  Expanded(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: ListView.separated(
+                          itemCount: filteredItems.length,
+                          separatorBuilder: (ctx, idx) => Divider(height: 1, color: Colors.grey.shade200),
+                          itemBuilder: (ctx, idx) {
+                            final itm = filteredItems[idx];
+                            final realIdx = itemsState.indexOf(itm);
+                            final standardPrice = (itm['standard_price'] as num?)?.toDouble() ?? 0.0;
+
+                            return Container(
+                              color: idx.isEven ? Colors.white : Colors.grey.shade50,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              child: Row(
+                                children: [
+                                  // Item Name & Category
+                                  Expanded(
+                                    flex: 4,
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          itm['expense_name'],
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                        ),
+                                        Text(
+                                          '${(itm['category'] as String).split('(').first.trim()} | ${itm['unit_type']}',
+                                          style: const TextStyle(fontSize: 10, color: Colors.grey),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+
+                                  // Standard Price Input
+                                  SizedBox(
+                                    width: 130,
+                                    child: TextFormField(
+                                      key: ValueKey('dlg_price_${itm['expense_type_id']}_$standardPrice'),
+                                      initialValue: standardPrice == 0.0 ? '' : standardPrice.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(
+                                        labelText: 'السعر المعتمد *',
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      onChanged: (v) {
+                                        final p = double.tryParse(v) ?? 0.0;
+                                        itemsState[realIdx]['standard_price'] = p;
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // Currency Dropdown
+                                  SizedBox(
+                                    width: 85,
+                                    child: DropdownButtonFormField<String>(
+                                      value: itm['currency'] ?? 'EGP',
+                                      decoration: const InputDecoration(
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                                      ),
+                                      items: const [
+                                        DropdownMenuItem(value: 'EGP', child: Text('EGP', style: TextStyle(fontSize: 11))),
+                                        DropdownMenuItem(value: 'USD', child: Text('USD', style: TextStyle(fontSize: 11))),
+                                        DropdownMenuItem(value: 'EUR', child: Text('EUR', style: TextStyle(fontSize: 11))),
+                                      ],
+                                      onChanged: (v) => setDlgState(() => itemsState[realIdx]['currency'] = v ?? 'EGP'),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // Notes / Min-Max Input
+                                  Expanded(
+                                    flex: 3,
+                                    child: TextFormField(
+                                      key: ValueKey('dlg_notes_${itm['expense_type_id']}'),
+                                      initialValue: itm['notes'] ?? '',
+                                      decoration: const InputDecoration(
+                                        labelText: 'ملاحظات / نطاق السعر',
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      ),
+                                      onChanged: (v) => itemsState[realIdx]['notes'] = v,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Actions Footer
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'إجمالي بنود المصروفات بالقائمة: ${itemsState.length} بند (${itemsState.where((i) => (i['standard_price'] as num) > 0).length} بند مسعر بقيمة)',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
+                      ),
+                      Row(
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(ctx),
+                            child: const Text('إلغاء'),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                            ),
+                            onPressed: () async {
+                              final title = titleCtrl.text.trim();
+                              if (title.isEmpty) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('يرجى كتابة عنوان قائمة الأسعار.'), backgroundColor: Colors.red),
+                                );
+                                return;
+                              }
+
+                              final broker = brokersList.firstWhere(
+                                (element) => element.providerId == selectedBroker,
+                                orElse: () => null,
+                              );
+                              final brokerName = broker?.partnerName ?? (existingPriceList?.brokerName ?? 'مستخلص');
+
+                              final itemsPayload = itemsState.map((itm) => {
+                                if (itm['item_id'] != null) 'item_id': itm['item_id'],
+                                'expense_type_id': itm['expense_type_id'],
+                                'expense_name': itm['expense_name'],
+                                'category': itm['category'],
+                                'unit_type': itm['unit_type'],
+                                'standard_price': itm['standard_price'],
+                                'currency': itm['currency'],
+                                'min_price': itm['min_price'],
+                                'max_price': itm['max_price'],
+                                'notes': itm['notes'],
+                                'is_active': itm['is_active'] ?? true,
+                              }).toList();
+
+                              try {
+                                if (isEditing) {
+                                  await ref.read(brokerPriceListsProvider.notifier).updatePriceList(
+                                    existingPriceList.priceListId,
+                                    {
+                                      'title': title,
+                                      'port_name': portCtrl.text.trim(),
+                                      'effective_from': dateCtrl.text.trim(),
+                                      'version': version,
+                                      'is_active': existingPriceList.isActive,
+                                      'notes': notesCtrl.text.trim(),
+                                      'items': itemsPayload,
+                                    },
+                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('✅ تم تحديث وتعديل أسعار القائمة بنجاح!'), backgroundColor: AppTheme.emerald),
+                                    );
+                                  }
+                                } else {
+                                  await ref.read(brokerPriceListsProvider.notifier).createPriceList({
+                                    'title': title,
+                                    'broker_id': selectedBroker,
+                                    'broker_name': brokerName,
+                                    'port_name': portCtrl.text.trim(),
+                                    'effective_from': dateCtrl.text.trim(),
+                                    'version': 1,
+                                    'is_active': true,
+                                    'notes': notesCtrl.text.trim(),
+                                    'items': itemsPayload,
+                                  });
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('✅ تم إنشاء قائمة أسعار المخلص وحفظ الأسعار بنجاح!'), backgroundColor: AppTheme.emerald),
+                                    );
+                                  }
+                                }
+                                if (mounted) Navigator.pop(ctx);
+                              } catch (e) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),
+                                );
+                              }
+                            },
+                            icon: const Icon(Icons.save, color: Colors.white, size: 18),
+                            label: Text(
+                              isEditing ? 'حفظ تعديلات القائمة' : 'إنشاء وحفظ قائمة الأسعار',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
 
   Widget _buildMetricBadge(String title, String value, Color color) {
     return Container(

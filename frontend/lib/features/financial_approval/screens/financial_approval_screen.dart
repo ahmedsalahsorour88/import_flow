@@ -6,6 +6,7 @@ import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
+import '../../../core/widgets/error_details_dialog.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
@@ -361,8 +362,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: AppTheme.crimson),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ تعذر حفظ طلب السداد المالي',
+          error: e,
+          onRetry: () async {
+            await _savePaymentRequest();
+          },
         );
       }
     } finally {
@@ -478,8 +484,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: AppTheme.crimson),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ تعذر اعتماد وحفظ الميزانية الاستيرادية',
+          error: e,
+          onRetry: () async {
+            await _saveImportBudget();
+          },
         );
       }
     } finally {

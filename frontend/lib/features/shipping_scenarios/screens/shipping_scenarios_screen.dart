@@ -10,6 +10,7 @@ import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/error_details_dialog.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -2574,12 +2575,13 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       _showSaveSuccessReportDialog(context, savedSess);
     } else if (!ok && context.mounted) {
       final err = ref.read(shippingScenariosProvider).errorMessage ?? 'فشلت عملية حفظ الدراسة والنتائج';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('❌ $err'),
-          backgroundColor: AppTheme.crimson,
-          duration: const Duration(seconds: 4),
-        ),
+      await showErrorDetailsDialog(
+        context,
+        title: '❌ تعذر حفظ دراسة وتقييم خيارات الشحن',
+        error: err,
+        onRetry: () async {
+          await _saveEvaluationSession(context, currenciesList);
+        },
       );
     }
   }

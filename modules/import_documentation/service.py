@@ -2,7 +2,7 @@
 Service Layer & Business Engine for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
 """
 
-from datetime import date
+from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -21,11 +21,13 @@ from modules.import_documentation.schemas import (
     ShipmentDocumentUpdate,
     CustomsDeclarationCreate,
 )
-import modules.import_documentation.repository as repo
 from modules.import_documentation.validators import (
     validate_acid_number,
     validate_acid_expiry,
+    validate_no_duplicate_acid_session,
+    validate_no_duplicate_form4_session,
 )
+import modules.import_documentation.repository as repo
 
 
 from modules.import_documentation.nafeza_acid_parser import (
@@ -38,7 +40,14 @@ from modules.import_documentation.nafeza_acid_parser import (
 
 def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegistrationResponse:
     today = date.today()
-    days_rem = (item.expiry_date - today).days if item.expiry_date else 0
+    # Safely compute days remaining — expiry_date can be None for legacy/pending records
+    if item.expiry_date:
+        try:
+            days_rem = (item.expiry_date - today).days
+        except Exception:
+            days_rem = 0
+    else:
+        days_rem = 0
     is_ver = (
         item.status in ["Verified", "Discrepancy_Accepted"]
         and item.is_importer_matched
@@ -103,6 +112,7 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegi
         verification_notes=item.verification_notes,
         status=item.status,
         days_to_expiry=days_rem,
+        execution_days=item.execution_days,
         is_verified=is_ver,
         is_active=item.is_active,
         created_at=item.created_at,
@@ -112,15 +122,25 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegi
 
 def enrich_banking_response(db: Session, item: BankingDocumentSession):
     import_file_code = None
+    importer_name = None
+    supplier_name = None
+    po_number = None
+
     if item.import_file_id:
         from modules.import_files.model import ImportFile
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
         if imp:
             import_file_code = imp.import_file_code or imp.custom_file_number
+            importer_name = imp.company_name
+            supplier_name = imp.supplier_name
+            po_number = imp.po_number
 
     from modules.import_documentation.schemas import BankingDocumentResponse
     res = BankingDocumentResponse.model_validate(item)
     res.import_file_code = import_file_code
+    res.importer_name = importer_name
+    res.supplier_name = supplier_name
+    res.po_number = po_number
     return res
 
 
@@ -143,8 +163,14 @@ def create_acid_session_service(
 ) -> AcidRegistrationResponse:
     validate_acid_number(schema.acid_number, allow_pending=True)
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
+    validate_no_duplicate_acid_session(db, schema.import_file_id)
 
     db_item = repo.create_acid_session(db, schema)
+
+    # Compute execution days if dates are present
+    if db_item.generated_date and db_item.requested_date:
+        db_item.execution_days = max(0, (db_item.generated_date - db_item.requested_date).days)
+        db.commit()
 
     # Sync with import file if applicable
     if db_item.import_file_id and db_item.acid_number and db_item.acid_number != "PENDING":
@@ -152,8 +178,10 @@ def create_acid_session_service(
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
         if imp:
             imp.acid_number = db_item.acid_number
+            imp.acid_request_date = db_item.requested_date
             imp.acid_issue_date = db_item.generated_date or db_item.requested_date
             imp.acid_expiry_date = db_item.expiry_date
+            imp.acid_execution_days = db_item.execution_days
             db.commit()
 
     return enrich_acid_response(db, db_item)
@@ -169,10 +197,18 @@ def update_acid_session_service(
             detail=f"ACID Registration Session ID {acid_id} not found.",
         )
 
+    if schema.import_file_id is not None:
+        validate_no_duplicate_acid_session(db, schema.import_file_id, current_acid_id=acid_id)
+
     if schema.acid_number:
         validate_acid_number(schema.acid_number, allow_pending=True)
 
     updated = repo.update_acid_session(db, db_item, schema)
+
+    # Compute execution days if dates are present
+    if updated.generated_date and updated.requested_date:
+        updated.execution_days = max(0, (updated.generated_date - updated.requested_date).days)
+        db.commit()
 
     # Sync with import file if applicable
     if updated.import_file_id and updated.acid_number and updated.acid_number != "PENDING":
@@ -180,12 +216,16 @@ def update_acid_session_service(
         imp = db.query(ImportFile).filter(ImportFile.import_file_id == updated.import_file_id).first()
         if imp:
             imp.acid_number = updated.acid_number
+            if updated.requested_date:
+                imp.acid_request_date = updated.requested_date
             if updated.generated_date:
                 imp.acid_issue_date = updated.generated_date
             elif updated.requested_date and not imp.acid_issue_date:
                 imp.acid_issue_date = updated.requested_date
             if updated.expiry_date:
                 imp.acid_expiry_date = updated.expiry_date
+            if updated.execution_days is not None:
+                imp.acid_execution_days = updated.execution_days
             db.commit()
 
     return enrich_acid_response(db, updated)
@@ -284,6 +324,7 @@ def get_acid_tracker_service(db: Session):
                 customs_broker_name=imp.broker_name or (acid_sess.customs_broker_name if acid_sess else None),
                 acid_issue_date=acid_issue_date,
                 acid_expiry_date=acid_expiry_date,
+                execution_days=imp.acid_execution_days or (acid_sess.execution_days if acid_sess else None),
                 days_remaining=days_rem,
                 total_validity_days=total_days,
                 validity_percentage=round(validity_pct, 1),
@@ -340,6 +381,7 @@ def get_acid_tracker_service(db: Session):
                 customs_broker_name=sess.customs_broker_name,
                 acid_issue_date=sess.generated_date or sess.requested_date,
                 acid_expiry_date=sess.expiry_date,
+                execution_days=sess.execution_days,
                 days_remaining=days_rem,
                 total_validity_days=total_days,
                 validity_percentage=round(validity_pct, 1),
@@ -397,7 +439,7 @@ def parse_acid_text_service(
                 "proforma_invoice_no": file_obj.pi_number or "",
                 "pol_name": "",
                 "pod_name": "",
-                "cargox_id": getattr(supp_obj, "cargox_id", ""),
+                "cargox_id": getattr(supp_obj, "cargox_platform_id", None) or "",
             }
             comparison = compare_acid_data(requested_dict, parsed)
 
@@ -435,8 +477,106 @@ def restore_acid_session_service(db: Session, acid_id: int) -> AcidRegistrationR
 def create_banking_document_service(
     db: Session, schema: BankingDocumentCreate
 ):
+    if schema.doc_type == "Form 4":
+        validate_no_duplicate_form4_session(db, schema.import_file_id)
+
     item = repo.create_banking_document(db, schema)
+    
+    # Sync with import file if applicable
+    if item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if imp:
+            imp.form4_request_date = item.request_date
+            if item.doc_reference_number and item.doc_reference_number != "PENDING":
+                imp.form4_no = item.doc_reference_number
+            if item.received_date:
+                imp.form4_received_date = item.received_date
+                imp.form4_execution_days = item.execution_days
+            db.commit()
+
     return enrich_banking_response(db, item)
+
+
+def update_banking_document_service(
+    db: Session, bank_doc_id: int, schema: BankingDocumentUpdate
+):
+    item = repo.get_banking_document_by_id(db, bank_doc_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Banking Document ID {bank_doc_id} not found.",
+        )
+
+    if schema.import_file_id is not None:
+        validate_no_duplicate_form4_session(db, schema.import_file_id, current_doc_id=bank_doc_id)
+
+    updated = repo.update_banking_document(db, item, schema)
+
+    # Sync with import file if applicable
+    if updated.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == updated.import_file_id).first()
+        if imp:
+            if updated.doc_reference_number and updated.doc_reference_number != "PENDING":
+                imp.form4_no = updated.doc_reference_number
+            if updated.request_date:
+                imp.form4_request_date = updated.request_date
+            if updated.received_date:
+                imp.form4_received_date = updated.received_date
+                imp.form4_execution_days = updated.execution_days
+            db.commit()
+
+    return enrich_banking_response(db, updated)
+
+
+def receive_banking_document_service(
+    db: Session, bank_doc_id: int, form4_number: str, received_date: date, notes: str | None = None
+):
+    item = repo.get_banking_document_by_id(db, bank_doc_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Banking Document ID {bank_doc_id} not found.",
+        )
+
+    req_date = item.request_date or item.issue_date or date.today()
+    exec_days = max(0, (received_date - req_date).days)
+
+    item.doc_reference_number = form4_number.strip()
+    item.received_date = received_date
+    item.execution_days = exec_days
+    item.status = "Received"
+    if notes:
+        item.notes = f"{item.notes}\n{notes}" if item.notes else notes
+
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+
+    # Sync with import file
+    if item.import_file_id:
+        from modules.import_files.model import ImportFile
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+        if imp:
+            imp.form4_no = item.doc_reference_number
+            imp.form4_request_date = item.request_date
+            imp.form4_received_date = item.received_date
+            imp.form4_execution_days = item.execution_days
+            db.commit()
+
+    return enrich_banking_response(db, item)
+
+
+def delete_banking_document_service(db: Session, bank_doc_id: int):
+    item = repo.get_banking_document_by_id(db, bank_doc_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Banking Document ID {bank_doc_id} not found.",
+        )
+    repo.delete_banking_document(db, item)
+    return {"status": "success", "message": f"Banking Document {bank_doc_id} deleted"}
 
 
 # --- SHIPMENT DOCUMENTS SERVICE ---

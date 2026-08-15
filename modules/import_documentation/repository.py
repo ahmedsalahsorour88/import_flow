@@ -200,7 +200,15 @@ def generate_bank_doc_code(db: Session) -> str:
 
 def create_banking_document(db: Session, schema: BankingDocumentCreate) -> BankingDocumentSession:
     code = generate_bank_doc_code(db)
-    iss_date = schema.issue_date or date.today()
+    req_date = schema.request_date or schema.issue_date or date.today()
+    iss_date = schema.issue_date or req_date
+    rec_date = schema.received_date
+    exec_days = schema.execution_days or 0
+    if rec_date and req_date:
+        exec_days = max(0, (rec_date - req_date).days)
+
+    ref_num = schema.doc_reference_number or "PENDING"
+    initial_status = "Received" if rec_date or (ref_num != "PENDING" and ref_num.strip()) else "Requested"
 
     db_item = BankingDocumentSession(
         bank_doc_code=code,
@@ -209,12 +217,15 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate) -> Banki
         po_id=schema.po_id,
         bank_id=schema.bank_id,
         bank_name=schema.bank_name,
-        doc_reference_number=schema.doc_reference_number,
+        doc_reference_number=ref_num,
         amount=schema.amount,
         currency_code=schema.currency_code,
+        request_date=req_date,
+        received_date=rec_date,
+        execution_days=exec_days,
         issue_date=iss_date,
         expiry_date=schema.expiry_date,
-        status="Form Issued",
+        status=initial_status,
         notes=schema.notes,
         is_active=True,
     )
@@ -224,11 +235,46 @@ def create_banking_document(db: Session, schema: BankingDocumentCreate) -> Banki
     return db_item
 
 
+def get_banking_document_by_id(db: Session, bank_doc_id: int) -> BankingDocumentSession | None:
+    return db.query(BankingDocumentSession).filter(
+        BankingDocumentSession.bank_doc_id == bank_doc_id,
+        BankingDocumentSession.is_active == True,
+    ).first()
+
+
+def update_banking_document(
+    db: Session, db_item: BankingDocumentSession, schema: BankingDocumentUpdate
+) -> BankingDocumentSession:
+    update_data = schema.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        if hasattr(db_item, field) and value is not None:
+            setattr(db_item, field, value)
+
+    # Recalculate execution days if dates changed
+    if db_item.received_date and db_item.request_date:
+        db_item.execution_days = max(0, (db_item.received_date - db_item.request_date).days)
+        if db_item.doc_reference_number and db_item.doc_reference_number != "PENDING":
+            db_item.status = "Received"
+
+    db_item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def delete_banking_document(db: Session, db_item: BankingDocumentSession) -> bool:
+    db_item.is_active = False
+    db_item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
 def get_all_banking_documents(db: Session, import_file_id: int | None = None) -> list[BankingDocumentSession]:
     query = db.query(BankingDocumentSession).filter(BankingDocumentSession.is_active == True)
     if import_file_id:
         query = query.filter(BankingDocumentSession.import_file_id == import_file_id)
     return query.order_by(BankingDocumentSession.bank_doc_id.desc()).all()
+
 
 
 # --- SHIPMENT DOCUMENT ITEMS REPOSITORY (BP-016 to BP-018) ---

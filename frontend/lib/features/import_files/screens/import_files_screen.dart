@@ -2204,32 +2204,125 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                           ),
                           const SizedBox(height: 6),
                           if (file.acidNumber != null && file.acidNumber!.isNotEmpty) ...[
-                            Row(
+                            Wrap(
+                              spacing: 16,
+                              runSpacing: 6,
                               children: [
-                                const Text('رقم الـ ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                                SelectableText(
-                                  file.acidNumber!,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('رقم الـ ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    SelectableText(
+                                      file.acidNumber!,
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 16),
-                                if (file.acidIssueDate != null) ...[
-                                  const Text('تاريخ الإصدار: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  Text(file.acidIssueDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                                  const SizedBox(width: 16),
-                                ],
-                                if (file.acidExpiryDate != null) ...[
-                                  const Text('تاريخ الانتهاء: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                  Text(
-                                    file.acidExpiryDate!,
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                if (file.acidRequestDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('تاريخ الطلب: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(file.acidRequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ],
                                   ),
-                                ],
+                                if (file.acidIssueDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('تاريخ الإصدار: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(file.acidIssueDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                if (file.acidExpiryDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('تاريخ الصلاحية: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(
+                                        file.acidExpiryDate!,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
+                                      ),
+                                    ],
+                                  ),
+                                if (file.acidExecutionDays != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.green.shade300, width: 0.5),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.timer_outlined, size: 12, color: AppTheme.emerald),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'أيام التنفيذ: ${file.acidExecutionDays} يوم',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                               ],
                             ),
                           ] else ...[
                             const Text(
                               'لم يتم استخراج رقم ACID بعد لهذا الملف. يمكنك بدء إجراءات طلب واستخراج الـ ACID من موديول التوثيق (BP-014).',
                               style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ],
+                          if (file.form4No != null && file.form4No!.isNotEmpty) ...[
+                            const Divider(height: 16),
+                            Wrap(
+                              spacing: 16,
+                              runSpacing: 6,
+                              children: [
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Text('نموذج 4 البنكي: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                                    SelectableText(file.form4No!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                                  ],
+                                ),
+                                if (file.form4RequestDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('تاريخ الطلب: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(file.form4RequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
+                                if (file.form4ReceivedDate != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('تاريخ الاستلام: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text(file.form4ReceivedDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald)),
+                                    ],
+                                  ),
+                                if (file.form4ExecutionDays != null)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue.shade50,
+                                      borderRadius: BorderRadius.circular(4),
+                                      border: Border.all(color: Colors.blue.shade300, width: 0.5),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(Icons.speed, size: 12, color: AppTheme.cobalt),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'أيام تنفيذ نموذج 4: ${file.form4ExecutionDays} يوم',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ],

@@ -42,6 +42,7 @@ class AcidRegistrationBase(BaseModel):
     requested_date: Optional[date] = None
     generated_date: Optional[date] = None
     expiry_date: Optional[date] = None
+    execution_days: Optional[int] = None
 
     raw_nafeza_text: Optional[str] = None
     requested_data: Optional[Dict[str, Any]] = None
@@ -96,6 +97,7 @@ class AcidRegistrationUpdate(BaseModel):
     requested_date: Optional[date] = None
     generated_date: Optional[date] = None
     expiry_date: Optional[date] = None
+    execution_days: Optional[int] = None
     raw_nafeza_text: Optional[str] = None
     requested_data: Optional[Dict[str, Any]] = None
     generated_data: Optional[Dict[str, Any]] = None
@@ -122,6 +124,7 @@ class AcidRegistrationResponse(AcidRegistrationBase):
     has_discrepancies: bool = False
     status: str
     days_to_expiry: int
+    execution_days: Optional[int] = None
     is_verified: bool
     is_active: bool
     created_at: datetime
@@ -158,9 +161,12 @@ class BankingDocumentBase(BaseModel):
     po_id: Optional[int] = None
     bank_id: Optional[int] = None
     bank_name: str = Field(..., min_length=2, max_length=200)
-    doc_reference_number: str = Field(..., min_length=2, max_length=100)
+    doc_reference_number: Optional[str] = Field(default="PENDING", max_length=100)
     amount: float = Field(..., gt=0.0)
     currency_code: str = Field(default="USD", max_length=10)
+    request_date: Optional[date] = None
+    received_date: Optional[date] = None
+    execution_days: Optional[int] = 0
     issue_date: Optional[date] = None
     expiry_date: Optional[date] = None
     notes: Optional[str] = None
@@ -173,9 +179,22 @@ class BankingDocumentCreate(BankingDocumentBase):
 class BankingDocumentUpdate(BaseModel):
     doc_reference_number: Optional[str] = None
     import_file_id: Optional[int] = None
+    bank_id: Optional[int] = None
+    bank_name: Optional[str] = None
     amount: Optional[float] = None
+    currency_code: Optional[str] = None
+    request_date: Optional[date] = None
+    received_date: Optional[date] = None
+    execution_days: Optional[int] = None
+    issue_date: Optional[date] = None
     expiry_date: Optional[date] = None
     status: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class BankingDocumentReceive(BaseModel):
+    form4_number: str = Field(..., min_length=1, max_length=100, description="Approved Form 4 official number")
+    received_date: date = Field(default_factory=date.today, description="Receipt / endorsement date from bank")
     notes: Optional[str] = None
 
 
@@ -184,6 +203,9 @@ class BankingDocumentResponse(BankingDocumentBase):
     bank_doc_code: str
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
+    importer_name: Optional[str] = None
+    supplier_name: Optional[str] = None
+    po_number: Optional[str] = None
     status: str
     is_active: bool
     created_at: datetime
@@ -283,6 +305,7 @@ class AcidTrackerItem(BaseModel):
     # Dates & Validity
     acid_issue_date: Optional[date] = None
     acid_expiry_date: Optional[date] = None
+    execution_days: Optional[int] = None
     days_remaining: int
     total_validity_days: int = 90
     validity_percentage: float  # 0 to 100%

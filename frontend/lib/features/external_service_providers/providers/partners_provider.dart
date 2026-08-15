@@ -125,4 +125,27 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
       return false;
     }
   }
+
+  Future<PartnerStatementOfAccountModel?> fetchStatementOfAccount(int providerId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/external-service-providers/$providerId/statement-of-account',
+      );
+      return PartnerStatementOfAccountModel.fromJson(response.data);
+    } catch (e) {
+      return null;
+    }
+  }
 }
+
+final partnerStatementOfAccountProvider = FutureProvider.family<PartnerStatementOfAccountModel?, int>((ref, providerId) async {
+  final dio = Dio();
+  try {
+    final response = await dio.get(
+      '${ApiConstants.baseUrl}/external-service-providers/$providerId/statement-of-account',
+    );
+    return PartnerStatementOfAccountModel.fromJson(response.data);
+  } catch (e) {
+    return null;
+  }
+});

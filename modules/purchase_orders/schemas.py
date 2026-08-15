@@ -8,6 +8,7 @@ class POLineItemBase(BaseModel):
     item_code: Optional[str] = Field(None, max_length=50)
     description_ar: str = Field(..., min_length=2, max_length=250)
     description_en: Optional[str] = Field(None, max_length=250)
+    country_of_origin: Optional[str] = Field(None, max_length=100, description="بلد المنشأ للصنف")
     tariff_id: Optional[int] = None
     quantity: float = Field(1.0, gt=0)
     unit_of_measure: str = Field("PCS", max_length=30)
@@ -107,6 +108,7 @@ class PackingListValidationReport(BaseModel):
 class PurchaseOrderBase(BaseModel):
     import_file_id: Optional[int] = None
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
+    country_of_origin: Optional[str] = Field(None, max_length=100, description="بلد المنشأ لأمر التوريد")
     project_id: int
     company_id: int
     supplier_id: int
@@ -128,6 +130,7 @@ class PurchaseOrderCreate(PurchaseOrderBase):
 class PurchaseOrderUpdate(BaseModel):
     import_file_id: Optional[int] = None
     proforma_invoice_number: Optional[str] = Field(None, max_length=100)
+    country_of_origin: Optional[str] = Field(None, max_length=100)
     project_id: Optional[int] = None
     company_id: Optional[int] = None
     supplier_id: Optional[int] = None

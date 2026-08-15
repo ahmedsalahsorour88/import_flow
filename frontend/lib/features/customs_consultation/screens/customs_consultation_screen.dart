@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/error_details_dialog.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
@@ -32,6 +33,7 @@ class CustomsItemCalcRow {
   final double insuranceEgp;
   final double cifEgp;
   final double dutyRate;
+  final double baseDutyRate;
   final double dutyAmountEgp;
   final double vatRate;
   final double vatBaseEgp;
@@ -48,6 +50,11 @@ class CustomsItemCalcRow {
   final bool requiresAcid;
   final String? regulatoryAuthority;
   final String? priorApprovalNote;
+  final String? countryOfOrigin;
+  final String? appliedAgreementName;
+  final bool hasExemption;
+  final String? exemptionConditionsNote;
+  final String? requiredDocument;
 
   CustomsItemCalcRow({
     required this.hsCode,
@@ -60,6 +67,7 @@ class CustomsItemCalcRow {
     required this.insuranceEgp,
     required this.cifEgp,
     required this.dutyRate,
+    required this.baseDutyRate,
     required this.dutyAmountEgp,
     required this.vatRate,
     required this.vatBaseEgp,
@@ -76,6 +84,11 @@ class CustomsItemCalcRow {
     required this.requiresAcid,
     this.regulatoryAuthority,
     this.priorApprovalNote,
+    this.countryOfOrigin,
+    this.appliedAgreementName,
+    this.hasExemption = false,
+    this.exemptionConditionsNote,
+    this.requiredDocument,
   });
 }
 
@@ -553,24 +566,44 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
 
-    // Collect all line items
-    final List<POLineItemModel> lines = [];
+    // Collect all line items paired with their parent PO
+    final List<Map<String, dynamic>> flatLineEntries = [];
     for (final po in matchingPOs) {
-      lines.addAll(po.items);
+      for (final item in po.items) {
+        flatLineEntries.add({
+          'item': item,
+          'po': po,
+        });
+      }
     }
 
-    if (lines.isEmpty) {
+    if (flatLineEntries.isEmpty) {
       return [];
     }
 
     // Compute total FOB in EGP
     double totalFobEgp = 0.0;
-    for (final l in lines) {
+    for (final entry in flatLineEntries) {
+      final l = entry['item'] as POLineItemModel;
       totalFobEgp += (l.totalPrice * exchangeRate);
     }
 
+    // Known Agreement Origin Sets
+    const euCountries = {
+      'DE', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'PL', 'SE', 'DK',
+      'FI', 'IE', 'PT', 'GR', 'CZ', 'HU', 'RO', 'BG', 'SK', 'HR',
+      'SI', 'LT', 'LV', 'EE', 'CY', 'MT', 'LU'
+    };
+    const mercosurCountries = {'BR', 'AR', 'UY', 'PY'};
+    const gaftaCountries = {
+      'SA', 'AE', 'JO', 'KW', 'OM', 'QA', 'BH', 'LB', 'IQ', 'SY',
+      'YE', 'SD', 'LY', 'TN', 'DZ', 'MA', 'PS', 'EG'
+    };
+
     final List<CustomsItemCalcRow> result = [];
-    for (final l in lines) {
+    for (final entry in flatLineEntries) {
+      final POLineItemModel l = entry['item'] as POLineItemModel;
+      final PurchaseOrderModel po = entry['po'] as PurchaseOrderModel;
       final hs = (l.hsCode != null && l.hsCode!.trim().isNotEmpty) ? l.hsCode!.trim() : 'UNASSIGNED';
       
       // Match tariff
@@ -582,7 +615,63 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         matchedTariff = tariffsList.where((t) => t.hsCode.replaceAll('.', '').trim() == hs.replaceAll('.', '').trim()).firstOrNull;
       }
 
-      final double dutyRate = matchedTariff?.customsDutyRate ?? (l.dutyRate ?? 5.0);
+      // Country of origin resolution
+      final String rawOrigin = (l.countryOfOrigin != null && l.countryOfOrigin!.trim().isNotEmpty)
+          ? l.countryOfOrigin!.trim()
+          : (po.countryOfOrigin != null && po.countryOfOrigin!.trim().isNotEmpty ? po.countryOfOrigin!.trim() : '');
+
+      String originCode = '';
+      if (rawOrigin.isNotEmpty) {
+        if (rawOrigin.contains(' - ')) {
+          originCode = rawOrigin.split(' - ').first.trim().toUpperCase();
+        } else if (rawOrigin.length >= 2) {
+          originCode = rawOrigin.substring(0, 2).toUpperCase();
+        } else {
+          originCode = rawOrigin.toUpperCase();
+        }
+      }
+
+      final double baseDutyRate = matchedTariff?.customsDutyRate ?? (l.dutyRate ?? 5.0);
+      double effectiveDutyRate = baseDutyRate;
+      bool hasExemption = false;
+      String? appliedAgreementName;
+      String? requiredDocument;
+      String? exemptionConditionsNote;
+
+      if (originCode.isNotEmpty) {
+        if (euCountries.contains(originCode)) {
+          hasExemption = true;
+          appliedAgreementName = 'اتفاقية الشراكة المصرية الأوروبية (EUR.1)';
+          requiredDocument = 'شهادة حركة البضائع EUR.1 أصلية أو إعلان الفاتورة للمصدر المعتمد';
+          effectiveDutyRate = 0.0;
+          exemptionConditionsNote = 'إعفاء جمركي كامل لضريبة الوارد (0% بدلاً من $baseDutyRate%) بموجب اتفاقية الشراكة المصرية الأوروبية.';
+        } else if (mercosurCountries.contains(originCode)) {
+          hasExemption = true;
+          appliedAgreementName = 'اتفاقية التجارة الحرة مع دول الميركسور (Mercosur)';
+          requiredDocument = 'شهادة منشأ الميركسور الأصلية المستوفاة لنموذج التصديق وقواعد المنشأ';
+          effectiveDutyRate = 0.0;
+          exemptionConditionsNote = 'إعفاء جمركي كامل لضريبة الوارد (0% بدلاً من $baseDutyRate%) بموجب اتفاقية التجارة الحرة مع تجمع الميركسور.';
+        } else if (gaftaCountries.contains(originCode)) {
+          hasExemption = true;
+          appliedAgreementName = 'منطقة التجارة الحرة العربية الكبرى (GAFTA)';
+          requiredDocument = 'شهادة منشأ عربية موحدة معتمدة من الغرفة التجارية والجمارك';
+          effectiveDutyRate = 0.0;
+          exemptionConditionsNote = 'إعفاء جمركي كامل لضريبة الوارد (0% بدلاً من $baseDutyRate%) بموجب اتفاقية تيسير وتنمية التبادل التجاري بين الدول العربية.';
+        } else if (originCode == 'TR') {
+          hasExemption = true;
+          appliedAgreementName = 'اتفاقية التجارة الحرة مع تركيا (Turkey FTA)';
+          requiredDocument = 'شهادة حركة البضائع EUR.1 التركية الرسمية';
+          effectiveDutyRate = 0.0;
+          exemptionConditionsNote = 'إعفاء جمركي كامل للمنتجات الصناعية (0% بدلاً من $baseDutyRate%) بموجب اتفاقية التجارة الحرة بين مصر وتركيا.';
+        } else if (originCode == 'GB' || originCode == 'UK') {
+          hasExemption = true;
+          appliedAgreementName = 'اتفاقية المشاركة المصرية البريطانية (UK FTA)';
+          requiredDocument = 'إعلان منشأ المملكة المتحدة على الفاتورة أو شهادة EUR.1';
+          effectiveDutyRate = 0.0;
+          exemptionConditionsNote = 'إعفاء جمركي كامل (0% بدلاً من $baseDutyRate%) بموجب اتفاقية المشاركة المصرية البريطانية.';
+        }
+      }
+
       final double vatRate = matchedTariff?.vatRate ?? (l.vatRate ?? 14.0);
       final double scheduleTaxRate = matchedTariff?.scheduleTaxRate ?? 0.0;
       final double devRate = matchedTariff?.developmentFeeRate ?? 0.0;
@@ -593,7 +682,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       final double insuranceShare = totalFobEgp > 0 ? (fobEgp / totalFobEgp * totalInsuranceEgp) : 0.0;
       final double cifEgp = fobEgp + freightShare + insuranceShare;
 
-      final double dutyAmountEgp = cifEgp * (dutyRate / 100.0);
+      final double dutyAmountEgp = cifEgp * (effectiveDutyRate / 100.0);
       final double vatBaseEgp = cifEgp + dutyAmountEgp;
       final double vatAmountEgp = vatBaseEgp * (vatRate / 100.0);
       final double scheduleTaxAmountEgp = cifEgp * (scheduleTaxRate / 100.0);
@@ -612,7 +701,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         freightEgp: freightShare,
         insuranceEgp: insuranceShare,
         cifEgp: cifEgp,
-        dutyRate: dutyRate,
+        dutyRate: effectiveDutyRate,
+        baseDutyRate: baseDutyRate,
         dutyAmountEgp: dutyAmountEgp,
         vatRate: vatRate,
         vatBaseEgp: vatBaseEgp,
@@ -629,6 +719,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         requiresAcid: matchedTariff?.requiresAcid ?? true,
         regulatoryAuthority: matchedTariff?.regulatoryAuthority,
         priorApprovalNote: matchedTariff?.priorApprovalNote,
+        countryOfOrigin: rawOrigin.isNotEmpty ? rawOrigin : null,
+        appliedAgreementName: appliedAgreementName,
+        hasExemption: hasExemption,
+        exemptionConditionsNote: exemptionConditionsNote,
+        requiredDocument: requiredDocument,
       ));
     }
 
@@ -950,21 +1045,46 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   }
 
   Future<void> _saveConsultation() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_selectedBrokerId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى اختيار المستخلص الجمركي المعني (Customs Broker)'), backgroundColor: Colors.orange),
-      );
-      return;
+    final validationErrors = <ValidationIssueItem>[];
+
+    final titleToSave = _titleController.text.trim();
+    if (titleToSave.isEmpty) {
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'عنوان / موضوع الاستشارة الجمركية',
+        issueDescription: 'حقل إلزامي لا يمكن تركه فارغاً.',
+        recommendation: 'يرجى كتابة عنوان واضح وموجز لموضوع دراسة الفحص والاستشارة الجمركية.',
+        isBlocking: true,
+      ));
     }
+
+    if (_selectedBrokerId == null) {
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'المستخلص الجمركي المعني (Customs Broker)',
+        issueDescription: 'لم يتم تحديد المستخلص الجمركي المسؤول عن دراسة الملف.',
+        recommendation: 'يرجى اختيار المستخلص الجمركي من القائمة المنسدلة.',
+        isBlocking: true,
+      ));
+    }
+
     if (_checklist.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى إضافة بند واحد على الأقل في قائمة الفحص الجمركي'), backgroundColor: Colors.orange),
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'قائمة الفحص والمستندات الجمركية',
+        issueDescription: 'قائمة فحص المستندات والاشتراطات فارغة تماماً.',
+        recommendation: 'يرجى إضافة مستند أو اشتراط واحد على الأقل في قائمة الفحص.',
+        isBlocking: true,
+      ));
+    }
+
+    if (validationErrors.isNotEmpty) {
+      await showErrorDetailsDialog(
+        context,
+        title: '⚠️ تنبيهات واستيفاء بيانات الاستشارة الجمركية',
+        error: 'يرجى استكمال البيانات الإلزامية التالية لتتمكن من حفظ دراسة الاستشارة بنجاح.',
+        validationIssues: validationErrors,
       );
       return;
     }
 
-    final titleToSave = _titleController.text.trim();
     final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
     final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
 
@@ -1095,8 +1215,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ حدث خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ تعذر حفظ دراسة الاستشارة الجمركية',
+          error: e,
+          onRetry: () async {
+            await _saveConsultation();
+          },
         );
       }
     } finally {
@@ -1619,9 +1744,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       const SizedBox(width: 12),
                       _buildMetricBadge('عدد البنود والمستندات', '${_checklist.length}', Colors.grey),
                       const SizedBox(width: 12),
-                      _buildMetricBadge('المستندات المعتمدة', '${approvedDocs.toInt()}', Colors.green),
-                      const SizedBox(width: 12),
-                      _buildMetricBadge('عوائق التخليص (Blocking)', '$blockingCount', blockingCount > 0 ? Colors.red : Colors.green),
+                      _buildMetricBadge(
+                        'عوائق التخليص (Blocking)',
+                        '$blockingCount',
+                        blockingCount > 0 ? Colors.red : Colors.green,
+                        onTap: _showBlockingIssuesDialog,
+                      ),
                       const Spacer(),
                       if (_editingConsultationId != null) ...[
                         OutlinedButton.icon(
@@ -2000,11 +2128,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
                                   columns: const [
                                     DataColumn(label: Text('بند التعريفة (HS Code)')),
-                                    DataColumn(label: Text('بيان الصنف والمواصفات')),
+                                    DataColumn(label: Text('بيان الصنف والمنشأ')),
                                     DataColumn(label: Text('الكمية والوحدة')),
                                     DataColumn(label: Text('القيمة (FOB EGP)')),
                                     DataColumn(label: Text('القيمة الجمركية (CIF EGP)')),
-                                    DataColumn(label: Text('ضريبة الوارد')),
+                                    DataColumn(label: Text('ضريبة الوارد (الإعفاء)')),
                                     DataColumn(label: Text('VAT (القيمة المضافة)')),
                                     DataColumn(label: Text('ض.جدول / تنمية / خدمات')),
                                     DataColumn(label: Text('إجمالي الضرائب والرسوم')),
@@ -2020,11 +2148,74 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                             child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                           ),
                                         ),
-                                        DataCell(SizedBox(width: 180, child: Text(line.description, overflow: TextOverflow.ellipsis))),
+                                        DataCell(
+                                          SizedBox(
+                                            width: 190,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(line.description, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                if (line.countryOfOrigin != null && line.countryOfOrigin!.isNotEmpty)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(top: 2),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.shade50,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: Colors.blue.shade200),
+                                                    ),
+                                                    child: Text(
+                                                      'المنشأ: ${line.countryOfOrigin}',
+                                                      style: TextStyle(fontSize: 10, color: Colors.blue.shade900, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
                                         DataCell(Text('${line.qty.toStringAsFixed(0)} ${line.unit}')),
                                         DataCell(Text(line.fobEgp.toStringAsFixed(2))),
                                         DataCell(Text(line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold))),
-                                        DataCell(Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})')),
+                                        DataCell(
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              if (line.hasExemption) ...[
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${line.baseDutyRate}%',
+                                                      style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 11),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Container(
+                                                  margin: const EdgeInsets.only(top: 2),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green.shade50,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: Colors.green.shade300),
+                                                  ),
+                                                  child: Text(
+                                                    '✨ إعفاء: ${line.appliedAgreementName ?? "اتفاقية"}',
+                                                    style: TextStyle(fontSize: 9.5, color: Colors.green.shade900, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              ] else ...[
+                                                Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
                                         DataCell(Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})')),
                                         DataCell(Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} EGP')),
                                         DataCell(Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))),
@@ -2066,6 +2257,76 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   }).toList(),
                                 ),
                               ),
+                              const SizedBox(height: 14),
+
+                              // Exemption & Documentary Requirements Alerts for applicable HS Codes
+                              ...calcLines.where((l) => l.hasExemption || l.priorApprovalNote != null || (l.regulatoryAuthority != null && l.regulatoryAuthority!.isNotEmpty)).map((line) {
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}):',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
+                                            ),
+                                          ),
+                                          if (line.hasExemption)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: Colors.green.shade700),
+                                              ),
+                                              child: Text(
+                                                '✅ إعفاء جمركي مطبق: ${line.appliedAgreementName}',
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:',
+                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                      ),
+                                      if (line.exemptionConditionsNote != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '  - الشروط والاتفاقية: ${line.exemptionConditionsNote!}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                        ),
+                                      ],
+                                      if (line.requiredDocument != null) ...[
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '  - المستند الإلزامي من المورد: ${line.requiredDocument!}',
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                        ),
+                                      ],
+                                      if (line.priorApprovalNote != null && line.priorApprovalNote!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '  - شروط وموافقات مسبقة / إفراج جهات: ${line.priorApprovalNote!}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal, height: 1.3),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }),
                               const SizedBox(height: 16),
 
                               // Calculation Financial Summary Matrix
@@ -4440,8 +4701,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   }
 
 
-  Widget _buildMetricBadge(String title, String value, Color color) {
-    return Container(
+  Widget _buildMetricBadge(String title, String value, Color color, {VoidCallback? onTap}) {
+    final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
@@ -4451,11 +4712,243 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.open_in_new, size: 12, color: color),
+              ],
+            ],
+          ),
           const SizedBox(height: 2),
           Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
         ],
       ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: badge,
+      );
+    }
+    return badge;
+  }
+
+  /// Interactive Modal to review and correct Blocking Clearance Issues
+  void _showBlockingIssuesDialog() {
+    final blockingItems = _checklist.where((i) => i.isBlockingShipment && i.status != 'Approved').toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppTheme.crimson, width: 1.5),
+              ),
+              titlePadding: EdgeInsets.zero,
+              title: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.crimson,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.block, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'شاشة فحص وتصحيح عوائق التخليص الجمركي (${blockingItems.length} عائق)',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              content: SizedBox(
+                width: 720,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: AppTheme.crimson, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'هذه المستندات والاشتراطات مصنفة كـ (Blocking) ولا يمكن الإفراج عن الشحنة بدون استيفائها أو اعتمادها من المستخلص/الجهة الرقابية.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (blockingItems.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              '🎉 تم استيفاء واعتماد كافة عوائق التخليص بنجاح!',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                            ),
+                          ),
+                        )
+                      else
+                        ...blockingItems.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final item = entry.value;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.crimson.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'عائق ${idx + 1}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: AppTheme.crimson,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        item.documentType,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13.5,
+                                          color: AppTheme.charcoal,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'الحالة: ${item.status}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Colors.orange.shade900,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'الجهة المعنية / المتطلب: ${item.requiredText} | الجهة المصدرة: ${item.regulatoryAgency ?? "غير محدد"}',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                ),
+                                if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'ملاحظات: ${item.remarks}',
+                                    style: const TextStyle(fontSize: 11.5, color: Colors.blueGrey, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.emerald,
+                                        side: const BorderSide(color: AppTheme.emerald),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      ),
+                                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                                      label: const Text('اعتماد واستيفاء البند الآن (Mark as Approved)', style: TextStyle(fontSize: 11.5)),
+                                      onPressed: () {
+                                        setState(() {
+                                          final realIndex = _checklist.indexWhere((c) => c.documentType == item.documentType);
+                                          if (realIndex != -1) {
+                                            _checklist[realIndex] = _checklist[realIndex].copyWith(
+                                              status: 'Approved',
+                                              verifiedDate: DateTime.now().toString().split(' ')[0],
+                                            );
+                                          }
+                                        });
+                                        setModalState(() {
+                                          blockingItems.removeWhere((i) => i.documentType == item.documentType);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.check),
+                  label: const Text('تم الانتهاء والعودة للنموذج'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

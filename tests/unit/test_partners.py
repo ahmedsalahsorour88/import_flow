@@ -7,6 +7,27 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.database import Base
+import modules.audit_logs.model
+import modules.transport_locations.model
+import modules.import_companies.model
+import modules.suppliers.model
+import modules.incoterms.model
+import modules.currencies.model
+import modules.customs_tariff.model
+import modules.projects.model
+import modules.purchase_orders.model
+import modules.import_files.model
+import modules.shipping_scenarios.model
+import modules.freight_quotations.model
+import modules.customs_consultation.model
+import modules.financial_approval.model
+import modules.import_documentation.model
+import modules.freight_booking.model
+import modules.cargo_shipping.model
+import modules.customs_clearance.model
+import modules.warehouse_receiving.model
+import modules.financial_settlement.model
+import modules.file_closure.model
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.external_service_providers.schemas import PartnerCreate
 from modules.external_service_providers.service import ExternalServiceProviderService
@@ -90,6 +111,15 @@ class TestExternalServiceProviderService(unittest.TestCase):
         self.service.restore_partner(created.provider_id)
         restored_list = self.service.get_all_partners(include_inactive=False)
         self.assertEqual(len(restored_list), 1)
+
+    def test_partner_statement_of_account(self):
+        created = self.service.create_partner(PartnerCreate(partner_name="Alexandria Customs Clearing Co", partner_type="Customs Broker"))
+        soa = self.service.get_partner_statement_of_account(created.provider_id)
+
+        self.assertEqual(soa["provider_id"], created.provider_id)
+        self.assertEqual(soa["partner_name"], "Alexandria Customs Clearing Co")
+        self.assertIn("currency_balances", soa)
+        self.assertIn("ledger_entries", soa)
 
 
 if __name__ == "__main__":

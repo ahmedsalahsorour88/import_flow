@@ -126,6 +126,7 @@ class AcidRegistrationModel {
   final String? requestedDate;
   final String? generatedDate;
   final String? expiryDate;
+  final int? executionDays;
 
   final String? rawNafezaText;
   final Map<String, dynamic>? requestedData;
@@ -181,6 +182,7 @@ class AcidRegistrationModel {
     this.requestedDate,
     this.generatedDate,
     this.expiryDate,
+    this.executionDays,
     this.rawNafezaText,
     this.requestedData,
     this.generatedData,
@@ -236,6 +238,7 @@ class AcidRegistrationModel {
       requestedDate: json['requested_date'],
       generatedDate: json['generated_date'],
       expiryDate: json['expiry_date'],
+      executionDays: json['execution_days'] as int?,
       rawNafezaText: json['raw_nafeza_text'],
       requestedData: json['requested_data'] != null ? Map<String, dynamic>.from(json['requested_data']) : null,
       generatedData: json['generated_data'] != null ? Map<String, dynamic>.from(json['generated_data']) : null,
@@ -292,6 +295,7 @@ class AcidRegistrationModel {
       if (requestedDate != null) 'requested_date': requestedDate,
       if (generatedDate != null) 'generated_date': generatedDate,
       if (expiryDate != null) 'expiry_date': expiryDate,
+      if (executionDays != null) 'execution_days': executionDays,
       if (rawNafezaText != null) 'raw_nafeza_text': rawNafezaText,
       if (requestedData != null) 'requested_data': requestedData,
       if (generatedData != null) 'generated_data': generatedData,
@@ -319,6 +323,9 @@ class BankingDocumentModel {
   final String docReferenceNumber;
   final double amount;
   final String currencyCode;
+  final String? requestDate;
+  final String? receivedDate;
+  final int executionDays;
   final String issueDate;
   final String? expiryDate;
   final String status;
@@ -327,6 +334,9 @@ class BankingDocumentModel {
   final String createdAt;
   final String updatedAt;
   final String? importFileCode;
+  final String? importerName;
+  final String? supplierName;
+  final String? poNumber;
 
   BankingDocumentModel({
     required this.bankDocId,
@@ -339,6 +349,9 @@ class BankingDocumentModel {
     required this.docReferenceNumber,
     required this.amount,
     this.currencyCode = 'USD',
+    this.requestDate,
+    this.receivedDate,
+    this.executionDays = 0,
     required this.issueDate,
     this.expiryDate,
     required this.status,
@@ -347,28 +360,37 @@ class BankingDocumentModel {
     required this.createdAt,
     required this.updatedAt,
     this.importFileCode,
+    this.importerName,
+    this.supplierName,
+    this.poNumber,
   });
 
   factory BankingDocumentModel.fromJson(Map<String, dynamic> json) {
     return BankingDocumentModel(
-      bankDocId: json['bank_doc_id'],
+      bankDocId: json['bank_doc_id'] ?? 0,
       bankDocCode: json['bank_doc_code'] ?? '',
       docType: json['doc_type'] ?? 'Form 4',
       importFileId: json['import_file_id'],
       poId: json['po_id'],
       bankId: json['bank_id'],
       bankName: json['bank_name'] ?? '',
-      docReferenceNumber: json['doc_reference_number'] ?? '',
+      docReferenceNumber: json['doc_reference_number'] ?? 'PENDING',
       amount: (json['amount'] as num?)?.toDouble() ?? 0.0,
       currencyCode: json['currency_code'] ?? 'USD',
-      issueDate: json['issue_date'] ?? '',
-      expiryDate: json['expiry_date'],
-      status: json['status'] ?? 'Form Issued',
+      requestDate: json['request_date']?.toString(),
+      receivedDate: json['received_date']?.toString(),
+      executionDays: (json['execution_days'] as num?)?.toInt() ?? 0,
+      issueDate: json['issue_date']?.toString() ?? '',
+      expiryDate: json['expiry_date']?.toString(),
+      status: json['status'] ?? 'Requested',
       notes: json['notes'],
       isActive: json['is_active'] ?? true,
-      createdAt: json['created_at'] ?? '',
-      updatedAt: json['updated_at'] ?? '',
+      createdAt: json['created_at']?.toString() ?? '',
+      updatedAt: json['updated_at']?.toString() ?? '',
       importFileCode: json['import_file_code'],
+      importerName: json['importer_name'],
+      supplierName: json['supplier_name'],
+      poNumber: json['po_number'],
     );
   }
 
@@ -384,6 +406,9 @@ class BankingDocumentModel {
       'doc_reference_number': docReferenceNumber,
       'amount': amount,
       'currency_code': currencyCode,
+      if (requestDate != null) 'request_date': requestDate,
+      if (receivedDate != null) 'received_date': receivedDate,
+      'execution_days': executionDays,
       'issue_date': issueDate,
       'expiry_date': expiryDate,
       'status': status,
@@ -568,6 +593,7 @@ class AcidTrackerItemModel {
 
   final String? acidIssueDate;
   final String? acidExpiryDate;
+  final int? executionDays;
   final int daysRemaining;
   final int totalValidityDays;
   final double validityPercentage;
@@ -596,6 +622,7 @@ class AcidTrackerItemModel {
     this.customsBrokerName,
     this.acidIssueDate,
     this.acidExpiryDate,
+    this.executionDays,
     required this.daysRemaining,
     this.totalValidityDays = 90,
     required this.validityPercentage,
@@ -624,6 +651,7 @@ class AcidTrackerItemModel {
       customsBrokerName: json['customs_broker_name'],
       acidIssueDate: json['acid_issue_date'],
       acidExpiryDate: json['acid_expiry_date'],
+      executionDays: json['execution_days'] as int?,
       daysRemaining: json['days_remaining'] ?? 0,
       totalValidityDays: json['total_validity_days'] ?? 90,
       validityPercentage: (json['validity_percentage'] as num?)?.toDouble() ?? 0.0,

@@ -98,11 +98,16 @@ class ImportFileModel {
   final String? requiredEta;
   final String? selectedScenario;
   final String? acidNumber;
+  final String? acidRequestDate;
   final String? acidIssueDate;
   final String? acidExpiryDate;
+  final int? acidExecutionDays;
   final bool isCustomsReleased;
   final String? customsReleasedAt;
   final String? form4No;
+  final String? form4RequestDate;
+  final String? form4ReceivedDate;
+  final int? form4ExecutionDays;
   final String? swiftNo;
   final String? form46No;
   final double estimatedCost;
@@ -143,11 +148,16 @@ class ImportFileModel {
     this.requiredEta,
     this.selectedScenario,
     this.acidNumber,
+    this.acidRequestDate,
     this.acidIssueDate,
     this.acidExpiryDate,
+    this.acidExecutionDays,
     this.isCustomsReleased = false,
     this.customsReleasedAt,
     this.form4No,
+    this.form4RequestDate,
+    this.form4ReceivedDate,
+    this.form4ExecutionDays,
     this.swiftNo,
     this.form46No,
     this.estimatedCost = 0.0,
@@ -194,11 +204,16 @@ class ImportFileModel {
       requiredEta: json['required_eta'],
       selectedScenario: json['selected_scenario'],
       acidNumber: json['acid_number'],
+      acidRequestDate: json['acid_request_date'],
       acidIssueDate: json['acid_issue_date'],
       acidExpiryDate: json['acid_expiry_date'],
+      acidExecutionDays: json['acid_execution_days'] as int?,
       isCustomsReleased: json['is_customs_released'] ?? false,
       customsReleasedAt: json['customs_released_at'],
       form4No: json['form4_no'],
+      form4RequestDate: json['form4_request_date'],
+      form4ReceivedDate: json['form4_received_date'],
+      form4ExecutionDays: json['form4_execution_days'] as int?,
       swiftNo: json['swift_no'],
       form46No: json['form46_no'],
       estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? 0.0,
@@ -242,11 +257,16 @@ class ImportFileModel {
       'required_eta': requiredEta,
       'selected_scenario': selectedScenario,
       'acid_number': acidNumber,
+      'acid_request_date': acidRequestDate,
       'acid_issue_date': acidIssueDate,
       'acid_expiry_date': acidExpiryDate,
+      'acid_execution_days': acidExecutionDays,
       'is_customs_released': isCustomsReleased,
       'customs_released_at': customsReleasedAt,
       'form4_no': form4No,
+      'form4_request_date': form4RequestDate,
+      'form4_received_date': form4ReceivedDate,
+      'form4_execution_days': form4ExecutionDays,
       'swift_no': swiftNo,
       'form46_no': form46No,
       'estimated_cost': estimatedCost,

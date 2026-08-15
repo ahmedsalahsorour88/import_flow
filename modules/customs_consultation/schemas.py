@@ -4,7 +4,7 @@ Customs Consultation & Broker Price Lists Pydantic Schemas (BP-009)
 
 from datetime import datetime, date
 from typing import Optional, List
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # ==============================================================================
@@ -174,6 +174,15 @@ class CustomsChecklistItemBase(BaseModel):
     regulatory_agency: Optional[str] = None
     remarks: Optional[str] = None
     corrective_action_required: Optional[str] = None
+
+    @field_validator("received_date", "verified_date", mode="before")
+    @classmethod
+    def empty_str_to_none(cls, v):
+        if v == "" or v is None:
+            return None
+        if isinstance(v, str) and not v.strip():
+            return None
+        return v
 
 
 class CustomsChecklistItemCreate(CustomsChecklistItemBase):

@@ -2,7 +2,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 from database.database import get_db
-from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate
+from .schemas import PartnerCreate, PartnerResponse, PartnerUpdate, PartnerStatementOfAccountResponse
 from .service import ExternalServiceProviderService
 
 router = APIRouter(
@@ -179,6 +179,15 @@ def get_partner(
 ):
     service = ExternalServiceProviderService(db)
     return service.get_partner_by_id(provider_id)
+
+
+@router.get("/{provider_id}/statement-of-account", response_model=PartnerStatementOfAccountResponse)
+def get_partner_statement_of_account(
+    provider_id: int,
+    db: Session = Depends(get_db)
+):
+    service = ExternalServiceProviderService(db)
+    return service.get_partner_statement_of_account(provider_id)
 
 
 @router.put("/{provider_id}", response_model=PartnerResponse)

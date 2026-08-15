@@ -78,6 +78,7 @@ class AcidRegistrationSession(Base):
     requested_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     generated_date: Mapped[date] = mapped_column(Date, nullable=True)
     expiry_date: Mapped[date] = mapped_column(Date, nullable=False)
+    execution_days: Mapped[int] = mapped_column(Integer, nullable=True)
 
     # Raw MTS Text & Smart Parsing Snapshots
     raw_nafeza_text: Mapped[str] = mapped_column(Text, nullable=True)
@@ -139,16 +140,20 @@ class BankingDocumentSession(Base):
     )
     bank_name: Mapped[str] = mapped_column(String(200), nullable=False)
 
-    doc_reference_number: Mapped[str] = mapped_column(String(100), nullable=False)
+    doc_reference_number: Mapped[str] = mapped_column(String(100), default="PENDING", nullable=False)
     amount: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     currency_code: Mapped[str] = mapped_column(String(10), default="USD", nullable=False)
+
+    request_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+    received_date: Mapped[date] = mapped_column(Date, nullable=True)
+    execution_days: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     issue_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
     expiry_date: Mapped[date] = mapped_column(Date, nullable=True)
 
-    # Status: 'Draft', 'Submitted to Bank', 'Approved by Bank', 'Form Issued', 'Rejected'
+    # Status: 'Requested', 'Draft', 'Submitted to Bank', 'Approved by Bank', 'Form Issued', 'Received', 'Rejected'
     status: Mapped[str] = mapped_column(
-        String(50), default="Form Issued", nullable=False, index=True
+        String(50), default="Requested", nullable=False, index=True
     )
     notes: Mapped[str] = mapped_column(Text, nullable=True)
 

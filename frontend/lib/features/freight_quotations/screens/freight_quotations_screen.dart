@@ -6,6 +6,7 @@ import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/error_details_dialog.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -292,8 +293,13 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ حدث خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ تعذر حفظ طلب مقارنة أسعار الشحن',
+          error: e,
+          onRetry: () async {
+            await _saveRFQ();
+          },
         );
       }
     } finally {

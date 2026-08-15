@@ -134,3 +134,111 @@ class PartnerModel {
     };
   }
 }
+
+class PartnerCurrencyBalanceModel {
+  final String currency;
+  final double totalInvoiced;
+  final double totalPaid;
+  final double balanceDue;
+
+  PartnerCurrencyBalanceModel({
+    required this.currency,
+    this.totalInvoiced = 0.0,
+    this.totalPaid = 0.0,
+    this.balanceDue = 0.0,
+  });
+
+  factory PartnerCurrencyBalanceModel.fromJson(Map<String, dynamic> json) {
+    return PartnerCurrencyBalanceModel(
+      currency: json['currency']?.toString() ?? 'EGP',
+      totalInvoiced: (json['total_invoiced'] as num?)?.toDouble() ?? 0.0,
+      totalPaid: (json['total_paid'] as num?)?.toDouble() ?? 0.0,
+      balanceDue: (json['balance_due'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class PartnerLedgerEntryModel {
+  final String entryId;
+  final String entryDate;
+  final String entryType;
+  final String referenceNo;
+  final String description;
+  final String? importFileCode;
+  final String currency;
+  final double debitAmount;
+  final double creditAmount;
+  final double runningBalance;
+  final String status;
+
+  PartnerLedgerEntryModel({
+    required this.entryId,
+    required this.entryDate,
+    required this.entryType,
+    required this.referenceNo,
+    required this.description,
+    this.importFileCode,
+    required this.currency,
+    this.debitAmount = 0.0,
+    this.creditAmount = 0.0,
+    this.runningBalance = 0.0,
+    this.status = 'Approved',
+  });
+
+  factory PartnerLedgerEntryModel.fromJson(Map<String, dynamic> json) {
+    return PartnerLedgerEntryModel(
+      entryId: json['entry_id']?.toString() ?? '',
+      entryDate: json['entry_date']?.toString() ?? '',
+      entryType: json['entry_type']?.toString() ?? 'Invoice',
+      referenceNo: json['reference_no']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      importFileCode: json['import_file_code']?.toString(),
+      currency: json['currency']?.toString() ?? 'EGP',
+      debitAmount: (json['debit_amount'] as num?)?.toDouble() ?? 0.0,
+      creditAmount: (json['credit_amount'] as num?)?.toDouble() ?? 0.0,
+      runningBalance: (json['running_balance'] as num?)?.toDouble() ?? 0.0,
+      status: json['status']?.toString() ?? 'Approved',
+    );
+  }
+}
+
+class PartnerStatementOfAccountModel {
+  final int providerId;
+  final String partnerCode;
+  final String partnerName;
+  final String partnerType;
+  final List<PartnerCurrencyBalanceModel> currencyBalances;
+  final List<PartnerLedgerEntryModel> ledgerEntries;
+  final int totalInvoicesCount;
+  final int totalPaymentsCount;
+
+  PartnerStatementOfAccountModel({
+    required this.providerId,
+    required this.partnerCode,
+    required this.partnerName,
+    required this.partnerType,
+    this.currencyBalances = const [],
+    this.ledgerEntries = const [],
+    this.totalInvoicesCount = 0,
+    this.totalPaymentsCount = 0,
+  });
+
+  factory PartnerStatementOfAccountModel.fromJson(Map<String, dynamic> json) {
+    return PartnerStatementOfAccountModel(
+      providerId: json['provider_id'] ?? 0,
+      partnerCode: json['partner_code']?.toString() ?? '',
+      partnerName: json['partner_name']?.toString() ?? '',
+      partnerType: json['partner_type']?.toString() ?? '',
+      currencyBalances: (json['currency_balances'] as List<dynamic>?)
+              ?.map((e) => PartnerCurrencyBalanceModel.fromJson(e))
+              .toList() ??
+          [],
+      ledgerEntries: (json['ledger_entries'] as List<dynamic>?)
+              ?.map((e) => PartnerLedgerEntryModel.fromJson(e))
+              .toList() ??
+          [],
+      totalInvoicesCount: json['total_invoices_count'] ?? 0,
+      totalPaymentsCount: json['total_payments_count'] ?? 0,
+    );
+  }
+}

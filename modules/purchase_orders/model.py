@@ -41,6 +41,7 @@ class PurchaseOrder(Base):
     total_packages_count = Column(Integer, default=0, nullable=False)
 
     # Workflow Status & Information
+    country_of_origin = Column(String(100), nullable=True) # بلد المنشأ لأمر التوريد e.g. "CN", "DE - Germany"
     payment_terms = Column(String(100), nullable=True, default="LC at Sight / اعتماد مستندي")
     status = Column(String(50), nullable=False, default="Draft", index=True) # Draft, Approved, In Transit, Closed, Cancelled
     notes = Column(Text, nullable=True)
@@ -75,6 +76,7 @@ class POLineItem(Base):
     item_code = Column(String(50), nullable=True)
     description_ar = Column(String(250), nullable=False)
     description_en = Column(String(250), nullable=True)
+    country_of_origin = Column(String(100), nullable=True) # بلد المنشأ للصنف
 
     # Customs Tariff Link
     tariff_id = Column(Integer, ForeignKey("customs_tariffs.tariff_id"), nullable=True, index=True)

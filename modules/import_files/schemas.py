@@ -47,11 +47,16 @@ class ImportFileBase(BaseModel):
     required_eta: Optional[date] = None
     selected_scenario: Optional[str] = Field(None, description="e.g. MSC Option")
     acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
+    acid_request_date: Optional[date] = None
     acid_issue_date: Optional[date] = None
     acid_expiry_date: Optional[date] = None
+    acid_execution_days: Optional[int] = None
     is_customs_released: bool = Field(False, description="Shipment cleared and released from customs")
     customs_released_at: Optional[datetime] = None
     form4_no: Optional[str] = None
+    form4_request_date: Optional[date] = None
+    form4_received_date: Optional[date] = None
+    form4_execution_days: Optional[int] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
     estimated_cost: float = Field(0.0, ge=0.0, description="Estimated Landed/Import Cost")
@@ -97,11 +102,16 @@ class ImportFileUpdate(BaseModel):
     required_eta: Optional[date] = None
     selected_scenario: Optional[str] = None
     acid_number: Optional[str] = None
+    acid_request_date: Optional[date] = None
     acid_issue_date: Optional[date] = None
     acid_expiry_date: Optional[date] = None
+    acid_execution_days: Optional[int] = None
     is_customs_released: Optional[bool] = None
     customs_released_at: Optional[datetime] = None
     form4_no: Optional[str] = None
+    form4_request_date: Optional[date] = None
+    form4_received_date: Optional[date] = None
+    form4_execution_days: Optional[int] = None
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
     estimated_cost: Optional[float] = None

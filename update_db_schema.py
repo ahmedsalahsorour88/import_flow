@@ -59,6 +59,7 @@ def migrate_db():
             ("has_iso", "BOOLEAN DEFAULT 0"),
             ("registered_decree_43", "BOOLEAN DEFAULT 0"),
             ("white_list_registered", "BOOLEAN DEFAULT 0"),
+            ("cargox_platform_id", "VARCHAR(100)"),
         ]
         for col_name, col_type in sup_new_cols:
             if col_name not in sup_cols:
@@ -68,7 +69,25 @@ def migrate_db():
                 except Exception as e:
                     print(f"Error adding column {col_name} to suppliers: {e}")
 
+
+    # Migration for acid_registration_sessions table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='acid_registration_sessions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(acid_registration_sessions)")
+        acid_cols = [info[1] for info in cursor.fetchall()]
+        acid_new_cols = [
+            ("proforma_invoice_date", "DATE"),
+        ]
+        for col_name, col_type in acid_new_cols:
+            if col_name not in acid_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE acid_registration_sessions ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to acid_registration_sessions table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to acid_registration_sessions: {e}")
+
     # Migration for projects table
+
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='projects'")
     if cursor.fetchone():
         cursor.execute("PRAGMA table_info(projects)")
@@ -80,11 +99,41 @@ def migrate_db():
             except Exception as e:
                 print(f"Error adding column additional_company_ids: {e}")
 
+    # Migration for banking_document_sessions table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='banking_document_sessions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(banking_document_sessions)")
+        bdoc_cols = [info[1] for info in cursor.fetchall()]
+        bdoc_new_cols = [
+            ("request_date", "DATE"),
+            ("received_date", "DATE"),
+            ("execution_days", "INTEGER DEFAULT 0"),
+        ]
+        for col_name, col_type in bdoc_new_cols:
+            if col_name not in bdoc_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE banking_document_sessions ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to banking_document_sessions table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to banking_document_sessions: {e}")
+
     # Migration for import_files table
     cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='import_files'")
     if cursor.fetchone():
         cursor.execute("PRAGMA table_info(import_files)")
         imp_cols = [info[1] for info in cursor.fetchall()]
+        imp_form4_cols = [
+            ("form4_request_date", "DATE"),
+            ("form4_received_date", "DATE"),
+            ("form4_execution_days", "INTEGER"),
+        ]
+        for col_name, col_type in imp_form4_cols:
+            if col_name not in imp_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE import_files ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to import_files table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to import_files: {e}")
         if "closure_reason" not in imp_cols:
             try:
                 cursor.execute("ALTER TABLE import_files ADD COLUMN closure_reason TEXT;")
@@ -314,6 +363,7 @@ def migrate_db():
             ("discrepancies_data", "JSON"),
             ("discrepancy_override_reason", "TEXT"),
             ("has_discrepancies", "BOOLEAN DEFAULT 0"),
+            ("execution_days", "INTEGER"),
         ]
         for col_name, col_type in acid_new_cols:
             if col_name not in acid_cols:
@@ -323,9 +373,82 @@ def migrate_db():
                 except Exception as e:
                     print(f"Error adding column {col_name} to acid_registration_sessions: {e}")
 
+    # Migration for import_files table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='import_files'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(import_files)")
+        imp_cols = [info[1] for info in cursor.fetchall()]
+        imp_new_cols = [
+            ("acid_request_date", "DATE"),
+            ("acid_execution_days", "INTEGER"),
+            ("form4_request_date", "DATE"),
+            ("form4_received_date", "DATE"),
+            ("form4_execution_days", "INTEGER"),
+        ]
+        for col_name, col_type in imp_new_cols:
+            if col_name not in imp_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE import_files ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to import_files table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to import_files: {e}")
+
+    # Backfill execution days and sync ACID with linked ImportFiles
+    cursor.execute("""
+        SELECT acid_id, import_file_id, acid_number, requested_date, generated_date, expiry_date
+        FROM acid_registration_sessions
+        WHERE is_active = 1
+    """)
+    rows = cursor.fetchall()
+    for row in rows:
+        acid_id, import_file_id, acid_num, req_date, gen_date, exp_date = row
+        exec_days = None
+        if req_date and gen_date:
+            try:
+                from datetime import datetime
+                d1 = datetime.strptime(str(req_date)[:10], "%Y-%m-%d")
+                d2 = datetime.strptime(str(gen_date)[:10], "%Y-%m-%d")
+                exec_days = max(0, (d2 - d1).days)
+            except Exception:
+                pass
+        
+        if exec_days is not None:
+            cursor.execute("UPDATE acid_registration_sessions SET execution_days = ? WHERE acid_id = ?", (exec_days, acid_id))
+
+        if import_file_id and acid_num and acid_num != "PENDING":
+            issue_d = gen_date or req_date
+            cursor.execute("""
+                UPDATE import_files 
+                SET acid_number = ?, acid_request_date = ?, acid_issue_date = ?, acid_expiry_date = ?, acid_execution_days = ?
+                WHERE import_file_id = ?
+            """, (acid_num, req_date, issue_d, exp_date, exec_days, import_file_id))
+
+    # Migration for purchase_orders & po_line_items tables
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='purchase_orders'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(purchase_orders)")
+        po_cols = [info[1] for info in cursor.fetchall()]
+        if "country_of_origin" not in po_cols:
+            try:
+                cursor.execute("ALTER TABLE purchase_orders ADD COLUMN country_of_origin VARCHAR(100);")
+                print("Added column 'country_of_origin' to purchase_orders table.")
+            except Exception as e:
+                print(f"Error adding column country_of_origin to purchase_orders: {e}")
+
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='po_line_items'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(po_line_items)")
+        poli_cols = [info[1] for info in cursor.fetchall()]
+        if "country_of_origin" not in poli_cols:
+            try:
+                cursor.execute("ALTER TABLE po_line_items ADD COLUMN country_of_origin VARCHAR(100);")
+                print("Added column 'country_of_origin' to po_line_items table.")
+            except Exception as e:
+                print(f"Error adding column country_of_origin to po_line_items: {e}")
+
     conn.commit()
     conn.close()
-    print("Database migration completed successfully.")
+    print("Database migration and ACID sync completed successfully.")
 
 
 if __name__ == "__main__":

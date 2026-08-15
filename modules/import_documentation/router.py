@@ -17,6 +17,8 @@ from modules.import_documentation.schemas import (
     AcidRequestTemplateResponse,
     AcidTrackerSummary,
     BankingDocumentCreate,
+    BankingDocumentUpdate,
+    BankingDocumentReceive,
     BankingDocumentResponse,
     ShipmentDocumentCreate,
     ShipmentDocumentUpdate,
@@ -161,6 +163,45 @@ def create_banking_document(
 def list_banking_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
     items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
     return [service.enrich_banking_response(db, item) for item in items]
+
+
+@router.get("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
+def get_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
+    item = repo.get_banking_document_by_id(db, bank_doc_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Banking Document ID {bank_doc_id} not found.",
+        )
+    return service.enrich_banking_response(db, item)
+
+
+@router.put("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
+def update_banking_document(
+    bank_doc_id: int, payload: BankingDocumentUpdate, db: Session = Depends(get_db)
+):
+    return service.update_banking_document_service(db, bank_doc_id, payload)
+
+
+@router.post(
+    "/banking-documents/{bank_doc_id}/receive",
+    response_model=BankingDocumentResponse,
+)
+def receive_banking_document(
+    bank_doc_id: int, payload: BankingDocumentReceive, db: Session = Depends(get_db)
+):
+    return service.receive_banking_document_service(
+        db,
+        bank_doc_id,
+        form4_number=payload.form4_number,
+        received_date=payload.received_date,
+        notes=payload.notes,
+    )
+
+
+@router.delete("/banking-documents/{bank_doc_id}")
+def delete_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
+    return service.delete_banking_document_service(db, bank_doc_id)
 
 
 # --- SHIPMENT DOCUMENTS & CARGOX ENDPOINTS (BP-016, BP-017, BP-018) ---

@@ -345,7 +345,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Exporter ID: ${supplier.foreignExporterId} | Address: ${supplier.address} | Brands: ${supplier.brands ?? "N/A"}',
+                      'Exporter ID: ${supplier.foreignExporterId}${supplier.cargoxPlatformId != null && supplier.cargoxPlatformId!.isNotEmpty ? " | CargoX ID: ${supplier.cargoxPlatformId}" : ""} | Address: ${supplier.address} | Brands: ${supplier.brands ?? "N/A"}',
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -452,11 +452,13 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     final regTypeOptions = [
       'Factory Registration',
       'Foreign Exporter Number (Nafeza)',
-      'VAT Registration / Tax Number',
+      'VAT Number',
+      'Tax Number',
       'Commercial Register',
     ];
 
     final expIdCtrl = TextEditingController(text: supplierToEdit?.foreignExporterId ?? '');
+    final cargoxPlatformIdCtrl = TextEditingController(text: supplierToEdit?.cargoxPlatformId ?? '');
     final countryCtrl = TextEditingController(text: supplierToEdit?.foreignExporterCountry ?? '');
     final countryCodeCtrl = TextEditingController(text: supplierToEdit?.foreignExporterCountryCode ?? '');
     final addressCtrl = TextEditingController(text: supplierToEdit?.address ?? '');
@@ -567,12 +569,27 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 ],
                               ),
                               const SizedBox(height: 16),
-                              CustomTextField(
-                                controller: expIdCtrl,
-                                label: 'Foreign Exporter ID (Nafeza)',
-                                icon: Icons.badge,
-                                isRequired: true,
-                                hint: 'e.g. EXP-CN-998877',
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: expIdCtrl,
+                                      label: 'Foreign Exporter ID (Nafeza)',
+                                      icon: Icons.badge,
+                                      isRequired: true,
+                                      hint: 'e.g. EXP-CN-998877',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: CustomTextField(
+                                      controller: cargoxPlatformIdCtrl,
+                                      label: 'CargoX Platform Registered ID',
+                                      icon: Icons.verified_user_outlined,
+                                      hint: 'e.g. CX-9988776655',
+                                    ),
+                                  ),
+                                ],
                               ),
                               const SizedBox(height: 16),
                               Row(
@@ -815,6 +832,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 supplierType: selectedSupplierType,
                                 registrationType: selectedRegType,
                                 foreignExporterId: expIdCtrl.text.trim(),
+                                cargoxPlatformId: cargoxPlatformIdCtrl.text.trim().isEmpty ? null : cargoxPlatformIdCtrl.text.trim(),
                                 foreignExporterCountry: countryCtrl.text.trim(),
                                 foreignExporterCountryCode: countryCodeCtrl.text.trim(),
                                 address: addressCtrl.text.trim(),
@@ -836,6 +854,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 isActive: supplierToEdit?.isActive ?? true,
                               );
 
+
                               String? errorMessage;
                               if (isEditing && supplierToEdit.supplierId != null) {
                                 final List<FieldChangeItem> changes = [];
@@ -849,7 +868,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   changes.add(FieldChangeItem(fieldName: 'نوع التسجيل', oldValue: supplierToEdit.registrationType, newValue: supplier.registrationType));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterId, supplier.foreignExporterId)) {
-                                  changes.add(FieldChangeItem(fieldName: 'معرف المصدر الأجنبي (CargoX / Exporter ID)', oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));
+                                  changes.add(FieldChangeItem(fieldName: 'معرف المصدر الأجنبي (Exporter ID)', oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));
+                                }
+                                if (FieldChangeItem.isDifferent(supplierToEdit.cargoxPlatformId, supplier.cargoxPlatformId)) {
+                                  changes.add(FieldChangeItem(fieldName: 'CargoX Platform Registered ID', oldValue: supplierToEdit.cargoxPlatformId ?? '', newValue: supplier.cargoxPlatformId ?? ''));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterCountry, supplier.foreignExporterCountry)) {
                                   changes.add(FieldChangeItem(fieldName: 'دولة المورد', oldValue: supplierToEdit.foreignExporterCountry, newValue: supplier.foreignExporterCountry));

@@ -26,6 +26,7 @@ class POLineItemModel {
   final String? itemCode;
   final String descriptionAr;
   final String? descriptionEn;
+  final String? countryOfOrigin;
   final int? tariffId;
   final double quantity;
   final String unitOfMeasure;
@@ -45,6 +46,7 @@ class POLineItemModel {
     this.itemCode,
     required this.descriptionAr,
     this.descriptionEn,
+    this.countryOfOrigin,
     this.tariffId,
     this.quantity = 1.0,
     this.unitOfMeasure = 'PCS',
@@ -66,6 +68,7 @@ class POLineItemModel {
       itemCode: json['item_code'] as String?,
       descriptionAr: json['description_ar'] as String? ?? '',
       descriptionEn: json['description_en'] as String?,
+      countryOfOrigin: json['country_of_origin'] as String?,
       tariffId: json['tariff_id'] != null ? _numToInt(json['tariff_id']) : null,
       quantity: _numToDouble(json['quantity'], 1.0),
       unitOfMeasure: json['unit_of_measure'] as String? ?? 'PCS',
@@ -88,6 +91,7 @@ class POLineItemModel {
       if (itemCode != null) 'item_code': itemCode,
       'description_ar': descriptionAr,
       if (descriptionEn != null) 'description_en': descriptionEn,
+      if (countryOfOrigin != null) 'country_of_origin': countryOfOrigin,
       if (tariffId != null) 'tariff_id': tariffId,
       'quantity': quantity,
       'unit_of_measure': unitOfMeasure,
@@ -238,6 +242,7 @@ class PurchaseOrderModel {
   final int? poId;
   final String poNumber;
   final String? proformaInvoiceNumber;
+  final String? countryOfOrigin;
   final int? importFileId;
   final int projectId;
   final int companyId;
@@ -271,6 +276,7 @@ class PurchaseOrderModel {
     this.poId,
     required this.poNumber,
     this.proformaInvoiceNumber,
+    this.countryOfOrigin,
     this.importFileId,
     required this.projectId,
     required this.companyId,
@@ -306,6 +312,7 @@ class PurchaseOrderModel {
       poId: json['po_id'] != null ? _numToInt(json['po_id']) : null,
       poNumber: json['po_number'] as String? ?? '',
       proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
+      countryOfOrigin: json['country_of_origin'] as String?,
       importFileId: json['import_file_id'] != null ? _numToInt(json['import_file_id']) : null,
       projectId: _numToInt(json['project_id']),
       companyId: _numToInt(json['company_id']),
@@ -348,6 +355,7 @@ class PurchaseOrderModel {
       if (poId != null) 'po_id': poId,
       if (poNumber.isNotEmpty) 'po_number': poNumber,
       if (proformaInvoiceNumber != null) 'proforma_invoice_number': proformaInvoiceNumber,
+      if (countryOfOrigin != null) 'country_of_origin': countryOfOrigin,
       if (importFileId != null) 'import_file_id': importFileId,
       'project_id': projectId,
       'company_id': companyId,

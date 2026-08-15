@@ -332,17 +332,17 @@ class CustomsChecklistItemModel {
       if (itemId != null) 'item_id': itemId,
       if (consultationId != null) 'consultation_id': consultationId,
       'document_type': documentType,
-      'hs_code': hsCode,
+      'hs_code': (hsCode != null && hsCode!.trim().isNotEmpty) ? hsCode : null,
       'is_required': isRequired,
       'required_text': requiredText,
       'is_blocking_shipment': isBlockingShipment,
       'responsible_party': responsibleParty,
       'status': status,
-      'received_date': receivedDate,
-      'verified_date': verifiedDate,
-      'regulatory_agency': regulatoryAgency,
-      'remarks': remarks,
-      'corrective_action_required': correctiveActionRequired,
+      'received_date': (receivedDate != null && receivedDate!.trim().isNotEmpty) ? receivedDate : null,
+      'verified_date': (verifiedDate != null && verifiedDate!.trim().isNotEmpty) ? verifiedDate : null,
+      'regulatory_agency': (regulatoryAgency != null && regulatoryAgency!.trim().isNotEmpty) ? regulatoryAgency : null,
+      'remarks': (remarks != null && remarks!.trim().isNotEmpty) ? remarks : null,
+      'corrective_action_required': (correctiveActionRequired != null && correctiveActionRequired!.trim().isNotEmpty) ? correctiveActionRequired : null,
     };
   }
 

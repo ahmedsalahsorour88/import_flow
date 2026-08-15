@@ -367,7 +367,29 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     DataCell(Text(po.proformaInvoiceNumber ?? '-')),
                     DataCell(Text(po.projectName ?? 'PRJ-#${po.projectId}')),
                     DataCell(Text(po.companyName ?? 'COMP-#${po.companyId}')),
-                    DataCell(Text(po.supplierName ?? 'SUP-#${po.supplierId}')),
+                    DataCell(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(po.supplierName ?? 'SUP-#${po.supplierId}'),
+                          if (po.countryOfOrigin != null && po.countryOfOrigin!.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 2),
+                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Text(
+                                po.countryOfOrigin!,
+                                style: TextStyle(fontSize: 10, color: Colors.blue.shade800, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                     DataCell(
                       Text(
                         '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}',
@@ -539,6 +561,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     _buildDetailItem('Project', po.projectName ?? '-'),
                                     _buildDetailItem('Company', po.companyName ?? '-'),
                                     _buildDetailItem('Supplier', po.supplierName ?? '-'),
+                                    _buildDetailItem('Country of Origin (بلد المنشأ)', po.countryOfOrigin ?? '-'),
                                     _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
                                     _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
                                     _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
@@ -1357,8 +1380,43 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   int? _selectedSupplierId;
   int? _selectedIncotermId;
   int? _selectedCurrencyId;
+  String? _selectedCountryOfOrigin;
   late String _selectedStatus;
   late String _selectedPaymentTerms;
+
+  static const List<Map<String, String>> countryOptions = [
+    {'code': 'CN', 'name': 'CN - الصين (China)'},
+    {'code': 'DE', 'name': 'DE - ألمانيا (Germany)'},
+    {'code': 'IT', 'name': 'IT - إيطاليا (Italy)'},
+    {'code': 'TR', 'name': 'TR - تركيا (Turkey)'},
+    {'code': 'FR', 'name': 'FR - فرنسا (France)'},
+    {'code': 'ES', 'name': 'ES - إسبانيا (Spain)'},
+    {'code': 'GB', 'name': 'GB - المملكة المتحدة (United Kingdom)'},
+    {'code': 'US', 'name': 'US - الولايات المتحدة الأمريكية (USA)'},
+    {'code': 'BR', 'name': 'BR - البرازيل (Brazil)'},
+    {'code': 'AR', 'name': 'AR - الأرجنتين (Argentina)'},
+    {'code': 'IN', 'name': 'IN - الهند (India)'},
+    {'code': 'JP', 'name': 'JP - اليابان (Japan)'},
+    {'code': 'KR', 'name': 'KR - كوريا الجنوبية (South Korea)'},
+    {'code': 'SA', 'name': 'SA - المملكة العربية السعودية (Saudi Arabia)'},
+    {'code': 'AE', 'name': 'AE - الإمارات العربية المتحدة (UAE)'},
+    {'code': 'JO', 'name': 'JO - الأردن (Jordan)'},
+    {'code': 'MA', 'name': 'MA - المغرب (Morocco)'},
+    {'code': 'TN', 'name': 'TN - تونس (Tunisia)'},
+    {'code': 'LB', 'name': 'LB - لبنان (Lebanon)'},
+    {'code': 'NL', 'name': 'NL - هولندا (Netherlands)'},
+    {'code': 'BE', 'name': 'BE - بلجيكا (Belgium)'},
+    {'code': 'AT', 'name': 'AT - النمسا (Austria)'},
+    {'code': 'PL', 'name': 'PL - بولندا (Poland)'},
+    {'code': 'SE', 'name': 'SE - السويد (Sweden)'},
+    {'code': 'CH', 'name': 'CH - سويسرا (Switzerland)'},
+    {'code': 'RU', 'name': 'RU - روسيا (Russia)'},
+    {'code': 'VN', 'name': 'VN - فيتنام (Vietnam)'},
+    {'code': 'TH', 'name': 'TH - تايلاند (Thailand)'},
+    {'code': 'MY', 'name': 'MY - ماليزيا (Malaysia)'},
+    {'code': 'ID', 'name': 'ID - إندونيسيا (Indonesia)'},
+    {'code': 'EG', 'name': 'EG - مصر (Egypt)'},
+  ];
 
   late List<POLineItemModel> _dialogItems;
   late List<PackingListItemModel> _dialogPackingItems;
@@ -1507,12 +1565,14 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     _selectedSupplierId = po?.supplierId;
     _selectedIncotermId = po?.incotermId;
     _selectedCurrencyId = po?.currencyId;
+    _selectedCountryOfOrigin = po?.countryOfOrigin;
 
     _dialogItems = po != null && po.items.isNotEmpty
         ? po.items.map((i) => POLineItemModel(
             itemCode: i.itemCode,
             descriptionAr: i.descriptionAr,
             descriptionEn: i.descriptionEn,
+            countryOfOrigin: i.countryOfOrigin,
             tariffId: i.tariffId,
             quantity: i.quantity,
             unitOfMeasure: i.unitOfMeasure,
@@ -1831,10 +1891,20 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: TextFormField(
-                                    controller: _rateCtrl,
-                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(labelText: 'Exchange Rate'),
+                                  child: SearchableDropdownField<String?>(
+                                    value: _selectedCountryOfOrigin,
+                                    labelText: 'Country of Origin (بلد المنشأ)',
+                                    items: [
+                                      const SearchableDropdownItem<String?>(
+                                        value: null,
+                                        label: '-- غير محدد (Auto / غير محدد) --',
+                                      ),
+                                      ...countryOptions.map((c) => SearchableDropdownItem<String?>(
+                                            value: c['name'],
+                                            label: c['name']!,
+                                          )),
+                                    ],
+                                    onChanged: (v) => setState(() => _selectedCountryOfOrigin = v),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -1852,34 +1922,48 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             ),
                             const SizedBox(height: 12),
 
-                            SearchableDropdownField<String>(
-                              value: ['Cash in Advance / SWIFT', 'Letter of Credit / LC', 'CAD / Cash Against Documents', 'Open Account / Deferred Payment'].contains(_selectedPaymentTerms)
-                                  ? _selectedPaymentTerms
-                                  : 'Cash in Advance / SWIFT',
-                              labelText: 'Payment Terms (شروط الدفع) *',
-                              items: const [
-                                SearchableDropdownItem(
-                                  value: 'Cash in Advance / SWIFT',
-                                  label: 'Cash in Advance / SWIFT (تحويل سويفت مقدم)',
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: _rateCtrl,
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(labelText: 'Exchange Rate'),
+                                  ),
                                 ),
-                                SearchableDropdownItem(
-                                  value: 'Letter of Credit / LC',
-                                  label: 'Letter of Credit / LC (اعتماد مستندي)',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'CAD / Cash Against Documents',
-                                  label: 'CAD / Cash Against Documents (تحصيل مستندي)',
-                                ),
-                                SearchableDropdownItem(
-                                  value: 'Open Account / Deferred Payment',
-                                  label: 'Open Account / Deferred Payment (حساب مفتوح / آجل)',
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: SearchableDropdownField<String>(
+                                    value: ['Cash in Advance / SWIFT', 'Letter of Credit / LC', 'CAD / Cash Against Documents', 'Open Account / Deferred Payment'].contains(_selectedPaymentTerms)
+                                        ? _selectedPaymentTerms
+                                        : 'Cash in Advance / SWIFT',
+                                    labelText: 'Payment Terms (شروط الدفع) *',
+                                    items: const [
+                                      SearchableDropdownItem(
+                                        value: 'Cash in Advance / SWIFT',
+                                        label: 'Cash in Advance / SWIFT (تحويل سويفت مقدم)',
+                                      ),
+                                      SearchableDropdownItem(
+                                        value: 'Letter of Credit / LC',
+                                        label: 'Letter of Credit / LC (اعتماد مستندي)',
+                                      ),
+                                      SearchableDropdownItem(
+                                        value: 'CAD / Cash Against Documents',
+                                        label: 'CAD / Cash Against Documents (تحصيل مستندي)',
+                                      ),
+                                      SearchableDropdownItem(
+                                        value: 'Open Account / Deferred Payment',
+                                        label: 'Open Account / Deferred Payment (حساب مفتوح / آجل)',
+                                      ),
+                                    ],
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() => _selectedPaymentTerms = v);
+                                      }
+                                    },
+                                  ),
                                 ),
                               ],
-                              onChanged: (v) {
-                                if (v != null) {
-                                  setState(() => _selectedPaymentTerms = v);
-                                }
-                              },
                             ),
                             const SizedBox(height: 14),
 
@@ -2533,6 +2617,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                       final newPO = PurchaseOrderModel(
                         poNumber: '',
                         proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        countryOfOrigin: _selectedCountryOfOrigin,
                         importFileId: _selectedImportFileId,
                         projectId: _selectedProjectId!,
                         companyId: _selectedCompanyId!,
@@ -2577,6 +2662,15 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                           fieldName: 'رقم الفاتورة المبدئية (PI Number)',
                           oldValue: oldPO.proformaInvoiceNumber,
                           newValue: newPi,
+                        ));
+                      }
+
+                      if (FieldChangeItem.isDifferent(oldPO.countryOfOrigin, _selectedCountryOfOrigin)) {
+                        changes.add(FieldChangeItem(
+                          section: 'بيانات الفاتورة المبدئية والترويسة',
+                          fieldName: 'بلد المنشأ (Country of Origin)',
+                          oldValue: oldPO.countryOfOrigin,
+                          newValue: _selectedCountryOfOrigin,
                         ));
                       }
 
@@ -2781,6 +2875,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
 
                       final updateData = {
                         'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
+                        'country_of_origin': _selectedCountryOfOrigin,
                         'import_file_id': _selectedImportFileId,
                         'project_id': _selectedProjectId!,
                         'company_id': _selectedCompanyId!,

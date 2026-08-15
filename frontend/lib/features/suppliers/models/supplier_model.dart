@@ -5,6 +5,7 @@ class SupplierModel {
   final String supplierType;
   final String registrationType;
   final String foreignExporterId;
+  final String? cargoxPlatformId;
   final String foreignExporterCountry;
   final String foreignExporterCountryCode;
   final String address;
@@ -32,6 +33,7 @@ class SupplierModel {
     required this.supplierType,
     required this.registrationType,
     required this.foreignExporterId,
+    this.cargoxPlatformId,
     required this.foreignExporterCountry,
     required this.foreignExporterCountryCode,
     required this.address,
@@ -72,6 +74,7 @@ class SupplierModel {
       supplierType: json['supplier_type']?.toString() ?? 'Manufacturer',
       registrationType: json['registration_type']?.toString() ?? 'Factory Registration',
       foreignExporterId: json['foreign_exporter_id']?.toString() ?? '',
+      cargoxPlatformId: json['cargox_platform_id']?.toString(),
       foreignExporterCountry: json['foreign_exporter_country']?.toString() ?? '',
       foreignExporterCountryCode: json['foreign_exporter_country_code']?.toString() ?? '',
       address: json['address']?.toString() ?? '',
@@ -102,6 +105,7 @@ class SupplierModel {
       'supplier_type': supplierType,
       'registration_type': registrationType,
       'foreign_exporter_id': foreignExporterId,
+      if (cargoxPlatformId != null) 'cargox_platform_id': cargoxPlatformId,
       'foreign_exporter_country': foreignExporterCountry,
       'foreign_exporter_country_code': foreignExporterCountryCode,
       'address': address,

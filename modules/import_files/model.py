@@ -58,11 +58,16 @@ class ImportFile(Base):
 
     # Banking & Customs Document Links
     acid_number = Column(String(50), nullable=True) # e.g. 1987654321098765432
+    acid_request_date = Column(Date, nullable=True)
     acid_issue_date = Column(Date, nullable=True)
     acid_expiry_date = Column(Date, nullable=True)
+    acid_execution_days = Column(Integer, nullable=True)
     is_customs_released = Column(Boolean, default=False, nullable=False)
     customs_released_at = Column(DateTime, nullable=True)
     form4_no = Column(String(100), nullable=True)
+    form4_request_date = Column(Date, nullable=True)
+    form4_received_date = Column(Date, nullable=True)
+    form4_execution_days = Column(Integer, nullable=True)
     swift_no = Column(String(100), nullable=True)
     form46_no = Column(String(100), nullable=True)
 

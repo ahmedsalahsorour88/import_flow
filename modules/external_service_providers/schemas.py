@@ -72,3 +72,40 @@ class PartnerResponse(PartnerBase):
 
     class Config:
         from_attributes = True
+
+
+# ==================================================
+# Partner Statement of Account & Currency Balances Schemas
+# كشف حساب مقدم الخدمة والشركاء متعدد العملات
+# ==================================================
+
+class PartnerCurrencyBalance(BaseModel):
+    currency: str
+    total_invoiced: float = 0.0
+    total_paid: float = 0.0
+    balance_due: float = 0.0
+
+
+class PartnerLedgerEntry(BaseModel):
+    entry_id: str
+    entry_date: str
+    entry_type: str  # 'Invoice (فاتورة مستحقة)', 'Payment (سداد مالي)', 'Quotation (عرض سعر معتمد)'
+    reference_no: str
+    description: str
+    import_file_code: Optional[str] = None
+    currency: str
+    debit_amount: float = 0.0   # مستحق على الشركة لمقدم الخدمة
+    credit_amount: float = 0.0  # مسدد لمقدم الخدمة
+    running_balance: float = 0.0
+    status: str = "Approved"
+
+
+class PartnerStatementOfAccountResponse(BaseModel):
+    provider_id: int
+    partner_code: str
+    partner_name: str
+    partner_type: str
+    currency_balances: list[PartnerCurrencyBalance] = []
+    ledger_entries: list[PartnerLedgerEntry] = []
+    total_invoices_count: int = 0
+    total_payments_count: int = 0

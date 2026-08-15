@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -82,14 +84,24 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
   );
   bool _isSavingVerification = false;
   int? _activeEditingAcidId;
+  String? _activeEditingAcidCode;
 
   // Form 4 State (BP-015)
   final _bankFormKey = GlobalKey<FormState>();
-  final TextEditingController _bankRefController = TextEditingController(text: 'F4-2026-99081');
+  int? _editingBankDocId;
+  String? _editingBankDocCode;
+  int? _form4ImportFileId;
   final TextEditingController _bankAmountController = TextEditingController(text: '62300.0');
   String _bankDocType = 'Form 4';
+  String _form4Currency = 'USD';
   int? _selectedBankId;
   String _bankName = 'National Bank of Egypt (NBE)';
+  final TextEditingController _form4RequestDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
+  final TextEditingController _form4NotesCtrl = TextEditingController();
+  int _form4SubTab = 0; // 0: طلب توثيق نموذج جديد, 1: سجل النماذج المحفوظة
+  String _form4SearchQuery = '';
+  String _form4StatusFilter = 'All';
+  bool _isSavingForm4 = false;
 
   // Document Registry State (BP-016 to BP-018)
   final _docFormKey = GlobalKey<FormState>();
@@ -157,8 +169,9 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     _issuedAcidNumberCtrl.dispose();
     _generatedDateCtrl.dispose();
     _expiryDateCtrl.dispose();
-    _bankRefController.dispose();
     _bankAmountController.dispose();
+    _form4RequestDateCtrl.dispose();
+    _form4NotesCtrl.dispose();
     _docNumController.dispose();
     super.dispose();
   }
@@ -246,6 +259,73 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
     };
   }
 
+  void _loadAcidSessionForEdit(AcidRegistrationModel session) {
+    setState(() {
+      _activeEditingAcidId = session.acidId;
+      _activeEditingAcidCode = session.acidCode;
+      _selectedImportFileId = session.importFileId;
+      _importerNameCtrl.text = session.importerName;
+      _importerTaxIdCtrl.text = session.importerTaxId;
+      _importerAddressCtrl.text = session.importerAddress ?? '';
+      _exporterNameCtrl.text = session.exporterName;
+      _exporterRegTypeCtrl.text = session.exporterRegType ?? 'VAT Number';
+      _exporterRegIdCtrl.text = session.exporterRegId;
+      _exporterCountryCtrl.text = session.exporterCountry;
+      _exporterCountryCodeCtrl.text = session.exporterCountryCode ?? '';
+      _exporterAddressCtrl.text = session.exporterAddress ?? '';
+      _exporterPhoneCtrl.text = session.exporterPhone ?? '';
+      _cargoxIdCtrl.text = session.cargoxId ?? '';
+      _proformaNoCtrl.text = session.proformaInvoiceNo;
+      _proformaDateCtrl.text = session.proformaInvoiceDate ?? '';
+      _invoiceDateCtrl.text = session.invoiceDate ?? '';
+      _invoiceTypeCtrl.text = session.invoiceType ?? 'Proforma Invoice';
+      _poNoCtrl.text = session.poNumber ?? '';
+      _poDateCtrl.text = session.poDate ?? '';
+      _polCtrl.text = session.polName;
+      _podCtrl.text = session.podName;
+      _selectedBrokerId = session.customsBrokerId;
+      _brokerNameCtrl.text = session.customsBrokerName ?? '';
+      _brokerPhoneCtrl.text = session.customsBrokerPhone ?? '';
+      _requestedDateCtrl.text = session.requestedDate ?? DateTime.now().toIso8601String().substring(0, 10);
+      _requestNotesCtrl.text = session.verificationNotes ?? '';
+      _issuedAcidNumberCtrl.text = session.acidNumber;
+      _acidSubTab = 0; // Go to Request Tab
+    });
+  }
+
+  void _resetAcidForm() {
+    setState(() {
+      _activeEditingAcidId = null;
+      _activeEditingAcidCode = null;
+      _selectedImportFileId = null;
+      _importerNameCtrl.clear();
+      _importerTaxIdCtrl.clear();
+      _importerAddressCtrl.clear();
+      _exporterNameCtrl.clear();
+      _exporterRegTypeCtrl.text = 'VAT Number';
+      _exporterRegIdCtrl.clear();
+      _exporterCountryCtrl.clear();
+      _exporterCountryCodeCtrl.clear();
+      _exporterAddressCtrl.clear();
+      _exporterPhoneCtrl.clear();
+      _cargoxIdCtrl.clear();
+      _proformaNoCtrl.clear();
+      _proformaDateCtrl.clear();
+      _invoiceDateCtrl.clear();
+      _invoiceTypeCtrl.text = 'Proforma Invoice';
+      _poNoCtrl.clear();
+      _poDateCtrl.clear();
+      _polCtrl.clear();
+      _podCtrl.clear();
+      _selectedBrokerId = null;
+      _brokerNameCtrl.clear();
+      _brokerPhoneCtrl.clear();
+      _requestedDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
+      _requestNotesCtrl.clear();
+      _issuedAcidNumberCtrl.clear();
+    });
+  }
+
   Future<void> _saveAcidRequest() async {
     if (!_acidRequestFormKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -254,11 +334,62 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       return;
     }
 
+    // Duplicate session validation: prevent creating new request if active session already exists for this file
+    final acidSessions = ref.read(acidSessionsProvider).value ?? [];
+    if (_activeEditingAcidId == null && _selectedImportFileId != null) {
+      final existingAcid = acidSessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
+      if (existingAcid != null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: const [
+                Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
+                SizedBox(width: 8),
+                Text('جلسة ACID مسجلة مسبقاً', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            content: Text(
+              'لا يمكن حفظ طلب ACID جديد لأن ملف الشحنة المختار مرتبط بالفعل بجلسة مسجلة ومحفوظة في سجل الطلبات (${existingAcid.acidCode}${existingAcid.acidNumber != "PENDING" && existingAcid.acidNumber.isNotEmpty ? " - رقم ACID: ${existingAcid.acidNumber}" : ""}).\n\nيرجى التوجه إلى سجل الطلبات والإصدار للتعديل على الجلسة الحالية بدلاً من إنشاء طلب جديد.',
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.table_chart, size: 16),
+                label: const Text('سجل الطلبات'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => _acidSubTab = 3);
+                },
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('تعديل الجلسة الحالية'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _loadAcidSessionForEdit(existingAcid);
+                },
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() => _isSavingRequest = true);
     try {
       final reqMap = _buildRequestedDataMap();
       final payload = {
-        'acid_number': 'PENDING',
+        'acid_number': _activeEditingAcidId != null && _issuedAcidNumberCtrl.text.trim().isNotEmpty
+            ? _issuedAcidNumberCtrl.text.trim()
+            : 'PENDING',
         'import_file_id': _selectedImportFileId,
         'importer_id': _selectedCompanyId,
         'importer_name': reqMap['importer_name'],
@@ -291,15 +422,32 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
         'status': 'Requested',
       };
 
-      final created = await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
-      if (mounted && created != null) {
-        _activeEditingAcidId = created.acidId;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ تم حفظ طلب الـ ACID بنجاح في النظام! كود الطلب: ${created.acidCode}'),
-            backgroundColor: AppTheme.emerald,
-          ),
-        );
+      if (_activeEditingAcidId != null) {
+        final updated = await ref.read(acidSessionsProvider.notifier).updateAcidSession(_activeEditingAcidId!, payload);
+        if (mounted && updated != null) {
+          ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+          ref.read(importFilesProvider.notifier).fetchImportFiles();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم تحديث بيانات طلب الـ ACID بنجاح! كود الطلب: ${updated.acidCode}'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
+      } else {
+        final created = await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+        if (mounted && created != null) {
+          _activeEditingAcidId = created.acidId;
+          _activeEditingAcidCode = created.acidCode;
+          ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+          ref.read(importFilesProvider.notifier).fetchImportFiles();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم حفظ طلب الـ ACID بنجاح في النظام! كود الطلب: ${created.acidCode}'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -490,6 +638,9 @@ Please note that the required documents for the mentioned shipment must be uploa
         final created = await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
         if (created != null) _activeEditingAcidId = created.acidId;
       }
+
+      ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -833,7 +984,14 @@ Please note that the required documents for the mentioned shipment must be uploa
   Widget _buildSubTabButton(int index, String title, IconData icon) {
     final isSelected = _acidSubTab == index;
     return InkWell(
-      onTap: () => setState(() => _acidSubTab = index),
+      onTap: () {
+        setState(() => _acidSubTab = index);
+        if (index == 4) {
+          ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+        } else if (index == 3) {
+          ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
+        }
+      },
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -882,12 +1040,52 @@ Please note that the required documents for the mentioned shipment must be uploa
     final importFiles = ref.watch(importFilesProvider).value ?? [];
     final partners = ref.watch(partnersProvider).value ?? [];
     final brokerPartners = partners.where((p) => p.partnerType.contains('Customs') || p.partnerType.contains('مخلص') || p.partnerType.contains('Broker')).toList();
+    final acidSessions = ref.watch(acidSessionsProvider).value ?? [];
+    final existingAcidForSelectedFile = (_activeEditingAcidId == null && _selectedImportFileId != null)
+        ? acidSessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull
+        : null;
 
     return Form(
       key: _acidRequestFormKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Edit Mode Banner
+          if (_activeEditingAcidId != null) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade400, width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_note_rounded, color: AppTheme.orange, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'أنت الآن في وضع تعديل جلسة الـ ACID المسجلة: ${_activeEditingAcidCode ?? "جلسة #$_activeEditingAcidId"}',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    ),
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.crimson,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      elevation: 0,
+                    ),
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('إلغاء التعديل والعودة لطلب جديد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                    onPressed: _resetAcidForm,
+                  ),
+                ],
+              ),
+            ),
+          ],
+
           // Info banner
           Container(
             padding: const EdgeInsets.all(14),
@@ -963,6 +1161,39 @@ Please note that the required documents for the mentioned shipment must be uploa
                       ),
                     ],
                   ),
+                  if (existingAcidForSelectedFile != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.shade400),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 22),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'تنبيه: ملف الشحنة هذا مسجل له بالفعل جلسة ACID في سجل الطلبات (${existingAcidForSelectedFile.acidCode}${existingAcidForSelectedFile.acidNumber != "PENDING" && existingAcidForSelectedFile.acidNumber.isNotEmpty ? " - رقم ACID: ${existingAcidForSelectedFile.acidNumber}" : ""}). لا يمكن إضافة طلب جديد، يرجى التعديل على الجلسة الحالية.',
+                              style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.orange,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.edit, size: 15),
+                            label: const Text('تعديل الجلسة الحالية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            onPressed: () => _loadAcidSessionForEdit(existingAcidForSelectedFile),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: _importerAddressCtrl,
@@ -1237,11 +1468,19 @@ Please note that the required documents for the mentioned shipment must be uploa
                 ),
                 const Spacer(),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _activeEditingAcidId != null ? AppTheme.orange : AppTheme.emerald,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
                   icon: _isSavingRequest
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : const Icon(Icons.save, color: Colors.white),
-                  label: Text(_isSavingRequest ? 'جاري الحفظ...' : '💾 حفظ طلب الـ ACID (Save Request)', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      : Icon(_activeEditingAcidId != null ? Icons.save_as_rounded : Icons.save, color: Colors.white),
+                  label: Text(
+                    _isSavingRequest
+                        ? 'جاري الحفظ...'
+                        : (_activeEditingAcidId != null ? '💾 حفظ تعديلات طلب الـ ACID' : '💾 حفظ طلب الـ ACID (Save Request)'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                   onPressed: _isSavingRequest ? null : _saveAcidRequest,
                 ),
               ],
@@ -1701,11 +1940,11 @@ Please note that the required documents for the mentioned shipment must be uploa
                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                     columns: const [
                       DataColumn(label: Text('كود السجل', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text('رقم الـ ACID', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('المستورد المصري', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('المصدر الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('الفاتورة المبدئية', style: TextStyle(fontWeight: FontWeight.bold))),
-                      DataColumn(label: Text('الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('المستورد والمورد', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('الفاتورة', style: TextStyle(fontWeight: FontWeight.bold))),
+                      DataColumn(label: Text('الصلاحية والتنفيذ', style: TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
                       DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
                     ],
@@ -1713,31 +1952,39 @@ Please note that the required documents for the mentioned shipment must be uploa
                       return DataRow(
                         cells: [
                           DataCell(Text(session.acidCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                          DataCell(
+                            Text(
+                              session.importFileCode ?? '—',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12),
+                            ),
+                          ),
                           DataCell(Text(session.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
-                          DataCell(Text(session.importerName)),
-                          DataCell(Text('${session.exporterName} (${session.exporterCountry})')),
+                          DataCell(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(session.importerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                                Text(session.exporterName, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
                           DataCell(Text(session.proformaInvoiceNo)),
-                          DataCell(Text(session.expiryDate ?? '-')),
+                          DataCell(
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text('صلاحية: ${session.expiryDate ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                Text('تنفيذ: ${session.executionDays != null ? "${session.executionDays} يوم" : "-"}', style: const TextStyle(fontSize: 10, color: AppTheme.emerald, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
                           DataCell(_buildStatusBadge(session.status)),
                           DataCell(
                             RowActionsPill(
                               onView: () => _showAcidDetailsDialog(context, session),
-                              onEdit: () {
-                                setState(() {
-                                  _activeEditingAcidId = session.acidId;
-                                  _selectedImportFileId = session.importFileId;
-                                  _importerNameCtrl.text = session.importerName;
-                                  _importerTaxIdCtrl.text = session.importerTaxId;
-                                  _exporterNameCtrl.text = session.exporterName;
-                                  _exporterRegIdCtrl.text = session.exporterRegId;
-                                  _exporterCountryCtrl.text = session.exporterCountry;
-                                  _proformaNoCtrl.text = session.proformaInvoiceNo;
-                                  _polCtrl.text = session.polName;
-                                  _podCtrl.text = session.podName;
-                                  _issuedAcidNumberCtrl.text = session.acidNumber;
-                                  _acidSubTab = 0;
-                                });
-                              },
+                              onEdit: () => _loadAcidSessionForEdit(session),
                               onPrint: () => _showPrintPreviewDialog(),
                               onDelete: () async {
                                 await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(session.acidId);
@@ -1938,6 +2185,12 @@ Please note that the required documents for the mentioned shipment must be uploa
                         _buildFilterChip('صُرفت من الجمرك', 'Customs Released', summary.customsReleasedCount, color: AppTheme.charcoal),
                       ],
                     ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(Icons.refresh_rounded, color: AppTheme.cobalt),
+                      tooltip: 'تحديث حي لمتتبع الصلاحية',
+                      onPressed: () => ref.read(acidTrackerProvider.notifier).fetchAcidTracker(),
+                    ),
                   ],
                 ),
               ),
@@ -2048,7 +2301,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                             ),
                           ),
 
-                          // Dates
+                          // Dates & Execution
                           DataCell(
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2065,9 +2318,17 @@ Please note that the required documents for the mentioned shipment must be uploa
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     const Text('الانتهاء: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                                    Text(item.acidExpiryDate ?? '—', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    Text(item.acidExpiryDate ?? '—', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                                   ],
                                 ),
+                                if (item.executionDays != null)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Text('أيام التنفيذ: ', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                      Text('${item.executionDays} يوم', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                    ],
+                                  ),
                               ],
                             ),
                           ),
@@ -2291,11 +2552,141 @@ Please note that the required documents for the mentioned shipment must be uploa
     );
   }
 
-  // --- TAB 2: BANKING DOCUMENTS ---
+  // --- TAB 2: BANKING DOCUMENTS (BP-015: Form 4 Management) ---
   Widget _buildBankingDocsTab() {
     final partnersState = ref.watch(partnersProvider);
     final banksList = (partnersState.value ?? []).where((p) => p.partnerType.contains('Bank') || p.partnerType.contains('بنك')).toList();
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
     final bankingDocsState = ref.watch(bankingDocumentsProvider);
+    final docs = bankingDocsState.value ?? [];
+
+    return Column(
+      children: [
+        // Sub-Tabs Header
+        Container(
+          color: Colors.grey.shade100,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          child: Row(
+            children: [
+              _buildForm4SubTabButton(
+                index: 0,
+                title: 'طلب إصدار وتوثيق نموذج 4 جديد (New Request)',
+                icon: Icons.note_add_outlined,
+              ),
+              const SizedBox(width: 12),
+              _buildForm4SubTabButton(
+                index: 1,
+                title: 'سجل النماذج البنكية والتوثيق (Saved Form 4 Registry)',
+                icon: Icons.history_edu_outlined,
+                badgeCount: docs.length,
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _form4SubTab == 0
+              ? _buildForm4RequestTab(banksList, importFiles)
+              : _buildForm4HistoryRegistryTab(docs, importFiles),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildForm4SubTabButton({
+    required int index,
+    required String title,
+    required IconData icon,
+    int? badgeCount,
+  }) {
+    final isSelected = _form4SubTab == index;
+    return InkWell(
+      onTap: () => setState(() => _form4SubTab = index),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.cobalt : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? AppTheme.cobalt : Colors.grey.shade300),
+          boxShadow: isSelected ? [BoxShadow(color: AppTheme.cobalt.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))] : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: isSelected ? Colors.white : AppTheme.charcoal),
+            const SizedBox(width: 8),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.charcoal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                fontSize: 13,
+              ),
+            ),
+            if (badgeCount != null && badgeCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.white : AppTheme.cobalt,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$badgeCount',
+                  style: TextStyle(
+                    color: isSelected ? AppTheme.cobalt : Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _loadForm4ForEdit(BankingDocumentModel doc) {
+    setState(() {
+      _editingBankDocId = doc.bankDocId;
+      _editingBankDocCode = doc.bankDocCode;
+      _form4ImportFileId = doc.importFileId;
+      _bankDocType = doc.docType;
+      _selectedBankId = doc.bankId;
+      _bankName = doc.bankName;
+      _bankAmountController.text = doc.amount.toStringAsFixed(2);
+      _form4Currency = doc.currencyCode;
+      _form4RequestDateCtrl.text = doc.requestDate ?? doc.issueDate;
+      _form4NotesCtrl.text = doc.notes ?? '';
+      _form4SubTab = 0; // Switch to Request Tab
+    });
+  }
+
+  void _resetForm4Form() {
+    setState(() {
+      _editingBankDocId = null;
+      _editingBankDocCode = null;
+      _form4ImportFileId = null;
+      _bankDocType = 'Form 4';
+      _selectedBankId = null;
+      _bankName = 'National Bank of Egypt (NBE)';
+      _bankAmountController.clear();
+      _form4Currency = 'USD';
+      _form4RequestDateCtrl.text = DateTime.now().toIso8601String().substring(0, 10);
+      _form4NotesCtrl.clear();
+    });
+  }
+
+  // --- FORM 4 SUB-TAB 0: REQUEST FORM ---
+  Widget _buildForm4RequestTab(List banksList, List<dynamic> importFiles) {
+    final selectedFile = _form4ImportFileId != null
+        ? importFiles.where((f) => f.importFileId == _form4ImportFileId).firstOrNull
+        : null;
+    final bankingDocs = ref.watch(bankingDocumentsProvider).value ?? [];
+    final existingForm4ForSelectedFile = (_editingBankDocId == null && _form4ImportFileId != null && _bankDocType == 'Form 4')
+        ? bankingDocs.where((d) => d.importFileId == _form4ImportFileId && d.docType == 'Form 4' && d.isActive).firstOrNull
+        : null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -2304,6 +2695,42 @@ Please note that the required documents for the mentioned shipment must be uploa
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Edit Mode Banner
+            if (_editingBankDocId != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.edit_note_rounded, color: AppTheme.orange, size: 24),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'أنت الآن في وضع تعديل طلب نموذج 4: ${_editingBankDocCode ?? "طلب #$_editingBankDocId"}',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.crimson,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        elevation: 0,
+                      ),
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('إلغاء التعديل والعودة لطلب جديد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: _resetForm4Form,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -2312,25 +2739,99 @@ Please note that the required documents for the mentioned shipment must be uploa
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('إصدار وتوثيق نموذج 4 والاعتمادات المستندية (Form 4 / Form 9 / L/C Management)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const Divider(),
-                    const SizedBox(height: 10),
                     Row(
                       children: [
+                        const Icon(Icons.account_balance_outlined, color: AppTheme.cobalt, size: 22),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'مرحلة الطلب: إصدار وتوثيق نموذج 4 / تحويل بنكي / اعتماد مستندي (BP-015)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: Colors.blue.shade200),
+                          ),
+                          child: const Text(
+                            'البنك المركزي المصري • CBE Form 4 Protocol',
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+
+                    // 1. Link Import File & Transaction Type & Bank
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Link Import File Dropdown
                         Expanded(
+                          flex: 3,
+                          child: SearchableDropdownField<int?>(
+                            value: _form4ImportFileId,
+                            labelText: 'ربط ملف الشحنة الاستيرادية (Import File) *',
+                            searchHintText: 'ابحث برقم الملف، الشركة المستوردة، أو المورد...',
+                            items: [
+                              const SearchableDropdownItem<int?>(value: null, label: '-- بدون ربط (طلب حر) --'),
+                              ...importFiles.map((f) {
+                                final label = '${f.importFileCode} - ${f.companyName} (${f.supplierName})';
+                                return SearchableDropdownItem<int?>(
+                                  value: f.importFileId,
+                                  label: label,
+                                  subtitle: 'PO: ${f.poNumber ?? "-"} | التكلفة التقديرية: ${f.estimatedCost} | المرحلة: ${f.currentStage}',
+                                );
+                              }),
+                            ],
+                            onChanged: (id) {
+                              setState(() {
+                                _form4ImportFileId = id;
+                                if (id != null) {
+                                  final file = importFiles.where((f) => f.importFileId == id).firstOrNull;
+                                  if (file != null) {
+                                    if (file.estimatedCost > 0) {
+                                      _bankAmountController.text = file.estimatedCost.toStringAsFixed(2);
+                                    }
+                                    if (file.invoicesData != null && (file.invoicesData as List).isNotEmpty) {
+                                      final firstInv = (file.invoicesData as List).first;
+                                      if (firstInv is Map && firstInv['currency'] != null) {
+                                        _form4Currency = firstInv['currency'].toString().toUpperCase();
+                                      }
+                                      if (firstInv is Map && firstInv['amount'] != null && (firstInv['amount'] as num) > 0) {
+                                        _bankAmountController.text = (firstInv['amount'] as num).toDouble().toStringAsFixed(2);
+                                      }
+                                    }
+                                  }
+                                }
+                              });
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Transaction Type Dropdown
+                        Expanded(
+                          flex: 2,
                           child: DropdownButtonFormField<String>(
                             value: _bankDocType,
                             decoration: const InputDecoration(labelText: 'نوع المعاملة البنكية *', border: OutlineInputBorder()),
                             items: const [
-                              DropdownMenuItem(value: 'Form 4', child: Text('نموذج 4 (Form 4 - تحويل مباشر)')),
+                              DropdownMenuItem(value: 'Form 4', child: Text('نموذج 4 (Form 4 - تحويل بنكي)')),
                               DropdownMenuItem(value: 'Form 9', child: Text('نموذج 9 (Form 9 - تحصيل مستندي)')),
                               DropdownMenuItem(value: 'Letter of Credit (L/C)', child: Text('اعتماد مستندي (Letter of Credit)')),
                             ],
                             onChanged: (v) => setState(() => _bankDocType = v ?? 'Form 4'),
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        const SizedBox(width: 14),
+
+                        // Bank Selector
                         Expanded(
+                          flex: 2,
                           child: SearchableDropdownField<int?>(
                             value: _selectedBankId,
                             labelText: 'البنك المصرفي (Bank) *',
@@ -2352,69 +2853,544 @@ Please note that the required documents for the mentioned shipment must be uploa
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _bankRefController,
-                            decoration: const InputDecoration(labelText: 'رقم مرجع البنك (Bank Reference No) *', border: OutlineInputBorder()),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'الرقم المرجعي مطلوب' : null,
-                          ),
+                      ],
+                    ),
+
+                    // Duplicate warning banner if Form 4 already exists for this file
+                    if (existingForm4ForSelectedFile != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade400),
                         ),
-                        const SizedBox(width: 12),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'تنبيه: ملف الشحنة هذا مسجل له بالفعل طلب نموذج 4 في سجل النماذج (${existingForm4ForSelectedFile.bankDocCode}${existingForm4ForSelectedFile.docReferenceNumber != "PENDING" && existingForm4ForSelectedFile.docReferenceNumber.isNotEmpty ? " - رقم النموذج: ${existingForm4ForSelectedFile.docReferenceNumber}" : ""}). لا يمكن إضافة طلب جديد، يرجى التعديل على الطلب القائم.',
+                                style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.orange,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.edit, size: 15),
+                              label: const Text('تعديل الطلب القائم', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              onPressed: () => _loadForm4ForEdit(existingForm4ForSelectedFile),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    // Linked File Summary Preview Card
+                    if (selectedFile != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.06),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.25)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.link_rounded, color: AppTheme.cobalt, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Wrap(
+                                spacing: 20,
+                                runSpacing: 8,
+                                children: [
+                                  _buildSummaryChip('ملف الشحنة:', selectedFile.importFileCode, Colors.blueGrey),
+                                  _buildSummaryChip('الشركة المستوردة:', selectedFile.companyName, AppTheme.cobalt),
+                                  _buildSummaryChip('المورد الأجنبي:', selectedFile.supplierName, AppTheme.charcoal),
+                                  if (selectedFile.poNumber != null)
+                                    _buildSummaryChip('أمر الشراء PO:', selectedFile.poNumber!, AppTheme.emerald),
+                                  if (selectedFile.piNumber != null)
+                                    _buildSummaryChip('الفاتورة PI:', selectedFile.piNumber!, Colors.deepPurple),
+                                  _buildSummaryChip('طريقة الشحن:', selectedFile.shipmentMode, Colors.teal),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // 2. Amount & Currency & Request Date
+                    Row(
+                      children: [
+                        // Amount
                         Expanded(
+                          flex: 3,
                           child: TextFormField(
                             controller: _bankAmountController,
-                            keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(labelText: 'المبلغ الإجمالي (USD) *', border: OutlineInputBorder()),
-                            validator: (v) => (v == null || double.tryParse(v.trim()) == null) ? 'مبلغ غير صحيح' : null,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                            decoration: InputDecoration(
+                              labelText: 'المبلغ الإجمالي للمعاملة *',
+                              hintText: 'e.g. 62300.00',
+                              prefixIcon: const Icon(Icons.attach_money_rounded),
+                              border: const OutlineInputBorder(),
+                              helperText: 'يتم استدعاؤه آلياً من ملف الشحنة أو الفاتورة المبدئية',
+                            ),
+                            validator: (v) {
+                              if (v == null || v.trim().isEmpty) return 'المبلغ مطلوب';
+                              final parsed = double.tryParse(v.trim());
+                              if (parsed == null || parsed <= 0) return 'يرجى إدخال مبلغ صحيح أكبر من صفر';
+                              return null;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Currency
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            value: _form4Currency,
+                            decoration: const InputDecoration(
+                              labelText: 'عملة المعاملة *',
+                              prefixIcon: Icon(Icons.monetization_on_outlined),
+                              border: OutlineInputBorder(),
+                            ),
+                            items: const [
+                              DropdownMenuItem(value: 'USD', child: Text('دولار أمريكي (USD)')),
+                              DropdownMenuItem(value: 'EUR', child: Text('يورو أوروبي (EUR)')),
+                              DropdownMenuItem(value: 'GBP', child: Text('جنيه إسترليني (GBP)')),
+                              DropdownMenuItem(value: 'CNY', child: Text('يوان صيني (CNY)')),
+                              DropdownMenuItem(value: 'EGP', child: Text('جنيه مصري (EGP)')),
+                              DropdownMenuItem(value: 'AED', child: Text('درهم إماراتي (AED)')),
+                              DropdownMenuItem(value: 'SAR', child: Text('ريال سعودي (SAR)')),
+                            ],
+                            onChanged: (v) => setState(() => _form4Currency = v ?? 'USD'),
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+
+                        // Request Date with Picker
+                        Expanded(
+                          flex: 2,
+                          child: TextFormField(
+                            controller: _form4RequestDateCtrl,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              labelText: 'تاريخ تقديم الطلب للبنك *',
+                              prefixIcon: Icon(Icons.calendar_today_rounded),
+                              border: OutlineInputBorder(),
+                            ),
+                            onTap: () async {
+                              final picked = await showDatePicker(
+                                context: context,
+                                initialDate: DateTime.tryParse(_form4RequestDateCtrl.text) ?? DateTime.now(),
+                                firstDate: DateTime(2020),
+                                lastDate: DateTime(2035),
+                              );
+                              if (picked != null) {
+                                setState(() {
+                                  _form4RequestDateCtrl.text = picked.toString().substring(0, 10);
+                                });
+                              }
+                            },
                           ),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
-                      icon: const Icon(Icons.account_balance, color: Colors.white),
-                      label: const Text('تسجيل واعتماد النموذج البنكي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: _saveBankingDoc,
+
+                    // Notes
+                    TextFormField(
+                      controller: _form4NotesCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'ملاحظات طلب نموذج 4 والتعليمات المصرفية',
+                        hintText: 'أي تفاصيل خاصة بتعليمات التحويل أو الغطاء النقدي أو البنك المراسل...',
+                        prefixIcon: Icon(Icons.notes_rounded),
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Action Buttons
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _editingBankDocId != null ? AppTheme.orange : AppTheme.emerald,
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: _isSavingForm4
+                              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              : Icon(_editingBankDocId != null ? Icons.save_as_rounded : Icons.check_circle_outline, color: Colors.white),
+                          label: Text(
+                            _isSavingForm4
+                                ? 'جاري الحفظ...'
+                                : (_editingBankDocId != null ? '💾 حفظ تعديلات طلب نموذج 4' : 'تسجيل وحفظ طلب نموذج 4 (BP-015)'),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                          ),
+                          onPressed: _isSavingForm4 ? null : _saveBankingDoc,
+                        ),
+                        const SizedBox(width: 14),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.cobalt,
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.history_rounded),
+                          label: const Text('الانتقال إلى سجل النماذج المحفوظة', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _form4SubTab = 1),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            bankingDocsState.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Text('خطأ: $e'),
-              data: (docs) {
-                return Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                  child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('كود المستند')),
-                      DataColumn(label: Text('النوع')),
-                      DataColumn(label: Text('البنك')),
-                      DataColumn(label: Text('الرقم المرجعي')),
-                      DataColumn(label: Text('المبلغ')),
-                      DataColumn(label: Text('الحالة')),
-                    ],
-                    rows: docs.map((d) {
-                      return DataRow(cells: [
-                        DataCell(Text(d.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                        DataCell(Text(d.docType)),
-                        DataCell(Text(d.bankName)),
-                        DataCell(Text(d.docReferenceNumber)),
-                        DataCell(Text('${d.amount} ${d.currencyCode}')),
-                        DataCell(_buildStatusBadge(d.status)),
-                      ]);
-                    }).toList(),
-                  ),
-                );
-              },
-            ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryChip(String label, String value, Color color) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+        const SizedBox(width: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: color),
+        ),
+      ],
+    );
+  }
+
+  // --- FORM 4 SUB-TAB 1: SAVED HISTORY REGISTRY (Matches Shipping Scenarios Style) ---
+  Widget _buildForm4HistoryRegistryTab(List<BankingDocumentModel> docs, List<dynamic> importFiles) {
+    final totalCount = docs.length;
+    final requestedCount = docs.where((d) => d.status == 'Requested' || d.docReferenceNumber == 'PENDING').length;
+    final receivedCount = docs.where((d) => d.status == 'Received' || d.docReferenceNumber != 'PENDING').length;
+    final receivedDocs = docs.where((d) => d.executionDays > 0).toList();
+    final avgExecDays = receivedDocs.isNotEmpty
+        ? (receivedDocs.fold<int>(0, (sum, d) => sum + d.executionDays) / receivedDocs.length).round()
+        : 0;
+
+    // Filtering
+    final filtered = docs.where((d) {
+      final matchesSearch = _form4SearchQuery.isEmpty ||
+          d.bankDocCode.toLowerCase().contains(_form4SearchQuery.toLowerCase()) ||
+          d.bankName.toLowerCase().contains(_form4SearchQuery.toLowerCase()) ||
+          (d.importFileCode != null && d.importFileCode!.toLowerCase().contains(_form4SearchQuery.toLowerCase())) ||
+          (d.importerName != null && d.importerName!.toLowerCase().contains(_form4SearchQuery.toLowerCase())) ||
+          (d.docReferenceNumber.toLowerCase().contains(_form4SearchQuery.toLowerCase()));
+
+      final matchesStatus = _form4StatusFilter == 'All' ||
+          (_form4StatusFilter == 'Requested' && (d.status == 'Requested' || d.docReferenceNumber == 'PENDING')) ||
+          (_form4StatusFilter == 'Received' && (d.status == 'Received' || d.docReferenceNumber != 'PENDING'));
+
+      return matchesSearch && matchesStatus;
+    }).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // 1. Top Summary Stat Cards in Charcoal Banner
+        Container(
+          color: AppTheme.charcoal,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          child: Row(
+            children: [
+              _form4StatCard(
+                icon: Icons.account_balance_wallet_rounded,
+                label: 'إجمالي النماذج',
+                value: '$totalCount',
+                color: AppTheme.cobalt,
+              ),
+              const SizedBox(width: 10),
+              _form4StatCard(
+                icon: Icons.pending_actions_rounded,
+                label: 'طلبات جارية (قيد التنفيذ)',
+                value: '$requestedCount',
+                color: Colors.orange.shade400,
+              ),
+              const SizedBox(width: 10),
+              _form4StatCard(
+                icon: Icons.check_circle_rounded,
+                label: 'نماذج معتمدة ومستلمة',
+                value: '$receivedCount',
+                color: AppTheme.emerald,
+              ),
+              const SizedBox(width: 10),
+              _form4StatCard(
+                icon: Icons.timer_outlined,
+                label: 'متوسط سرعة التنفيذ',
+                value: avgExecDays > 0 ? '$avgExecDays يوم' : '-',
+                color: Colors.purple.shade300,
+              ),
+              const Spacer(),
+              OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.white,
+                  side: const BorderSide(color: Colors.white38),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: const Text('تحديث السجل', style: TextStyle(fontSize: 13)),
+                onPressed: () => ref.read(bankingDocumentsProvider.notifier).fetchBankingDocuments(),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('طلب جديد', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                onPressed: () => setState(() => _form4SubTab = 0),
+              ),
+            ],
+          ),
+        ),
+
+        // 2. Search & Filter Bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  decoration: InputDecoration(
+                    hintText: 'ابحث بكود الطلب، رقم نموذج 4، البنك، الشركة، أو رقم ملف الشحنة...',
+                    prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
+                    suffixIcon: _form4SearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 18),
+                            onPressed: () => setState(() => _form4SearchQuery = ''),
+                          )
+                        : null,
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey.shade300)),
+                  ),
+                  onChanged: (val) => setState(() => _form4SearchQuery = val),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Status Filter
+              DropdownButton<String>(
+                value: _form4StatusFilter,
+                underline: const SizedBox(),
+                items: const [
+                  DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
+                  DropdownMenuItem(value: 'Requested', child: Text('قيد التنفيذ (Pending)')),
+                  DropdownMenuItem(value: 'Received', child: Text('تم الاستلام والتوثيق (Received)')),
+                ],
+                onChanged: (v) => setState(() => _form4StatusFilter = v ?? 'All'),
+              ),
+            ],
+          ),
+        ),
+
+        // 3. DataTable Registry
+        Expanded(
+          child: filtered.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.account_balance_outlined, size: 64, color: Colors.grey.shade300),
+                      const SizedBox(height: 12),
+                      Text(
+                        _form4SearchQuery.isNotEmpty ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد نماذج بنكية مسجلة حتى الآن',
+                        style: TextStyle(fontSize: 16, color: Colors.grey.shade600, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      Text('قم بتقديم طلب نموذج 4 جديد لربطه بملفات الشحنات وتوثيقه لدى البنك', style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        icon: const Icon(Icons.add),
+                        label: const Text('إنشاء طلب نموذج 4 الآن'),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                        onPressed: () => setState(() => _form4SubTab = 0),
+                      ),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Card(
+                    elevation: 1,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: DataTable(
+                        headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
+                        horizontalMargin: 16,
+                        columnSpacing: 16,
+                        columns: const [
+                          DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('كود الطلب', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('النوع', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('البنك المصرفي', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('المبلغ والعملة', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('تاريخ الطلب', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('رقم نموذج 4', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('تاريخ الاستلام', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('مدة التنفيذ', style: TextStyle(fontWeight: FontWeight.bold))),
+                          DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        ],
+                        rows: filtered.map((d) {
+                          final isReceived = d.status == 'Received' || (d.docReferenceNumber != 'PENDING' && d.docReferenceNumber.isNotEmpty);
+                          return DataRow(
+                            cells: [
+                              DataCell(
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Receive / Finalize Action
+                                    if (!isReceived)
+                                      IconButton(
+                                        icon: const Icon(Icons.assignment_turned_in_outlined, color: AppTheme.emerald, size: 20),
+                                        tooltip: 'استلام وتوثيق رقم نموذج 4',
+                                        onPressed: () => _showReceiveForm4Dialog(d),
+                                      ),
+                                    // View / Share / Export Action
+                                    IconButton(
+                                      icon: const Icon(Icons.share_outlined, color: AppTheme.cobalt, size: 20),
+                                      tooltip: 'عرض وتصدير PDF / Excel / WhatsApp / Email',
+                                      onPressed: () => _showForm4ShareExportDialog(d),
+                                    ),
+                                    // Edit Action
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, color: AppTheme.orange, size: 20),
+                                      tooltip: 'تعديل بيانات الطلب',
+                                      onPressed: () => _loadForm4ForEdit(d),
+                                    ),
+                                    // Delete
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
+                                      tooltip: 'حذف',
+                                      onPressed: () async {
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('تأكيد الحذف'),
+                                            content: Text('هل أنت متأكد من حذف المستند البنكي ${d.bankDocCode}؟'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                              ElevatedButton(
+                                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+                                                onPressed: () => Navigator.pop(ctx, true),
+                                                child: const Text('حذف', style: TextStyle(color: Colors.white)),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmed == true) {
+                                          await ref.read(bankingDocumentsProvider.notifier).deleteBankingDocument(d.bankDocId);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              DataCell(Text(d.bankDocCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                              DataCell(Text(d.docType)),
+                              DataCell(
+                                Text(
+                                  d.importFileCode ?? (d.importFileId != null ? 'FILE-${d.importFileId}' : '-'),
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                              DataCell(Text(d.bankName)),
+                              DataCell(
+                                Text(
+                                  '${d.amount.toStringAsFixed(2)} ${d.currencyCode}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                ),
+                              ),
+                              DataCell(Text(d.requestDate ?? d.issueDate)),
+                              DataCell(
+                                d.docReferenceNumber == 'PENDING'
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.orange.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.orange.shade200)),
+                                        child: const Text('قيد الاستخراج', style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold)),
+                                      )
+                                    : Text(d.docReferenceNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                              ),
+                              DataCell(Text(d.receivedDate ?? '-')),
+                              DataCell(
+                                d.executionDays > 0
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(color: Colors.purple.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.purple.shade200)),
+                                        child: Text('${d.executionDays} يوم', style: TextStyle(fontSize: 11, color: Colors.purple.shade800, fontWeight: FontWeight.bold)),
+                                      )
+                                    : const Text('-'),
+                              ),
+                              DataCell(_buildStatusBadge(d.status)),
+                            ],
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _form4StatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withOpacity(0.15)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 11)),
+              Text(value, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -2586,27 +3562,722 @@ Please note that the required documents for the mentioned shipment must be uploa
 
   Future<void> _saveBankingDoc() async {
     if (!_bankFormKey.currentState!.validate()) return;
+
+    // Duplicate session validation: prevent creating new request if active Form 4 session already exists for this file
+    final bankingDocs = ref.read(bankingDocumentsProvider).value ?? [];
+    if (_editingBankDocId == null && _form4ImportFileId != null && _bankDocType == 'Form 4') {
+      final existingForm4 = bankingDocs.where((d) => d.importFileId == _form4ImportFileId && d.docType == 'Form 4' && d.isActive).firstOrNull;
+      if (existingForm4 != null) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            title: Row(
+              children: const [
+                Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
+                SizedBox(width: 8),
+                Text('طلب نموذج 4 مسجل مسبقاً', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            content: Text(
+              'لا يمكن حفظ طلب نموذج 4 جديد لأن ملف الشحنة المختار مرتبط بالفعل بطلب مسجل ومحفوظ في سجل النماذج (${existingForm4.bankDocCode}${existingForm4.docReferenceNumber != "PENDING" && existingForm4.docReferenceNumber.isNotEmpty ? " - رقم النموذج: ${existingForm4.docReferenceNumber}" : ""}).\n\nيرجى التوجه إلى سجل النماذج للتعديل على الطلب الحالي بدلاً من إنشاء طلب جديد.',
+              style: const TextStyle(fontSize: 13, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.history_edu, size: 16),
+                label: const Text('سجل النماذج'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  setState(() => _form4SubTab = 1);
+                },
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('تعديل الطلب القائم'),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _loadForm4ForEdit(existingForm4);
+                },
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+    }
+
+    setState(() => _isSavingForm4 = true);
     try {
       final payload = {
         'doc_type': _bankDocType,
+        'import_file_id': _form4ImportFileId,
         'bank_id': _selectedBankId,
         'bank_name': _bankName,
-        'doc_reference_number': _bankRefController.text.trim(),
+        'doc_reference_number': 'PENDING',
         'amount': double.tryParse(_bankAmountController.text.trim()) ?? 0.0,
-        'currency_code': 'USD',
-        'issue_date': DateTime.now().toString().substring(0, 10),
+        'currency_code': _form4Currency,
+        'request_date': _form4RequestDateCtrl.text.trim(),
+        'issue_date': _form4RequestDateCtrl.text.trim(),
+        'notes': _form4NotesCtrl.text.trim().isEmpty ? null : _form4NotesCtrl.text.trim(),
       };
-      final created = await ref.read(bankingDocumentsProvider.notifier).createBankingDocument(payload);
-      if (mounted && created != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ تم تسجيل المستند البنكي بنجاح: ${created.bankDocCode}'), backgroundColor: AppTheme.emerald),
-        );
+
+      if (_editingBankDocId != null) {
+        final updated = await ref.read(bankingDocumentsProvider.notifier).updateBankingDocument(_editingBankDocId!, payload);
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+        if (mounted && updated != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم تحديث بيانات طلب نموذج 4 بنجاح: ${updated.bankDocCode}'),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          _showForm4ShareExportDialog(updated);
+        }
+      } else {
+        final created = await ref.read(bankingDocumentsProvider.notifier).createBankingDocument(payload);
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+        if (mounted && created != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم تسجيل وحفظ طلب نموذج 4 بنجاح: ${created.bankDocCode}'),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          // Open the Share / Export Dialog immediately upon saving!
+          _showForm4ShareExportDialog(created);
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ خطأ في حفظ طلب نموذج 4',
+          error: e,
+          subtitle: 'تعذر حفظ المستند البنكي لدى السيرفر.',
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isSavingForm4 = false);
     }
+  }
+
+  // --- DIALOG 1: RECEIVE & ENDORSE FORM 4 (مرحلة استلام وتوثيق نموذج 4) ---
+  void _showReceiveForm4Dialog(BankingDocumentModel doc) {
+    final form4NoCtrl = TextEditingController(text: doc.docReferenceNumber == 'PENDING' ? '' : doc.docReferenceNumber);
+    final receivedDateCtrl = TextEditingController(text: doc.receivedDate ?? DateTime.now().toString().substring(0, 10));
+    final notesCtrl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final reqDate = DateTime.tryParse(doc.requestDate ?? doc.issueDate) ?? DateTime.now();
+            final recDate = DateTime.tryParse(receivedDateCtrl.text) ?? DateTime.now();
+            final execDays = max(0, recDate.difference(reqDate).inDays);
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: Row(
+                children: [
+                  const Icon(Icons.verified_user_rounded, color: AppTheme.emerald, size: 24),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'مرحلة استلام وتوثيق نموذج 4 (${doc.bankDocCode})',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              content: SizedBox(
+                width: 520,
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Summary Banner
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('البنك: ${doc.bankName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text('المبلغ: ${doc.amount} ${doc.currencyCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text('ملف الشحنة: ${doc.importFileCode ?? (doc.importFileId != null ? "FILE-${doc.importFileId}" : "غير مربوط")}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                              Text('تاريخ تقديم الطلب للبنك: ${doc.requestDate ?? doc.issueDate}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Form 4 Number
+                        TextFormField(
+                          controller: form4NoCtrl,
+                          decoration: const InputDecoration(
+                            labelText: 'رقم نموذج 4 الرسمي المعتمد من البنك *',
+                            hintText: 'e.g. F4-2026-99081 / 108472910',
+                            prefixIcon: Icon(Icons.confirmation_number_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty) ? 'رقم نموذج 4 مطلوب' : null,
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Receipt Date with Live Execution Days Calculation
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextFormField(
+                                controller: receivedDateCtrl,
+                                readOnly: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'تاريخ استلام واعتماد النموذج *',
+                                  prefixIcon: Icon(Icons.event_available_rounded),
+                                  border: OutlineInputBorder(),
+                                ),
+                                onTap: () async {
+                                  final picked = await showDatePicker(
+                                    context: context,
+                                    initialDate: recDate,
+                                    firstDate: reqDate,
+                                    lastDate: DateTime(2035),
+                                  );
+                                  if (picked != null) {
+                                    setDialogState(() {
+                                      receivedDateCtrl.text = picked.toString().substring(0, 10);
+                                    });
+                                  }
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            // Execution Days Badge
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.purple.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.purple.shade300),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const Text('مدة التنفيذ', style: TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '$execDays يوم',
+                                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Notes
+                        TextFormField(
+                          controller: notesCtrl,
+                          maxLines: 2,
+                          decoration: const InputDecoration(
+                            labelText: 'ملاحظات الاعتماد والاستلام',
+                            hintText: 'اسم الموظف المستلم أو أي تفاصيل مصرفية إضافية...',
+                            prefixIcon: Icon(Icons.note_alt_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogCtx),
+                  child: const Text('إلغاء'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                  icon: const Icon(Icons.check, size: 18),
+                  label: const Text('اعتماد وحفظ ومزامنة ملف الشحنة'),
+                  onPressed: () async {
+                    if (!formKey.currentState!.validate()) return;
+                    Navigator.pop(dialogCtx);
+                    try {
+                      final payload = {
+                        'form4_number': form4NoCtrl.text.trim(),
+                        'received_date': receivedDateCtrl.text.trim(),
+                        'notes': notesCtrl.text.trim().isEmpty ? null : notesCtrl.text.trim(),
+                      };
+                      final updated = await ref.read(bankingDocumentsProvider.notifier).receiveBankingDocument(doc.bankDocId, payload);
+                      // Auto refresh import files to show the synced Form 4 number and execution days!
+                      ref.read(importFilesProvider.notifier).fetchImportFiles();
+
+                      if (mounted && updated != null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('✅ تم اعتماد نموذج 4 بنجاح وتمت المزامنة الآلية مع ملف الشحنة (${updated.docReferenceNumber})'),
+                            backgroundColor: AppTheme.emerald,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        await showErrorDetailsDialog(
+                          context,
+                          title: '❌ خطأ في اعتماد نموذج 4',
+                          error: e,
+                          subtitle: 'تعذر تحديث بيانات الاستلام.',
+                        );
+                      }
+                    }
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // --- DIALOG 2: SHARE & EXPORT (PDF, EXCEL, WHATSAPP, EMAIL) ---
+  void _showForm4ShareExportDialog(BankingDocumentModel doc) {
+    final reqDate = doc.requestDate ?? doc.issueDate;
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final linkedFile = doc.importFileId != null
+        ? importFiles.where((f) => f.importFileId == doc.importFileId).firstOrNull
+        : null;
+
+    final importerName = doc.importerName ?? linkedFile?.companyName ?? 'الشركة المستوردة';
+    final supplierName = doc.supplierName ?? linkedFile?.supplierName ?? 'المورد الأجنبي';
+    final poNumber = doc.poNumber ?? linkedFile?.poNumber ?? 'PO-1001';
+    final piNumber = linkedFile?.piNumber ?? 'PI-Official';
+    final shipmentMode = linkedFile?.shipmentMode ?? 'Sea FCL';
+
+    // WhatsApp Message Text Pre-generation
+    final whatsAppText = '''
+*طلب توثيق وإصدار نموذج 4 بنكي (CBE Form 4 Application)*
+🏛 *البنك المصرفي:* ${doc.bankName}
+📄 *كود المعاملة:* ${doc.bankDocCode}
+📁 *ملف الشحنة:* ${doc.importFileCode ?? (linkedFile != null ? linkedFile.importFileCode : "-")}
+🏢 *الشركة المستوردة:* $importerName
+🌐 *المورد الأجنبي:* $supplierName
+📦 *أمر الشراء / الفاتورة:* $poNumber / $piNumber
+💰 *المبلغ والعملة:* ${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}
+📅 *تاريخ الطلب:* $reqDate
+📌 *الحالة الحالية:* ${doc.status}
+${doc.docReferenceNumber != 'PENDING' ? '🔢 *رقم نموذج 4 المعتمد:* ' + doc.docReferenceNumber : ''}
+''';
+
+    // Email Subject & Body Pre-generation
+    final emailSubject = 'طلب توثيق وإصدار نموذج 4 - $importerName - ملف ${doc.importFileCode ?? doc.bankDocCode}';
+    final emailBody = '''
+السادة / إدارة العمليات المصرفية والتجارة الخارجية - ${doc.bankName}
+تحية طيبة وبعد،،
+
+يرجى التكرم باتخاذ اللازم نحو توثيق وإصدار نموذج 4 (Form 4) للشحنة الاستيرادية الخاصة بنا وفقاً للبيانات التالية:
+
+• كود الطلب الداخلي: ${doc.bankDocCode}
+• ملف الشحنة: ${doc.importFileCode ?? "-"}
+• الشركة المستوردة: $importerName
+• المورد الأجنبي: $supplierName
+• رقم أمر الشراء: $poNumber
+• رقم الفاتورة المبدئية: $piNumber
+• المبلغ الإجمالي: ${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}
+• تاريخ تقديم الطلب: $reqDate
+• طريقة الشحن: $shipmentMode
+
+مرفق طيه صورة الفاتورة المبدئية ومستندات الشحن للتوثيق البنكي طبقاً لتعليمات البنك المركزي المصري.
+
+وتفضلوا بقبول فائق الاحترام والتقدير،،
+إدارة الاستيراد والتخليص الجمركي
+$importerName
+''';
+
+    // CSV Format String
+    final csvContent = '''
+كود الطلب,نوع المعاملة,البنك المصرفي,ملف الشحنة,الشركة المستوردة,المورد الأجنبي,رقم أمر الشراء,المبلغ,العملة,تاريخ الطلب,رقم نموذج 4,تاريخ الاستلام,أيام التنفيذ,الحالة
+"${doc.bankDocCode}","${doc.docType}","${doc.bankName}","${doc.importFileCode ?? ''}","$importerName","$supplierName","$poNumber",${doc.amount},"${doc.currencyCode}","$reqDate","${doc.docReferenceNumber}","${doc.receivedDate ?? ''}",${doc.executionDays},"${doc.status}"
+''';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.print_outlined, color: AppTheme.cobalt, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'خيارات التصدير والمشاركة لنموذج 4 (${doc.bankDocCode})',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 650,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Action Cards Grid
+                  Row(
+                    children: [
+                      // PDF Preview & Print Card
+                      Expanded(
+                        child: _buildShareActionCard(
+                          icon: Icons.picture_as_pdf_rounded,
+                          title: 'عرض وتنزيل PDF',
+                          subtitle: 'طباعة خطاب طلب نموذج 4 الرسمي الموجه للبنك',
+                          color: Colors.red.shade700,
+                          bgColor: Colors.red.shade50,
+                          onTap: () {
+                            _showPdfPreviewModal(doc, importerName, supplierName, poNumber, piNumber, reqDate);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Excel Export Card
+                      Expanded(
+                        child: _buildShareActionCard(
+                          icon: Icons.table_view_rounded,
+                          title: 'تصدير إكسيل (Excel / CSV)',
+                          subtitle: 'نسخ وتنزيل بيانات النموذج بتنسيق جدول بيانات',
+                          color: Colors.green.shade700,
+                          bgColor: Colors.green.shade50,
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: csvContent));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('✅ تم نسخ بيانات الجدول (CSV / Excel) إلى الحافظة بنجاح!'),
+                                backgroundColor: AppTheme.emerald,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      // WhatsApp Share Card
+                      Expanded(
+                        child: _buildShareActionCard(
+                          icon: Icons.chat_rounded,
+                          title: 'إرسال عبر واتساب (WhatsApp)',
+                          subtitle: 'مشاركة رسالة منسقة وجاهزة بالبيانات للبنك/المسؤول',
+                          color: const Color(0xFF25D366),
+                          bgColor: const Color(0xFFE8F8EE),
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: whatsAppText));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('✅ تم نسخ نص رسالة الواتساب المنسقة إلى الحافظة بنجاح!'),
+                                backgroundColor: Color(0xFF25D366),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      // Email Share Card
+                      Expanded(
+                        child: _buildShareActionCard(
+                          icon: Icons.email_outlined,
+                          title: 'إرسال بريد إلكتروني (Email)',
+                          subtitle: 'توليد خطاب إيميل رسمي لإدارة العمليات المصرفية',
+                          color: AppTheme.cobalt,
+                          bgColor: Colors.blue.shade50,
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: 'Subject: $emailSubject\n\n$emailBody'));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('✅ تم نسخ موضوع ومحتوى البريد الإلكتروني إلى الحافظة بنجاح!'),
+                                backgroundColor: AppTheme.cobalt,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Message Preview Box
+                  const Text('معاينة نص الخطاب / المراسلة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  const SizedBox(height: 6),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Text(
+                      emailBody,
+                      style: const TextStyle(fontSize: 12, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogCtx),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildShareActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required Color bgColor,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.4)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, color: color, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showPdfPreviewModal(
+    BankingDocumentModel doc,
+    String importerName,
+    String supplierName,
+    String poNumber,
+    String piNumber,
+    String reqDate,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            children: [
+              const Icon(Icons.picture_as_pdf, color: Colors.red, size: 24),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('معاينة وثيقة طلب نموذج 4 (${doc.bankDocCode}) - PDF'),
+              ),
+            ],
+          ),
+          content: Container(
+            width: 600,
+            height: 520,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10)],
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Official Header
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(importerName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const Text('إدارة التجارة الخارجية والعمليات الاستيرادية', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        ],
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(color: AppTheme.charcoal, borderRadius: BorderRadius.circular(4)),
+                        child: Text(doc.bankDocCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                    ],
+                  ),
+                  const Divider(thickness: 1.5, height: 24),
+
+                  // Bank & Date
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('إلى: السادة / ${doc.bankName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text('التاريخ: $reqDate', style: const TextStyle(fontSize: 13)),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // Subject
+                  Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.grey.shade400)),
+                      child: const Text(
+                        'الموضوع: طلب إصدار وتوثيق نموذج 4 بنكي (CBE Form 4 Application)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Table of details
+                  Table(
+                    border: TableBorder.all(color: Colors.grey.shade300),
+                    children: [
+                      _buildPdfRow('الشركة المستوردة:', importerName),
+                      _buildPdfRow('المورد الأجنبي / المستفيد:', supplierName),
+                      _buildPdfRow('رقم أمر الشراء (PO):', poNumber),
+                      _buildPdfRow('رقم الفاتورة المبدئية (PI):', piNumber),
+                      _buildPdfRow('المبلغ الإجمالي:', '${doc.amount.toStringAsFixed(2)} ${doc.currencyCode}'),
+                      _buildPdfRow('ملف الشحنة الداخلي:', doc.importFileCode ?? "-"),
+                      _buildPdfRow('نوع المعاملة البنكية:', doc.docType),
+                      if (doc.docReferenceNumber != 'PENDING')
+                        _buildPdfRow('رقم نموذج 4 المعتمد:', doc.docReferenceNumber),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // CBE Text
+                  const Text(
+                    'نقر بصحة البيانات الواردة أعلاه ونفوضكم في توثيق نموذج 4 طبقاً للتعليمات والضوابط المنظمة الصادرة عن البنك المركزي المصري ومنظومة نافذة النافذة الواحدة.',
+                    style: TextStyle(fontSize: 11, height: 1.4, color: Colors.black87),
+                  ),
+                  const SizedBox(height: 30),
+
+                  // Signatures
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        children: [
+                          Text('توقيع المدير المالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          SizedBox(height: 35),
+                          Text('.............................', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Text('ختم الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          SizedBox(height: 35),
+                          Text('[ خـتـم الـشـركـة ]', style: TextStyle(color: Colors.grey, fontSize: 11)),
+                        ],
+                      ),
+                      Column(
+                        children: [
+                          Text('اعتماد البنك المصرفي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          SizedBox(height: 35),
+                          Text('.............................', style: TextStyle(color: Colors.grey)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            ElevatedButton.icon(
+              icon: const Icon(Icons.print, size: 18),
+              label: const Text('طباعة / تنزيل PDF'),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('🖨️ تم إرسال وثيقة طلب نموذج 4 للطباعة والحفظ بصيغة PDF بنجاح!'), backgroundColor: AppTheme.emerald),
+                );
+              },
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إغلاق'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  TableRow _buildPdfRow(String label, String value) {
+    return TableRow(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          child: Text(value, style: const TextStyle(fontSize: 12)),
+        ),
+      ],
+    );
   }
 
   Future<void> _saveShipmentDoc() async {
@@ -2742,14 +4413,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                 ),
                 ListTile(
                   dense: true,
-                  leading: const Icon(Icons.receipt_long, color: AppTheme.charcoal),
-                  title: Text('رقم الفاتورة: ${acid.proformaInvoiceNo} | أمر الشراء: ${acid.poNumber ?? "-"}'),
-                  subtitle: Text('ميناء الشحن: ${acid.polName} ➔ ميناء الوصول: ${acid.podName}'),
+                  leading: const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                  title: Text('ملف الشحنة المرتبط: ${acid.importFileCode ?? "-"}'),
+                  subtitle: Text('رقم الفاتورة: ${acid.proformaInvoiceNo} | أمر الشراء: ${acid.poNumber ?? "-"} | ميناء الشحن: ${acid.polName} ➔ الوصول: ${acid.podName}'),
                 ),
                 ListTile(
                   dense: true,
                   leading: const Icon(Icons.event, color: AppTheme.charcoal),
-                  title: Text('تاريخ الطلب: ${acid.requestedDate ?? "-"} | تاريخ الإصدار: ${acid.generatedDate ?? "-"}'),
+                  title: Text('تاريخ الطلب: ${acid.requestedDate ?? "-"} | تاريخ الإصدار: ${acid.generatedDate ?? "-"} | مدة التنفيذ: ${acid.executionDays != null ? "${acid.executionDays} يوم" : "-"}'),
                   subtitle: Text('تاريخ الانتهاء: ${acid.expiryDate ?? "-"} (متبقي ${acid.daysToExpiry} يومًا)'),
                 ),
                 if (acid.discrepancyOverrideReason != null && acid.discrepancyOverrideReason!.isNotEmpty) ...[

@@ -20,6 +20,8 @@ class SupplierBase(BaseModel):
 
     foreign_exporter_id: str
 
+    cargox_platform_id: str | None = None
+
     foreign_exporter_country: str
 
     foreign_exporter_country_code: str
@@ -80,6 +82,8 @@ class SupplierUpdate(BaseModel):
 
     foreign_exporter_id: str | None = None
 
+    cargox_platform_id: str | None = None
+
     foreign_exporter_country: str | None = None
 
     foreign_exporter_country_code: str | None = None
@@ -98,28 +102,6 @@ class SupplierUpdate(BaseModel):
 
     website: str | None = None
 
-    has_iso: bool | None = None
-
-    registered_decree_43: bool | None = None
-
-    white_list_registered: bool | None = None
-
-    registration_type: str | None = None
-
-    foreign_exporter_id: str | None = None
-
-    foreign_exporter_country: str | None = None
-
-    foreign_exporter_country_code: str | None = None
-
-    address: str | None = None
-
-    phone: str | None = None
-
-    email: str | None = None
-
-    website: str | None = None
-
     bank_name: str | None = None
 
     swift_code: str | None = None
@@ -127,6 +109,12 @@ class SupplierUpdate(BaseModel):
     account_number: str | None = None
 
     iban: str | None = None
+
+    has_iso: bool | None = None
+
+    registered_decree_43: bool | None = None
+
+    white_list_registered: bool | None = None
 
     brands: str | None = None
 

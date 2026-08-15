@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 
 # ==================================================
 # Database
@@ -96,28 +96,59 @@ app = FastAPI(
     version="1.0.0",
 )
 
-# CORS Middleware Setup
-# IMPORTANT: allow_credentials=True with allow_origins=["*"] is FORBIDDEN by CORS spec.
-# Browsers will block all preflight OPTIONS requests when both are set together.
-# Since we use token-based auth (no cookies), credentials=False is correct.
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:8080",
-        "http://127.0.0.1:8080",
-        "http://localhost:8000",
-        "http://127.0.0.1:8000",
-        "http://localhost:5000",
-        "http://127.0.0.1:5000",
-    ],
-    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+# ==================================================
+# Custom CORS & Private Network Access (PNA) Middleware
+# ==================================================
+# Modern Chrome / Edge browsers enforce strict Private Network Access (PNA) checks
+# for requests originating from Flutter Web or localhost apps to local APIs.
+# This custom ASGI middleware supports full PNA headers and wildcard/matching origins.
+
+class CustomCORSMiddleware:
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        headers = dict(scope.get("headers", []))
+        origin = headers.get(b"origin", b"").decode("utf-8")
+
+        if scope["method"] == "OPTIONS":
+            req_headers = headers.get(b"access-control-request-headers", b"*").decode("utf-8")
+            response_headers = [
+                (b"access-control-allow-origin", origin.encode() if origin else b"*"),
+                (b"access-control-allow-methods", b"GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"),
+                (b"access-control-allow-headers", req_headers.encode() if req_headers else b"*"),
+                (b"access-control-allow-credentials", b"true"),
+                (b"access-control-allow-private-network", b"true"),
+                (b"access-control-max-age", b"86400"),
+                (b"content-length", b"0"),
+            ]
+            await send({
+                "type": "http.response.start",
+                "status": 204,
+                "headers": response_headers,
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+            })
+            return
+
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                resp_headers = list(message.get("headers", []))
+                resp_headers.append((b"access-control-allow-origin", origin.encode() if origin else b"*"))
+                resp_headers.append((b"access-control-allow-credentials", b"true"))
+                resp_headers.append((b"access-control-allow-private-network", b"true"))
+                message["headers"] = resp_headers
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+app.add_middleware(CustomCORSMiddleware)
 
 
 

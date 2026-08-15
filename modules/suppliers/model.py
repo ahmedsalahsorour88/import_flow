@@ -66,6 +66,13 @@ class Supplier(Base):
     )
 
 
+    # CargoX Platform Registration ID
+    cargox_platform_id = Column(
+        String(100),
+        nullable=True
+    )
+
+
     # ==================================================
     # Country Information
     # ==================================================

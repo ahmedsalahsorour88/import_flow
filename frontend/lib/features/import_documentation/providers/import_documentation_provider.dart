@@ -177,6 +177,44 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
       rethrow;
     }
   }
+
+  Future<BankingDocumentModel?> receiveBankingDocument(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId/receive',
+        data: payload,
+      );
+      final received = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      return received;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<BankingDocumentModel?> updateBankingDocument(int bankDocId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId',
+        data: payload,
+      );
+      final updated = BankingDocumentModel.fromJson(response.data);
+      await fetchBankingDocuments();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteBankingDocument(int bankDocId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/import-documentation/banking-documents/$bankDocId');
+      await fetchBankingDocuments();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 final shipmentDocumentsProvider =

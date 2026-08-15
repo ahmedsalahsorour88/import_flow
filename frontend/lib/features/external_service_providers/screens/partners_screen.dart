@@ -9,6 +9,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
+import '../widgets/partner_statement_of_account_dialog.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
@@ -284,13 +285,13 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   : 950,
                             ),
                             child: Table(
-                              columnWidths: const {
+                                columnWidths: const {
                                 0: FixedColumnWidth(110),
                                 1: FlexColumnWidth(3),
                                 2: FlexColumnWidth(2.5),
                                 3: FlexColumnWidth(2),
                                 4: FixedColumnWidth(85),
-                                5: FixedColumnWidth(150),
+                                5: FixedColumnWidth(195),
                               },
                               children: [
                                 // Table Header
@@ -423,54 +424,83 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         ),
                                       ),
 
-                                       // Actions: View, Edit, Print, Delete
-                                       _cell(
-                                         child: RowActionsPill(
-                                           onView: () {
-                                             if (partner.providerId != null) {
-                                               RowHistoryDialog.show(
-                                                 context,
-                                                 entityType: 'ExternalServiceProvider',
-                                                 entityId: partner.providerId!,
-                                                 entityTitle: partner.partnerName,
-                                               );
-                                             }
-                                           },
-                                           onEdit: () => _showPartnerDialog(context, partner),
-                                           onPrint: () {
-                                             ScaffoldMessenger.of(context).showSnackBar(
-                                               SnackBar(
-                                                 content: Text('طباعة بيانات الشريك: ${partner.partnerName} (${partner.partnerCode})'),
-                                                 backgroundColor: AppTheme.charcoal,
-                                                 duration: const Duration(seconds: 2),
-                                               ),
-                                             );
-                                           },
-                                           onDelete: () async {
-                                             final confirm = await showDialog<bool>(
-                                               context: context,
-                                               builder: (ctx) => AlertDialog(
-                                                 title: const Text('تأكيد الإجراء'),
-                                                 content: Text(isActive
-                                                     ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشريك (${partner.partnerName})؟'
-                                                     : 'هل أنت متأكد من إعادة تفعيل الشريك (${partner.partnerName})؟'),
-                                                 actions: [
-                                                   TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
-                                                   ElevatedButton(
-                                                     onPressed: () => Navigator.pop(ctx, true),
-                                                     style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                     child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
-                                                   ),
-                                                 ],
-                                               ),
-                                             );
-                                             if (confirm == true && partner.providerId != null) {
-                                               ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
-                                             }
-                                           },
-                                           deleteTooltip: isActive ? 'إيقاف تفعيل الشريك (Deactivate)' : 'إعادة تفعيل الشريك (Activate)',
-                                         ),
-                                       ),
+                                      // Actions: View, Edit, Print, Delete, Statement of Account
+                                        _cell(
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Tooltip(
+                                                message: 'كشف حساب الشريك والأرصدة بالعملات (Statement of Account)',
+                                                child: InkWell(
+                                                  onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
+                                                  borderRadius: BorderRadius.circular(4),
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                                                    margin: const EdgeInsets.only(right: 6),
+                                                    decoration: BoxDecoration(
+                                                      color: AppTheme.cobalt.withOpacity(0.12),
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                                    ),
+                                                    child: const Row(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
+                                                        SizedBox(width: 3),
+                                                        Text('كشف حساب', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                              RowActionsPill(
+                                                onView: () {
+                                                  if (partner.providerId != null) {
+                                                    RowHistoryDialog.show(
+                                                      context,
+                                                      entityType: 'ExternalServiceProvider',
+                                                      entityId: partner.providerId!,
+                                                      entityTitle: partner.partnerName,
+                                                    );
+                                                  }
+                                                },
+                                                onEdit: () => _showPartnerDialog(context, partner),
+                                                onPrint: () {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(
+                                                      content: Text('طباعة بيانات الشريك: ${partner.partnerName} (${partner.partnerCode})'),
+                                                      backgroundColor: AppTheme.charcoal,
+                                                      duration: const Duration(seconds: 2),
+                                                    ),
+                                                  );
+                                                },
+                                                onDelete: () async {
+                                                  final confirm = await showDialog<bool>(
+                                                    context: context,
+                                                    builder: (ctx) => AlertDialog(
+                                                      title: const Text('تأكيد الإجراء'),
+                                                      content: Text(isActive
+                                                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشريك (${partner.partnerName})؟'
+                                                          : 'هل أنت متأكد من إعادة تفعيل الشريك (${partner.partnerName})؟'),
+                                                      actions: [
+                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                        ElevatedButton(
+                                                          onPressed: () => Navigator.pop(ctx, true),
+                                                          style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
+                                                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  );
+                                                  if (confirm == true && partner.providerId != null) {
+                                                    ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
+                                                  }
+                                                },
+                                                deleteTooltip: isActive ? 'إيقاف تفعيل الشريك (Deactivate)' : 'إعادة تفعيل الشريك (Activate)',
+                                              ),
+                                            ],
+                                          ),
+                                        ),
                                     ],
                                   );
                                 }),

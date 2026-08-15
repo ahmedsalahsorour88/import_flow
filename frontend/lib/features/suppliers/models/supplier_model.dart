@@ -14,6 +14,10 @@ class SupplierModel {
   final String? email;
   final String? secondaryEmail;
   final String? website;
+  final String? bankName;
+  final String? swiftCode;
+  final String? accountNumber;
+  final String? iban;
   final bool hasIso;
   final bool registeredDecree43;
   final bool whiteListRegistered;
@@ -37,6 +41,10 @@ class SupplierModel {
     this.email,
     this.secondaryEmail,
     this.website,
+    this.bankName,
+    this.swiftCode,
+    this.accountNumber,
+    this.iban,
     this.hasIso = false,
     this.registeredDecree43 = false,
     this.whiteListRegistered = false,
@@ -73,6 +81,10 @@ class SupplierModel {
       email: json['email']?.toString(),
       secondaryEmail: json['secondary_email']?.toString(),
       website: json['website']?.toString(),
+      bankName: json['bank_name']?.toString(),
+      swiftCode: json['swift_code']?.toString(),
+      accountNumber: json['account_number']?.toString(),
+      iban: json['iban']?.toString(),
       hasIso: parseBool(json['has_iso']),
       registeredDecree43: parseBool(json['registered_decree_43']),
       whiteListRegistered: parseBool(json['white_list_registered']),
@@ -99,6 +111,10 @@ class SupplierModel {
       'email': email,
       'secondary_email': secondaryEmail,
       'website': website,
+      'bank_name': bankName,
+      'swift_code': swiftCode,
+      'account_number': accountNumber,
+      'iban': iban,
       'has_iso': hasIso,
       'registered_decree_43': registeredDecree43,
       'white_list_registered': whiteListRegistered,

@@ -207,6 +207,16 @@ class ShippingScenarioService:
         db: Session, payload: ShippingEvaluationCreate
     ) -> ShippingEvaluationResponse:
         ShippingScenarioValidator.validate_evaluation_create(payload)
+
+        # Prevent duplicate scenario creation for the same import file
+        if payload.import_file_id:
+            existing = ShippingScenarioRepository.list_sessions(db, import_file_id=payload.import_file_id)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"يوجد بالفعل دراسة سيناريوهات شحن محفوظة لهذا الملف. يرجى الذهاب لتعديل الدراسة الحالية بدلاً من إنشاء دراسة جديدة.",
+                )
+
         session_obj = ShippingScenarioRepository.create(db, payload)
         res = ShippingScenarioService._enrich_session_response(db, session_obj)
         if res.import_file_id and res.recommended_scenario_provider:

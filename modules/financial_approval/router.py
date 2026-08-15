@@ -11,14 +11,26 @@ from modules.financial_approval.schemas import (
     PaymentRequestCreate,
     PaymentRequestUpdate,
     PaymentRequestResponse,
+    SwiftReconciliationRequest,
     ImportBudgetCreate,
     ImportBudgetUpdate,
     ImportBudgetResponse,
+    BudgetPrefillResponse,
 )
 import modules.financial_approval.service as service
 import modules.financial_approval.repository as repo
 
 router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"])
+
+
+# --- CROSS-MODULE PREFILL & AGGREGATOR ENDPOINT ---
+@router.get(
+    "/prefill/{import_file_id}",
+    response_model=BudgetPrefillResponse,
+    summary="Get cross-module prefilled financial and budget estimates for an import file",
+)
+def get_budget_prefill(import_file_id: int, db: Session = Depends(get_db)):
+    return service.get_budget_prefill_service(db, import_file_id)
 
 
 # --- PAYMENT REQUEST ENDPOINTS (BP-012) ---
@@ -93,6 +105,19 @@ def execute_payment(
     db: Session = Depends(get_db),
 ):
     return service.execute_payment_service(db, payment_id, swift_reference_no)
+
+
+@router.post(
+    "/payment-requests/{payment_id}/reconcile-swift",
+    response_model=PaymentRequestResponse,
+    summary="Reconcile and confirm bank SWIFT receipt against payment request",
+)
+def reconcile_swift_payment(
+    payment_id: int,
+    payload: SwiftReconciliationRequest,
+    db: Session = Depends(get_db),
+):
+    return service.reconcile_swift_service(db, payment_id, payload)
 
 
 @router.delete("/payment-requests/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)

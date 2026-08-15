@@ -238,6 +238,15 @@ class CustomsConsultationService:
         validate_broker_exists(db, session_in.broker_id)
         validate_checklist_items(session_in.checklist_items)
 
+        # Prevent duplicate consultation creation for the same import file
+        if session_in.import_file_id:
+            existing = CustomsConsultationRepository.list_consultations(db, import_file_id=session_in.import_file_id)
+            if existing:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"يوجد بالفعل دراسة استشارة جمركية محفوظة لهذا الملف. يرجى الذهاب لتعديل الدراسة الحالية بدلاً من إنشاء دراسة جديدة.",
+                )
+
         db_session = CustomsConsultationRepository.create(db, session_in)
         return CustomsConsultationService._compute_session_metrics(db, db_session)
 

@@ -445,7 +445,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                 }
                                 buffer.writeln('File: ${f.customFileNumber ?? f.importFileCode} | Company: ${f.companyName} | Total CBM: ${fileCbm.toStringAsFixed(3)} m3 | Total Wt: ${fileWt.toStringAsFixed(0)} kg | POs Count: ${linkedPOs.length}');
                                 for (var po in linkedPOs) {
-                                  buffer.writeln('   - PO: ${po.poNumber} | PI: ${po.proformaInvoiceNumber ?? "-"} | Supplier: ${po.supplierName} | Amount: \$${po.totalAmountFob} | CBM: ${po.totalCbm} m3 | Status: ${po.status}');
+                                  buffer.writeln('   - PO: ${po.poNumber} | PI: ${po.proformaInvoiceNumber ?? "-"} | Supplier: ${po.supplierName} | Amount: ${po.currencyCode ?? "USD"} ${po.totalAmountFob} | CBM: ${po.totalCbm} m3 | Status: ${po.status}');
                                 }
                               }
 
@@ -787,6 +787,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           DataColumn(label: Text('رقم أمر الشراء')),
                                           DataColumn(label: Text('PI رقم الفاتورة المبدئية')),
                                           DataColumn(label: Text('المورد الأجنبي')),
+                                          DataColumn(label: Text('طريقة وشروط السداد')),
                                           DataColumn(label: Text('قيمة الفاتورة')),
                                           DataColumn(label: Text('قوائم التعبئة')),
                                           DataColumn(label: Text('الوزن / CBM')),
@@ -810,7 +811,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                               DataCell(Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                               DataCell(Text(po.proformaInvoiceNumber ?? '-')),
                                               DataCell(Text(po.supplierName ?? file.supplierName)),
-                                              DataCell(Text('\$ ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                                              DataCell(Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
+                                                child: Text(po.paymentTerms ?? 'غير محدد', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                              )),
+                                               DataCell(Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
                                               DataCell(Text('${po.packingListItems.length} بند تعبئة')),
                                               DataCell(Text('${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                               DataCell(Text(po.status, style: TextStyle(color: po.status == 'Approved' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold))),
@@ -2137,13 +2143,14 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                   : Table(
                       border: TableBorder.all(color: Colors.grey.shade300),
                       columnWidths: const {
-                        0: FlexColumnWidth(1.5),
-                        1: FlexColumnWidth(1.5),
-                        2: FlexColumnWidth(2.0),
-                        3: FlexColumnWidth(1.5),
-                        4: FlexColumnWidth(1.2),
-                        5: FlexColumnWidth(1.6),
-                        6: FlexColumnWidth(1.2),
+                        0: FlexColumnWidth(1.4),
+                        1: FlexColumnWidth(1.2),
+                        2: FlexColumnWidth(1.8),
+                        3: FlexColumnWidth(1.6),
+                        4: FlexColumnWidth(1.4),
+                        5: FlexColumnWidth(1.0),
+                        6: FlexColumnWidth(1.5),
+                        7: FlexColumnWidth(1.0),
                       },
                       children: [
                         const TableRow(
@@ -2152,6 +2159,7 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                             Padding(padding: EdgeInsets.all(8), child: Text('رقم أمر الشراء', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: EdgeInsets.all(8), child: Text('رقم الفاتورة المبدئية PI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: EdgeInsets.all(8), child: Text('المورد الأجنبي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: EdgeInsets.all(8), child: Text('طريقة وشروط السداد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: EdgeInsets.all(8), child: Text('قيمة الفاتورة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: EdgeInsets.all(8), child: Text('قوائم التعبئة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: EdgeInsets.all(8), child: Text('CBM / الوزن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
@@ -2172,7 +2180,15 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.proformaInvoiceNumber ?? '-')),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.supplierName ?? '-')),
-                              Padding(padding: const EdgeInsets.all(8), child: Text('\$${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                              Padding(
+                                padding: const EdgeInsets.all(8),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
+                                  child: Text(po.paymentTerms ?? 'غير محدد', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                              Padding(padding: const EdgeInsets.all(8), child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
                               Padding(padding: const EdgeInsets.all(8), child: Text('$plCount بند تعبئة', style: const TextStyle(fontWeight: FontWeight.w600))),
                               Padding(padding: const EdgeInsets.all(8), child: Text('${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),

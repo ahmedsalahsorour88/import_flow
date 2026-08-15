@@ -16,6 +16,10 @@ void main() {
         'address': 'Hangzhou, China',
         'phone': '+865718888',
         'email': 'sales@zhejiang.cn',
+        'bank_name': 'Bank of China',
+        'swift_code': 'BKCHCN2SXXX',
+        'account_number': '12345678',
+        'iban': 'CN12345678',
         'brands': 'Zhejiang Pro',
         'is_active': true,
       };
@@ -27,6 +31,10 @@ void main() {
       expect(model.companyName, 'Zhejiang Heavy Tools Co');
       expect(model.foreignExporterId, 'EXP-CN-7744');
       expect(model.foreignExporterCountryCode, 'CN');
+      expect(model.bankName, 'Bank of China');
+      expect(model.swiftCode, 'BKCHCN2SXXX');
+      expect(model.accountNumber, '12345678');
+      expect(model.iban, 'CN12345678');
       expect(model.isActive, true);
     });
 
@@ -41,6 +49,10 @@ void main() {
         foreignExporterCountry: 'Germany',
         foreignExporterCountryCode: 'DE',
         address: 'Munich, Germany',
+        bankName: 'Deutsche Bank',
+        swiftCode: 'DEUTDEDBFXX',
+        accountNumber: 'DE89000',
+        iban: 'DE89000',
       );
 
       final json = model.toJson();
@@ -49,6 +61,8 @@ void main() {
       expect(json['supplier_code'], 'SUP-000002');
       expect(json['company_name'], 'Bavaria Motor Parts GMBH');
       expect(json['foreign_exporter_country_code'], 'DE');
+      expect(json['bank_name'], 'Deutsche Bank');
+      expect(json['swift_code'], 'DEUTDEDBFXX');
     });
   });
 }

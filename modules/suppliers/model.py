@@ -125,6 +125,30 @@ class Supplier(Base):
     )
 
     # ==================================================
+    # Banking Information
+    # ==================================================
+
+    bank_name = Column(
+        String(200),
+        nullable=True
+    )
+
+    swift_code = Column(
+        String(50),
+        nullable=True
+    )
+
+    account_number = Column(
+        String(100),
+        nullable=True
+    )
+
+    iban = Column(
+        String(100),
+        nullable=True
+    )
+
+    # ==================================================
     # Business & Compliance Flags
     # ==================================================
 

@@ -62,6 +62,20 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     }
   }
 
+  Future<PaymentRequestModel?> updatePaymentRequest(int paymentId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId',
+        data: payload,
+      );
+      final updated = PaymentRequestModel.fromJson(response.data);
+      await fetchPaymentRequests();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<PaymentRequestModel?> approvePaymentRequest(int paymentId) async {
     try {
       final response = await _dio.post(
@@ -84,6 +98,34 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
       final paid = PaymentRequestModel.fromJson(response.data);
       await fetchPaymentRequests();
       return paid;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<PaymentRequestModel?> reconcileSwift({
+    required int paymentId,
+    required String swiftReferenceNo,
+    required String swiftReceiptDate,
+    required double swiftTransferredAmount,
+    String swiftTransferredCurrency = 'USD',
+    String? swiftReconciliationNotes,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/reconcile-swift',
+        data: {
+          'swift_reference_no': swiftReferenceNo,
+          'swift_receipt_date': swiftReceiptDate,
+          'swift_transferred_amount': swiftTransferredAmount,
+          'swift_transferred_currency': swiftTransferredCurrency,
+          if (swiftReconciliationNotes != null && swiftReconciliationNotes.isNotEmpty)
+            'swift_reconciliation_notes': swiftReconciliationNotes,
+        },
+      );
+      final reconciled = PaymentRequestModel.fromJson(response.data);
+      await fetchPaymentRequests();
+      return reconciled;
     } catch (e) {
       rethrow;
     }
@@ -169,6 +211,17 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       return approved;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<BudgetPrefillModel?> fetchBudgetPrefill(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/financial-approval/prefill/$importFileId',
+      );
+      return BudgetPrefillModel.fromJson(response.data);
+    } catch (e) {
+      return null;
     }
   }
 }

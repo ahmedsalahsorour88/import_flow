@@ -38,6 +38,14 @@ class SupplierBase(BaseModel):
 
     website: str | None = None
 
+    bank_name: str | None = None
+
+    swift_code: str | None = None
+
+    account_number: str | None = None
+
+    iban: str | None = None
+
     has_iso: bool = False
 
     registered_decree_43: bool = False
@@ -111,6 +119,14 @@ class SupplierUpdate(BaseModel):
     email: str | None = None
 
     website: str | None = None
+
+    bank_name: str | None = None
+
+    swift_code: str | None = None
+
+    account_number: str | None = None
+
+    iban: str | None = None
 
     brands: str | None = None
 

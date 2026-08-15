@@ -466,6 +466,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     final emailCtrl = TextEditingController(text: supplierToEdit?.email ?? '');
     final secondaryEmailCtrl = TextEditingController(text: supplierToEdit?.secondaryEmail ?? '');
     final websiteCtrl = TextEditingController(text: supplierToEdit?.website ?? '');
+    final bankNameCtrl = TextEditingController(text: supplierToEdit?.bankName ?? '');
+    final swiftCodeCtrl = TextEditingController(text: supplierToEdit?.swiftCode ?? '');
+    final accountNumberCtrl = TextEditingController(text: supplierToEdit?.accountNumber ?? '');
+    final ibanCtrl = TextEditingController(text: supplierToEdit?.iban ?? '');
     final brandsCtrl = TextEditingController(text: supplierToEdit?.brands ?? '');
     final notesCtrl = TextEditingController(text: supplierToEdit?.notes ?? '');
 
@@ -663,6 +667,64 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 hint: 'www.gind.it',
                               ),
                               const SizedBox(height: 16),
+                              // Beneficiary Bank & SWIFT Information
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.blueGrey.shade50.withOpacity(0.5),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.blueGrey.shade200),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Row(
+                                      children: [
+                                        Icon(Icons.account_balance, size: 16, color: AppTheme.charcoal),
+                                        SizedBox(width: 6),
+                                        Text('Beneficiary Bank & SWIFT Details (بيانات البنك والسويفت):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    CustomTextField(
+                                      controller: bankNameCtrl,
+                                      label: 'Bank Name (اسم البنك)',
+                                      icon: Icons.business,
+                                      hint: 'e.g. Bank of China, Deutsche Bank',
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: CustomTextField(
+                                            controller: swiftCodeCtrl,
+                                            label: 'SWIFT Code (كود السويفت)',
+                                            icon: Icons.code,
+                                            hint: 'e.g. BKCHCN2SXXX',
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: CustomTextField(
+                                            controller: accountNumberCtrl,
+                                            label: 'Account No. / رقم الحساب',
+                                            icon: Icons.numbers,
+                                            hint: 'e.g. 1234567890',
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    CustomTextField(
+                                      controller: ibanCtrl,
+                                      label: 'IBAN / رقم الحساب الدولي',
+                                      icon: Icons.credit_card,
+                                      hint: 'e.g. CN980100987654321 / IT28W...',
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 16),
                               // Compliance Flags Section
                               Container(
                                 padding: const EdgeInsets.all(12),
@@ -762,6 +824,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 email: emailCtrl.text.trim().isEmpty ? null : emailCtrl.text.trim(),
                                 secondaryEmail: secondaryEmailCtrl.text.trim().isEmpty ? null : secondaryEmailCtrl.text.trim(),
                                 website: websiteCtrl.text.trim().isEmpty ? null : websiteCtrl.text.trim(),
+                                bankName: bankNameCtrl.text.trim().isEmpty ? null : bankNameCtrl.text.trim(),
+                                swiftCode: swiftCodeCtrl.text.trim().isEmpty ? null : swiftCodeCtrl.text.trim(),
+                                accountNumber: accountNumberCtrl.text.trim().isEmpty ? null : accountNumberCtrl.text.trim(),
+                                iban: ibanCtrl.text.trim().isEmpty ? null : ibanCtrl.text.trim(),
                                 hasIso: hasIso,
                                 registeredDecree43: registeredDecree43,
                                 whiteListRegistered: whiteListRegistered,

@@ -52,6 +52,10 @@ def migrate_db():
             ("secondary_email", "VARCHAR(150)"),
             ("mobile", "VARCHAR(50)"),
             ("fax", "VARCHAR(50)"),
+            ("bank_name", "VARCHAR(200)"),
+            ("swift_code", "VARCHAR(50)"),
+            ("account_number", "VARCHAR(100)"),
+            ("iban", "VARCHAR(100)"),
             ("has_iso", "BOOLEAN DEFAULT 0"),
             ("registered_decree_43", "BOOLEAN DEFAULT 0"),
             ("white_list_registered", "BOOLEAN DEFAULT 0"),
@@ -194,6 +198,48 @@ def migrate_db():
                     print(f"Added column '{col_name}' ({col_type}) to customs_consultation_sessions table.")
                 except Exception as e:
                     print(f"Error adding column {col_name} to customs_consultation_sessions: {e}")
+
+    # Migration for import_budget_approvals table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='import_budget_approvals'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(import_budget_approvals)")
+        iba_cols = [info[1] for info in cursor.fetchall()]
+        iba_new_cols = [
+            ("invoice_amount_foreign", "FLOAT DEFAULT 0.0"),
+            ("invoice_currency", "VARCHAR(10) DEFAULT 'USD'"),
+            ("freight_cost_foreign", "FLOAT DEFAULT 0.0"),
+            ("freight_currency", "VARCHAR(10) DEFAULT 'USD'"),
+            ("exchange_rate", "FLOAT DEFAULT 50.0"),
+        ]
+        for col_name, col_type in iba_new_cols:
+            if col_name not in iba_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE import_budget_approvals ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to import_budget_approvals table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to import_budget_approvals: {e}")
+
+    # Migration for payment_request_sessions table
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='payment_request_sessions'")
+    if cursor.fetchone():
+        cursor.execute("PRAGMA table_info(payment_request_sessions)")
+        prs_cols = [info[1] for info in cursor.fetchall()]
+        prs_new_cols = [
+            ("swift_receipt_date", "DATE"),
+            ("swift_transferred_amount", "FLOAT"),
+            ("swift_transferred_currency", "VARCHAR(10)"),
+            ("swift_variance_amount", "FLOAT DEFAULT 0.0"),
+            ("swift_variance_status", "VARCHAR(50) DEFAULT 'Pending'"),
+            ("swift_processing_days", "INTEGER"),
+            ("swift_reconciliation_notes", "TEXT"),
+        ]
+        for col_name, col_type in prs_new_cols:
+            if col_name not in prs_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE payment_request_sessions ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to payment_request_sessions table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to payment_request_sessions: {e}")
 
     conn.commit()
     conn.close()

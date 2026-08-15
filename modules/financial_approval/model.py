@@ -65,8 +65,15 @@ class PaymentRequestSession(Base):
     iban_account_no: Mapped[str] = mapped_column(String(100), nullable=True)
     bank_country: Mapped[str] = mapped_column(String(100), nullable=True)
 
-    # Verification & Confirmation
+    # Verification & Confirmation & SWIFT Reconciliation
     swift_reference_no: Mapped[str] = mapped_column(String(100), nullable=True)
+    swift_receipt_date: Mapped[date] = mapped_column(Date, nullable=True)
+    swift_transferred_amount: Mapped[float] = mapped_column(Float, nullable=True)
+    swift_transferred_currency: Mapped[str] = mapped_column(String(10), nullable=True)
+    swift_variance_amount: Mapped[float] = mapped_column(Float, nullable=True, default=0.0)
+    swift_variance_status: Mapped[str] = mapped_column(String(50), nullable=True, default="Pending") # 'Matched', 'Deficit', 'Surplus', 'Pending'
+    swift_processing_days: Mapped[int] = mapped_column(Integer, nullable=True)
+    swift_reconciliation_notes: Mapped[str] = mapped_column(Text, nullable=True)
     notes: Mapped[str] = mapped_column(Text, nullable=True)
 
     # Audit & Soft Delete
@@ -105,11 +112,16 @@ class ImportBudgetApproval(Base):
         Integer, ForeignKey("projects.project_id"), nullable=True, index=True
     )
 
-    # Financial Components (EGP)
+    # Financial Components (EGP & Multi-Currency)
     invoice_amount_egp: Mapped[float] = mapped_column(Float, default=0.0)
+    invoice_amount_foreign: Mapped[float] = mapped_column(Float, default=0.0)
+    invoice_currency: Mapped[str] = mapped_column(String(10), default="USD")
     freight_cost_egp: Mapped[float] = mapped_column(Float, default=0.0)
+    freight_cost_foreign: Mapped[float] = mapped_column(Float, default=0.0)
+    freight_currency: Mapped[str] = mapped_column(String(10), default="USD")
     customs_duties_egp: Mapped[float] = mapped_column(Float, default=0.0)
     clearance_inland_egp: Mapped[float] = mapped_column(Float, default=0.0)
+    exchange_rate: Mapped[float] = mapped_column(Float, default=50.0)
     total_budget_egp: Mapped[float] = mapped_column(Float, default=0.0)
 
     # Budget Status: 'Pending Review', 'Budget Approved', 'Budget Exceeded', 'Rejected'

@@ -7,6 +7,7 @@ from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.database import Base
+import main  # noqa: F401
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.customs_consultation.schemas import (
     CustomsConsultationCreate,

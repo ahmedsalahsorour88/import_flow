@@ -131,6 +131,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   // History Tab Filter State
   String _searchQuery = '';
   String _statusFilter = 'All';
+  bool _showInactive = false;
 
   @override
   void initState() {
@@ -1659,6 +1660,85 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ),
                   const SizedBox(height: 20),
 
+                  // Active Edit Mode Banner
+                  if (_editingConsultationId != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'وضع التعديل النشط: أنت الآن تقوم بتعديل دراسة الاستشارة الجمركية رقم ($_editingConsultationCode)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange.shade900),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'قم بتعديل بيانات الفحص والمستندات والرسوم ثم اضغط "حفظ التعديلات" لتحديث الدراسة نفسها، أو "حفظ كنسخة جديدة" لإنشاء دراسة منفصلة.',
+                                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.save_as_rounded, size: 16),
+                            label: const Text('حفظ التعديلات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            onPressed: _isSaving ? null : _saveConsultation,
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blue.shade800,
+                              side: BorderSide(color: Colors.blue.shade400),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: const Text('حفظ كنسخة جديدة', style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              setState(() {
+                                _editingConsultationId = null;
+                                _editingConsultationCode = null;
+                                _titleController.text = '${_titleController.text} (نسخة معدلة)';
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('📋 تم تحويل الجلسة إلى دراسة جديدة منفصلة، اضغط "حفظ دراسة الاستشارة الجمركية" للحفظ'), backgroundColor: Colors.blue),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            tooltip: 'إلغاء التعديل والعودة كدراسة جديدة فارغة',
+                            onPressed: () {
+                              setState(() {
+                                _editingConsultationId = null;
+                                _editingConsultationCode = null;
+                                _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                                _initializeDefaultChecklist();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   // Session Setup Header Card
                   Card(
                     elevation: 2,
@@ -2308,6 +2388,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ),
                         ),
                         const SizedBox(width: 10),
+                        const SizedBox(width: 10),
+                        FilterChip(
+                          avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
+                          label: Text(_showInactive ? 'إخفاء المؤرشفة' : 'إظهار المؤرشفة'),
+                          selected: _showInactive,
+                          selectedColor: Colors.red.shade100,
+                          onSelected: (val) {
+                            setState(() => _showInactive = val);
+                            ref.read(customsConsultationsProvider.notifier).fetchConsultations(includeInactive: val);
+                          },
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
@@ -2452,78 +2543,116 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 name: 'Customs_Consultation_${session.consultationCode}',
                                               );
                                             },
-                                            onDelete: () async {
-                                              final confirm =
-                                                  await showDialog<bool>(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Row(
-                                                    children: [
-                                                      Icon(
-                                                          Icons.warning_rounded,
-                                                          color: Colors.orange,
-                                                          size: 22),
-                                                      SizedBox(width: 8),
-                                                      Text('تأكيد حذف الدراسة',
-                                                          style: TextStyle(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .bold)),
-                                                    ],
-                                                  ),
-                                                  content: Text(
-                                                    'هل أنت متأكد من حذف دراسة الاستشارة الجمركية "${session.consultationCode}"؟',
-                                                    style: const TextStyle(
-                                                        fontSize: 13),
-                                                  ),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              ctx, false),
-                                                      child:
-                                                          const Text('إلغاء'),
-                                                    ),
-                                                    ElevatedButton.icon(
-                                                      style: ElevatedButton
-                                                          .styleFrom(
-                                                              backgroundColor:
-                                                                  AppTheme
-                                                                      .crimson,
-                                                              foregroundColor:
-                                                                  Colors.white),
-                                                      icon: const Icon(
-                                                          Icons.delete_rounded,
-                                                          size: 16),
-                                                      label:
-                                                          const Text('حذف'),
-                                                      onPressed: () =>
-                                                          Navigator.pop(
-                                                              ctx, true),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                              if (confirm == true && mounted) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                        '⚠️ خاصية الحذف ستُتاح في الإصدار القادم'),
-                                                    backgroundColor:
-                                                        Colors.orange,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                            viewTooltip: 'عرض تفاصيل الاستشارة',
-                                            editTooltip:
-                                                'تعديل الدراسة الجمركية',
-                                            printTooltip:
-                                                'طباعة تقرير الاستشارة',
-                                            deleteTooltip:
-                                                'حذف الدراسة (Soft Delete)',
+                                             onDelete: () async {
+                                               final messenger = ScaffoldMessenger.of(context);
+                                               if (session.isActive == false) {
+                                                 final confirm = await showDialog<bool>(
+                                                   context: context,
+                                                   builder: (ctx) => AlertDialog(
+                                                     title: const Row(
+                                                       children: [
+                                                         Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
+                                                         SizedBox(width: 8),
+                                                         Text('استعادة دراسة الاستشارة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                       ],
+                                                     ),
+                                                     content: Text(
+                                                       'هل ترغب في استعادة وتفعيل دراسة الاستشارة الجمركية "${session.consultationCode} - ${session.title}"؟',
+                                                       style: const TextStyle(fontSize: 13),
+                                                     ),
+                                                     actions: [
+                                                       TextButton(
+                                                         onPressed: () => Navigator.pop(ctx, false),
+                                                         child: const Text('إلغاء'),
+                                                       ),
+                                                       ElevatedButton.icon(
+                                                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                                                         icon: const Icon(Icons.restore_rounded, size: 16),
+                                                         label: const Text('استعادة وتفعيل'),
+                                                         onPressed: () => Navigator.pop(ctx, true),
+                                                       ),
+                                                     ],
+                                                   ),
+                                                 );
+                                                 if (confirm == true) {
+                                                   try {
+                                                     await ref.read(customsConsultationsProvider.notifier).restoreConsultation(session.consultationId);
+                                                     if (mounted) {
+                                                       messenger.showSnackBar(
+                                                         SnackBar(
+                                                           content: Text('♻️ تم استعادة وتفعيل دراسة الاستشارة (${session.consultationCode}) بنجاح'),
+                                                           backgroundColor: AppTheme.emerald,
+                                                         ),
+                                                       );
+                                                     }
+                                                   } catch (e) {
+                                                     if (mounted) {
+                                                       messenger.showSnackBar(
+                                                         SnackBar(
+                                                           content: Text('❌ خطأ أثناء الاستعادة: $e'),
+                                                           backgroundColor: AppTheme.crimson,
+                                                         ),
+                                                       );
+                                                     }
+                                                   }
+                                                 }
+                                               } else {
+                                                 final confirm = await showDialog<bool>(
+                                                   context: context,
+                                                   builder: (ctx) => AlertDialog(
+                                                     title: const Row(
+                                                       children: [
+                                                         Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                         SizedBox(width: 8),
+                                                         Text('تأكيد حذف الدراسة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                       ],
+                                                     ),
+                                                     content: Text(
+                                                       'هل أنت متأكد من حذف دراسة الاستشارة الجمركية "${session.consultationCode} - ${session.title}"؟\n\nسيتم أرشفة الدراسة مع إمكانية استعادتها لاحقاً.',
+                                                       style: const TextStyle(fontSize: 13),
+                                                     ),
+                                                     actions: [
+                                                       TextButton(
+                                                         onPressed: () => Navigator.pop(ctx, false),
+                                                         child: const Text('إلغاء'),
+                                                       ),
+                                                       ElevatedButton.icon(
+                                                         style: ElevatedButton.styleFrom(
+                                                           backgroundColor: AppTheme.crimson,
+                                                           foregroundColor: Colors.white,
+                                                         ),
+                                                         icon: const Icon(Icons.delete_rounded, size: 16),
+                                                         label: const Text('حذف وأرشفة'),
+                                                         onPressed: () => Navigator.pop(ctx, true),
+                                                       ),
+                                                     ],
+                                                   ),
+                                                 );
+                                                 if (confirm == true) {
+                                                   try {
+                                                     await ref.read(customsConsultationsProvider.notifier).softDeleteConsultation(session.consultationId);
+                                                     if (mounted) {
+                                                       messenger.showSnackBar(
+                                                         SnackBar(
+                                                           content: Text('🗑️ تم حذف وأرشفة دراسة الاستشارة (${session.consultationCode}) بنجاح'),
+                                                           backgroundColor: AppTheme.emerald,
+                                                         ),
+                                                       );
+                                                     }
+                                                   } catch (e) {
+                                                     if (mounted) {
+                                                       messenger.showSnackBar(
+                                                         SnackBar(
+                                                           content: Text('❌ خطأ أثناء الحذف: $e'),
+                                                           backgroundColor: AppTheme.crimson,
+                                                         ),
+                                                       );
+                                                     }
+                                                   }
+                                                 }
+                                               }
+                                             },
+                                             deleteTooltip: session.isActive == false ? 'استعادة الدراسة المحذوفة' : 'حذف الدراسة (Soft Delete)',
                                           ),
                                         ),
 

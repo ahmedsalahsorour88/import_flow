@@ -1,0 +1,543 @@
+import 'dart:convert';
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import '../models/financial_approval_model.dart';
+
+class FinancialExportService {
+  /// Generates printable & saveable PDF for Import Budget Approval (BP-013)
+  static Future<void> printOrSaveBudgetPdf({
+    required ImportBudgetModel budget,
+    BudgetPrefillModel? prefill,
+  }) async {
+    final pdf = pw.Document();
+    final arabicFont = await PdfGoogleFonts.cairoRegular();
+    final arabicBold = await PdfGoogleFonts.cairoBold();
+
+    final invForeign = budget.invoiceAmountForeign > 0 ? budget.invoiceAmountForeign : (prefill?.totalInvoiceAmount ?? 0.0);
+    final invCurr = budget.invoiceCurrency.isNotEmpty ? budget.invoiceCurrency : (prefill?.invoiceCurrency ?? 'USD');
+    final freightForeign = budget.freightCostForeign > 0 ? budget.freightCostForeign : (prefill?.estimatedFreightCost ?? 0.0);
+    final freightCurr = budget.freightCurrency.isNotEmpty ? budget.freightCurrency : (prefill?.freightCurrency ?? 'USD');
+    final rate = budget.exchangeRate > 0 ? budget.exchangeRate : 50.0;
+
+    final invEgp = budget.invoiceAmountEgp > 0 ? budget.invoiceAmountEgp : (invForeign * rate);
+    final freightEgp = budget.freightCostEgp > 0 ? budget.freightCostEgp : (freightForeign * rate);
+    final customsEgp = budget.customsDutiesEgp > 0 ? budget.customsDutiesEgp : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
+    final clearanceEgp = budget.clearanceInlandEgp > 0 ? budget.clearanceInlandEgp : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
+    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        build: (pw.Context context) {
+          return pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header Banner
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#2C3E50'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'ImportFlow ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة',
+                            style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'وثيقة رسمية لاعتماد مخصصات الشحنة المالية (BP-013)',
+                            style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text('كود الميزانية: ${budget.budgetCode}', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          pw.Text('ملف الشحنة: ${budget.importFileCode ?? (prefill?.importFileCode ?? "-")}', style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Info Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F8F9F9'),
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('عنوان الميزانية: ${budget.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10)),
+                          pw.SizedBox(height: 3),
+                          pw.Text('المورد الأجنبي: ${prefill?.supplierName ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.end,
+                        children: [
+                          pw.Text('الشرط التجاري: ${prefill?.incoterm ?? "FOB"}', style: const pw.TextStyle(fontSize: 9)),
+                          pw.SizedBox(height: 3),
+                          pw.Text('سعر الصرف التقديري: $rate EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Group 1: Foreign Currency Table
+                pw.Text('1. بنود التكلفة بالعملة الأجنبية (Foreign Currency Costs):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#3498DB')),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('البند المالي', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('المبلغ بالعملة الأجنبية', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('سعر الصرف', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('المعادل بالجنيه المصري (EGP)', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('قيمة الفاتورة التجارية المبدئية (FOB / Invoice)', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${invForeign.toStringAsFixed(2)} $invCurr', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('$rate EGP', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${invEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('تكلفة نولون الشحن المقدرة (Freight Cost)', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${freightForeign.toStringAsFixed(2)} $freightCurr', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('$rate EGP', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${freightEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECF0F1')),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('إجمالي مخصصات العملة الأجنبية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${(invForeign + freightForeign).toStringAsFixed(2)} $invCurr', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('-', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${(invEgp + freightEgp).toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 12),
+
+                // Group 2: Local EGP Table
+                pw.Text('2. بنود التكلفة بالعملة المحلية (Local Currency EGP Costs):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                pw.SizedBox(height: 4),
+                pw.Table(
+                  border: pw.TableBorder.all(color: PdfColors.grey300),
+                  children: [
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#E67E22')),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('البند المالي', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('جهة التحصيل / المرجع', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('القيمة المعتمدة بالجنيه المصري (EGP)', style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('الضرائب والرسوم الجمركية و VAT (منصة نافذة)', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('مصلحة الجمارك المصرية', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${customsEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#C0392B')))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('أتعاب التخليص الجمركي والنقل والموانئ', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('المستخلص الجمركي والناقل الداخلي', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${clearanceEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                      ],
+                    ),
+                    pw.TableRow(
+                      decoration: pw.BoxDecoration(color: PdfColor.fromHex('#ECF0F1')),
+                      children: [
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('إجمالي مخصصات العملة المحلية', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('-', style: const pw.TextStyle(fontSize: 9))),
+                        pw.Padding(padding: const pw.EdgeInsets.all(5), child: pw.Text('${(customsEgp + clearanceEgp).toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColor.fromHex('#27AE60')))),
+                      ],
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 14),
+
+                // Grand Total Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#27AE60'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Text(
+                        'إجمالي الميزانية الاستيرادية الكلية المعتمدة (Total Approved Budget):',
+                        style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 11),
+                      ),
+                      pw.Text(
+                        '${grandTotalEgp.toStringAsFixed(2)} EGP',
+                        style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.Spacer(),
+
+                // Sign-off section
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('إعداد / مسؤول الاستيراد:', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 25),
+                        pw.Text('التوقيع: ................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('اعتماد / الإدارة المالية:', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 25),
+                        pw.Text('المدير المالي: ${budget.approvedBy ?? "المعتمد"}', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdf.save(),
+      name: 'Budget_Approval_${budget.budgetCode}',
+    );
+  }
+
+  /// Exports Budget Approval to UTF-8 BOM CSV / Excel
+  static Future<String?> exportBudgetToExcel({
+    required BuildContext context,
+    required ImportBudgetModel budget,
+    BudgetPrefillModel? prefill,
+  }) async {
+    final invForeign = budget.invoiceAmountForeign > 0 ? budget.invoiceAmountForeign : (prefill?.totalInvoiceAmount ?? 0.0);
+    final invCurr = budget.invoiceCurrency.isNotEmpty ? budget.invoiceCurrency : (prefill?.invoiceCurrency ?? 'USD');
+    final freightForeign = budget.freightCostForeign > 0 ? budget.freightCostForeign : (prefill?.estimatedFreightCost ?? 0.0);
+    final freightCurr = budget.freightCurrency.isNotEmpty ? budget.freightCurrency : (prefill?.freightCurrency ?? 'USD');
+    final rate = budget.exchangeRate > 0 ? budget.exchangeRate : 50.0;
+
+    final invEgp = budget.invoiceAmountEgp > 0 ? budget.invoiceAmountEgp : (invForeign * rate);
+    final freightEgp = budget.freightCostEgp > 0 ? budget.freightCostEgp : (freightForeign * rate);
+    final customsEgp = budget.customsDutiesEgp > 0 ? budget.customsDutiesEgp : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
+    final clearanceEgp = budget.clearanceInlandEgp > 0 ? budget.clearanceInlandEgp : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
+    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+
+    final buffer = StringBuffer();
+    // UTF-8 BOM for Excel Arabic compatibility
+    buffer.write('\uFEFF');
+
+    buffer.writeln('ImportFlow ERP — بيان تقرير اعتماد الميزانية الاستيرادية الشاملة (BP-013)');
+    buffer.writeln('كود الميزانية,${budget.budgetCode}');
+    buffer.writeln('عنوان الميزانية,${budget.title}');
+    buffer.writeln('كود ملف الشحنة,${budget.importFileCode ?? (prefill?.importFileCode ?? "-")}');
+    buffer.writeln('المورد الأجنبي,${prefill?.supplierName ?? "-"}');
+    buffer.writeln('الشرط التجاري,${prefill?.incoterm ?? "FOB"}');
+    buffer.writeln('سعر الصرف التقديري,$rate EGP');
+    buffer.writeln('حالة الميزانية,${budget.budgetStatus}');
+    buffer.writeln('');
+
+    buffer.writeln('--- جدول بنود التكلفة بالعملة الأجنبية ---');
+    buffer.writeln('البند المالي,المبلغ بالعملة الأجنبية,العملة,سعر الصرف,المعادل بالجنيه المصري');
+    buffer.writeln('قيمة الفواتير المبدئية FOB,$invForeign,$invCurr,$rate,$invEgp');
+    buffer.writeln('تكلفة نولون الشحن المقدرة,$freightForeign,$freightCurr,$rate,$freightEgp');
+    buffer.writeln('إجمالي العملة الأجنبية,${invForeign + freightForeign},$invCurr,-,${invEgp + freightEgp}');
+    buffer.writeln('');
+
+    buffer.writeln('--- جدول بنود التكلفة بالعملة المحلية (الجنيه المصري) ---');
+    buffer.writeln('البند المالي,جهة التحصيل,القيمة بالجنيه المصري');
+    buffer.writeln('الضرائب والرسوم الجمركية و VAT,مصلحة الجمارك المصرية,$customsEgp');
+    buffer.writeln('أتعاب ومصاريف التخليص والنقل والموانئ,المستخلص الجمركي والناقل,$clearanceEgp');
+    buffer.writeln('إجمالي العملة المحلية,-,${customsEgp + clearanceEgp}');
+    buffer.writeln('');
+
+    buffer.writeln('إجمالي الميزانية الكلية المعتمدة (EGP),,$grandTotalEgp');
+
+    final filename = 'Budget_Approval_${budget.budgetCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ تقرير اعتماد الميزانية بصيغة Excel / CSV',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
+      await file.writeAsString(buffer.toString(), encoding: utf8);
+      return file.path;
+    }
+    return null;
+  }
+
+  /// Generates printable PDF for a Single Payment Request (BP-012)
+  static Future<void> printPaymentRequestPdf({
+    required PaymentRequestModel payment,
+  }) async {
+    final pdf = pw.Document();
+    final arabicFont = await PdfGoogleFonts.cairoRegular();
+    final arabicBold = await PdfGoogleFonts.cairoBold();
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        build: (pw.Context context) {
+          return pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                // Header Banner
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#2C3E50'),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(6)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'ImportFlow ERP — إذن وطلب سداد مالي للمورد الأجنبي',
+                            style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
+                          ),
+                          pw.Text(
+                            'مستند رسمي لإصدار التحويلات البنكية والسويفت (BP-012)',
+                            style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
+                          ),
+                        ],
+                      ),
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: pw.BoxDecoration(
+                          color: PdfColor.fromHex('#3498DB'),
+                          borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                        ),
+                        child: pw.Text(
+                          payment.paymentCode,
+                          style: pw.TextStyle(color: PdfColors.white, fontWeight: pw.FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 14),
+
+                // Main Info Cards
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('عنوان الطلب: ${payment.title}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        children: [
+                          pw.Expanded(child: pw.Text('ملف الشحنة: ${payment.importFileCode ?? "-"}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(child: pw.Text('المورد المستفيد: ${payment.beneficiaryName ?? payment.supplierName}', style: const pw.TextStyle(fontSize: 10))),
+                        ],
+                      ),
+                      pw.SizedBox(height: 4),
+                      pw.Row(
+                        children: [
+                          pw.Expanded(child: pw.Text('طريقة السداد: ${payment.paymentType}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(child: pw.Text('تاريخ تقديم الطلب: ${payment.requestDate.isNotEmpty ? payment.requestDate : "-"}', style: const pw.TextStyle(fontSize: 10))),
+                          pw.Expanded(child: pw.Text('تاريخ الاستحقاق: ${payment.dueDate}', style: const pw.TextStyle(fontSize: 10))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 14),
+
+                // Financial Summary Box
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: const pw.BoxDecoration(
+                    color: PdfColors.grey100,
+                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Row(
+                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                    children: [
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('المبلغ المطلوب بالعملة الأجنبية:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                          pw.Text('${payment.requestedAmount.toStringAsFixed(2)} ${payment.currencyCode}', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#2980B9'))),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('سعر الصرف التقديري:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                          pw.Text('${payment.exchangeRate.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12)),
+                        ],
+                      ),
+                      pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('المعادل بالجنيه المصري:', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey700)),
+                          pw.Text('${payment.requestedAmountEgp.toStringAsFixed(2)} EGP', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13, color: PdfColor.fromHex('#27AE60'))),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 14),
+
+                // Bank Details
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(10),
+                  decoration: pw.BoxDecoration(
+                    border: pw.Border.all(color: PdfColors.grey300),
+                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('بيانات التحويل البنكي للمورد الأجنبي (Beneficiary Bank Details):', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColor.fromHex('#2C3E50'))),
+                      pw.SizedBox(height: 6),
+                      pw.Text('اسم البنك: ${payment.bankName ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('كود السويفت (SWIFT Code): ${payment.swiftCode ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                      pw.Text('رقم الحساب / IBAN: ${payment.ibanAccountNo ?? "-"}', style: const pw.TextStyle(fontSize: 9)),
+                      if (payment.swiftReferenceNo != null && payment.swiftReferenceNo!.isNotEmpty)
+                        pw.Text('رقم السويفت المنفذ: ${payment.swiftReferenceNo}', style: pw.TextStyle(fontSize: 9, fontWeight: pw.FontWeight.bold, color: PdfColor.fromHex('#27AE60'))),
+                    ],
+                  ),
+                ),
+                pw.Spacer(),
+
+                // Sign-offs
+                pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('إعداد / مسؤول الاستيراد:', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 25),
+                        pw.Text('التوقيع: ................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                    pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Text('اعتماد / الإدارة المالية والمراجعة:', style: const pw.TextStyle(fontSize: 9, color: PdfColors.grey700)),
+                        pw.SizedBox(height: 25),
+                        pw.Text('التوقيع: ................................', style: const pw.TextStyle(fontSize: 9)),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (format) async => pdf.save(),
+      name: 'Payment_Request_${payment.paymentCode}',
+    );
+  }
+
+  /// Exports full Payment Requests List to UTF-8 BOM CSV / Excel
+  static Future<String?> exportPaymentRequestsListToExcel({
+    required BuildContext context,
+    required List<PaymentRequestModel> list,
+  }) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+
+    buffer.writeln('ImportFlow ERP — سجل العمليات المالي وطلبات السداد (BP-012)');
+    buffer.writeln('كود الطلب,ملف الشحنة,عنوان الطلب,المورد المستفيد,البنك,السويفت,الحساب/IBAN,طريقة السداد,المبلغ المطلوب,العملة,سعر الصرف,المعادل EGP,تاريخ الطلب,تاريخ الاستحقاق,الحالة,رقم إشعار السويفت');
+
+    for (final p in list) {
+      buffer.writeln(
+        '${p.paymentCode},'
+        '${p.importFileCode ?? (p.importFileId != null ? "IMP-${p.importFileId}" : "-")},'
+        '"${p.title.replaceAll('"', '""')}",'
+        '"${p.supplierName.replaceAll('"', '""')}",'
+        '"${(p.bankName ?? "").replaceAll('"', '""')}",'
+        '${p.swiftCode ?? ""},'
+        '${p.ibanAccountNo ?? ""},'
+        '${p.paymentType},'
+        '${p.requestedAmount},'
+        '${p.currencyCode},'
+        '${p.exchangeRate},'
+        '${p.requestedAmountEgp},'
+        '${p.requestDate},'
+        '${p.dueDate},'
+        '${p.status},'
+        '${p.swiftReferenceNo ?? ""}',
+      );
+    }
+
+    final filename = 'Financial_History_Registry_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ سجل العمليات المالي بصيغة Excel / CSV',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
+      await file.writeAsString(buffer.toString(), encoding: utf8);
+      return file.path;
+    }
+    return null;
+  }
+}

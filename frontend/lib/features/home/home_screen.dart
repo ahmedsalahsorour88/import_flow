@@ -18,6 +18,7 @@ import '../cbm_calculator/screens/cbm_calculator_screen.dart';
 import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import '../customs_consultation/screens/customs_consultation_screen.dart';
 import '../financial_approval/screens/financial_approval_screen.dart';
+import '../financial_approval/screens/swift_reconciliation_screen.dart';
 import '../import_documentation/screens/import_documentation_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
@@ -89,13 +90,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         CurrenciesScreen(),
         AuditLogsScreen(),
 
-        // Index 30..35: Smart Engines & Demurrage
+        // Index 30..36: Smart Engines, Demurrage & SWIFT Tracker
         SmartTasksScreen(),
         DynamicReportBuilderScreen(),
         ShipmentUpdateEngineScreen(),
         ImportRequirementsScreen(),
         DemurrageDetentionScreen(),
         HsCodeSearchScreen(),
+        SwiftReconciliationScreen(),
       ];
 
   @override
@@ -177,6 +179,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       // Section 4: Phase 2 Financial Approvals (منفصلة)
                       _buildSectionHeader('💳 Phase 2: الموافقة والاعتماد المالي'),
                       _buildMenuItem(Icons.payment_outlined, 'طلبات السداد المالي (Payment Requests BP-012)', 8, selectedIndex),
+                      _buildMenuItem(Icons.account_balance, 'متابعة ومطابقة السويفت البنكي (SWIFT Tracker BP-012.1)', 36, selectedIndex),
                       _buildMenuItem(Icons.account_balance_wallet_outlined, 'اعتماد الميزانية الاستيرادية (Budget BP-013)', 9, selectedIndex),
                       _buildMenuItem(Icons.receipt_long_outlined, 'سجل العمليات المالي والتسويات (Financial Registry)', 10, selectedIndex),
 

@@ -542,7 +542,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
                                     _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
                                     _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
-                                    _buildDetailItem('Total PI/PO Amount', '\$${po.totalAmountFob.toStringAsFixed(2)}'),
+                                    _buildDetailItem('Total PI/PO Amount', '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
                                     _buildDetailItem('Total Volume (Packing List)', '${effectivePackingListCbm.toStringAsFixed(3)} CBM'),
                                     _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListWeight.toStringAsFixed(1)} kg / ${po.totalNetWeightKg} kg'),
                                   ],
@@ -608,11 +608,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                               ),
                                             ),
                                             Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity} ${item.unitOfMeasure}')),
-                                            Padding(padding: const EdgeInsets.all(6), child: Text('\$${item.unitPrice.toStringAsFixed(2)}')),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text('${po.currencyCode ?? "USD"} ${item.unitPrice.toStringAsFixed(2)}')),
                                             Padding(
                                               padding: const EdgeInsets.all(6),
                                               child: Text(
-                                                '\$${item.totalPrice.toStringAsFixed(2)}',
+                                                '${po.currencyCode ?? "USD"} ${item.totalPrice.toStringAsFixed(2)}',
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
                                               ),
                                             ),

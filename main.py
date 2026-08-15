@@ -97,15 +97,28 @@ app = FastAPI(
 )
 
 # CORS Middleware Setup
+# IMPORTANT: allow_credentials=True with allow_origins=["*"] is FORBIDDEN by CORS spec.
+# Browsers will block all preflight OPTIONS requests when both are set together.
+# Since we use token-based auth (no cookies), credentials=False is correct.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex=r".*",
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+        "http://localhost:8000",
+        "http://127.0.0.1:8000",
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+    ],
+    allow_origin_regex=r"http://(localhost|127\.0\.0\.1)(:\d+)?",
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
     expose_headers=["*"],
 )
+
 
 
 # ==================================================

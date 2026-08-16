@@ -303,3 +303,310 @@ class AcidTrackerNotifier extends StateNotifier<AsyncValue<AcidTrackerSummaryMod
   }
 }
 
+// ==============================================================================
+// PHASE 6: PROVIDERS FOR DRAFT REVIEWS, COMPLIANCE & RECONCILIATION
+// ==============================================================================
+
+// 1. Legal Documents & ACID Expiry Compliance (+30 Days Safety Margin) Provider
+final legalComplianceFamilyProvider =
+    FutureProvider.family<LegalDocsExpiryComplianceModel, int>((ref, importFileId) async {
+  final dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/import-documentation/legal-compliance/$importFileId',
+  );
+  return LegalDocsExpiryComplianceModel.fromJson(response.data);
+});
+
+// 2. Draft B/L Review Provider
+final draftBLReviewsProvider =
+    StateNotifierProvider<DraftBLNotifier, AsyncValue<List<DraftBLReviewModel>>>((ref) {
+  return DraftBLNotifier();
+});
+
+class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  DraftBLNotifier() : super(const AsyncValue.loading()) {
+    fetchReviews();
+  }
+
+  Future<void> fetchReviews({int? importFileId, String? search}) async {
+    state = const AsyncValue.loading();
+    try {
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl',
+        queryParameters: queryParams,
+      );
+      final List<dynamic> data = response.data;
+      final reviews = data.map((json) => DraftBLReviewModel.fromJson(json)).toList();
+      state = AsyncValue.data(reviews);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<DraftBLComparisonResultModel> compareDraftBL(int importFileId, Map<String, dynamic> draftFields, {String? rawText}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/compare',
+        data: {
+          'import_file_id': importFileId,
+          'draft_fields': draftFields,
+          if (rawText != null) 'raw_text': rawText,
+        },
+      );
+      return DraftBLComparisonResultModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<DraftBLReviewModel> saveDraftBLReview(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl',
+        data: payload,
+      );
+      final created = DraftBLReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<DraftBLReviewModel> updateDraftBLChecklist(int reviewId, List<DraftBLChecklistItemModel> items, {String reviewerName = 'Kamal'}) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId/checklist',
+        queryParameters: {'reviewer_name': reviewerName},
+        data: items.map((i) => i.toJson()).toList(),
+      );
+      final updated = DraftBLReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<DraftBLReviewModel> submitDualApproval(int reviewId, String role, String action, String approvedBy, {String? notes}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/dual-approval',
+        data: {
+          'bl_review_id': reviewId,
+          'role': role,
+          'action': action,
+          'approved_by': approvedBy,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      final updated = DraftBLReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<DraftBLReviewModel> createNewDraftVersion(int parentSessionId, Map<String, dynamic> draftFields, {String? rawText, String draftSource = 'SMART_TEXT'}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/new-version',
+        data: {
+          'parent_session_id': parentSessionId,
+          'draft_source': draftSource,
+          'draft_fields': draftFields,
+          if (rawText != null) 'raw_draft_text': rawText,
+        },
+      );
+      final created = DraftBLReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<DraftBLReviewModel> approveDraftBL(int reviewId, {String approvedBy = 'Kamal'}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/$reviewId/approve',
+        queryParameters: {'approved_by': approvedBy},
+      );
+      final approved = DraftBLReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return approved;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// 3. Certificate of Origin (COO / EUR.1) Provider
+final cooReviewsProvider =
+    StateNotifierProvider<COONotifier, AsyncValue<List<CertificateOfOriginReviewModel>>>((ref) {
+  return COONotifier();
+});
+
+class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginReviewModel>>> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  COONotifier() : super(const AsyncValue.loading()) {
+    fetchReviews();
+  }
+
+  Future<void> fetchReviews({int? importFileId}) async {
+    state = const AsyncValue.loading();
+    try {
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/coo',
+        queryParameters: queryParams,
+      );
+      final List<dynamic> data = response.data;
+      final reviews = data.map((json) => CertificateOfOriginReviewModel.fromJson(json)).toList();
+      state = AsyncValue.data(reviews);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<Map<String, dynamic>> compareCOO(int importFileId, String certType, Map<String, dynamic> draftFields) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/coo/compare',
+        data: {
+          'import_file_id': importFileId,
+          'certificate_type': certType,
+          'draft_fields': draftFields,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CertificateOfOriginReviewModel> saveCOOReview(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/coo',
+        data: payload,
+      );
+      final created = CertificateOfOriginReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// 4. Inspection Certificate Provider
+final inspectionReviewsProvider =
+    StateNotifierProvider<InspectionNotifier, AsyncValue<List<InspectionCertificateReviewModel>>>((ref) {
+  return InspectionNotifier();
+});
+
+class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertificateReviewModel>>> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  InspectionNotifier() : super(const AsyncValue.loading()) {
+    fetchReviews();
+  }
+
+  Future<void> fetchReviews({int? importFileId}) async {
+    state = const AsyncValue.loading();
+    try {
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/inspection',
+        queryParameters: queryParams,
+      );
+      final List<dynamic> data = response.data;
+      final reviews = data.map((json) => InspectionCertificateReviewModel.fromJson(json)).toList();
+      state = AsyncValue.data(reviews);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<Map<String, dynamic>> compareInspection(int importFileId, String inspType, String agency, Map<String, dynamic> draftFields) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/inspection/compare',
+        data: {
+          'import_file_id': importFileId,
+          'inspection_type': inspType,
+          'inspection_agency': agency,
+          'draft_fields': draftFields,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<InspectionCertificateReviewModel> saveInspectionReview(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/inspection',
+        data: payload,
+      );
+      final created = InspectionCertificateReviewModel.fromJson(response.data);
+      await fetchReviews();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+// 5. PO Final Reconciliation Provider
+final poReconciliationProvider = Provider<POReconciliationService>((ref) {
+  return POReconciliationService();
+});
+
+class POReconciliationService {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  Future<POReconciliationResultModel> submitPOFinalReconciliation(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/po-reconciliation',
+        data: payload,
+      );
+      return POReconciliationResultModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
+

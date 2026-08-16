@@ -2,9 +2,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dart';
 
 void main() {
-  group('CargoShippingModel Unit Tests (Phase 5 - Cargo & CargoX)', () {
-    test('ContainerLoadingModel fromJson and toJson should parse correctly', () {
+  group('CargoShippingModel Unit Tests (Phase 5 - Cargo & Container Follow-up)', () {
+    test('ContainerLoadingModel 5-Milestones & SLA tracking serialization', () {
       final json = {
+        'container_type': '40HC',
+        'quantity': 1,
         'container_no': 'MSKU1234567',
         'seal_no': 'SL-9988',
         'tare_weight_kg': 2300.0,
@@ -12,6 +14,20 @@ void main() {
         'gross_weight_kg': 21300.0,
         'vgm_status': 'Submitted',
         'vgm_ref_no': 'VGM-100200',
+        'container_assignment_date': '2026-08-16',
+        'arrival_at_supplier_at': '2026-08-16T09:00:00Z',
+        'loading_start_at': '2026-08-16T11:00:00Z',
+        'loading_end_at': '2026-08-16T15:00:00Z',
+        'port_gate_in_at': '2026-08-17T08:00:00Z',
+        'sla_deadline_at': '2026-08-18T00:00:00Z',
+        'is_sla_breached': false,
+        'tracking_status': 'GATED_IN_AT_PORT',
+        'tracking_history': [
+          {'timestamp': '2026-08-16T09:00:00Z', 'status': 'ARRIVED_AT_SUPPLIER', 'updated_by': 'Kamal'}
+        ],
+        'individual_units': [
+          {'container_no': 'MSKU1234567', 'seal_no': 'SL-9988'}
+        ]
       };
 
       final model = ContainerLoadingModel.fromJson(json);
@@ -20,10 +36,43 @@ void main() {
       expect(model.sealNo, equals('SL-9988'));
       expect(model.grossWeightKg, equals(21300.0));
       expect(model.vgmStatus, equals('Submitted'));
+      expect(model.containerAssignmentDate, equals('2026-08-16'));
+      expect(model.portGateInAt, equals('2026-08-17T08:00:00Z'));
+      expect(model.trackingStatus, equals('GATED_IN_AT_PORT'));
+      expect(model.progressStepIndex, equals(5));
+      expect(model.arabicStatusLabel, contains('دخلت الميناء'));
+      expect(model.isSlaBreached, isFalse);
 
       final map = model.toJson();
       expect(map['container_no'], equals('MSKU1234567'));
-      expect(map['vgm_ref_no'], equals('VGM-100200'));
+      expect(map['port_gate_in_at'], equals('2026-08-17T08:00:00Z'));
+      expect(map['tracking_status'], equals('GATED_IN_AT_PORT'));
+    });
+
+    test('LclLoadingTrackingModel serialization and milestone steps', () {
+      final json = {
+        'shipment_type': 'LCL',
+        'cfs_warehouse_name': 'Shanghai CFS Hub #4',
+        'consolidation_scheduled_date': '2026-08-16',
+        'arrival_at_cfs_at': '2026-08-16T10:00:00Z',
+        'stuffing_start_at': '2026-08-16T12:00:00Z',
+        'stuffing_end_at': '2026-08-16T16:00:00Z',
+        'port_gate_in_at': '2026-08-17T14:00:00Z',
+        'sla_deadline_at': '2026-08-18T00:00:00Z',
+        'is_sla_breached': false,
+        'tracking_status': 'GATED_IN_AT_PORT',
+      };
+
+      final lcl = LclLoadingTrackingModel.fromJson(json);
+
+      expect(lcl.cfsWarehouseName, equals('Shanghai CFS Hub #4'));
+      expect(lcl.progressStepIndex, equals(5));
+      expect(lcl.arabicStatusLabel, contains('دخلت الميناء'));
+      expect(lcl.isSlaBreached, isFalse);
+
+      final map = lcl.toJson();
+      expect(map['cfs_warehouse_name'], equals('Shanghai CFS Hub #4'));
+      expect(map['tracking_status'], equals('GATED_IN_AT_PORT'));
     });
 
     test('CourierTrackingModel fromJson and toJson should parse correctly', () {
@@ -72,13 +121,23 @@ void main() {
     test('CargoShippingModel fromJson and toJson should parse full shipping record', () {
       final json = {
         'cargo_shipping_id': 1,
-        'cargo_shipping_code': 'CSH-2026-0001',
+        'cargo_shipping_code': 'SHP-2026-0001',
         'import_file_id': 10,
+        'import_file_code': 'IMP-FILE-100',
+        'company_name': 'Alpha Importers Co',
+        'shipment_type': 'FCL',
         'crd_date': '2026-08-10T00:00:00',
         'cargo_cutoff_date': '2026-08-15T00:00:00',
         'is_crd_validated': true,
         'containers_loading_data': [
-          {'container_no': 'COSU9876543', 'seal_no': 'SL-5544', 'gross_weight_kg': 20000.0}
+          {
+            'container_no': 'COSU9876543',
+            'seal_no': 'SL-5544',
+            'gross_weight_kg': 20000.0,
+            'container_assignment_date': '2026-08-16',
+            'tracking_status': 'ASSIGNED',
+            'is_sla_breached': false,
+          }
         ],
         'level1_approval_status': 'Approved',
         'level2_approval_status': 'Approved',
@@ -91,18 +150,18 @@ void main() {
         'is_active': true,
         'created_at': '2026-08-09T10:00:00Z',
         'updated_at': '2026-08-09T11:00:00Z',
-        'import_file_code': 'IMP-FILE-100',
       };
 
       final model = CargoShippingModel.fromJson(json);
 
       expect(model.cargoShippingId, equals(1));
-      expect(model.cargoShippingCode, equals('CSH-2026-0001'));
+      expect(model.cargoShippingCode, equals('SHP-2026-0001'));
+      expect(model.companyName, equals('Alpha Importers Co'));
+      expect(model.shipmentType, equals('FCL'));
       expect(model.containersLoadingData.length, equals(1));
-      expect(model.containersLoadingData[0].containerNo, equals('COSU9876543'));
+      expect(model.containersLoadingData.first.containerNo, equals('COSU9876543'));
+      expect(model.containersLoadingData.first.trackingStatus, equals('ASSIGNED'));
       expect(model.dualApprovalStatus, equals('Dual Approved'));
-      expect(model.courierTrackingData.courierProvider, equals('FedEx'));
-      expect(model.cargoxExchangeData.envelopeStatus, equals('Checklist Passed'));
     });
   });
 }

@@ -54,6 +54,7 @@ class ImportFile(Base):
     shipment_category = Column(String(50), nullable=False, default="New Purchase") # New Purchase, Repair, Replacement, Sample
     
     required_eta = Column(Date, nullable=True) # 15-Aug-2026
+    file_opening_date = Column(Date, nullable=True, default=date.today) # تاريخ فتح الملف
     selected_scenario = Column(String(100), nullable=True) # e.g. MSC Option
 
     # Banking & Customs Document Links
@@ -72,6 +73,7 @@ class ImportFile(Base):
     form46_no = Column(String(100), nullable=True)
 
     estimated_cost = Column(Float, nullable=False, default=0.0) # 24500.0
+    estimated_cost_currency = Column(String(10), nullable=False, default="USD") # USD, EUR, EGP, etc.
 
     # Formulas & Stage Tracking
     current_module = Column(String(100), nullable=False, default="BP-001 Receive Purchase Order")

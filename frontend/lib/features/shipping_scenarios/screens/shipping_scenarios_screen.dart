@@ -595,7 +595,19 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                           label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
                                         )),
                                   ],
-                                  onChanged: (v) => setState(() => _selectedImportFileId = v),
+                                  onChanged: (v) {
+                                    setState(() {
+                                      _selectedImportFileId = v;
+                                      if (v != null) {
+                                        final importFiles = ref.read(importFilesProvider).value ?? [];
+                                        final f = importFiles.where((file) => file.importFileId == v).firstOrNull;
+                                        if (f != null) {
+                                          final fCode = f.customFileNumber ?? f.importFileCode;
+                                          _title = '[$fCode] ${f.companyName}';
+                                        }
+                                      }
+                                    });
+                                  },
                                 ),
                               ),
                             ],
@@ -1518,46 +1530,76 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
           ),
         ),
 
-          // Bottom Fixed Action Bar
+          // Bottom Fixed Action Bar with 3 Standard ERP Action Buttons
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
                 color: Colors.white,
-                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -3))],
+                boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 8, offset: const Offset(0, -2))],
               ),
               child: Row(
                 children: [
-                  if (_editingSessionId != null) ...[
-                    OutlinedButton.icon(
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppTheme.charcoal,
-                        side: const BorderSide(color: AppTheme.charcoal),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                      ),
-                      icon: const Icon(Icons.close),
-                      label: const Text('إلغاء التعديل (Cancel Edit)'),
-                      onPressed: _resetFormForNewStudy,
+                  // 1. Live Refresh Button
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.charcoal,
+                      side: BorderSide(color: Colors.grey.shade400),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
-                    const SizedBox(width: 12),
-                  ],
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.emerald,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                      ),
-                      icon: _isSaving
-                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Icon(Icons.save),
-                      label: Text(_editingSessionId != null ? 'حفظ تعديلات دراسة الشحن والعروض' : 'حفظ الدراسة والنتائج (Save Evaluation Study)'),
-                      onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
+                    icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
+                    label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: () => _refreshData(force: true),
+                  ),
+                  const SizedBox(width: 8),
+
+                  // 2. Clear Form & Start New
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.grey.shade800,
+                      side: BorderSide(color: Colors.grey.shade400),
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
+                    icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
+                    label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: _resetFormForNewStudy,
+                  ),
+                  const SizedBox(width: 8),
+
+                  // 3. Save Draft & Continue Later
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEFF6FF),
+                      foregroundColor: AppTheme.cobalt,
+                      elevation: 0,
+                      side: const BorderSide(color: AppTheme.cobalt),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    ),
+                    icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
+                    label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
+                  ),
+                  const Spacer(),
+
+                  // 4. Final Submit / Save Study
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 13),
+                      elevation: 2,
+                    ),
+                    icon: _isSaving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.check_circle_outline, size: 20),
+                    label: Text(
+                      _editingSessionId != null ? 'حفظ وتحديث دراسة الشحن 💾' : 'حفظ الدراسة والنتائج (Save Study) ✅',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                    onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
                   ),
                 ],
               ),
@@ -2356,9 +2398,20 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
     _formKey.currentState!.save();
 
-    final titleToSave = _title.trim().isNotEmpty
-        ? _title.trim()
-        : 'دراسة تقييم خيارات الشحن (${DateTime.now().toString().substring(0, 10)})';
+    String titleToSave = _title.trim();
+    if (_selectedImportFileId != null) {
+      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final f = importFiles.where((file) => file.importFileId == _selectedImportFileId).firstOrNull;
+      if (f != null) {
+        final fCode = f.customFileNumber ?? f.importFileCode;
+        if (!titleToSave.startsWith('[$fCode]')) {
+          titleToSave = '[$fCode] ${f.companyName}';
+        }
+      }
+    }
+    if (titleToSave.isEmpty) {
+      titleToSave = 'دراسة تقييم خيارات الشحن (${DateTime.now().toString().substring(0, 10)})';
+    }
 
     setState(() => _isSaving = true);
 

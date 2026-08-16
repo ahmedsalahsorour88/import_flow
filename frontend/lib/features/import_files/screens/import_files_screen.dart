@@ -17,6 +17,7 @@ import '../../import_documentation/providers/import_documentation_provider.dart'
 import '../../import_documentation/models/import_documentation_model.dart';
 import '../../customs_consultation/providers/customs_consultation_provider.dart';
 import '../../customs_consultation/models/customs_consultation_model.dart';
+import '../../currencies/providers/currencies_provider.dart';
 import '../../projects/models/project_model.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
@@ -2878,6 +2879,8 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
   String _shipmentCategory = 'New Purchase';
   String _status = 'Open';
   DateTime _requiredEta = DateTime.now().add(const Duration(days: 30));
+  DateTime _fileOpeningDate = DateTime.now();
+  String _estimatedCostCurrency = 'USD';
 
   List<InvoiceItemModel> _invoices = [];
   List<PackingListItemModel> _packingLists = [];
@@ -2892,13 +2895,18 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
     _customFileIdController = TextEditingController(text: f?.customFileNumber ?? '6701068100');
     _poNoController = TextEditingController(text: f?.poNumber ?? 'PO-1001');
     _piNoController = TextEditingController(text: f?.piNumber ?? 'PI-889');
-    _estimatedCostController = TextEditingController(text: (f?.estimatedCost ?? 24500.0).toString());
-    _selectedScenarioController = TextEditingController(text: f?.selectedScenario ?? 'MSC Option');
+    _estimatedCostController = TextEditingController(text: (f?.estimatedCost != null && f!.estimatedCost > 0) ? f.estimatedCost.toString() : '');
+    _selectedScenarioController = TextEditingController(text: f?.selectedScenario ?? '');
     _form4Controller = TextEditingController(text: f?.form4No ?? '');
     _swiftController = TextEditingController(text: f?.swiftNo ?? '');
     _form46Controller = TextEditingController(text: f?.form46No ?? '');
     _ownerController = TextEditingController(text: f?.owner ?? 'Kamal');
     _notesController = TextEditingController(text: f?.notes ?? '');
+
+    if (f?.fileOpeningDate != null && f!.fileOpeningDate!.isNotEmpty) {
+      _fileOpeningDate = DateTime.tryParse(f.fileOpeningDate!) ?? DateTime.now();
+    }
+    _estimatedCostCurrency = f?.estimatedCostCurrency ?? 'USD';
 
     _selectedCompanyId = f?.companyId;
     _companyName = f?.companyName ?? '';
@@ -3027,11 +3035,13 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
         'priority': _priority,
         'shipment_category': _shipmentCategory,
         'required_eta': _requiredEta.toString().substring(0, 10),
-        'selected_scenario': _selectedScenarioController.text.trim(),
+        'file_opening_date': _fileOpeningDate.toString().substring(0, 10),
+        'selected_scenario': _selectedScenarioController.text.trim().isEmpty ? null : _selectedScenarioController.text.trim(),
         'form4_no': _form4Controller.text.trim(),
         'swift_no': _swiftController.text.trim(),
         'form46_no': _form46Controller.text.trim(),
         'estimated_cost': double.tryParse(_estimatedCostController.text.trim()) ?? 0.0,
+        'estimated_cost_currency': _estimatedCostCurrency,
         'status': _status,
         'owner': _ownerController.text.trim(),
         'notes': _notesController.text.trim(),
@@ -3114,6 +3124,7 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
     final suppliers = ref.watch(suppliersProvider).value ?? [];
     final partners = ref.watch(partnersProvider).value ?? [];
     final incoterms = ref.watch(incotermsProvider).value ?? [];
+    final currencies = ref.watch(currenciesProvider).value ?? [];
     final projects = (ref.watch(projectsProvider).value ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
 
     return AlertDialog(
@@ -3365,9 +3376,20 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: TextFormField(
-                        controller: _selectedScenarioController,
-                        decoration: const InputDecoration(labelText: 'السيناريو المختار (Selected Scenario)', border: OutlineInputBorder()),
+                      child: InkWell(
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _fileOpeningDate,
+                            firstDate: DateTime(2020),
+                            lastDate: DateTime(2035),
+                          );
+                          if (d != null) setState(() => _fileOpeningDate = d);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: 'تاريخ فتح الملف (File Opening Date) *', border: OutlineInputBorder()),
+                          child: Text(_fileOpeningDate.toString().substring(0, 10)),
+                        ),
                       ),
                     ),
                   ],
@@ -3448,12 +3470,34 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
 
                 Row(
                   children: [
+                    SizedBox(
+                      width: 140,
+                      child: SearchableDropdownField<String>(
+                        value: currencies.any((c) => c.currencyCode == _estimatedCostCurrency)
+                            ? _estimatedCostCurrency
+                            : (_estimatedCostCurrency.isNotEmpty ? _estimatedCostCurrency : 'USD'),
+                        labelText: 'عملة التكلفة *',
+                        items: (currencies.isNotEmpty
+                                ? currencies.map((c) => c.currencyCode).toList()
+                                : ['USD', 'EUR', 'EGP', 'CNY', 'GBP', 'SAR', 'AED'])
+                            .map((code) => SearchableDropdownItem<String>(value: code, label: code))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) setState(() => _estimatedCostCurrency = v);
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 1,
                       child: TextFormField(
                         controller: _estimatedCostController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'التكلفة التقديرية (USD) *', border: OutlineInputBorder()),
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'التكلفة التقديرية ($_estimatedCostCurrency) *',
+                          border: const OutlineInputBorder(),
+                        ),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل التكلفة التقديرية' : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -3520,12 +3564,53 @@ class _ImportFileFormDialogState extends ConsumerState<_ImportFileFormDialog> {
         ),
       ),
       actions: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () {
+            ref.read(importFilesProvider.notifier).fetchImportFiles();
+            ref.read(importCompaniesProvider.notifier).fetchCompanies();
+            ref.read(suppliersProvider.notifier).fetchSuppliers();
+            ref.read(partnersProvider.notifier).fetchPartners();
+          },
+          icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () {
+            setState(() {
+              _selectedCompanyId = null;
+              _selectedSupplierId = null;
+              _selectedBrokerId = null;
+              _customFileIdController.clear();
+              _poNoController.clear();
+              _piNoController.clear();
+              _notesController.clear();
+            });
+          },
+          icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFFEFF6FF),
+            foregroundColor: AppTheme.cobalt,
+            elevation: 0,
+            side: const BorderSide(color: AppTheme.cobalt),
+          ),
+          onPressed: _isSaving ? null : _submit,
+          icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+          label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
         ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12)),
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12)),
           onPressed: _isSaving ? null : _submit,
           icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check, color: Colors.white),
-          label: const Text('حفظ الشحنة بالكامل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: Text(widget.fileToEdit != null ? 'تحديث وحفظ الملف 💾' : 'حفظ الشحنة بالكامل ✅', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

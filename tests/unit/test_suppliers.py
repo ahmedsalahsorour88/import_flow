@@ -3,6 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
+import modules.audit_logs.model
 from modules.suppliers.schemas import SupplierCreate
 from modules.suppliers.service import (
     create_supplier_service,

@@ -17,7 +17,9 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
 
   Future<List<ImportRequirementModel>> _fetchRequirements({int? importFileId}) async {
     try {
-      final queryParams = <String, dynamic>{};
+      final queryParams = <String, dynamic>{
+        'include_inactive': true,
+      };
       if (importFileId != null) {
         queryParams['import_file_id'] = importFileId;
       }
@@ -49,6 +51,10 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.post('$_baseUrl/import-requirements', data: data);
       await refreshData();
     } catch (e) {
+      if (e is DioException && e.response?.data != null) {
+        final detail = e.response?.data['detail'] ?? e.message;
+        throw Exception(detail);
+      }
       throw Exception('Failed to add requirement: $e');
     }
   }
@@ -58,7 +64,24 @@ class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementMod
       await _dio.put('$_baseUrl/import-requirements/$id', data: data);
       await refreshData();
     } catch (e) {
+      if (e is DioException && e.response?.data != null) {
+        final detail = e.response?.data['detail'] ?? e.message;
+        throw Exception(detail);
+      }
       throw Exception('Failed to update requirement: $e');
+    }
+  }
+
+  Future<void> restoreRequirement(int id) async {
+    try {
+      await _dio.post('$_baseUrl/import-requirements/$id/restore');
+      await refreshData();
+    } catch (e) {
+      if (e is DioException && e.response?.data != null) {
+        final detail = e.response?.data['detail'] ?? e.message;
+        throw Exception(detail);
+      }
+      throw Exception('Failed to restore requirement: $e');
     }
   }
 

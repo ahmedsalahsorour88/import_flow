@@ -521,9 +521,34 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         ),
       ),
       actions: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
+          icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () {
+            setState(() {
+              _itemCodeCtrl.clear();
+              _itemNameCtrl.clear();
+              _invQtyCtrl.clear();
+              _accQtyCtrl.clear();
+              _shortQtyCtrl.clear();
+              _dmgQtyCtrl.clear();
+            });
+          },
+          icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
         TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+          icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
+          label: const Text('حفظ محضر الفحص والاستلام ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: _isLoading
               ? null
               : () async {
@@ -560,7 +585,6 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                     }
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('تسجيل وإصدار GRN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

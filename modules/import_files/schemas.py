@@ -45,6 +45,7 @@ class ImportFileBase(BaseModel):
     priority: str = Field("High", description="Low, Medium, High, Critical")
     shipment_category: str = Field("New Purchase", description="New Purchase, Repair, Replacement, Sample")
     required_eta: Optional[date] = None
+    file_opening_date: Optional[date] = Field(default_factory=date.today, description="تاريخ فتح الملف")
     selected_scenario: Optional[str] = Field(None, description="e.g. MSC Option")
     acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
     acid_request_date: Optional[date] = None
@@ -60,6 +61,7 @@ class ImportFileBase(BaseModel):
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
     estimated_cost: float = Field(0.0, ge=0.0, description="Estimated Landed/Import Cost")
+    estimated_cost_currency: str = Field("USD", description="عملة التكلفة التقديرية")
     status: str = Field("Open", description="Open, In Progress, On Hold, Closed, Archived")
     owner: str = Field("Kamal", description="Operational Owner")
     notes: Optional[str] = None
@@ -100,6 +102,7 @@ class ImportFileUpdate(BaseModel):
     priority: Optional[str] = None
     shipment_category: Optional[str] = None
     required_eta: Optional[date] = None
+    file_opening_date: Optional[date] = None
     selected_scenario: Optional[str] = None
     acid_number: Optional[str] = None
     acid_request_date: Optional[date] = None
@@ -115,6 +118,7 @@ class ImportFileUpdate(BaseModel):
     swift_no: Optional[str] = None
     form46_no: Optional[str] = None
     estimated_cost: Optional[float] = None
+    estimated_cost_currency: Optional[str] = None
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
+from sqlalchemy.orm.attributes import flag_modified
 
 from .model import CargoShippingRecord
 from .schemas import CargoShippingCreate, CargoShippingUpdate
@@ -35,6 +36,12 @@ def get_cargo_shipping_by_id(db: Session, record_id: int, include_inactive: bool
         query = query.filter(CargoShippingRecord.is_active == True)
     return query.first()
 
+def get_cargo_shipping_by_import_file(db: Session, import_file_id: int, include_inactive: bool = False) -> Optional[CargoShippingRecord]:
+    query = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id == import_file_id)
+    if not include_inactive:
+        query = query.filter(CargoShippingRecord.is_active == True)
+    return query.order_by(desc(CargoShippingRecord.cargo_shipping_id)).first()
+
 def get_cargo_shipping_list(
     db: Session,
     include_inactive: bool = False,
@@ -57,20 +64,23 @@ def get_cargo_shipping_list(
         )
     return query.order_by(desc(CargoShippingRecord.cargo_shipping_id)).all()
 
-def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str) -> CargoShippingRecord:
+def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str, processed_containers: list, processed_lcl: dict) -> CargoShippingRecord:
     db_obj = CargoShippingRecord(
         cargo_shipping_code=code,
         import_file_id=schema.import_file_id,
         booking_id=schema.booking_id,
+        shipment_type=schema.shipment_type or "FCL",
         crd_date=schema.crd_date,
         cargo_cutoff_date=schema.cargo_cutoff_date,
-        containers_loading_data=[c.model_dump() for c in schema.containers_loading_data],
+        containers_loading_data=processed_containers,
+        lcl_tracking_data=processed_lcl,
         courier_tracking_data=schema.courier_tracking_data.model_dump() if schema.courier_tracking_data else {},
         cargox_exchange_data=schema.cargox_exchange_data.model_dump() if schema.cargox_exchange_data else {},
         live_tracking_url=schema.live_tracking_url,
         status=schema.status,
         owner=schema.owner,
         notes=schema.notes,
+        is_active=True,
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -79,20 +89,39 @@ def create_cargo_shipping(db: Session, schema: CargoShippingCreate, code: str) -
     db.refresh(db_obj)
     return db_obj
 
-def update_cargo_shipping(db: Session, record_id: int, schema: CargoShippingUpdate) -> Optional[CargoShippingRecord]:
+def update_cargo_shipping(db: Session, record_id: int, schema: CargoShippingUpdate, processed_containers: Optional[list] = None, processed_lcl: Optional[dict] = None) -> Optional[CargoShippingRecord]:
     db_obj = get_cargo_shipping_by_id(db, record_id, include_inactive=True)
     if not db_obj:
         return None
 
+    # Auto restore upon edit
+    db_obj.is_active = True
+
     update_data = schema.model_dump(exclude_unset=True)
-    if "containers_loading_data" in update_data and update_data["containers_loading_data"] is not None:
+    if processed_containers is not None:
+        db_obj.containers_loading_data = processed_containers
+        flag_modified(db_obj, "containers_loading_data")
+        if "containers_loading_data" in update_data:
+            del update_data["containers_loading_data"]
+    elif "containers_loading_data" in update_data and update_data["containers_loading_data"] is not None:
         db_obj.containers_loading_data = [c.model_dump() if hasattr(c, 'model_dump') else c for c in schema.containers_loading_data]
+        flag_modified(db_obj, "containers_loading_data")
         del update_data["containers_loading_data"]
+
+    if processed_lcl is not None:
+        db_obj.lcl_tracking_data = processed_lcl
+        flag_modified(db_obj, "lcl_tracking_data")
+        if "lcl_tracking_data" in update_data:
+            del update_data["lcl_tracking_data"]
+
     if "courier_tracking_data" in update_data and update_data["courier_tracking_data"] is not None:
         db_obj.courier_tracking_data = schema.courier_tracking_data.model_dump() if hasattr(schema.courier_tracking_data, 'model_dump') else update_data["courier_tracking_data"]
+        flag_modified(db_obj, "courier_tracking_data")
         del update_data["courier_tracking_data"]
+
     if "cargox_exchange_data" in update_data and update_data["cargox_exchange_data"] is not None:
         db_obj.cargox_exchange_data = schema.cargox_exchange_data.model_dump() if hasattr(schema.cargox_exchange_data, 'model_dump') else update_data["cargox_exchange_data"]
+        flag_modified(db_obj, "cargox_exchange_data")
         del update_data["cargox_exchange_data"]
 
     for key, value in update_data.items():

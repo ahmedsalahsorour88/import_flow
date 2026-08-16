@@ -19,12 +19,14 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
   }
 
   Future<void> fetchRecords({
-    bool includeInactive = false,
+    bool includeInactive = true,
     int? importFileId,
     String? status,
     String? search,
   }) async {
-    state = const AsyncValue.loading();
+    if (state.value == null) {
+      state = const AsyncValue.loading();
+    }
     try {
       final queryParams = <String, dynamic>{'include_inactive': includeInactive};
       if (importFileId != null) queryParams['import_file_id'] = importFileId;
@@ -53,6 +55,55 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
       final created = CargoShippingModel.fromJson(response.data);
       await fetchRecords();
       return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CargoShippingModel?> updateRecord(int recordId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/cargo-shipping/$recordId',
+        data: payload,
+      );
+      final updated = CargoShippingModel.fromJson(response.data);
+      await fetchRecords();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CargoShippingModel?> updateContainerTracking(
+    int recordId,
+    String containerNo,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await _dio.patch(
+        '${ApiConstants.baseUrl}/cargo-shipping/$recordId/containers/$containerNo/loading-tracking',
+        data: payload,
+      );
+      final updated = CargoShippingModel.fromJson(response.data);
+      await fetchRecords();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<CargoShippingModel?> updateLclTracking(
+    int recordId,
+    Map<String, dynamic> payload,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargo-shipping/$recordId/loading-tracking/lcl',
+        data: payload,
+      );
+      final updated = CargoShippingModel.fromJson(response.data);
+      await fetchRecords();
+      return updated;
     } catch (e) {
       rethrow;
     }
@@ -120,10 +171,12 @@ class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingM
     }
   }
 
-  Future<void> restoreRecord(int recordId) async {
+  Future<CargoShippingModel?> restoreRecord(int recordId) async {
     try {
-      await _dio.patch('${ApiConstants.baseUrl}/cargo-shipping/$recordId/restore');
+      final response = await _dio.post('${ApiConstants.baseUrl}/cargo-shipping/$recordId/restore');
+      final restored = CargoShippingModel.fromJson(response.data);
       await fetchRecords();
+      return restored;
     } catch (e) {
       rethrow;
     }

@@ -2,14 +2,76 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field
 
-class ContainerLoadingItem(BaseModel):
+class ContainerLoadingTrackingItem(BaseModel):
     container_no: str
-    seal_no: str
+    seal_no: Optional[str] = None
+    container_type: str = "40HC"
     tare_weight_kg: float = 0.0
     net_weight_kg: float = 0.0
     gross_weight_kg: float = 0.0
     vgm_status: str = "Submitted"
     vgm_ref_no: Optional[str] = None
+    # 5 Milestones
+    container_assignment_date: Optional[str] = None # YYYY-MM-DD
+    arrival_at_supplier_at: Optional[str] = None    # ISO datetime (or arrival at CFS)
+    loading_start_at: Optional[str] = None          # ISO datetime (or stuffing start)
+    loading_end_at: Optional[str] = None            # ISO datetime (or stuffing end)
+    port_gate_in_at: Optional[str] = None           # ISO datetime
+    # SLA & Status
+    sla_deadline_at: Optional[str] = None           # ISO datetime (assignment + 48h)
+    is_sla_breached: bool = False
+    tracking_status: str = "PENDING_ASSIGNMENT"     # PENDING_ASSIGNMENT, ASSIGNED, EN_ROUTE_TO_SUPPLIER, ARRIVED_AT_SUPPLIER, LOADING_IN_PROGRESS, LOADING_COMPLETED, GATED_IN_AT_PORT
+    tracking_history: List[Dict[str, Any]] = []
+    individual_units: List[Dict[str, str]] = []
+    milestone_notes: Optional[Dict[str, str]] = None
+
+class ContainerLoadingItem(BaseModel):
+    container_no: str
+    seal_no: str
+    container_type: str = "40HC"
+    quantity: int = 1
+    tare_weight_kg: float = 0.0
+    net_weight_kg: float = 0.0
+    gross_weight_kg: float = 0.0
+    vgm_status: str = "Submitted"
+    vgm_ref_no: Optional[str] = None
+    # 5-Milestones Tracking Fields
+    container_assignment_date: Optional[str] = None
+    arrival_at_supplier_at: Optional[str] = None
+    loading_start_at: Optional[str] = None
+    loading_end_at: Optional[str] = None
+    port_gate_in_at: Optional[str] = None
+    sla_deadline_at: Optional[str] = None
+    is_sla_breached: bool = False
+    tracking_status: str = "PENDING_ASSIGNMENT"
+    tracking_history: List[Dict[str, Any]] = []
+    individual_units: List[Dict[str, str]] = []
+    milestone_notes: Optional[Dict[str, str]] = None
+
+class ContainerLoadingTrackingUpdate(BaseModel):
+    container_no: str
+    container_assignment_date: Optional[str] = None
+    arrival_at_supplier_at: Optional[str] = None
+    loading_start_at: Optional[str] = None
+    loading_end_at: Optional[str] = None
+    port_gate_in_at: Optional[str] = None
+    seal_no: Optional[str] = None
+    notes: Optional[str] = None
+    milestone_notes: Optional[Dict[str, str]] = None
+    updated_by: str = "Kamal"
+
+class LclLoadingTrackingItem(BaseModel):
+    shipment_type: str = "LCL"
+    cfs_warehouse_name: Optional[str] = None
+    consolidation_scheduled_date: Optional[str] = None # container_assignment_date equivalent
+    arrival_at_cfs_at: Optional[str] = None            # arrival_at_supplier_at equivalent
+    stuffing_start_at: Optional[str] = None            # loading_start_at equivalent
+    stuffing_end_at: Optional[str] = None              # loading_end_at equivalent
+    port_gate_in_at: Optional[str] = None
+    sla_deadline_at: Optional[str] = None
+    is_sla_breached: bool = False
+    tracking_status: str = "PENDING_ASSIGNMENT"
+    tracking_history: List[Dict[str, Any]] = []
 
 class CourierTrackingItem(BaseModel):
     courier_provider: str = "DHL Express"
@@ -34,9 +96,11 @@ class CargoXExchangeItem(BaseModel):
 class CargoShippingCreate(BaseModel):
     import_file_id: int
     booking_id: Optional[int] = None
+    shipment_type: str = "FCL" # FCL, LCL, Air
     crd_date: Optional[datetime] = None
     cargo_cutoff_date: Optional[datetime] = None
     containers_loading_data: List[ContainerLoadingItem] = []
+    lcl_tracking_data: Optional[Dict[str, Any]] = None
     courier_tracking_data: Optional[CourierTrackingItem] = None
     cargox_exchange_data: Optional[CargoXExchangeItem] = None
     live_tracking_url: Optional[str] = None
@@ -56,9 +120,11 @@ class DualApprovalLevel2Submit(BaseModel):
 
 class CargoShippingUpdate(BaseModel):
     booking_id: Optional[int] = None
+    shipment_type: Optional[str] = None
     crd_date: Optional[datetime] = None
     cargo_cutoff_date: Optional[datetime] = None
     containers_loading_data: Optional[List[ContainerLoadingItem]] = None
+    lcl_tracking_data: Optional[Dict[str, Any]] = None
     courier_tracking_data: Optional[CourierTrackingItem] = None
     cargox_exchange_data: Optional[CargoXExchangeItem] = None
     live_tracking_url: Optional[str] = None
@@ -70,11 +136,15 @@ class CargoShippingResponse(BaseModel):
     cargo_shipping_id: int
     cargo_shipping_code: str
     import_file_id: int
+    import_file_code: Optional[str] = None
+    company_name: Optional[str] = None
     booking_id: Optional[int] = None
+    shipment_type: str = "FCL"
     crd_date: Optional[datetime] = None
     cargo_cutoff_date: Optional[datetime] = None
     is_crd_validated: bool
     containers_loading_data: List[Dict[str, Any]]
+    lcl_tracking_data: Optional[Dict[str, Any]] = None
     level1_approval_status: str
     level1_approved_by: Optional[str] = None
     level1_approved_at: Optional[datetime] = None

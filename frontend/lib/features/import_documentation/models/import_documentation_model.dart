@@ -698,3 +698,893 @@ class AcidTrackerSummaryModel {
   }
 }
 
+// ==============================================================================
+// PHASE 6: DART MODELS FOR DOCUMENT VERIFICATION & REGULATORY COMPLIANCE
+// ==============================================================================
+
+class POReconciliationItemModel {
+  final int? poItemId;
+  final String itemCode;
+  final String description;
+  final String? hsCode;
+  final String packageType;
+  final double initialQuantity;
+  final double finalQuantity;
+  final double initialUnitPrice;
+  final double unitPrice;
+  final double finalUnitPrice;
+  final double initialPackagesCount;
+  final double finalPackagesCount;
+  final double initialNetWeightKg;
+  final double finalNetWeightKg;
+  final double initialGrossWeightKg;
+  final double finalGrossWeightKg;
+  final double initialCbm;
+  final double finalCbm;
+  final double variancePercentage;
+  final double priceVariancePercentage;
+  final double weightVariancePercentage;
+  final String? notes;
+
+  POReconciliationItemModel({
+    this.poItemId,
+    required this.itemCode,
+    required this.description,
+    this.hsCode,
+    this.packageType = 'Carton',
+    required this.initialQuantity,
+    required this.finalQuantity,
+    this.initialUnitPrice = 0.0,
+    required this.unitPrice,
+    this.finalUnitPrice = 0.0,
+    this.initialPackagesCount = 0.0,
+    this.finalPackagesCount = 0.0,
+    this.initialNetWeightKg = 0.0,
+    required this.finalNetWeightKg,
+    this.initialGrossWeightKg = 0.0,
+    required this.finalGrossWeightKg,
+    this.initialCbm = 0.0,
+    required this.finalCbm,
+    this.variancePercentage = 0.0,
+    this.priceVariancePercentage = 0.0,
+    this.weightVariancePercentage = 0.0,
+    this.notes,
+  });
+
+  factory POReconciliationItemModel.fromJson(Map<String, dynamic> json) {
+    double initPrice = (json['initial_unit_price'] as num?)?.toDouble() ?? (json['unit_price'] as num?)?.toDouble() ?? 0.0;
+    double finPrice = (json['final_unit_price'] as num?)?.toDouble() ?? (json['unit_price'] as num?)?.toDouble() ?? 0.0;
+
+    return POReconciliationItemModel(
+      poItemId: json['po_item_id'] as int?,
+      itemCode: json['item_code'] ?? '',
+      description: json['description'] ?? '',
+      hsCode: json['hs_code'],
+      packageType: json['package_type'] ?? 'Carton',
+      initialQuantity: (json['initial_quantity'] as num?)?.toDouble() ?? 0.0,
+      finalQuantity: (json['final_quantity'] as num?)?.toDouble() ?? 0.0,
+      initialUnitPrice: initPrice,
+      unitPrice: finPrice,
+      finalUnitPrice: finPrice,
+      initialPackagesCount: (json['initial_packages_count'] as num?)?.toDouble() ?? 0.0,
+      finalPackagesCount: (json['final_packages_count'] as num?)?.toDouble() ?? 0.0,
+      initialNetWeightKg: (json['initial_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      finalNetWeightKg: (json['final_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      initialGrossWeightKg: (json['initial_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      finalGrossWeightKg: (json['final_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      initialCbm: (json['initial_cbm'] as num?)?.toDouble() ?? 0.0,
+      finalCbm: (json['final_cbm'] as num?)?.toDouble() ?? 0.0,
+      variancePercentage: (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      priceVariancePercentage: (json['price_variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      weightVariancePercentage: (json['weight_variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      notes: json['notes'],
+    );
+  }
+
+  POReconciliationItemModel copyWith({
+    int? poItemId,
+    String? itemCode,
+    String? description,
+    String? hsCode,
+    String? packageType,
+    double? initialQuantity,
+    double? finalQuantity,
+    double? initialUnitPrice,
+    double? unitPrice,
+    double? finalUnitPrice,
+    double? initialPackagesCount,
+    double? finalPackagesCount,
+    double? initialNetWeightKg,
+    double? finalNetWeightKg,
+    double? initialGrossWeightKg,
+    double? finalGrossWeightKg,
+    double? initialCbm,
+    double? finalCbm,
+    double? variancePercentage,
+    double? priceVariancePercentage,
+    double? weightVariancePercentage,
+    String? notes,
+  }) {
+    return POReconciliationItemModel(
+      poItemId: poItemId ?? this.poItemId,
+      itemCode: itemCode ?? this.itemCode,
+      description: description ?? this.description,
+      hsCode: hsCode ?? this.hsCode,
+      packageType: packageType ?? this.packageType,
+      initialQuantity: initialQuantity ?? this.initialQuantity,
+      finalQuantity: finalQuantity ?? this.finalQuantity,
+      initialUnitPrice: initialUnitPrice ?? this.initialUnitPrice,
+      unitPrice: unitPrice ?? this.unitPrice,
+      finalUnitPrice: finalUnitPrice ?? this.finalUnitPrice,
+      initialPackagesCount: initialPackagesCount ?? this.initialPackagesCount,
+      finalPackagesCount: finalPackagesCount ?? this.finalPackagesCount,
+      initialNetWeightKg: initialNetWeightKg ?? this.initialNetWeightKg,
+      finalNetWeightKg: finalNetWeightKg ?? this.finalNetWeightKg,
+      initialGrossWeightKg: initialGrossWeightKg ?? this.initialGrossWeightKg,
+      finalGrossWeightKg: finalGrossWeightKg ?? this.finalGrossWeightKg,
+      initialCbm: initialCbm ?? this.initialCbm,
+      finalCbm: finalCbm ?? this.finalCbm,
+      variancePercentage: variancePercentage ?? this.variancePercentage,
+      priceVariancePercentage: priceVariancePercentage ?? this.priceVariancePercentage,
+      weightVariancePercentage: weightVariancePercentage ?? this.weightVariancePercentage,
+      notes: notes ?? this.notes,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'po_item_id': poItemId,
+    'item_code': itemCode,
+    'description': description,
+    'hs_code': hsCode,
+    'package_type': packageType,
+    'initial_quantity': initialQuantity,
+    'final_quantity': finalQuantity,
+    'initial_unit_price': initialUnitPrice,
+    'unit_price': unitPrice,
+    'final_unit_price': finalUnitPrice,
+    'initial_packages_count': initialPackagesCount,
+    'final_packages_count': finalPackagesCount,
+    'initial_net_weight_kg': initialNetWeightKg,
+    'final_net_weight_kg': finalNetWeightKg,
+    'initial_gross_weight_kg': initialGrossWeightKg,
+    'final_gross_weight_kg': finalGrossWeightKg,
+    'initial_cbm': initialCbm,
+    'final_cbm': finalCbm,
+    'variance_percentage': variancePercentage,
+    'price_variance_percentage': priceVariancePercentage,
+    'weight_variance_percentage': weightVariancePercentage,
+    'notes': notes,
+  };
+}
+
+class POReconciliationResultModel {
+  final String status;
+  final String message;
+  final int importFileId;
+  final String finalInvoiceNumber;
+  final String finalPackingListNumber;
+  final int totalItemsCount;
+  final double totalNetWeightKg;
+  final double totalGrossWeightKg;
+  final double totalCbm;
+  final double totalFinalAmount;
+  final List<POReconciliationItemModel> items;
+
+  POReconciliationResultModel({
+    required this.status,
+    required this.message,
+    required this.importFileId,
+    required this.finalInvoiceNumber,
+    required this.finalPackingListNumber,
+    required this.totalItemsCount,
+    required this.totalNetWeightKg,
+    required this.totalGrossWeightKg,
+    required this.totalCbm,
+    required this.totalFinalAmount,
+    required this.items,
+  });
+
+  factory POReconciliationResultModel.fromJson(Map<String, dynamic> json) {
+    var rawItems = json['items'] as List<dynamic>? ?? [];
+    return POReconciliationResultModel(
+      status: json['status'] ?? 'success',
+      message: json['message'] ?? '',
+      importFileId: json['import_file_id'] ?? 0,
+      finalInvoiceNumber: json['final_invoice_number'] ?? '',
+      finalPackingListNumber: json['final_packing_list_number'] ?? '',
+      totalItemsCount: json['total_items_count'] ?? 0,
+      totalNetWeightKg: (json['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalGrossWeightKg: (json['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
+      totalFinalAmount: (json['total_final_amount'] as num?)?.toDouble() ?? 0.0,
+      items: rawItems.map((i) => POReconciliationItemModel.fromJson(i)).toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'status': status,
+    'message': message,
+    'import_file_id': importFileId,
+    'final_invoice_number': finalInvoiceNumber,
+    'final_packing_list_number': finalPackingListNumber,
+    'total_items_count': totalItemsCount,
+    'total_net_weight_kg': totalNetWeightKg,
+    'total_gross_weight_kg': totalGrossWeightKg,
+    'total_cbm': totalCbm,
+    'total_final_amount': totalFinalAmount,
+    'items': items.map((i) => i.toJson()).toList(),
+  };
+}
+
+class DraftBLDiscrepancyItemModel {
+  final String fieldKey;
+  final String fieldLabelAr;
+  final String fieldLabelEn;
+  final String sourceDocument;
+  final dynamic systemValue;
+  final dynamic draftValue;
+  final String matchStatus; // MATCH, MISMATCH_CRITICAL, MISMATCH_MINOR, MISSING_IN_DRAFT
+  final String severity; // NONE, WARNING, BLOCKING
+  final double tolerancePercentage;
+  final String details;
+
+  DraftBLDiscrepancyItemModel({
+    required this.fieldKey,
+    required this.fieldLabelAr,
+    required this.fieldLabelEn,
+    required this.sourceDocument,
+    this.systemValue,
+    this.draftValue,
+    required this.matchStatus,
+    required this.severity,
+    this.tolerancePercentage = 0.0,
+    required this.details,
+  });
+
+  factory DraftBLDiscrepancyItemModel.fromJson(Map<String, dynamic> json) {
+    return DraftBLDiscrepancyItemModel(
+      fieldKey: json['field_key'] ?? '',
+      fieldLabelAr: json['field_label_ar'] ?? '',
+      fieldLabelEn: json['field_label_en'] ?? '',
+      sourceDocument: json['source_document'] ?? json['source_entity'] ?? '',
+      systemValue: json['system_value'],
+      draftValue: json['draft_value'],
+      matchStatus: json['match_status'] ?? 'MATCH',
+      severity: json['severity'] ?? 'NONE',
+      tolerancePercentage: (json['tolerance_percentage'] as num?)?.toDouble() ?? 0.0,
+      details: json['details'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'field_key': fieldKey,
+    'field_label_ar': fieldLabelAr,
+    'field_label_en': fieldLabelEn,
+    'source_document': sourceDocument,
+    'source_entity': sourceDocument,
+    'system_value': systemValue,
+    'draft_value': draftValue,
+    'match_status': matchStatus,
+    'severity': severity,
+    'tolerance_percentage': tolerancePercentage,
+    'details': details,
+  };
+}
+
+class DraftBLChecklistItemModel {
+  final String fieldKey;
+  final String fieldLabelAr;
+  final String fieldLabelEn;
+  final String sourceEntity;
+  final dynamic systemValue;
+  final dynamic draftValue;
+  String status; // 'Correct', 'Incorrect', 'N/A'
+  String? requiredCorrection;
+  String? reason;
+  String? notes;
+  String? responsibleParty;
+  bool isLocked;
+  String? previousStatus;
+
+  DraftBLChecklistItemModel({
+    required this.fieldKey,
+    required this.fieldLabelAr,
+    required this.fieldLabelEn,
+    required this.sourceEntity,
+    this.systemValue,
+    this.draftValue,
+    this.status = 'Correct',
+    this.requiredCorrection,
+    this.reason,
+    this.notes,
+    this.responsibleParty,
+    this.isLocked = false,
+    this.previousStatus,
+  });
+
+  factory DraftBLChecklistItemModel.fromJson(Map<String, dynamic> json) {
+    return DraftBLChecklistItemModel(
+      fieldKey: json['field_key'] ?? '',
+      fieldLabelAr: json['field_label_ar'] ?? '',
+      fieldLabelEn: json['field_label_en'] ?? '',
+      sourceEntity: json['source_entity'] ?? json['source_document'] ?? '',
+      systemValue: json['system_value'],
+      draftValue: json['draft_value'],
+      status: json['status'] ?? 'Correct',
+      requiredCorrection: json['required_correction'],
+      reason: json['reason'],
+      notes: json['notes'],
+      responsibleParty: json['responsible_party'],
+      isLocked: json['is_locked'] ?? false,
+      previousStatus: json['previous_status'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'field_key': fieldKey,
+    'field_label_ar': fieldLabelAr,
+    'field_label_en': fieldLabelEn,
+    'source_entity': sourceEntity,
+    'system_value': systemValue,
+    'draft_value': draftValue,
+    'status': status,
+    'required_correction': requiredCorrection,
+    'reason': reason,
+    'notes': notes,
+    'responsible_party': responsibleParty,
+    'is_locked': isLocked,
+    'previous_status': previousStatus,
+  };
+}
+
+class RevisionReportItemModel {
+  final String item;
+  final String requiredAction;
+  final String responsible;
+  final String? reason;
+  final String? notes;
+
+  RevisionReportItemModel({
+    required this.item,
+    required this.requiredAction,
+    required this.responsible,
+    this.reason,
+    this.notes,
+  });
+
+  factory RevisionReportItemModel.fromJson(Map<String, dynamic> json) {
+    return RevisionReportItemModel(
+      item: json['item'] ?? '',
+      requiredAction: json['required_action'] ?? '',
+      responsible: json['responsible'] ?? '',
+      reason: json['reason'],
+      notes: json['notes'],
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'item': item,
+    'required_action': requiredAction,
+    'responsible': responsible,
+    'reason': reason,
+    'notes': notes,
+  };
+}
+
+class DraftBLComparisonResultModel {
+  final int importFileId;
+  final String stage;
+  final Map<String, dynamic> systemData;
+  final Map<String, dynamic> draftData;
+  final List<DraftBLDiscrepancyItemModel> matrix;
+  final List<DraftBLChecklistItemModel> checklist;
+  final List<RevisionReportItemModel> revisionReport;
+  final bool hasDiscrepancies;
+  final bool hasBlockingMismatch;
+  final int openDiscrepanciesCount;
+  final List<String> blockingReasons;
+  final String status;
+  final String correctionRequestLetter;
+
+  DraftBLComparisonResultModel({
+    required this.importFileId,
+    this.stage = 'Stage 1: Draft Review',
+    required this.systemData,
+    required this.draftData,
+    required this.matrix,
+    this.checklist = const [],
+    this.revisionReport = const [],
+    required this.hasDiscrepancies,
+    required this.hasBlockingMismatch,
+    this.openDiscrepanciesCount = 0,
+    required this.blockingReasons,
+    required this.status,
+    required this.correctionRequestLetter,
+  });
+
+  factory DraftBLComparisonResultModel.fromJson(Map<String, dynamic> json) {
+    var rawMatrix = json['comparison_matrix'] as List<dynamic>? ?? json['matrix'] as List<dynamic>? ?? [];
+    var rawChecklist = json['checklist_data'] as List<dynamic>? ?? [];
+    var rawRevision = json['revision_report_data'] as List<dynamic>? ?? [];
+    var rawReasons = json['blocking_reasons'] as List<dynamic>? ?? [];
+    return DraftBLComparisonResultModel(
+      importFileId: json['import_file_id'] ?? 0,
+      stage: json['stage'] ?? 'Stage 1: Draft Review',
+      systemData: json['system_snapshot_data'] as Map<String, dynamic>? ?? json['system_data'] as Map<String, dynamic>? ?? {},
+      draftData: json['draft_input_data'] as Map<String, dynamic>? ?? json['draft_data'] as Map<String, dynamic>? ?? {},
+      matrix: rawMatrix.map((m) => DraftBLDiscrepancyItemModel.fromJson(m)).toList(),
+      checklist: rawChecklist.map((c) => DraftBLChecklistItemModel.fromJson(c)).toList(),
+      revisionReport: rawRevision.map((r) => RevisionReportItemModel.fromJson(r)).toList(),
+      hasDiscrepancies: json['has_discrepancies'] ?? false,
+      hasBlockingMismatch: json['has_blocking_mismatch'] ?? false,
+      openDiscrepanciesCount: json['open_discrepancies_count'] ?? 0,
+      blockingReasons: rawReasons.map((r) => r.toString()).toList(),
+      status: json['status'] ?? 'Draft',
+      correctionRequestLetter: json['correction_request_letter'] ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'import_file_id': importFileId,
+    'stage': stage,
+    'system_snapshot_data': systemData,
+    'draft_input_data': draftData,
+    'comparison_matrix': matrix.map((m) => m.toJson()).toList(),
+    'checklist_data': checklist.map((c) => c.toJson()).toList(),
+    'revision_report_data': revisionReport.map((r) => r.toJson()).toList(),
+    'has_discrepancies': hasDiscrepancies,
+    'has_blocking_mismatch': hasBlockingMismatch,
+    'open_discrepancies_count': openDiscrepanciesCount,
+    'blocking_reasons': blockingReasons,
+    'status': status,
+    'correction_request_letter': correctionRequestLetter,
+  };
+}
+
+class DraftBLReviewModel {
+  final int blReviewId;
+  final String blReviewCode;
+  final int? importFileId;
+  final int? poId;
+  final int? bookingId;
+  final String draftBlNumber;
+  final String? shippingLine;
+  final String? vesselName;
+  final String? voyageNumber;
+  final String? bookingNumber;
+  final String? polName;
+  final String? podName;
+  final String? freightTerms;
+  final String? placeOfDelivery;
+  final String? importerTaxId;
+  final String? shipperRegId;
+  final double measurementCbm;
+  final double netWeightKg;
+  final int packagesCount;
+  final String? containerSummary;
+  final int versionNumber;
+  final int? parentSessionId;
+  final String stage;
+  final Map<String, dynamic>? systemDataSnapshot;
+  final Map<String, dynamic>? draftExtractedData;
+  final List<DraftBLDiscrepancyItemModel> comparisonMatrix;
+  final List<DraftBLChecklistItemModel> checklistData;
+  final List<RevisionReportItemModel> revisionReportData;
+  final bool hasDiscrepancies;
+  final bool hasBlockingMismatch;
+  final int openDiscrepanciesCount;
+  final List<String> blockingReasons;
+  final String importerApprovalStatus;
+  final String? importerApprovedBy;
+  final String? importerApprovalDate;
+  final String? importerApprovalNotes;
+  final String brokerApprovalStatus;
+  final String? brokerApprovedBy;
+  final String? brokerApprovalDate;
+  final String? brokerApprovalNotes;
+  final String status;
+  final String? approvedBy;
+  final String? approvedAt;
+  final String? correctionRequestLetter;
+  final String? notes;
+  final bool isActive;
+  final String createdAt;
+
+  DraftBLReviewModel({
+    required this.blReviewId,
+    required this.blReviewCode,
+    this.importFileId,
+    this.poId,
+    this.bookingId,
+    required this.draftBlNumber,
+    this.shippingLine,
+    this.vesselName,
+    this.voyageNumber,
+    this.bookingNumber,
+    this.polName,
+    this.podName,
+    this.freightTerms,
+    this.placeOfDelivery,
+    this.importerTaxId,
+    this.shipperRegId,
+    this.measurementCbm = 0.0,
+    this.netWeightKg = 0.0,
+    this.packagesCount = 0,
+    this.containerSummary,
+    this.versionNumber = 1,
+    this.parentSessionId,
+    this.stage = 'Stage 1: Draft Review',
+    this.systemDataSnapshot,
+    this.draftExtractedData,
+    required this.comparisonMatrix,
+    this.checklistData = const [],
+    this.revisionReportData = const [],
+    required this.hasDiscrepancies,
+    required this.hasBlockingMismatch,
+    this.openDiscrepanciesCount = 0,
+    required this.blockingReasons,
+    this.importerApprovalStatus = 'Pending',
+    this.importerApprovedBy,
+    this.importerApprovalDate,
+    this.importerApprovalNotes,
+    this.brokerApprovalStatus = 'Pending',
+    this.brokerApprovedBy,
+    this.brokerApprovalDate,
+    this.brokerApprovalNotes,
+    required this.status,
+    this.approvedBy,
+    this.approvedAt,
+    this.correctionRequestLetter,
+    this.notes,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  String get version => 'v$versionNumber';
+
+  factory DraftBLReviewModel.fromJson(Map<String, dynamic> json) {
+    var rawMatrix = json['comparison_matrix'] as List<dynamic>? ?? [];
+    var rawChecklist = json['checklist_data'] as List<dynamic>? ?? [];
+    var rawRevision = json['revision_report_data'] as List<dynamic>? ?? [];
+    var rawReasons = json['blocking_reasons'] as List<dynamic>? ?? [];
+    return DraftBLReviewModel(
+      blReviewId: json['bl_review_id'] ?? 0,
+      blReviewCode: json['bl_review_code'] ?? '',
+      importFileId: json['import_file_id'],
+      poId: json['po_id'],
+      bookingId: json['booking_id'],
+      draftBlNumber: json['draft_bl_number'] ?? 'DRAFT-BL',
+      shippingLine: json['shipping_line'],
+      vesselName: json['vessel_name'],
+      voyageNumber: json['voyage_number'],
+      bookingNumber: json['booking_no'] ?? json['booking_number'],
+      polName: json['pol'] ?? json['pol_name'],
+      podName: json['pod'] ?? json['pod_name'],
+      freightTerms: json['freight_terms'],
+      placeOfDelivery: json['place_of_delivery'],
+      importerTaxId: json['importer_tax_id'],
+      shipperRegId: json['shipper_reg_id'],
+      measurementCbm: (json['measurement_cbm'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      packagesCount: (json['packages_count'] as num?)?.toInt() ?? 0,
+      containerSummary: json['container_summary'],
+      versionNumber: (json['version_number'] as num?)?.toInt() ?? 1,
+      parentSessionId: json['parent_session_id'],
+      stage: json['stage'] ?? 'Stage 1: Draft Review',
+      systemDataSnapshot: json['system_snapshot_data'] as Map<String, dynamic>? ?? json['system_data_snapshot'] as Map<String, dynamic>?,
+      draftExtractedData: json['draft_input_data'] as Map<String, dynamic>? ?? json['draft_extracted_data'] as Map<String, dynamic>?,
+      comparisonMatrix: rawMatrix.map((m) => DraftBLDiscrepancyItemModel.fromJson(m)).toList(),
+      checklistData: rawChecklist.map((c) => DraftBLChecklistItemModel.fromJson(c)).toList(),
+      revisionReportData: rawRevision.map((r) => RevisionReportItemModel.fromJson(r)).toList(),
+      hasDiscrepancies: json['has_discrepancies'] ?? false,
+      hasBlockingMismatch: json['has_blocking_mismatch'] ?? false,
+      openDiscrepanciesCount: json['open_discrepancies_count'] ?? 0,
+      blockingReasons: rawReasons.map((r) => r.toString()).toList(),
+      importerApprovalStatus: json['importer_approval_status'] ?? 'Pending',
+      importerApprovedBy: json['importer_approved_by'],
+      importerApprovalDate: json['importer_approval_date']?.toString(),
+      importerApprovalNotes: json['importer_approval_notes'],
+      brokerApprovalStatus: json['broker_approval_status'] ?? 'Pending',
+      brokerApprovedBy: json['broker_approved_by'],
+      brokerApprovalDate: json['broker_approval_date']?.toString(),
+      brokerApprovalNotes: json['broker_approval_notes'],
+      status: json['status'] ?? 'Draft',
+      approvedBy: json['approved_by'],
+      approvedAt: json['approved_at']?.toString(),
+      correctionRequestLetter: json['correction_request_letter'],
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+      createdAt: json['created_at']?.toString() ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'bl_review_id': blReviewId,
+    'bl_review_code': blReviewCode,
+    'import_file_id': importFileId,
+    'po_id': poId,
+    'booking_id': bookingId,
+    'draft_bl_number': draftBlNumber,
+    'shipping_line': shippingLine,
+    'vessel_name': vesselName,
+    'voyage_number': voyageNumber,
+    'booking_no': bookingNumber,
+    'pol_name': polName,
+    'pod_name': podName,
+    'freight_terms': freightTerms,
+    'place_of_delivery': placeOfDelivery,
+    'importer_tax_id': importerTaxId,
+    'shipper_reg_id': shipperRegId,
+    'measurement_cbm': measurementCbm,
+    'net_weight_kg': netWeightKg,
+    'packages_count': packagesCount,
+    'container_summary': containerSummary,
+    'version_number': versionNumber,
+    'parent_session_id': parentSessionId,
+    'stage': stage,
+    'system_snapshot_data': systemDataSnapshot,
+    'draft_input_data': draftExtractedData,
+    'comparison_matrix': comparisonMatrix.map((m) => m.toJson()).toList(),
+    'checklist_data': checklistData.map((c) => c.toJson()).toList(),
+    'revision_report_data': revisionReportData.map((r) => r.toJson()).toList(),
+    'has_discrepancies': hasDiscrepancies,
+    'has_blocking_mismatch': hasBlockingMismatch,
+    'open_discrepancies_count': openDiscrepanciesCount,
+    'blocking_reasons': blockingReasons,
+    'importer_approval_status': importerApprovalStatus,
+    'importer_approved_by': importerApprovedBy,
+    'importer_approval_date': importerApprovalDate,
+    'importer_approval_notes': importerApprovalNotes,
+    'broker_approval_status': brokerApprovalStatus,
+    'broker_approved_by': brokerApprovedBy,
+    'broker_approval_date': brokerApprovalDate,
+    'broker_approval_notes': brokerApprovalNotes,
+    'status': status,
+    'approved_by': approvedBy,
+    'approved_at': approvedAt,
+    'correction_request_letter': correctionRequestLetter,
+    'notes': notes,
+    'is_active': isActive,
+    'created_at': createdAt,
+  };
+}
+
+class CertificateOfOriginReviewModel {
+  final int cooReviewId;
+  final String cooReviewCode;
+  final int? importFileId;
+  final String certificateType;
+  final String certificateNumber;
+  final String? rawText;
+  final String? documentFileUrl;
+  final Map<String, dynamic>? systemSnapshotData;
+  final Map<String, dynamic>? draftInputData;
+  final List<dynamic> comparisonMatrix;
+  final bool hasDiscrepancies;
+  final bool hasCriticalMismatch;
+  final String status;
+  final String? approvedBy;
+  final String? approvedAt;
+  final String? notes;
+  final bool isActive;
+  final String createdAt;
+
+  CertificateOfOriginReviewModel({
+    required this.cooReviewId,
+    required this.cooReviewCode,
+    this.importFileId,
+    required this.certificateType,
+    required this.certificateNumber,
+    this.rawText,
+    this.documentFileUrl,
+    this.systemSnapshotData,
+    this.draftInputData,
+    required this.comparisonMatrix,
+    required this.hasDiscrepancies,
+    required this.hasCriticalMismatch,
+    required this.status,
+    this.approvedBy,
+    this.approvedAt,
+    this.notes,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  factory CertificateOfOriginReviewModel.fromJson(Map<String, dynamic> json) {
+    return CertificateOfOriginReviewModel(
+      cooReviewId: json['coo_review_id'] ?? 0,
+      cooReviewCode: json['coo_review_code'] ?? '',
+      importFileId: json['import_file_id'],
+      certificateType: json['certificate_type'] ?? 'EUR.1',
+      certificateNumber: json['certificate_number'] ?? 'DRAFT-COO',
+      rawText: json['raw_text'],
+      documentFileUrl: json['document_file_url'],
+      systemSnapshotData: json['system_snapshot_data'] as Map<String, dynamic>?,
+      draftInputData: json['draft_input_data'] as Map<String, dynamic>?,
+      comparisonMatrix: json['comparison_matrix'] as List<dynamic>? ?? [],
+      hasDiscrepancies: json['has_discrepancies'] ?? false,
+      hasCriticalMismatch: json['has_critical_mismatch'] ?? false,
+      status: json['status'] ?? 'Draft',
+      approvedBy: json['approved_by'],
+      approvedAt: json['approved_at'],
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+}
+
+class InspectionCertificateReviewModel {
+  final int inspectionReviewId;
+  final String inspectionReviewCode;
+  final int? importFileId;
+  final String inspectionType;
+  final String inspectionAgency;
+  final String certificateNumber;
+  final String? rawText;
+  final String? documentFileUrl;
+  final Map<String, dynamic>? systemSnapshotData;
+  final Map<String, dynamic>? draftInputData;
+  final List<dynamic> comparisonMatrix;
+  final bool hasDiscrepancies;
+  final bool hasCriticalMismatch;
+  final String status;
+  final String? approvedBy;
+  final String? approvedAt;
+  final String? notes;
+  final bool isActive;
+  final String createdAt;
+
+  InspectionCertificateReviewModel({
+    required this.inspectionReviewId,
+    required this.inspectionReviewCode,
+    this.importFileId,
+    required this.inspectionType,
+    required this.inspectionAgency,
+    required this.certificateNumber,
+    this.rawText,
+    this.documentFileUrl,
+    this.systemSnapshotData,
+    this.draftInputData,
+    required this.comparisonMatrix,
+    required this.hasDiscrepancies,
+    required this.hasCriticalMismatch,
+    required this.status,
+    this.approvedBy,
+    this.approvedAt,
+    this.notes,
+    required this.isActive,
+    required this.createdAt,
+  });
+
+  factory InspectionCertificateReviewModel.fromJson(Map<String, dynamic> json) {
+    return InspectionCertificateReviewModel(
+      inspectionReviewId: json['inspection_review_id'] ?? 0,
+      inspectionReviewCode: json['inspection_review_code'] ?? '',
+      importFileId: json['import_file_id'],
+      inspectionType: json['inspection_type'] ?? 'COC (Certificate of Conformity)',
+      inspectionAgency: json['inspection_agency'] ?? 'SGS',
+      certificateNumber: json['certificate_number'] ?? 'DRAFT-INSP',
+      rawText: json['raw_text'],
+      documentFileUrl: json['document_file_url'],
+      systemSnapshotData: json['system_snapshot_data'] as Map<String, dynamic>?,
+      draftInputData: json['draft_input_data'] as Map<String, dynamic>?,
+      comparisonMatrix: json['comparison_matrix'] as List<dynamic>? ?? [],
+      hasDiscrepancies: json['has_discrepancies'] ?? false,
+      hasCriticalMismatch: json['has_critical_mismatch'] ?? false,
+      status: json['status'] ?? 'Draft',
+      approvedBy: json['approved_by'],
+      approvedAt: json['approved_at'],
+      notes: json['notes'],
+      isActive: json['is_active'] ?? true,
+      createdAt: json['created_at'] ?? '',
+    );
+  }
+}
+
+class LegalDocAlertItemModel {
+  final String docType;
+  final String docNumber;
+  final String expiryDate;
+  final int daysUntilExpiry;
+  final int daysAfterEta;
+  final bool isExpired;
+  final bool isCriticalBreach;
+  final String alertMessage;
+  final String status;
+
+  LegalDocAlertItemModel({
+    required this.docType,
+    required this.docNumber,
+    required this.expiryDate,
+    required this.daysUntilExpiry,
+    required this.daysAfterEta,
+    required this.isExpired,
+    required this.isCriticalBreach,
+    required this.alertMessage,
+    required this.status,
+  });
+
+  factory LegalDocAlertItemModel.fromJson(Map<String, dynamic> json) {
+    return LegalDocAlertItemModel(
+      docType: json['doc_type'] ?? '',
+      docNumber: json['doc_number']?.toString() ?? '—',
+      expiryDate: json['expiry_date']?.toString() ?? '',
+      daysUntilExpiry: json['days_until_expiry'] ?? 0,
+      daysAfterEta: json['days_after_eta'] ?? 0,
+      isExpired: json['is_expired'] ?? false,
+      isCriticalBreach: json['is_critical_breach'] ?? false,
+      alertMessage: json['alert_message'] ?? '',
+      status: json['status'] ?? 'VALID',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'doc_type': docType,
+    'doc_number': docNumber,
+    'expiry_date': expiryDate,
+    'days_until_expiry': daysUntilExpiry,
+    'days_after_eta': daysAfterEta,
+    'is_expired': isExpired,
+    'is_critical_breach': isCriticalBreach,
+    'alert_message': alertMessage,
+    'status': status,
+  };
+}
+
+class LegalDocsExpiryComplianceModel {
+  final int importFileId;
+  final String importFileCode;
+  final String companyName;
+  final String etaDate;
+  final String etaSource;
+  final String safetyWindowDate;
+  final bool hasCriticalAlerts;
+  final String overallComplianceStatus;
+  final String? persistentBannerText;
+  final List<LegalDocAlertItemModel> alerts;
+
+  LegalDocsExpiryComplianceModel({
+    required this.importFileId,
+    required this.importFileCode,
+    required this.companyName,
+    required this.etaDate,
+    required this.etaSource,
+    required this.safetyWindowDate,
+    required this.hasCriticalAlerts,
+    required this.overallComplianceStatus,
+    this.persistentBannerText,
+    required this.alerts,
+  });
+
+  factory LegalDocsExpiryComplianceModel.fromJson(Map<String, dynamic> json) {
+    var rawAlerts = json['alerts'] as List<dynamic>? ?? [];
+    return LegalDocsExpiryComplianceModel(
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code'] ?? '',
+      companyName: json['company_name'] ?? '',
+      etaDate: json['eta_date']?.toString() ?? '',
+      etaSource: json['eta_source'] ?? '',
+      safetyWindowDate: json['safety_window_date']?.toString() ?? '',
+      hasCriticalAlerts: json['has_critical_alerts'] ?? false,
+      overallComplianceStatus: json['overall_compliance_status'] ?? 'COMPLIANT',
+      persistentBannerText: json['persistent_banner_text'],
+      alerts: rawAlerts.map((a) => LegalDocAlertItemModel.fromJson(a)).toList(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'import_file_id': importFileId,
+    'import_file_code': importFileCode,
+    'company_name': companyName,
+    'eta_date': etaDate,
+    'eta_source': etaSource,
+    'safety_window_date': safetyWindowDate,
+    'has_critical_alerts': hasCriticalAlerts,
+    'overall_compliance_status': overallComplianceStatus,
+    'persistent_banner_text': persistentBannerText,
+    'alerts': alerts.map((a) => a.toJson()).toList(),
+  };
+}
+
+

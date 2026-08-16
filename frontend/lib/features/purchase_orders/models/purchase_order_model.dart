@@ -84,6 +84,48 @@ class POLineItemModel {
     );
   }
 
+  POLineItemModel copyWith({
+    int? itemId,
+    int? poId,
+    String? itemCode,
+    String? descriptionAr,
+    String? descriptionEn,
+    String? countryOfOrigin,
+    int? tariffId,
+    double? quantity,
+    String? unitOfMeasure,
+    double? unitPrice,
+    double? totalPrice,
+    double? cbmPerUnit,
+    double? totalCbm,
+    double? grossWeightKg,
+    double? netWeightKg,
+    String? hsCode,
+    double? dutyRate,
+    double? vatRate,
+  }) {
+    return POLineItemModel(
+      itemId: itemId ?? this.itemId,
+      poId: poId ?? this.poId,
+      itemCode: itemCode ?? this.itemCode,
+      descriptionAr: descriptionAr ?? this.descriptionAr,
+      descriptionEn: descriptionEn ?? this.descriptionEn,
+      countryOfOrigin: countryOfOrigin ?? this.countryOfOrigin,
+      tariffId: tariffId ?? this.tariffId,
+      quantity: quantity ?? this.quantity,
+      unitOfMeasure: unitOfMeasure ?? this.unitOfMeasure,
+      unitPrice: unitPrice ?? this.unitPrice,
+      totalPrice: totalPrice ?? this.totalPrice,
+      cbmPerUnit: cbmPerUnit ?? this.cbmPerUnit,
+      totalCbm: totalCbm ?? this.totalCbm,
+      grossWeightKg: grossWeightKg ?? this.grossWeightKg,
+      netWeightKg: netWeightKg ?? this.netWeightKg,
+      hsCode: hsCode ?? this.hsCode,
+      dutyRate: dutyRate ?? this.dutyRate,
+      vatRate: vatRate ?? this.vatRate,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       if (itemId != null) 'item_id': itemId,

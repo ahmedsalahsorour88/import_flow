@@ -611,3 +611,1189 @@ def create_customs_declaration_service(
     db: Session, schema: CustomsDeclarationCreate
 ) -> CustomsDeclarationDraft:
     return repo.create_customs_declaration(db, schema)
+
+
+# ==============================================================================
+# PHASE 6: INTELLIGENT DOCUMENT VERIFICATION & COMPARISON ENGINES
+# ==============================================================================
+import difflib
+from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import PurchaseOrder, POLineItem, PackingListItem
+from modules.freight_booking.model import ShipmentBooking
+from modules.cargo_shipping.model import CargoShippingRecord
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.import_documentation.model import (
+    DraftBLReviewSession,
+    CertificateOfOriginReviewSession,
+    InspectionCertificateReviewSession,
+)
+from modules.import_documentation.schemas import (
+    POFinalAdjustmentRequest,
+    DraftBLReviewCreate,
+    DraftBLReviewUpdate,
+    DraftBLReviewResponse,
+    DraftBLComparisonRequest,
+    CertificateOfOriginReviewCreate,
+    CertificateOfOriginReviewUpdate,
+    CertificateOfOriginReviewResponse,
+    COOComparisonRequest,
+    InspectionCertificateReviewCreate,
+    InspectionCertificateReviewUpdate,
+    InspectionCertificateReviewResponse,
+    InspectionComparisonRequest,
+    LegalDocsExpiryComplianceResponse,
+    LegalDocAlertItem,
+)
+
+
+def _normalize_str(s: Any) -> str:
+    if s is None:
+        return ""
+    return " ".join(str(s).lower().strip().split())
+
+
+def _fuzzy_match(s1: Any, s2: Any, threshold: float = 0.70) -> tuple[bool, float]:
+    n1 = _normalize_str(s1)
+    n2 = _normalize_str(s2)
+    if not n1 and not n2:
+        return True, 1.0
+    if not n1 or not n2:
+        return False, 0.0
+    if n1 == n2 or n1 in n2 or n2 in n1:
+        return True, 1.0
+    ratio = difflib.SequenceMatcher(None, n1, n2).ratio()
+    w1 = set(n1.split())
+    w2 = set(n2.split())
+    if w1 and w2:
+        overlap = len(w1.intersection(w2)) / max(len(w1), len(w2))
+        if overlap >= 0.50:
+            return True, max(ratio, overlap)
+    return ratio >= threshold, ratio
+
+
+def _numeric_match(val1: Any, val2: Any, tolerance_pct: float = 0.5) -> tuple[bool, float, float]:
+    try:
+        f1 = float(val1 or 0.0)
+        f2 = float(val2 or 0.0)
+    except (ValueError, TypeError):
+        return False, 100.0, 0.0
+    if f1 == 0.0 and f2 == 0.0:
+        return True, 0.0, 0.0
+    base = max(abs(f1), abs(f2))
+    diff = abs(f1 - f2)
+    pct = (diff / base) * 100.0 if base > 0 else 0.0
+    return pct <= tolerance_pct, pct, diff
+
+
+# --- 1. FINAL INVOICE & PACKING LIST PO RECONCILIATION ---
+def reconcile_po_final_adjustments_service(db: Session, request: POFinalAdjustmentRequest) -> dict:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    updated_items = []
+    total_net_weight = 0.0
+    total_gross_weight = 0.0
+    total_cbm = 0.0
+    total_final_amount = 0.0
+
+    for itm in request.items:
+        final_price = itm.final_unit_price if itm.final_unit_price > 0 else itm.unit_price
+        itm.unit_price = final_price
+        itm.final_unit_price = final_price
+
+        if itm.po_item_id:
+            db_po_item = db.query(POLineItem).filter(POLineItem.item_id == itm.po_item_id).first()
+            if db_po_item:
+                db_po_item.quantity = itm.final_quantity
+                if final_price > 0:
+                    db_po_item.unit_price = final_price
+                    db_po_item.total_price = itm.final_quantity * final_price
+                if itm.final_net_weight_kg > 0:
+                    db_po_item.net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_po_item.gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_po_item.total_cbm = itm.final_cbm
+
+            db_pl_item = db.query(PackingListItem).filter(PackingListItem.packing_item_id == itm.po_item_id).first()
+            if db_pl_item:
+                if itm.final_packages_count > 0:
+                    db_pl_item.qty_pkg = itm.final_packages_count
+                if itm.final_net_weight_kg > 0:
+                    db_pl_item.total_net_weight_kg = itm.final_net_weight_kg
+                if itm.final_gross_weight_kg > 0:
+                    db_pl_item.total_gross_weight_kg = itm.final_gross_weight_kg
+                if itm.final_cbm > 0:
+                    db_pl_item.total_cbm = itm.final_cbm
+                if itm.package_type:
+                    db_pl_item.package_type = itm.package_type
+        
+        total_net_weight += itm.final_net_weight_kg
+        total_gross_weight += itm.final_gross_weight_kg
+        total_cbm += itm.final_cbm
+        if final_price > 0:
+            total_final_amount += itm.final_quantity * final_price
+        
+        qty_variance = 0.0
+        if itm.initial_quantity > 0:
+            qty_variance = ((itm.final_quantity - itm.initial_quantity) / itm.initial_quantity) * 100.0
+        itm.variance_percentage = round(qty_variance, 2)
+
+        price_variance = 0.0
+        if itm.initial_unit_price > 0:
+            price_variance = ((final_price - itm.initial_unit_price) / itm.initial_unit_price) * 100.0
+        itm.price_variance_percentage = round(price_variance, 2)
+
+        weight_variance = 0.0
+        if itm.initial_gross_weight_kg > 0:
+            weight_variance = ((itm.final_gross_weight_kg - itm.initial_gross_weight_kg) / itm.initial_gross_weight_kg) * 100.0
+        itm.weight_variance_percentage = round(weight_variance, 2)
+
+        updated_items.append(itm.model_dump())
+
+    # Update Import File Snapshot
+    imp_file.pi_number = request.final_invoice_number
+    imp_file.total_amount = total_final_amount
+    db.commit()
+
+    return {
+        "status": "success",
+        "message": "Final Commercial Invoice & Packing List quantities, prices, and weights certified for downstream systems (B/L, Inventory in Transit, Warehouse Receiving).",
+        "import_file_id": request.import_file_id,
+        "final_invoice_number": request.final_invoice_number,
+        "final_packing_list_number": request.final_packing_list_number,
+        "total_items_count": len(updated_items),
+        "total_net_weight_kg": round(total_net_weight, 2),
+        "total_gross_weight_kg": round(total_gross_weight, 2),
+        "total_cbm": round(total_cbm, 3),
+        "total_final_amount": round(total_final_amount, 2),
+        "items": updated_items,
+    }
+
+
+# --- 2. DRAFT BILL OF LADING (B/L) 5-STAGE REVIEW ENGINE ---
+def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id == import_file_id, ShipmentBooking.is_active == True).first()
+    cargo_shp = db.query(CargoShippingRecord).filter(CargoShippingRecord.import_file_id == import_file_id, CargoShippingRecord.is_active == True).first()
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file and imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file and imp_file.supplier_id else None
+    pos = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True).all()
+
+    # Containers from Phase 5 Cargo Shipping
+    containers = []
+    total_cbm = 0.0
+    total_gw = 0.0
+    total_nw = 0.0
+    total_pkgs = 0
+    total_pcs = 0
+    hs_codes = set()
+    goods_desc = []
+    container_str_parts = []
+
+    if cargo_shp and cargo_shp.containers_loading_data:
+        for c in cargo_shp.containers_loading_data:
+            c_dict = dict(c)
+            c_no = c_dict.get("container_no", "")
+            s_no = c_dict.get("seal_no", "")
+            c_sz = c_dict.get("container_type", "40HC")
+            containers.append({
+                "container_no": c_no,
+                "seal_no": s_no,
+                "container_type": c_sz,
+                "gross_weight_kg": float(c_dict.get("gross_weight_kg") or 0.0),
+                "net_weight_kg": float(c_dict.get("net_weight_kg") or 0.0),
+                "vgm_status": c_dict.get("vgm_status", "Submitted"),
+            })
+            total_gw += float(c_dict.get("gross_weight_kg") or 0.0)
+            total_nw += float(c_dict.get("net_weight_kg") or 0.0)
+            if c_no:
+                container_str_parts.append(f"{c_no} / Seal: {s_no} ({c_sz})")
+
+    for po in pos:
+        if po.line_items:
+            for itm in po.line_items:
+                goods_desc.append(itm.description_ar or itm.description_en or itm.item_code or "Goods")
+                total_pcs += int(float(itm.quantity or 0))
+                total_pkgs += int(float(itm.quantity or 0))
+                total_cbm += float(itm.total_cbm or 0.0)
+                if itm.tariff and itm.tariff.hs_code:
+                    hs_codes.add(itm.tariff.hs_code)
+        if po.packing_list_items:
+            for pl in po.packing_list_items:
+                if pl.total_gross_weight_kg and pl.total_gross_weight_kg > 0:
+                    total_gw = max(total_gw, float(pl.total_gross_weight_kg))
+                if pl.total_net_weight_kg and pl.total_net_weight_kg > 0:
+                    total_nw = max(total_nw, float(pl.total_net_weight_kg))
+                if pl.total_cbm and pl.total_cbm > 0:
+                    total_cbm = max(total_cbm, float(pl.total_cbm))
+                if pl.qty_pkg and pl.qty_pkg > 0:
+                    total_pkgs = max(total_pkgs, int(float(pl.qty_pkg)))
+
+    if total_cbm == 0.0:
+        total_cbm = 58.4
+    if total_gw == 0.0:
+        total_gw = 24500.0
+    if total_nw == 0.0:
+        total_nw = 20700.0
+
+    shipper_name = supplier.company_name if supplier else (imp_file.supplier_name if imp_file else 'Foreign Supplier')
+    shipper_addr = supplier.address if (supplier and supplier.address) else 'Export Industrial District, Global Port'
+    shipper_phone = getattr(supplier, 'phone', None) or getattr(supplier, 'contact_phone', None) or '+49-89-636-00'
+    shipper_full = f"{shipper_name}\nAddress: {shipper_addr}\nPhone: {shipper_phone}".strip()
+
+    consignee_name = company.importer_name if company else (imp_file.company_name if imp_file else 'Importing Company')
+    consignee_addr = company.address if (company and company.address) else '15 Industrial Zone, Cairo, Egypt'
+    consignee_phone = getattr(company, 'phone', None) or '+20-2-25778899'
+    consignee_full = f"{consignee_name}\nAddress: {consignee_addr}\nPhone: {consignee_phone}".strip()
+
+    notify_party_full = consignee_full
+    vessel = booking.vessel_name if (booking and booking.vessel_name) else "CMA CGM ANTOINE DE SAINT EXUPERY"
+    voyage = getattr(booking, 'voyage_number', None) or getattr(booking, 'voyage_no', None) or "0VEC1W1MA"
+    pol = booking.pol_name if (booking and booking.pol_name) else "Hamburg Port (DEHAM)"
+    pod = booking.pod_name if (booking and booking.pod_name) else "Alexandria Port (EGALY)"
+    freight_terms = getattr(booking, 'freight_terms', None) or "Freight Prepaid"
+    place_of_deliv = getattr(booking, 'place_of_delivery', None) or pod
+    bkg_no = booking.booking_confirmation_no if (booking and booking.booking_confirmation_no) else (cargo_shp.booking_no if (cargo_shp and cargo_shp.booking_no) else "BKG-2026-0099")
+    acid_no = imp_file.acid_number if (imp_file and imp_file.acid_number) else "EG-998877665544-2026"
+    tax_id = company.vat_id if company else "EG-123456789"
+    shipper_reg = getattr(supplier, 'registration_id', None) or getattr(supplier, 'tax_id', None) or "DE-99881122"
+    shp_mode = booking.shipment_type if (booking and booking.shipment_type) else "FCL / FCL"
+    container_summary_str = "; ".join(container_str_parts) if container_str_parts else "MSCU1234567 / Seal: SL-99001 (40HC)"
+
+    return {
+        "forwarder_name": booking.freight_forwarder_name if (booking and booking.freight_forwarder_name) else "Direct Shipping Line",
+        "shipping_line": booking.shipping_line_name if (booking and booking.shipping_line_name) else (cargo_shp.shipping_line if (cargo_shp and cargo_shp.shipping_line) else "MSC Mediterranean Shipping"),
+        "vessel_name": vessel,
+        "voyage_number": voyage,
+        "pol": pol,
+        "pod": pod,
+        "freight_terms": freight_terms,
+        "place_of_delivery": place_of_deliv,
+        "booking_no": bkg_no,
+        "acid_number": acid_no,
+        "importer_tax_id": tax_id,
+        "shipper_reg_id": shipper_reg,
+        "shipping_mode": shp_mode,
+        "container_summary": container_summary_str,
+        "hbl_no": None,
+        "mbl_no": None,
+        "shipper": shipper_full,
+        "consignee": consignee_full,
+        "notify_party": notify_party_full,
+        "hs_codes": list(hs_codes) if hs_codes else ["8471.30.00"],
+        "goods_description": ", ".join(goods_desc[:3]) if goods_desc else "Industrial Commercial Equipment & Spare Parts",
+        "qty_pcs": total_pcs if total_pcs > 0 else 500,
+        "qty_pkg": total_pkgs if total_pkgs > 0 else 24,
+        "total_net_weight_kg": round(total_nw if total_nw > 0 else 20700.0, 2),
+        "total_gross_weight_kg": round(total_gw if total_gw > 0 else 24500.0, 2),
+        "cbm": round(total_cbm if total_cbm > 0 else 58.4, 2),
+        "containers": containers if containers else [
+            {"container_no": "MSCU1234567", "seal_no": "SL-99001", "container_type": "40HC", "gross_weight_kg": 24500.0}
+        ],
+        "container_count": len(containers) if containers else 1,
+    }
+
+
+def parse_draft_bl_raw_text(raw_text: str) -> dict:
+    parsed = {}
+    if not raw_text or not raw_text.strip():
+        return parsed
+    
+    # 1. ACID Number (19 digits)
+    m_acid = re.search(r'ACID[:\s]+(\d{19})', raw_text, re.IGNORECASE)
+    if m_acid:
+        parsed["acid_number"] = m_acid.group(1).strip()
+    
+    # 2. Importer Tax ID (9 digits)
+    m_tax = re.search(r'(?:EGYPTIAN\s+IMPORTER\s+TAX\s+ID|IMPORTER\s+TAX\s+ID|TAX\s+ID)[:\s]+(\d+)', raw_text, re.IGNORECASE)
+    if m_tax:
+        parsed["importer_tax_id"] = m_tax.group(1).strip()
+    
+    # 3. Shipper Registration
+    m_reg_type = re.search(r'SHIPPER\s+REGISTRATION\s+TYPE[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_reg_type:
+        parsed["shipper_reg_type"] = m_reg_type.group(1).strip()
+    m_shp_id = re.search(r'SHIPPER\s+ID[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if m_shp_id:
+        parsed["shipper_reg_id"] = m_shp_id.group(1).strip()
+    m_country = re.search(r'SHIPPER\s+COUNTRY[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_country:
+        parsed["shipper_country"] = m_country.group(1).strip()
+    m_code = re.search(r'SHIPPER\s+COUNTRY\s+CODE[:\s]+([A-Z]{2})', raw_text, re.IGNORECASE)
+    if m_code:
+        parsed["shipper_country_code"] = m_code.group(1).strip()
+
+    # 4. Bill of Lading No & Booking No
+    m_bl = re.search(r'(?:Bill\s+of\s+Lading\s+No\.?|B/L\s+No\.?|BILL\s+OF\s+LADING\s+No\.?)[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if m_bl:
+        parsed["draft_bl_number"] = m_bl.group(1).strip()
+    m_bkg = re.search(r'(?:Booking\s+No\.?|BOOKING\s+REF\.?)[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if m_bkg:
+        parsed["booking_no"] = m_bkg.group(1).strip()
+    
+    # 5. Vessel & Voyage
+    m_ves_voy = re.search(r'(?:VESSEL\s+AND\s+VOYAGE\s+NO|Ocean\s+Vessel\s+Voy\.No\.?)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_ves_voy:
+        full_vv = m_ves_voy.group(1).strip()
+        if '/' in full_vv:
+            v_p, voy_p = full_vv.split('/', 1)
+            parsed["vessel_name"] = v_p.strip()
+            parsed["voyage_number"] = voy_p.strip()
+        elif '-' in full_vv:
+            v_p, voy_p = full_vv.split('-', 1)
+            parsed["vessel_name"] = v_p.strip()
+            parsed["voyage_number"] = voy_p.strip()
+        else:
+            parsed["vessel_name"] = full_vv
+    
+    # 6. POL & POD & Delivery
+    m_pol = re.search(r'(?:PORT\s+OF\s+LOADING|Port\s+of\s+Loading)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_pol:
+        parsed["pol"] = m_pol.group(1).strip()
+    m_pod = re.search(r'(?:PORT\s+OF\s+DISCHARGE|Port\s+of\s+Discharge)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_pod:
+        parsed["pod"] = m_pod.group(1).strip()
+    m_deliv = re.search(r'(?:PLACE\s+OF\s+DELIVERY|Place\s+of\s+Delivery)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_deliv:
+        parsed["place_of_delivery"] = m_deliv.group(1).strip()
+
+    # 7. Freight Terms
+    if re.search(r'FREIGHT\s+PREPAID', raw_text, re.IGNORECASE):
+        parsed["freight_terms"] = "Freight Prepaid"
+    elif re.search(r'FREIGHT\s+COLLECT', raw_text, re.IGNORECASE):
+        parsed["freight_terms"] = "Freight Collect"
+
+    # 8. Weights & Volume
+    m_gw = re.search(r'(?:Gross\s+Weight|Gross\s+Cargo\s+Weight)[^\d]*([\d,]+(?:\.\d+)?)', raw_text, re.IGNORECASE)
+    if m_gw:
+        parsed["total_gross_weight_kg"] = float(m_gw.group(1).replace(',', ''))
+    m_cbm = re.search(r'Measurement[^\d]*([\d,]+(?:\.\d+)?)', raw_text, re.IGNORECASE)
+    if m_cbm:
+        parsed["cbm"] = float(m_cbm.group(1).replace(',', ''))
+    m_pkg = re.search(r'(\d+)\s*(CARTONS|Pallet\(s\)|PALLETS|PACKAGES|BOXES|PCS)', raw_text, re.IGNORECASE)
+    if m_pkg:
+        parsed["qty_pkg"] = int(m_pkg.group(1))
+
+    # 9. Containers & Seals
+    c_matches = re.findall(r'([A-Z]{4}\d{7})', raw_text)
+    if c_matches:
+        containers = []
+        for c_no in set(c_matches):
+            seal_val = ""
+            m_sl = re.search(r'Seal\s+Number:?\s*([A-Z0-9]+)', raw_text, re.IGNORECASE)
+            if m_sl:
+                seal_val = m_sl.group(1)
+            elif "/" in raw_text:
+                m_slash = re.search(rf'{c_no}/([A-Z0-9]+)', raw_text)
+                if m_slash:
+                    seal_val = m_slash.group(1)
+            containers.append({"container_no": c_no, "seal_no": seal_val})
+        parsed["containers"] = containers
+        parsed["container_summary"] = "; ".join([f"{c['container_no']}{' / Seal: ' + c['seal_no'] if c['seal_no'] else ''}" for c in containers])
+
+    return parsed
+
+
+def compare_draft_bl_service(db: Session, request: DraftBLComparisonRequest) -> dict:
+    sys_data = _build_system_bl_snapshot(db, request.import_file_id)
+    draft_fields = dict(request.draft_fields or {})
+
+    raw_input = getattr(request, "raw_draft_text", None) or getattr(request, "raw_text", None)
+    if raw_input:
+        extracted = parse_draft_bl_raw_text(raw_input)
+        for k, v in extracted.items():
+            if k not in draft_fields or not draft_fields[k]:
+                draft_fields[k] = v
+
+    if "container_summary" not in draft_fields and "containers" in draft_fields:
+        c_parts = []
+        for c in draft_fields["containers"]:
+            c_no = c.get("container_no", "")
+            s_no = c.get("seal_no", "")
+            if c_no:
+                c_parts.append(f"{c_no} / Seal: {s_no}" if s_no else c_no)
+        if c_parts:
+            draft_fields["container_summary"] = "; ".join(c_parts)
+
+    # Field Mappings & Rules
+    fields_spec = [
+        ("shipper", "المصدر / الشاحن (Shipper)", "Shipper Name, Address & Phone", "Supplier Master Data", False, "fuzzy", "Supplier"),
+        ("consignee", "المستورد / المرسل إليه (Consignee)", "Consignee Name, Address & Phone", "Importer Company Master Data", True, "fuzzy", "Importer"),
+        ("notify_party", "جهة الإخطار (Notify Party)", "Notify Party Name, Address & Phone", "Importer / Contract", False, "fuzzy", "Importer"),
+        ("vessel_name", "اسم الباخرة (Vessel)", "Vessel Name", "Final Booking", False, "text", "Shipping Provider"),
+        ("voyage_number", "رقم الرحلة (Voyage)", "Voyage Number", "Final Booking", False, "text", "Shipping Provider"),
+        ("pol", "ميناء الشحن (POL)", "Port of Loading (POL)", "Final Booking", False, "text", "Shipping Provider"),
+        ("pod", "ميناء التفريغ (POD)", "Port of Discharge (POD)", "Final Booking", False, "text", "Shipping Provider"),
+        ("freight_terms", "شروط النولون (Freight Terms)", "Freight Terms (Prepaid/Collect)", "Final Booking", False, "text", "Shipping Provider"),
+        ("place_of_delivery", "مكان التسليم (Place of Delivery)", "Place of Delivery", "Final Booking", False, "text", "Shipping Provider"),
+        ("booking_no", "رقم الحجز (Booking Number)", "Booking Number", "Final Booking", True, "text", "Shipping Provider"),
+        ("acid_number", "رقم القيد الجمركي المبدئي (ACID)", "ACID Number", "Import File & Nafeza", True, "text", "Importer"),
+        ("importer_tax_id", "البطاقة الضريبية للمستورد (Importer Tax ID)", "Egyptian Importer Tax ID", "Importer Company", True, "text", "Importer"),
+        ("shipper_reg_id", "رقم تسجيل المصدر (Shipper Reg ID)", "Shipper Registration/ID", "Supplier", False, "text", "Supplier"),
+        ("shipping_mode", "نمط الشحن (Shipping Mode)", "Shipping Mode (FCL/LCL/Air)", "Final Booking", False, "text", "Shipping Provider"),
+        ("container_summary", "بيان الحاويات والسيل (Container Summary)", "Container No + Seal No + Size", "Container Allocation", True, "fuzzy", "Shipping Provider"),
+        ("goods_description", "بيان التعبئة والوصف (Packing Summary)", "Packing Summary & Goods Description", "Final Approved Packing List", False, "fuzzy", "Supplier"),
+        ("total_gross_weight_kg", "الوزن القائم (Gross Weight)", "Gross Weight (KG)", "Final Approved Packing List", False, "numeric_05", "Shipping Provider"),
+        ("total_net_weight_kg", "الوزن الصافي (Net Weight)", "Net Weight (KG)", "Final Approved Packing List", False, "numeric_05", "Supplier"),
+        ("cbm", "الحجم الإجمالي (Measurement CBM)", "Measurement (CBM)", "Final Approved Packing List", False, "numeric_05", "Shipping Provider"),
+        ("qty_pkg", "عدد الطرود (Number of Packages)", "Number of Packages", "Final Approved Packing List", False, "numeric_strict", "Supplier"),
+    ]
+
+    matrix = []
+    checklist = []
+    blocking_reasons = []
+
+    for key, label_ar, label_en, source, is_critical, match_type, resp_default in fields_spec:
+        sys_val = sys_data.get(key)
+        draft_val = draft_fields.get(key)
+
+        if draft_val is None or str(draft_val).strip() == "":
+            match_status = "MISSING_IN_DRAFT"
+            is_explicitly_empty = key in draft_fields and draft_fields[key] == ""
+            severity = "BLOCKING" if (is_critical and is_explicitly_empty) else "WARNING"
+            details = "الحقل مطلوب ولم يتم استخراجه أو إدخاله في بيانات درافت البوليصة."
+            if is_critical and is_explicitly_empty:
+                blocking_reasons.append(f"حقل حرج فارغ: {label_ar}")
+            tolerance_pct = 0.0
+        elif sys_val is None or str(sys_val).strip() == "":
+            match_status = "MATCH"
+            severity = "NONE"
+            details = f"تم استخراج القيمة من الدرافت ({draft_val})."
+            tolerance_pct = 0.0
+        elif match_type == "fuzzy":
+            matched, ratio = _fuzzy_match(sys_val, draft_val, threshold=0.85)
+            tolerance_pct = round((1.0 - ratio) * 100.0, 1)
+            if matched:
+                match_status = "MATCH"
+                severity = "NONE"
+                details = f"مطابقة ذكية ممتازة بنسبة {round(ratio * 100, 1)}%."
+            else:
+                match_status = "MISMATCH_CRITICAL" if is_critical else "MISMATCH_MINOR"
+                severity = "BLOCKING" if is_critical else "WARNING"
+                details = f"عدم تطابق! قيمة النظام: '{sys_val}' | قيمة الدرافت: '{draft_val}'."
+                if is_critical:
+                    blocking_reasons.append(f"اختلاف حرج في {label_ar}")
+        elif match_type == "numeric_05":
+            try:
+                s_num = float(sys_val)
+                d_num = float(draft_val)
+                diff = abs(s_num - d_num)
+                pct = (diff / s_num * 100.0) if s_num > 0 else 0.0
+                tolerance_pct = round(pct, 2)
+                if pct <= 0.5:
+                    match_status = "MATCH"
+                    severity = "NONE"
+                    details = f"مطابقة رقمية ممتازة (فرق {tolerance_pct}% ضمن نسبة السماح 0.5%)."
+                else:
+                    match_status = "MISMATCH_MINOR"
+                    severity = "WARNING"
+                    details = f"فرق أوزان يتجاوز نسبة السماح ({tolerance_pct}%). النظام: {s_num} | الدرافت: {d_num}."
+            except Exception:
+                match_status = "MISMATCH_MINOR"
+                severity = "WARNING"
+                details = f"تعذر التحقق الرقمي من القيمة: {draft_val}"
+        else: # text
+            s_clean = str(sys_val).strip().upper()
+            d_clean = str(draft_val).strip().upper()
+            if s_clean == d_clean:
+                match_status = "MATCH"
+                severity = "NONE"
+                details = "مطابقة نصية تامة 100%."
+            else:
+                match_status = "MISMATCH_CRITICAL" if is_critical else "MISMATCH_MINOR"
+                severity = "BLOCKING" if is_critical else "WARNING"
+                details = f"عدم تطابق! القيمة المعتمدة: '{sys_val}' | قيمة المسودة: '{draft_val}'."
+                if is_critical:
+                    blocking_reasons.append(f"اختلاف حرج في {label_ar}")
+
+        matrix.append({
+            "field_key": key,
+            "field_label_ar": label_ar,
+            "field_label_en": label_en,
+            "source_entity": source,
+            "system_value": sys_val,
+            "draft_value": draft_val,
+            "match_status": match_status,
+            "severity": severity,
+            "tolerance_pct": tolerance_pct,
+            "details": details,
+        })
+
+        is_match = (match_status == "MATCH")
+        checklist.append({
+            "field_key": key,
+            "field_label_ar": label_ar,
+            "field_label_en": label_en,
+            "source_entity": source,
+            "system_value": sys_val,
+            "draft_value": draft_val,
+            "status": "Correct" if is_match else "Incorrect",
+            "required_correction": f"Correct {label_en} to: {sys_val}" if not is_match else None,
+            "reason": details if not is_match else None,
+            "notes": None,
+            "responsible_party": resp_default,
+            "is_locked": False,
+            "previous_status": None,
+        })
+
+    has_blocking = len(blocking_reasons) > 0
+    open_discrepancies = [c for c in checklist if c["status"] == "Incorrect"]
+
+    # Generate Revision Report Items
+    revision_report = []
+    for itm in open_discrepancies:
+        revision_report.append({
+            "item": itm["field_label_en"],
+            "required_action": itm["required_correction"] or f"Update {itm['field_label_en']} to match system value ({itm['system_value']})",
+            "responsible": itm["responsible_party"] or "Shipping Provider",
+            "reason": itm["reason"] or "Value mismatch with master reference",
+            "notes": itm["notes"],
+        })
+
+    # Auto-generate Correction Letter
+    correction_letter = ""
+    if revision_report:
+        correction_letter = f"""Subject: Urgent: Draft B/L Correction Request - Booking Ref: {sys_data.get('booking_no')} / ACID: {sys_data.get('acid_number')}
+
+Dear Shipping Line / Forwarder Operations Team,
+
+Please be advised that upon verification of the Draft Bill of Lading received for Booking No: {sys_data.get('booking_no')}, the following discrepancies were identified and require immediate amendment prior to final B/L issuance:
+
+"""
+        for idx, item in enumerate(revision_report, 1):
+            correction_letter += f"{idx}. Item: {item['item']}\n"
+            correction_letter += f"   - Required Action: {item['required_action']}\n"
+            correction_letter += f"   - Responsible Party: {item['responsible']}\n"
+            correction_letter += f"   - Reason / Details: {item['reason']}\n\n"
+        
+        correction_letter += "Please provide the revised Draft B/L with the requested corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department"
+
+    stage_calc = "Stage 2: Revision Required" if open_discrepancies else "Stage 4: Dual Approval"
+    status_calc = "REVISION_REQUIRED" if open_discrepancies else "REVIEWED_PENDING_APPROVAL"
+
+    return {
+        "import_file_id": request.import_file_id,
+        "draft_source": request.draft_source,
+        "stage": stage_calc,
+        "system_snapshot_data": sys_data,
+        "draft_input_data": draft_fields,
+        "comparison_matrix": matrix,
+        "checklist_data": checklist,
+        "revision_report_data": revision_report,
+        "has_blocking_mismatch": has_blocking,
+        "open_discrepancies_count": len(open_discrepancies),
+        "blocking_reasons": blocking_reasons,
+        "correction_request_letter": correction_letter,
+        "status": status_calc,
+    }
+
+
+def create_draft_bl_review_service(db: Session, schema: DraftBLReviewCreate) -> DraftBLReviewSession:
+    if schema.checklist_data:
+        # Convert any Pydantic models to dicts
+        raw_checklist = []
+        revision_report = []
+        open_count = 0
+        for item in schema.checklist_data:
+            item_dict = item.model_dump() if hasattr(item, "model_dump") else (item.dict() if hasattr(item, "dict") else item)
+            status_val = item_dict.get("status", "Correct")
+            if status_val == "Incorrect":
+                open_count += 1
+                revision_report.append({
+                    "item": item_dict.get("field_label_ar") or item_dict.get("field_label_en", ""),
+                    "required_action": item_dict.get("required_correction", ""),
+                    "responsible": item_dict.get("responsible_party") or "Shipping Provider",
+                    "reason": item_dict.get("reason", ""),
+                    "notes": item_dict.get("notes"),
+                })
+            raw_checklist.append(item_dict)
+        schema.checklist_data = raw_checklist
+        schema.revision_report_data = revision_report
+        schema.open_discrepancies_count = open_count
+        if open_count > 0:
+            schema.stage = "Stage 2: Revision Required"
+            schema.status = "REVISION_REQUIRED"
+        else:
+            schema.stage = "Stage 4: Dual Approval"
+            schema.status = "REVIEWED_PENDING_APPROVAL"
+    elif not schema.comparison_matrix:
+        comp_req = DraftBLComparisonRequest(
+            import_file_id=schema.import_file_id,
+            draft_source=schema.draft_source,
+            draft_fields=schema.draft_input_data,
+        )
+        comp_res = compare_draft_bl_service(db, comp_req)
+        schema.system_snapshot_data = comp_res["system_snapshot_data"]
+        schema.comparison_matrix = comp_res["comparison_matrix"]
+        schema.checklist_data = comp_res["checklist_data"]
+        schema.revision_report_data = comp_res["revision_report_data"]
+        schema.has_blocking_mismatch = comp_res["has_blocking_mismatch"]
+        schema.open_discrepancies_count = comp_res["open_discrepancies_count"]
+        schema.blocking_reasons = comp_res["blocking_reasons"]
+        schema.correction_request_letter = comp_res["correction_request_letter"]
+        schema.stage = comp_res["stage"]
+        schema.status = comp_res["status"]
+
+    existing = repo.get_draft_bl_review_by_file_id(db, schema.import_file_id, include_inactive=False)
+    if existing:
+        update_schema = DraftBLReviewUpdate(**schema.model_dump(exclude_unset=True))
+        return repo.update_draft_bl_review(db, existing.bl_review_id, update_schema)
+    return repo.create_draft_bl_review(db, schema)
+
+
+def update_draft_bl_review_service(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
+    return repo.update_draft_bl_review(db, review_id, schema)
+
+
+def update_draft_bl_checklist_service(db: Session, review_id: int, checklist_items: List[DraftBLChecklistItem], reviewer_name: str = "Kamal") -> DraftBLReviewSession:
+    review = repo.get_draft_bl_review_by_id(db, review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+
+    updated_checklist = []
+    revision_report = []
+    open_count = 0
+
+    for item in checklist_items:
+        item_dict = item.model_dump()
+        if item.status == "Incorrect":
+            if not item.required_correction or not item.reason:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"الحقول 'Required Correction' و 'Reason' إلزامية للبند غير المطابق: {item.field_label_ar}"
+                )
+            open_count += 1
+            revision_report.append({
+                "item": item.field_label_en,
+                "required_action": item.required_correction,
+                "responsible": item.responsible_party or "Shipping Provider",
+                "reason": item.reason,
+                "notes": item.notes,
+            })
+        updated_checklist.append(item_dict)
+
+    review.checklist_data = updated_checklist
+    review.revision_report_data = revision_report
+    review.open_discrepancies_count = open_count
+    review.reviewed_by = reviewer_name
+    review.reviewed_at = datetime.now(timezone.utc)
+
+    # Re-generate correction letter
+    if revision_report:
+        sys_data = review.system_snapshot_data or {}
+        correction_letter = f"""Subject: Urgent: Draft B/L Correction Request - Booking Ref: {sys_data.get('booking_no')} / ACID: {sys_data.get('acid_number')}
+
+Dear Shipping Line / Forwarder Operations Team,
+
+Please be advised that upon review of the Draft Bill of Lading received for Booking No: {sys_data.get('booking_no')}, the following corrections are required:
+
+"""
+        for idx, itm in enumerate(revision_report, 1):
+            correction_letter += f"{idx}. {itm['item']}:\n"
+            correction_letter += f"   - Required Action: {itm['required_action']}\n"
+            correction_letter += f"   - Responsible Party: {itm['responsible']}\n"
+            correction_letter += f"   - Reason: {itm['reason']}\n\n"
+        correction_letter += "Please reissue the draft B/L with these corrections at your earliest convenience.\n\nBest Regards,\nImport Operations Department"
+        review.correction_request_letter = correction_letter
+        review.stage = "Stage 2: Revision Required"
+        review.status = "REVISION_REQUIRED"
+    else:
+        review.stage = "Stage 4: Dual Approval"
+        review.status = "REVIEWED_PENDING_APPROVAL"
+
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+def process_dual_approval_service(db: Session, request: DualApprovalRequest) -> DraftBLReviewSession:
+    review = repo.get_draft_bl_review_by_id(db, request.bl_review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+
+    if review.open_discrepancies_count > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="لا يمكن اعتماد درافت البوليصة طالما توجد بنود غير مطابقة (Open Discrepancies) لم يتم إغلاقها."
+        )
+
+    now = datetime.now(timezone.utc)
+
+    if request.role == "importer":
+        if request.action == "Approved":
+            review.importer_approval_status = "Approved"
+            review.importer_approved_by = request.approved_by
+            review.importer_approval_date = now
+            review.importer_approval_notes = request.notes
+        else:
+            review.importer_approval_status = "Rejected"
+            review.importer_approval_notes = request.notes
+            review.stage = "Stage 2: Revision Required"
+            review.status = "REVISION_REQUIRED"
+    elif request.role == "customs_broker":
+        if request.action == "Approved":
+            review.broker_approval_status = "Approved"
+            review.broker_approved_by = request.approved_by
+            review.broker_approval_date = now
+            review.broker_approval_notes = request.notes
+        else:
+            review.broker_approval_status = "Rejected"
+            review.broker_approval_notes = request.notes
+            review.stage = "Stage 2: Revision Required"
+            review.status = "REVISION_REQUIRED"
+    else:
+        raise HTTPException(status_code=400, detail="Invalid approval role. Must be 'importer' or 'customs_broker'.")
+
+    # If BOTH approved -> Stage 5 Final
+    if review.importer_approval_status == "Approved" and review.broker_approval_status == "Approved":
+        review.stage = "Stage 5: Final"
+        review.status = "FINAL"
+        review.approved_by = f"{review.importer_approved_by} & {review.broker_approved_by}"
+        review.approved_at = now
+
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+def create_new_draft_version_service(db: Session, request: NewDraftVersionRequest) -> DraftBLReviewSession:
+    parent = repo.get_draft_bl_review_by_id(db, request.parent_session_id)
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent Draft B/L Review not found")
+
+    # Run new comparison
+    comp_req = DraftBLComparisonRequest(
+        import_file_id=parent.import_file_id,
+        draft_source=request.draft_source,
+        raw_draft_text=request.raw_draft_text,
+        draft_fields=request.draft_fields,
+    )
+    comp_res = compare_draft_bl_service(db, comp_req)
+
+    # Carry forward locks for previously approved items whose draft value didn't change
+    parent_checklist_map = {c["field_key"]: c for c in (parent.checklist_data or [])}
+    new_checklist = []
+
+    for itm in comp_res["checklist_data"]:
+        f_key = itm["field_key"]
+        prev_itm = parent_checklist_map.get(f_key)
+        if prev_itm and prev_itm.get("status") == "Correct" and str(prev_itm.get("draft_value")) == str(itm.get("draft_value")):
+            itm["status"] = "Correct"
+            itm["is_locked"] = True
+            itm["previous_status"] = "Correct"
+        else:
+            itm["is_locked"] = False
+            itm["previous_status"] = prev_itm.get("status") if prev_itm else None
+        new_checklist.append(itm)
+
+    new_version_num = parent.version_number + 1
+    new_code = f"{parent.bl_review_code}-v{new_version_num}"
+
+    new_session = DraftBLReviewSession(
+        bl_review_code=new_code,
+        import_file_id=parent.import_file_id,
+        po_id=parent.po_id,
+        booking_id=parent.booking_id,
+        draft_bl_number=f"{parent.draft_bl_number}-v{new_version_num}",
+        shipping_line=parent.shipping_line,
+        vessel_name=parent.vessel_name,
+        voyage_number=parent.voyage_number,
+        booking_no=parent.booking_no,
+        hbl_no=parent.hbl_no,
+        mbl_no=parent.mbl_no,
+        freight_terms=parent.freight_terms,
+        place_of_delivery=parent.place_of_delivery,
+        importer_tax_id=parent.importer_tax_id,
+        shipper_reg_id=parent.shipper_reg_id,
+        measurement_cbm=parent.measurement_cbm,
+        net_weight_kg=parent.net_weight_kg,
+        packages_count=parent.packages_count,
+        container_summary=parent.container_summary,
+        draft_source=request.draft_source,
+        version_number=new_version_num,
+        parent_session_id=parent.bl_review_id,
+        stage="Stage 3: Reviewed",
+        system_snapshot_data=comp_res["system_snapshot_data"],
+        draft_input_data=request.draft_fields,
+        comparison_matrix=comp_res["comparison_matrix"],
+        checklist_data=new_checklist,
+        revision_report_data=comp_res["revision_report_data"],
+        has_blocking_mismatch=comp_res["has_blocking_mismatch"],
+        open_discrepancies_count=len([c for c in new_checklist if c["status"] == "Incorrect"]),
+        blocking_reasons=comp_res["blocking_reasons"],
+        correction_request_letter=comp_res["correction_request_letter"],
+        status="REVIEWED_PENDING_APPROVAL" if len([c for c in new_checklist if c["status"] == "Incorrect"]) == 0 else "REVISION_REQUIRED",
+    )
+    db.add(new_session)
+    db.commit()
+    db.refresh(new_session)
+    return new_session
+
+
+def approve_draft_bl_service(db: Session, review_id: int, approved_by: str = "Kamal") -> DraftBLReviewSession:
+    review = repo.get_draft_bl_review_by_id(db, review_id)
+    if not review:
+        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+    if review.open_discrepancies_count > 0 or review.has_blocking_mismatch:
+        raise HTTPException(
+            status_code=400,
+            detail=f"لا يمكن اعتماد درافت البوليصة لوجود بنود غير مطابقة أو أخطاء حرجة (Blocking Discrepancies)."
+        )
+    review.stage = "Stage 5: Final"
+    review.status = "FINAL"
+    review.importer_approval_status = "Approved"
+    review.importer_approved_by = approved_by
+    review.importer_approval_date = datetime.now(timezone.utc)
+    review.broker_approval_status = "Approved"
+    review.broker_approved_by = approved_by
+    review.broker_approval_date = datetime.now(timezone.utc)
+    review.approved_by = approved_by
+    review.approved_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(review)
+    return review
+
+
+# --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
+def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+
+    sys_snapshot = {
+        "exporter_name": supplier.company_name if supplier else imp_file.supplier_name,
+        "exporter_address": supplier.address if supplier else "",
+        "country_of_origin": supplier.foreign_exporter_country if supplier else "Germany",
+        "importer_name": company.importer_name if company else imp_file.company_name,
+        "importer_address": company.address if company else "",
+        "destination_country": "Egypt",
+        "invoice_number": imp_file.pi_number or "INV-2026-FINAL",
+        "invoice_date": str(date.today()),
+        "certificate_type": request.certificate_type,
+    }
+
+    draft_fields = request.draft_fields or {}
+    matrix = []
+    has_critical = False
+    has_discrepancies = False
+
+    coo_checks = [
+        ("exporter_name", "اسم المصدر (Exporter Name)", True),
+        ("country_of_origin", "بلد المنشأ (Country of Origin)", True),
+        ("importer_name", "اسم المستورد (Importer / Consignee)", True),
+        ("destination_country", "بلد المقصد (Destination Country)", True),
+        ("invoice_number", "رقم الفاتورة (Commercial Invoice No)", True),
+        ("certificate_type", "نوع شهادة المنشأ (Certificate Type)", False),
+    ]
+
+    for key, label_ar, is_critical in coo_checks:
+        sys_val = sys_snapshot.get(key)
+        drf_val = draft_fields.get(key)
+        matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+        if matched:
+            match_status = "MATCH"
+            severity = "NONE"
+        else:
+            has_discrepancies = True
+            if is_critical:
+                has_critical = True
+                match_status = "MISMATCH_CRITICAL"
+                severity = "BLOCKING"
+            else:
+                match_status = "MISMATCH_MINOR"
+                severity = "WARNING"
+
+        matrix.append({
+            "field_key": key,
+            "field_label_ar": label_ar,
+            "system_value": sys_val,
+            "draft_value": drf_val,
+            "match_status": match_status,
+            "severity": severity,
+            "details": f"نسبة التشابه: {round(ratio * 100, 1)}%",
+        })
+
+    status_calc = "Verified" if not has_discrepancies else ("Discrepancy_Accepted" if not has_critical else "Correction Requested")
+
+    return {
+        "import_file_id": request.import_file_id,
+        "certificate_type": request.certificate_type,
+        "system_snapshot_data": sys_snapshot,
+        "draft_input_data": draft_fields,
+        "comparison_matrix": matrix,
+        "has_discrepancies": has_discrepancies,
+        "has_critical_mismatch": has_critical,
+        "status": status_calc,
+    }
+
+
+def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCreate) -> CertificateOfOriginReviewSession:
+    if not schema.comparison_matrix:
+        comp = compare_coo_service(db, COOComparisonRequest(
+            import_file_id=schema.import_file_id,
+            certificate_type=schema.certificate_type,
+            draft_fields=schema.draft_input_data,
+        ))
+        schema.system_snapshot_data = comp["system_snapshot_data"]
+        schema.comparison_matrix = comp["comparison_matrix"]
+        schema.has_discrepancies = comp["has_discrepancies"]
+        schema.has_critical_mismatch = comp["has_critical_mismatch"]
+        schema.status = comp["status"]
+
+    existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False)
+    if existing:
+        update_schema = CertificateOfOriginReviewUpdate(**schema.model_dump(exclude_unset=True))
+        return repo.update_coo_review(db, existing.coo_review_id, update_schema)
+    return repo.create_coo_review(db, schema)
+
+
+def update_coo_review_service(db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate) -> CertificateOfOriginReviewSession:
+    return repo.update_coo_review(db, review_id, schema)
+
+
+# --- 4. INSPECTION CERTIFICATE (COC / COA / VOC) VERIFICATION ENGINE ---
+def compare_inspection_cert_service(db: Session, request: InspectionComparisonRequest) -> dict:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+
+    sys_snapshot = {
+        "importer_name": company.importer_name if company else imp_file.company_name,
+        "exporter_name": supplier.company_name if supplier else imp_file.supplier_name,
+        "inspection_agency": request.inspection_agency,
+        "inspection_type": request.inspection_type,
+        "regulatory_authority": "GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)",
+        "invoice_number": imp_file.pi_number or "INV-2026-FINAL",
+        "standard_specification": "Egyptian Standard ES Egyptian Conformity",
+    }
+
+    draft_fields = request.draft_fields or {}
+    matrix = []
+    has_critical = False
+    has_discrepancies = False
+
+    insp_checks = [
+        ("inspection_agency", "جهة الفحص والمعاينة (Inspection Agency)", True),
+        ("importer_name", "اسم المستورد (Importer Name)", True),
+        ("exporter_name", "اسم المصدر (Exporter Name)", True),
+        ("regulatory_authority", "الجهة الرقابية المصرية المختصة (Regulatory Authority)", True),
+        ("invoice_number", "رقم الفاتورة الخاضعة للفحص (Invoice No)", True),
+        ("standard_specification", "المواصفة القياسية المعتمدة (Specification)", False),
+    ]
+
+    for key, label_ar, is_critical in insp_checks:
+        sys_val = sys_snapshot.get(key)
+        drf_val = draft_fields.get(key)
+        matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+        if matched:
+            match_status = "MATCH"
+            severity = "NONE"
+        else:
+            has_discrepancies = True
+            if is_critical:
+                has_critical = True
+                match_status = "MISMATCH_CRITICAL"
+                severity = "BLOCKING"
+            else:
+                match_status = "MISMATCH_MINOR"
+                severity = "WARNING"
+
+        matrix.append({
+            "field_key": key,
+            "field_label_ar": label_ar,
+            "system_value": sys_val,
+            "draft_value": drf_val,
+            "match_status": match_status,
+            "severity": severity,
+            "details": f"نسبة التطابق: {round(ratio * 100, 1)}%",
+        })
+
+    status_calc = "Verified" if not has_discrepancies else ("Discrepancy_Accepted" if not has_critical else "Correction Requested")
+
+    return {
+        "import_file_id": request.import_file_id,
+        "inspection_type": request.inspection_type,
+        "inspection_agency": request.inspection_agency,
+        "system_snapshot_data": sys_snapshot,
+        "draft_input_data": draft_fields,
+        "comparison_matrix": matrix,
+        "has_discrepancies": has_discrepancies,
+        "has_critical_mismatch": has_critical,
+        "status": status_calc,
+    }
+
+
+def create_inspection_review_service(db: Session, schema: InspectionCertificateReviewCreate) -> InspectionCertificateReviewSession:
+    if not schema.comparison_matrix:
+        comp = compare_inspection_cert_service(db, InspectionComparisonRequest(
+            import_file_id=schema.import_file_id,
+            inspection_type=schema.inspection_type,
+            inspection_agency=schema.inspection_agency,
+            draft_fields=schema.draft_input_data,
+        ))
+        schema.system_snapshot_data = comp["system_snapshot_data"]
+        schema.comparison_matrix = comp["comparison_matrix"]
+        schema.has_discrepancies = comp["has_discrepancies"]
+        schema.has_critical_mismatch = comp["has_critical_mismatch"]
+        schema.status = comp["status"]
+
+    existing = repo.get_inspection_review_by_file_id(db, schema.import_file_id, include_inactive=False)
+    if existing:
+        update_schema = InspectionCertificateReviewUpdate(**schema.model_dump(exclude_unset=True))
+        return repo.update_inspection_review(db, existing.inspection_review_id, update_schema)
+    return repo.create_inspection_review(db, schema)
+
+
+def update_inspection_review_service(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
+    return repo.update_inspection_review(db, review_id, schema)
+
+
+# --- 5. ACID & IMPORTER LEGAL DOCS EXPIRY & ETA + 30 DAYS SAFETY MARGIN ENGINE ---
+def check_acid_and_company_docs_validity_service(db: Session, import_file_id: int) -> LegalDocsExpiryComplianceResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    booking = db.query(ShipmentBooking).filter(ShipmentBooking.import_file_id == import_file_id, ShipmentBooking.is_active == True).first()
+    acid_session = db.query(AcidRegistrationSession).filter(AcidRegistrationSession.import_file_id == import_file_id, AcidRegistrationSession.is_active == True).first()
+
+    today = date.today()
+
+    # Determine Estimated Time of Arrival (ETA)
+    eta_date: Optional[date] = None
+    eta_source = "Estimated"
+
+    if booking and booking.eta:
+        eta_date = booking.eta.date() if hasattr(booking.eta, "date") else booking.eta
+        eta_source = "Freight Booking (حجز الشحن الملاحي)"
+    elif imp_file.required_eta:
+        eta_date = imp_file.required_eta
+        eta_source = "Import File (ملف الشحنة)"
+    else:
+        # Default safety assumption: 21 days from today
+        from datetime import timedelta
+        eta_date = today + timedelta(days=21)
+        eta_source = "Estimated Default (+21 Days)"
+
+    from datetime import timedelta
+    safety_window_date = eta_date + timedelta(days=30)
+
+    alerts: List[LegalDocAlertItem] = []
+    has_critical_alerts = False
+
+    # 1. ACID Expiry Check
+    if acid_session and acid_session.expiry_date:
+        acid_exp = acid_session.expiry_date
+        days_rem = (acid_exp - today).days
+        days_after_eta = (acid_exp - eta_date).days
+        is_exp = days_rem <= 0
+        is_breach = acid_exp <= safety_window_date
+        
+        if is_exp:
+            status_str = "EXPIRED"
+            msg = f"رقم الـ ACID ({acid_session.acid_number}) منتهي الصلاحية بتاريخ {acid_exp}. لا يمكن شحن البضائع أو الإفراج الجمركي!"
+            has_critical_alerts = True
+        elif is_breach:
+            status_str = "CRITICAL_BREACH"
+            msg = f"تحذير حرج: رقم الـ ACID ينتهي في {acid_exp} (أقل من 30 يوماً بعد تاريخ الوصول المتوقع {eta_date}). متبقي {days_after_eta} يوم فقط بعد الـ ETA."
+            has_critical_alerts = True
+        else:
+            status_str = "VALID"
+            msg = f"رقم الـ ACID ساري وصالح حتى {acid_exp} (صالح لمدة {days_after_eta} يوم بعد وصول الشحنة)."
+
+        alerts.append(LegalDocAlertItem(
+            doc_type="رقم الـ ACID للشحنة (Nafeza ACID)",
+            doc_number=acid_session.acid_number,
+            expiry_date=acid_exp,
+            days_until_expiry=days_rem,
+            days_after_eta=days_after_eta,
+            is_expired=is_exp,
+            is_critical_breach=is_breach,
+            alert_message=msg,
+            status=status_str,
+        ))
+    else:
+        alerts.append(LegalDocAlertItem(
+            doc_type="رقم الـ ACID للشحنة (Nafeza ACID)",
+            doc_number=imp_file.acid_number or "لم يصدر بعد",
+            expiry_date=None,
+            days_until_expiry=0,
+            days_after_eta=None,
+            is_expired=False,
+            is_critical_breach=True,
+            alert_message="لم يتم استخراج أو تسجيل تاريخ صلاحية الـ ACID للشحنة بعد.",
+            status="CRITICAL_BREACH",
+        ))
+        has_critical_alerts = True
+
+    # 2. Importer Legal Documents Checks (Import Card, Commercial Registry, Tax Card)
+    if company:
+        docs_to_check = [
+            ("البطاقة الاستيرادية (Import Card)", company.importer_id or "—", company.importer_id_expiry),
+            ("السجل التجاري (Commercial Registry)", company.registration_number or "—", company.registration_expiry),
+            ("البطاقة الضريبية / ملف القيمة المضافة (Tax Card)", company.vat_id or "—", company.vat_id_expiry),
+        ]
+
+        for doc_name, doc_num, exp_dt in docs_to_check:
+            if exp_dt:
+                days_rem = (exp_dt - today).days
+                days_after_eta = (exp_dt - eta_date).days
+                is_exp = days_rem <= 0
+                is_breach = exp_dt <= safety_window_date
+
+                if is_exp:
+                    status_str = "EXPIRED"
+                    msg = f"وثيقة {doc_name} منتهية بتاريخ {exp_dt}! يجب تجديدها فوراً وإلا ستتوقف إجراءات الإفراج الجمركي."
+                    has_critical_alerts = True
+                elif is_breach:
+                    status_str = "CRITICAL_BREACH"
+                    msg = f"تحذير حرج: {doc_name} تنتهي في {exp_dt} (قبل نافذة الـ 30 يوماً من وصول الشحنة في {eta_date})."
+                    has_critical_alerts = True
+                elif days_rem <= 60:
+                    status_str = "EXPIRING_SOON"
+                    msg = f"{doc_name} قاربت على الانتهاء في {exp_dt} (متبقي {days_rem} يوم)."
+                else:
+                    status_str = "VALID"
+                    msg = f"{doc_name} سارية وصالحة حتى {exp_dt}."
+
+                alerts.append(LegalDocAlertItem(
+                    doc_type=doc_name,
+                    doc_number=str(doc_num),
+                    expiry_date=exp_dt,
+                    days_until_expiry=days_rem,
+                    days_after_eta=days_after_eta,
+                    is_expired=is_exp,
+                    is_critical_breach=is_breach,
+                    alert_message=msg,
+                    status=status_str,
+                ))
+
+    # Overall Compliance Calculation
+    overall_status = "CRITICAL_ACTION_REQUIRED" if has_critical_alerts else "COMPLIANT"
+    banner_text = None
+    if has_critical_alerts:
+        critical_msgs = [a.alert_message for a in alerts if a.is_critical_breach or a.is_expired]
+        banner_text = "🚨 تحذير حرج لسلامة الشحنة والإفراج الجمركي (ETA + 30 Days Safety Margin):\n" + "\n".join(critical_msgs)
+
+    return LegalDocsExpiryComplianceResponse(
+        import_file_id=import_file_id,
+        import_file_code=imp_file.import_file_code or f"IMP-{import_file_id}",
+        company_name=company.importer_name if company else (imp_file.company_name or ""),
+        eta_date=eta_date,
+        eta_source=eta_source,
+        safety_window_date=safety_window_date,
+        has_critical_alerts=has_critical_alerts,
+        total_alerts_count=len(alerts),
+        alerts=alerts,
+        overall_compliance_status=overall_status,
+        persistent_banner_text=banner_text,
+    )
+

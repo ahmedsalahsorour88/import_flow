@@ -247,3 +247,211 @@ def create_customs_declaration(
     payload: CustomsDeclarationCreate, db: Session = Depends(get_db)
 ):
     return service.create_customs_declaration_service(db, payload)
+
+
+# ==============================================================================
+# PHASE 6: INTELLIGENT DOCUMENT VERIFICATION & COMPARISON ENDPOINTS
+# ==============================================================================
+from modules.import_documentation.schemas import (
+    POFinalAdjustmentRequest,
+    DraftBLComparisonRequest,
+    DraftBLReviewCreate,
+    DraftBLReviewUpdate,
+    DraftBLReviewResponse,
+    COOComparisonRequest,
+    CertificateOfOriginReviewCreate,
+    CertificateOfOriginReviewUpdate,
+    CertificateOfOriginReviewResponse,
+    InspectionComparisonRequest,
+    InspectionCertificateReviewCreate,
+    InspectionCertificateReviewUpdate,
+    InspectionCertificateReviewResponse,
+    LegalDocsExpiryComplianceResponse,
+)
+
+
+# --- 1. PO FINAL RECONCILIATION ---
+@router.post("/po-reconciliation", status_code=status.HTTP_200_OK)
+def reconcile_po_final_adjustments(
+    payload: POFinalAdjustmentRequest, db: Session = Depends(get_db)
+):
+    return service.reconcile_po_final_adjustments_service(db, payload)
+
+
+# --- 2. DRAFT BILL OF LADING (B/L) ENDPOINTS ---
+@router.post("/draft-bl/compare", status_code=status.HTTP_200_OK)
+def compare_draft_bl(
+    payload: DraftBLComparisonRequest, db: Session = Depends(get_db)
+):
+    return service.compare_draft_bl_service(db, payload)
+
+
+@router.post(
+    "/draft-bl",
+    response_model=DraftBLReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_draft_bl_review(
+    payload: DraftBLReviewCreate, db: Session = Depends(get_db)
+):
+    return service.create_draft_bl_review_service(db, payload)
+
+
+@router.get("/draft-bl", response_model=List[DraftBLReviewResponse])
+def list_draft_bl_reviews(
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_draft_bl_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+    )
+
+
+@router.get("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
+def get_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
+    item = repo.get_draft_bl_review_by_id(db, review_id, include_inactive=True)
+    if not item:
+        raise HTTPException(status_code=404, detail="Draft B/L Review not found")
+    return item
+
+
+@router.put("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
+def update_draft_bl_review(
+    review_id: int, payload: DraftBLReviewUpdate, db: Session = Depends(get_db)
+):
+    return service.update_draft_bl_review_service(db, review_id, payload)
+
+
+@router.put("/draft-bl/{review_id}/checklist", response_model=DraftBLReviewResponse)
+def update_draft_bl_checklist(
+    review_id: int,
+    checklist_items: List[DraftBLChecklistItem],
+    reviewer_name: str = "Kamal",
+    db: Session = Depends(get_db),
+):
+    return service.update_draft_bl_checklist_service(
+        db, review_id, checklist_items, reviewer_name=reviewer_name
+    )
+
+
+@router.post("/draft-bl/dual-approval", response_model=DraftBLReviewResponse)
+def process_draft_bl_dual_approval(
+    payload: DualApprovalRequest, db: Session = Depends(get_db)
+):
+    return service.process_dual_approval_service(db, payload)
+
+
+@router.post("/draft-bl/new-version", response_model=DraftBLReviewResponse, status_code=status.HTTP_201_CREATED)
+def create_new_draft_version(
+    payload: NewDraftVersionRequest, db: Session = Depends(get_db)
+):
+    return service.create_new_draft_version_service(db, payload)
+
+
+@router.post("/draft-bl/{review_id}/approve", response_model=DraftBLReviewResponse)
+def approve_draft_bl(
+    review_id: int, approved_by: str = "Kamal", db: Session = Depends(get_db)
+):
+    return service.approve_draft_bl_service(db, review_id, approved_by=approved_by)
+
+
+# --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) ENDPOINTS ---
+@router.post("/coo/compare", status_code=status.HTTP_200_OK)
+def compare_coo(payload: COOComparisonRequest, db: Session = Depends(get_db)):
+    return service.compare_coo_service(db, payload)
+
+
+@router.post(
+    "/coo",
+    response_model=CertificateOfOriginReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_coo_review(
+    payload: CertificateOfOriginReviewCreate, db: Session = Depends(get_db)
+):
+    return service.create_coo_review_service(db, payload)
+
+
+@router.get("/coo", response_model=List[CertificateOfOriginReviewResponse])
+def list_coo_reviews(
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_coo_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+    )
+
+
+@router.put("/coo/{review_id}", response_model=CertificateOfOriginReviewResponse)
+def update_coo_review(
+    review_id: int, payload: CertificateOfOriginReviewUpdate, db: Session = Depends(get_db)
+):
+    return service.update_coo_review_service(db, review_id, payload)
+
+
+# --- 4. INSPECTION CERTIFICATE ENDPOINTS ---
+@router.post("/inspection/compare", status_code=status.HTTP_200_OK)
+def compare_inspection(
+    payload: InspectionComparisonRequest, db: Session = Depends(get_db)
+):
+    return service.compare_inspection_cert_service(db, payload)
+
+
+@router.post(
+    "/inspection",
+    response_model=InspectionCertificateReviewResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_inspection_review(
+    payload: InspectionCertificateReviewCreate, db: Session = Depends(get_db)
+):
+    return service.create_inspection_review_service(db, payload)
+
+
+@router.get("/inspection", response_model=List[InspectionCertificateReviewResponse])
+def list_inspection_reviews(
+    include_inactive: bool = False,
+    import_file_id: Optional[int] = None,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return repo.get_inspection_reviews(
+        db,
+        include_inactive=include_inactive,
+        import_file_id=import_file_id,
+        status=status,
+        search=search,
+    )
+
+
+@router.put("/inspection/{review_id}", response_model=InspectionCertificateReviewResponse)
+def update_inspection_review(
+    review_id: int, payload: InspectionCertificateReviewUpdate, db: Session = Depends(get_db)
+):
+    return service.update_inspection_review_service(db, review_id, payload)
+
+
+# --- 5. LEGAL DOCUMENTS & ACID EXPIRY COMPLIANCE (+30 DAYS SAFETY MARGIN) ---
+@router.get(
+    "/legal-compliance/{import_file_id}",
+    response_model=LegalDocsExpiryComplianceResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_legal_compliance(import_file_id: int, db: Session = Depends(get_db)):
+    return service.check_acid_and_company_docs_validity_service(db, import_file_id)
+

@@ -1,3 +1,6 @@
+import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
+
 class ContainerLoadingModel {
   final String containerType;
   final int quantity;
@@ -10,6 +13,18 @@ class ContainerLoadingModel {
   final String? vgmRefNo;
   final List<Map<String, String>> individualUnits;
 
+  // 5-Milestones Tracking & 48h SLA fields
+  final String? containerAssignmentDate;
+  final String? arrivalAtSupplierAt;
+  final String? loadingStartAt;
+  final String? loadingEndAt;
+  final String? portGateInAt;
+  final String? slaDeadlineAt;
+  final bool isSlaBreached;
+  final String trackingStatus;
+  final List<Map<String, dynamic>> trackingHistory;
+  final Map<String, String> milestoneNotes;
+
   ContainerLoadingModel({
     this.containerType = '40HC',
     this.quantity = 1,
@@ -21,9 +36,26 @@ class ContainerLoadingModel {
     this.vgmStatus = "Submitted",
     this.vgmRefNo,
     this.individualUnits = const [],
+    this.containerAssignmentDate,
+    this.arrivalAtSupplierAt,
+    this.loadingStartAt,
+    this.loadingEndAt,
+    this.portGateInAt,
+    this.slaDeadlineAt,
+    this.isSlaBreached = false,
+    this.trackingStatus = "PENDING_ASSIGNMENT",
+    this.trackingHistory = const [],
+    this.milestoneNotes = const {},
   });
 
   factory ContainerLoadingModel.fromJson(Map<String, dynamic> json) {
+    Map<String, String> notesMap = {};
+    if (json['milestone_notes'] != null && json['milestone_notes'] is Map) {
+      (json['milestone_notes'] as Map).forEach((k, v) {
+        if (v != null) notesMap[k.toString()] = v.toString();
+      });
+    }
+
     return ContainerLoadingModel(
       containerType: json['container_type'] ?? '40HC',
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
@@ -38,6 +70,19 @@ class ContainerLoadingModel {
               ?.map((e) => Map<String, String>.from(e))
               .toList() ??
           [],
+      containerAssignmentDate: json['container_assignment_date'],
+      arrivalAtSupplierAt: json['arrival_at_supplier_at'],
+      loadingStartAt: json['loading_start_at'],
+      loadingEndAt: json['loading_end_at'],
+      portGateInAt: json['port_gate_in_at'],
+      slaDeadlineAt: json['sla_deadline_at'],
+      isSlaBreached: json['is_sla_breached'] ?? false,
+      trackingStatus: json['tracking_status'] ?? 'PENDING_ASSIGNMENT',
+      trackingHistory: (json['tracking_history'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [],
+      milestoneNotes: notesMap,
     );
   }
 
@@ -53,7 +98,233 @@ class ContainerLoadingModel {
       'vgm_status': vgmStatus,
       'vgm_ref_no': vgmRefNo,
       'individual_units': individualUnits,
+      'container_assignment_date': containerAssignmentDate,
+      'arrival_at_supplier_at': arrivalAtSupplierAt,
+      'loading_start_at': loadingStartAt,
+      'loading_end_at': loadingEndAt,
+      'port_gate_in_at': portGateInAt,
+      'sla_deadline_at': slaDeadlineAt,
+      'is_sla_breached': isSlaBreached,
+      'tracking_status': trackingStatus,
+      'tracking_history': trackingHistory,
+      'milestone_notes': milestoneNotes,
     };
+  }
+
+  ContainerLoadingModel copyWith({
+    String? containerType,
+    int? quantity,
+    String? containerNo,
+    String? sealNo,
+    double? tareWeightKg,
+    double? netWeightKg,
+    double? grossWeightKg,
+    String? vgmStatus,
+    String? vgmRefNo,
+    List<Map<String, String>>? individualUnits,
+    String? containerAssignmentDate,
+    String? arrivalAtSupplierAt,
+    String? loadingStartAt,
+    String? loadingEndAt,
+    String? portGateInAt,
+    String? slaDeadlineAt,
+    bool? isSlaBreached,
+    String? trackingStatus,
+    List<Map<String, dynamic>>? trackingHistory,
+    Map<String, String>? milestoneNotes,
+  }) {
+    return ContainerLoadingModel(
+      containerType: containerType ?? this.containerType,
+      quantity: quantity ?? this.quantity,
+      containerNo: containerNo ?? this.containerNo,
+      sealNo: sealNo ?? this.sealNo,
+      tareWeightKg: tareWeightKg ?? this.tareWeightKg,
+      netWeightKg: netWeightKg ?? this.netWeightKg,
+      grossWeightKg: grossWeightKg ?? this.grossWeightKg,
+      vgmStatus: vgmStatus ?? this.vgmStatus,
+      vgmRefNo: vgmRefNo ?? this.vgmRefNo,
+      individualUnits: individualUnits ?? this.individualUnits,
+      containerAssignmentDate: containerAssignmentDate ?? this.containerAssignmentDate,
+      arrivalAtSupplierAt: arrivalAtSupplierAt ?? this.arrivalAtSupplierAt,
+      loadingStartAt: loadingStartAt ?? this.loadingStartAt,
+      loadingEndAt: loadingEndAt ?? this.loadingEndAt,
+      portGateInAt: portGateInAt ?? this.portGateInAt,
+      slaDeadlineAt: slaDeadlineAt ?? this.slaDeadlineAt,
+      isSlaBreached: isSlaBreached ?? this.isSlaBreached,
+      trackingStatus: trackingStatus ?? this.trackingStatus,
+      trackingHistory: trackingHistory ?? this.trackingHistory,
+      milestoneNotes: milestoneNotes ?? this.milestoneNotes,
+    );
+  }
+
+  int get progressStepIndex {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return 5;
+      case 'LOADING_COMPLETED':
+        return 4;
+      case 'LOADING_IN_PROGRESS':
+        return 3;
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return 2;
+      case 'ASSIGNED':
+      case 'EN_ROUTE_TO_SUPPLIER':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  String get arabicStatusLabel {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return 'دخلت الميناء (Gated-in)';
+      case 'LOADING_COMPLETED':
+        return 'اكتمل التحميل (Loaded)';
+      case 'LOADING_IN_PROGRESS':
+        return 'جاري التحميل (Loading)';
+      case 'ARRIVED_AT_SUPPLIER':
+        return 'وصلت لدى المورد (At Supplier)';
+      case 'ASSIGNED':
+        return 'تم التخصيص (Assigned)';
+      default:
+        return 'قيد التخصيص (Pending)';
+    }
+  }
+
+  Color get statusColor {
+    if (isSlaBreached) return AppTheme.crimson;
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return AppTheme.emerald;
+      case 'LOADING_COMPLETED':
+        return const Color(0xFF10B981);
+      case 'LOADING_IN_PROGRESS':
+      case 'ARRIVED_AT_SUPPLIER':
+        return AppTheme.orange;
+      case 'ASSIGNED':
+        return AppTheme.cobalt;
+      default:
+        return Colors.grey.shade600;
+    }
+  }
+}
+
+class LclLoadingTrackingModel {
+  final String shipmentType;
+  final String? cfsWarehouseName;
+  final String? consolidationScheduledDate;
+  final String? arrivalAtCfsAt;
+  final String? stuffingStartAt;
+  final String? stuffingEndAt;
+  final String? portGateInAt;
+  final String? slaDeadlineAt;
+  final bool isSlaBreached;
+  final String trackingStatus;
+  final List<Map<String, dynamic>> trackingHistory;
+
+  LclLoadingTrackingModel({
+    this.shipmentType = 'LCL',
+    this.cfsWarehouseName,
+    this.consolidationScheduledDate,
+    this.arrivalAtCfsAt,
+    this.stuffingStartAt,
+    this.stuffingEndAt,
+    this.portGateInAt,
+    this.slaDeadlineAt,
+    this.isSlaBreached = false,
+    this.trackingStatus = 'PENDING_ASSIGNMENT',
+    this.trackingHistory = const [],
+  });
+
+  factory LclLoadingTrackingModel.fromJson(Map<String, dynamic> json) {
+    return LclLoadingTrackingModel(
+      shipmentType: json['shipment_type'] ?? 'LCL',
+      cfsWarehouseName: json['cfs_warehouse_name'],
+      consolidationScheduledDate: json['consolidation_scheduled_date'],
+      arrivalAtCfsAt: json['arrival_at_cfs_at'],
+      stuffingStartAt: json['stuffing_start_at'],
+      stuffingEndAt: json['stuffing_end_at'],
+      portGateInAt: json['port_gate_in_at'],
+      slaDeadlineAt: json['sla_deadline_at'],
+      isSlaBreached: json['is_sla_breached'] ?? false,
+      trackingStatus: json['tracking_status'] ?? 'PENDING_ASSIGNMENT',
+      trackingHistory: (json['tracking_history'] as List<dynamic>?)
+              ?.map((e) => Map<String, dynamic>.from(e))
+              .toList() ??
+          [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'shipment_type': shipmentType,
+      'cfs_warehouse_name': cfsWarehouseName,
+      'consolidation_scheduled_date': consolidationScheduledDate,
+      'arrival_at_cfs_at': arrivalAtCfsAt,
+      'stuffing_start_at': stuffingStartAt,
+      'stuffing_end_at': stuffingEndAt,
+      'port_gate_in_at': portGateInAt,
+      'sla_deadline_at': slaDeadlineAt,
+      'is_sla_breached': isSlaBreached,
+      'tracking_status': trackingStatus,
+      'tracking_history': trackingHistory,
+    };
+  }
+
+  int get progressStepIndex {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return 5;
+      case 'LOADING_COMPLETED':
+        return 4;
+      case 'LOADING_IN_PROGRESS':
+        return 3;
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return 2;
+      case 'ASSIGNED':
+        return 1;
+      default:
+        return 0;
+    }
+  }
+
+  String get arabicStatusLabel {
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return 'دخلت الميناء (Gated-in)';
+      case 'LOADING_COMPLETED':
+        return 'اكتملت التعبئة بالمخزن';
+      case 'LOADING_IN_PROGRESS':
+        return 'جاري التعبئة في CFS';
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return 'وصلت لمخزن التجميع (CFS)';
+      case 'ASSIGNED':
+        return 'تمت جدولة التجميع';
+      default:
+        return 'قيد الجدولة (Pending)';
+    }
+  }
+
+  Color get statusColor {
+    if (isSlaBreached) return AppTheme.crimson;
+    switch (trackingStatus) {
+      case 'GATED_IN_AT_PORT':
+        return AppTheme.emerald;
+      case 'LOADING_COMPLETED':
+        return const Color(0xFF10B981);
+      case 'LOADING_IN_PROGRESS':
+      case 'ARRIVED_AT_SUPPLIER':
+      case 'ARRIVED_AT_CFS':
+        return AppTheme.orange;
+      case 'ASSIGNED':
+        return AppTheme.cobalt;
+      default:
+        return Colors.grey.shade600;
+    }
   }
 }
 
@@ -166,11 +437,15 @@ class CargoShippingModel {
   final int cargoShippingId;
   final String cargoShippingCode;
   final int importFileId;
+  final String? importFileCode;
+  final String? companyName;
   final int? bookingId;
+  final String shipmentType;
   final String? crdDate;
   final String? cargoCutoffDate;
   final bool isCrdValidated;
   final List<ContainerLoadingModel> containersLoadingData;
+  final LclLoadingTrackingModel? lclTrackingData;
   final String level1ApprovalStatus;
   final String? level1ApprovedBy;
   final String? level1ApprovedAt;
@@ -189,17 +464,20 @@ class CargoShippingModel {
   final bool isActive;
   final String createdAt;
   final String updatedAt;
-  final String? importFileCode;
 
   CargoShippingModel({
     required this.cargoShippingId,
     required this.cargoShippingCode,
     required this.importFileId,
+    this.importFileCode,
+    this.companyName,
     this.bookingId,
+    this.shipmentType = 'FCL',
     this.crdDate,
     this.cargoCutoffDate,
     this.isCrdValidated = true,
     this.containersLoadingData = const [],
+    this.lclTrackingData,
     this.level1ApprovalStatus = 'Pending',
     this.level1ApprovedBy,
     this.level1ApprovedAt,
@@ -218,7 +496,6 @@ class CargoShippingModel {
     this.isActive = true,
     required this.createdAt,
     required this.updatedAt,
-    this.importFileCode,
   });
 
   factory CargoShippingModel.fromJson(Map<String, dynamic> json) {
@@ -227,11 +504,17 @@ class CargoShippingModel {
       cargoShippingId: json['cargo_shipping_id'],
       cargoShippingCode: json['cargo_shipping_code'] ?? '',
       importFileId: json['import_file_id'],
+      importFileCode: json['import_file_code'],
+      companyName: json['company_name'],
       bookingId: json['booking_id'],
+      shipmentType: json['shipment_type'] ?? 'FCL',
       crdDate: json['crd_date'],
       cargoCutoffDate: json['cargo_cutoff_date'],
       isCrdValidated: json['is_crd_validated'] ?? true,
       containersLoadingData: rawCont.map((e) => ContainerLoadingModel.fromJson(e)).toList(),
+      lclTrackingData: json['lcl_tracking_data'] != null && (json['lcl_tracking_data'] as Map).isNotEmpty
+          ? LclLoadingTrackingModel.fromJson(json['lcl_tracking_data'])
+          : null,
       level1ApprovalStatus: json['level1_approval_status'] ?? 'Pending',
       level1ApprovedBy: json['level1_approved_by'],
       level1ApprovedAt: json['level1_approved_at'],
@@ -250,7 +533,6 @@ class CargoShippingModel {
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'] ?? '',
       updatedAt: json['updated_at'] ?? '',
-      importFileCode: json['import_file_code'],
     );
   }
 
@@ -260,10 +542,12 @@ class CargoShippingModel {
       'cargo_shipping_code': cargoShippingCode,
       'import_file_id': importFileId,
       'booking_id': bookingId,
+      'shipment_type': shipmentType,
       'crd_date': crdDate,
       'cargo_cutoff_date': cargoCutoffDate,
       'is_crd_validated': isCrdValidated,
       'containers_loading_data': containersLoadingData.map((e) => e.toJson()).toList(),
+      'lcl_tracking_data': lclTrackingData?.toJson(),
       'courier_tracking_data': courierTrackingData.toJson(),
       'cargox_exchange_data': cargoxExchangeData.toJson(),
       'live_tracking_url': liveTrackingUrl,

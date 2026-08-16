@@ -412,6 +412,8 @@ class CustomsConsultationRepository:
 
         return query.order_by(CustomsConsultationSession.consultation_id.desc()).all()
 
+    list_consultations = get_all
+
     @staticmethod
     def update(
         db: Session, db_session: CustomsConsultationSession, update_in: CustomsConsultationUpdate

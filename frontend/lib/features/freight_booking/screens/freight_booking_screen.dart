@@ -288,11 +288,17 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.charcoal.withOpacity(0.07),
+                                      color: AppTheme.cobalt.withOpacity(0.08),
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '—'),
+                                      () {
+                                        final importFiles = ref.watch(importFilesProvider).value ?? [];
+                                        final f = importFiles.where((file) => file.importFileId == bkg.importFileId).firstOrNull;
+                                        final fCode = f?.customFileNumber ?? f?.importFileCode ?? bkg.importFileCode ?? (bkg.importFileId != null ? 'IMP-${bkg.importFileId}' : '—');
+                                        final comp = f?.companyName ?? '';
+                                        return comp.isNotEmpty ? '[$fCode] $comp' : fCode;
+                                      }(),
                                       style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal, fontSize: 12),
                                     ),
                                   ),
@@ -2232,17 +2238,61 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.charcoal,
+              side: BorderSide(color: Colors.grey.shade400),
+            ),
+            onPressed: () {
+              ref.read(freightBookingProvider.notifier).fetchBookings();
+              ref.read(importFilesProvider.notifier).fetchImportFiles();
+            },
+            icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+            label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 6),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade800,
+              side: BorderSide(color: Colors.grey.shade400),
+            ),
+            onPressed: () {
+              setState(() {
+                _selectedImportFileId = null;
+                _selectedScenarioSessionId = null;
+                _selectedScenarioItemId = null;
+                _selectedScenarioProviderName = null;
+                _bookingConfirmNoController.clear();
+                _vesselNameController.clear();
+                _voyageNoController.clear();
+              });
+            },
+            icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+            label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 6),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEFF6FF),
+              foregroundColor: AppTheme.cobalt,
+              elevation: 0,
+              side: const BorderSide(color: AppTheme.cobalt),
+            ),
+            onPressed: _isSaving ? null : () => _submitWithContainerValidation(activeContainerRec),
+            icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+            label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 6),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.emerald,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
             ),
             onPressed: _isSaving ? null : () => _submitWithContainerValidation(activeContainerRec),
             icon: _isSaving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.check, color: Colors.white),
-            label: const Text('حفظ حجز الشحن بالكامل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(widget.bookingToEdit != null ? 'تحديث وحفظ الحجز 💾' : 'حفظ وتأكيد حجز الشحن ✅', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

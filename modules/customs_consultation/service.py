@@ -240,7 +240,7 @@ class CustomsConsultationService:
 
         # Prevent duplicate consultation creation for the same import file
         if session_in.import_file_id:
-            existing = CustomsConsultationRepository.list_consultations(db, import_file_id=session_in.import_file_id)
+            existing = CustomsConsultationRepository.get_all(db, import_file_id=session_in.import_file_id)
             if existing:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,

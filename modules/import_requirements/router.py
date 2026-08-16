@@ -61,6 +61,15 @@ def update_assessment(assessment_id: int, payload: ImportRequirementUpdate, db: 
     return obj
 
 
+@router.post("/{assessment_id}/restore", response_model=ImportRequirementResponse,
+    summary="Restore a soft-deleted Import Requirements Assessment")
+def restore_assessment(assessment_id: int, db: Session = Depends(get_db)):
+    obj = service.restore_assessment_service(db, assessment_id)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Assessment not found")
+    return obj
+
+
 @router.delete("/{assessment_id}", status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft-delete an Import Requirements Assessment")
 def delete_assessment(assessment_id: int, db: Session = Depends(get_db)):

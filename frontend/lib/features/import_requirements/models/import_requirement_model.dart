@@ -1,3 +1,71 @@
+class ImportRequirementHSCodeItemModel {
+  final String hsCode;
+  final String? commodityDescription;
+  final String? itemCode;
+  final String? countryOfOrigin;
+  final String currency;
+  final double itemValue;
+  final double quantity;
+  final String unitOfMeasure;
+  final bool decree43Applicable;
+  final bool cooRequired;
+  final bool inspectionRequired;
+  final bool permitRequired;
+  final String? regulatoryAuthority;
+
+  ImportRequirementHSCodeItemModel({
+    required this.hsCode,
+    this.commodityDescription,
+    this.itemCode,
+    this.countryOfOrigin,
+    this.currency = 'USD',
+    this.itemValue = 0.0,
+    this.quantity = 1.0,
+    this.unitOfMeasure = 'PCS',
+    this.decree43Applicable = false,
+    this.cooRequired = false,
+    this.inspectionRequired = false,
+    this.permitRequired = false,
+    this.regulatoryAuthority,
+  });
+
+  factory ImportRequirementHSCodeItemModel.fromJson(Map<String, dynamic> json) {
+    return ImportRequirementHSCodeItemModel(
+      hsCode: json['hs_code'] ?? '',
+      commodityDescription: json['commodity_description'],
+      itemCode: json['item_code'],
+      countryOfOrigin: json['country_of_origin'],
+      currency: json['currency'] ?? 'USD',
+      itemValue: (json['item_value'] as num?)?.toDouble() ?? 0.0,
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
+      unitOfMeasure: json['unit_of_measure'] ?? 'PCS',
+      decree43Applicable: json['decree_43_applicable'] ?? false,
+      cooRequired: json['coo_required'] ?? false,
+      inspectionRequired: json['inspection_required'] ?? false,
+      permitRequired: json['permit_required'] ?? false,
+      regulatoryAuthority: json['regulatory_authority'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'hs_code': hsCode,
+      'commodity_description': commodityDescription,
+      'item_code': itemCode,
+      'country_of_origin': countryOfOrigin,
+      'currency': currency,
+      'item_value': itemValue,
+      'quantity': quantity,
+      'unit_of_measure': unitOfMeasure,
+      'decree_43_applicable': decree43Applicable,
+      'coo_required': cooRequired,
+      'inspection_required': inspectionRequired,
+      'permit_required': permitRequired,
+      'regulatory_authority': regulatoryAuthority,
+    };
+  }
+}
+
 class ImportRequirementPrefillModel {
   final int importFileId;
   final String importFileCode;
@@ -13,6 +81,7 @@ class ImportRequirementPrefillModel {
   final String? acidNumber;
   final String? hsCode;
   final String? commodityDescription;
+  final List<ImportRequirementHSCodeItemModel> hsCodeItems;
 
   final int? consultationId;
   final String? consultationCode;
@@ -63,6 +132,7 @@ class ImportRequirementPrefillModel {
     this.acidNumber,
     this.hsCode,
     this.commodityDescription,
+    this.hsCodeItems = const [],
     this.consultationId,
     this.consultationCode,
     this.brokerName,
@@ -94,6 +164,12 @@ class ImportRequirementPrefillModel {
   });
 
   factory ImportRequirementPrefillModel.fromJson(Map<String, dynamic> json) {
+    var rawHsItems = json['hs_code_items'];
+    List<ImportRequirementHSCodeItemModel> items = [];
+    if (rawHsItems is List) {
+      items = rawHsItems.map((e) => ImportRequirementHSCodeItemModel.fromJson(Map<String, dynamic>.from(e))).toList();
+    }
+
     return ImportRequirementPrefillModel(
       importFileId: json['import_file_id'] ?? 0,
       importFileCode: json['import_file_code'] ?? '',
@@ -109,6 +185,7 @@ class ImportRequirementPrefillModel {
       acidNumber: json['acid_number'],
       hsCode: json['hs_code'],
       commodityDescription: json['commodity_description'],
+      hsCodeItems: items,
       consultationId: json['consultation_id'],
       consultationCode: json['consultation_code'],
       brokerName: json['broker_name'],
@@ -152,6 +229,7 @@ class ImportRequirementModel {
   final String currency;
   final double shipmentValue;
   final double shipmentValueUsd;
+  final List<ImportRequirementHSCodeItemModel> hsCodeItems;
 
   // Post-ACID & Consultation confirmation fields
   final String? acidNumber;
@@ -161,6 +239,10 @@ class ImportRequirementModel {
   final bool isPostAcidConfirmed;
   final DateTime? confirmedAt;
   final String? confirmedBy;
+
+  // Sailing & Lifecycle Status (من إصدار ACID حتى الإبحار)
+  final String sailingStatus;
+  final String? sailingDate;
 
   // Pillar 1: Decree 43 & Foreign Suppliers
   final int? supplierId;
@@ -223,6 +305,7 @@ class ImportRequirementModel {
     this.currency = 'USD',
     this.shipmentValue = 0.0,
     required this.shipmentValueUsd,
+    this.hsCodeItems = const [],
     this.acidNumber,
     this.consultationId,
     this.consultationCode,
@@ -230,6 +313,8 @@ class ImportRequirementModel {
     this.isPostAcidConfirmed = false,
     this.confirmedAt,
     this.confirmedBy,
+    this.sailingStatus = 'Pre-Sailing',
+    this.sailingDate,
     this.supplierId,
     this.supplierName,
     required this.decree43Applicable,
@@ -269,6 +354,15 @@ class ImportRequirementModel {
   });
 
   factory ImportRequirementModel.fromJson(Map<String, dynamic> json) {
+    var rawHsItems = json['hs_code_items'] ?? json['other_requirements'];
+    List<ImportRequirementHSCodeItemModel> items = [];
+    if (rawHsItems is List) {
+      items = rawHsItems
+          .where((e) => e is Map && (e.containsKey('hs_code') || e.containsKey('item_value')))
+          .map((e) => ImportRequirementHSCodeItemModel.fromJson(Map<String, dynamic>.from(e)))
+          .toList();
+    }
+
     return ImportRequirementModel(
       assessmentId: json['assessment_id'],
       assessmentCode: json['assessment_code'] ?? '',
@@ -280,6 +374,7 @@ class ImportRequirementModel {
       currency: json['currency'] ?? 'USD',
       shipmentValue: (json['shipment_value'] ?? json['shipment_value_usd'] ?? 0.0).toDouble(),
       shipmentValueUsd: (json['shipment_value_usd'] ?? 0.0).toDouble(),
+      hsCodeItems: items,
       acidNumber: json['acid_number'],
       consultationId: json['consultation_id'],
       consultationCode: json['consultation_code'],
@@ -287,6 +382,8 @@ class ImportRequirementModel {
       isPostAcidConfirmed: json['is_post_acid_confirmed'] ?? false,
       confirmedAt: json['confirmed_at'] != null ? DateTime.tryParse(json['confirmed_at']) : null,
       confirmedBy: json['confirmed_by'],
+      sailingStatus: json['sailing_status'] ?? 'Pre-Sailing',
+      sailingDate: json['sailing_date'],
       supplierId: json['supplier_id'],
       supplierName: json['supplier_name'],
       decree43Applicable: json['decree_43_applicable'] ?? false,
@@ -338,6 +435,7 @@ class ImportRequirementModel {
       'currency': currency,
       'shipment_value': shipmentValue,
       'shipment_value_usd': shipmentValueUsd,
+      'hs_code_items': hsCodeItems.map((e) => e.toJson()).toList(),
       'acid_number': acidNumber,
       'consultation_id': consultationId,
       'consultation_code': consultationCode,
@@ -345,6 +443,8 @@ class ImportRequirementModel {
       'is_post_acid_confirmed': isPostAcidConfirmed,
       'confirmed_at': confirmedAt?.toIso8601String(),
       'confirmed_by': confirmedBy,
+      'sailing_status': sailingStatus,
+      'sailing_date': sailingDate,
       'supplier_id': supplierId,
       'supplier_name': supplierName,
       'decree_43_applicable': decree43Applicable,

@@ -166,6 +166,18 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 0. Live Refresh Button
+              ElevatedButton.icon(
+                onPressed: widget.onRefreshNeeded,
+                icon: const Icon(Icons.refresh, size: 16, color: Colors.white),
+                label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.charcoal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+              const SizedBox(width: 8),
+
               // 1. Download Template
               OutlinedButton.icon(
                 onPressed: widget.onDownloadTemplate ?? () => _downloadFile('excel-template', '${widget.title}_Template.xlsx'),

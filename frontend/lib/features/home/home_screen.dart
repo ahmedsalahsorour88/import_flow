@@ -237,9 +237,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           _buildMenuItem(Icons.account_balance_wallet_outlined, 'اعتماد الميزانية الاستيرادية (Budget Approval)', 9, selectedIndex),
                           _buildMenuItem(Icons.receipt_long_outlined, 'سجل العمليات المالي والتسويات (Financial Registry)', 10, selectedIndex),
 
-                          _buildSubSectionLabel('🏛️ 2. المسار الحكومي ونافذة وبنك:'),
+                          _buildSubSectionLabel('🏛️ 2. المسار الحكومي والتسجيل المسبق:'),
                           _buildMenuItem(Icons.qr_code_scanner_outlined, 'تسجيل نافذة وإصدار ACID (Nafeza Engine)', 11, selectedIndex),
-                          _buildMenuItem(Icons.account_balance_outlined, 'المستندات البنكية نموذج 4 (Form 4)', 12, selectedIndex),
 
                           _buildSubSectionLabel('📜 3. مراجعة المتطلبات وشهادات الإعفاء:'),
                           _buildMenuItem(Icons.rule_folder_outlined, 'مراجعة الاشتراطات وطلب الإعفاءات (Requirements)', 33, selectedIndex),
@@ -263,14 +262,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
 
                       // =========================================================
-                      // HUB 5: المرحلة 5: الإبحار والتخليص والإفراج للمخزن
+                      // HUB 5: المرحلة 5: الإبحار ونموذج 4 والتخليص الجمركي
                       // =========================================================
                       _buildHubTile(
                         icon: Icons.gavel,
-                        title: '5. 🚢 الإبحار والتخليص والإفراج للمخزن',
+                        title: '5. 🚢 الإبحار ونموذج 4 والتخليص الجمركي',
                         color: Colors.indigo,
                         initiallyExpanded: true,
                         children: [
+                          _buildMenuItem(Icons.account_balance_outlined, 'طلب إصدار وتوثيق نموذج 4 البنكي (Form 4)', 12, selectedIndex),
                           _buildMenuItem(Icons.schedule_outlined, 'تسجيل مواعيد السفر (ATD) والوصول (ETA) وتتبع CargoX', 16, selectedIndex),
                           _buildMenuItem(Icons.markunread_mailbox_outlined, 'استلام الأوراق والمستندات النهائية الأصلية', 13, selectedIndex),
                           _buildMenuItem(Icons.description_outlined, 'إجراءات الإقرار وإصدار الشهادة (Declaration 46)', 14, selectedIndex),

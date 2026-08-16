@@ -3,6 +3,22 @@ from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 
 
+class ImportRequirementHSCodeItem(BaseModel):
+    hs_code: str
+    commodity_description: Optional[str] = None
+    item_code: Optional[str] = None
+    country_of_origin: Optional[str] = None
+    currency: str = "USD"
+    item_value: float = 0.0
+    quantity: float = 0.0
+    unit_of_measure: Optional[str] = "PCS"
+    decree_43_applicable: bool = False
+    coo_required: bool = False
+    inspection_required: bool = False
+    permit_required: bool = False
+    regulatory_authority: Optional[str] = None
+
+
 class ImportRequirementBase(BaseModel):
     import_file_id: Optional[int] = None
     import_file_code: Optional[str] = None
@@ -54,6 +70,7 @@ class ImportRequirementBase(BaseModel):
     coa_status: str = Field("Not Required")
     coa_notes: Optional[str] = None
     
+    hs_code_items: Optional[List[Dict[str, Any]]] = None
     other_requirements: Optional[List[Dict[str, Any]]] = None
     
     # Post-ACID Confirmation & Linkage (مرحلة تأكيدية بعد إصدار ACID)
@@ -64,6 +81,10 @@ class ImportRequirementBase(BaseModel):
     is_post_acid_confirmed: bool = False
     confirmed_at: Optional[datetime] = None
     confirmed_by: Optional[str] = None
+
+    # Sailing & Shipping Progress (من إصدار ACID حتى الإبحار)
+    sailing_status: Optional[str] = Field("Pre-Sailing", max_length=50) # Pre-Sailing, Cleared for Sailing, Sailed
+    sailing_date: Optional[str] = None
 
     # Overall Assessment & Risk
     overall_status: str = Field("Draft")
@@ -122,6 +143,7 @@ class ImportRequirementUpdate(BaseModel):
     coa_status: Optional[str] = None
     coa_notes: Optional[str] = None
     
+    hs_code_items: Optional[List[Dict[str, Any]]] = None
     other_requirements: Optional[List[Dict[str, Any]]] = None
     acid_number: Optional[str] = None
     consultation_id: Optional[int] = None
@@ -130,6 +152,8 @@ class ImportRequirementUpdate(BaseModel):
     is_post_acid_confirmed: Optional[bool] = None
     confirmed_at: Optional[datetime] = None
     confirmed_by: Optional[str] = None
+    sailing_status: Optional[str] = None
+    sailing_date: Optional[str] = None
     overall_status: Optional[str] = None
     risk_level: Optional[str] = None
     assessed_by: Optional[str] = None
@@ -152,6 +176,9 @@ class ImportRequirementPrefillResponse(BaseModel):
     hs_code: Optional[str] = None
     commodity_description: Optional[str] = None
     
+    # Linked HS Code breakdown
+    hs_code_items: List[ImportRequirementHSCodeItem] = []
+
     # Linked Consultation Session Details
     consultation_id: Optional[int] = None
     consultation_code: Optional[str] = None

@@ -157,9 +157,16 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
                                     child: Text(r.settlementCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text('ملف الشحنة رقم: #${r.importFileId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  () {
+                                    final importFiles = ref.watch(importFilesProvider).value ?? [];
+                                    final matchingFile = importFiles.where((f) => f.importFileId == r.importFileId).firstOrNull;
+                                    final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? 'IMP-${r.importFileId}';
+                                    final compName = matchingFile?.companyName ?? '';
+                                    final fileTitle = compName.isNotEmpty ? '[$fileCode] $compName' : '[$fileCode]';
+                                    return Text(fileTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal));
+                                  }(),
                                   const SizedBox(width: 12),
-                                  Text('المحاسب المسؤول: ${r.accountantName}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                  Text('المحاسب: ${r.accountantName}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                                   const Spacer(),
                                   _buildStatusBadge(r.status),
                                 ],
@@ -555,9 +562,32 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
         ),
       ),
       actions: [
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () => ref.read(financialSettlementProvider.notifier).fetchSettlements(),
+          icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
+          onPressed: () {
+            setState(() {
+              _invNoCtrl.clear();
+              _providerCtrl.clear();
+              _amountFxCtrl.clear();
+              _rateCtrl.text = '50.0';
+            });
+          },
+          icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 6),
         TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+          icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
+          label: const Text('حفظ وتوزيع بنود المصروف ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: _isLoading
               ? null
               : () async {
@@ -603,7 +633,6 @@ class _FinancialSettlementFormDialogState extends ConsumerState<_FinancialSettle
                     }
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('إطلاق محرك Landed Cost', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

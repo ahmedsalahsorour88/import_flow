@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
-import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../customs_consultation/providers/customs_consultation_provider.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/import_requirement_model.dart';
 import '../providers/import_requirements_provider.dart';
@@ -19,21 +19,27 @@ Color _getStatusColor(String status) {
     case 'Approved':
     case 'Cleared':
     case 'Confirmed':
+    case 'Cleared for Sailing':
+    case 'Sailed':
     case 'تم الاستلام والتحقق':
     case 'تم الفحص واجتياز المطابقة':
     case 'تمت الموافقة والاعتماد':
     case 'معتمد ومصرح للشحن':
     case 'مؤكد ومصرح للشحن':
+    case 'جاهز للإبحار':
+    case 'تم الإبحار':
       return AppTheme.emerald;
     case 'Pending':
     case 'In Progress':
     case 'Applied':
     case 'Scheduled':
+    case 'Pre-Sailing':
     case 'مطلوبة':
     case 'قيد الاستيفاء':
     case 'قيد الاستيفاء والتأكيد':
     case 'تم تقديم الطلب':
     case 'تم التكليف والتنسيق':
+    case 'قبل الإبحار':
       return AppTheme.orange;
     case 'Rejected':
     case 'مرفوض':
@@ -66,21 +72,6 @@ Color _getRiskLevelColor(String risk) {
   }
 }
 
-Widget _buildPillChip({required String label, required Color color}) {
-  return Container(
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-    decoration: BoxDecoration(
-      color: color.withOpacity(0.1),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: color.withOpacity(0.5)),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color),
-    ),
-  );
-}
-
 class ImportRequirementsScreen extends ConsumerStatefulWidget {
   const ImportRequirementsScreen({super.key});
 
@@ -88,36 +79,514 @@ class ImportRequirementsScreen extends ConsumerStatefulWidget {
   ConsumerState<ImportRequirementsScreen> createState() => _ImportRequirementsScreenState();
 }
 
-class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScreen> {
+class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScreen> with SingleTickerProviderStateMixin {
+  late TabController _mainTabController;
   final TextEditingController _searchController = TextEditingController();
-  int? _selectedFileFilter;
+  
+  // Registry Filters
+  String _registryStatusFilter = 'All';
+  String _registryRiskFilter = 'All';
+  String _registryActiveFilter = 'Active'; // 'All', 'Active', 'Deleted'
+
+  // Form State
+  int _activePillarIndex = 0;
+  int? _editingAssessmentId;
+  String? _editingAssessmentCode;
+  int? _selectedImportFileId;
+  String? _selectedImportFileCode;
+  int? _selectedSupplierId;
+  String? _selectedSupplierName;
+  String? _selectedConsultationCode;
+  int? _selectedConsultationId;
+  double _consultationReadiness = 0.0;
+  bool _isSaving = false;
+
+  // Selected HS Code items
+  final List<ImportRequirementHSCodeItemModel> _hsCodeItems = [];
+  int _selectedHsItemIndex = 0;
+
+  // Form Controllers
+  final _formKey = GlobalKey<FormState>();
+  final _hsCodeCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  final _originCtrl = TextEditingController();
+  final _currencyCtrl = TextEditingController(text: 'USD');
+  final _valueCtrl = TextEditingController(text: '0.0');
+  final _acidNumberCtrl = TextEditingController();
+  final _factoryRegCtrl = TextEditingController();
+  final _cooNotesCtrl = TextEditingController();
+  final _inspReportNoCtrl = TextEditingController();
+  final _inspNotesCtrl = TextEditingController();
+  final _permitNumberCtrl = TextEditingController();
+  final _permitNotesCtrl = TextEditingController();
+  final _msdsNotesCtrl = TextEditingController();
+  final _halalNotesCtrl = TextEditingController();
+  final _coaNotesCtrl = TextEditingController();
+  final _specialNotesCtrl = TextEditingController();
+  final _sailingDateCtrl = TextEditingController();
+  final _assessedByCtrl = TextEditingController(text: 'Kamal (Import Compliance Mgr)');
+
+  // Pillar Form State Variables
+  bool _decree43Applicable = false;
+  bool _whiteListRequired = false;
+  bool _whiteListVerified = false;
+
+  bool _cooRequired = false;
+  String _cooType = 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+  String _cooStatus = 'Not Required';
+
+  bool _inspectionRequired = false;
+  String _inspectionBody = 'SGS (الشركة العامة للمعاينة)';
+  String _inspectionStatus = 'Not Required';
+
+  bool _importPermitRequired = false;
+  String _permitIssuingAuthority = 'جهاز شئون البيئة (EEAA)';
+  String _permitStatus = 'Not Required';
+
+  bool _msdsRequired = false;
+  String _msdsStatus = 'Not Required';
+
+  bool _halalCertRequired = false;
+  String _halalCertStatus = 'Not Required';
+
+  bool _coaRequired = false;
+  String _coaStatus = 'Not Required';
+
+  String _confirmationStatus = 'Pending Confirmation';
+  bool _isPostAcidConfirmed = false;
+  String _sailingStatus = 'Pre-Sailing'; // Pre-Sailing, Cleared for Sailing, Sailed
+  String _overallStatus = 'Draft';
+  String _riskLevel = 'Low';
 
   @override
   void initState() {
     super.initState();
+    _mainTabController = TabController(length: 2, vsync: this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(importRequirementsProvider.notifier).refreshData();
-      ref.read(importFilesProvider.notifier).fetchImportFiles();
-      ref.read(suppliersProvider.notifier).fetchSuppliers();
-      ref.read(customsTariffProvider.notifier).fetchTariffs();
-      ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+      _refreshAllData();
     });
   }
 
-  void _showCreateEditDialog([ImportRequirementModel? requirement]) {
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => _ImportRequirementFormDialog(requirement: requirement),
+  @override
+  void dispose() {
+    _mainTabController.dispose();
+    _searchController.dispose();
+    _hsCodeCtrl.dispose();
+    _descCtrl.dispose();
+    _originCtrl.dispose();
+    _currencyCtrl.dispose();
+    _valueCtrl.dispose();
+    _acidNumberCtrl.dispose();
+    _factoryRegCtrl.dispose();
+    _cooNotesCtrl.dispose();
+    _inspReportNoCtrl.dispose();
+    _inspNotesCtrl.dispose();
+    _permitNumberCtrl.dispose();
+    _permitNotesCtrl.dispose();
+    _msdsNotesCtrl.dispose();
+    _halalNotesCtrl.dispose();
+    _coaNotesCtrl.dispose();
+    _specialNotesCtrl.dispose();
+    _sailingDateCtrl.dispose();
+    _assessedByCtrl.dispose();
+    super.dispose();
+  }
+
+  void _refreshAllData() {
+    ref.read(importRequirementsProvider.notifier).refreshData();
+    ref.read(importFilesProvider.notifier).fetchImportFiles();
+    ref.read(suppliersProvider.notifier).fetchSuppliers();
+    ref.read(customsTariffProvider.notifier).fetchTariffs();
+    ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+  }
+
+  void _resetForm() {
+    setState(() {
+      _editingAssessmentId = null;
+      _editingAssessmentCode = null;
+      _selectedImportFileId = null;
+      _selectedImportFileCode = null;
+      _selectedSupplierId = null;
+      _selectedSupplierName = null;
+      _selectedConsultationCode = null;
+      _selectedConsultationId = null;
+      _consultationReadiness = 0.0;
+      _hsCodeItems.clear();
+      _selectedHsItemIndex = 0;
+
+      _hsCodeCtrl.clear();
+      _descCtrl.clear();
+      _originCtrl.clear();
+      _currencyCtrl.text = 'USD';
+      _valueCtrl.text = '0.0';
+      _acidNumberCtrl.clear();
+      _factoryRegCtrl.clear();
+      _cooNotesCtrl.clear();
+      _inspReportNoCtrl.clear();
+      _inspNotesCtrl.clear();
+      _permitNumberCtrl.clear();
+      _permitNotesCtrl.clear();
+      _msdsNotesCtrl.clear();
+      _halalNotesCtrl.clear();
+      _coaNotesCtrl.clear();
+      _specialNotesCtrl.clear();
+      _sailingDateCtrl.clear();
+
+      _decree43Applicable = false;
+      _whiteListRequired = false;
+      _whiteListVerified = false;
+      _cooRequired = false;
+      _cooType = 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+      _cooStatus = 'Not Required';
+      _inspectionRequired = false;
+      _inspectionBody = 'SGS (الشركة العامة للمعاينة)';
+      _inspectionStatus = 'Not Required';
+      _importPermitRequired = false;
+      _permitIssuingAuthority = 'جهاز شئون البيئة (EEAA)';
+      _permitStatus = 'Not Required';
+      _msdsRequired = false;
+      _msdsStatus = 'Not Required';
+      _halalCertRequired = false;
+      _halalCertStatus = 'Not Required';
+      _coaRequired = false;
+      _coaStatus = 'Not Required';
+      _confirmationStatus = 'Pending Confirmation';
+      _isPostAcidConfirmed = false;
+      _sailingStatus = 'Pre-Sailing';
+      _overallStatus = 'Draft';
+      _riskLevel = 'Low';
+      _activePillarIndex = 0;
+    });
+  }
+
+  Future<void> _onImportFileChanged(int? fileId) async {
+    if (fileId == null) {
+      _resetForm();
+      return;
+    }
+
+    final prefill = await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
+    if (!mounted) return;
+
+    if (prefill != null) {
+      setState(() {
+        _selectedImportFileId = prefill.importFileId;
+        _selectedImportFileCode = prefill.importFileCode;
+        _selectedSupplierId = prefill.supplierId;
+        _selectedSupplierName = prefill.supplierName;
+        _selectedConsultationCode = prefill.consultationCode;
+        _selectedConsultationId = prefill.consultationId;
+        _consultationReadiness = prefill.readinessPercentage;
+
+        _acidNumberCtrl.text = prefill.acidNumber ?? '';
+        _originCtrl.text = prefill.countryOfOrigin ?? 'China';
+        _currencyCtrl.text = prefill.currency;
+        _valueCtrl.text = prefill.shipmentValue.toStringAsFixed(2);
+        _factoryRegCtrl.text = prefill.factoryRegistrationNo ?? prefill.foreignExporterId ?? '';
+
+        _hsCodeItems.clear();
+        _hsCodeItems.addAll(prefill.hsCodeItems);
+        _selectedHsItemIndex = 0;
+
+        if (_hsCodeItems.isNotEmpty) {
+          _selectHsCodeItem(_hsCodeItems[0]);
+        } else {
+          _hsCodeCtrl.text = prefill.hsCode ?? '';
+          _descCtrl.text = prefill.commodityDescription ?? '';
+        }
+
+        _decree43Applicable = prefill.decree43Applicable;
+        _whiteListRequired = prefill.whiteListRequired;
+        _whiteListVerified = prefill.whiteListVerified;
+
+        _cooRequired = prefill.cooRequired;
+        _cooType = prefill.cooType ?? 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+        _cooStatus = prefill.cooStatus;
+        _cooNotesCtrl.text = prefill.cooNotes ?? '';
+
+        _inspectionRequired = prefill.inspectionRequired;
+        _inspectionBody = prefill.inspectionBody ?? 'SGS (الشركة العامة للمعاينة)';
+        _inspectionStatus = prefill.inspectionStatus;
+        _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
+
+        _importPermitRequired = prefill.importPermitRequired;
+        _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'جهاز شئون البيئة (EEAA)';
+        _permitStatus = prefill.permitStatus;
+        _permitNotesCtrl.text = prefill.permitNotes ?? '';
+
+        _msdsRequired = prefill.msdsRequired;
+        _msdsStatus = prefill.msdsStatus;
+        _halalCertRequired = prefill.halalCertRequired;
+        _halalCertStatus = prefill.halalCertStatus;
+        _coaRequired = prefill.coaRequired;
+        _coaStatus = prefill.coaStatus;
+        _specialNotesCtrl.text = prefill.specialNotes ?? '';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('⚡ تم استدعاء بنود التعريفة (${prefill.hsCodeItems.length} بند) والمتطلبات تلقائياً للملف ${prefill.importFileCode}'),
+          backgroundColor: AppTheme.cobalt,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _selectHsCodeItem(ImportRequirementHSCodeItemModel item) {
+    setState(() {
+      _hsCodeCtrl.text = item.hsCode;
+      _descCtrl.text = item.commodityDescription ?? '';
+      _originCtrl.text = item.countryOfOrigin ?? _originCtrl.text;
+      _currencyCtrl.text = item.currency;
+      _valueCtrl.text = item.itemValue.toStringAsFixed(2);
+
+      if (item.cooRequired) _cooRequired = true;
+      if (item.inspectionRequired) _inspectionRequired = true;
+      if (item.permitRequired) {
+        _importPermitRequired = true;
+        if (item.regulatoryAuthority != null) {
+          _permitIssuingAuthority = item.regulatoryAuthority!;
+        }
+      }
+      if (item.decree43Applicable) _decree43Applicable = true;
+    });
+  }
+
+  void _loadAssessmentForEditing(ImportRequirementModel item) {
+    setState(() {
+      _editingAssessmentId = item.assessmentId;
+      _editingAssessmentCode = item.assessmentCode;
+      _selectedImportFileId = item.importFileId;
+      _selectedImportFileCode = item.importFileCode;
+      _selectedSupplierId = item.supplierId;
+      _selectedSupplierName = item.supplierName;
+      _selectedConsultationCode = item.consultationCode;
+      _selectedConsultationId = item.consultationId;
+
+      _hsCodeCtrl.text = item.hsCode ?? '';
+      _descCtrl.text = item.commodityDescription ?? '';
+      _originCtrl.text = item.countryOfOrigin ?? '';
+      _currencyCtrl.text = item.currency;
+      _valueCtrl.text = item.shipmentValue.toStringAsFixed(2);
+      _acidNumberCtrl.text = item.acidNumber ?? '';
+      _factoryRegCtrl.text = item.factoryRegistrationNo ?? '';
+      _cooNotesCtrl.text = item.cooNotes ?? '';
+      _inspReportNoCtrl.text = item.inspectionReportNo ?? '';
+      _inspNotesCtrl.text = item.inspectionNotes ?? '';
+      _permitNumberCtrl.text = item.permitNumber ?? '';
+      _permitNotesCtrl.text = item.permitNotes ?? '';
+      _msdsNotesCtrl.text = item.msdsNotes ?? '';
+      _halalNotesCtrl.text = item.halalCertNotes ?? '';
+      _coaNotesCtrl.text = item.coaNotes ?? '';
+      _specialNotesCtrl.text = item.assessmentNotes ?? '';
+      _sailingDateCtrl.text = item.sailingDate ?? '';
+      _assessedByCtrl.text = item.assessedBy;
+
+      _hsCodeItems.clear();
+      _hsCodeItems.addAll(item.hsCodeItems);
+      _selectedHsItemIndex = 0;
+
+      _decree43Applicable = item.decree43Applicable;
+      _whiteListRequired = item.whiteListRequired;
+      _whiteListVerified = item.whiteListVerified;
+
+      _cooRequired = item.cooRequired;
+      _cooType = item.cooType ?? 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+      _cooStatus = item.cooStatus;
+
+      _inspectionRequired = item.inspectionRequired;
+      _inspectionBody = item.inspectionBody ?? 'SGS (الشركة العامة للمعاينة)';
+      _inspectionStatus = item.inspectionStatus;
+
+      _importPermitRequired = item.importPermitRequired;
+      _permitIssuingAuthority = item.permitIssuingAuthority ?? 'جهاز شئون البيئة (EEAA)';
+      _permitStatus = item.permitStatus;
+
+      _msdsRequired = item.msdsRequired;
+      _msdsStatus = item.msdsStatus;
+      _halalCertRequired = item.halalCertRequired;
+      _halalCertStatus = item.halalCertStatus;
+      _coaRequired = item.coaRequired;
+      _coaStatus = item.coaStatus;
+
+      _confirmationStatus = item.confirmationStatus;
+      _isPostAcidConfirmed = item.isPostAcidConfirmed;
+      _sailingStatus = item.sailingStatus;
+      _overallStatus = item.overallStatus;
+      _riskLevel = item.riskLevel;
+    });
+
+    _mainTabController.animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('📂 تم تحميل التقييم (${item.assessmentCode}) وجاهز للتعديل والمطابقة!'),
+        backgroundColor: AppTheme.cobalt,
+      ),
     );
   }
 
+  void _autoCompleteAllPillars() {
+    setState(() {
+      _whiteListVerified = true;
+      _cooStatus = 'Obtained';
+      _inspectionStatus = 'Completed';
+      _permitStatus = 'Approved';
+      _msdsStatus = 'Obtained';
+      _halalCertStatus = 'Obtained';
+      _coaStatus = 'Obtained';
+      _isPostAcidConfirmed = true;
+      _confirmationStatus = 'Confirmed & Cleared for Sailing';
+      _sailingStatus = 'Cleared for Sailing';
+      _overallStatus = 'Confirmed';
+      _riskLevel = 'Low';
+      if (_factoryRegCtrl.text.isEmpty) _factoryRegCtrl.text = 'GOEIC-REG-PASS-2026';
+      if (_inspReportNoCtrl.text.isEmpty) _inspReportNoCtrl.text = 'ILAC-SGS-99201';
+      if (_permitNumberCtrl.text.isEmpty) _permitNumberCtrl.text = 'PERMIT-GOEIC-8871';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('⚡ تم استيفاء وتأكيد جاهزية كافة المحاور وتجهيز الشحنة للإبحار!'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
+  Future<void> _saveAssessment() async {
+    if (!_formKey.currentState!.validate()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الرجاء التأكد من تعبئة جميع الحقول المطلوبة.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار ملف الشحنة الاستيرادية المربوط أولاً.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    final payload = {
+      'import_file_id': _selectedImportFileId,
+      'import_file_code': _selectedImportFileCode,
+      'hs_code': _hsCodeCtrl.text.trim(),
+      'commodity_description': _descCtrl.text.trim(),
+      'country_of_origin': _originCtrl.text.trim(),
+      'currency': _currencyCtrl.text.trim(),
+      'shipment_value': double.tryParse(_valueCtrl.text) ?? 0.0,
+      'shipment_value_usd': double.tryParse(_valueCtrl.text) ?? 0.0,
+      'hs_code_items': _hsCodeItems.map((e) => e.toJson()).toList(),
+      'supplier_id': _selectedSupplierId,
+      'supplier_name': _selectedSupplierName,
+      'decree_43_applicable': _decree43Applicable,
+      'white_list_required': _whiteListRequired,
+      'white_list_verified': _whiteListVerified,
+      'factory_registration_no': _factoryRegCtrl.text.trim(),
+      'coo_required': _cooRequired,
+      'coo_type': _cooType,
+      'coo_status': _cooStatus,
+      'coo_notes': _cooNotesCtrl.text.trim(),
+      'inspection_required': _inspectionRequired,
+      'inspection_body': _inspectionBody,
+      'inspection_status': _inspectionStatus,
+      'inspection_report_no': _inspReportNoCtrl.text.trim(),
+      'inspection_notes': _inspNotesCtrl.text.trim(),
+      'import_permit_required': _importPermitRequired,
+      'permit_issuing_authority': _permitIssuingAuthority,
+      'permit_number': _permitNumberCtrl.text.trim(),
+      'permit_status': _permitStatus,
+      'permit_notes': _permitNotesCtrl.text.trim(),
+      'msds_required': _msdsRequired,
+      'msds_status': _msdsStatus,
+      'msds_notes': _msdsNotesCtrl.text.trim(),
+      'halal_cert_required': _halalCertRequired,
+      'halal_cert_status': _halalCertStatus,
+      'halal_cert_notes': _halalNotesCtrl.text.trim(),
+      'coa_required': _coaRequired,
+      'coa_status': _coaStatus,
+      'coa_notes': _coaNotesCtrl.text.trim(),
+      'acid_number': _acidNumberCtrl.text.trim(),
+      'consultation_id': _selectedConsultationId,
+      'consultation_code': _selectedConsultationCode,
+      'confirmation_status': _confirmationStatus,
+      'is_post_acid_confirmed': _isPostAcidConfirmed,
+      'confirmed_at': _isPostAcidConfirmed ? DateTime.now().toIso8601String() : null,
+      'confirmed_by': _assessedByCtrl.text.trim(),
+      'sailing_status': _sailingStatus,
+      'sailing_date': _sailingDateCtrl.text.trim(),
+      'overall_status': _overallStatus,
+      'risk_level': _riskLevel,
+      'assessed_by': _assessedByCtrl.text.trim(),
+      'assessment_notes': _specialNotesCtrl.text.trim(),
+    };
+
+    try {
+      if (_editingAssessmentId != null) {
+        await ref.read(importRequirementsProvider.notifier).updateRequirement(_editingAssessmentId!, payload);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم تعديل وحفظ تقييم المتطلبات ($_editingAssessmentCode) بنجاح!'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
+      } else {
+        await ref.read(importRequirementsProvider.notifier).addRequirement(payload);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ تم إنشاء وحفظ تقييم المتطلبات التنظيمية والمطابقة بنجاح!'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
+      }
+
+      _resetForm();
+      _mainTabController.animateTo(1);
+    } catch (e) {
+      if (mounted) {
+        final errorMsg = e.toString().replaceAll('Exception:', '').trim();
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Row(
+              children: [
+                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                SizedBox(width: 8),
+                Text('تنبيه عدم التكرار / خطأ بالحفظ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              ],
+            ),
+            content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('إغلاق'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                onPressed: () {
+                  Navigator.pop(ctx);
+                  _mainTabController.animateTo(1);
+                },
+                child: const Text('الانتقال للسجلات المحفوظة والتعديل عليها', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final asyncRequirements = ref.watch(importRequirementsProvider);
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
-
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
@@ -126,1646 +595,1378 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 24),
             SizedBox(width: 10),
             Text(
-              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية (BP-011 التأكيد اللاحق للـ ACID)',
+              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية (BP-011 التأكيد اللاحق للـ ACID حتى الإبحار)',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
           ],
         ),
         backgroundColor: AppTheme.charcoal,
+        bottom: TabBar(
+          controller: _mainTabController,
+          indicatorColor: AppTheme.emerald,
+          indicatorWeight: 3,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white60,
+          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          tabs: const [
+            Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: '📋 تقييم ومطابقة المتطلبات التنظيمية (Interactive Form)'),
+            Tab(icon: Icon(Icons.folder_shared_outlined, size: 18), text: '📑 سجل دراسات المتطلبات المحفوظة (Saved Registry)'),
+          ],
+        ),
         actions: [
           const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             tooltip: 'إعادة تحميل حية',
-            onPressed: () {
-              ref.read(importRequirementsProvider.notifier).refreshData();
-              ref.read(importFilesProvider.notifier).fetchImportFiles();
-              ref.read(suppliersProvider.notifier).fetchSuppliers();
-              ref.read(customsTariffProvider.notifier).fetchTariffs();
-              ref.read(customsConsultationsProvider.notifier).fetchConsultations();
-            },
+            onPressed: _refreshAllData,
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            // Data Actions Toolbar
-            MasterDataToolbarWidget(
-              moduleEndpoint: 'import-requirements',
-              title: 'Import_Requirements',
-              onRefreshNeeded: () => ref.read(importRequirementsProvider.notifier).refreshData(),
-            ),
-            const SizedBox(height: 12),
-
-            // Top Filter & Action Bar
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2)),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'بحث برقم التقييم، البند الجمركي HS Code، رقم الـ ACID، المورد، أو الوصف...',
-                        prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      ),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: SearchableDropdownField<int?>(
-                      value: _selectedFileFilter,
-                      labelText: 'تصفية بملف الشحنة',
-                      items: [
-                        const SearchableDropdownItem<int?>(value: null, label: 'جميع ملفات الشحنات'),
-                        ...importFiles.map(
-                          (f) => SearchableDropdownItem<int?>(
-                            value: f.importFileId,
-                            label: '${f.importFileCode} - ${f.supplierName}',
-                            subtitle: 'ACID: ${f.acidNumber ?? "Pending"}',
-                          ),
-                        ),
-                      ],
-                      onChanged: (val) => setState(() => _selectedFileFilter = val),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton.icon(
-                    onPressed: () => _showCreateEditDialog(),
-                    icon: const Icon(Icons.add_task, color: Colors.white),
-                    label: const Text('إضافة تأكيد استيرادي شامل', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // 5 Pillars Overview Banner with ACID Confirmation Reminder
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-              decoration: BoxDecoration(
-                color: AppTheme.cobalt.withOpacity(0.06),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _PillarHeaderItem(icon: Icons.factory_outlined, title: 'المحور 1: قرار 43 وتسجيل المصانع'),
-                  _PillarHeaderItem(icon: Icons.public_outlined, title: 'المحور 2: شهادة المنشأ والاتفاقيات'),
-                  _PillarHeaderItem(icon: Icons.verified_outlined, title: 'المحور 3: فحص ما قبل الشحن'),
-                  _PillarHeaderItem(icon: Icons.account_balance_outlined, title: 'المحور 4: موافقات جهات العرض'),
-                  _PillarHeaderItem(icon: Icons.science_outlined, title: 'المحور 5: شهادات خاصة (MSDS/Halal/COA)'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Main Grid View
-            Expanded(
-              child: asyncRequirements.when(
-                data: (requirements) {
-                  var filtered = requirements.where((r) {
-                    final query = _searchController.text.toLowerCase();
-                    final matchesQuery = r.assessmentCode.toLowerCase().contains(query) ||
-                        (r.hsCode?.toLowerCase().contains(query) ?? false) ||
-                        (r.supplierName?.toLowerCase().contains(query) ?? false) ||
-                        (r.acidNumber?.toLowerCase().contains(query) ?? false) ||
-                        (r.commodityDescription?.toLowerCase().contains(query) ?? false);
-                    final matchesFile = _selectedFileFilter == null || r.importFileId == _selectedFileFilter;
-                    return matchesQuery && matchesFile;
-                  }).toList();
-
-                  if (filtered.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.rule_folder_outlined, size: 64, color: Colors.grey.shade400),
-                          const SizedBox(height: 12),
-                          Text('لا توجد تقييمات استيرادية مطابقة للبحث.', style: TextStyle(color: Colors.grey.shade600, fontSize: 15)),
-                          const SizedBox(height: 8),
-                          ElevatedButton.icon(
-                            onPressed: () => _showCreateEditDialog(),
-                            icon: const Icon(Icons.add, color: Colors.white),
-                            label: const Text('إضافة أول تأكيد استيرادي', style: TextStyle(color: Colors.white)),
-                            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return GridView.builder(
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 1.5,
-                      crossAxisSpacing: 14,
-                      mainAxisSpacing: 14,
-                    ),
-                    itemCount: filtered.length,
-                    itemBuilder: (context, index) {
-                      final req = filtered[index];
-                      return _buildAssessmentCard(req);
-                    },
-                  );
-                },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, stack) => Center(child: Text('خطأ: $err', style: const TextStyle(color: Colors.red))),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAssessmentCard(ImportRequirementModel req) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(14.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.charcoal,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        req.assessmentCode,
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 12),
-                      ),
-                    ),
-                    if (req.importFileCode != null) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
-                        ),
-                        child: Text(
-                          'ملف: ${req.importFileCode}',
-                          style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
-                        ),
-                      ),
-                    ],
-                    if (req.acidNumber != null && req.acidNumber!.isNotEmpty) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.green.shade300),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.verified, size: 12, color: Colors.green),
-                            const SizedBox(width: 4),
-                            Text(
-                              'ACID: ${req.acidNumber}',
-                              style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                Row(
-                  children: [
-                    _buildPillChip(
-                      label: req.overallStatus,
-                      color: _getStatusColor(req.overallStatus),
-                    ),
-                    const SizedBox(width: 6),
-                    _buildPillChip(
-                      label: 'مخاطر: ${req.riskLevel}',
-                      color: _getRiskLevelColor(req.riskLevel),
-                    ),
-                    const SizedBox(width: 6),
-                    RowActionsPill(
-                      onView: () => _showCreateEditDialog(req),
-                      onEdit: () => _showCreateEditDialog(req),
-                      onPrint: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('طباعة تقرير استيفاء المتطلبات الاستيرادية (5 محاور): ${req.assessmentCode} (ACID: ${req.acidNumber ?? "-"})'),
-                            backgroundColor: AppTheme.charcoal,
-                            duration: const Duration(seconds: 2),
-                          ),
-                        );
-                      },
-                      onDelete: () async {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (c) => AlertDialog(
-                            title: const Text('حذف تقييم الاستيراد'),
-                            content: Text('هل أنت متأكد من حذف التقييم الاستيرادي (${req.assessmentCode})؟'),
-                            actions: [
-                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                              ElevatedButton(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-                                onPressed: () => Navigator.pop(c, true),
-                                child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true && req.assessmentId != null) {
-                          ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
-                        }
-                      },
-                      viewTooltip: 'عرض تفاصيل التقييم والتأكيد',
-                      editTooltip: 'تعديل التقييم الاستيرادي',
-                      printTooltip: 'طباعة تقرير المتطلبات',
-                      deleteTooltip: 'حذف التقييم الاستيرادي',
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-
-            // HS Code & Commodity
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'HS Code: ${req.hsCode ?? "غير محدد"}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                      ),
-                      Text(
-                        req.commodityDescription ?? 'بدون وصف للصنف',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ),
-                if (req.supplierName != null) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.business, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          req.supplierName!,
-                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const Divider(height: 12),
-
-            // The 5 Pillars Visual Grid
-            Expanded(
-              child: GridView.count(
-                crossAxisCount: 5,
-                childAspectRatio: 2.2,
-                crossAxisSpacing: 6,
-                mainAxisSpacing: 6,
-                physics: const NeverScrollableScrollPhysics(),
-                children: [
-                  _buildPillarBadge(
-                    icon: Icons.factory_outlined,
-                    pillarNum: '1',
-                    name: 'قرار 43',
-                    status: req.decree43Applicable
-                        ? (req.whiteListVerified ? 'مسجل بالهيئة' : 'مطلوب التسجيل')
-                        : 'غير خاضع',
-                    isActive: req.decree43Applicable,
-                    isOk: req.decree43Applicable ? req.whiteListVerified : true,
-                  ),
-                  _buildPillarBadge(
-                    icon: Icons.public_outlined,
-                    pillarNum: '2',
-                    name: 'المنشأ ${req.cooType ?? ""}',
-                    status: req.cooRequired ? req.cooStatus : 'غير مطلوبة',
-                    isActive: req.cooRequired,
-                    isOk: !req.cooRequired || req.cooStatus == 'Obtained' || req.cooStatus == 'تم الاستلام والتحقق',
-                  ),
-                  _buildPillarBadge(
-                    icon: Icons.verified_outlined,
-                    pillarNum: '3',
-                    name: 'الفحص ${req.inspectionBody ?? ""}',
-                    status: req.inspectionRequired ? req.inspectionStatus : 'غير مطلوب',
-                    isActive: req.inspectionRequired,
-                    isOk: !req.inspectionRequired || req.inspectionStatus == 'Completed' || req.inspectionStatus == 'تم الفحص واجتياز المطابقة',
-                  ),
-                  _buildPillarBadge(
-                    icon: Icons.account_balance_outlined,
-                    pillarNum: '4',
-                    name: 'العرض ${req.permitIssuingAuthority ?? ""}',
-                    status: req.importPermitRequired ? req.permitStatus : 'لا يتطلب',
-                    isActive: req.importPermitRequired,
-                    isOk: !req.importPermitRequired || req.permitStatus == 'Approved' || req.permitStatus == 'تمت الموافقة والاعتماد',
-                  ),
-                  _buildPillarBadge(
-                    icon: Icons.science_outlined,
-                    pillarNum: '5',
-                    name: 'شهادات خاصة',
-                    status: (req.msdsRequired || req.halalCertRequired || req.coaRequired) ? 'مطلوبة' : 'لا توجد',
-                    isActive: req.msdsRequired || req.halalCertRequired || req.coaRequired,
-                    isOk: true,
-                  ),
-                ],
-              ),
-            ),
-
-            // Footer
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'بلد المنشأ: ${req.countryOfOrigin ?? "غير محدد"} | القيمة: ${req.shipmentValue.toStringAsFixed(0)} ${req.currency}',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                ),
-                Text(
-                  'المراجع: ${req.assessedBy}',
-                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPillarBadge({
-    required IconData icon,
-    required String pillarNum,
-    required String name,
-    required String status,
-    required bool isActive,
-    required bool isOk,
-  }) {
-    final bgColor = !isActive
-        ? Colors.grey.shade50
-        : isOk
-            ? AppTheme.emerald.withOpacity(0.08)
-            : AppTheme.orange.withOpacity(0.1);
-    final borderColor = !isActive
-        ? Colors.grey.shade300
-        : isOk
-            ? AppTheme.emerald.withOpacity(0.5)
-            : AppTheme.orange.withOpacity(0.5);
-    final textColor = !isActive
-        ? Colors.grey.shade600
-        : isOk
-            ? AppTheme.emerald
-            : AppTheme.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: borderColor),
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+      body: TabBarView(
+        controller: _mainTabController,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, size: 12, color: textColor),
-              const SizedBox(width: 2),
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: textColor),
-                ),
-              ),
-            ],
-          ),
-          Text(
-            status,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(fontSize: 8, color: textColor),
-          ),
+          _buildInteractiveAssessmentFormTab(),
+          _buildSavedAssessmentsRegistryTab(),
         ],
       ),
     );
   }
-}
 
-class _PillarHeaderItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  const _PillarHeaderItem({required this.icon, required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 14, color: AppTheme.cobalt),
-        const SizedBox(width: 4),
-        Text(
-          title,
-          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-        ),
-      ],
-    );
-  }
-}
-
-class _ImportRequirementFormDialog extends ConsumerStatefulWidget {
-  final ImportRequirementModel? requirement;
-  const _ImportRequirementFormDialog({this.requirement});
-
-  @override
-  ConsumerState<_ImportRequirementFormDialog> createState() => _ImportRequirementFormDialogState();
-}
-
-class _ImportRequirementFormDialogState extends ConsumerState<_ImportRequirementFormDialog> with SingleTickerProviderStateMixin {
-  final _formKey = GlobalKey<FormState>();
-  late TabController _tabController;
-
-  // General & Master Linkage
-  int? _selectedFileId;
-  String? _selectedFileCode;
-  String? _selectedHsCode;
-  int? _selectedSupplierId;
-  String? _selectedSupplierName;
-  String _selectedCurrency = 'USD';
-  late TextEditingController _descCtrl;
-  late TextEditingController _countryCtrl;
-  late TextEditingController _valCtrl;
-
-  // Post-ACID & Consultation Linkage Info
-  String? _acidNumber;
-  int? _consultationId;
-  String? _consultationCode;
-  String? _brokerName;
-  String? _consultationStatus;
-  double _readinessPercentage = 0.0;
-  bool _isPrefilling = false;
-
-  // Pillar 1: Decree 43 & Foreign Suppliers
-  bool _decree43 = false;
-  bool _whiteList = false;
-  bool _whiteListVerified = false;
-  late TextEditingController _factoryRegCtrl;
-
-  // Pillar 2: Certificate of Origin (COO)
-  bool _cooRequired = false;
-  String _cooType = 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
-  String _cooStatus = 'مطلوبة';
-  late TextEditingController _cooNotesCtrl;
-
-  // Pillar 3: Pre-Shipment Inspection Certificate
-  bool _inspRequired = false;
-  String _inspBody = 'SGS';
-  String _inspStatus = 'مطلوب';
-  late TextEditingController _inspReportNoCtrl;
-  late TextEditingController _inspNotesCtrl;
-
-  // Pillar 4: Prior Import Permit & Regulatory Authority
-  bool _permitRequired = false;
-  String _permitAuth = 'جهاز شئون البيئة (EEAA)';
-  String _permitStatus = 'مطلوب';
-  late TextEditingController _permitNoCtrl;
-  late TextEditingController _permitNotesCtrl;
-
-  // Pillar 5: Technical & Special Certificates
-  bool _msdsRequired = false;
-  String _msdsStatus = 'مطلوبة';
-  bool _halalRequired = false;
-  String _halalStatus = 'مطلوبة';
-  bool _coaRequired = false;
-  String _coaStatus = 'مطلوبة';
-  late TextEditingController _specialNotesCtrl;
-
-  // Summary & Risk
-  String _overallStatus = 'قيد الاستيفاء والتأكيد';
-  String _riskLevel = 'منخفض (Low)';
-  late TextEditingController _assessedByCtrl;
-  late TextEditingController _assessmentNotesCtrl;
-
-  bool _isSaving = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 5, vsync: this);
-
-    final req = widget.requirement;
-    _selectedFileId = req?.importFileId;
-    _selectedFileCode = req?.importFileCode;
-    _selectedHsCode = req?.hsCode;
-    _selectedSupplierId = req?.supplierId;
-    _selectedSupplierName = req?.supplierName;
-    _selectedCurrency = req?.currency ?? 'USD';
-    _acidNumber = req?.acidNumber;
-    _consultationId = req?.consultationId;
-    _consultationCode = req?.consultationCode;
-
-    _descCtrl = TextEditingController(text: req?.commodityDescription);
-    _countryCtrl = TextEditingController(text: req?.countryOfOrigin);
-    _valCtrl = TextEditingController(
-        text: (req?.shipmentValue != null && req!.shipmentValue > 0)
-            ? req.shipmentValue.toString()
-            : (req?.shipmentValueUsd.toString() ?? '0'));
-
-    // Pillar 1
-    _decree43 = req?.decree43Applicable ?? false;
-    _whiteList = req?.whiteListRequired ?? false;
-    _whiteListVerified = req?.whiteListVerified ?? false;
-    _factoryRegCtrl = TextEditingController(text: req?.factoryRegistrationNo);
-
-    // Pillar 2
-    _cooRequired = req?.cooRequired ?? false;
-    _cooType = req?.cooType ?? 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
-    _cooStatus = req?.cooStatus ?? 'مطلوبة';
-    _cooNotesCtrl = TextEditingController(text: req?.cooNotes);
-
-    // Pillar 3
-    _inspRequired = req?.inspectionRequired ?? false;
-    _inspBody = req?.inspectionBody ?? 'SGS';
-    _inspStatus = req?.inspectionStatus ?? 'مطلوب';
-    _inspReportNoCtrl = TextEditingController(text: req?.inspectionReportNo);
-    _inspNotesCtrl = TextEditingController(text: req?.inspectionNotes);
-
-    // Pillar 4
-    _permitRequired = req?.importPermitRequired ?? false;
-    _permitAuth = req?.permitIssuingAuthority ?? 'جهاز شئون البيئة (EEAA)';
-    _permitStatus = req?.permitStatus ?? 'مطلوب';
-    _permitNoCtrl = TextEditingController(text: req?.permitNumber);
-    _permitNotesCtrl = TextEditingController(text: req?.permitNotes);
-
-    // Pillar 5
-    _msdsRequired = req?.msdsRequired ?? false;
-    _msdsStatus = req?.msdsStatus ?? 'مطلوبة';
-    _halalRequired = req?.halalCertRequired ?? false;
-    _halalStatus = req?.halalCertStatus ?? 'مطلوبة';
-    _coaRequired = req?.coaRequired ?? false;
-    _coaStatus = req?.coaStatus ?? 'مطلوبة';
-    _specialNotesCtrl = TextEditingController(text: req?.coaNotes ?? req?.msdsNotes ?? req?.halalCertNotes);
-
-    // Summary
-    _overallStatus = req?.overallStatus ?? 'قيد الاستيفاء والتأكيد';
-    _riskLevel = req?.riskLevel ?? 'منخفض (Low)';
-    _assessedByCtrl = TextEditingController(text: req?.assessedBy ?? 'Kamal');
-    _assessmentNotesCtrl = TextEditingController(text: req?.assessmentNotes);
-
-    // If already editing with a file linked, run auto-prefill once if fields are empty
-    if (_selectedFileId != null && widget.requirement == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _triggerAutoPrefillFromLinkedFile(_selectedFileId);
-      });
-    }
-  }
-
-  Future<void> _triggerAutoPrefillFromLinkedFile(int? fileId) async {
-    if (fileId == null) {
-      setState(() {
-        _acidNumber = null;
-        _consultationId = null;
-        _consultationCode = null;
-        _brokerName = null;
-        _consultationStatus = null;
-        _readinessPercentage = 0.0;
-      });
-      return;
-    }
-
-    setState(() => _isPrefilling = true);
-
-    try {
-      final prefill = await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
-      if (prefill != null) {
-        setState(() {
-          _selectedFileCode = prefill.importFileCode;
-          _selectedSupplierId = prefill.supplierId;
-          _selectedSupplierName = prefill.supplierName;
-          _countryCtrl.text = prefill.countryOfOrigin ?? 'China';
-          _selectedCurrency = prefill.currency;
-          _valCtrl.text = prefill.shipmentValue > 0 ? prefill.shipmentValue.toString() : _valCtrl.text;
-          _acidNumber = prefill.acidNumber;
-
-          _consultationId = prefill.consultationId;
-          _consultationCode = prefill.consultationCode;
-          _brokerName = prefill.brokerName;
-          _consultationStatus = prefill.consultationStatus;
-          _readinessPercentage = prefill.readinessPercentage;
-
-          if (prefill.hsCode != null && prefill.hsCode!.isNotEmpty) {
-            _selectedHsCode = prefill.hsCode;
-          }
-          if (prefill.commodityDescription != null && prefill.commodityDescription!.isNotEmpty) {
-            _descCtrl.text = prefill.commodityDescription!;
-          }
-
-          // 5 Pillars Auto Extraction from Customs Consultation & Tariff
-          _decree43 = prefill.decree43Applicable;
-          _whiteList = prefill.whiteListRequired;
-          _whiteListVerified = prefill.whiteListVerified;
-          _factoryRegCtrl.text = prefill.factoryRegistrationNo ?? '';
-
-          _cooRequired = prefill.cooRequired;
-          if (prefill.cooType != null) _cooType = prefill.cooType!;
-          _cooStatus = prefill.cooStatus;
-          _cooNotesCtrl.text = prefill.cooNotes ?? '';
-
-          _inspRequired = prefill.inspectionRequired;
-          if (prefill.inspectionBody != null) _inspBody = prefill.inspectionBody!;
-          _inspStatus = prefill.inspectionStatus;
-          _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
-
-          _permitRequired = prefill.importPermitRequired;
-          if (prefill.permitIssuingAuthority != null) _permitAuth = prefill.permitIssuingAuthority!;
-          _permitStatus = prefill.permitStatus;
-          _permitNotesCtrl.text = prefill.permitNotes ?? '';
-
-          _msdsRequired = prefill.msdsRequired;
-          _msdsStatus = prefill.msdsStatus;
-          _halalRequired = prefill.halalCertRequired;
-          _halalStatus = prefill.halalCertStatus;
-          _coaRequired = prefill.coaRequired;
-          _coaStatus = prefill.coaStatus;
-          _specialNotesCtrl.text = prefill.specialNotes ?? '';
-        });
-
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                _consultationCode != null
-                    ? '✨ تم استدعاء بيانات الشحنة والـ ACID ودراسة الاستشارة الجمركية (${_consultationCode!}) بنجاح!'
-                    : '✨ تم استدعاء بيانات الشحنة والمورد والـ ACID بنجاح!',
-              ),
-              backgroundColor: AppTheme.cobalt,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        }
-      } else {
-        // Fallback: local lookup in loaded providers
-        _fallbackLocalExtraction(fileId);
-      }
-    } catch (_) {
-      _fallbackLocalExtraction(fileId);
-    } finally {
-      if (mounted) setState(() => _isPrefilling = false);
-    }
-  }
-
-  void _fallbackLocalExtraction(int fileId) {
-    final files = ref.read(importFilesProvider).value ?? [];
-    final file = files.where((f) => f.importFileId == fileId).firstOrNull;
-    if (file == null) return;
-
-    final consultations = ref.read(customsConsultationsProvider).value ?? [];
-    final consult = consultations.where((c) => c.importFileId == fileId).firstOrNull;
-
-    setState(() {
-      _selectedFileCode = file.importFileCode;
-      _selectedSupplierId = file.supplierId;
-      _selectedSupplierName = file.supplierName;
-      _acidNumber = file.acidNumber;
-
-      if (file.invoicesData.isNotEmpty) {
-        _selectedCurrency = file.invoicesData.first.currency;
-        double total = 0;
-        for (var inv in file.invoicesData) {
-          total += inv.amount;
-        }
-        _valCtrl.text = total.toString();
-      }
-
-      if (consult != null) {
-        _consultationId = consult.consultationId;
-        _consultationCode = consult.consultationCode;
-        _brokerName = consult.brokerName;
-        _consultationStatus = consult.overallStatus;
-        _readinessPercentage = consult.readinessPercentage;
-      }
-    });
-  }
-
-  void _confirmAndApproveAllPillars() {
-    setState(() {
-      if (_decree43) _whiteListVerified = true;
-      if (_cooRequired) _cooStatus = 'تم الاستلام والتحقق';
-      if (_inspRequired) _inspStatus = 'تم الفحص واجتياز المطابقة';
-      if (_permitRequired) _permitStatus = 'تمت الموافقة والاعتماد';
-      if (_msdsRequired) _msdsStatus = 'تم الاستلام والتحقق';
-      if (_halalRequired) _halalStatus = 'تم الاستلام والتحقق';
-      if (_coaRequired) _coaStatus = 'تم الاستلام والتحقق';
-      _overallStatus = 'مؤكد ومصرح للشحن';
-      _riskLevel = 'منخفض (Low)';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✅ تم تأكيد واستيفاء كافة المحاور التنظيمية وتصريح الشحن بنجاح!'),
-        backgroundColor: AppTheme.emerald,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _tabController.dispose();
-    _descCtrl.dispose();
-    _countryCtrl.dispose();
-    _valCtrl.dispose();
-    _factoryRegCtrl.dispose();
-    _cooNotesCtrl.dispose();
-    _inspReportNoCtrl.dispose();
-    _inspNotesCtrl.dispose();
-    _permitNoCtrl.dispose();
-    _permitNotesCtrl.dispose();
-    _specialNotesCtrl.dispose();
-    _assessedByCtrl.dispose();
-    _assessmentNotesCtrl.dispose();
-    super.dispose();
-  }
-
-  void _onHsCodeChanged(String? hsCode) {
-    setState(() {
-      _selectedHsCode = hsCode;
-    });
-
-    if (hsCode != null && hsCode.isNotEmpty) {
-      final tariffs = ref.read(customsTariffProvider).value ?? [];
-      final match = tariffs.where((t) => t.hsCode == hsCode).firstOrNull;
-      if (match != null) {
-        setState(() {
-          if (_descCtrl.text.isEmpty || widget.requirement == null) {
-            _descCtrl.text = match.hsDescription;
-          }
-          if (match.requiresCoo) {
-            _cooRequired = true;
-          }
-          if (match.requiresInspection) {
-            _inspRequired = true;
-          }
-          if (match.regulatoryAuthority != null && match.regulatoryAuthority!.isNotEmpty) {
-            _permitRequired = true;
-            _permitAuth = match.regulatoryAuthority!;
-          }
-          if (match.priorApprovalNote != null && match.priorApprovalNote!.isNotEmpty) {
-            _permitNotesCtrl.text = match.priorApprovalNote!;
-            if (match.priorApprovalNote!.contains('43') ||
-                match.priorApprovalNote!.contains('مصانع مسجلة') ||
-                match.priorApprovalNote!.contains('هـ.ع.ص.و')) {
-              _decree43 = true;
-              _whiteList = true;
-            }
-          }
-        });
-      }
-    }
-  }
-
-  void _onSupplierChanged(int? supplierId) {
-    setState(() {
-      _selectedSupplierId = supplierId;
-    });
-
-    if (supplierId != null) {
-      final suppliers = ref.read(suppliersProvider).value ?? [];
-      final match = suppliers.where((s) => s.supplierId == supplierId).firstOrNull;
-      if (match != null) {
-        setState(() {
-          _selectedSupplierName = match.companyName;
-          if (_countryCtrl.text.isEmpty || widget.requirement == null) {
-            _countryCtrl.text = match.foreignExporterCountry;
-          }
-          if (_factoryRegCtrl.text.isEmpty) {
-            _factoryRegCtrl.text = match.foreignExporterId;
-          }
-        });
-      }
-    }
-  }
-
-  void _save() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() => _isSaving = true);
-
-    final shipmentVal = double.tryParse(_valCtrl.text.trim()) ?? 0.0;
-
-    final data = {
-      'import_file_id': _selectedFileId,
-      'import_file_code': _selectedFileCode,
-      'hs_code': _selectedHsCode,
-      'commodity_description': _descCtrl.text.trim(),
-      'country_of_origin': _countryCtrl.text.trim(),
-      'currency': _selectedCurrency,
-      'shipment_value': shipmentVal,
-      'shipment_value_usd': shipmentVal,
-      'acid_number': _acidNumber,
-      'consultation_id': _consultationId,
-      'consultation_code': _consultationCode,
-      'confirmation_status': _overallStatus == 'مؤكد ومصرح للشحن' ? 'Confirmed & Cleared' : 'In Progress',
-      'is_post_acid_confirmed': _overallStatus == 'مؤكد ومصرح للشحن',
-      'confirmed_by': 'Kamal (Lead Import Auditor)',
-
-      // Pillar 1
-      'supplier_id': _selectedSupplierId,
-      'supplier_name': _selectedSupplierName,
-      'decree_43_applicable': _decree43,
-      'white_list_required': _whiteList,
-      'white_list_verified': _whiteListVerified,
-      'factory_registration_no': _factoryRegCtrl.text.trim().isEmpty ? null : _factoryRegCtrl.text.trim(),
-
-      // Pillar 2
-      'coo_required': _cooRequired,
-      'coo_type': _cooRequired ? _cooType : null,
-      'coo_status': _cooRequired ? _cooStatus : 'Not Required',
-      'coo_notes': _cooNotesCtrl.text.trim().isEmpty ? null : _cooNotesCtrl.text.trim(),
-
-      // Pillar 3
-      'inspection_required': _inspRequired,
-      'inspection_body': _inspRequired ? _inspBody : null,
-      'inspection_status': _inspRequired ? _inspStatus : 'Not Required',
-      'inspection_report_no': _inspReportNoCtrl.text.trim().isEmpty ? null : _inspReportNoCtrl.text.trim(),
-      'inspection_notes': _inspNotesCtrl.text.trim().isEmpty ? null : _inspNotesCtrl.text.trim(),
-
-      // Pillar 4
-      'import_permit_required': _permitRequired,
-      'permit_issuing_authority': _permitRequired ? _permitAuth : null,
-      'permit_number': _permitNoCtrl.text.trim().isEmpty ? null : _permitNoCtrl.text.trim(),
-      'permit_status': _permitRequired ? _permitStatus : 'Not Required',
-      'permit_notes': _permitNotesCtrl.text.trim().isEmpty ? null : _permitNotesCtrl.text.trim(),
-
-      // Pillar 5
-      'msds_required': _msdsRequired,
-      'msds_status': _msdsRequired ? _msdsStatus : 'Not Required',
-      'msds_notes': _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
-      'halal_cert_required': _halalRequired,
-      'halal_cert_status': _halalRequired ? _halalStatus : 'Not Required',
-      'halal_cert_notes': _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
-      'coa_required': _coaRequired,
-      'coa_status': _coaRequired ? _coaStatus : 'Not Required',
-      'coa_notes': _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
-
-      // Summary
-      'overall_status': _overallStatus,
-      'risk_level': _riskLevel,
-      'assessed_by': _assessedByCtrl.text.trim().isEmpty ? 'System' : _assessedByCtrl.text.trim(),
-      'assessment_notes': _assessmentNotesCtrl.text.trim().isEmpty ? null : _assessmentNotesCtrl.text.trim(),
-    };
-
-    try {
-      if (widget.requirement == null) {
-        await ref.read(importRequirementsProvider.notifier).addRequirement(data);
-      } else {
-        await ref.read(importRequirementsProvider.notifier).updateRequirement(widget.requirement!.assessmentId!, data);
-      }
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.requirement == null
-                ? '✅ تم حفظ واعتماد تقييم المتطلبات الاستيرادية التأكيدي بنجاح!'
-                : '✅ تم تحديث التقييم الاستيرادي التأكيدي بنجاح!'),
-            backgroundColor: AppTheme.emerald,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: AppTheme.crimson),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  // ===========================================================================
+  // TAB 1: INTERACTIVE 5-PILLARS ASSESSMENT FORM
+  // ===========================================================================
+  Widget _buildInteractiveAssessmentFormTab() {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
     final suppliers = ref.watch(suppliersProvider).value ?? [];
-    final tariffs = ref.watch(customsTariffProvider).value ?? [];
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Container(
-        width: 1000,
-        height: 790,
-        padding: const EdgeInsets.all(20),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Dialog Header with Post-ACID Verification Title
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.verified, color: AppTheme.cobalt, size: 26),
-                      const SizedBox(width: 10),
-                      Text(
-                        widget.requirement == null
-                            ? 'المرحلة التأكيدية بعد إصدار ACID — تقييم ومطابقة المتطلبات التنظيمية (BP-011)'
-                            : 'تحديث ومطابقة المتطلبات التأكيدية (${widget.requirement!.assessmentCode})',
-                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const Divider(height: 12),
-
-              // Post-ACID Confirmation Banner & Consultation Linkage Info
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Top Editing Banner if in Edit Mode
+            if (_editingAssessmentId != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                 decoration: BoxDecoration(
-                  color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade50 : Colors.amber.shade50,
+                  color: AppTheme.cobalt.withOpacity(0.12),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade300 : Colors.amber.shade300,
-                  ),
+                  border: Border.all(color: AppTheme.cobalt),
                 ),
                 child: Row(
                   children: [
-                    Icon(
-                      _acidNumber != null && _acidNumber!.isNotEmpty ? Icons.verified : Icons.warning_amber_rounded,
-                      color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green : Colors.amber.shade800,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
+                    const Icon(Icons.edit_note, color: AppTheme.cobalt, size: 24),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        _acidNumber != null && _acidNumber!.isNotEmpty
-                            ? 'رقم القيد الجمركي المسبق الصادر (ACID: $_acidNumber) | حالة التأكيد: مرحلة الفحص النهائي والمطابقة الخماسية قبل الإفراج الجمركي.'
-                            : '⚠️ لم يتم ربط أو إصدار رقم ACID بعد لهذا الملف — سيتم السحب الأولي لمطابقة الاشتراطات الرقابية.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: _acidNumber != null && _acidNumber!.isNotEmpty ? Colors.green.shade900 : Colors.brown,
-                        ),
+                        'أنت الآن في وضع تعديل واستكمال التقييم: ($_editingAssessmentCode) — سيتم تحديث السجل وإعادة تفعيله فور الحفظ.',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                       ),
                     ),
-                    if (_consultationCode != null) ...[
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
-                        child: Text(
-                          'نتائج الاستشارة: $_consultationCode (${_brokerName ?? "المخلص الجمركي"}) - ${_consultationStatus ?? "جاهز"} (${_readinessPercentage.toStringAsFixed(0)}%)',
-                          style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              if (_isPrefilling) ...[
-                const SizedBox(height: 4),
-                const LinearProgressIndicator(minHeight: 2),
-              ],
-              const SizedBox(height: 10),
-
-              // General Section: Import File (Auto Pull Trigger), HS Code, Supplier
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SearchableDropdownField<int?>(
-                            value: _selectedFileId,
-                            labelText: 'ملف الشحنة المربوط (Import File) *',
-                            searchHintText: 'ابحث برقم الملف، المورد أو ACID...',
-                            items: [
-                              const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة للسحب التلقائي الشامل --'),
-                              ...importFiles.map(
-                                (f) => SearchableDropdownItem<int?>(
-                                  value: f.importFileId,
-                                  label: '[${f.importFileCode}] ${f.supplierName}',
-                                  subtitle: 'ACID: ${f.acidNumber ?? "Pending"} | العملة: ${f.invoicesData.isNotEmpty ? f.invoicesData.first.currency : "USD"}',
-                                ),
-                              ),
-                            ],
-                            onChanged: (val) {
-                              setState(() {
-                                _selectedFileId = val;
-                              });
-                              _triggerAutoPrefillFromLinkedFile(val);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SearchableDropdownField<String?>(
-                            value: _selectedHsCode,
-                            labelText: 'بند التعريفة الجمركية (HS Code MD-008) *',
-                            isRequired: true,
-                            searchHintText: 'ابحث برقم البند أو الوصف...',
-                            items: [
-                              ...tariffs.map(
-                                (t) => SearchableDropdownItem<String?>(
-                                  value: t.hsCode,
-                                  label: '${t.hsCode} - ${t.hsDescription}',
-                                  subtitle: 'وارد: ${t.customsDutyRate}% | ق.م: ${t.vatRate}% | جهة العرض: ${t.regulatoryAuthority ?? "لا توجد"}',
-                                ),
-                              ),
-                            ],
-                            onChanged: _onHsCodeChanged,
-                            validator: (v) => v == null || v.isEmpty ? 'يرجى اختيار البند الجمركي' : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SearchableDropdownField<int?>(
-                            value: _selectedSupplierId,
-                            labelText: 'المورد الخارجي / المصنع (Foreign Supplier MD-002)',
-                            searchHintText: 'ابحث عن المورد الخارجي...',
-                            items: [
-                              const SearchableDropdownItem<int?>(value: null, label: 'بدون تحديد مورد'),
-                              ...suppliers.map(
-                                (s) => SearchableDropdownItem<int?>(
-                                  value: s.supplierId,
-                                  label: '${s.companyName} (${s.foreignExporterCountry})',
-                                  subtitle: 'كود المصدر: ${s.foreignExporterId} | قرار 43: ${s.registeredDecree43 ? "مسجل ✔" : "غير مسجل"}',
-                                ),
-                              ),
-                            ],
-                            onChanged: _onSupplierChanged,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _countryCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'بلد المنشأ والتصدير (Country of Origin) *',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: TextFormField(
-                            controller: _valCtrl,
-                            keyboardType: TextInputType.number,
-                            decoration: InputDecoration(
-                              labelText: 'قيمة الشحنة بالعملة ($_selectedCurrency) *',
-                              isDense: true,
-                              prefixText: '$_selectedCurrency ',
-                              border: const OutlineInputBorder(),
-                            ),
-                            validator: (v) => v == null || double.tryParse(v.trim()) == null ? 'قيمة غير صحيحة' : null,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _descCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'وصف السلعة / الصنف التجاري *',
-                        isDense: true,
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) => v == null || v.trim().isEmpty ? 'وصف الصنف مطلوب' : null,
+                    TextButton.icon(
+                      onPressed: _resetForm,
+                      icon: const Icon(Icons.close, size: 16, color: Colors.red),
+                      label: const Text('إلغاء التعديل والبدء من جديد', style: TextStyle(color: Colors.red, fontSize: 12)),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
 
-              // 5 Pillars Tab Bar
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: TabBar(
-                  controller: _tabController,
-                  indicator: BoxDecoration(
-                    color: AppTheme.cobalt,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  labelColor: Colors.white,
-                  unselectedLabelColor: AppTheme.charcoal,
-                  labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                  tabs: const [
-                    Tab(icon: Icon(Icons.factory, size: 16), text: 'قرار 43 وتسجيل المصانع .1'),
-                    Tab(icon: Icon(Icons.public, size: 16), text: 'شهادة المنشأ والاتفاقيات .2'),
-                    Tab(icon: Icon(Icons.verified, size: 16), text: 'فحص ما قبل الشحن .3'),
-                    Tab(icon: Icon(Icons.account_balance, size: 16), text: 'موافقات جهات العرض .4'),
-                    Tab(icon: Icon(Icons.science, size: 16), text: 'شهادات خاصة وملخص .5'),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
+            // Card 1: Lifecycle & Progress Tracker (من إصدار ACID حتى الإبحار)
+            _buildLifecycleProgressCard(),
+            const SizedBox(height: 12),
 
-              // Tab Views
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    _buildPillar1Tab(),
-                    _buildPillar2Tab(),
-                    _buildPillar3Tab(),
-                    _buildPillar4Tab(),
-                    _buildPillar5Tab(),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 10),
+            // Card 2: Import File & Supplier Info Card
+            _buildImportFileSelectorCard(importFiles, suppliers),
+            const SizedBox(height: 12),
 
-              // Bottom Action Bar
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      _buildPillChip(
-                        label: 'الحالة: $_overallStatus',
-                        color: _getStatusColor(_overallStatus),
-                      ),
-                      const SizedBox(width: 8),
-                      _buildPillChip(
-                        label: 'المخاطر: $_riskLevel',
-                        color: _getRiskLevelColor(_riskLevel),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        style: OutlinedButton.styleFrom(
-                          side: const BorderSide(color: AppTheme.cobalt),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                        ),
-                        icon: const Icon(Icons.auto_fix_high, color: AppTheme.cobalt, size: 16),
-                        label: const Text('⚡ استيفاء وتأكيد كافة المحاور', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                        onPressed: _confirmAndApproveAllPillars,
-                      ),
-                      const SizedBox(width: 10),
-                      TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('إلغاء'),
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        onPressed: _isSaving ? null : _save,
-                        icon: _isSaving
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check_circle_outline, color: Colors.white),
-                        label: Text(
-                          _isSaving ? 'جاري الحفظ...' : 'حفظ واعتماد التقييم التأكيدي',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
+            // Card 3: HS Codes List & Values Selector
+            _buildHsCodesSelectorCard(),
+            const SizedBox(height: 12),
+
+            // Card 4: 5 Pillars Interactive Tabs Workspace
+            _build5PillarsWorkspaceCard(),
+            const SizedBox(height: 16),
+
+            // Card 5: Bottom Final Actions Toolbar
+            _buildBottomActionBar(),
+          ],
         ),
       ),
     );
   }
 
-  // --- PILLAR 1: DECREE 43 & FACTORY REGISTRATION ---
-  Widget _buildPillar1Tab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.amber.shade50,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: Colors.amber.shade200),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.info_outline, color: Colors.amber, size: 20),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'القرار الوزاري رقم 43 لسنة 2016 يلزم تسجيل المصانع والشركات المالكة للعلامات التجارية المؤهلة للتصدير بالهيئة العامة للرقابة على الصادرات والواردات (GOEIC) للإفراج عن السلع المحددة.',
-                    style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          SwitchListTile(
-            title: const Text('هل يخضع الصنف للقرار 43 لسنة 2016؟ (تسجيل المصانع المؤهلة للتصدير)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: const Text('يشترط للإفراج عن الصنف وارد اتجار أن يكون إنتاج مصانع مسجلة بالهيئة'),
-            value: _decree43,
-            onChanged: (v) => setState(() => _decree43 = v),
-          ),
-          if (_decree43) ...[
-            const Divider(),
-            CheckboxListTile(
-              title: const Text('المصنع / الشركة مسجلة بالقائمة البيضاء (White List Verified)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              subtitle: const Text('تم التحقق من صدور القرار الوزاري بقيد المصنع أو العلامة التجارية بسجلات الهيئة'),
-              value: _whiteListVerified,
-              onChanged: (v) => setState(() => _whiteListVerified = v ?? false),
-            ),
-            const SizedBox(height: 8),
-            TextFormField(
-              controller: _factoryRegCtrl,
-              decoration: const InputDecoration(
-                labelText: 'رقم قيد المصنع أو قرار القيد بالهيئة (Factory Registration / Decree No)',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
-        ],
+  Widget _buildLifecycleProgressCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
       ),
-    );
-  }
-
-  // --- PILLAR 2: CERTIFICATE OF ORIGIN & TRADE AGREEMENTS ---
-  Widget _buildPillar2Tab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SwitchListTile(
-            title: const Text('شهادة المنشأ الرسمية والاتفاقيات التفضيلية (Certificate of Origin / FTA)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: const Text('ضرورية للاستفادة من الإعفاءات والتخفيضات الجمركية (EUR.1 / Agadir / GAFTA / Mercosur)'),
-            value: _cooRequired,
-            onChanged: (v) => setState(() => _cooRequired = v),
-          ),
-          if (_cooRequired) ...[
-            const Divider(),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _cooType,
-                    decoration: const InputDecoration(labelText: 'نوع شهادة المنشأ / الاتفاقية', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)', child: Text('EUR.1 (الشراكة الأوروبية / إفتا / تركيا)')),
-                      DropdownMenuItem(value: 'Agadir (اتفاقية أغادير)', child: Text('Agadir (اتفاقية أغادير)')),
-                      DropdownMenuItem(value: 'Arab League GAFTA (التيسير العربية)', child: Text('Arab League GAFTA (التيسير العربية)')),
-                      DropdownMenuItem(value: 'Mercosur (اتفاقية الميركسور)', child: Text('Mercosur (اتفاقية الميركسور)')),
-                      DropdownMenuItem(value: 'COMESA (الكوميسا)', child: Text('COMESA (الكوميسا)')),
-                      DropdownMenuItem(value: 'General Certificate of Origin (عادية)', child: Text('General COO (شهادة منشأ عامة)')),
-                    ],
-                    onChanged: (v) => setState(() => _cooType = v ?? _cooType),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _cooStatus,
-                    decoration: const InputDecoration(labelText: 'حالة الاستيفاء والمطابقة', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'مطلوبة', child: Text('مطلوبة (قيد الانتظار)')),
-                      DropdownMenuItem(value: 'تم الاستلام والتحقق', child: Text('تم الاستلام والتحقق (Obtained & Verified)')),
-                      DropdownMenuItem(value: 'تم الإعفاء', child: Text('تم الإعفاء (Waived)')),
-                    ],
-                    onChanged: (v) => setState(() => _cooStatus = v ?? 'مطلوبة'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _cooNotesCtrl,
-              decoration: const InputDecoration(
-                labelText: 'ملاحظات الاتفاقية التفضيلية ونسبة التخفيض الجمركي المستفادة',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // --- PILLAR 3: PRE-SHIPMENT INSPECTION CERTIFICATE ---
-  Widget _buildPillar3Tab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile(
-            title: const Text('شهادة الفحص والمطابقة المسبقة قبل الشحن (Pre-Shipment Inspection Certificate)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: const Text('إلزامية للبضائع الخاضعة للفحص الظاهري والمخبري للتأكد من مطابقة المواصفات القياسية المصرية (ES)'),
-            value: _inspRequired,
-            onChanged: (v) => setState(() => _inspRequired = v),
-          ),
-          if (_inspRequired) ...[
-            const Divider(),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _inspBody,
-                    decoration: const InputDecoration(labelText: 'شركة الفحص الدولية المعتمدة (ILAC Inspection Body)', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'SGS', child: Text('SGS (سوسيتيه جنرال دي سرفيانس)')),
-                      DropdownMenuItem(value: 'Bureau Veritas', child: Text('Bureau Veritas (بيرو فيريتاس)')),
-                      DropdownMenuItem(value: 'TÜV Rheinland', child: Text('TÜV Rheinland / TÜV SÜD')),
-                      DropdownMenuItem(value: 'Intertek', child: Text('Intertek (إنترتك)')),
-                      DropdownMenuItem(value: 'QIMA', child: Text('QIMA Inspection')),
-                      DropdownMenuItem(value: 'Other Accredited Lab', child: Text('معمل آخر معتمد دولياً')),
-                    ],
-                    onChanged: (v) => setState(() => _inspBody = v ?? _inspBody),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _inspStatus,
-                    decoration: const InputDecoration(labelText: 'حالة شهادة الفحص', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'مطلوب', child: Text('مطلوب (Pending)')),
-                      DropdownMenuItem(value: 'تم التكليف والتنسيق', child: Text('تم التكليف والتنسيق (Scheduled)')),
-                      DropdownMenuItem(value: 'تم الفحص واجتياز المطابقة', child: Text('تم الفحص واجتياز المطابقة (Completed & Passed)')),
-                      DropdownMenuItem(value: 'مرفوض', child: Text('مرفوض (Failed Inspection)')),
-                    ],
-                    onChanged: (v) => setState(() => _inspStatus = v ?? 'مطلوب'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _inspReportNoCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'رقم تقرير / شهادة الفحص (Inspection Certificate No)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _inspNotesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'المواصفة القياسية ورقم العينة (Egyptian Standard ES Compliance)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // --- PILLAR 4: PRIOR IMPORT PERMIT & REGULATORY AUTHORITIES ---
-  Widget _buildPillar4Tab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SwitchListTile(
-            title: const Text('موافقات وتصاريح جهات العرض المسبقة (Prior Regulatory Approvals & Permits)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            subtitle: const Text('الجهات المختصة بمراجعة السلع وإصدار أذون الإفراج المسبقة أو المشروطة'),
-            value: _permitRequired,
-            onChanged: (v) => setState(() => _permitRequired = v),
-          ),
-          if (_permitRequired) ...[
-            const Divider(),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _permitAuth,
-                    decoration: const InputDecoration(labelText: 'جهة العرض والرقابة المختصة (Regulatory Authority)', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'جهاز شئون البيئة (EEAA)', child: Text('جهاز شئون البيئة (EEAA)')),
-                      DropdownMenuItem(value: 'هيئة الدواء المصرية (EDA)', child: Text('هيئة الدواء المصرية (EDA)')),
-                      DropdownMenuItem(value: 'الهيئة القومية لسلامة الغذاء (NFSA)', child: Text('الهيئة القومية لسلامة الغذاء (NFSA)')),
-                      DropdownMenuItem(value: 'الجهاز القومي لتنظيم الاتصالات (NTRA)', child: Text('الجهاز القومي لتنظيم الاتصالات (NTRA)')),
-                      DropdownMenuItem(value: 'هيئة الطاقة الذرية (EAEA)', child: Text('هيئة الطاقة الذرية (EAEA)')),
-                      DropdownMenuItem(value: 'مصلحة الكيمياء', child: Text('مصلحة الكيمياء')),
-                      DropdownMenuItem(value: 'الهيئة العامة للخدمات البيطرية', child: Text('الهيئة العامة للخدمات البيطرية')),
-                    ],
-                    onChanged: (v) => setState(() => _permitAuth = v ?? _permitAuth),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: _permitStatus,
-                    decoration: const InputDecoration(labelText: 'حالة التصريح / الموافقة', border: OutlineInputBorder(), isDense: true),
-                    items: const [
-                      DropdownMenuItem(value: 'مطلوب', child: Text('مطلوب (Pending)')),
-                      DropdownMenuItem(value: 'تم تقديم الطلب', child: Text('تم تقديم الطلب (Applied)')),
-                      DropdownMenuItem(value: 'تمت الموافقة والاعتماد', child: Text('تمت الموافقة والاعتماد (Approved)')),
-                      DropdownMenuItem(value: 'مرفوضة', child: Text('مرفوضة (Rejected)')),
-                    ],
-                    onChanged: (v) => setState(() => _permitStatus = v ?? 'مطلوب'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _permitNoCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'رقم التصريح أو إذن الاستيراد المسبق (Permit / Approval No)',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _permitNotesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'شروط الإفراج والقرار الوزاري المطبق',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // --- PILLAR 5: TECHNICAL CERTIFICATES & FINAL ASSESSMENT SUMMARY ---
-  Widget _buildPillar5Tab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('الشهادات الفنية والخاصة الإلزامية (Technical & Special Certificates):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-          const SizedBox(height: 8),
           Row(
             children: [
-              Expanded(
-                child: CheckboxListTile(
-                  title: const Text('شهادة صحيفة بيانات الأمان (MSDS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  value: _msdsRequired,
-                  onChanged: (v) => setState(() => _msdsRequired = v ?? false),
-                ),
+              const Icon(Icons.timeline, color: AppTheme.cobalt, size: 20),
+              const SizedBox(width: 8),
+              const Text(
+                'نطاق ومسار المتطلبات (من إصدار ACID حتى الإبحار والشحن الفعلي):',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
               ),
-              Expanded(
-                child: CheckboxListTile(
-                  title: const Text('شهادة الذبح الحلال (Halal Certificate)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  value: _halalRequired,
-                  onChanged: (v) => setState(() => _halalRequired = v ?? false),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: _getStatusColor(_sailingStatus).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _getStatusColor(_sailingStatus)),
                 ),
-              ),
-              Expanded(
-                child: CheckboxListTile(
-                  title: const Text('شهادة التحليل المخبري (COA)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                  value: _coaRequired,
-                  onChanged: (v) => setState(() => _coaRequired = v ?? false),
+                child: Text(
+                  'حالة الإبحار: $_sailingStatus',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: _getStatusColor(_sailingStatus)),
                 ),
               ),
             ],
           ),
-          const Divider(height: 16),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildStepNode(
+                step: '1',
+                title: 'إصدار الـ ACID',
+                subtitle: _acidNumberCtrl.text.isNotEmpty ? _acidNumberCtrl.text : 'قيد الانتظار',
+                isCompleted: _acidNumberCtrl.text.isNotEmpty,
+                isActive: true,
+              ),
+              _buildStepConnector(isCompleted: _acidNumberCtrl.text.isNotEmpty),
+              _buildStepNode(
+                step: '2',
+                title: 'فحص ومطابقة ما قبل الشحن',
+                subtitle: _inspectionStatus == 'Completed' ? 'تمت المطابقة' : 'قيد الفحص والتنسيق',
+                isCompleted: _inspectionStatus == 'Completed',
+                isActive: true,
+              ),
+              _buildStepConnector(isCompleted: _inspectionStatus == 'Completed'),
+              _buildStepNode(
+                step: '3',
+                title: 'الموافقات والشهادات',
+                subtitle: _cooStatus == 'Obtained' && _whiteListVerified ? 'مستوفاة 100%' : 'قيد الاعتماد',
+                isCompleted: _cooStatus == 'Obtained' && _whiteListVerified,
+                isActive: true,
+              ),
+              _buildStepConnector(isCompleted: _sailingStatus == 'Cleared for Sailing' || _sailingStatus == 'Sailed'),
+              _buildStepNode(
+                step: '4',
+                title: 'التصريح بالإبحار والشحن',
+                subtitle: _sailingStatus,
+                isCompleted: _sailingStatus == 'Cleared for Sailing' || _sailingStatus == 'Sailed',
+                isActive: true,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStepNode({
+    required String step,
+    required String title,
+    required String subtitle,
+    required bool isCompleted,
+    required bool isActive,
+  }) {
+    final color = isCompleted ? AppTheme.emerald : (isActive ? AppTheme.cobalt : Colors.grey);
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 12,
+              backgroundColor: color,
+              child: isCompleted
+                  ? const Icon(Icons.check, size: 14, color: Colors.white)
+                  : Text(step, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: color), overflow: TextOverflow.ellipsis),
+                  Text(subtitle, style: TextStyle(fontSize: 10, color: Colors.grey.shade700), overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStepConnector({required bool isCompleted}) {
+    return Container(
+      width: 16,
+      height: 2,
+      color: isCompleted ? AppTheme.emerald : Colors.grey.shade300,
+      margin: const EdgeInsets.symmetric(horizontal: 4),
+    );
+  }
+
+  Widget _buildImportFileSelectorCard(List<dynamic> importFiles, List<dynamic> suppliers) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.link, color: AppTheme.cobalt, size: 20),
+              const SizedBox(width: 8),
+              const Text('ربط ملف الشحنة الاستيرادية والاستشارة الجمركية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              const Spacer(),
+              if (_selectedConsultationCode != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AppTheme.cobalt),
+                  ),
+                  child: Text('دراسة الاستشارة: $_selectedConsultationCode (جاهزية ${_consultationReadiness.toInt()}%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _overallStatus,
-                  decoration: const InputDecoration(labelText: 'الحالة العامة للاستيفاء التأكيدي *', border: OutlineInputBorder(), isDense: true),
-                  items: const [
-                    DropdownMenuItem(value: 'مسودة (Draft)', child: Text('مسودة (Draft)')),
-                    DropdownMenuItem(value: 'قيد الاستيفاء والتأكيد', child: Text('قيد الاستيفاء والتأكيد (In Progress)')),
-                    DropdownMenuItem(value: 'مؤكد ومصرح للشحن', child: Text('مؤكد ومصرح للشحن (Confirmed & Cleared)')),
+                flex: 3,
+                child: SearchableDropdownField<int?>(
+                  labelText: 'ملف الشحنة المربوط (Import File) *',
+                  hintText: 'اختر ملف الشحنة الاستيرادية...',
+                  value: _selectedImportFileId,
+                  items: [
+                    const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة --'),
+                    ...importFiles.map((f) => SearchableDropdownItem<int?>(
+                          value: f.importFileId,
+                          label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "لم يصدر"}',
+                        )),
                   ],
-                  onChanged: (v) => setState(() => _overallStatus = v ?? _overallStatus),
+                  onChanged: _onImportFileChanged,
+                  validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonFormField<String>(
-                  value: _riskLevel,
-                  decoration: const InputDecoration(labelText: 'مستوى المخاطر الجمركية *', border: OutlineInputBorder(), isDense: true),
+                flex: 2,
+                child: TextFormField(
+                  controller: _acidNumberCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم القيد الجمركي المسبق (ACID) *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال رقم ACID' : null,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SearchableDropdownField<int?>(
+                  labelText: 'المورد الخارجي / المصنع (Supplier)',
+                  hintText: 'المورد الأجنبي...',
+                  value: _selectedSupplierId,
+                  items: [
+                    const SearchableDropdownItem<int?>(value: null, label: '-- غير محدد --'),
+                    ...suppliers.map((s) => SearchableDropdownItem<int?>(
+                          value: s.supplierId,
+                          label: '${s.companyName} (${s.foreignExporterCountry ?? "N/A"})',
+                        )),
+                  ],
+                  onChanged: (v) {
+                    setState(() {
+                      _selectedSupplierId = v;
+                      final matched = suppliers.where((s) => s.supplierId == v).firstOrNull;
+                      if (matched != null) {
+                        _selectedSupplierName = matched.companyName;
+                        _originCtrl.text = matched.foreignExporterCountry ?? _originCtrl.text;
+                        _factoryRegCtrl.text = matched.foreignExporterId ?? _factoryRegCtrl.text;
+                      }
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHsCodesSelectorCard() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.category, color: AppTheme.cobalt, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'بنود التعريفة الجمركية المرتبطة بالشحنة (Linked HS Codes & Values) — ${_hsCodeItems.length} بنود مسجلة:',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              ),
+              const Spacer(),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: AppTheme.emerald),
+                ),
+                child: Text(
+                  'إجمالي القيمة: ${_valueCtrl.text} ${_currencyCtrl.text}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+
+          // If multiple HS codes exist, display an interactive horizontal list of chips/cards
+          if (_hsCodeItems.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade200),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: List.generate(_hsCodeItems.length, (idx) {
+                  final itm = _hsCodeItems[idx];
+                  final isSelected = _selectedHsItemIndex == idx;
+                  return InkWell(
+                    onTap: () {
+                      setState(() => _selectedHsItemIndex = idx);
+                      _selectHsCodeItem(itm);
+                    },
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: isSelected ? AppTheme.cobalt.withOpacity(0.15) : Colors.white,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isSelected ? AppTheme.cobalt : Colors.grey.shade300,
+                          width: isSelected ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isSelected ? Icons.check_circle : Icons.radio_button_unchecked,
+                            size: 16,
+                            color: isSelected ? AppTheme.cobalt : Colors.grey,
+                          ),
+                          const SizedBox(width: 6),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                '${itm.hsCode} (${itm.itemCode ?? "Item"})',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? AppTheme.cobalt : AppTheme.charcoal),
+                              ),
+                              Text(
+                                '${itm.commodityDescription ?? "صنف"} | ${itm.itemValue.toStringAsFixed(2)} ${itm.currency}',
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              ),
+            ),
+
+          // Primary HS Code Detail Fields
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: _hsCodeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'بند التعريفة الجمركية (HS Code MD-008) *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 18),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال HS Code' : null,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 3,
+                child: TextFormField(
+                  controller: _descCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'وصف السلعة / الصنف التجاري *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.description, color: AppTheme.cobalt, size: 18),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال وصف الصنف' : null,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: _originCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'بلد المنشأ والتصدير (Origin) *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.public, color: AppTheme.cobalt, size: 18),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال بلد المنشأ' : null,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 1,
+                child: TextFormField(
+                  controller: _currencyCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'العملة *',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: _valueCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'القيمة بالعملة *',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.monetization_on, color: AppTheme.emerald, size: 18),
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _build5PillarsWorkspaceCard() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sub-tabs Selector for 5 Pillars
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF1F5F9),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
+              border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildPillarTabButton(0, '1. قرار 43 وتسجيل المصانع', Icons.factory_outlined, _whiteListVerified),
+                  _buildPillarTabButton(1, '2. شهادة المنشأ والاتفاقيات', Icons.public, _cooStatus == 'Obtained'),
+                  _buildPillarTabButton(2, '3. فحص ما قبل الشحن', Icons.fact_check_outlined, _inspectionStatus == 'Completed'),
+                  _buildPillarTabButton(3, '4. موافقات وتصاريح جهات العرض', Icons.account_balance_outlined, _permitStatus == 'Approved'),
+                  _buildPillarTabButton(4, '5. الشهادات الفنية وتأكيد الإبحار', Icons.science_outlined, _isPostAcidConfirmed),
+                ],
+              ),
+            ),
+          ),
+
+          // Pillar Content Area
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: IndexedStack(
+              index: _activePillarIndex,
+              children: [
+                _buildPillar1Content(),
+                _buildPillar2Content(),
+                _buildPillar3Content(),
+                _buildPillar4Content(),
+                _buildPillar5Content(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillarTabButton(int index, String title, IconData icon, bool isFulfilled) {
+    final isSelected = _activePillarIndex == index;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4),
+      child: InkWell(
+        onTap: () => setState(() => _activePillarIndex = index),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected ? AppTheme.cobalt : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 16, color: isSelected ? Colors.white : AppTheme.charcoal),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                  color: isSelected ? Colors.white : AppTheme.charcoal,
+                ),
+              ),
+              const SizedBox(width: 6),
+              if (isFulfilled)
+                const Icon(Icons.check_circle, size: 14, color: AppTheme.emerald)
+              else
+                Icon(Icons.circle_outlined, size: 12, color: isSelected ? Colors.white70 : Colors.grey),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Pillar 1: Decree 43
+  Widget _buildPillar1Content() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('المحور 1: قرار 43 لسنة 2016 وتسجيل المصانع المؤهلة بالهيئة (GOEIC)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: CheckboxListTile(
+                title: const Text('يخضع الصنف لقرار 43 لسنة 2016 (تسجيل مصانع)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: const Text('السلع تامة الصنع والمنتجات الاستهلاكية الواجب قيد مصنعها'),
+                value: _decree43Applicable,
+                onChanged: (v) => setState(() => _decree43Applicable = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              child: CheckboxListTile(
+                title: const Text('المصنع مسجل بالقائمة البيضاء (White List Verified)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: const Text('تم التحقق من قيد المصنع بالهيئة العامة للرقابة على الصادرات والواردات'),
+                value: _whiteListVerified,
+                onChanged: (v) => setState(() => _whiteListVerified = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _factoryRegCtrl,
+          decoration: const InputDecoration(
+            labelText: 'رقم قيد المصنع بالهيئة / Foreign Factory Registration No.',
+            hintText: 'مثال: GOEIC-REG-77821 أو رقم القيد بالهيئة',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.badge, color: AppTheme.cobalt),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Pillar 2: Certificate of Origin
+  Widget _buildPillar2Content() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('المحور 2: شهادة المنشأ والاتفاقيات التفضيلية (COO & Preferential Agreements)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: CheckboxListTile(
+                title: const Text('شهادة المنشأ إلزامية (COO Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                value: _cooRequired,
+                onChanged: (v) => setState(() => _cooRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'نوع شهادة المنشأ (COO Type)',
+                value: _cooType,
+                items: const [
+                  SearchableDropdownItem(value: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)', label: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)'),
+                  SearchableDropdownItem(value: 'Form A (النظام المعمم للمزايا GSP)', label: 'Form A (النظام المعمم للمزايا GSP)'),
+                  SearchableDropdownItem(value: 'Arab League COO (منطقة التجارة العربية الكبرى GAFTA)', label: 'Arab League COO (منطقة التجارة العربية الكبرى GAFTA)'),
+                  SearchableDropdownItem(value: 'COMESA (السوق المشتركة لشرق وجنوب إفريقيا)', label: 'COMESA (السوق المشتركة لشرق وجنوب إفريقيا)'),
+                  SearchableDropdownItem(value: 'شهادة منشأ عادية معتمدة وموثقة من الغرفة التجارية', label: 'شهادة منشأ عادية معتمدة وموثقة من الغرفة التجارية'),
+                ],
+                onChanged: (v) => setState(() => _cooType = v ?? _cooType),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'حالة الاستيفاء (COO Status)',
+                value: _cooStatus,
+                items: const [
+                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
+                  SearchableDropdownItem(value: 'Pending', label: 'قيد الاستيفاء من المصنع (Pending)'),
+                  SearchableDropdownItem(value: 'Obtained', label: 'تم الاستلام والتحقق (Obtained)'),
+                  SearchableDropdownItem(value: 'Waived', label: 'معفاة / مستثناة (Waived)'),
+                ],
+                onChanged: (v) => setState(() => _cooStatus = v ?? _cooStatus),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextFormField(
+          controller: _cooNotesCtrl,
+          decoration: const InputDecoration(
+            labelText: 'ملاحظات المنشأ والاتفاقيات التفضيلية والإعفاءات',
+            hintText: 'مثال: إعفاء جمركي بنسبة 100% طبقاً لاتفاقية الشراكة الأوروبية',
+            border: OutlineInputBorder(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Pillar 3: Pre-Shipment Inspection
+  Widget _buildPillar3Content() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('المحور 3: فحص ما قبل الشحن والشهادات المعملية (Pre-Shipment Inspection & ILAC)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: CheckboxListTile(
+                title: const Text('شهادة الفحص إلزامية (Inspection Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                value: _inspectionRequired,
+                onChanged: (v) => setState(() => _inspectionRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'جهة الفحص الدولية المعتمدة (Inspection Body)',
+                value: _inspectionBody,
+                items: const [
+                  SearchableDropdownItem(value: 'SGS (الشركة العامة للمعاينة)', label: 'SGS (الشركة العامة للمعاينة)'),
+                  SearchableDropdownItem(value: 'Bureau Veritas (Bureau Veritas)', label: 'Bureau Veritas (Bureau Veritas)'),
+                  SearchableDropdownItem(value: 'TÜV Rheinland / TÜV SÜD', label: 'TÜV Rheinland / TÜV SÜD'),
+                  SearchableDropdownItem(value: 'Intertek International', label: 'Intertek International'),
+                  SearchableDropdownItem(value: 'QIMA Inspection Services', label: 'QIMA Inspection Services'),
+                  SearchableDropdownItem(value: 'معمل دولي معتمد ILAC / ISO 17025', label: 'معمل دولي معتمد ILAC / ISO 17025'),
+                ],
+                onChanged: (v) => setState(() => _inspectionBody = v ?? _inspectionBody),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'حالة الفحص (Inspection Status)',
+                value: _inspectionStatus,
+                items: const [
+                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
+                  SearchableDropdownItem(value: 'Pending', label: 'قيد التنسيق والطلب (Pending)'),
+                  SearchableDropdownItem(value: 'Scheduled', label: 'تم تحديد موعد المعاينة (Scheduled)'),
+                  SearchableDropdownItem(value: 'Completed', label: 'تم الفحص واجتياز المطابقة (Completed)'),
+                  SearchableDropdownItem(value: 'Rejected', label: 'غير مطابق للمواصفات (Rejected)'),
+                ],
+                onChanged: (v) => setState(() => _inspectionStatus = v ?? _inspectionStatus),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _inspReportNoCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم شهادة / تقرير الفحص (Inspection Report / Certificate No.)',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _inspNotesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'ملاحظات الفحص والنتائج المعملية',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Pillar 4: Prior Import Permits
+  Widget _buildPillar4Content() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('المحور 4: موافقات وتصاريح جهات العرض والجهات الرقابية المسبقة (Regulatory Permits)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: CheckboxListTile(
+                title: const Text('تصريح مسبق إلزامي (Permit Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                value: _importPermitRequired,
+                onChanged: (v) => setState(() => _importPermitRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'جهة العرض والترخيص (Issuing Authority)',
+                value: _permitIssuingAuthority,
+                items: const [
+                  SearchableDropdownItem(value: 'جهاز شئون البيئة (EEAA)', label: 'جهاز شئون البيئة (EEAA)'),
+                  SearchableDropdownItem(value: 'الهيئة القومية لسلامة الغذاء (NFSA)', label: 'الهيئة القومية لسلامة الغذاء (NFSA)'),
+                  SearchableDropdownItem(value: 'هيئة الدواء المصرية (EDA)', label: 'هيئة الدواء المصرية (EDA)'),
+                  SearchableDropdownItem(value: 'الجهاز القومي لتنظيم الاتصالات (NTRA)', label: 'الجهاز القومي لتنظيم الاتصالات (NTRA)'),
+                  SearchableDropdownItem(value: 'الأمن العام / مصلحة الأمن والرقابة', label: 'الأمن العام / مصلحة الأمن والرقابة'),
+                  SearchableDropdownItem(value: 'مصلحة الكيمياء / الطاقة الذرية', label: 'مصلحة الكيمياء / الطاقة الذرية'),
+                  SearchableDropdownItem(value: 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)', label: 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)'),
+                ],
+                onChanged: (v) => setState(() => _permitIssuingAuthority = v ?? _permitIssuingAuthority),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                labelText: 'حالة التصريح (Permit Status)',
+                value: _permitStatus,
+                items: const [
+                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
+                  SearchableDropdownItem(value: 'Applied', label: 'تم تقديم الطلب (Applied)'),
+                  SearchableDropdownItem(value: 'Approved', label: 'تمت الموافقة والاعتماد (Approved)'),
+                  SearchableDropdownItem(value: 'Rejected', label: 'مرفوض (Rejected)'),
+                ],
+                onChanged: (v) => setState(() => _permitStatus = v ?? _permitStatus),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _permitNumberCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم التصريح / الموافقة الرقابية',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextFormField(
+                controller: _permitNotesCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'ملاحظات وشروط الموافقة الرقابية',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Pillar 5: Technical Certificates & Sailing Confirmation
+  Widget _buildPillar5Content() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('المحور 5: الشهادات الفنية الخاصة وتأكيد الجاهزية للإبحار (Technical Certs & Sailing Clearance)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: CheckboxListTile(
+                title: const Text('شهادة صحيفة بيانات الأمان (MSDS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                value: _msdsRequired,
+                onChanged: (v) => setState(() => _msdsRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              child: CheckboxListTile(
+                title: const Text('شهادة الذبح الحلال (Halal Certificate)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                value: _halalCertRequired,
+                onChanged: (v) => setState(() => _halalCertRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+            Expanded(
+              child: CheckboxListTile(
+                title: const Text('شهادة التحليل المخبري (COA)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                value: _coaRequired,
+                onChanged: (v) => setState(() => _coaRequired = v ?? false),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: SearchableDropdownField<String>(
+                  labelText: 'حالة الإبحار والشحن الفعلي (Sailing Status)',
+                  value: _sailingStatus,
                   items: const [
-                    DropdownMenuItem(value: 'منخفض (Low)', child: Text('منخفض (Low Risk)')),
-                    DropdownMenuItem(value: 'متوسط (Medium)', child: Text('متوسط (Medium Risk)')),
-                    DropdownMenuItem(value: 'مرتفع (High)', child: Text('مرتفع (High Risk)')),
+                    SearchableDropdownItem(value: 'Pre-Sailing', label: 'قبل الإبحار (Pre-Sailing)'),
+                    SearchableDropdownItem(value: 'Cleared for Sailing', label: 'مصرح وجاهز للإبحار (Cleared for Sailing)'),
+                    SearchableDropdownItem(value: 'Sailed', label: 'تم الإبحار والشحن الفعلي (Sailed)'),
+                  ],
+                  onChanged: (v) => setState(() => _sailingStatus = v ?? _sailingStatus),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextFormField(
+                  controller: _sailingDateCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'تاريخ الإبحار الفعلي / المتوقع (Sailing Date)',
+                    hintText: 'YYYY-MM-DD',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: SearchableDropdownField<String>(
+                  labelText: 'تقييم المخاطر (Risk Level)',
+                  value: _riskLevel,
+                  items: const [
+                    SearchableDropdownItem(value: 'Low', label: 'منخفض (Low)'),
+                    SearchableDropdownItem(value: 'Medium', label: 'متوسط (Medium)'),
+                    SearchableDropdownItem(value: 'High', label: 'مرتفع (High)'),
                   ],
                   onChanged: (v) => setState(() => _riskLevel = v ?? _riskLevel),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: TextFormField(
-                  controller: _assessedByCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'مسؤول المراجعة والاعتماد *',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
+                flex: 2,
+                child: SearchableDropdownField<String>(
+                  labelText: 'الحالة الإجمالية (Overall Status)',
+                  value: _overallStatus,
+                  items: const [
+                    SearchableDropdownItem(value: 'Draft', label: 'مسودة (Draft)'),
+                    SearchableDropdownItem(value: 'In Progress', label: 'قيد الاستيفاء (In Progress)'),
+                    SearchableDropdownItem(value: 'Complete', label: 'مكتمل (Complete)'),
+                    SearchableDropdownItem(value: 'Confirmed', label: 'معتمد ومصرح للشحن (Confirmed)'),
+                  ],
+                  onChanged: (v) => setState(() => _overallStatus = v ?? _overallStatus),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          TextFormField(
-            controller: _assessmentNotesCtrl,
-            maxLines: 2,
-            decoration: const InputDecoration(
-              labelText: 'ملاحظات وتوصيات بوابة المطابقة والتأكيد النهائي (Confirmation Notes)',
-              border: OutlineInputBorder(),
-              isDense: true,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBottomActionBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFE0F2FE),
+              foregroundColor: AppTheme.cobalt,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
+            onPressed: _autoCompleteAllPillars,
+            icon: const Icon(Icons.bolt, color: AppTheme.cobalt, size: 18),
+            label: const Text('استيفاء وتأكيد كافة المحاور ⚡', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.charcoal,
+              side: BorderSide(color: Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            onPressed: _refreshAllData,
+            icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
+            label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.grey.shade800,
+              side: BorderSide(color: Colors.grey.shade400),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            onPressed: _resetForm,
+            icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
+            label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFEFF6FF),
+              foregroundColor: AppTheme.cobalt,
+              elevation: 0,
+              side: const BorderSide(color: AppTheme.cobalt),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            onPressed: _isSaving ? null : _saveAssessment,
+            icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
+            label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const Spacer(),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              elevation: 2,
+            ),
+            onPressed: _isSaving ? null : _saveAssessment,
+            icon: _isSaving
+                ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Icon(Icons.check_circle_outline, size: 20),
+            label: Text(
+              _editingAssessmentId != null ? 'تحديث وحفظ التعديلات' : 'حفظ واعتماد التقييم التأكيدي (BP-011)',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===========================================================================
+  // TAB 2: SAVED ASSESSMENTS REGISTRY
+  // ===========================================================================
+  Widget _buildSavedAssessmentsRegistryTab() {
+    final asyncReqs = ref.watch(importRequirementsProvider);
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          MasterDataToolbarWidget(
+            moduleEndpoint: 'import-requirements',
+            title: 'Import_Requirements_Registry',
+            onRefreshNeeded: _refreshAllData,
+          ),
+          const SizedBox(height: 12),
+
+          // Filters Bar
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'بحث برقم التقييم، البند الجمركي HS Code، رقم الـ ACID، المورد، أو الوصف...',
+                      prefixIcon: Icon(Icons.search, color: AppTheme.cobalt),
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SearchableDropdownField<String>(
+                    labelText: 'حالة المطابقة',
+                    value: _registryStatusFilter,
+                    items: const [
+                      SearchableDropdownItem(value: 'All', label: 'كافة الحالات (All)'),
+                      SearchableDropdownItem(value: 'Draft', label: 'مسودة (Draft)'),
+                      SearchableDropdownItem(value: 'In Progress', label: 'قيد الاستيفاء (In Progress)'),
+                      SearchableDropdownItem(value: 'Complete', label: 'مكتمل (Complete)'),
+                      SearchableDropdownItem(value: 'Confirmed', label: 'معتمد ومصرح للشحن (Confirmed)'),
+                    ],
+                    onChanged: (v) => setState(() => _registryStatusFilter = v ?? 'All'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SearchableDropdownField<String>(
+                    labelText: 'مستوى المخاطر',
+                    value: _registryRiskFilter,
+                    items: const [
+                      SearchableDropdownItem(value: 'All', label: 'كافة المستويات (All)'),
+                      SearchableDropdownItem(value: 'Low', label: 'منخفض (Low)'),
+                      SearchableDropdownItem(value: 'Medium', label: 'متوسط (Medium)'),
+                      SearchableDropdownItem(value: 'High', label: 'مرتفع (High)'),
+                    ],
+                    onChanged: (v) => setState(() => _registryRiskFilter = v ?? 'All'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: SearchableDropdownField<String>(
+                    labelText: 'السجلات النشطة / المحذوفة',
+                    value: _registryActiveFilter,
+                    items: const [
+                      SearchableDropdownItem(value: 'All', label: 'كافة السجلات (النشطة والمحذوفة)'),
+                      SearchableDropdownItem(value: 'Active', label: 'النشطة فقط (Active)'),
+                      SearchableDropdownItem(value: 'Deleted', label: 'المحذوفة فقط (Deleted)'),
+                    ],
+                    onChanged: (v) => setState(() => _registryActiveFilter = v ?? 'Active'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Registry DataTable
+          Expanded(
+            child: asyncReqs.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (err, _) => Center(
+                child: Text('خطأ في تحميل سجلات التقييم: $err', style: const TextStyle(color: Colors.red)),
+              ),
+              data: (list) {
+                final filtered = list.where((item) {
+                  // Search query filter
+                  final query = _searchController.text.trim().toLowerCase();
+                  if (query.isNotEmpty) {
+                    final matchCode = item.assessmentCode.toLowerCase().contains(query);
+                    final matchFile = (item.importFileCode ?? '').toLowerCase().contains(query);
+                    final matchHs = (item.hsCode ?? '').toLowerCase().contains(query);
+                    final matchAcid = (item.acidNumber ?? '').toLowerCase().contains(query);
+                    final matchSupp = (item.supplierName ?? '').toLowerCase().contains(query);
+                    final matchDesc = (item.commodityDescription ?? '').toLowerCase().contains(query);
+                    if (!matchCode && !matchFile && !matchHs && !matchAcid && !matchSupp && !matchDesc) {
+                      return false;
+                    }
+                  }
+
+                  // Status filter
+                  if (_registryStatusFilter != 'All' && item.overallStatus != _registryStatusFilter) {
+                    return false;
+                  }
+
+                  // Risk filter
+                  if (_registryRiskFilter != 'All' && item.riskLevel != _registryRiskFilter) {
+                    return false;
+                  }
+
+                  // Active filter
+                  if (_registryActiveFilter == 'Active' && !item.isActive) return false;
+                  if (_registryActiveFilter == 'Deleted' && item.isActive) return false;
+
+                  return true;
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
+                        const SizedBox(height: 12),
+                        const Text('لا توجد تقييمات مسجلة مطابقة للبحث الحالي.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        const SizedBox(height: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                          onPressed: () => _mainTabController.animateTo(0),
+                          icon: const Icon(Icons.add, color: Colors.white),
+                          label: const Text('إنشاء دراسة تقييم جديدة', style: TextStyle(color: Colors.white)),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: ListView.separated(
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (ctx, idx) {
+                      final req = filtered[idx];
+                      return _buildRegistryRow(req);
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRegistryRow(ImportRequirementModel req) {
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final matchingFile = importFiles.where((f) => f.importFileId == req.importFileId).firstOrNull;
+    final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? req.importFileCode ?? (req.importFileId != null ? 'IMP-${req.importFileId}' : '');
+    final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
+        ? matchingFile!.companyName
+        : 'الشركة المستوردة';
+    final displayName = fileCode.isNotEmpty ? '[$fileCode] $companyName' : req.assessmentCode;
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      leading: CircleAvatar(
+        backgroundColor: req.isActive ? AppTheme.cobalt.withOpacity(0.12) : Colors.grey.shade300,
+        child: Icon(
+          req.isActive ? Icons.verified : Icons.delete_outline,
+          color: req.isActive ? AppTheme.cobalt : Colors.grey,
+        ),
+      ),
+      title: Row(
+        children: [
+          Flexible(
+            child: Text(
+              displayName,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(req.assessmentCode, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+          if (req.acidNumber != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.emerald.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text('ACID: ${req.acidNumber}', style: const TextStyle(fontSize: 11, color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+            ),
+          const Spacer(),
+          if (!req.isActive)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red)),
+              child: const Text('محذوف منطقياً (Soft Deleted)', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
+      subtitle: Padding(
+        padding: const EdgeInsets.only(top: 6.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'البند الجمركي: ${req.hsCode ?? "N/A"} — ${req.commodityDescription ?? ""} | القيمة: ${req.shipmentValue.toStringAsFixed(2)} ${req.currency} | المورد: ${req.supplierName ?? "N/A"} (${req.countryOfOrigin ?? "N/A"})',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                _buildBadge('حالة الإبحار: ${req.sailingStatus}', _getStatusColor(req.sailingStatus)),
+                _buildBadge('الحالة: ${req.overallStatus}', _getStatusColor(req.overallStatus)),
+                _buildBadge('المخاطر: ${req.riskLevel}', _getRiskLevelColor(req.riskLevel)),
+                if (req.hsCodeItems.isNotEmpty)
+                  _buildBadge('${req.hsCodeItems.length} بنود HS', AppTheme.cobalt),
+                if (req.decree43Applicable && req.whiteListVerified)
+                  _buildBadge('قرار 43 معتمد', AppTheme.emerald),
+                if (req.cooRequired && req.cooStatus == 'Obtained')
+                  _buildBadge('منشأ مستوفى', AppTheme.emerald),
+                if (req.inspectionRequired && req.inspectionStatus == 'Completed')
+                  _buildBadge('فحص SGS مجتاز', AppTheme.emerald),
+              ],
+            ),
+          ],
+        ),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Edit Button (Restores if deleted and loads into form)
+          IconButton(
+            icon: const Icon(Icons.edit, color: AppTheme.cobalt),
+            tooltip: 'تعديل واستكمال التقييم وإعادة تفعيله',
+            onPressed: () => _loadAssessmentForEditing(req),
+          ),
+          // Restore Button if inactive
+          if (!req.isActive)
+            IconButton(
+              icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
+              tooltip: 'استعادة وتفعيل التقييم',
+              onPressed: () async {
+                if (req.assessmentId != null) {
+                  await ref.read(importRequirementsProvider.notifier).restoreRequirement(req.assessmentId!);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('♻️ تم استعادة التقييم (${req.assessmentCode}) بنجاح!'), backgroundColor: AppTheme.emerald),
+                    );
+                  }
+                }
+              },
+            ),
+          // Delete Button
+          if (req.isActive)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'حذف منطقي',
+              onPressed: () => _confirmDeleteAssessment(req),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.4)),
+      ),
+      child: Text(label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
+
+  void _confirmDeleteAssessment(ImportRequirementModel req) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red),
+            SizedBox(width: 8),
+            Text('تأكيد الحذف المنطقي للتقييم'),
+          ],
+        ),
+        content: Text('هل أنت متأكد من حذف تقييم المتطلبات (${req.assessmentCode}) للملف (${req.importFileCode})؟\n\nيمكنك استعادته أو إعادة تفعيله في أي وقت من خلال تعديله أو عبر زر الاستعادة.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              if (req.assessmentId != null) {
+                await ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('🗑️ تم حذف التقييم (${req.assessmentCode}) منطقياً.'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),

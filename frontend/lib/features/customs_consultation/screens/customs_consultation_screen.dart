@@ -240,6 +240,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         final importFiles = ref.read(importFilesProvider).value ?? [];
         final file = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
         if (file != null) {
+          final fCode = file.customFileNumber ?? file.importFileCode;
+          _titleController.text = '[$fCode] ${file.companyName}';
+
           // Auto-fetch broker from file
           if (file.brokerId != null) {
             _selectedBrokerId = file.brokerId;
@@ -965,15 +968,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   decoration: const InputDecoration(labelText: 'اسم البند / نوع المصروف *', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownField<String>(
                   value: selectedCategory,
-                  decoration: const InputDecoration(labelText: 'التصنيف', border: OutlineInputBorder()),
+                  labelText: 'التصنيف',
+                  searchHintText: 'ابحث عن التصنيف...',
                   items: const [
-                    DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
-                    DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
-                    DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
-                    DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
-                    DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
+                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
+                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
+                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
+                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
+                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
                   ],
                   onChanged: (v) => setDlgState(() => selectedCategory = v ?? selectedCategory),
                 ),
@@ -989,13 +993,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: selectedCurrency,
-                        decoration: const InputDecoration(labelText: 'العملة', border: OutlineInputBorder()),
+                        labelText: 'العملة',
+                        searchHintText: 'ابحث عن العملة...',
                         items: const [
-                          DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                          DropdownMenuItem(value: 'USD', child: Text('USD')),
-                          DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                          SearchableDropdownItem(value: 'USD', label: 'USD'),
+                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
                         ],
                         onChanged: (v) => setDlgState(() => selectedCurrency = v ?? 'EGP'),
                       ),
@@ -1751,25 +1756,70 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         onTap: _showBlockingIssuesDialog,
                       ),
                       const Spacer(),
-                      if (_editingConsultationId != null) ...[
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.orange.shade800,
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _editingConsultationId = null;
-                              _editingConsultationCode = null;
-                              _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
-                              _initializeDefaultChecklist();
-                            });
-                          },
-                          icon: const Icon(Icons.cancel),
-                          label: const Text('إلغاء التعديل والعودة كدراسة جديدة'),
+                      // 1. Live Refresh
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                         ),
-                        const SizedBox(width: 10),
-                      ],
+                        onPressed: () {
+                          ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+                          ref.read(importFilesProvider.notifier).fetchImportFiles();
+                          ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+                          ref.read(customsTariffProvider.notifier).fetchTariffs();
+                          ref.read(currenciesProvider.notifier).fetchCurrencies();
+                          ref.read(shippingScenariosProvider.notifier).fetchSessions();
+                          ref.read(partnersProvider.notifier).fetchPartners();
+                          ref.read(projectsProvider.notifier).fetchProjects();
+                          ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+                          ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+                        },
+                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                        label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 2. Clear Form & Start New
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade800,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _editingConsultationId = null;
+                            _editingConsultationCode = null;
+                            _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                            _selectedImportFileId = null;
+                            _selectedPoId = null;
+                            _selectedProjectId = null;
+                            _selectedBrokerId = null;
+                            _initializeDefaultChecklist();
+                          });
+                        },
+                        icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+                        label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 3. Save Draft & Continue Later
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          foregroundColor: AppTheme.cobalt,
+                          elevation: 0,
+                          side: const BorderSide(color: AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: _isSaving ? null : _saveConsultation,
+                        icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+                        label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 4. Final Save / Update
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: _editingConsultationId != null ? Colors.orange.shade700 : AppTheme.emerald,
@@ -1780,7 +1830,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : Icon(_editingConsultationId != null ? Icons.save_as : Icons.save, color: Colors.white),
                         label: Text(
-                          _editingConsultationId != null ? 'حفظ تعديلات الاستشارة الجمركية' : 'حفظ دراسة الاستشارة الجمركية',
+                          _editingConsultationId != null ? 'حفظ تعديلات الاستشارة الجمركية' : 'حفظ دراسة الاستشارة الجمركية ✅',
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -4028,17 +4078,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       ),
                     ),
                     const SizedBox(width: 12),
-                    DropdownButton<String>(
-                      value: _mgmtExpenseCategory,
-                      items: const [
-                        DropdownMenuItem(value: 'All', child: Text('جميع التصنيفات')),
-                        DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
-                        DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
-                        DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
-                        DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
-                        DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
-                      ],
-                      onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
+                    SizedBox(
+                      width: 250,
+                      child: SearchableDropdownField<String>(
+                        value: _mgmtExpenseCategory,
+                        labelText: 'تصفية التصنيف',
+                        searchHintText: 'ابحث...',
+                        items: const [
+                          SearchableDropdownItem(value: 'All', label: 'جميع التصنيفات'),
+                          SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
+                          SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
+                          SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
+                          SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
+                          SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                        ],
+                        onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
+                      ),
                     ),
                     const Spacer(),
                     ElevatedButton.icon(
@@ -4124,15 +4179,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   decoration: const InputDecoration(labelText: 'اسم المصروف بالإنجليزية (اختياري)', border: OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
+                SearchableDropdownField<String>(
                   value: category,
-                  decoration: const InputDecoration(labelText: 'التصنيف', border: OutlineInputBorder()),
+                  labelText: 'التصنيف',
+                  searchHintText: 'ابحث عن التصنيف...',
                   items: const [
-                    DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('Clearance Fees (أتعاب ومصاريف تخليص)')),
-                    DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('Procedures & Approvals (إجراءات وموافقات وفحص)')),
-                    DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('Inland Transport (نقل بري وشاحنات)')),
-                    DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('Port & Handling (موانئ وتعتيق وتفريغ)')),
-                    DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('Other Fees (مصاريف أخرى)')),
+                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees (أتعاب ومصاريف تخليص)'),
+                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals (إجراءات وموافقات وفحص)'),
+                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport (نقل بري وشاحنات)'),
+                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling (موانئ وتعتيق وتفريغ)'),
+                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
                   ],
                   onChanged: (v) => setDlgState(() => category = v ?? category),
                 ),
@@ -4148,13 +4204,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     ),
                     const SizedBox(width: 8),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: currency,
-                        decoration: const InputDecoration(labelText: 'العملة الافتراضية', border: OutlineInputBorder()),
+                        labelText: 'العملة الافتراضية',
+                        searchHintText: 'ابحث عن العملة...',
                         items: const [
-                          DropdownMenuItem(value: 'EGP', child: Text('EGP')),
-                          DropdownMenuItem(value: 'USD', child: Text('USD')),
-                          DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                          SearchableDropdownItem(value: 'USD', label: 'USD'),
+                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
                         ],
                         onChanged: (v) => setDlgState(() => currency = v ?? 'EGP'),
                       ),
@@ -4208,7 +4265,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     final isEditing = existingPriceList != null;
-    int selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : 0);
+    int? selectedBroker = existingPriceList?.brokerId ?? (brokersList.isNotEmpty ? brokersList.first.providerId : null);
     final titleCtrl = TextEditingController(text: existingPriceList?.title ?? 'بيان أسعار التخليص والنقل لميناء الإسكندرية لعام 2026');
     final portCtrl = TextEditingController(text: existingPriceList?.portName ?? 'ميناء الإسكندرية والدخيلة');
     final notesCtrl = TextEditingController(text: existingPriceList?.notes ?? '');
@@ -4357,11 +4414,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             if (!isEditing)
                               Expanded(
                                 flex: 2,
-                                child: DropdownButtonFormField<int>(
+                                child: SearchableDropdownField<int?>(
                                   value: selectedBroker,
-                                  decoration: const InputDecoration(labelText: 'المستخلص الجمركي *', isDense: true, border: OutlineInputBorder()),
-                                  items: brokersList.map((b) => DropdownMenuItem<int>(value: b.providerId, child: Text(b.partnerName))).toList(),
-                                  onChanged: (v) => setDlgState(() => selectedBroker = v ?? selectedBroker),
+                                  labelText: 'المستخلص الجمركي *',
+                                  searchHintText: 'ابحث عن المستخلص...',
+                                  items: brokersList.map((b) => SearchableDropdownItem<int?>(value: b.providerId, label: b.partnerName)).toList(),
+                                  onChanged: (v) => setDlgState(() => selectedBroker = v),
                                 ),
                               )
                             else
@@ -4428,17 +4486,22 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                       ),
                       const SizedBox(width: 8),
                       // Category Filter
-                      DropdownButton<String>(
-                        value: selectedCategoryFilter,
-                        items: const [
-                          DropdownMenuItem(value: 'All', child: Text('جميع التصنيفات')),
-                          DropdownMenuItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', child: Text('أتعاب ومصاريف تخليص')),
-                          DropdownMenuItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', child: Text('إجراءات وموافقات وفحص')),
-                          DropdownMenuItem(value: 'Inland Transport (نقل بري وشاحنات)', child: Text('نقل بري وشاحنات')),
-                          DropdownMenuItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', child: Text('موانئ وتعتيق وتفريغ')),
-                          DropdownMenuItem(value: 'Other Fees (مصاريف أخرى)', child: Text('مصاريف أخرى')),
-                        ],
-                        onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                      SizedBox(
+                        width: 250,
+                        child: SearchableDropdownField<String>(
+                          value: selectedCategoryFilter,
+                          labelText: 'تصفية التصنيف',
+                          searchHintText: 'ابحث عن التصنيف...',
+                          items: const [
+                            SearchableDropdownItem(value: 'All', label: 'جميع التصنيفات'),
+                            SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
+                            SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
+                            SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
+                            SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
+                            SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                          ],
+                          onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
+                        ),
                       ),
                       const Spacer(),
                       // Quick Fill Button
@@ -4657,6 +4720,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     );
                                   }
                                 } else {
+                                  if (selectedBroker == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('الرجاء اختيار المستخلص الجمركي'), backgroundColor: Colors.orange),
+                                    );
+                                    return;
+                                  }
                                   await ref.read(brokerPriceListsProvider.notifier).createPriceList({
                                     'title': title,
                                     'broker_id': selectedBroker,

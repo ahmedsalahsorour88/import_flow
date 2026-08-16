@@ -473,6 +473,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       packingItems: po.packingListItems,
       tariffs: tariffs,
     );
+    final Set<String> mismatchedHsCodes = reconciliation.items
+        .where((item) => !item.isMatched || item.isMissingInPacking || item.isMissingInInvoice)
+        .map((item) => item.hsCode)
+        .toSet();
 
     // Group packing list items by HS Code for the HS Summary Report
     final Map<String, Map<String, dynamic>> hsSummaryMap = {};
@@ -570,21 +574,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListWeight.toStringAsFixed(1)} kg / ${po.totalNetWeightKg} kg'),
                                   ],
                                 ),
-                                const Divider(height: 24),
-                                const Text(
-                                  'Purchase Order Line Items (بنود أمر الشراء)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                                ),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 16),
+                                const Text('PO Line Items Breakdown (بنود الفاتورة المبدئية والأكواد الجمركية)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                const SizedBox(height: 6),
                                 Table(
                                   border: TableBorder.all(color: Colors.grey.shade300),
                                   columnWidths: const {
                                     0: FlexColumnWidth(1.2),
-                                    1: FlexColumnWidth(3),
+                                    1: FlexColumnWidth(3.0),
                                     2: FlexColumnWidth(1.2),
                                     3: FlexColumnWidth(1.2),
                                     4: FlexColumnWidth(1.2),
-                                    5: FlexColumnWidth(1.2),
+                                    5: FlexColumnWidth(1.5),
                                   },
                                   children: [
                                     const TableRow(
@@ -613,7 +614,11 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                           }
                                         }
 
+                                        final itemHs = item.hsCode ?? (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId) ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode : null);
+                                        final isMismatched = itemHs != null && itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
+
                                         return TableRow(
+                                          decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.3)) : null,
                                           children: [
                                             Padding(padding: const EdgeInsets.all(6), child: Text(item.itemCode ?? '-')),
                                             Padding(
@@ -622,10 +627,43 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                                 crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
                                                   Text(item.descriptionAr, style: const TextStyle(fontWeight: FontWeight.bold)),
-                                                  if (item.hsCode != null)
-                                                    Text(
-                                                      'HS: ${item.hsCode} (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
-                                                      style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
+                                                  if (item.countryOfOrigin != null && item.countryOfOrigin!.isNotEmpty)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 2),
+                                                      child: Text('المنشأ: ${item.countryOfOrigin}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                                    ),
+                                                  if (itemHs != null && itemHs.isNotEmpty)
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(top: 4),
+                                                      child: isMismatched
+                                                          ? Container(
+                                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                              decoration: BoxDecoration(
+                                                                color: Colors.red.shade50,
+                                                                borderRadius: BorderRadius.circular(4),
+                                                                border: Border.all(color: Colors.red.shade400, width: 1.2),
+                                                              ),
+                                                              child: Wrap(
+                                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                                spacing: 4,
+                                                                children: [
+                                                                  const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                                  Text(
+                                                                    'HS: $itemHs (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                                    style: TextStyle(color: Colors.red.shade900, fontSize: 10, fontWeight: FontWeight.bold),
+                                                                  ),
+                                                                  Container(
+                                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                                    decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(2)),
+                                                                    child: Text('⚠️ عدم تطابق', style: TextStyle(color: Colors.red.shade900, fontSize: 9, fontWeight: FontWeight.bold)),
+                                                                  ),
+                                                                ],
+                                                              ),
+                                                            )
+                                                          : Text(
+                                                              'HS: $itemHs (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                              style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
+                                                            ),
                                                     ),
                                                 ],
                                               ),
@@ -787,6 +825,17 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                             else
                               Table(
                                 border: TableBorder.all(color: Colors.grey.shade300),
+                                columnWidths: const {
+                                  0: FlexColumnWidth(1.8),
+                                  1: FlexColumnWidth(1.2),
+                                  2: FlexColumnWidth(1.0),
+                                  3: FlexColumnWidth(1.0),
+                                  4: FlexColumnWidth(1.0),
+                                  5: FlexColumnWidth(1.4),
+                                  6: FlexColumnWidth(1.1),
+                                  7: FlexColumnWidth(1.1),
+                                  8: FlexColumnWidth(1.1),
+                                },
                                 children: [
                                   const TableRow(
                                     decoration: BoxDecoration(color: AppTheme.cloudWhite),
@@ -803,19 +852,46 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     ],
                                   ),
                                   ...po.packingListItems.map(
-                                    (p) => TableRow(
-                                      children: [
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                        Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
-                                      ],
-                                    ),
+                                    (p) {
+                                      final isMismatched = reconciliation.items.any((r) => r.hsCode == p.hsCode && !r.isMatched);
+                                      return TableRow(
+                                        decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.35)) : null,
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.all(6),
+                                            child: isMismatched
+                                                ? Container(
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.red.shade50,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: Colors.red.shade400, width: 1.1),
+                                                    ),
+                                                    child: Wrap(
+                                                      crossAxisAlignment: WrapCrossAlignment.center,
+                                                      spacing: 2,
+                                                      children: [
+                                                        const Icon(Icons.warning_amber_rounded, size: 11, color: Colors.red),
+                                                        Text(
+                                                          p.hsCode.isNotEmpty ? p.hsCode : 'None',
+                                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  )
+                                                : Text(p.hsCode, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                          ),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.itemCode, style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPcs}', style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                        ],
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
@@ -838,16 +914,36 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                   ],
                                 ),
                                 ...hsSummaryMap.values.map(
-                                  (summary) => TableRow(
-                                    children: [
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['hs_code']}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: const TextStyle(fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: const TextStyle(fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                      Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
-                                    ],
-                                  ),
+                                  (summary) {
+                                    final summaryHs = '${summary['hs_code']}';
+                                    final isMismatched = reconciliation.items.any((r) => r.hsCode == summaryHs && !r.isMatched);
+                                    return TableRow(
+                                      decoration: isMismatched ? BoxDecoration(color: Colors.red.shade50.withOpacity(0.35)) : null,
+                                      children: [
+                                        Padding(
+                                          padding: const EdgeInsets.all(6),
+                                          child: isMismatched
+                                              ? Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
+                                                    const SizedBox(width: 3),
+                                                    Text(
+                                                      summaryHs,
+                                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                                                    ),
+                                                  ],
+                                                )
+                                              : Text(summaryHs, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                        ),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pcs']}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${summary['qty_pkg']}', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_net'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_gross'] as double).toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text('${(summary['total_cbm'] as double).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -1540,6 +1636,33 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     );
   }
 
+  void _updateExchangeRateFromCurrency(int? currencyId, List<CurrencyModel> currencies) {
+    if (currencyId == null) return;
+    final curr = currencies.where((c) => c.currencyId == currencyId).firstOrNull;
+    if (curr == null) return;
+    if (curr.isBaseCurrency || curr.currencyCode == 'EGP') {
+      _rateCtrl.text = '1.0';
+      return;
+    }
+
+    double? foundRate;
+    if (curr.exchangeRates != null && curr.exchangeRates!.isNotEmpty) {
+      final orderDateStr = _selectedOrderDate.toString().substring(0, 10);
+      final sortedRates = List.from(curr.exchangeRates!)
+        ..sort((a, b) => b.effectiveDate.compareTo(a.effectiveDate));
+      final matching = sortedRates.firstWhere(
+        (r) => r.effectiveDate.compareTo(orderDateStr) <= 0,
+        orElse: () => sortedRates.first,
+      );
+      foundRate = matching.commercialRate;
+    }
+
+    foundRate ??= curr.latestCommercialRate;
+    if (foundRate != null && foundRate > 0) {
+      _rateCtrl.text = foundRate.toString();
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1604,21 +1727,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
             grossWeightUnitKg: p.grossWeightUnitKg,
             isStackable: p.isStackable,
           )).toList()
-        : [
-            PackingListItemModel(
-              hsCode: '8471.30.00',
-              itemCode: 'ITEM-001',
-              qtyPcs: 100,
-              qtyPkg: 10,
-              packageType: 'Carton',
-              lengthCm: 100,
-              widthCm: 80,
-              heightCm: 60,
-              netWeightUnitKg: 10,
-              grossWeightUnitKg: 12,
-              isStackable: true,
-            )
-          ];
+        : [];
   }
 
   @override
@@ -1638,6 +1747,18 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     final currencies = ref.watch(currenciesProvider).value ?? [];
     final tariffs = ref.watch(customsTariffProvider).value ?? [];
     final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    final isLoadingMaster = projects.isEmpty || companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty || currencies.isEmpty;
+
+    final reconciliation = _evaluateReconciliation(
+      invoiceItems: _dialogItems,
+      packingItems: _dialogPackingItems,
+      tariffs: tariffs,
+    );
+    final Set<String> mismatchedHsCodes = reconciliation.items
+        .where((item) => !item.isMatched || item.isMissingInPacking || item.isMissingInInvoice)
+        .map((item) => item.hsCode)
+        .toSet();
 
     if (_selectedProjectId == null && projects.isNotEmpty) {
       _selectedProjectId = projects.first.projectId;
@@ -1668,8 +1789,6 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     } else if (_selectedCurrencyId != null && !currencies.any((c) => c.currencyId == _selectedCurrencyId)) {
       _selectedCurrencyId = currencies.isNotEmpty ? currencies.first.currencyId : null;
     }
-
-    final isLoadingMaster = projects.isEmpty || companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty || currencies.isEmpty;
 
     return DefaultTabController(
       length: 2,
@@ -1779,7 +1898,10 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                         lastDate: DateTime(2035),
                                       );
                                       if (picked != null) {
-                                        setState(() => _selectedOrderDate = picked);
+                                        setState(() {
+                                          _selectedOrderDate = picked;
+                                          _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+                                        });
                                       }
                                     },
                                     child: InputDecorator(
@@ -1880,7 +2002,12 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                             ))
                                         .toList(),
                                     onChanged: (v) {
-                                      if (v != null) setState(() => _selectedCurrencyId = v);
+                                      if (v != null) {
+                                        setState(() {
+                                          _selectedCurrencyId = v;
+                                          _updateExchangeRateFromCurrency(v, currencies);
+                                        });
+                                      }
                                     },
                                   ),
                                 ),
@@ -1893,7 +2020,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                 Expanded(
                                   child: SearchableDropdownField<String?>(
                                     value: _selectedCountryOfOrigin,
-                                    labelText: 'Country of Origin (بلد المنشأ)',
+                                    labelText: 'Country of Origin (بلد المنشأ العام)',
                                     items: [
                                       const SearchableDropdownItem<String?>(
                                         value: null,
@@ -1928,7 +2055,10 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                   child: TextFormField(
                                     controller: _rateCtrl,
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                    decoration: const InputDecoration(labelText: 'Exchange Rate'),
+                                    decoration: const InputDecoration(
+                                      labelText: 'Exchange Rate (سعر الصرف)',
+                                      helperText: '⚡ يستدعى آلياً حسب تاريخ الفاتورة والعملة',
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -1985,6 +2115,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                           descriptionAr: 'بند جديد ${_dialogItems.length + 1}',
                                           quantity: 1,
                                           unitPrice: 0,
+                                          countryOfOrigin: _selectedCountryOfOrigin,
                                         ),
                                       );
                                     });
@@ -1998,9 +2129,18 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                             ..._dialogItems.asMap().entries.map((entry) {
                               final idx = entry.key;
                               final item = entry.value;
+                              final itemHs = item.hsCode ?? (item.tariffId != null && tariffs.any((t) => t.tariffId == item.tariffId) ? tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode : '');
+                              final isMismatched = itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                               return Card(
-                                color: Colors.grey.shade50,
+                                color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                  side: BorderSide(
+                                    color: isMismatched ? Colors.red.shade300 : Colors.grey.shade300,
+                                    width: isMismatched ? 1.5 : 1.0,
+                                  ),
+                                ),
                                 margin: const EdgeInsets.only(bottom: 8),
                                 child: Padding(
                                   padding: const EdgeInsets.all(10),
@@ -2014,63 +2154,75 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                           Expanded(
                                             flex: 2,
                                             child: TextFormField(
+                                              initialValue: item.itemCode,
+                                              decoration: const InputDecoration(labelText: 'Item Code (كود البند)', isDense: true),
+                                              onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(itemCode: v.trim().isEmpty ? null : v.trim()),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 3,
+                                            child: TextFormField(
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
                                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                              onChanged: (v) => _dialogItems[idx] = POLineItemModel(
-                                                itemCode: item.itemCode,
-                                                descriptionAr: v,
-                                                descriptionEn: item.descriptionEn,
-                                                tariffId: item.tariffId,
-                                                quantity: item.quantity,
-                                                unitOfMeasure: item.unitOfMeasure,
-                                                unitPrice: item.unitPrice,
-                                                cbmPerUnit: item.cbmPerUnit,
-                                                grossWeightKg: item.grossWeightKg,
-                                                netWeightKg: item.netWeightKg,
+                                              onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(descriptionAr: v),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 3,
+                                            child: InkWell(
+                                              onTap: () async {
+                                                final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                                setState(() {
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(
+                                                    tariffId: picked?.tariffId,
+                                                    hsCode: picked?.hsCode,
+                                                  );
+                                                });
+                                              },
+                                              child: InputDecorator(
+                                                decoration: InputDecoration(
+                                                  labelText: 'Customs Tariff / HS Code (بحث 🔍)',
+                                                  isDense: true,
+                                                  suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16) : null,
+                                                ),
+                                                child: Text(
+                                                  item.tariffId != null
+                                                      ? (tariffs.any((t) => t.tariffId == item.tariffId)
+                                                          ? '${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode} - ${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsDescription}'
+                                                          : (item.hsCode ?? 'ID #${item.tariffId}'))
+                                                      : (item.hsCode != null && item.hsCode!.isNotEmpty ? item.hsCode! : 'None / General'),
+                                                  style: TextStyle(
+                                                    fontWeight: (item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? FontWeight.bold : FontWeight.normal,
+                                                    color: isMismatched ? Colors.red.shade900 : ((item.tariffId != null || (item.hsCode != null && item.hsCode!.isNotEmpty)) ? AppTheme.cobalt : Colors.grey.shade700),
+                                                    fontSize: 12,
+                                                  ),
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
                                               ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             flex: 2,
-                                            child: InkWell(
-                                              onTap: () async {
-                                                final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                            child: SearchableDropdownField<String?>(
+                                              value: item.countryOfOrigin ?? _selectedCountryOfOrigin,
+                                              labelText: 'بلد المنشأ للبند',
+                                              searchHintText: 'ابحث عن بلد المنشأ...',
+                                              items: [
+                                                const SearchableDropdownItem<String?>(value: null, label: '-- الافتراضي --'),
+                                                ...countryOptions.map((c) => SearchableDropdownItem<String?>(
+                                                      value: c['name'],
+                                                      label: c['name']!,
+                                                    )),
+                                              ],
+                                              onChanged: (v) {
                                                 setState(() {
-                                                  _dialogItems[idx] = POLineItemModel(
-                                                    itemCode: item.itemCode,
-                                                    descriptionAr: item.descriptionAr,
-                                                    descriptionEn: item.descriptionEn,
-                                                    tariffId: picked?.tariffId,
-                                                    quantity: item.quantity,
-                                                    unitOfMeasure: item.unitOfMeasure,
-                                                    unitPrice: item.unitPrice,
-                                                    cbmPerUnit: item.cbmPerUnit,
-                                                    grossWeightKg: item.grossWeightKg,
-                                                    netWeightKg: item.netWeightKg,
-                                                  );
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(countryOfOrigin: v);
                                                 });
                                               },
-                                              child: InputDecorator(
-                                                decoration: const InputDecoration(
-                                                  labelText: 'Customs Tariff / HS Code (بحث 🔍)',
-                                                  isDense: true,
-                                                ),
-                                                child: Text(
-                                                  item.tariffId != null
-                                                      ? (tariffs.any((t) => t.tariffId == item.tariffId)
-                                                          ? '${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsCode} - ${tariffs.firstWhere((t) => t.tariffId == item.tariffId).hsDescription}'
-                                                          : 'ID #${item.tariffId}')
-                                                      : 'None / General',
-                                                  style: TextStyle(
-                                                    fontWeight: item.tariffId != null ? FontWeight.bold : FontWeight.normal,
-                                                    color: item.tariffId != null ? AppTheme.cobalt : Colors.grey.shade700,
-                                                    fontSize: 12,
-                                                  ),
-                                                  overflow: TextOverflow.ellipsis,
-                                                ),
-                                              ),
                                             ),
                                           ),
                                           if (_dialogItems.length > 1)
@@ -2091,18 +2243,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                               onChanged: (v) {
                                                 final q = double.tryParse(v) ?? 1.0;
                                                 setState(() {
-                                                  _dialogItems[idx] = POLineItemModel(
-                                                    itemCode: item.itemCode,
-                                                    descriptionAr: item.descriptionAr,
-                                                    descriptionEn: item.descriptionEn,
-                                                    tariffId: item.tariffId,
-                                                    quantity: q,
-                                                    unitOfMeasure: item.unitOfMeasure,
-                                                    unitPrice: item.unitPrice,
-                                                    cbmPerUnit: item.cbmPerUnit,
-                                                    grossWeightKg: item.grossWeightKg,
-                                                    netWeightKg: item.netWeightKg,
-                                                  );
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(quantity: q);
                                                 });
                                               },
                                             ),
@@ -2116,18 +2257,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                               onChanged: (v) {
                                                 final p = double.tryParse(v) ?? 0.0;
                                                 setState(() {
-                                                  _dialogItems[idx] = POLineItemModel(
-                                                    itemCode: item.itemCode,
-                                                    descriptionAr: item.descriptionAr,
-                                                    descriptionEn: item.descriptionEn,
-                                                    tariffId: item.tariffId,
-                                                    quantity: item.quantity,
-                                                    unitOfMeasure: item.unitOfMeasure,
-                                                    unitPrice: p,
-                                                    cbmPerUnit: item.cbmPerUnit,
-                                                    grossWeightKg: item.grossWeightKg,
-                                                    netWeightKg: item.netWeightKg,
-                                                  );
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(unitPrice: p);
                                                 });
                                               },
                                             ),
@@ -2169,168 +2299,206 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         ),
                       ),
 
-                      // Tab 2: BP-003 Review Packing List
-                      Column(
-                        children: [
-                          const SizedBox(height: 8),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      // Tab 2: BP-003 Dynamic Detailed Packing List
+                      SingleChildScrollView(
+                        padding: const EdgeInsets.only(top: 8, right: 4),
+                        child: SizedBox(
+                          height: 480,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'BP-003 Packing List Items (${_dialogPackingItems.length})',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                              ),
                               Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  ElevatedButton.icon(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.blue.shade50,
-                                      foregroundColor: AppTheme.cobalt,
-                                      elevation: 0,
-                                    ),
-                                    icon: const Icon(Icons.flash_on, size: 16),
-                                    label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
-                                    onPressed: () {
-                                      setState(() {
-                                        _dialogPackingItems.clear();
-                                        for (int i = 0; i < _dialogItems.length; i++) {
-                                          final item = _dialogItems[i];
-                                          String itemHsCode = '8471.30.00';
-                                          if (item.tariffId != null) {
-                                            final matchingTariff = tariffs.cast<CustomsTariffModel?>().firstWhere(
-                                                  (t) => t?.tariffId == item.tariffId,
-                                                  orElse: () => null,
-                                                );
-                                            if (matchingTariff != null && matchingTariff.hsCode.isNotEmpty) {
-                                              itemHsCode = matchingTariff.hsCode;
+                                  const Text(
+                                    'Packing List Entries (بيان التعبئة والطرود والأبعاد) *',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  ),
+                                  Row(
+                                    children: [
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                                        icon: const Icon(Icons.auto_fix_high, size: 16),
+                                        label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
+                                        onPressed: () {
+                                          if (_dialogItems.isEmpty) return;
+                                          setState(() {
+                                            _dialogPackingItems.clear();
+                                            for (int i = 0; i < _dialogItems.length; i++) {
+                                              final item = _dialogItems[i];
+                                              String itemHsCode = '';
+                                              if (item.hsCode != null && item.hsCode!.isNotEmpty) {
+                                                itemHsCode = item.hsCode!;
+                                              } else if (item.tariffId != null) {
+                                                final matchingTariff = tariffs.cast<CustomsTariffModel?>().firstWhere(
+                                                      (t) => t?.tariffId == item.tariffId,
+                                                      orElse: () => null,
+                                                    );
+                                                if (matchingTariff != null && matchingTariff.hsCode.isNotEmpty) {
+                                                  itemHsCode = matchingTariff.hsCode;
+                                                }
+                                              }
+                                              _dialogPackingItems.add(
+                                                PackingListItemModel(
+                                                  hsCode: itemHsCode,
+                                                  itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                                  qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
+                                                  qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
+                                                  packageType: 'Carton',
+                                                  lengthCm: 50.0,
+                                                  widthCm: 40.0,
+                                                  heightCm: 30.0,
+                                                  netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
+                                                  grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
+                                                ),
+                                              );
                                             }
-                                          }
-                                          _dialogPackingItems.add(
-                                            PackingListItemModel(
-                                              hsCode: itemHsCode,
-                                              itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
-                                              qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
-                                              qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
-                                              packageType: 'Carton',
-                                              lengthCm: 50.0,
-                                              widthCm: 40.0,
-                                              heightCm: 30.0,
-                                              netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
-                                              grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
+                                          });
+                                          ScaffoldMessenger.of(context).showSnackBar(
+                                            SnackBar(
+                                              content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
+                                              backgroundColor: AppTheme.emerald,
+                                              duration: const Duration(seconds: 2),
                                             ),
                                           );
-                                        }
-                                      });
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
-                                          backgroundColor: AppTheme.emerald,
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                  const SizedBox(width: 8),
-                                  TextButton.icon(
-                                    icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
-                                    label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
-                                    onPressed: () {
-                                      setState(() {
-                                        _dialogPackingItems.add(
-                                          PackingListItemModel(
-                                            hsCode: '8471.30.00',
-                                            itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
-                                            qtyPcs: 10,
-                                            qtyPkg: 1,
-                                            packageType: 'Carton',
-                                            lengthCm: 50,
-                                            widthCm: 40,
-                                            heightCm: 30,
-                                            netWeightUnitKg: 5,
-                                            grossWeightUnitKg: 6,
-                                          ),
-                                        );
-                                      });
-                                    },
+                                        },
+                                      ),
+                                      const SizedBox(width: 8),
+                                      TextButton.icon(
+                                        icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
+                                        label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
+                                        onPressed: () {
+                                          String defaultHs = '';
+                                          if (_dialogItems.isNotEmpty) {
+                                            final first = _dialogItems.first;
+                                            if (first.hsCode != null && first.hsCode!.isNotEmpty) {
+                                              defaultHs = first.hsCode!;
+                                            } else if (first.tariffId != null) {
+                                              final match = tariffs.cast<CustomsTariffModel?>().firstWhere((t) => t?.tariffId == first.tariffId, orElse: () => null);
+                                              if (match != null) defaultHs = match.hsCode;
+                                            }
+                                          }
+                                          setState(() {
+                                            _dialogPackingItems.add(
+                                              PackingListItemModel(
+                                                hsCode: defaultHs,
+                                                itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
+                                                qtyPcs: 10,
+                                                qtyPkg: 1,
+                                                packageType: 'Carton',
+                                                lengthCm: 50,
+                                                widthCm: 40,
+                                                heightCm: 30,
+                                                netWeightUnitKg: 5,
+                                                grossWeightUnitKg: 6,
+                                              ),
+                                            );
+                                          });
+                                        },
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
+                              const SizedBox(height: 8),
 
-                          Expanded(
-                            child: _dialogPackingItems.isEmpty
-                                ? Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-                                        const SizedBox(height: 12),
-                                        const Text(
-                                          'لم يتم إضافة بنود تعبئة بعد',
-                                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                              Expanded(
+                                child: _dialogPackingItems.isEmpty
+                                    ? Center(
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                            const SizedBox(height: 12),
+                                            const Text(
+                                              'لم يتم إضافة بنود تعبئة بعد',
+                                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            const Text(
+                                              'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
+                                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    ),
-                                  )
-                                : ListView.builder(
-                                    itemCount: _dialogPackingItems.length,
-                                    itemBuilder: (context, idx) {
-                                      final p = _dialogPackingItems[idx];
-                                      return Card(
-                                        color: Colors.blue.shade50.withOpacity(0.4),
-                                        elevation: 1,
-                                        margin: const EdgeInsets.only(bottom: 10),
-                                        child: Padding(
-                                          padding: const EdgeInsets.all(10),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
+                                      )
+                                    : ListView.builder(
+                                        itemCount: _dialogPackingItems.length,
+                                        itemBuilder: (context, idx) {
+                                          final p = _dialogPackingItems[idx];
+                                          final isMismatched = p.hsCode.isNotEmpty && mismatchedHsCodes.contains(p.hsCode);
+
+                                          return Card(
+                                            key: ValueKey('packing_card_${idx}_${p.itemCode}'),
+                                            color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                              side: BorderSide(
+                                                color: isMismatched ? Colors.red.shade400 : Colors.blue.shade200,
+                                                width: isMismatched ? 1.5 : 1.0,
+                                              ),
+                                            ),
+                                            margin: const EdgeInsets.only(bottom: 10),
+                                            child: Padding(
+                                              padding: const EdgeInsets.all(10),
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
                                                 children: [
-                                                  Container(
-                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                                    decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-                                                    child: Text('Pkg #${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: InkWell(
-                                                      onTap: () async {
-                                                        final picked = await _showHsCodeSearchPicker(context, tariffs);
-                                                        if (picked != null) {
-                                                          setState(() {
-                                                            _dialogPackingItems[idx] = p.copyWith(hsCode: picked.hsCode);
-                                                          });
-                                                        }
-                                                      },
-                                                      child: InputDecorator(
-                                                        decoration: const InputDecoration(labelText: 'HS Code (بحث 🔍) *', isDense: true),
-                                                        child: Text(
-                                                          p.hsCode.isNotEmpty ? p.hsCode : 'اختر بند جمركي',
-                                                          style: TextStyle(
-                                                            fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
-                                                            color: p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600,
-                                                            fontSize: 12,
-                                                          ),
-                                                          overflow: TextOverflow.ellipsis,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ),
+                                                  Row(
+                                                    children: [
+                                                       Container(
+                                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                                         decoration: BoxDecoration(
+                                                           color: isMismatched ? Colors.red.withOpacity(0.15) : AppTheme.cobalt.withOpacity(0.15),
+                                                           borderRadius: BorderRadius.circular(4),
+                                                         ),
+                                                         child: Text(
+                                                           'Pkg #${idx + 1}',
+                                                           style: TextStyle(
+                                                             fontWeight: FontWeight.bold,
+                                                             color: isMismatched ? Colors.red.shade900 : AppTheme.cobalt,
+                                                             fontSize: 12,
+                                                           ),
+                                                         ),
+                                                       ),
+                                                       const SizedBox(width: 8),
+                                                       Expanded(
+                                                         child: InkWell(
+                                                           onTap: () async {
+                                                             final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                                             if (picked != null) {
+                                                               setState(() {
+                                                                 _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(hsCode: picked.hsCode);
+                                                               });
+                                                             }
+                                                           },
+                                                           child: InputDecorator(
+                                                             decoration: InputDecoration(
+                                                               labelText: 'HS Code (بحث 🔍) *',
+                                                               isDense: true,
+                                                               suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16) : null,
+                                                             ),
+                                                             child: Text(
+                                                               p.hsCode.isNotEmpty ? p.hsCode : 'اختر بند جمركي',
+                                                               style: TextStyle(
+                                                                 fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
+                                                                 color: isMismatched ? Colors.red.shade900 : (p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600),
+                                                                 fontSize: 12,
+                                                               ),
+                                                               overflow: TextOverflow.ellipsis,
+                                                             ),
+                                                           ),
+                                                         ),
+                                                       ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
                                                     child: TextFormField(
                                                       initialValue: p.itemCode,
                                                       decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
-                                                      onChanged: (v) => _dialogPackingItems[idx] = p.copyWith(itemCode: v),
+                                                      onChanged: (v) {
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(itemCode: v.trim());
+                                                      },
                                                     ),
                                                   ),
                                                   const SizedBox(width: 8),
@@ -2342,7 +2510,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                           .map((t) => SearchableDropdownItem(value: t, label: t))
                                                           .toList(),
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = p.copyWith(packageType: v ?? 'Carton');
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(packageType: v ?? 'Carton');
                                                       }),
                                                     ),
                                                   ),
@@ -2361,12 +2529,12 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       value: p.unit,
                                                       labelText: 'Unit',
                                                       items: const [
-                                                         SearchableDropdownItem(value: 'cm', label: 'cm'),
-                                                         SearchableDropdownItem(value: 'mm', label: 'mm'),
-                                                         SearchableDropdownItem(value: 'm', label: 'm'),
+                                                        SearchableDropdownItem(value: 'cm', label: 'cm'),
+                                                        SearchableDropdownItem(value: 'mm', label: 'mm'),
+                                                        SearchableDropdownItem(value: 'm', label: 'm'),
                                                       ],
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = p.copyWith(unit: v ?? 'cm');
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(unit: v ?? 'cm');
                                                       }),
                                                     ),
                                                   ),
@@ -2378,9 +2546,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
-                                                        setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(qtyPcs: q);
-                                                        });
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(qtyPcs: q);
                                                       },
                                                     ),
                                                   ),
@@ -2393,7 +2559,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(qtyPkg: q);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(qtyPkg: q);
                                                         });
                                                       },
                                                     ),
@@ -2407,7 +2573,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final l = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(lengthCm: l);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(lengthCm: l);
                                                         });
                                                       },
                                                     ),
@@ -2421,7 +2587,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final w = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(widthCm: w);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(widthCm: w);
                                                         });
                                                       },
                                                     ),
@@ -2435,7 +2601,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final h = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(heightCm: h);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(heightCm: h);
                                                         });
                                                       },
                                                     ),
@@ -2453,7 +2619,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                                       onChanged: (v) {
                                                         final nw = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(netWeightUnitKg: nw);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(netWeightUnitKg: nw);
                                                         });
                                                       },
                                                     ),
@@ -2529,8 +2695,10 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                       );
                                     },
                                   ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ],
                   ),

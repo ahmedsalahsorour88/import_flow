@@ -13,6 +13,7 @@ from modules.customs_tariff.model import CustomsTariff
 from modules.external_service_providers.model import ExternalServiceProvider
 from modules.transport_locations.model import TransportLocation
 from modules.freight_quotations.model import FreightRFQRequest
+from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 from modules.purchase_orders.model import PurchaseOrder
 from modules.freight_booking.model import ShipmentBooking
 from modules.import_files.model import ImportFile
@@ -20,6 +21,8 @@ from modules.cargo_shipping.model import CargoShippingRecord
 from modules.cargo_shipping.schemas import (
     CargoShippingCreate,
     CargoShippingUpdate,
+    ContainerLoadingTrackingUpdate,
+    LclLoadingTrackingItem,
     DualApprovalLevel1Submit,
     DualApprovalLevel2Submit,
     ContainerLoadingItem,
@@ -30,16 +33,22 @@ from modules.cargo_shipping.service import (
     create_cargo_shipping_service,
     get_cargo_shipping_service,
     list_cargo_shippings_service,
+    update_container_loading_tracking_service,
+    update_lcl_loading_tracking_service,
     submit_level1_approval_service,
     submit_level2_approval_service,
     execute_cargox_checklist_service,
     advance_cargox_stage_service,
+    update_cargo_shipping_service,
     soft_delete_cargo_shipping_service,
+    restore_cargo_shipping_service,
 )
 from modules.cargo_shipping.validators import (
     validate_crd_against_cutoff,
     validate_dual_approval_sequence,
     validate_cargox_ready_for_upload,
+    validate_container_tracking_timestamps,
+    calculate_container_sla_and_status,
 )
 from fastapi import HTTPException
 
@@ -80,6 +89,19 @@ class TestCargoShippingModule(unittest.TestCase):
         self.db.refresh(imp_file)
         self.import_file_id = imp_file.import_file_id
 
+        # Second import file for duplicate check
+        imp_file_2 = ImportFile(
+            import_file_code="IMP-FILE-2026-0002",
+            company_id=company.company_id,
+            company_name=company.importer_name,
+            supplier_name="Second Supplier Inc",
+            po_number="PO-2026-89",
+        )
+        self.db.add(imp_file_2)
+        self.db.commit()
+        self.db.refresh(imp_file_2)
+        self.import_file_id_2 = imp_file_2.import_file_id
+
     def tearDown(self):
         self.db.close()
 
@@ -91,7 +113,7 @@ class TestCargoShippingModule(unittest.TestCase):
         late_crd = datetime(2026, 8, 25)
         self.assertFalse(validate_crd_against_cutoff(late_crd, cutoff))
 
-    def test_create_cargo_shipping(self):
+    def test_create_cargo_shipping_with_container_tracking(self):
         schema = CargoShippingCreate(
             import_file_id=self.import_file_id,
             crd_date=datetime(2026, 8, 10),
@@ -105,6 +127,7 @@ class TestCargoShippingModule(unittest.TestCase):
                     gross_weight_kg=20700.0,
                     vgm_status="Submitted",
                     vgm_ref_no="VGM-REF-100",
+                    container_assignment_date="2026-08-16",
                 )
             ],
             courier_tracking_data=CourierTrackingItem(
@@ -122,8 +145,180 @@ class TestCargoShippingModule(unittest.TestCase):
         self.assertIsNotNone(record.cargo_shipping_id)
         self.assertTrue(record.cargo_shipping_code.startswith("SHP-"))
         self.assertEqual(len(record.containers_loading_data), 1)
-        self.assertEqual(record.containers_loading_data[0]["container_no"], "MSKU9988776")
+        container = record.containers_loading_data[0]
+        self.assertEqual(container["container_no"], "MSKU9988776")
+        self.assertEqual(container["tracking_status"], "ASSIGNED")
+        self.assertIsNotNone(container["sla_deadline_at"])
         self.assertTrue(record.is_crd_validated)
+
+    def test_duplicate_cargo_shipping_prevention(self):
+        # 1. First record creation succeeds
+        schema = CargoShippingCreate(import_file_id=self.import_file_id)
+        create_cargo_shipping_service(self.db, schema)
+
+        # 2. Duplicate creation for same import_file_id must raise HTTPException 400
+        with self.assertRaises(HTTPException) as ctx:
+            create_cargo_shipping_service(self.db, schema)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("يوجد سجل متابعة وشحن محفوظ بالفعل", ctx.exception.detail)
+
+    def test_container_tracking_sequential_validations(self):
+        # Arrival before assignment should fail
+        with self.assertRaises(HTTPException) as ctx1:
+            validate_container_tracking_timestamps(
+                container_assignment_date="2026-08-16",
+                arrival_at_supplier_at="2026-08-15T10:00:00",
+            )
+        self.assertEqual(ctx1.exception.status_code, 400)
+
+        # Loading start before arrival should fail
+        with self.assertRaises(HTTPException) as ctx2:
+            validate_container_tracking_timestamps(
+                container_assignment_date="2026-08-16",
+                arrival_at_supplier_at="2026-08-16T10:00:00",
+                loading_start_at="2026-08-16T09:00:00",
+            )
+        self.assertEqual(ctx2.exception.status_code, 400)
+
+        # Loading end before loading start should fail
+        with self.assertRaises(HTTPException) as ctx3:
+            validate_container_tracking_timestamps(
+                container_assignment_date="2026-08-16",
+                arrival_at_supplier_at="2026-08-16T10:00:00",
+                loading_start_at="2026-08-16T12:00:00",
+                loading_end_at="2026-08-16T11:00:00",
+            )
+        self.assertEqual(ctx3.exception.status_code, 400)
+
+        # Gate-in before loading end should fail
+        with self.assertRaises(HTTPException) as ctx4:
+            validate_container_tracking_timestamps(
+                container_assignment_date="2026-08-16",
+                arrival_at_supplier_at="2026-08-16T10:00:00",
+                loading_start_at="2026-08-16T12:00:00",
+                loading_end_at="2026-08-16T16:00:00",
+                port_gate_in_at="2026-08-16T15:00:00",
+            )
+        self.assertEqual(ctx4.exception.status_code, 400)
+
+    def test_container_tracking_sla_and_auto_status(self):
+        # 1. Only assignment
+        res1 = calculate_container_sla_and_status({"container_assignment_date": "2026-08-16"})
+        self.assertEqual(res1["tracking_status"], "ASSIGNED")
+        self.assertFalse(res1["is_sla_breached"])
+
+        # 2. Arrived at supplier
+        res2 = calculate_container_sla_and_status({
+            "container_assignment_date": "2026-08-16",
+            "arrival_at_supplier_at": "2026-08-16T10:00:00",
+        })
+        self.assertEqual(res2["tracking_status"], "ARRIVED_AT_SUPPLIER")
+
+        # 3. Loading in progress
+        res3 = calculate_container_sla_and_status({
+            "container_assignment_date": "2026-08-16",
+            "arrival_at_supplier_at": "2026-08-16T10:00:00",
+            "loading_start_at": "2026-08-16T12:00:00",
+        })
+        self.assertEqual(res3["tracking_status"], "LOADING_IN_PROGRESS")
+
+        # 4. Loading completed
+        res4 = calculate_container_sla_and_status({
+            "container_assignment_date": "2026-08-16",
+            "arrival_at_supplier_at": "2026-08-16T10:00:00",
+            "loading_start_at": "2026-08-16T12:00:00",
+            "loading_end_at": "2026-08-16T16:00:00",
+        })
+        self.assertEqual(res4["tracking_status"], "LOADING_COMPLETED")
+
+        # 5. Gated in on time
+        res5 = calculate_container_sla_and_status({
+            "container_assignment_date": "2026-08-16",
+            "arrival_at_supplier_at": "2026-08-16T10:00:00",
+            "loading_start_at": "2026-08-16T12:00:00",
+            "loading_end_at": "2026-08-16T16:00:00",
+            "port_gate_in_at": "2026-08-17T10:00:00", # within 48h
+        })
+        self.assertEqual(res5["tracking_status"], "GATED_IN_AT_PORT")
+        self.assertFalse(res5["is_sla_breached"])
+
+        # 6. Gated in after 48h (SLA Breached)
+        res6 = calculate_container_sla_and_status({
+            "container_assignment_date": "2026-08-10",
+            "port_gate_in_at": "2026-08-15T10:00:00", # 5 days later (> 48h)
+        })
+        self.assertEqual(res6["tracking_status"], "GATED_IN_AT_PORT")
+        self.assertTrue(res6["is_sla_breached"])
+
+    def test_multi_container_independent_tracking_and_patch(self):
+        schema = CargoShippingCreate(
+            import_file_id=self.import_file_id,
+            containers_loading_data=[
+                ContainerLoadingItem(container_no="MSCU1111111", seal_no="SL-1", container_assignment_date="2026-08-16"),
+                ContainerLoadingItem(container_no="MSCU2222222", seal_no="SL-2", container_assignment_date="2026-08-16"),
+            ],
+        )
+        record = create_cargo_shipping_service(self.db, schema)
+        self.assertEqual(len(record.containers_loading_data), 2)
+
+        # Patch only container 1
+        patch_payload = ContainerLoadingTrackingUpdate(
+            container_no="MSCU1111111",
+            arrival_at_supplier_at="2026-08-16T08:00:00",
+            loading_start_at="2026-08-16T10:00:00",
+            loading_end_at="2026-08-16T14:00:00",
+            port_gate_in_at="2026-08-16T20:00:00",
+            notes="وصلت الحاوية ودخلت ميناء الإسكندرية بنجاح",
+        )
+        updated_rec = update_container_loading_tracking_service(
+            self.db,
+            record.cargo_shipping_id,
+            "MSCU1111111",
+            patch_payload,
+        )
+
+        c1 = [c for c in updated_rec.containers_loading_data if c["container_no"] == "MSCU1111111"][0]
+        c2 = [c for c in updated_rec.containers_loading_data if c["container_no"] == "MSCU2222222"][0]
+
+        self.assertEqual(c1["tracking_status"], "GATED_IN_AT_PORT")
+        self.assertEqual(len(c1["tracking_history"]), 1)
+        self.assertEqual(c2["tracking_status"], "ASSIGNED") # Independent!
+
+    def test_lcl_consolidation_tracking(self):
+        schema = CargoShippingCreate(
+            import_file_id=self.import_file_id,
+            shipment_type="LCL",
+            lcl_tracking_data={
+                "cfs_warehouse_name": "Shanghai CFS Warehouse #4",
+                "consolidation_scheduled_date": "2026-08-16",
+                "arrival_at_cfs_at": "2026-08-16T09:00:00",
+                "stuffing_start_at": "2026-08-16T11:00:00",
+                "stuffing_end_at": "2026-08-16T15:00:00",
+                "port_gate_in_at": "2026-08-17T08:00:00",
+            }
+        )
+        record = create_cargo_shipping_service(self.db, schema)
+        self.assertEqual(record.shipment_type, "LCL")
+        self.assertEqual(record.lcl_tracking_data["tracking_status"], "GATED_IN_AT_PORT")
+        self.assertFalse(record.lcl_tracking_data["is_sla_breached"])
+
+    def test_soft_delete_and_restore_on_edit(self):
+        from modules.cargo_shipping.repository import get_cargo_shipping_by_id
+        schema = CargoShippingCreate(import_file_id=self.import_file_id)
+        record = create_cargo_shipping_service(self.db, schema)
+        rec_id = record.cargo_shipping_id
+
+        # 1. Soft Delete
+        soft_delete_cargo_shipping_service(self.db, rec_id)
+        deleted_check = get_cargo_shipping_by_id(self.db, rec_id, include_inactive=False)
+        self.assertIsNone(deleted_check)
+
+        # 2. Update/Edit automatically reactivates
+        update_cargo_shipping_service(self.db, rec_id, CargoShippingUpdate(notes="Updated and restored"))
+        restored_check = get_cargo_shipping_service(self.db, rec_id, include_inactive=False)
+        self.assertIsNotNone(restored_check)
+        self.assertTrue(restored_check.is_active)
+        self.assertEqual(restored_check.notes, "Updated and restored")
 
     def test_dual_approval_workflow(self):
         schema = CargoShippingCreate(import_file_id=self.import_file_id)
@@ -168,21 +363,62 @@ class TestCargoShippingModule(unittest.TestCase):
         self.assertIsNotNone(record.cargox_exchange_data["blockchain_tx_hash"])
         self.assertEqual(record.status, "CargoX Transfer Completed")
 
-    def test_soft_delete_and_restore(self):
-        schema = CargoShippingCreate(import_file_id=self.import_file_id)
-        record = create_cargo_shipping_service(self.db, schema)
-        rec_id = record.cargo_shipping_id
+    def test_container_reuse_conflict_15_day_window(self):
+        # 1. Create first shipment with container MSKU9999999 and seal SL-001 on 2026-08-16
+        schema1 = CargoShippingCreate(
+            import_file_id=self.import_file_id,
+            containers_loading_data=[
+                ContainerLoadingItem(
+                    container_no="MSKU9999999",
+                    seal_no="SL-001",
+                    container_assignment_date="2026-08-16T10:00:00",
+                )
+            ]
+        )
+        create_cargo_shipping_service(self.db, schema1)
 
-        # Delete
-        success = soft_delete_cargo_shipping_service(self.db, rec_id)
-        self.assertTrue(success)
+        # 2. Create second file
+        file2 = ImportFile(
+            import_file_code="IMP-2026-0002",
+            company_name="Beta Company",
+            company_id=1,
+            supplier_name="Global Supplier Inc",
+            is_active=True,
+        )
+        self.db.add(file2)
+        self.db.commit()
+        self.db.refresh(file2)
 
-        # Restore
-        from modules.cargo_shipping.service import restore_cargo_shipping_service
-        restored = restore_cargo_shipping_service(self.db, rec_id)
-        self.assertIsNotNone(restored)
-        self.assertEqual(restored.cargo_shipping_id, rec_id)
-        self.assertTrue(restored.is_active)
+        # 3. Same container + SAME seal within 15 days (e.g. 5 days later) -> MUST FAIL (HTTP 400)
+        schema2_conflict = CargoShippingCreate(
+            import_file_id=file2.import_file_id,
+            containers_loading_data=[
+                ContainerLoadingItem(
+                    container_no="MSKU9999999",
+                    seal_no="SL-001", # Same seal!
+                    container_assignment_date="2026-08-20T10:00:00", # 4 days later (<= 15 days)
+                )
+            ]
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            create_cargo_shipping_service(self.db, schema2_conflict)
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("لا يمكن استخدام نفس رقم الحاوية (MSKU9999999) ونفس رقم السيل (SL-001) في محيط زمني 15 يوماً", ctx.exception.detail)
+
+        # 4. Same container + DIFFERENT seal within 15 days -> MUST SUCCEED
+        schema2_ok_diff_seal = CargoShippingCreate(
+            import_file_id=file2.import_file_id,
+            containers_loading_data=[
+                ContainerLoadingItem(
+                    container_no="MSKU9999999",
+                    seal_no="SL-NEW-999", # Different seal!
+                    container_assignment_date="2026-08-20T10:00:00",
+                )
+            ]
+        )
+        rec2 = create_cargo_shipping_service(self.db, schema2_ok_diff_seal)
+        self.assertIsNotNone(rec2)
+        self.assertEqual(rec2.containers_loading_data[0]["seal_no"], "SL-NEW-999")
 
 if __name__ == "__main__":
     unittest.main()

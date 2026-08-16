@@ -52,6 +52,19 @@ def get_assessment_by_id(db: Session, assessment_id: int) -> Optional[ImportRequ
     ).first()
 
 
+def get_assessment_by_id_include_inactive(db: Session, assessment_id: int) -> Optional[ImportRequirementAssessment]:
+    return db.query(ImportRequirementAssessment).filter(
+        ImportRequirementAssessment.assessment_id == assessment_id
+    ).first()
+
+
+def get_assessment_by_import_file(db: Session, import_file_id: int) -> Optional[ImportRequirementAssessment]:
+    return db.query(ImportRequirementAssessment).filter(
+        ImportRequirementAssessment.import_file_id == import_file_id,
+        ImportRequirementAssessment.is_active == True
+    ).first()
+
+
 def create_assessment(db: Session, obj_data: dict) -> ImportRequirementAssessment:
     obj = ImportRequirementAssessment(**obj_data)
     db.add(obj)
@@ -61,12 +74,24 @@ def create_assessment(db: Session, obj_data: dict) -> ImportRequirementAssessmen
 
 
 def update_assessment(db: Session, assessment_id: int, update_data: dict) -> Optional[ImportRequirementAssessment]:
-    obj = get_assessment_by_id(db, assessment_id)
+    obj = get_assessment_by_id_include_inactive(db, assessment_id)
     if not obj:
         return None
     for key, value in update_data.items():
         if hasattr(obj, key):
             setattr(obj, key, value)
+    obj.is_active = True  # Automatically restore / reactivate on update
+    obj.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def restore_assessment(db: Session, assessment_id: int) -> Optional[ImportRequirementAssessment]:
+    obj = get_assessment_by_id_include_inactive(db, assessment_id)
+    if not obj:
+        return None
+    obj.is_active = True
     obj.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(obj)

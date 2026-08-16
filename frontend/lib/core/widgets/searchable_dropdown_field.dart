@@ -53,6 +53,9 @@ class SearchableDropdownField<T> extends FormField<T> {
               selectedItem = null;
             }
 
+            final hasValue = selectedItem != null || (value != null && value.toString().trim().isNotEmpty);
+            final displayText = selectedItem?.label ?? (value != null && value.toString().trim().isNotEmpty ? value.toString() : (hintText ?? ''));
+
             final effectiveDecoration = (decoration ??
                     InputDecoration(
                       labelText: labelText,
@@ -85,13 +88,13 @@ class SearchableDropdownField<T> extends FormField<T> {
                   : null,
               child: InputDecorator(
                 decoration: effectiveDecoration,
-                isEmpty: selectedItem == null,
+                isEmpty: !hasValue,
                 child: Text(
-                  selectedItem?.label ?? hintText ?? '',
+                  displayText,
                   style: TextStyle(
                     fontSize: 13,
-                    color: selectedItem != null ? AppTheme.charcoal : Colors.grey.shade600,
-                    fontWeight: selectedItem != null ? FontWeight.w500 : FontWeight.normal,
+                    color: hasValue ? AppTheme.charcoal : Colors.grey.shade600,
+                    fontWeight: hasValue ? FontWeight.w500 : FontWeight.normal,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -135,9 +138,19 @@ class _SearchableDropdownDialogState<T> extends State<_SearchableDropdownDialog<
   }
 
   List<SearchableDropdownItem<T>> get _filteredItems {
-    if (_query.trim().isEmpty) return widget.items;
+    final effectiveItems = List<SearchableDropdownItem<T>>.from(widget.items);
+    if (widget.selectedValue != null && !effectiveItems.any((i) => i.value == widget.selectedValue)) {
+      effectiveItems.insert(
+        0,
+        SearchableDropdownItem<T>(
+          value: widget.selectedValue as T,
+          label: widget.selectedValue.toString(),
+        ),
+      );
+    }
+    if (_query.trim().isEmpty) return effectiveItems;
     final q = _query.trim().toLowerCase();
-    return widget.items.where((item) {
+    return effectiveItems.where((item) {
       final labelMatch = item.label.toLowerCase().contains(q);
       final searchValMatch = item.searchValue?.toLowerCase().contains(q) ?? false;
       final subtitleMatch = item.subtitle?.toLowerCase().contains(q) ?? false;

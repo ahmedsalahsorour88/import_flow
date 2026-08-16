@@ -18,6 +18,11 @@ import '../../suppliers/providers/suppliers_provider.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../widgets/legal_compliance_banner.dart';
+import '../widgets/po_reconciliation_tab.dart';
+import '../widgets/draft_bl_review_tab.dart';
+import '../widgets/coo_review_tab.dart';
+import '../widgets/inspection_review_tab.dart';
 
 class ImportDocumentationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -32,6 +37,9 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
 
   // ACID Workflow Sub-Tab (0: Request, 1: Smart Import, 2: Discrepancy & Verification, 3: Registry)
   int _acidSubTab = 0;
+
+  // Phase 6 Shipment Docs & Reviews Sub-Tab (0: PO Reconciliation, 1: Draft B/L, 2: COO/EUR.1, 3: Inspection, 4: Central Docs)
+  int _shipmentDocsSubTab = 0;
 
   // 1. ACID Request Form Controllers (BP-014)
   final _acidRequestFormKey = GlobalKey<FormState>();
@@ -78,6 +86,8 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
 
   // 3. Discrepancy Matrix & Verification State
   AcidComparisonResult? _comparisonResult;
+  int _matrixViewMode = 0; // 0: مصفوفة المقارنة المباشرة, 1: سجل المقارنة والتحقق لجميع الـ ACID
+  String _comparisonAuditSearch = '';
   final TextEditingController _overrideReasonCtrl = TextEditingController();
   final TextEditingController _issuedAcidNumberCtrl = TextEditingController();
   final TextEditingController _generatedDateCtrl = TextEditingController(text: DateTime.now().toString().substring(0, 10));
@@ -104,6 +114,16 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
   String _form4SearchQuery = '';
   String _form4StatusFilter = 'All';
   bool _isSavingForm4 = false;
+  final Map<String, bool> _form4DocsChecklist = {
+    'proforma_invoice': true,
+    'packing_list': true,
+    'certificate_of_origin': true,
+    'bill_of_lading': true,
+    'acid_notice': true,
+    'marine_insurance': false,
+    'bank_application': true,
+    'admin_fee_receipt': false,
+  };
 
   // Document Registry State (BP-016 to BP-018)
   final _docFormKey = GlobalKey<FormState>();
@@ -222,10 +242,13 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       _importerAddressCtrl.text = matchedComp.address;
     }
 
-    // Auto extract supplier data
+    // Auto extract supplier data & CargoX ID
     _exporterNameCtrl.text = file.supplierName;
     final suppliers = ref.read(suppliersProvider).value ?? [];
-    final matchedSupp = suppliers.where((s) => s.supplierId == file.supplierId || s.companyName == file.supplierName).firstOrNull;
+    final matchedSupp = suppliers.where((s) => 
+        s.supplierId == file.supplierId || 
+        s.companyName.trim().toLowerCase() == file.supplierName.trim().toLowerCase()
+    ).firstOrNull;
     if (matchedSupp != null) {
       _selectedSupplierId = matchedSupp.supplierId;
       _exporterRegTypeCtrl.text = matchedSupp.registrationType;
@@ -234,6 +257,9 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       _exporterCountryCodeCtrl.text = matchedSupp.foreignExporterCountryCode;
       _exporterAddressCtrl.text = matchedSupp.address;
       _exporterPhoneCtrl.text = matchedSupp.phone ?? matchedSupp.mobile ?? '';
+      _cargoxIdCtrl.text = matchedSupp.cargoxPlatformId ?? '';
+    } else {
+      _cargoxIdCtrl.clear();
     }
 
     // Auto extract broker data
@@ -247,9 +273,41 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       }
     }
 
-    // Auto extract invoice & PO data
-    _proformaNoCtrl.text = file.piNumber ?? '';
-    _poNoCtrl.text = file.poNumber ?? '';
+    // Auto extract linked POs and Invoices data & dates
+    final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final linkedPOs = poList.where((p) => p.importFileId == fileId || (file.poIds?.contains(p.poId) ?? false)).toList();
+    final primaryPO = linkedPOs.isNotEmpty ? linkedPOs.first : null;
+
+    if (primaryPO != null) {
+      _poNoCtrl.text = primaryPO.poNumber;
+      final poDateStr = primaryPO.orderDate.toString().substring(0, 10);
+      _poDateCtrl.text = poDateStr;
+      if (primaryPO.proformaInvoiceNumber != null && primaryPO.proformaInvoiceNumber!.isNotEmpty) {
+        _proformaNoCtrl.text = primaryPO.proformaInvoiceNumber!;
+      }
+    } else {
+      _poNoCtrl.text = file.poNumber ?? '';
+    }
+
+    if (file.invoicesData.isNotEmpty) {
+      final firstInv = file.invoicesData.first;
+      _proformaNoCtrl.text = firstInv.invoiceNo;
+      final invDateStr = (firstInv.date != null && firstInv.date!.isNotEmpty) 
+          ? firstInv.date! 
+          : (primaryPO != null ? primaryPO.orderDate.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10));
+      _proformaDateCtrl.text = invDateStr;
+      _invoiceDateCtrl.text = invDateStr;
+      _invoiceTypeCtrl.text = firstInv.invoiceType.isNotEmpty ? firstInv.invoiceType : 'Proforma Invoice';
+    } else {
+      if (_proformaNoCtrl.text.isEmpty) {
+        _proformaNoCtrl.text = file.piNumber ?? '';
+      }
+      if (primaryPO != null) {
+        final dStr = primaryPO.orderDate.toString().substring(0, 10);
+        _proformaDateCtrl.text = dStr;
+        _invoiceDateCtrl.text = dStr;
+      }
+    }
 
     // If file already has an ACID, populate it
     if (file.acidNumber != null && file.acidNumber!.isNotEmpty) {
@@ -316,6 +374,70 @@ class _ImportDocumentationScreenState extends ConsumerState<ImportDocumentationS
       _requestNotesCtrl.text = session.verificationNotes ?? '';
       _issuedAcidNumberCtrl.text = session.acidNumber;
       _acidSubTab = 0; // Go to Request Tab
+    });
+  }
+
+
+  void _loadAcidSessionForComparison(AcidRegistrationModel session) {
+    setState(() {
+      _activeEditingAcidId = session.acidId;
+      _activeEditingAcidCode = session.acidCode;
+      _selectedImportFileId = session.importFileId;
+      _importerNameCtrl.text = session.importerName;
+      _importerTaxIdCtrl.text = session.importerTaxId;
+      _importerAddressCtrl.text = session.importerAddress ?? '';
+      _exporterNameCtrl.text = session.exporterName;
+      _exporterRegTypeCtrl.text = session.exporterRegType ?? 'VAT Number';
+      _exporterRegIdCtrl.text = session.exporterRegId;
+      _exporterCountryCtrl.text = session.exporterCountry;
+      _exporterCountryCodeCtrl.text = session.exporterCountryCode ?? '';
+      _exporterAddressCtrl.text = session.exporterAddress ?? '';
+      _exporterPhoneCtrl.text = session.exporterPhone ?? '';
+      _cargoxIdCtrl.text = session.cargoxId ?? '';
+      _proformaNoCtrl.text = session.proformaInvoiceNo;
+      _proformaDateCtrl.text = session.proformaInvoiceDate ?? '';
+      _invoiceDateCtrl.text = session.invoiceDate ?? '';
+      _invoiceTypeCtrl.text = session.invoiceType ?? 'Proforma Invoice';
+      _poNoCtrl.text = session.poNumber ?? '';
+      _poDateCtrl.text = session.poDate ?? '';
+      _polCtrl.text = session.polName;
+      _podCtrl.text = session.podName;
+      _selectedBrokerId = session.customsBrokerId;
+      _brokerNameCtrl.text = session.customsBrokerName ?? '';
+      _brokerPhoneCtrl.text = session.customsBrokerPhone ?? '';
+      _requestedDateCtrl.text = session.requestedDate ?? DateTime.now().toIso8601String().substring(0, 10);
+      _issuedAcidNumberCtrl.text = session.acidNumber;
+      if (session.generatedDate != null) _generatedDateCtrl.text = session.generatedDate!;
+      if (session.expiryDate != null) _expiryDateCtrl.text = session.expiryDate!;
+      _overrideReasonCtrl.text = session.discrepancyOverrideReason ?? '';
+
+      if (session.discrepanciesData != null && session.discrepanciesData!.isNotEmpty) {
+        _comparisonResult = AcidComparisonResult.fromJson(session.discrepanciesData!);
+      } else {
+        final req = session.requestedData ?? _buildRequestedDataMap();
+        final gen = session.generatedData ?? {
+          'acid_number': session.acidNumber,
+          'importer_name': session.importerName,
+          'importer_tax_id': session.importerTaxId,
+          'exporter_name': session.exporterName,
+          'exporter_reg_id': session.exporterRegId,
+          'exporter_country': session.exporterCountry,
+          'cargox_id': session.cargoxId ?? '',
+          'proforma_invoice_no': session.proformaInvoiceNo,
+          'proforma_invoice_date': session.proformaInvoiceDate ?? '',
+          'po_number': session.poNumber ?? '',
+          'pol_name': session.polName,
+          'pod_name': session.podName,
+          'generated_date': session.generatedDate,
+          'expiry_date': session.expiryDate,
+        };
+        ref.read(acidSessionsProvider.notifier).compareAcid(req, gen).then((comp) {
+          if (mounted) setState(() => _comparisonResult = comp);
+        });
+      }
+
+      _acidSubTab = 2; // Jump to Tab 3
+      _matrixViewMode = 0; // Show detailed matrix
     });
   }
 
@@ -948,20 +1070,27 @@ Please note that the required documents for the mentioned shipment must be uploa
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
+      body: Column(
         children: [
-          // TAB 1: REDESIGNED ACID & NAFEZA WORKSPACE (BP-014)
-          _buildAcidWorkspaceTab(),
+          LegalComplianceBanner(importFileId: _selectedImportFileId),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                // TAB 1: REDESIGNED ACID & NAFEZA WORKSPACE (BP-014)
+                _buildAcidWorkspaceTab(),
 
-          // TAB 2: BANKING DOCUMENTS (BP-015)
-          _buildBankingDocsTab(),
+                // TAB 2: BANKING DOCUMENTS (BP-015)
+                _buildBankingDocsTab(),
 
-          // TAB 3: SHIPMENT DOCUMENTS & CARGOX (BP-016 to BP-018)
-          _buildShipmentDocsTab(),
+                // TAB 3: SHIPMENT DOCUMENTS & CARGOX & REVIEWS (BP-016 to BP-018 + Phase 6)
+                _buildShipmentDocsTab(),
 
-          // TAB 4: DECLARATION 46 PREPARATION (BP-019)
-          _buildDeclaration46Tab(),
+                // TAB 4: DECLARATION 46 PREPARATION (BP-019)
+                _buildDeclaration46Tab(),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -1301,7 +1430,11 @@ Please note that the required documents for the mentioned shipment must be uploa
                       Expanded(
                         child: TextFormField(
                           controller: _cargoxIdCtrl,
-                          decoration: const InputDecoration(labelText: 'CargoX Exporter ID', border: OutlineInputBorder()),
+                          decoration: const InputDecoration(
+                            labelText: 'CargoX Exporter ID (معرف كارجو اكس)',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.badge_outlined, color: AppTheme.cobalt),
+                          ),
                         ),
                       ),
                     ],
@@ -1342,14 +1475,44 @@ Please note that the required documents for the mentioned shipment must be uploa
                       Expanded(
                         child: TextFormField(
                           controller: _proformaDateCtrl,
-                          decoration: const InputDecoration(labelText: 'Proforma Invoice Date (تاريخ الفاتورة المبدئية)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                            labelText: 'Proforma Invoice Date (تاريخ الفاتورة المبدئية)',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month, size: 20),
+                              onPressed: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.tryParse(_proformaDateCtrl.text) ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (d != null) setState(() => _proformaDateCtrl.text = d.toString().substring(0, 10));
+                              },
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
                           controller: _invoiceDateCtrl,
-                          decoration: const InputDecoration(labelText: 'Invoice Date (تاريخ الفاتورة)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                            labelText: 'Invoice Date (تاريخ الفاتورة)',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month, size: 20),
+                              onPressed: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.tryParse(_invoiceDateCtrl.text) ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (d != null) setState(() => _invoiceDateCtrl.text = d.toString().substring(0, 10));
+                              },
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1374,7 +1537,22 @@ Please note that the required documents for the mentioned shipment must be uploa
                       Expanded(
                         child: TextFormField(
                           controller: _poDateCtrl,
-                          decoration: const InputDecoration(labelText: 'Purchase Order Date (تاريخ أمر الشراء)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(
+                            labelText: 'Purchase Order Date (تاريخ أمر الشراء)',
+                            border: const OutlineInputBorder(),
+                            suffixIcon: IconButton(
+                              icon: const Icon(Icons.calendar_month, size: 20),
+                              onPressed: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: DateTime.tryParse(_poDateCtrl.text) ?? DateTime.now(),
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2030),
+                                );
+                                if (d != null) setState(() => _poDateCtrl.text = d.toString().substring(0, 10));
+                              },
+                            ),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -1472,40 +1650,92 @@ Please note that the required documents for the mentioned shipment must be uploa
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300)),
             child: Row(
               children: [
+                // 1. Live Refresh
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.charcoal,
+                    side: BorderSide(color: Colors.grey.shade400),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  onPressed: _refreshAllData,
+                  icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                  label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+
+                // 2. Clear Form & Start New
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.grey.shade800,
+                    side: BorderSide(color: Colors.grey.shade400),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      _selectedImportFileId = null;
+                      _activeEditingAcidId = null;
+                      _comparisonResult = null;
+                      _importerNameCtrl.clear();
+                      _exporterNameCtrl.clear();
+                      _proformaNoCtrl.clear();
+                    });
+                  },
+                  icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+                  label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-                  icon: const Icon(Icons.print, color: Colors.white, size: 18),
-                  label: const Text('🖨️ طباعة الطلب (Print Slip)', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                  icon: const Icon(Icons.print, color: Colors.white, size: 16),
+                  label: const Text('🖨️ طباعة الطلب', style: TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: _showPrintPreviewDialog,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 6),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-                  icon: const Icon(Icons.chat, color: Colors.white, size: 18),
-                  label: const Text('💬 إرسال واتساب (WhatsApp)', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                  icon: const Icon(Icons.chat, color: Colors.white, size: 16),
+                  label: const Text('💬 واتساب', style: TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: _showWhatsAppDialog,
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 6),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
-                  icon: const Icon(Icons.email, color: Colors.white, size: 18),
-                  label: const Text('✉️ إرسال بالإيميل (Email)', style: TextStyle(color: Colors.white)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12)),
+                  icon: const Icon(Icons.email, color: Colors.white, size: 16),
+                  label: const Text('✉️ إيميل', style: TextStyle(color: Colors.white, fontSize: 11)),
                   onPressed: _showEmailDialog,
                 ),
                 const Spacer(),
+
+                // 3. Save Draft & Continue Later
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFEFF6FF),
+                    foregroundColor: AppTheme.cobalt,
+                    elevation: 0,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  onPressed: _isSavingRequest ? null : _saveAcidRequest,
+                  icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+                  label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+
+                // 4. Final Save / Update
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _activeEditingAcidId != null ? AppTheme.orange : AppTheme.emerald,
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 13),
                   ),
                   icon: _isSavingRequest
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                      : Icon(_activeEditingAcidId != null ? Icons.save_as_rounded : Icons.save, color: Colors.white),
+                      : Icon(_activeEditingAcidId != null ? Icons.save_as_rounded : Icons.check_circle_outline, color: Colors.white),
                   label: Text(
                     _isSavingRequest
                         ? 'جاري الحفظ...'
-                        : (_activeEditingAcidId != null ? '💾 حفظ تعديلات طلب الـ ACID' : '💾 حفظ طلب الـ ACID (Save Request)'),
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        : (_activeEditingAcidId != null ? 'تحديث وحفظ طلب الـ ACID 💾' : 'حفظ وتأكيد طلب الـ ACID ✅'),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: _isSavingRequest ? null : _saveAcidRequest,
                 ),
@@ -1609,270 +1839,617 @@ Please note that the required documents for the mentioned shipment must be uploa
   // --- SUB-VIEW 3: DISCREPANCY MATRIX & VERIFICATION STAGE ---
   Widget _buildDiscrepancyAndVerificationStageView() {
     final comp = _comparisonResult;
+    final acidSessions = ref.watch(acidSessionsProvider).value ?? [];
+
+    final totalAudited = acidSessions.length;
+    final fullyMatchedCount = acidSessions.where((s) => s.status == 'Verified' || s.isVerified).length;
+    final discrepancyAcceptedCount = acidSessions.where((s) => s.status == 'Discrepancy_Accepted' || s.hasDiscrepancies).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Match status summary card
+        // 1. Selector & View Mode Switcher Header Card
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: (comp?.allMatched ?? true) ? Colors.green.shade50 : Colors.orange.shade50,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    (comp?.allMatched ?? true) ? Icons.check_circle : Icons.warning,
-                    color: (comp?.allMatched ?? true) ? Colors.green : Colors.orange,
-                    size: 32,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        (comp?.allMatched ?? true) ? 'نتيجة التدقيق: متطابق بالكامل (100% Match)' : 'نتيجة التدقيق: يوجد اختلافات بين ما طُلب وما صَدَر',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: (comp?.allMatched ?? true) ? Colors.green.shade800 : Colors.orange.shade900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'إجمالي الحقول المقارنة: ${comp?.totalComparedFields ?? 0} | الحقول المتطابقة: ${comp?.matchedCount ?? 0} | الاختلافات: ${comp?.discrepantCount ?? 0}',
-                        style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: (comp?.allMatched ?? true) ? AppTheme.emerald : Colors.orange,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    'نسبة التطابق: ${comp?.matchPercentage ?? 100}%',
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Side-by-Side Discrepancy Matrix Table
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('📊 مصفوفة المقارنة المباشرة (Requested vs Generated Comparison)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const Divider(),
-                const SizedBox(height: 10),
-                if (comp == null || comp.items.isEmpty) ...[
-                  const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(24),
-                      child: Text('قم بتحليل نص الإشعار أو إدخال البيانات لعرض مصفوفة الفروقات والمقارنة الحية.'),
-                    ),
-                  ),
-                ] else ...[
-                  Table(
-                    border: TableBorder.all(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6)),
-                    columnWidths: const {
-                      0: FlexColumnWidth(2.0),
-                      1: FlexColumnWidth(3.0),
-                      2: FlexColumnWidth(3.0),
-                      3: FlexColumnWidth(1.5),
-                    },
-                    children: [
-                      TableRow(
-                        decoration: BoxDecoration(color: Colors.grey.shade200),
-                        children: const [
-                          Padding(padding: EdgeInsets.all(10), child: Text('اسم الحقل والبيان', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(10), child: Text('ما تم طلبه (Requested)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(10), child: Text('ما تم إصداره من نافذة (Generated)', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(10), child: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        ],
-                      ),
-                      ...comp.items.map((item) {
-                        return TableRow(
-                          decoration: BoxDecoration(
-                            color: item.isMatched ? Colors.transparent : Colors.orange.shade50,
-                          ),
-                          children: [
-                            Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(item.labelAr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  Text(item.labelEn, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
-                                ],
-                              ),
-                            ),
-                            Padding(padding: const EdgeInsets.all(10), child: Text(item.requestedValue.isEmpty ? '-' : item.requestedValue)),
-                            Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: Text(
-                                item.generatedValue.isEmpty ? '-' : item.generatedValue,
-                                style: TextStyle(
-                                  fontWeight: item.isMatched ? FontWeight.normal : FontWeight.bold,
-                                  color: item.isMatched ? Colors.black87 : Colors.red.shade800,
-                                ),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(10),
-                              child: item.isMatched
-                                  ? const Row(children: [Icon(Icons.check_circle, color: Colors.green, size: 16), SizedBox(width: 4), Text('متطابق ✅', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))])
-                                  : Row(children: [const Icon(Icons.error_outline, color: Colors.orange, size: 16), const SizedBox(width: 4), Text('يوجد اختلاف ⚠️', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12))]),
-                            ),
-                          ],
-                        );
-                      }),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Issued ACID Numbers & Dates Confirmation Card
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('🔢 بيانات الإصدار وتاريخ الصلاحية (ACID Generated Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                const Divider(),
-                const SizedBox(height: 10),
                 Row(
                   children: [
                     Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _issuedAcidNumberCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم الـ ACID الصادر (19 رقمًا) *',
-                          border: OutlineInputBorder(),
-                          prefixIcon: Icon(Icons.verified, color: AppTheme.cobalt),
-                        ),
+                      flex: 3,
+                      child: SearchableDropdownField<int?>(
+                        value: _activeEditingAcidId,
+                        labelText: 'اختيار جلسة ACID لعرض سجل المقارنة والتدقيق',
+                        searchHintText: 'ابحث برقم الـ ACID أو كود الشحنة أو المورد...',
+                        items: [
+                          const SearchableDropdownItem<int?>(value: null, label: '-- الجلسة الحالية المحللة (Current Live Session) --'),
+                          ...acidSessions.map((s) => SearchableDropdownItem<int?>(
+                                value: s.acidId,
+                                label: '${s.acidCode} | ACID: ${s.acidNumber} (${s.importFileCode ?? "غير مربوط"})',
+                                subtitle: 'المورد: ${s.exporterName} | الحالة: ${s.status}',
+                              )),
+                        ],
+                        onChanged: (id) {
+                          if (id == null) {
+                            setState(() {
+                              _activeEditingAcidId = null;
+                              _matrixViewMode = 0;
+                            });
+                          } else {
+                            final matched = acidSessions.where((s) => s.acidId == id).firstOrNull;
+                            if (matched != null) {
+                              _loadAcidSessionForComparison(matched);
+                            }
+                          }
+                        },
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _generatedDateCtrl,
-                        decoration: const InputDecoration(labelText: 'تاريخ الإصدار (Generated Date)', border: OutlineInputBorder()),
+                    const SizedBox(width: 16),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _expiryDateCtrl,
-                        decoration: const InputDecoration(labelText: 'تاريخ الانتهاء (Expiry Date)', border: OutlineInputBorder()),
+                      padding: const EdgeInsets.all(4),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            onTap: () => setState(() => _matrixViewMode = 0),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _matrixViewMode == 0 ? AppTheme.cobalt : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.table_chart_outlined, size: 18, color: _matrixViewMode == 0 ? Colors.white : Colors.black87),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'مصفوفة المقارنة المباشرة',
+                                    style: TextStyle(
+                                      color: _matrixViewMode == 0 ? Colors.white : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: () => setState(() => _matrixViewMode = 1),
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _matrixViewMode == 1 ? AppTheme.cobalt : Colors.transparent,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.history_edu, size: 18, color: _matrixViewMode == 1 ? Colors.white : Colors.black87),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    'سجل المقارنة والتحقق لجميع الـ ACID',
+                                    style: TextStyle(
+                                      color: _matrixViewMode == 1 ? Colors.white : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
                 ),
-                if (comp != null && !comp.allMatched) ...[
-                  const SizedBox(height: 16),
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade300)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.edit_note, color: Colors.amber, size: 20),
-                            SizedBox(width: 6),
-                            Text('سبب الاستمرار واعتماد الـ ACID رغم وجود الفروقات (Override Reason Note):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        TextFormField(
-                          controller: _overrideReasonCtrl,
-                          decoration: const InputDecoration(
-                            hintText: 'مثال: تم قبول تعديل ميناء الشحن بموافقة الجمارك / اختلاف طفيف في تهجئة الاسم تم اعتماده...',
-                            border: OutlineInputBorder(),
-                            filled: true,
-                            fillColor: Colors.white,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 14),
 
-        // Actions: Return for edit OR Proceed with override / Verify
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300)),
-          child: Row(
+        // 2. VIEW MODE 1: ALL ACID COMPARISONS REGISTRY TABLE
+        if (_matrixViewMode == 1) ...[
+          // Stats Row
+          Row(
             children: [
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                  side: const BorderSide(color: Colors.orange),
+              Expanded(
+                child: Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.verified_user, color: AppTheme.cobalt, size: 28),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('إجمالي جلسات الـ ACID', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text('$totalAudited جلسة', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                icon: const Icon(Icons.replay, color: Colors.orange),
-                label: const Text('🔄 العودة للتعديل وإخطار المخلص (Return for Revision)', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  setState(() => _acidSubTab = 0);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('تم الرجوع لنموذج الطلب لإجراء التعديلات المطلوبة'), backgroundColor: Colors.orange),
-                  );
-                },
               ),
-              const Spacer(),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: (comp?.allMatched ?? true) ? AppTheme.emerald : Colors.blue.shade700,
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle, color: AppTheme.emerald, size: 28),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('مطابقة بنسبة 100%', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text('$fullyMatchedCount جلسة', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                icon: _isSavingVerification
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.verified, color: Colors.white),
-                label: Text(
-                  _isSavingVerification
-                      ? 'جاري الاعتماد...'
-                      : (comp?.allMatched ?? true)
-                          ? '✅ اعتماد وتوثيق الـ ACID (Verify & Link Shipment)'
-                          : '💾 الاستمرار واعتماد الـ ACID مع سبب التجاوز (Proceed & Save)',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Card(
+                  elevation: 1,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber, color: Colors.orange, size: 28),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('معتمدة مع تجاوز فروقات', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text('$discrepancyAcceptedCount جلسة', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange)),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                onPressed: _isSavingVerification ? null : () => _saveVerificationDecision(proceedWithOverride: !(comp?.allMatched ?? true)),
               ),
             ],
           ),
-        ),
+          const SizedBox(height: 14),
+
+          // Audit Table Card
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('📑 سجل عمليات التدقيق والمقارنة لكافة الـ ACID (ACID Verification Log):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const Spacer(),
+                      SizedBox(
+                        width: 320,
+                        child: TextField(
+                          decoration: const InputDecoration(
+                            hintText: 'بحث في سجل المقارنة والتحقق...',
+                            prefixIcon: Icon(Icons.search, size: 20),
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (v) => setState(() => _comparisonAuditSearch = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 8),
+                  if (acidSessions.isEmpty) ...[
+                    const Center(child: Padding(padding: EdgeInsets.all(32), child: Text('لا توجد جلسات ACID مسجلة حتى الآن.'))),
+                  ] else ...[
+                    Builder(builder: (context) {
+                      final q = _comparisonAuditSearch.trim().toLowerCase();
+                      final filtered = acidSessions.where((s) {
+                        if (q.isEmpty) return true;
+                        return s.acidCode.toLowerCase().contains(q) ||
+                            s.acidNumber.contains(q) ||
+                            (s.importFileCode ?? '').toLowerCase().contains(q) ||
+                            s.importerName.toLowerCase().contains(q) ||
+                            s.exporterName.toLowerCase().contains(q);
+                      }).toList();
+
+                      return SizedBox(
+                        width: double.infinity,
+                        child: DataTable(
+                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                          columns: const [
+                            DataColumn(label: Text('كود السجل', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('رقم الـ ACID الصادر', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('المستورد والمصدر الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('الفاتورة وأمر الشراء', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('حالة التدقيق والمطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text('الإجراء', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                          rows: filtered.map((s) {
+                            final is100 = s.status == 'Verified' || s.isVerified;
+                            return DataRow(
+                              cells: [
+                                DataCell(Text(s.acidCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                DataCell(
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                      Text('صادر: ${s.generatedDate ?? "-"}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                                DataCell(Text(s.importFileCode ?? '—', style: const TextStyle(fontWeight: FontWeight.w600))),
+                                DataCell(
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(s.importerName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                                      Text(s.exporterName, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                                DataCell(
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('فاتورة: ${s.proformaInvoiceNo}', style: const TextStyle(fontSize: 11)),
+                                      Text('أمر شراء: ${s.poNumber ?? "-"}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                    ],
+                                  ),
+                                ),
+                                DataCell(
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: is100 ? Colors.green.shade50 : Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                      border: Border.all(color: is100 ? Colors.green.shade300 : Colors.orange.shade300),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(is100 ? Icons.check_circle : Icons.warning_amber, size: 14, color: is100 ? Colors.green : Colors.orange),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          is100 ? 'متطابق 100% (Verified)' : 'معتمد بفروقات (Discrepancy)',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                            color: is100 ? Colors.green.shade800 : Colors.orange.shade900,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                DataCell(
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.cobalt,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                                    ),
+                                    icon: const Icon(Icons.compare_arrows, size: 16, color: Colors.white),
+                                    label: const Text('عرض مصفوفة المقارنة', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                    onPressed: () => _loadAcidSessionForComparison(s),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
+                        ),
+                      );
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          // 3. VIEW MODE 0: SINGLE ACID SIDE-BY-SIDE MATRIX
+          // Match status summary card
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: (comp?.allMatched ?? true) ? Colors.green.shade50 : Colors.orange.shade50,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      (comp?.allMatched ?? true) ? Icons.check_circle : Icons.warning,
+                      color: (comp?.allMatched ?? true) ? Colors.green : Colors.orange,
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          (comp?.allMatched ?? true) ? 'نتيجة التدقيق: متطابق بالكامل (100% Match)' : 'نتيجة التدقيق: يوجد اختلافات بين ما طُلب وما صَدَر',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: (comp?.allMatched ?? true) ? Colors.green.shade800 : Colors.orange.shade900,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'إجمالي الحقول المقارنة: ${comp?.totalComparedFields ?? 0} | الحقول المتطابقة: ${comp?.matchedCount ?? 0} | الاختلافات: ${comp?.discrepantCount ?? 0}',
+                          style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: (comp?.allMatched ?? true) ? AppTheme.emerald : Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'نسبة التطابق: ${comp?.matchPercentage ?? 100}%',
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Side-by-Side Discrepancy Matrix Table
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('📊 مصفوفة المقارنة المباشرة (Requested vs Generated Comparison)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const Spacer(),
+                      if (_activeEditingAcidCode != null)
+                        Chip(
+                          avatar: const Icon(Icons.verified, size: 16, color: Colors.white),
+                          label: Text('الجلسة: $_activeEditingAcidCode', style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          backgroundColor: AppTheme.cobalt,
+                        ),
+                    ],
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  if (comp == null || comp.items.isEmpty) ...[
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('قم باختيار جلسة من السجل أعلاه أو لصق نص الإشعار لعرض مصفوفة الفروقات والمقارنة الحية.'),
+                      ),
+                    ),
+                  ] else ...[
+                    Table(
+                      border: TableBorder.all(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(6)),
+                      columnWidths: const {
+                        0: FlexColumnWidth(2.0),
+                        1: FlexColumnWidth(3.0),
+                        2: FlexColumnWidth(3.0),
+                        3: FlexColumnWidth(1.5),
+                      },
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(color: Colors.grey.shade200),
+                          children: const [
+                            Padding(padding: EdgeInsets.all(10), child: Text('اسم الحقل والبيان', style: TextStyle(fontWeight: FontWeight.bold))),
+                            Padding(padding: EdgeInsets.all(10), child: Text('ما تم طلبه (Requested)', style: TextStyle(fontWeight: FontWeight.bold))),
+                            Padding(padding: EdgeInsets.all(10), child: Text('ما تم إصداره من نافذة (Generated)', style: TextStyle(fontWeight: FontWeight.bold))),
+                            Padding(padding: EdgeInsets.all(10), child: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                          ],
+                        ),
+                        ...comp.items.map((item) {
+                          return TableRow(
+                            decoration: BoxDecoration(
+                              color: item.isMatched ? Colors.transparent : Colors.orange.shade50,
+                            ),
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(item.labelAr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text(item.labelEn, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                                  ],
+                                ),
+                              ),
+                              Padding(padding: const EdgeInsets.all(10), child: Text(item.requestedValue.isEmpty ? '-' : item.requestedValue)),
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: Text(
+                                  item.generatedValue.isEmpty ? '-' : item.generatedValue,
+                                  style: TextStyle(
+                                    fontWeight: item.isMatched ? FontWeight.normal : FontWeight.bold,
+                                    color: item.isMatched ? Colors.black87 : Colors.red.shade800,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.all(10),
+                                child: item.isMatched
+                                    ? const Row(children: [Icon(Icons.check_circle, color: Colors.green, size: 16), SizedBox(width: 4), Text('متطابق ✅', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12))])
+                                    : Row(children: [const Icon(Icons.error_outline, color: Colors.orange, size: 16), const SizedBox(width: 4), Text('يوجد اختلاف ⚠️', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12))]),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Issued ACID Numbers & Dates Confirmation Card
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('🔢 بيانات الإصدار وتاريخ الصلاحية (ACID Generated Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  const Divider(),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          controller: _issuedAcidNumberCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: 'رقم الـ ACID الصادر (19 رقمًا) *',
+                            border: OutlineInputBorder(),
+                            prefixIcon: Icon(Icons.verified, color: AppTheme.cobalt),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _generatedDateCtrl,
+                          decoration: const InputDecoration(labelText: 'تاريخ الإصدار (Generated Date)', border: OutlineInputBorder()),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _expiryDateCtrl,
+                          decoration: const InputDecoration(labelText: 'تاريخ الانتهاء (Expiry Date)', border: OutlineInputBorder()),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (comp != null && !comp.allMatched) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.amber.shade300)),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.edit_note, color: Colors.amber, size: 20),
+                              SizedBox(width: 6),
+                              Text('سبب الاستمرار واعتماد الـ ACID رغم وجود الفروقات (Override Reason Note):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _overrideReasonCtrl,
+                            decoration: const InputDecoration(
+                              hintText: 'مثال: تم قبول تعديل ميناء الشحن بموافقة الجمارك / اختلاف طفيف في تهجئة الاسم تم اعتماده...',
+                              border: OutlineInputBorder(),
+                              filled: true,
+                              fillColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Actions: Return for edit OR Proceed with override / Verify
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300)),
+            child: Row(
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    side: const BorderSide(color: Colors.orange),
+                  ),
+                  icon: const Icon(Icons.replay, color: Colors.orange),
+                  label: const Text('🔄 العودة للتعديل وإخطار المخلص (Return for Revision)', style: TextStyle(color: Colors.orange, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    setState(() => _acidSubTab = 0);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم الرجوع لنموذج الطلب لإجراء التعديلات المطلوبة'), backgroundColor: Colors.orange),
+                    );
+                  },
+                ),
+                const Spacer(),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: (comp?.allMatched ?? true) ? AppTheme.emerald : Colors.blue.shade700,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  icon: _isSavingVerification
+                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.verified, color: Colors.white),
+                  label: Text(
+                    _isSavingVerification
+                        ? 'جاري الاعتماد...'
+                        : (comp?.allMatched ?? true)
+                            ? '✅ اعتماد وتوثيق الـ ACID (Verify & Link Shipment)'
+                            : '💾 الاستمرار واعتماد الـ ACID مع سبب التجاوز (Proceed & Save)',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  onPressed: _isSavingVerification ? null : () => _saveVerificationDecision(proceedWithOverride: !(comp?.allMatched ?? true)),
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1921,15 +2498,16 @@ Please note that the required documents for the mentioned shipment must be uploa
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
                         value: _acidStatusFilter,
-                        decoration: const InputDecoration(labelText: 'تصفية حسب الحالة', border: OutlineInputBorder()),
+                        labelText: 'تصفية حسب الحالة',
+                        searchHintText: 'ابحث عن الحالة...',
                         items: const [
-                          DropdownMenuItem(value: 'All', child: Text('جميع الحالات (All)')),
-                          DropdownMenuItem(value: 'Requested', child: Text('تحت الطلب (Requested)')),
-                          DropdownMenuItem(value: 'Generated', child: Text('صادر من نافذة (Generated)')),
-                          DropdownMenuItem(value: 'Verified', child: Text('ساري ومطابق (Verified)')),
-                          DropdownMenuItem(value: 'Discrepancy_Accepted', child: Text('معتمد بفروقات (Discrepancy Accepted)')),
+                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات (All)'),
+                          SearchableDropdownItem(value: 'Requested', label: 'تحت الطلب (Requested)'),
+                          SearchableDropdownItem(value: 'Generated', label: 'صادر من نافذة (Generated)'),
+                          SearchableDropdownItem(value: 'Verified', label: 'ساري ومطابق (Verified)'),
+                          SearchableDropdownItem(value: 'Discrepancy_Accepted', label: 'معتمد بفروقات (Discrepancy Accepted)'),
                         ],
                         onChanged: (v) => setState(() => _acidStatusFilter = v ?? 'All'),
                       ),
@@ -2861,13 +3439,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                         // Transaction Type Dropdown
                         Expanded(
                           flex: 2,
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: _bankDocType,
-                            decoration: const InputDecoration(labelText: 'نوع المعاملة البنكية *', border: OutlineInputBorder()),
+                            labelText: 'نوع المعاملة البنكية *',
+                            searchHintText: 'ابحث عن نوع المعاملة...',
                             items: const [
-                              DropdownMenuItem(value: 'Form 4', child: Text('نموذج 4 (Form 4 - تحويل بنكي)')),
-                              DropdownMenuItem(value: 'Form 9', child: Text('نموذج 9 (Form 9 - تحصيل مستندي)')),
-                              DropdownMenuItem(value: 'Letter of Credit (L/C)', child: Text('اعتماد مستندي (Letter of Credit)')),
+                              SearchableDropdownItem(value: 'Form 4', label: 'نموذج 4 (Form 4 - تحويل بنكي)'),
+                              SearchableDropdownItem(value: 'Form 9', label: 'نموذج 9 (Form 9 - تحصيل مستندي)'),
+                              SearchableDropdownItem(value: 'Letter of Credit (L/C)', label: 'اعتماد مستندي (Letter of Credit)'),
                             ],
                             onChanged: (v) => setState(() => _bankDocType = v ?? 'Form 4'),
                           ),
@@ -3097,6 +3676,11 @@ Please note that the required documents for the mentioned shipment must be uploa
 
                     const SizedBox(height: 20),
 
+                    // Attached Docs Checklist
+                    _buildForm4DocsChecklist(),
+
+                    const SizedBox(height: 20),
+
                     // Action Buttons
                     Row(
                       children: [
@@ -3155,6 +3739,192 @@ Please note that the required documents for the mentioned shipment must be uploa
   }
 
   // --- FORM 4 SUB-TAB 1: SAVED HISTORY REGISTRY (Matches Shipping Scenarios Style) ---
+
+  Widget _buildDocChecklistItem({
+    required String key,
+    required String titleAr,
+    required String titleEn,
+    required bool isRequired,
+  }) {
+    final isChecked = _form4DocsChecklist[key] ?? false;
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _form4DocsChecklist[key] = !isChecked;
+        });
+      },
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: isChecked ? Colors.blue.shade50 : Colors.grey.shade100,
+          border: Border.all(color: isChecked ? AppTheme.cobalt : Colors.grey.shade300, width: isChecked ? 1.5 : 1.0),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isChecked ? Icons.check_box : Icons.check_box_outline_blank,
+              color: isChecked ? AppTheme.cobalt : Colors.grey,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      titleAr,
+                      style: TextStyle(
+                        fontWeight: isChecked ? FontWeight.bold : FontWeight.normal,
+                        color: isChecked ? AppTheme.charcoal : Colors.grey.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
+                    if (isRequired) ...[
+                      const SizedBox(width: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade100,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          'إلزامي',
+                          style: TextStyle(color: Colors.red.shade900, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                Text(
+                  titleEn,
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForm4DocsChecklist() {
+    final checkedCount = _form4DocsChecklist.values.where((v) => v).length;
+    final totalCount = _form4DocsChecklist.length;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: Colors.blue.shade200),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.checklist_rtl, color: AppTheme.cobalt, size: 24),
+                const SizedBox(width: 8),
+                const Text(
+                  '📑 قائمة التحقق من المستندات المرفقة مع طلب نموذج 4 (Attached Documents Checklist):',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: checkedCount == totalCount ? AppTheme.emerald : Colors.orange,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '$checkedCount من $totalCount مستندات',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                  ),
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  icon: const Icon(Icons.select_all, size: 16),
+                  label: const Text('تحديد الكل', style: TextStyle(fontSize: 12)),
+                  onPressed: () {
+                    setState(() {
+                      _form4DocsChecklist.updateAll((key, value) => true);
+                    });
+                  },
+                ),
+              ],
+            ),
+            const Divider(),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _buildDocChecklistItem(
+                  key: 'proforma_invoice',
+                  titleAr: 'الفاتورة المبدئية / التجارية المعتمدة',
+                  titleEn: 'Proforma / Commercial Invoice',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'packing_list',
+                  titleAr: 'بيان العبوة ومواصفات الطرود',
+                  titleEn: 'Packing List',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'certificate_of_origin',
+                  titleAr: 'شهادة المنشأ الرسمية المصدقة',
+                  titleEn: 'Certificate of Origin (COO)',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'bill_of_lading',
+                  titleAr: 'بوليصة الشحن الأصلية / إذن التسليم',
+                  titleEn: 'Bill of Lading / AWB / Delivery Order',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'acid_notice',
+                  titleAr: 'إشعار الرقم التعريفي المبدئي للشحنة',
+                  titleEn: 'MTS Nafeza ACID Notification',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'marine_insurance',
+                  titleAr: 'وثيقة / شهادة التأمين البحري',
+                  titleEn: 'Marine Cargo Insurance Policy',
+                  isRequired: false,
+                ),
+                _buildDocChecklistItem(
+                  key: 'bank_application',
+                  titleAr: 'نموذج طلب التحويل وتوثيق نموذج 4 موقع ومختوم',
+                  titleEn: 'Stamped Bank Form 4 Application',
+                  isRequired: true,
+                ),
+                _buildDocChecklistItem(
+                  key: 'admin_fee_receipt',
+                  titleAr: 'إيصال سداد المصاريف الإدارية والعمولة البنكية',
+                  titleEn: 'Bank Fee / SWIFT Debit Advice',
+                  isRequired: false,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildForm4HistoryRegistryTab(List<BankingDocumentModel> docs, List<dynamic> importFiles) {
     final totalCount = docs.length;
     final requestedCount = docs.where((d) => d.status == 'Requested' || d.docReferenceNumber == 'PENDING').length;
@@ -3272,15 +4042,19 @@ Please note that the required documents for the mentioned shipment must be uploa
               ),
               const SizedBox(width: 14),
               // Status Filter
-              DropdownButton<String>(
-                value: _form4StatusFilter,
-                underline: const SizedBox(),
-                items: const [
-                  DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                  DropdownMenuItem(value: 'Requested', child: Text('قيد التنفيذ (Pending)')),
-                  DropdownMenuItem(value: 'Received', child: Text('تم الاستلام والتوثيق (Received)')),
-                ],
-                onChanged: (v) => setState(() => _form4StatusFilter = v ?? 'All'),
+              SizedBox(
+                width: 220,
+                child: SearchableDropdownField<String>(
+                  value: _form4StatusFilter,
+                  labelText: 'تصفية الحالة',
+                  searchHintText: 'ابحث عن الحالة...',
+                  items: const [
+                    SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                    SearchableDropdownItem(value: 'Requested', label: 'قيد التنفيذ (Pending)'),
+                    SearchableDropdownItem(value: 'Received', label: 'تم الاستلام والتوثيق (Received)'),
+                  ],
+                  onChanged: (v) => setState(() => _form4StatusFilter = v ?? 'All'),
+                ),
               ),
             ],
           ),
@@ -3469,8 +4243,88 @@ Please note that the required documents for the mentioned shipment must be uploa
     );
   }
 
-  // --- TAB 3: SHIPMENT DOCUMENTS & CARGOX ---
+  // --- TAB 3: SHIPMENT DOCUMENTS & CARGOX & INTELLIGENT REVIEWS (PHASE 6) ---
   Widget _buildShipmentDocsTab() {
+    return Column(
+      children: [
+        // Sub-Navigation Toolbar for Phase 6
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildShipmentSubTabButton(0, '1. مراجعة وتأكيد الفاتورة والباكينج ليست (PO Reconciliation)', Icons.compare),
+                const SizedBox(width: 8),
+                _buildShipmentSubTabButton(1, '2. درافت بوليصة الشحن (Draft B/L)', Icons.assignment_turned_in),
+                const SizedBox(width: 8),
+                _buildShipmentSubTabButton(2, '3. درافت شهادة المنشأ و EUR.1', Icons.flag_circle),
+                const SizedBox(width: 8),
+                _buildShipmentSubTabButton(3, '4. درافت شهادة الفحص والمطابقة', Icons.verified),
+                const SizedBox(width: 8),
+                _buildShipmentSubTabButton(4, '5. السجل المركزي للمستندات وتظهير CargoX', Icons.folder_shared),
+              ],
+            ),
+          ),
+        ),
+        const Divider(height: 1),
+
+        // Sub-Tab Content
+        Expanded(
+          child: _buildCurrentShipmentDocsSubTab(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildShipmentSubTabButton(int index, String title, IconData icon) {
+    bool isSelected = _shipmentDocsSubTab == index;
+    return InkWell(
+      onTap: () => setState(() => _shipmentDocsSubTab = index),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.cobalt : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.black87),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 13,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentShipmentDocsSubTab() {
+    switch (_shipmentDocsSubTab) {
+      case 0:
+        return POReconciliationTab(initialImportFileId: _selectedImportFileId);
+      case 1:
+        return DraftBLReviewTab(initialImportFileId: _selectedImportFileId);
+      case 2:
+        return COOReviewTab(initialImportFileId: _selectedImportFileId);
+      case 3:
+        return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
+      case 4:
+        return _buildCentralDocsAndCargoXView();
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  Widget _buildCentralDocsAndCargoXView() {
     final shipmentDocsState = ref.watch(shipmentDocumentsProvider);
 
     return SingleChildScrollView(
@@ -3495,15 +4349,23 @@ Please note that the required documents for the mentioned shipment must be uploa
                       children: [
                         Expanded(
                           flex: 2,
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: _docName,
-                            decoration: const InputDecoration(labelText: 'نوع المستند الرسمي *', border: OutlineInputBorder()),
+                            labelText: 'نوع المستند الرسمي *',
+                            searchHintText: 'ابحث عن نوع المستند...',
                             items: const [
-                              DropdownMenuItem(value: 'Commercial Invoice (الفاتورة التجارية)', child: Text('الفاتورة التجارية النهائية (Commercial Invoice)')),
-                              DropdownMenuItem(value: 'Packing List (بيان العبوة)', child: Text('بيان العبوة (Packing List)')),
-                              DropdownMenuItem(value: 'Bill of Lading (بوليصة الشحن)', child: Text('بوليصة الشحن البحرية/الجوية (B/L)')),
-                              DropdownMenuItem(value: 'Certificate of Origin (شهادة المنشأ)', child: Text('شهادة المنشأ المعتمدة (Certificate of Origin)')),
-                              DropdownMenuItem(value: 'EUR.1 / FTA Certificate', child: Text('شهادة الاتفاقية التفضيلية (EUR.1 / Agadir / GAFTA)')),
+                              SearchableDropdownItem(value: 'Commercial Invoice (الفاتورة التجارية)', label: 'الفاتورة التجارية النهائية (Commercial Invoice)'),
+                              SearchableDropdownItem(value: 'Packing List (بيان العبوة)', label: 'بيان العبوة (Packing List)'),
+                              SearchableDropdownItem(value: 'Bill of Lading (بوليصة الشحن)', label: 'بوليصة الشحن البحرية/الجوية (B/L)'),
+                              SearchableDropdownItem(value: 'Certificate of Origin (شهادة المنشأ)', label: 'شهادة المنشأ المعتمدة (Certificate of Origin)'),
+                              SearchableDropdownItem(value: 'شهادة المنشأ الموثقة للشحنة الكاملة (Certificate of Origin — COO)', label: 'شهادة المنشأ الموثقة للشحنة الكاملة (COO)'),
+                              SearchableDropdownItem(value: 'EUR.1 / FTA Certificate', label: 'شهادة الاتفاقية التفضيلية (EUR.1 / Agadir / GAFTA)'),
+                              SearchableDropdownItem(value: 'Proforma Invoice (الفاتورة المبدئية)', label: 'الفاتورة المبدئية (Proforma Invoice)'),
+                              SearchableDropdownItem(value: 'MTS Nafeza ACID Notification', label: 'إشعار الرقم التعريفي للشحنة (ACID Notice)'),
+                              SearchableDropdownItem(value: 'Marine Cargo Insurance Policy', label: 'وثيقة التأمين البحري (Insurance Policy)'),
+                              SearchableDropdownItem(value: 'GOEIC Inspection (عرض هيئة الصادرات والواردات)', label: 'عرض هيئة الصادرات والواردات (GOEIC)'),
+                              SearchableDropdownItem(value: 'NTRA Telecommunications Approval', label: 'موافقة جهاز الاتصالات (NTRA)'),
+                              SearchableDropdownItem(value: 'Bank Form 4 / Form 9', label: 'نموذج 4 / 9 البنكي (Form 4 / 9)'),
                             ],
                             onChanged: (v) => setState(() => _docName = v ?? 'Commercial Invoice (الفاتورة التجارية)'),
                           ),

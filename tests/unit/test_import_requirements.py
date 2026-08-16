@@ -225,5 +225,52 @@ def test_import_file_prefill_endpoint():
     assert pdata["white_list_verified"] is True
     assert pdata["coo_required"] is True
     assert pdata["coo_status"] == "Obtained"
+    assert len(pdata["hs_code_items"]) > 0
+
+
+def test_prevent_duplicate_assessment_for_same_import_file():
+    payload1 = {
+        "import_file_id": 99,
+        "import_file_code": "IMP-2026-0099",
+        "shipment_value_usd": 15000.0,
+        "coo_required": True,
+        "overall_status": "Draft",
+        "risk_level": "Low",
+    }
+    res1 = client.post("/api/v1/import-requirements", json=payload1)
+    assert res1.status_code == 201
+
+    # Second creation with same import_file_id must be blocked
+    payload2 = {
+        "import_file_id": 99,
+        "import_file_code": "IMP-2026-0099",
+        "shipment_value_usd": 20000.0,
+        "coo_required": True,
+        "overall_status": "Draft",
+        "risk_level": "Medium",
+    }
+    with pytest.raises(Exception):
+        client.post("/api/v1/import-requirements", json=payload2)
+
+
+def test_restore_soft_deleted_assessment():
+    payload = {
+        "import_file_id": 105,
+        "shipment_value_usd": 8000.0,
+        "overall_status": "Draft",
+        "risk_level": "Low",
+    }
+    res = client.post("/api/v1/import-requirements", json=payload)
+    assert res.status_code == 201
+    assessment_id = res.json()["assessment_id"]
+
+    # Delete
+    del_res = client.delete(f"/api/v1/import-requirements/{assessment_id}")
+    assert del_res.status_code == 204
+
+    # Restore via restore endpoint
+    restore_res = client.post(f"/api/v1/import-requirements/{assessment_id}/restore")
+    assert restore_res.status_code == 200
+    assert restore_res.json()["is_active"] is True
 
 

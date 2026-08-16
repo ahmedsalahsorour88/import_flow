@@ -9,6 +9,9 @@ from modules.import_documentation.model import (
     BankingDocumentSession,
     ShipmentDocumentItem,
     CustomsDeclarationDraft,
+    DraftBLReviewSession,
+    CertificateOfOriginReviewSession,
+    InspectionCertificateReviewSession,
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
@@ -378,3 +381,295 @@ def create_customs_declaration(
     db.commit()
     db.refresh(db_item)
     return db_item
+
+
+# --- PHASE 6: DRAFT BILL OF LADING (B/L) REPOSITORY ---
+def generate_bl_review_code(db: Session) -> str:
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"BL-REV-{current_year}-"
+    last_record = (
+        db.query(DraftBLReviewSession)
+        .filter(DraftBLReviewSession.bl_review_code.like(f"{prefix}%"))
+        .order_by(DraftBLReviewSession.bl_review_id.desc())
+        .first()
+    )
+    if not last_record:
+        return f"{prefix}0001"
+    try:
+        num = int(last_record.bl_review_code.replace(prefix, "")) + 1
+        return f"{prefix}{num:04d}"
+    except ValueError:
+        return f"{prefix}0001"
+
+
+def get_draft_bl_reviews(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> list[DraftBLReviewSession]:
+    query = db.query(DraftBLReviewSession)
+    if not include_inactive:
+        query = query.filter(DraftBLReviewSession.is_active == True)
+    if import_file_id:
+        query = query.filter(DraftBLReviewSession.import_file_id == import_file_id)
+    if status and status != "All":
+        query = query.filter(DraftBLReviewSession.status == status)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (DraftBLReviewSession.bl_review_code.ilike(s))
+            | (DraftBLReviewSession.draft_bl_number.ilike(s))
+            | (DraftBLReviewSession.shipping_line.ilike(s))
+            | (DraftBLReviewSession.booking_no.ilike(s))
+            | (DraftBLReviewSession.hbl_no.ilike(s))
+            | (DraftBLReviewSession.mbl_no.ilike(s))
+        )
+    return query.order_by(DraftBLReviewSession.bl_review_id.desc()).all()
+
+
+def get_draft_bl_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> DraftBLReviewSession | None:
+    query = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.bl_review_id == review_id)
+    if not include_inactive:
+        query = query.filter(DraftBLReviewSession.is_active == True)
+    return query.first()
+
+
+def get_draft_bl_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> DraftBLReviewSession | None:
+    query = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.import_file_id == import_file_id)
+    if not include_inactive:
+        query = query.filter(DraftBLReviewSession.is_active == True)
+    return query.order_by(DraftBLReviewSession.bl_review_id.desc()).first()
+
+
+def create_draft_bl_review(db: Session, schema: DraftBLReviewCreate) -> DraftBLReviewSession:
+    code = generate_bl_review_code(db)
+    data = schema.model_dump(exclude_unset=True)
+    db_item = DraftBLReviewSession(
+        bl_review_code=code,
+        **data,
+        is_active=True,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def update_draft_bl_review(db: Session, review_id: int, schema: DraftBLReviewUpdate) -> DraftBLReviewSession:
+    item = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.bl_review_id == review_id).first()
+    if not item:
+        raise ValueError(f"Draft B/L Review ID {review_id} not found.")
+    data = schema.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(item, k, v)
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_draft_bl_review(db: Session, review_id: int) -> bool:
+    item = db.query(DraftBLReviewSession).filter(DraftBLReviewSession.bl_review_id == review_id).first()
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+# --- PHASE 6: CERTIFICATE OF ORIGIN (COO / EUR.1) REPOSITORY ---
+def generate_coo_review_code(db: Session) -> str:
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"COO-{current_year}-"
+    last_record = (
+        db.query(CertificateOfOriginReviewSession)
+        .filter(CertificateOfOriginReviewSession.coo_review_code.like(f"{prefix}%"))
+        .order_by(CertificateOfOriginReviewSession.coo_review_id.desc())
+        .first()
+    )
+    if not last_record:
+        return f"{prefix}0001"
+    try:
+        num = int(last_record.coo_review_code.replace(prefix, "")) + 1
+        return f"{prefix}{num:04d}"
+    except ValueError:
+        return f"{prefix}0001"
+
+
+def get_coo_reviews(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> list[CertificateOfOriginReviewSession]:
+    query = db.query(CertificateOfOriginReviewSession)
+    if not include_inactive:
+        query = query.filter(CertificateOfOriginReviewSession.is_active == True)
+    if import_file_id:
+        query = query.filter(CertificateOfOriginReviewSession.import_file_id == import_file_id)
+    if status and status != "All":
+        query = query.filter(CertificateOfOriginReviewSession.status == status)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (CertificateOfOriginReviewSession.coo_review_code.ilike(s))
+            | (CertificateOfOriginReviewSession.certificate_number.ilike(s))
+            | (CertificateOfOriginReviewSession.exporter_name.ilike(s))
+            | (CertificateOfOriginReviewSession.importer_name.ilike(s))
+            | (CertificateOfOriginReviewSession.invoice_number.ilike(s))
+        )
+    return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).all()
+
+
+def get_coo_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> CertificateOfOriginReviewSession | None:
+    query = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.coo_review_id == review_id)
+    if not include_inactive:
+        query = query.filter(CertificateOfOriginReviewSession.is_active == True)
+    return query.first()
+
+
+def get_coo_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> CertificateOfOriginReviewSession | None:
+    query = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.import_file_id == import_file_id)
+    if not include_inactive:
+        query = query.filter(CertificateOfOriginReviewSession.is_active == True)
+    return query.order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).first()
+
+
+def create_coo_review(db: Session, schema: CertificateOfOriginReviewCreate) -> CertificateOfOriginReviewSession:
+    code = generate_coo_review_code(db)
+    data = schema.model_dump(exclude_unset=True)
+    db_item = CertificateOfOriginReviewSession(
+        coo_review_code=code,
+        **data,
+        is_active=True,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def update_coo_review(db: Session, review_id: int, schema: CertificateOfOriginReviewUpdate) -> CertificateOfOriginReviewSession:
+    item = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.coo_review_id == review_id).first()
+    if not item:
+        raise ValueError(f"COO Review ID {review_id} not found.")
+    data = schema.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(item, k, v)
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_coo_review(db: Session, review_id: int) -> bool:
+    item = db.query(CertificateOfOriginReviewSession).filter(CertificateOfOriginReviewSession.coo_review_id == review_id).first()
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+# --- PHASE 6: INSPECTION CERTIFICATE REPOSITORY ---
+def generate_inspection_review_code(db: Session) -> str:
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"INSP-{current_year}-"
+    last_record = (
+        db.query(InspectionCertificateReviewSession)
+        .filter(InspectionCertificateReviewSession.inspection_review_code.like(f"{prefix}%"))
+        .order_by(InspectionCertificateReviewSession.inspection_review_id.desc())
+        .first()
+    )
+    if not last_record:
+        return f"{prefix}0001"
+    try:
+        num = int(last_record.inspection_review_code.replace(prefix, "")) + 1
+        return f"{prefix}{num:04d}"
+    except ValueError:
+        return f"{prefix}0001"
+
+
+def get_inspection_reviews(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int | None = None,
+    status: str | None = None,
+    search: str | None = None,
+) -> list[InspectionCertificateReviewSession]:
+    query = db.query(InspectionCertificateReviewSession)
+    if not include_inactive:
+        query = query.filter(InspectionCertificateReviewSession.is_active == True)
+    if import_file_id:
+        query = query.filter(InspectionCertificateReviewSession.import_file_id == import_file_id)
+    if status and status != "All":
+        query = query.filter(InspectionCertificateReviewSession.status == status)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (InspectionCertificateReviewSession.inspection_review_code.ilike(s))
+            | (InspectionCertificateReviewSession.certificate_number.ilike(s))
+            | (InspectionCertificateReviewSession.inspection_agency.ilike(s))
+            | (InspectionCertificateReviewSession.inspection_type.ilike(s))
+            | (InspectionCertificateReviewSession.regulatory_authority.ilike(s))
+        )
+    return query.order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).all()
+
+
+def get_inspection_review_by_id(db: Session, review_id: int, include_inactive: bool = False) -> InspectionCertificateReviewSession | None:
+    query = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.inspection_review_id == review_id)
+    if not include_inactive:
+        query = query.filter(InspectionCertificateReviewSession.is_active == True)
+    return query.first()
+
+
+def get_inspection_review_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> InspectionCertificateReviewSession | None:
+    query = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.import_file_id == import_file_id)
+    if not include_inactive:
+        query = query.filter(InspectionCertificateReviewSession.is_active == True)
+    return query.order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).first()
+
+
+def create_inspection_review(db: Session, schema: InspectionCertificateReviewCreate) -> InspectionCertificateReviewSession:
+    code = generate_inspection_review_code(db)
+    data = schema.model_dump(exclude_unset=True)
+    db_item = InspectionCertificateReviewSession(
+        inspection_review_code=code,
+        **data,
+        is_active=True,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def update_inspection_review(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
+    item = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.inspection_review_id == review_id).first()
+    if not item:
+        raise ValueError(f"Inspection Review ID {review_id} not found.")
+    data = schema.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(item, k, v)
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_inspection_review(db: Session, review_id: int) -> bool:
+    item = db.query(InspectionCertificateReviewSession).filter(InspectionCertificateReviewSession.inspection_review_id == review_id).first()
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True

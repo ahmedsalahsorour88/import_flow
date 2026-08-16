@@ -68,7 +68,8 @@ class ImportRequirementAssessment(Base):
     coa_status = Column(String(50), nullable=False, default="Not Required")
     coa_notes = Column(Text, nullable=True)
     
-    # Other Requirements (flexible JSON)
+    # HS Code breakdown & Other Requirements (flexible JSON)
+    hs_code_items = Column(JSON, nullable=True)  # [{hs_code, description, value, currency, origin, ...}]
     other_requirements = Column(JSON, nullable=True)  # [{name, required, status, notes}]
     
     # Post-ACID Confirmation & Linkage (مرحلة تأكيدية بعد إصدار ACID)
@@ -79,6 +80,10 @@ class ImportRequirementAssessment(Base):
     is_post_acid_confirmed = Column(Boolean, nullable=False, default=False)
     confirmed_at = Column(DateTime, nullable=True)
     confirmed_by = Column(String(100), nullable=True)
+
+    # Sailing & Shipping Progress (من إصدار ACID حتى الإبحار)
+    sailing_status = Column(String(50), nullable=True, default="Pre-Sailing")
+    sailing_date = Column(String(50), nullable=True)
 
     # Assessment Summary
     overall_status = Column(String(50), nullable=False, default="Draft")  # Draft, In Progress, Complete, Cleared, Confirmed

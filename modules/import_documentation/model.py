@@ -258,3 +258,223 @@ class CustomsDeclarationDraft(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class DraftBLReviewSession(Base):
+    """
+    Draft Bill of Lading (B/L) Review & Multi-Source Intelligent Comparison Engine (Phase 6 / BP-017).
+    Cross-checks Draft B/L with Shipment, Invoice, Packing List, and VGM/Container Tracking data in real-time.
+    Supports fuzzy matching, ±0.5% tolerance, blocking critical field rules, and auto-generated correction letters.
+    """
+
+    __tablename__ = "draft_bl_review_sessions"
+
+    bl_review_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    bl_review_code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
+    po_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
+    )
+    booking_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("shipment_bookings.booking_id"), nullable=True, index=True
+    )
+
+    draft_bl_number: Mapped[str] = mapped_column(String(100), default="DRAFT-BL", nullable=False)
+    shipping_line: Mapped[str] = mapped_column(String(150), nullable=True)
+    vessel_name: Mapped[str] = mapped_column(String(150), nullable=True)
+    voyage_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    booking_no: Mapped[str] = mapped_column(String(100), nullable=True)
+    hbl_no: Mapped[str] = mapped_column(String(100), nullable=True)
+    mbl_no: Mapped[str] = mapped_column(String(100), nullable=True)
+    freight_terms: Mapped[str] = mapped_column(String(50), default="Prepaid", nullable=True)
+    place_of_delivery: Mapped[str] = mapped_column(String(150), nullable=True)
+
+    # Sub identifiers & Metrics
+    importer_tax_id: Mapped[str] = mapped_column(String(100), nullable=True)
+    shipper_reg_id: Mapped[str] = mapped_column(String(100), nullable=True)
+    measurement_cbm: Mapped[float] = mapped_column(Float, default=0.0, nullable=True)
+    net_weight_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=True)
+    packages_count: Mapped[int] = mapped_column(Integer, default=0, nullable=True)
+    container_summary: Mapped[str] = mapped_column(String(500), nullable=True)
+
+    # Draft source: 'MANUAL_ENTRY', 'SMART_TEXT', 'EXCEL_UPLOAD', 'PDF_EXTRACT'
+    draft_source: Mapped[str] = mapped_column(String(50), default="SMART_TEXT", nullable=False)
+
+    # Version Tracking (v1, v2, v3...)
+    version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    parent_session_id: Mapped[int] = mapped_column(Integer, nullable=True)
+
+    # Lifecycle Stage: 'Stage 1: Draft Review', 'Stage 2: Revision Required', 'Stage 3: Reviewed', 'Stage 4: Dual Approval', 'Stage 5: Final'
+    stage: Mapped[str] = mapped_column(
+        String(50), default="Stage 1: Draft Review", nullable=False, index=True
+    )
+
+    # Data Snapshots (Real-time reference vs draft comparison)
+    system_snapshot_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    draft_input_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    comparison_matrix: Mapped[list] = mapped_column(JSON, nullable=True)
+    checklist_data: Mapped[list] = mapped_column(JSON, nullable=True)
+    revision_report_data: Mapped[list] = mapped_column(JSON, nullable=True)
+
+    # Blocking Rules & Discrepancies
+    has_blocking_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
+    open_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0)
+    blocking_reasons: Mapped[list] = mapped_column(JSON, nullable=True)
+    correction_request_letter: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Dual Approval Stage 4
+    importer_approval_status: Mapped[str] = mapped_column(String(50), default="Pending", nullable=False)
+    importer_approved_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    importer_approval_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    importer_approval_notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+    broker_approval_status: Mapped[str] = mapped_column(String(50), default="Pending", nullable=False)
+    broker_approved_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    broker_approval_date: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    broker_approval_notes: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Status: 'DRAFT_RECEIVED', 'AUTO_COMPARISON_RUN', 'REVISION_REQUIRED', 'REVIEWED_PENDING_APPROVAL', 'APPROVED', 'FINAL', 'REJECTED'
+    status: Mapped[str] = mapped_column(
+        String(50), default="AUTO_COMPARISON_RUN", nullable=False, index=True
+    )
+
+    reviewed_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+    approved_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    approved_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class CertificateOfOriginReviewSession(Base):
+    """
+    Draft Certificate of Origin (COO) & EUR.1 4-Tab Verification Engine (Phase 6 / BP-016).
+    Manages generation, smart parsing, discrepancy comparison matrix, and registry for COO/EUR.1.
+    """
+
+    __tablename__ = "certificate_of_origin_review_sessions"
+
+    coo_review_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    coo_review_code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
+    po_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
+    )
+
+    # Certificate Type: 'Standard COO', 'EUR.1', 'Form A', 'COMESA', 'Agadir Agreement'
+    certificate_type: Mapped[str] = mapped_column(String(50), default="EUR.1", nullable=False)
+    certificate_number: Mapped[str] = mapped_column(String(100), default="DRAFT-COO", nullable=False)
+
+    exporter_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    importer_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    country_of_origin: Mapped[str] = mapped_column(String(100), nullable=False)
+    destination_country: Mapped[str] = mapped_column(String(100), default="Egypt", nullable=False)
+
+    transport_details: Mapped[str] = mapped_column(String(300), nullable=True)
+    invoice_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    invoice_date: Mapped[date] = mapped_column(Date, nullable=True)
+
+    raw_input_text: Mapped[str] = mapped_column(Text, nullable=True)
+    system_snapshot_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    draft_input_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    comparison_matrix: Mapped[list] = mapped_column(JSON, nullable=True)
+
+    has_discrepancies: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_critical_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
+    override_reason: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Status: 'Draft Generated', 'Draft Inputted', 'Verified', 'Discrepancy_Accepted', 'Correction Requested', 'Approved'
+    status: Mapped[str] = mapped_column(
+        String(50), default="Draft Generated", nullable=False, index=True
+    )
+
+    reviewed_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+
+
+class InspectionCertificateReviewSession(Base):
+    """
+    Draft Inspection & Conformity Certificate (COA / COC / VOC / GOEIC) Review Session (Phase 6 / BP-016).
+    Manages generation, smart parsing, discrepancy comparison matrix, and registry for inspection certificates.
+    """
+
+    __tablename__ = "inspection_certificate_review_sessions"
+
+    inspection_review_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    inspection_review_code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=True, index=True
+    )
+    po_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("purchase_orders.po_id"), nullable=True, index=True
+    )
+
+    # Inspection Type: 'COA (Certificate of Analysis)', 'COC (Certificate of Conformity)', 'VOC (Verification of Conformity)', 'Pre-shipment Inspection (PSI)', 'Phytosanitary Certificate', 'Radiation Free Certificate'
+    inspection_type: Mapped[str] = mapped_column(String(100), default="COC (Certificate of Conformity)", nullable=False)
+    inspection_agency: Mapped[str] = mapped_column(String(100), default="SGS", nullable=False)
+    certificate_number: Mapped[str] = mapped_column(String(100), default="DRAFT-INSP", nullable=False)
+
+    issue_date: Mapped[date] = mapped_column(Date, default=date.today, nullable=False)
+    expiry_date: Mapped[date] = mapped_column(Date, nullable=True)
+
+    # Regulatory Authority: 'GOEIC (الرقابة على الصادرات والواردات)', 'NFSA (سلامة الغذاء)', 'EDA (هيئة الدواء المصرية)', 'Atomic Energy Authority (هيئة الطاقة الذرية)'
+    regulatory_authority: Mapped[str] = mapped_column(String(150), default="GOEIC (الرقابة على الصادرات والواردات)", nullable=False)
+    standard_specification: Mapped[str] = mapped_column(String(200), default="Egyptian Standard ES Egyptian Conformity", nullable=True)
+
+    raw_input_text: Mapped[str] = mapped_column(Text, nullable=True)
+    system_snapshot_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    draft_input_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    comparison_matrix: Mapped[list] = mapped_column(JSON, nullable=True)
+
+    has_discrepancies: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_critical_mismatch: Mapped[bool] = mapped_column(Boolean, default=False)
+    override_reason: Mapped[str] = mapped_column(Text, nullable=True)
+
+    # Status: 'Required_Draft_Generated', 'Draft_Inputted', 'Verified', 'Discrepancy_Accepted', 'Correction Requested', 'Approved', 'Waived_Not_Required'
+    status: Mapped[str] = mapped_column(
+        String(50), default="Required_Draft_Generated", nullable=False, index=True
+    )
+
+    reviewed_by: Mapped[str] = mapped_column(String(100), nullable=True)
+    reviewed_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )

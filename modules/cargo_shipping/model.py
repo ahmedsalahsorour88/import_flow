@@ -17,7 +17,8 @@ class CargoShippingRecord(Base):
     """
     Phase 5 Cargo Preparation & Shipping Model (BP-020 to BP-025)
     Tracks cargo readiness date (CRD), container loading & seal numbers,
-    dual approval of shipping documents, courier tracking, and CargoX electronic exchange.
+    container follow-up 48h SLA tracking, dual approval of shipping documents,
+    courier tracking, and CargoX electronic exchange.
     """
     __tablename__ = "cargo_shipping_records"
 
@@ -26,15 +27,21 @@ class CargoShippingRecord(Base):
 
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False)
     booking_id = Column(Integer, ForeignKey("shipment_bookings.booking_id"), nullable=True)
+    shipment_type = Column(String(20), default="FCL", nullable=False) # FCL, LCL, Air
 
     # BP-020 Cargo Readiness
     crd_date = Column(DateTime, nullable=True)
     cargo_cutoff_date = Column(DateTime, nullable=True)
     is_crd_validated = Column(Boolean, default=True)
 
-    # BP-021 Cargo Loading & VGM (JSON List)
-    # List of {container_no, seal_no, tare_weight_kg, net_weight_kg, gross_weight_kg, vgm_status, vgm_ref_no}
+    # BP-021 Cargo Loading & VGM (JSON List with 5-Milestones Tracking & 48h SLA)
+    # List of {container_no, seal_no, container_type, tare_weight_kg, net_weight_kg, gross_weight_kg, vgm_status, vgm_ref_no,
+    #          container_assignment_date, arrival_at_supplier_at, loading_start_at, loading_end_at, port_gate_in_at,
+    #          sla_deadline_at, is_sla_breached, tracking_status, tracking_history, individual_units}
     containers_loading_data = Column(JSON, default=list, nullable=False)
+
+    # LCL CFS Consolidation Tracking (if LCL)
+    lcl_tracking_data = Column(JSON, default=dict, nullable=True)
 
     # BP-022 Dual Approval
     level1_approval_status = Column(String(30), default="Pending") # Pending, Approved, Rejected

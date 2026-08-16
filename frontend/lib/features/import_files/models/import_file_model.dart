@@ -96,6 +96,7 @@ class ImportFileModel {
   final String priority;
   final String shipmentCategory;
   final String? requiredEta;
+  final String? fileOpeningDate;
   final String? selectedScenario;
   final String? acidNumber;
   final String? acidRequestDate;
@@ -111,6 +112,7 @@ class ImportFileModel {
   final String? swiftNo;
   final String? form46No;
   final double estimatedCost;
+  final String estimatedCostCurrency;
   final String currentModule;
   final String currentStage;
   final double progressPercent;
@@ -146,6 +148,7 @@ class ImportFileModel {
     this.priority = 'High',
     this.shipmentCategory = 'New Purchase',
     this.requiredEta,
+    this.fileOpeningDate,
     this.selectedScenario,
     this.acidNumber,
     this.acidRequestDate,
@@ -161,6 +164,7 @@ class ImportFileModel {
     this.swiftNo,
     this.form46No,
     this.estimatedCost = 0.0,
+    this.estimatedCostCurrency = 'USD',
     required this.currentModule,
     required this.currentStage,
     this.progressPercent = 10.0,
@@ -202,6 +206,7 @@ class ImportFileModel {
       priority: json['priority'] ?? 'High',
       shipmentCategory: json['shipment_category'] ?? 'New Purchase',
       requiredEta: json['required_eta'],
+      fileOpeningDate: json['file_opening_date'],
       selectedScenario: json['selected_scenario'],
       acidNumber: json['acid_number'],
       acidRequestDate: json['acid_request_date'],
@@ -217,6 +222,7 @@ class ImportFileModel {
       swiftNo: json['swift_no'],
       form46No: json['form46_no'],
       estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? 0.0,
+      estimatedCostCurrency: json['estimated_cost_currency'] ?? 'USD',
       currentModule: json['current_module'] ?? '',
       currentStage: json['current_stage'] ?? '',
       progressPercent: (json['progress_percent'] as num?)?.toDouble() ?? 0.0,
@@ -255,6 +261,7 @@ class ImportFileModel {
       'priority': priority,
       'shipment_category': shipmentCategory,
       'required_eta': requiredEta,
+      'file_opening_date': fileOpeningDate,
       'selected_scenario': selectedScenario,
       'acid_number': acidNumber,
       'acid_request_date': acidRequestDate,
@@ -270,6 +277,7 @@ class ImportFileModel {
       'swift_no': swiftNo,
       'form46_no': form46No,
       'estimated_cost': estimatedCost,
+      'estimated_cost_currency': estimatedCostCurrency,
       'status': status,
       'owner': owner,
       'notes': notes,

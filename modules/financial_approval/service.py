@@ -222,16 +222,21 @@ def get_budget_prefill_service(
         )
 
     # 1. Fetch Linked Purchase Orders
-    pos = db.query(PurchaseOrder).filter(
-        PurchaseOrder.import_file_id == import_file_id,
-        PurchaseOrder.is_active == True,
-    ).all()
+    po_query = db.query(PurchaseOrder).filter(PurchaseOrder.is_active == True)
+    if imp.po_ids and isinstance(imp.po_ids, list):
+        pos = po_query.filter(
+            (PurchaseOrder.import_file_id == import_file_id) | (PurchaseOrder.po_id.in_(imp.po_ids))
+        ).all()
+    else:
+        pos = po_query.filter(PurchaseOrder.import_file_id == import_file_id).all()
 
     linked_pos_schemas: List[LinkedPOItemSchema] = []
     total_invoice = 0.0
     invoice_curr = "USD"
     payment_terms_set = set()
     terms_list_str = []
+
+    from modules.currencies.model import Currency
 
     for po in pos:
         prj_name = None
@@ -243,7 +248,18 @@ def get_budget_prefill_service(
         p_term = po.payment_terms or "Standard Payment"
         payment_terms_set.add(p_term)
         terms_list_str.append(f"{po.po_number} ({p_term})")
+        
+        curr_code = "USD"
+        if po.currency_id:
+            curr_obj = db.query(Currency).filter(Currency.currency_id == po.currency_id).first()
+            if curr_obj:
+                curr_code = curr_obj.currency_code
+                invoice_curr = curr_code
+
         po_amt = float(po.total_amount_fob or 0.0)
+        if po_amt == 0.0 and po.items:
+            po_amt = sum(float(it.quantity or 0.0) * float(it.unit_price or 0.0) for it in po.items)
+            
         total_invoice += po_amt
 
         linked_pos_schemas.append(
@@ -254,18 +270,34 @@ def get_budget_prefill_service(
                 project_id=po.project_id,
                 project_name=prj_name,
                 payment_terms=p_term,
-                currency="USD",
+                currency=curr_code,
                 total_amount=po_amt,
                 status=po.status,
             )
         )
+
+    # If no purchase orders linked yet or total is 0, check invoices_data recorded in ImportFile
+    if total_invoice == 0.0 and imp.invoices_data and isinstance(imp.invoices_data, list):
+        for inv in imp.invoices_data:
+            if isinstance(inv, dict):
+                amt = float(inv.get("amount", 0.0) or 0.0)
+                if amt > 0:
+                    total_invoice += amt
+                    if inv.get("currency"):
+                        invoice_curr = inv["currency"]
+
+    # If still 0, fallback to estimated_cost on import_file
+    if total_invoice == 0.0 and imp.estimated_cost:
+        total_invoice = float(imp.estimated_cost or 0.0)
+        if imp.estimated_cost_currency:
+            invoice_curr = imp.estimated_cost_currency
 
     if len(payment_terms_set) == 1:
         payment_terms_summary = next(iter(payment_terms_set))
     elif len(payment_terms_set) > 1:
         payment_terms_summary = f"متعدد ({', '.join(terms_list_str)})"
     else:
-        payment_terms_summary = "غير محدد"
+        payment_terms_summary = "Advance Payment"
 
     # 2. Supplier and Banking Info
     sup = None
@@ -273,6 +305,8 @@ def get_budget_prefill_service(
         sup = db.query(Supplier).filter(Supplier.supplier_id == imp.supplier_id).first()
     elif pos and pos[0].supplier_id:
         sup = db.query(Supplier).filter(Supplier.supplier_id == pos[0].supplier_id).first()
+    elif imp.supplier_name:
+        sup = db.query(Supplier).filter(Supplier.company_name == imp.supplier_name).first()
 
     supplier_name = sup.company_name if sup else (imp.supplier_name or "Foreign Exporter")
     bank_name = sup.bank_name if sup else None
@@ -280,35 +314,56 @@ def get_budget_prefill_service(
     account_no = sup.account_number if sup else None
     iban = sup.iban if sup else None
 
-    # 3. Estimated Freight from highest Shipping Scenario
+    # 3. Estimated Freight: Always retrieve highest / maximum freight rate across all options
+    po_ids = [p.po_id for p in pos]
     shipping_sessions = db.query(ShippingEvaluationSession).filter(
-        ShippingEvaluationSession.import_file_id == import_file_id,
+        (ShippingEvaluationSession.import_file_id == import_file_id) |
+        (ShippingEvaluationSession.po_id.in_(po_ids) if po_ids else False),
         ShippingEvaluationSession.is_active == True,
     ).all()
 
     highest_freight = 0.0
     freight_currency = "USD"
+
     for s in shipping_sessions:
         for itm in s.items:
-            f_amt = itm.ocean_freight_rate or 0.0
+            f_amt = float(getattr(itm, "total_quotation_amount", 0.0) or 0.0)
+            if f_amt == 0.0:
+                c40 = (itm.container_40ft_price or 0.0) * (itm.container_40ft_qty or 1) if itm.container_40ft_applicable else 0.0
+                c20 = (itm.container_20ft_price or 0.0) * (itm.container_20ft_qty or 1) if itm.container_20ft_applicable else 0.0
+                lcl = (itm.lcl_cbm_price or 0.0) * (itm.lcl_cbm_qty or 1) if itm.lcl_cbm_applicable else 0.0
+                f_amt = c40 + c20 + lcl
+
+            curr = getattr(itm, "quotation_currency", None) or "USD"
             if f_amt > highest_freight:
                 highest_freight = f_amt
-                freight_currency = itm.freight_currency or "USD"
+                freight_currency = curr
 
     # 4. Customs Taxes and Broker Clearance from Customs Consultation
-    customs_sessions = db.query(CustomsConsultationSession).filter(
-        CustomsConsultationSession.import_file_id == import_file_id,
+    customs_query = db.query(CustomsConsultationSession).filter(
         CustomsConsultationSession.is_active == True,
-    ).all()
+    )
+    if po_ids:
+        customs_sessions = customs_query.filter(
+            (CustomsConsultationSession.import_file_id == import_file_id) |
+            (CustomsConsultationSession.po_id.in_(po_ids))
+        ).all()
+    else:
+        customs_sessions = customs_query.filter(
+            CustomsConsultationSession.import_file_id == import_file_id
+        ).all()
 
     estimated_duties_egp = 0.0
     estimated_clearance_fees_egp = 0.0
-    if customs_sessions:
-        cs = customs_sessions[0]
-        estimated_duties_egp = cs.estimated_duties_egp or 0.0
-        estimated_clearance_fees_egp = cs.total_broker_fees_egp or 0.0
+    for cs in customs_sessions:
+        d_amt = float(cs.estimated_duties_egp or 0.0)
+        c_amt = float(cs.total_broker_fees_egp or 0.0)
+        if d_amt > 0:
+            estimated_duties_egp = max(estimated_duties_egp, d_amt)
+        if c_amt > 0:
+            estimated_clearance_fees_egp = max(estimated_clearance_fees_egp, c_amt)
 
-    # 5. Fetch Dynamic Exchange Rate from Currencies Master & Rates History
+    # 5. Fetch Dynamic Exchange Rates from Currencies Master & Rates History
     from modules.currencies.repository import CurrencyRepository
 
     curr_repo = CurrencyRepository(db)
@@ -322,8 +377,22 @@ def get_budget_prefill_service(
             if latest_rate and latest_rate.commercial_rate:
                 exchange_rate = float(latest_rate.commercial_rate)
 
+    # Freight Exchange Rate
+    freight_exchange_rate = 50.0
+    if freight_currency.upper() == "EGP":
+        freight_exchange_rate = 1.0
+    else:
+        f_curr_obj = curr_repo.get_currency_by_code(freight_currency or "USD")
+        if f_curr_obj:
+            if f_curr_obj.is_base_currency:
+                freight_exchange_rate = 1.0
+            else:
+                latest_f_rate = curr_repo.get_latest_rate(f_curr_obj.currency_id, target_date=date.today())
+                if latest_f_rate and latest_f_rate.commercial_rate:
+                    freight_exchange_rate = float(latest_f_rate.commercial_rate)
+
     total_invoice_egp = total_invoice * exchange_rate
-    estimated_freight_egp = highest_freight * exchange_rate
+    estimated_freight_egp = highest_freight * freight_exchange_rate
     grand_total_egp = total_invoice_egp + estimated_freight_egp + estimated_duties_egp + estimated_clearance_fees_egp
 
     incoterm_str = imp.incoterm_code or "FOB"

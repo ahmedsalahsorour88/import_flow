@@ -4,10 +4,12 @@ from modules.import_requirements.schemas import (
     ImportRequirementCreate,
     ImportRequirementUpdate,
     ImportRequirementPrefillResponse,
+    ImportRequirementHSCodeItem,
 )
 from modules.import_requirements import repository as repo
 from modules.import_requirements.validators import validate_risk_level, validate_overall_status, validate_shipment_value
 from modules.import_files.model import ImportFile
+from modules.purchase_orders.model import PurchaseOrder
 from modules.suppliers.model import Supplier
 from modules.customs_consultation.model import CustomsConsultationSession
 from modules.customs_tariff.model import CustomsTariff
@@ -18,6 +20,15 @@ def create_assessment_service(db: Session, payload: ImportRequirementCreate):
     validate_overall_status(payload.overall_status)
     validate_shipment_value(payload.shipment_value_usd)
     
+    # Rule: Prevent duplicate assessment for the same Import File
+    if payload.import_file_id:
+        existing = repo.get_assessment_by_import_file(db, payload.import_file_id)
+        if existing:
+            file_code = payload.import_file_code or str(payload.import_file_id)
+            raise ValueError(
+                f"يوجد بالفعل دراسة تقييم متطلبات استيرادية نشطة للملف الاستيرادي #{file_code} (كود التقييم: {existing.assessment_code}). يمكنك تعديل التقييم القائم بدلاً من إنشاء تقييم جديد."
+            )
+
     code = repo.generate_assessment_code(db)
     obj_data = payload.model_dump()
     obj_data["assessment_code"] = code
@@ -38,25 +49,26 @@ def update_assessment_service(db: Session, assessment_id: int, payload: ImportRe
     return repo.update_assessment(db, assessment_id, update_data)
 
 
+def restore_assessment_service(db: Session, assessment_id: int):
+    return repo.restore_assessment(db, assessment_id)
+
+
 def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportRequirementPrefillResponse:
     """
-    Extracts all shipment, supplier, ACID, and 5-pillar compliance findings
-    from the linked Import File and Customs Consultation Session (BP-009 / BP-011 / BP-014).
+    Extracts all shipment, supplier, ACID, HS Codes with individual values/currencies,
+    and 5-pillar compliance findings from the linked Import File, PO line items, and Customs Consultation.
     """
     import_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
     if not import_file:
         raise ValueError(f"Import File #{import_file_id} not found.")
 
-    currency = "USD"
-    total_val = 0.0
-    if import_file.invoices_data and len(import_file.invoices_data) > 0:
-        currency = import_file.invoices_data[0].get("currency", "USD")
-        for inv in import_file.invoices_data:
-            total_val += float(inv.get("amount", 0.0))
+    currency = import_file.estimated_cost_currency or "USD"
+    total_val = float(import_file.estimated_cost or 0.0)
 
     # Supplier Info
     country_of_origin = "China"
     foreign_exporter_id = None
+    supp = None
     if import_file.supplier_id:
         supp = db.query(Supplier).filter(Supplier.supplier_id == import_file.supplier_id).first()
         if supp:
@@ -95,8 +107,8 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
     coa_req = False
     coa_status = "Not Required"
     special_notes = None
-    hs_code = None
-    commodity_desc = None
+    primary_hs_code = None
+    primary_commodity_desc = None
 
     if consultation:
         for item in consultation.checklist_items:
@@ -105,8 +117,8 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
             status = item.status or "Pending"
             remarks = item.remarks or ""
 
-            if item.hs_code and not hs_code:
-                hs_code = item.hs_code
+            if item.hs_code and not primary_hs_code:
+                primary_hs_code = item.hs_code
 
             # Pillar 1: Decree 43 / GOEIC Factory Registration
             if "43" in doc_lower or "مصانع" in doc_lower or "goeic" in doc_lower or "هيئة الرقابة" in agency:
@@ -150,18 +162,135 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
                 coa_status = status
                 special_notes = remarks
 
-    # Fallback to Tariff Schedule if hs_code is found
-    if hs_code:
-        tariff = db.query(CustomsTariff).filter(CustomsTariff.hs_code == hs_code).first()
-        if tariff:
-            commodity_desc = tariff.hs_description
-            if tariff.requires_coo:
-                coo_req = True
-            if tariff.requires_inspection:
-                insp_req = True
-            if tariff.regulatory_authority:
-                permit_req = True
-                permit_auth = tariff.regulatory_authority
+    # -------------------------------------------------------------
+    # Extract All Linked HS Codes with Values and Currencies from POs & Invoices
+    # -------------------------------------------------------------
+    hs_code_items_dict = {}
+
+    # 1. Fetch Purchase Orders linked to this import file
+    pos = (
+        db.query(PurchaseOrder)
+        .filter(PurchaseOrder.import_file_id == import_file_id, PurchaseOrder.is_active == True)
+        .all()
+    )
+    if not pos and getattr(import_file, "po_ids", None):
+        pos = (
+            db.query(PurchaseOrder)
+            .filter(PurchaseOrder.po_id.in_(import_file.po_ids), PurchaseOrder.is_active == True)
+            .all()
+        )
+    if not pos and getattr(import_file, "po_number", None):
+        po_by_num = (
+            db.query(PurchaseOrder)
+            .filter(PurchaseOrder.po_number == import_file.po_number, PurchaseOrder.is_active == True)
+            .first()
+        )
+        if po_by_num:
+            pos = [po_by_num]
+
+    po_calculated_total = 0.0
+    for po in pos:
+        po_curr = po.currency.currency_code if po.currency else currency
+        for line in po.line_items:
+            tariff = line.tariff
+            hs = (tariff.hs_code if tariff else line.item_code) or "General"
+            desc = line.description_ar or (tariff.hs_description if tariff else line.description_en) or "صنف مستورد"
+            item_val = float(line.total_price or 0.0)
+            if item_val == 0.0:
+                item_val = float((line.unit_price or 0.0) * (line.quantity or 1.0))
+            po_calculated_total += item_val
+
+            origin = line.country_of_origin or po.country_of_origin or country_of_origin
+
+            if hs in hs_code_items_dict:
+                hs_code_items_dict[hs]["item_value"] += item_val
+                hs_code_items_dict[hs]["quantity"] += float(line.quantity or 0.0)
+            else:
+                hs_code_items_dict[hs] = {
+                    "hs_code": hs,
+                    "commodity_description": desc,
+                    "item_code": line.item_code or f"ITEM-{len(hs_code_items_dict)+1:02d}",
+                    "country_of_origin": origin,
+                    "currency": po_curr,
+                    "item_value": item_val,
+                    "quantity": float(line.quantity or 1.0),
+                    "unit_of_measure": line.unit_of_measure or "PCS",
+                    "decree_43_applicable": decree_43,
+                    "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+                    "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+                    "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
+                    "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else (permit_auth if permit_req else None),
+                }
+
+    # 2. Extract from Invoices Data if no PO line items found or additional items exist
+    if import_file.invoices_data and len(import_file.invoices_data) > 0:
+        inv_sum = 0.0
+        for inv in import_file.invoices_data:
+            hs = inv.get("hs_code") or inv.get("item_code") or primary_hs_code
+            val = float(inv.get("amount", 0.0))
+            inv_sum += val
+            curr = inv.get("currency") or currency
+            if hs:
+                if hs in hs_code_items_dict:
+                    if hs_code_items_dict[hs]["item_value"] == 0.0:
+                        hs_code_items_dict[hs]["item_value"] = val
+                else:
+                    tariff = db.query(CustomsTariff).filter(CustomsTariff.hs_code == hs).first()
+                    hs_code_items_dict[hs] = {
+                        "hs_code": hs,
+                        "commodity_description": inv.get("description") or (tariff.hs_description if tariff else hs),
+                        "item_code": inv.get("item_code") or f"ITEM-{len(hs_code_items_dict)+1:02d}",
+                        "country_of_origin": country_of_origin,
+                        "currency": curr,
+                        "item_value": val,
+                        "quantity": 1.0,
+                        "unit_of_measure": "LOT",
+                        "decree_43_applicable": decree_43,
+                        "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+                        "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+                        "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
+                        "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else (permit_auth if permit_req else None),
+                    }
+        if total_val == 0.0:
+            total_val = inv_sum
+
+    if po_calculated_total > 0.0:
+        total_val = po_calculated_total
+        if pos and pos[0].currency:
+            currency = pos[0].currency.currency_code
+
+    # 3. Fallback if still empty
+    if not hs_code_items_dict:
+        fallback_hs = primary_hs_code or "8415820010"
+        tariff = db.query(CustomsTariff).filter(CustomsTariff.hs_code == fallback_hs).first()
+        hs_code_items_dict[fallback_hs] = {
+            "hs_code": fallback_hs,
+            "commodity_description": primary_commodity_desc or (tariff.hs_description if tariff else "آلات وأجهزة تكييف ووحدات تبريد"),
+            "item_code": "ITEM-01",
+            "country_of_origin": country_of_origin,
+            "currency": currency,
+            "item_value": total_val,
+            "quantity": 1.0,
+            "unit_of_measure": "LOT",
+            "decree_43_applicable": decree_43,
+            "coo_required": bool(tariff.requires_coo) if tariff else coo_req,
+            "inspection_required": bool(tariff.requires_inspection) if tariff else insp_req,
+            "permit_required": bool(tariff.regulatory_authority) if tariff else permit_req,
+            "regulatory_authority": tariff.regulatory_authority if (tariff and tariff.regulatory_authority) else permit_auth,
+        }
+
+    hs_code_items_list = [
+        ImportRequirementHSCodeItem(**item_data)
+        for item_data in hs_code_items_dict.values()
+    ]
+
+    # Select primary HS Code & description
+    if hs_code_items_list:
+        primary_hs_code = hs_code_items_list[0].hs_code
+        primary_commodity_desc = hs_code_items_list[0].commodity_description
+        if not total_val or total_val == 0.0:
+            total_val = sum(i.item_value for i in hs_code_items_list)
+        currency = hs_code_items_list[0].currency
 
     return ImportRequirementPrefillResponse(
         import_file_id=import_file.import_file_id,
@@ -176,8 +305,9 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
         po_number=import_file.po_number,
         pi_number=import_file.pi_number,
         acid_number=import_file.acid_number,
-        hs_code=hs_code,
-        commodity_description=commodity_desc,
+        hs_code=primary_hs_code,
+        commodity_description=primary_commodity_desc,
+        hs_code_items=hs_code_items_list,
         consultation_id=consultation.consultation_id if consultation else None,
         consultation_code=consultation.consultation_code if consultation else None,
         broker_name=consultation.broker_name if consultation else None,

@@ -9,6 +9,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -98,6 +99,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       ref.read(suppliersProvider.notifier).fetchSuppliers();
       ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
       ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
       
       if (widget.initialImportFileId != null) {
         _onPayImportFileSelected(widget.initialImportFileId);
@@ -200,23 +202,85 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     try {
       final prefill = await ref.read(importBudgetsProvider.notifier).fetchBudgetPrefill(fileId);
-      if (prefill != null && mounted) {
-        final invCurr = prefill.invoiceCurrency.isNotEmpty ? prefill.invoiceCurrency : 'USD';
-        final dynamicRate = _getExchangeRateForCurrency(invCurr);
-        final effRate = dynamicRate > 0 ? dynamicRate : (prefill.exchangeRate > 0 ? prefill.exchangeRate : 50.0);
+      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final impFile = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+      final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final linkedPOs = poList.where((po) => po.importFileId == fileId || (impFile?.poIds?.contains(po.poId) ?? false)).toList();
+      final currencies = ref.read(currenciesProvider).value ?? [];
+
+      // Calculate total invoices from linked POs or invoicesData or estimatedCost
+      double calculatedInvoiceAmount = 0.0;
+      String calculatedCurrency = 'USD';
+
+      if (prefill != null && prefill.totalInvoiceAmount > 0) {
+        calculatedInvoiceAmount = prefill.totalInvoiceAmount;
+        calculatedCurrency = prefill.invoiceCurrency.isNotEmpty ? prefill.invoiceCurrency : 'USD';
+      } else if (linkedPOs.isNotEmpty) {
+        for (final po in linkedPOs) {
+          final amt = po.totalAmountFob > 0
+              ? po.totalAmountFob
+              : po.items.fold(0.0, (s, it) => s + (it.quantity * it.unitPrice));
+          calculatedInvoiceAmount += amt;
+          final curr = currencies.where((c) => c.currencyId == po.currencyId).firstOrNull;
+          if (curr != null) {
+            calculatedCurrency = curr.currencyCode;
+          }
+        }
+      } else if (impFile != null && impFile.invoicesData.isNotEmpty) {
+        for (final inv in impFile.invoicesData) {
+          calculatedInvoiceAmount += inv.amount;
+          if (inv.currency.isNotEmpty) calculatedCurrency = inv.currency;
+        }
+      } else if (impFile != null && impFile.estimatedCost > 0) {
+        calculatedInvoiceAmount = impFile.estimatedCost;
+        if (impFile.estimatedCostCurrency.isNotEmpty) {
+          calculatedCurrency = impFile.estimatedCostCurrency;
+        }
+      }
+
+      final suppliersList = ref.read(suppliersProvider).value ?? [];
+      final targetSupId = impFile?.supplierId ?? prefill?.supplierId ?? (linkedPOs.isNotEmpty ? linkedPOs.first.supplierId : null);
+      final supObj = suppliersList.where((s) => 
+          (targetSupId != null && s.supplierId == targetSupId) || 
+          (impFile != null && s.companyName.trim().toLowerCase() == impFile.supplierName.trim().toLowerCase()) || 
+          (prefill != null && s.companyName.trim().toLowerCase() == prefill.supplierName.trim().toLowerCase())
+      ).firstOrNull;
+
+      final effectiveSupplierId = supObj?.supplierId ?? targetSupId;
+      final effectiveSupplierName = supObj?.companyName ?? (impFile != null && impFile.supplierName.isNotEmpty ? impFile.supplierName : (prefill?.beneficiaryName ?? prefill?.supplierName ?? ''));
+      final effectiveBankName = (supObj?.bankName != null && supObj!.bankName!.isNotEmpty) ? supObj.bankName! : (prefill?.bankName ?? '');
+      final effectiveSwiftCode = (supObj?.swiftCode != null && supObj!.swiftCode!.isNotEmpty) ? supObj.swiftCode! : (prefill?.swiftCode ?? '');
+      final effectiveIban = (supObj?.iban != null && supObj!.iban!.isNotEmpty)
+          ? supObj.iban!
+          : ((supObj?.accountNumber != null && supObj!.accountNumber!.isNotEmpty)
+              ? supObj.accountNumber!
+              : (prefill?.iban ?? prefill?.accountNumber ?? ''));
+
+      if (mounted) {
+        final dynamicRate = _getExchangeRateForCurrency(calculatedCurrency);
+        final effRate = dynamicRate > 0 ? dynamicRate : (prefill != null && prefill.exchangeRate > 0 ? prefill.exchangeRate : 50.0);
+
+        final fCode = impFile?.customFileNumber ?? impFile?.importFileCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
+        final compName = impFile?.companyName ?? '';
 
         setState(() {
           _payPrefillData = prefill;
-          _payTitleController.text = '${prefill.incoterm} - ${prefill.importFileTitle}';
-          _selectedSupplierId = prefill.supplierId;
-          _supplierNameController.text = prefill.beneficiaryName ?? prefill.supplierName;
-          _paymentType = prefill.paymentTermsSummary.isNotEmpty ? prefill.paymentTermsSummary : 'Advance Payment';
-          _amountController.text = prefill.totalInvoiceAmount.toStringAsFixed(2);
-          _currencyCode = invCurr;
+          _payTitleController.text = compName.isNotEmpty ? '[$fCode] $compName' : '[$fCode]';
+          _selectedSupplierId = effectiveSupplierId;
+          _supplierNameController.text = effectiveSupplierName;
+          _paymentType = (prefill != null && prefill.paymentTermsSummary.isNotEmpty) ? prefill.paymentTermsSummary : 'Advance Payment';
+          
+          if (calculatedInvoiceAmount > 0) {
+            _amountController.text = calculatedInvoiceAmount.toStringAsFixed(2);
+          } else {
+            _amountController.text = '';
+          }
+          
+          _currencyCode = calculatedCurrency;
           _exchangeRateController.text = effRate.toStringAsFixed(2);
-          _bankNameController.text = prefill.bankName ?? '';
-          _swiftCodeController.text = prefill.swiftCode ?? '';
-          _ibanController.text = prefill.iban ?? prefill.accountNumber ?? '';
+          _bankNameController.text = effectiveBankName;
+          _swiftCodeController.text = effectiveSwiftCode;
+          _ibanController.text = effectiveIban;
         });
       }
     } finally {
@@ -286,25 +350,70 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     try {
       final prefill = await ref.read(importBudgetsProvider.notifier).fetchBudgetPrefill(fileId);
-      if (prefill != null && mounted) {
-        final invCurr = prefill.invoiceCurrency.isNotEmpty ? prefill.invoiceCurrency : 'USD';
-        final dynamicRate = _getExchangeRateForCurrency(invCurr);
-        final effRate = dynamicRate > 0 ? dynamicRate : (prefill.exchangeRate > 0 ? prefill.exchangeRate : 50.0);
+      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final impFile = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+      final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
+      final linkedPOs = poList.where((po) => po.importFileId == fileId || (impFile?.poIds?.contains(po.poId) ?? false)).toList();
+      final currencies = ref.read(currenciesProvider).value ?? [];
+
+      double calculatedInvoiceAmount = 0.0;
+      String calculatedCurrency = 'USD';
+
+      if (prefill != null && prefill.totalInvoiceAmount > 0) {
+        calculatedInvoiceAmount = prefill.totalInvoiceAmount;
+        calculatedCurrency = prefill.invoiceCurrency.isNotEmpty ? prefill.invoiceCurrency : 'USD';
+      } else if (linkedPOs.isNotEmpty) {
+        for (final po in linkedPOs) {
+          final amt = po.totalAmountFob > 0
+              ? po.totalAmountFob
+              : po.items.fold(0.0, (s, it) => s + (it.quantity * it.unitPrice));
+          calculatedInvoiceAmount += amt;
+          final curr = currencies.where((c) => c.currencyId == po.currencyId).firstOrNull;
+          if (curr != null) {
+            calculatedCurrency = curr.currencyCode;
+          }
+        }
+      } else if (impFile != null && impFile.invoicesData.isNotEmpty) {
+        for (final inv in impFile.invoicesData) {
+          calculatedInvoiceAmount += inv.amount;
+          if (inv.currency.isNotEmpty) calculatedCurrency = inv.currency;
+        }
+      } else if (impFile != null && impFile.estimatedCost > 0) {
+        calculatedInvoiceAmount = impFile.estimatedCost;
+        if (impFile.estimatedCostCurrency.isNotEmpty) {
+          calculatedCurrency = impFile.estimatedCostCurrency;
+        }
+      }
+
+      if (mounted) {
+        final dynamicRate = _getExchangeRateForCurrency(calculatedCurrency);
+        final effRate = dynamicRate > 0 ? dynamicRate : (prefill != null && prefill.exchangeRate > 0 ? prefill.exchangeRate : 50.0);
+
+        final freightCost = prefill?.estimatedFreightCost ?? 0.0;
+        final freightCurr = (prefill != null && prefill.freightCurrency.isNotEmpty) ? prefill.freightCurrency : 'USD';
+        final freightRate = _getExchangeRateForCurrency(freightCurr);
+        final freightEgp = freightCost * (freightRate > 0 ? freightRate : effRate);
+
+        final customsDutiesEgp = prefill?.estimatedCustomsDutiesEgp ?? 0.0;
+        final clearanceFeesEgp = prefill?.estimatedClearanceFeesEgp ?? 0.0;
+
+        final fCode = impFile?.customFileNumber ?? impFile?.importFileCode ?? prefill?.importFileTitle ?? 'IMP-$fileId';
+        final compName = impFile?.companyName ?? '';
 
         setState(() {
           _bgtPrefillData = prefill;
-          _bgtTitleController.text = 'اعتماد الميزانية الاستيرادية الكلية لشحنة ${prefill.importFileTitle}';
+          _bgtTitleController.text = compName.isNotEmpty ? '[$fCode] $compName' : '[$fCode]';
           
-          _invoiceForeignController.text = prefill.totalInvoiceAmount.toStringAsFixed(2);
-          _bgtInvoiceCurrency = invCurr;
-          _invoiceEgpController.text = (prefill.totalInvoiceAmount * effRate).toStringAsFixed(2);
+          _invoiceForeignController.text = calculatedInvoiceAmount > 0 ? calculatedInvoiceAmount.toStringAsFixed(2) : '0.00';
+          _bgtInvoiceCurrency = calculatedCurrency;
+          _invoiceEgpController.text = (calculatedInvoiceAmount * effRate).toStringAsFixed(2);
           
-          _freightForeignController.text = prefill.estimatedFreightCost.toStringAsFixed(2);
-          _bgtFreightCurrency = prefill.freightCurrency;
-          _freightEgpController.text = (prefill.estimatedFreightCost * effRate).toStringAsFixed(2);
+          _freightForeignController.text = freightCost.toStringAsFixed(2);
+          _bgtFreightCurrency = freightCurr;
+          _freightEgpController.text = freightEgp.toStringAsFixed(2);
           
-          _customsEgpController.text = prefill.estimatedCustomsDutiesEgp.toStringAsFixed(2);
-          _clearanceEgpController.text = prefill.estimatedClearanceFeesEgp.toStringAsFixed(2);
+          _customsEgpController.text = customsDutiesEgp.toStringAsFixed(2);
+          _clearanceEgpController.text = clearanceFeesEgp.toStringAsFixed(2);
           _bgtExchangeRateController.text = effRate.toStringAsFixed(2);
         });
       }
@@ -878,15 +987,27 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                   value: _currencyCode,
                                   labelText: 'العملة *',
                                   searchHintText: 'ابحث عن العملة...',
-                                  items: const [
-                                    SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
-                                    SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
-                                    SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
-                                    SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
-                                    SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
-                                    SearchableDropdownItem(value: 'SAR', label: 'SAR - ريال سعودي'),
-                                    SearchableDropdownItem(value: 'AED', label: 'AED - درهم إماراتي'),
-                                  ],
+                                  items: () {
+                                    final curList = ref.watch(currenciesProvider).value ?? [];
+                                    final list = curList.isNotEmpty
+                                        ? curList.map((c) => SearchableDropdownItem<String>(
+                                              value: c.currencyCode,
+                                              label: '${c.currencyCode} - ${c.currencyName}',
+                                            )).toList()
+                                        : [
+                                            const SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
+                                            const SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
+                                            const SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
+                                            const SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
+                                            const SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
+                                            const SearchableDropdownItem(value: 'SAR', label: 'SAR - ريال سعودي'),
+                                            const SearchableDropdownItem(value: 'AED', label: 'AED - درهم إماراتي'),
+                                          ];
+                                    if (!list.any((i) => i.value == _currencyCode)) {
+                                      list.add(SearchableDropdownItem(value: _currencyCode, label: _currencyCode));
+                                    }
+                                    return list;
+                                  }(),
                                   onChanged: (val) {
                                     if (val != null) {
                                       setState(() {
@@ -1193,11 +1314,67 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
-                                onPressed: _isSavingBudget ? null : _saveImportBudget,
-                                icon: _isSavingBudget ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.verified, color: Colors.white),
-                                label: const Text('التصديق واعتماد الميزانية الشاملة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              Row(
+                                children: [
+                                  // 1. Live Refresh
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: AppTheme.charcoal,
+                                      side: BorderSide(color: Colors.grey.shade400),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    ),
+                                    onPressed: () {
+                                      ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+                                      ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+                                      ref.read(importFilesProvider.notifier).fetchImportFiles();
+                                    },
+                                    icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                                    label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // 2. Clear Form & Start New
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      foregroundColor: Colors.grey.shade800,
+                                      side: BorderSide(color: Colors.grey.shade400),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    ),
+                                    onPressed: () {
+                                      setState(() {
+                                        _bgtSelectedImportFileId = null;
+                                        _bgtPrefillData = null;
+                                        _bgtNotesController.clear();
+                                      });
+                                    },
+                                    icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+                                    label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // 3. Save Draft & Continue Later
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFFEFF6FF),
+                                      foregroundColor: AppTheme.cobalt,
+                                      elevation: 0,
+                                      side: const BorderSide(color: AppTheme.cobalt),
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                    ),
+                                    onPressed: _isSavingBudget ? null : _saveImportBudget,
+                                    icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+                                    label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 8),
+
+                                  // 4. Final Approval
+                                  ElevatedButton.icon(
+                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13)),
+                                    onPressed: _isSavingBudget ? null : _saveImportBudget,
+                                    icon: _isSavingBudget ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.verified, color: Colors.white),
+                                    label: const Text('التصديق واعتماد الميزانية ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
                               ),
                               Row(
                                 children: [
@@ -1645,9 +1822,29 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                 decoration: BoxDecoration(color: Colors.grey.shade100),
                 children: [
                   const Padding(padding: EdgeInsets.all(6), child: Text('إجمالي بنود العملة الأجنبية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text((invForeign + frtForeign).toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text(invCurr, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: const EdgeInsets.all(6), child: Text('${(invEgp + frtEgp).toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12))),
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Text(
+                      invCurr.toUpperCase() == frtCurr.toUpperCase()
+                          ? (invForeign + frtForeign).toStringAsFixed(2)
+                          : '${invForeign.toStringAsFixed(2)} ($invCurr)\n+ ${frtForeign.toStringAsFixed(2)} ($frtCurr)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Text(
+                      invCurr.toUpperCase() == frtCurr.toUpperCase() ? invCurr : 'متعدد (Multi)',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(6),
+                    child: Text(
+                      '${(invEgp + frtEgp).toStringAsFixed(2)} EGP',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
+                    ),
+                  ),
                 ],
               ),
             ],

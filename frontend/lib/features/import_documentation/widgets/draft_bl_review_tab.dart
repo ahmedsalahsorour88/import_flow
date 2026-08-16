@@ -54,6 +54,9 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   bool _isUploadingFile = false;
   String? _uploadedFileName;
   int? _uploadedFileSize;
+  String? _extractionStatus;
+  List<dynamic> _missingCriticalFields = [];
+  String? _safetyWarning;
   DraftBLComparisonResultModel? _comparisonResult;
   DraftBLReviewModel? _activeSession;
 
@@ -215,9 +218,15 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
       final rawText = res['raw_text'] as String? ?? '';
       final extractedFields = res['extracted_fields'] as Map<String, dynamic>? ?? {};
+      final extractionStatus = res['extraction_status'] as String? ?? 'EXTRACTION_COMPLETE';
+      final missingCritical = res['missing_critical_fields'] as List? ?? [];
+      final safetyWarning = res['safety_warning'] as String?;
 
       setState(() {
         _rawTextCtrl.text = rawText;
+        _extractionStatus = extractionStatus;
+        _missingCriticalFields = missingCritical;
+        _safetyWarning = safetyWarning;
         _syncExtractedFieldsToControllers(extractedFields);
 
         if (res['comparison_result'] != null) {
@@ -230,12 +239,22 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ تم بنجاح استخراج بيانات المسودة من ملف (${file.name}) وتعبئة حقول المراجعة'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        if (missingCritical.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ تم الاستخراج من (${file.name}) مع وجود حقول حرجة تحتاج تأكيدك ومراجعتك اليدوية'),
+              backgroundColor: Colors.amber.shade900,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم بنجاح استخراج بيانات المسودة من ملف (${file.name}) وتعبئة حقول المراجعة'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -754,8 +773,75 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           ),
                         ),
                       ),
-                  ],
-                ),
+                // Safety Guardrail Warning Banner
+                if (_missingCriticalFields.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 24),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '⚠️ تنبيه أمان رقابي: المستند المستخرج يحتوي على حقول حرجة غير مكتملة أو تحتاج تأكيد يدوي',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _safetyWarning ?? 'يرجى مراجعة وتأكيد الحقول الحرجة بالجدول أدناه لتفادي المقارنة أو الاعتماد بناءً على بيانات غير مكتملة.',
+                                style: TextStyle(fontSize: 12, color: Colors.brown.shade900),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                children: _missingCriticalFields.map((f) {
+                                  final label = f is Map ? (f['field_label'] ?? f['field_key']) : f.toString();
+                                  return Chip(
+                                    label: Text(label.toString(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.white)),
+                                    backgroundColor: Colors.amber.shade800,
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ] else if (_uploadedFileName != null && _extractionStatus == 'EXTRACTION_COMPLETE') ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.green.shade400),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.verified, color: Colors.green, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          '✅ تم الاستخراج الذكي الشامل واكتمال كافة الحقول الحرجة بنسبة 100%.',
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
 
                 // Optional Text Paste Area Expander

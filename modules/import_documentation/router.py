@@ -295,7 +295,6 @@ async def extract_draft_bl_from_file(
 
     comp_result = None
     if import_file_id:
-        from modules.import_documentation.schemas import DraftBLComparisonRequest
         comp_req = DraftBLComparisonRequest(
             import_file_id=import_file_id,
             draft_source="FILE_UPLOAD",
@@ -303,11 +302,14 @@ async def extract_draft_bl_from_file(
             draft_fields=extracted_fields,
         )
         comp_result = service.compare_draft_bl_service(db, comp_req)
-
+    guardrails = extracted_fields.get("_guardrails", {})
     return {
         "filename": file.filename,
         "raw_text": raw_text,
         "extracted_fields": extracted_fields,
+        "extraction_status": guardrails.get("extraction_status", "EXTRACTION_COMPLETE"),
+        "missing_critical_fields": guardrails.get("missing_critical_fields", []),
+        "safety_warning": guardrails.get("safety_warning"),
         "comparison_result": comp_result,
     }
 

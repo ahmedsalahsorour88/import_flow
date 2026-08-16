@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/import_documentation/models/import_documentation_model.dart';
 import 'package:frontend/features/import_documentation/widgets/legal_compliance_banner.dart';
+import 'package:frontend/features/import_documentation/widgets/visual_draft_bl_sheet.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
 
@@ -342,6 +343,48 @@ void main() {
 
       expect(find.textContaining('تحذير قانوني وإجرائي حرج'), findsOneWidget);
       expect(find.textContaining('البطاقة الاستيرادية: تنتهي في 2026-09-15'), findsOneWidget);
+    });
+
+    testWidgets('VisualDraftBLSheet renders authentic B/L document layout with ACID block', (WidgetTester tester) async {
+      final systemData = {
+        'draft_bl_number': 'MEDUAA123456',
+        'booking_no': 'BK-MSC-99',
+        'shipper': 'G.I. Industrial Holding S.p.A.',
+        'consignee': 'ECO ASSOCIATES for Trading and Contracting',
+        'notify_party': 'ECO ASSOCIATES for Trading and Contracting',
+        'vessel_name': 'MSC PORTO III',
+        'voyage_number': 'AB635A',
+        'pol': 'Genoa Port',
+        'pod': 'El Dekheila Port',
+        'acid_number': '7595528271019210013',
+        'importer_tax_id': '759552827',
+        'shipper_reg_id': 'IT000458921',
+        'packages_count': 31,
+        'goods_description': 'AIR CONDITIONING UNITS & CHILLERS',
+        'total_gross_weight_kg': 20030.0,
+        'cbm': 65.4,
+      };
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: VisualDraftBLSheet(
+                systemData: systemData,
+                draftData: const {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('BILL OF LADING (DRAFT — NOT NEGOTIABLE)'), findsOneWidget);
+      expect(find.textContaining('7595528271019210013'), findsOneWidget);
+      expect(find.textContaining('G.I. Industrial Holding S.p.A.'), findsOneWidget);
+      expect(find.textContaining('تنزيل PDF'), findsOneWidget);
+      expect(find.textContaining('تنزيل Excel'), findsOneWidget);
     });
   });
 }

@@ -7,6 +7,8 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../services/draft_bl_export_service.dart';
+import 'visual_draft_bl_sheet.dart';
 
 class DraftBLReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -526,33 +528,95 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       ],
                     ),
                     if (_comparisonResult != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade50 : Colors.green.shade50,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              _comparisonResult!.hasBlockingMismatch ? Icons.error : Icons.check_circle,
-                              color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green,
-                              size: 16,
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        children: [
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                await DraftBLExportService.exportDraftBLToPdf(
+                                  systemData: _comparisonResult!.systemData,
+                                  draftData: _comparisonResult!.draftData,
+                                  draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
+                                  bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+                                );
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('خطأ أثناء تصدير PDF: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 15),
+                            label: const Text('تنزيل PDF', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.crimson,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                            const SizedBox(width: 6),
-                            Text(
-                              _comparisonResult!.hasBlockingMismatch
-                                  ? 'يوجد ${_comparisonResult!.openDiscrepanciesCount} اختلافات غير مطابقة'
-                                  : 'مطابقة تامة 100% جاهزة للاعتماد',
-                              style: TextStyle(
-                                color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade900 : Colors.green.shade900,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
+                          ),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              try {
+                                final res = await DraftBLExportService.exportDraftBLToExcel(
+                                  systemData: _comparisonResult!.systemData,
+                                  draftData: _comparisonResult!.draftData,
+                                  draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
+                                  bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+                                );
+                                if (context.mounted && res != null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('✔ تم تصدير مسودة البوليصة بصيغة Excel / CSV بنجاح ($res)'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              } catch (e) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('خطأ أثناء تصدير Excel: $e'), backgroundColor: Colors.red),
+                                  );
+                                }
+                              }
+                            },
+                            icon: const Icon(Icons.table_chart, color: Colors.white, size: 15),
+                            label: const Text('تنزيل Excel', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                          ],
-                        ),
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade50 : Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _comparisonResult!.hasBlockingMismatch ? Icons.error : Icons.check_circle,
+                                  color: _comparisonResult!.hasBlockingMismatch ? Colors.red : Colors.green,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _comparisonResult!.hasBlockingMismatch
+                                      ? 'يوجد ${_comparisonResult!.openDiscrepanciesCount} اختلافات غير مطابقة'
+                                      : 'مطابقة تامة 100% جاهزة للاعتماد',
+                                  style: TextStyle(
+                                    color: _comparisonResult!.hasBlockingMismatch ? Colors.red.shade900 : Colors.green.shade900,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                   ],
                 ),
@@ -1030,6 +1094,17 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             ),
           ),
         ),
+
+        // 5. Visual Maritime Draft B/L Sheet (مطابقة لشكل بوليصة الخط الملاحي الرسمية ونافذة)
+        if (_comparisonResult != null) ...[
+          const SizedBox(height: 16),
+          VisualDraftBLSheet(
+            systemData: sys,
+            draftData: _comparisonResult!.draftData,
+            draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
+            bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+          ),
+        ],
       ],
     );
   }

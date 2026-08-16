@@ -2,6 +2,8 @@
 Service Layer & Business Engine for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
 """
 
+import io
+import re
 from datetime import date, datetime, timezone
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -895,6 +897,62 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
         ],
         "container_count": len(containers) if containers else 1,
     }
+
+
+def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
+    """
+    Extracts raw text and table structures from uploaded PDF, Word (.docx), Excel (.xlsx), or Text files.
+    """
+    lower_name = filename.lower()
+    text_content = ""
+
+    if lower_name.endswith(".pdf"):
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+            parts = []
+            for page in reader.pages:
+                t = page.extract_text()
+                if t:
+                    parts.append(t)
+            text_content = "\n".join(parts)
+        except Exception as e:
+            text_content = f"PDF Extraction Note: {str(e)}"
+
+    elif lower_name.endswith(".docx") or lower_name.endswith(".doc"):
+        try:
+            import docx
+            doc = docx.Document(io.BytesIO(content_bytes))
+            parts = [p.text for p in doc.paragraphs if p.text]
+            for tbl in doc.tables:
+                for row in tbl.rows:
+                    parts.append(" | ".join([cell.text.strip() for cell in row.cells if cell.text.strip()]))
+            text_content = "\n".join(parts)
+        except Exception as e:
+            text_content = f"Word Document Extraction Note: {str(e)}"
+
+    elif lower_name.endswith(".xlsx") or lower_name.endswith(".xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(content_bytes), data_only=True)
+            parts = []
+            for sheet in wb.sheetnames:
+                ws = wb[sheet]
+                for row in ws.iter_rows(values_only=True):
+                    row_vals = [str(v).strip() for v in row if v is not None and str(v).strip() != ""]
+                    if row_vals:
+                        parts.append(" | ".join(row_vals))
+            text_content = "\n".join(parts)
+        except Exception as e:
+            text_content = f"Excel Extraction Note: {str(e)}"
+
+    else:
+        try:
+            text_content = content_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            text_content = content_bytes.decode("latin-1", errors="ignore")
+
+    return text_content
 
 
 def parse_draft_bl_raw_text(raw_text: str) -> dict:

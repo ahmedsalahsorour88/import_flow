@@ -3,9 +3,8 @@ import 'package:flutter/foundation.dart';
 class ApiConstants {
   static String get serverUrl {
     if (kIsWeb) {
-      final host = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
-      final cleanHost = (host == 'localhost' || host == '0.0.0.0') ? '127.0.0.1' : host;
-      return 'http://$cleanHost:8000';
+      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
+      return 'http://$host:8000';
     }
     return 'http://127.0.0.1:8000';
   }

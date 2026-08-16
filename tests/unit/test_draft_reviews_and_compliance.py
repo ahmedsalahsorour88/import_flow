@@ -395,6 +395,18 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         vessel_item = next(c for c in v2.checklist_data if c["field_key"] == "vessel_name")
         self.assertTrue(vessel_item["is_locked"])
 
+    def test_extract_text_from_uploaded_files(self):
+        # 1. Test Text/CSV extraction
+        raw_text_bytes = b"ACID: 7595528271019210013\nEGYPTIAN IMPORTER TAX ID: 759552827\nGross Cargo Weight: 20030.000 kgs\nFREIGHT PREPAID"
+        extracted_txt = service.extract_text_from_uploaded_file("draft_bl.txt", raw_text_bytes)
+        self.assertIn("7595528271019210013", extracted_txt)
+        
+        parsed = service.parse_draft_bl_raw_text(extracted_txt)
+        self.assertEqual(parsed["acid_number"], "7595528271019210013")
+        self.assertEqual(parsed["importer_tax_id"], "759552827")
+        self.assertEqual(parsed["freight_terms"], "Freight Prepaid")
+        self.assertEqual(parsed["total_gross_weight_kg"], 20030.0)
+
 
 if __name__ == "__main__":
     unittest.main()

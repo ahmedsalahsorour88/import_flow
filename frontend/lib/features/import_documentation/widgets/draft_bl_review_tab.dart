@@ -1,3 +1,4 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -48,65 +49,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   final TextEditingController _brokerNotesCtrl = TextEditingController();
 
   bool _isLoading = false;
+  bool _isUploadingFile = false;
+  String? _uploadedFileName;
+  int? _uploadedFileSize;
   DraftBLComparisonResultModel? _comparisonResult;
   DraftBLReviewModel? _activeSession;
-
-  static const String _mscSample = '''MEDITERRANEAN SHIPPING COMPANY S.A.
-BILL OF LADING No. MEDURE910647 DRAFT
-SCAC Code: MEDU
-BOOKING REF. EBKG18064984
-SHIPPER: SHAW EUROPE LTD
-BUILDING E BLACKADDIE RD SANQUHAR DG4 6DB. UNITED KINGDOM
-CONSIGNEE: SCAS
-42, RD 17, MAADI SARAYAT CAIRO EGYPT.
-TEL: (+2) 01554344433 EMAIL: INFO@SCAS-EGYPT.COM
-NOTIFY PARTIES: SCAS 42, RD 17, MAADI SARAYAT CAIRO EGYPT.
-VESSEL AND VOYAGE NO: MSC GISELLE - NL630A
-PORT OF LOADING: London Gateway Port
-PORT OF DISCHARGE: Alexandria El Dekheila, EGYPT
-PLACE OF RECEIPT: Sanquhar
-PLACE OF DELIVERY: Alexandria El Dekheila
-Container Numbers, Seal Numbers: BEAU5851356 40' HIGH CUBE / Seal Number: 177345
-Description of Packages and Goods:
-31 Pallet(s) 1 X 40' HIGH CUBE CONTAINING 31 PALLETS OF FLOORING
-ACID: 7595528271019210013
-EGYPTIAN IMPORTER TAX ID: 759552827
-SHIPPER REGISTRATION TYPE: VAT NUMBER
-SHIPPER ID: GB428102677
-SHIPPER COUNTRY: UNITED KINGDOM
-SHIPPER COUNTRY CODE: GB
-FREIGHT PREPAID
-Gross Cargo Weight: 20,030.000 kgs.
-Total Items: 31''';
-
-  static const String _farEastSample = '''FAR EAST INTERNATIONAL FORWARDING CO.,LTD
-BILL OF LADING SZFC26080567
-Booking No. PKSSSHA2608716
-1.Shipper: SUZHOU GREENISH IMP&EXP CO., LTD.
-ADD: NO. 5678 DONGTAIHU RD, XUKOU TOWN, WUZHONG DISTRICT, SUZHOU, 215105 CHINA
-2.Consignee: SCAS FOR CONSTRUCTION AND FINISHING
-44, RD 81, MAADI SARAYAT CAIRO, EGYPT
-EMAIL:O.MAHMOUD@ARCHI-BRANDS.COM
-3.Notify party: SAME AS CONSIGNEE
-6.Ocean Vessel: CUL HOCHIMINH / Voy.No. 2631W
-7.Port of Loading: SHANGHAI
-8.Port of Discharge: ALEXANDRIA
-9.Place of Delivery: ALEXANDRIA
-12.No.of containers or Packages: 82 CARTONS
-13.Kind of Packages;Description of Goods:
-SHIPPER`S LOAD & COUNT & SEAL
-1X20'GP CONTAINER S.T.C.
-ACOUSTIC PANEL 5602290000
-ACID: 5281534391019310013
-EGYPTIAN IMPORTER TAX ID: 528153439
-SHIPPER REGISTRATION TYPE: VAT NUMBER
-SHIPPER ID: 91320506MA1MC0NT8D
-SHIPPER COUNTRY: CHINA
-SHIPPER COUNTRY CODE: CN
-AIYU2094360/FMT034258/82CARTONS/4756KGS/27.51CBM
-14.Gross Weight(kgs): 4756.000(KGS)
-15.Measurement(cbm): 27.510(CBM)
-24.Collect: FREIGHT COLLECT''';
 
   @override
   void initState() {
@@ -206,6 +153,98 @@ AIYU2094360/FMT034258/82CARTONS/4756KGS/27.51CBM
       }
     } finally {
       setState(() => _isLoading = false);
+    }
+  }
+
+  void _syncExtractedFieldsToControllers(Map<String, dynamic> d) {
+    if (d.containsKey('draft_bl_number') && d['draft_bl_number'] != null) _draftBlNumberCtrl.text = d['draft_bl_number'].toString();
+    if (d.containsKey('booking_no') && d['booking_no'] != null) _bookingNoCtrl.text = d['booking_no'].toString();
+    if (d.containsKey('shipper') && d['shipper'] != null) _shipperCtrl.text = d['shipper'].toString();
+    if (d.containsKey('consignee') && d['consignee'] != null) _consigneeCtrl.text = d['consignee'].toString();
+    if (d.containsKey('notify_party') && d['notify_party'] != null) _notifyPartyCtrl.text = d['notify_party'].toString();
+    if (d.containsKey('shipping_line') && d['shipping_line'] != null) _shippingLineCtrl.text = d['shipping_line'].toString();
+    if (d.containsKey('vessel_name') && d['vessel_name'] != null) _vesselNameCtrl.text = d['vessel_name'].toString();
+    if (d.containsKey('voyage_number') && d['voyage_number'] != null) _voyageCtrl.text = d['voyage_number'].toString();
+    if (d.containsKey('pol') && d['pol'] != null) _polCtrl.text = d['pol'].toString();
+    if (d.containsKey('pod') && d['pod'] != null) _podCtrl.text = d['pod'].toString();
+    if (d.containsKey('freight_terms') && d['freight_terms'] != null) _freightTermsCtrl.text = d['freight_terms'].toString();
+    if (d.containsKey('place_of_delivery') && d['place_of_delivery'] != null) _placeOfDeliveryCtrl.text = d['place_of_delivery'].toString();
+    if (d.containsKey('goods_description') && d['goods_description'] != null) _goodsDescCtrl.text = d['goods_description'].toString();
+    if (d.containsKey('total_gross_weight_kg') && d['total_gross_weight_kg'] != null) _grossWeightCtrl.text = d['total_gross_weight_kg'].toString();
+    if (d.containsKey('total_net_weight_kg') && d['total_net_weight_kg'] != null) _netWeightCtrl.text = d['total_net_weight_kg'].toString();
+    if (d.containsKey('cbm') && d['cbm'] != null) _cbmCtrl.text = d['cbm'].toString();
+    if (d.containsKey('qty_pkg') && d['qty_pkg'] != null) _packagesCountCtrl.text = d['qty_pkg'].toString();
+    if (d.containsKey('container_summary') && d['container_summary'] != null) {
+      _containerNoCtrl.text = d['container_summary'].toString();
+    }
+  }
+
+  Future<void> _pickAndExtractFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'txt', 'csv'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر قراءة بيانات الملف المختار'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+
+      setState(() {
+        _isUploadingFile = true;
+        _uploadedFileName = file.name;
+        _uploadedFileSize = file.size;
+      });
+
+      final res = await ref.read(draftBLReviewsProvider.notifier).extractDraftBLFromFile(
+            file.bytes!,
+            file.name,
+            importFileId: _selectedImportFileId,
+          );
+
+      final rawText = res['raw_text'] as String? ?? '';
+      final extractedFields = res['extracted_fields'] as Map<String, dynamic>? ?? {};
+
+      setState(() {
+        _rawTextCtrl.text = rawText;
+        _syncExtractedFieldsToControllers(extractedFields);
+
+        if (res['comparison_result'] != null) {
+          _comparisonResult = DraftBLComparisonResultModel.fromJson(res['comparison_result']);
+        }
+      });
+
+      if (_selectedImportFileId != null && res['comparison_result'] == null) {
+        await _runComparison(silent: true);
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ تم بنجاح استخراج بيانات المسودة من ملف (${file.name}) وتعبئة حقول المراجعة'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('حدث خطأ أثناء استخراج الملف: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingFile = false);
+      }
     }
   }
 
@@ -545,65 +584,131 @@ AIYU2094360/FMT034258/82CARTONS/4756KGS/27.51CBM
         ),
         const SizedBox(height: 16),
 
-        // Smart OCR / Raw Text Paste Expander Card
+        // Multi-Format Smart Extractor Card (PDF / Word / Excel / Text)
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: ExpansionTile(
-            initiallyExpanded: false,
-            leading: const Icon(Icons.document_scanner, color: AppTheme.cobalt),
-            title: const Text('📥 استخراج ذكي من نص مسودة البوليصة (Carrier Text / OCR Parser)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-            subtitle: const Text('الصق نص المسودة الواردة من الخط الملاحي (MSC / Maersk / Far East) للاستخراج والمطابقة الآلية الفورية', style: TextStyle(fontSize: 12, color: Colors.grey)),
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
+                    const Icon(Icons.document_scanner, color: AppTheme.cobalt, size: 22),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('📥 استخراج ذكي من ملفات ومسودات البوليصة (PDF / Word / Excel / Text)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          SizedBox(height: 2),
+                          Text('ارفع ملف المسودة مباشرة من الخط الملاحي أو الصق نص المسودة للاستخراج والمطابقة الآلية الفورية', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    // Format Badges
+                    Wrap(
+                      spacing: 6,
                       children: [
-                        const Text('نماذج مسودات جاهزة للتجربة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.text_snippet, size: 14),
-                          label: const Text('نموذج MSC (Mediterranean Shipping)', style: TextStyle(fontSize: 12)),
-                          onPressed: () {
-                            setState(() => _rawTextCtrl.text = _mscSample);
-                          },
-                        ),
-                        const SizedBox(width: 8),
-                        OutlinedButton.icon(
-                          icon: const Icon(Icons.text_snippet, size: 14),
-                          label: const Text('نموذج Far East International', style: TextStyle(fontSize: 12)),
-                          onPressed: () {
-                            setState(() => _rawTextCtrl.text = _farEastSample);
-                          },
-                        ),
+                        _buildFormatBadge('PDF', Colors.red),
+                        _buildFormatBadge('Word (.docx)', Colors.blue),
+                        _buildFormatBadge('Excel (.xlsx)', Colors.green),
+                        _buildFormatBadge('Text / OCR', Colors.teal),
                       ],
-                    ),
-                    const SizedBox(height: 10),
-                    TextFormField(
-                      controller: _rawTextCtrl,
-                      maxLines: 5,
-                      decoration: const InputDecoration(
-                        hintText: 'الصق هنا النص الخام المنسوخ من مسودة البوليصة أو الإيميل...',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.teal,
-                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                      ),
-                      icon: const Icon(Icons.flash_on, color: Colors.white),
-                      label: const Text('⚡ استخراج ومطابقة ذكية من نص المسودة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () => _runComparison(silent: false),
                     ),
                   ],
                 ),
-              ),
-            ],
+                const Divider(height: 24),
+
+                // File Upload Button & Selected File Status
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1B365D),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: _isUploadingFile
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                          : const Icon(Icons.upload_file, size: 20),
+                      label: Text(
+                        _isUploadingFile ? 'جاري قراءة واستخراج بيانات الملف...' : '📁 رفع واستخراج ملف المسودة (PDF / Word / Excel)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      onPressed: _isUploadingFile ? null : _pickAndExtractFile,
+                    ),
+                    const SizedBox(width: 16),
+                    if (_uploadedFileName != null)
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.green.shade50,
+                            border: Border.all(color: Colors.green.shade300),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  'تم استخراج: $_uploadedFileName (${((_uploadedFileSize ?? 0) / 1024).toStringAsFixed(1)} KB)',
+                                  style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 12),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.refresh, size: 18, color: Colors.green),
+                                tooltip: 'إعادة رفع ملف آخر',
+                                onPressed: _pickAndExtractFile,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+
+                // Optional Text Paste Area Expander
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(top: 8),
+                  title: const Text(
+                    'أو الصق نص المسودة يدوياً (Paste Raw Text / Email Content):',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.black87),
+                  ),
+                  children: [
+                    TextFormField(
+                      controller: _rawTextCtrl,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        hintText: 'الصق هنا النص المنسوخ من مسودة البوليصة أو الإيميل...',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.teal,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+                        ),
+                        icon: const Icon(Icons.flash_on, size: 16),
+                        label: const Text('⚡ استخراج ومطابقة ذكية من النص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        onPressed: () => _runComparison(silent: false),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -1309,6 +1414,21 @@ AIYU2094360/FMT034258/82CARTONS/4756KGS/27.51CBM
               ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFormatBadge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }

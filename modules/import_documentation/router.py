@@ -3,7 +3,7 @@ FastAPI Router for Import Documentation & ACI (Phase 3 - BP-014 to BP-019)
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -279,6 +279,39 @@ def reconcile_po_final_adjustments(
 
 
 # --- 2. DRAFT BILL OF LADING (B/L) ENDPOINTS ---
+@router.post("/draft-bl/extract-file", status_code=status.HTTP_200_OK)
+async def extract_draft_bl_from_file(
+    file: UploadFile = File(...),
+    import_file_id: Optional[int] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Extracts raw text from uploaded PDF, Word, Excel, or Text file, extracts B/L fields,
+    and optionally executes comparison against the active import file.
+    """
+    content_bytes = await file.read()
+    raw_text = service.extract_text_from_uploaded_file(file.filename, content_bytes)
+    extracted_fields = service.parse_draft_bl_raw_text(raw_text)
+
+    comp_result = None
+    if import_file_id:
+        from modules.import_documentation.schemas import DraftBLComparisonRequest
+        comp_req = DraftBLComparisonRequest(
+            import_file_id=import_file_id,
+            draft_source="FILE_UPLOAD",
+            raw_draft_text=raw_text,
+            draft_fields=extracted_fields,
+        )
+        comp_result = service.compare_draft_bl_service(db, comp_req)
+
+    return {
+        "filename": file.filename,
+        "raw_text": raw_text,
+        "extracted_fields": extracted_fields,
+        "comparison_result": comp_result,
+    }
+
+
 @router.post("/draft-bl/compare", status_code=status.HTTP_200_OK)
 def compare_draft_bl(
     payload: DraftBLComparisonRequest, db: Session = Depends(get_db)

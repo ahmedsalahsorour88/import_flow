@@ -371,6 +371,26 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
     }
   }
 
+  Future<Map<String, dynamic>> extractDraftBLFromFile(
+    List<int> fileBytes,
+    String fileName, {
+    int? importFileId,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+        if (importFileId != null) 'import_file_id': importFileId,
+      });
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/draft-bl/extract-file',
+        data: formData,
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<DraftBLReviewModel> saveDraftBLReview(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(

@@ -301,19 +301,39 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     }
   }
 
-  Future<void> _updateChecklistRow(int idx, {String? status, String? correction, String? reason, String? respParty}) async {
+  Future<void> _updateChecklistRow(
+    int idx, {
+    dynamic draftValue,
+    String? status,
+    String? correction,
+    String? reason,
+    String? respParty,
+  }) async {
     if (_comparisonResult == null) return;
     setState(() {
       final old = _comparisonResult!.checklist[idx];
+      final newDraft = draftValue ?? old.draftValue;
+
+      String newStatus = status ?? old.status;
+      if (draftValue != null && status == null) {
+        final sysStr = (old.systemValue?.toString() ?? '').trim().toLowerCase();
+        final draftStr = (newDraft?.toString() ?? '').trim().toLowerCase();
+        if (draftStr.isNotEmpty && sysStr == draftStr) {
+          newStatus = 'Correct';
+        } else if (draftStr.isNotEmpty && sysStr != draftStr) {
+          newStatus = 'Incorrect';
+        }
+      }
+
       _comparisonResult!.checklist[idx] = DraftBLChecklistItemModel(
         fieldKey: old.fieldKey,
         fieldLabelAr: old.fieldLabelAr,
         fieldLabelEn: old.fieldLabelEn,
         sourceEntity: old.sourceEntity,
         systemValue: old.systemValue,
-        draftValue: old.draftValue,
-        status: status ?? old.status,
-        requiredCorrection: correction ?? old.requiredCorrection,
+        draftValue: newDraft,
+        status: newStatus,
+        requiredCorrection: correction ?? (newStatus == 'Correct' ? null : old.requiredCorrection),
         reason: reason ?? old.reason,
         notes: old.notes,
         responsibleParty: respParty ?? old.responsibleParty,
@@ -874,18 +894,59 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 ),
                               ),
                             ),
-                            // Draft Value
+                            // Draft Value (Editable in-place)
                             DataCell(
                               SizedBox(
-                                width: 190,
-                                child: Text(
-                                  itm.draftValue?.toString() ?? 'غير مدخل بالمسودة',
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: (itm.draftValue == null || itm.draftValue.toString().isEmpty) ? Colors.red : Colors.black87,
-                                  ),
+                                width: 220,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextFormField(
+                                        key: ValueKey('draft_${itm.fieldKey}_${itm.draftValue}'),
+                                        initialValue: itm.draftValue?.toString() ?? '',
+                                        decoration: InputDecoration(
+                                          isDense: true,
+                                          hintText: 'أدخل قيمة المسودة...',
+                                          hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(6),
+                                            borderSide: BorderSide(
+                                              color: (itm.draftValue != null && itm.draftValue.toString().isNotEmpty)
+                                                  ? (isCorrect ? Colors.green.shade300 : Colors.orange.shade300)
+                                                  : Colors.grey.shade300,
+                                            ),
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.white,
+                                        ),
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: isCorrect ? Colors.green.shade900 : Colors.black87,
+                                        ),
+                                        onChanged: (val) {
+                                          _updateChecklistRow(idx, draftValue: val);
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    IconButton(
+                                      icon: const Icon(Icons.content_copy, size: 14, color: AppTheme.cobalt),
+                                      tooltip: 'نسخ قيمة النظام للمسودة وتأكيد المطابقة',
+                                      visualDensity: VisualDensity.compact,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+                                      onPressed: () {
+                                        _updateChecklistRow(
+                                          idx,
+                                          draftValue: itm.systemValue,
+                                          status: 'Correct',
+                                          correction: null,
+                                        );
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),

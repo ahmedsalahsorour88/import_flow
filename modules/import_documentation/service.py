@@ -1018,6 +1018,17 @@ def parse_draft_bl_raw_text(raw_text: str) -> dict:
     if m_deliv:
         parsed["place_of_delivery"] = m_deliv.group(1).strip()
 
+    # 6b. Shipper, Consignee, Notify Party
+    m_shp = re.search(r'(?:1\.Shipper|SHIPPER|EXPORTER)[:\s]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
+    if m_shp:
+        parsed["shipper"] = m_shp.group(1).strip()
+    m_csg = re.search(r'(?:2\.Consignee|CONSIGNEE|IMPORTER)[:\s]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
+    if m_csg:
+        parsed["consignee"] = m_csg.group(1).strip()
+    m_not = re.search(r'(?:3\.Notify\s+party|NOTIFY\s+PARTIES|NOTIFY\s+PARTY)[:\s]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
+    if m_not:
+        parsed["notify_party"] = m_not.group(1).strip()
+
     # 7. Freight Terms
     if re.search(r'FREIGHT\s+PREPAID', raw_text, re.IGNORECASE):
         parsed["freight_terms"] = "Freight Prepaid"

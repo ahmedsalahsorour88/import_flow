@@ -63,7 +63,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'External Partners & Service Providers (MD-003)',
+                        'External Partners & Service Providers',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -625,7 +625,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                           Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
                           const SizedBox(width: 12),
                           Text(
-                            isEditing ? 'Edit External Partner & Bank (MD-003)' : 'Add External Partner & Bank (MD-003)',
+                            isEditing ? 'Edit External Partner & Bank' : 'Add External Partner & Bank',
                             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],

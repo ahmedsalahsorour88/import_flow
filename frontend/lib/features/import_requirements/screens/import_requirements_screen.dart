@@ -595,7 +595,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 24),
             SizedBox(width: 10),
             Text(
-              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية (BP-011 التأكيد اللاحق للـ ACID حتى الإبحار)',
+              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
           ],
@@ -1030,7 +1030,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 child: TextFormField(
                   controller: _hsCodeCtrl,
                   decoration: const InputDecoration(
-                    labelText: 'بند التعريفة الجمركية (HS Code MD-008) *',
+                    labelText: 'بند التعريفة الجمركية (HS Code) *',
                     border: OutlineInputBorder(),
                     prefixIcon: Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 18),
                   ),
@@ -1626,7 +1626,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.check_circle_outline, size: 20),
             label: Text(
-              _editingAssessmentId != null ? 'تحديث وحفظ التعديلات' : 'حفظ واعتماد التقييم التأكيدي (BP-011)',
+              _editingAssessmentId != null ? 'تحديث وحفظ التعديلات' : 'حفظ واعتماد التقييم التأكيدي',
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),

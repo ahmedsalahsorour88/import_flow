@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/financial_settlement_provider.dart';
 import 'odoo_journal_entry_dialog.dart';
@@ -57,28 +57,40 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
   Widget build(BuildContext context) {
     final recordsState = ref.watch(financialSettlementProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.calculate, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('التسوية المالية وتكلفة البند النهائي (Phase 9 - Financial Settlement & Landed Cost Engine)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(financialSettlementProvider.notifier).fetchSettlements(),
-          ),
-          const SizedBox(width: 10),
-        ],
-
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.calculate_outlined,
+        titleEn: 'Landed Cost Registry',
+        titleAr: 'سجل تسويات تكلفة الوصول',
       ),
-      body: Padding(
+      const VerticalNavTabItem(
+        icon: Icons.add_chart_outlined,
+        titleEn: 'New Cost Settlement',
+        titleAr: 'احتساب وتسوية تكلفة شحنة جديدة',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Comprehensive Landed Cost Engine',
+      titleAr: 'التسوية المالية وتكلفة البند النهائي',
+      headerIcon: Icons.calculate,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showAddDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات',
+          onPressed: () => ref.read(financialSettlementProvider.notifier).fetchSettlements(),
+        ),
+      ],
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

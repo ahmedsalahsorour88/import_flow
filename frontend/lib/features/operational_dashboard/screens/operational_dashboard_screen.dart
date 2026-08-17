@@ -81,6 +81,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 children: [
                   _buildKpiCardsBar(data),
                   const SizedBox(height: 16),
+                  _buildStreamlitLauncherBanner(),
+                  const SizedBox(height: 16),
                   _buildQuickActionsBar(),
                   const SizedBox(height: 16),
                   _buildRiskAlertsBanner(data.shipments),
@@ -88,7 +90,6 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   _buildDailyCheckinsCard(),
                   const SizedBox(height: 16),
                 ],
-
               ),
             ),
 
@@ -1019,6 +1020,78 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             ),
             const SizedBox(width: 4),
             Icon(Icons.arrow_forward_ios, size: 10, color: color.withOpacity(0.6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ─── Streamlit Operations Board Interactive Banner ────────────────────────
+  Widget _buildStreamlitLauncherBanner() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1E293B), Color(0xFF0F172A)],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+              ),
+              child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.cobalt, size: 28),
+            ),
+            const SizedBox(width: 16),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'لوحة تتبع ومراحل الشحنات التفاعلية (Streamlit 6-Phase Operations Board)',
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'NEW',
+                        style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 10),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 3),
+                  Text(
+                    'لوحة بصرية متكاملة (6 مراحل كبرى — 21 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة لنفس الشحنة والمزامنة اللحظية.',
+                    style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 14),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.cobalt,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              ),
+              onPressed: () => selectNavigationIndex(ref, 48), // Streamlit Board Screen
+              icon: const Icon(Icons.launch, size: 16, color: Colors.white),
+              label: const Text(
+                'فتح لوحة المراحل',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              ),
+            ),
           ],
         ),
       ),

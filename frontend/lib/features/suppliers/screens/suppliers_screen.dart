@@ -53,7 +53,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Foreign Suppliers Directory (MD-002)',
+                        'Foreign Suppliers Directory',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -503,7 +503,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                           Icon(isEditing ? Icons.edit : Icons.public, color: Colors.white, size: 22),
                           const SizedBox(width: 12),
                           Text(
-                            isEditing ? 'Edit Foreign Exporter & Supplier (MD-002)' : 'Add Foreign Exporter & Supplier (MD-002)',
+                            isEditing ? 'Edit Foreign Exporter & Supplier' : 'Add Foreign Exporter & Supplier',
                             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],

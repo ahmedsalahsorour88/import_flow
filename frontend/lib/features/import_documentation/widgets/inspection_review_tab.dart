@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
@@ -29,6 +31,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
+  String? _pickedFileName;
+
+  static const List<ImportDocStep> _steps = [
+    ImportDocStep(label: '1. متطلبات شهادة الفحص والمطابقة', icon: Icons.fact_check_outlined),
+    ImportDocStep(label: '2. إدخال واستخراج الدرافت', icon: Icons.file_upload),
+    ImportDocStep(label: '3. مصفوفة المقارنة والفروق', icon: Icons.rule),
+    ImportDocStep(label: '4. سجل شهادات الفحص المعتمدة', icon: Icons.history),
+  ];
 
   @override
   void initState() {
@@ -128,27 +138,44 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     }
   }
 
+  Future<void> _pickCertificateFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tiff'],
+        dialogTitle: 'اختر ملف شهادة الفحص',
+      );
+      if (result != null && result.files.isNotEmpty) {
+        setState(() => _pickedFileName = result.files.first.name);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم إرفاق الملف: ${result.files.first.name} — يمكنك نسخ بياناته يدوياً أدناه'),
+              backgroundColor: AppTheme.cobalt,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في فتح الملف: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     return Column(
       children: [
-        // Sub-Navigation Toolbar (4 Steps)
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          child: Row(
-            children: [
-              _buildStepButton(0, '1. متطلبات شهادة الفحص والمطابقة', Icons.fact_check_outlined),
-              const SizedBox(width: 8),
-              _buildStepButton(1, '2. إدخال واستخراج الدرافت', Icons.file_upload),
-              const SizedBox(width: 8),
-              _buildStepButton(2, '3. مصفوفة المقارنة والفروق', Icons.rule),
-              const SizedBox(width: 8),
-              _buildStepButton(3, '4. سجل شهادات الفحص المعتمدة', Icons.history),
-            ],
-          ),
+        // Unified Stepper Navigation
+        ImportDocStepper(
+          steps: _steps,
+          currentStep: _activeStep,
+          onStepTapped: (i) => setState(() => _activeStep = i),
         ),
         const Divider(height: 1),
 
@@ -160,35 +187,6 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildStepButton(int index, String title, IconData icon) {
-    bool isSelected = _activeStep == index;
-    return InkWell(
-      onTap: () => setState(() => _activeStep = index),
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.cobalt : Colors.grey.shade100,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 16, color: isSelected ? Colors.white : Colors.black87),
-            const SizedBox(width: 6),
-            Text(
-              title,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 13,
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -368,6 +366,42 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               ],
             ),
             const SizedBox(height: 16),
+            // File Picker Row
+            Row(
+              children: [
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.cobalt,
+                    side: const BorderSide(color: AppTheme.cobalt),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  ),
+                  icon: const Icon(Icons.attach_file, size: 18),
+                  label: const Text('إرفاق ملف الشهادة (PDF / صورة)'),
+                  onPressed: _pickCertificateFile,
+                ),
+                if (_pickedFileName != null) ...
+                  [
+                    const SizedBox(width: 12),
+                    const Icon(Icons.check_circle, color: AppTheme.emerald, size: 16),
+                    const SizedBox(width: 6),
+                    Flexible(
+                      child: Text(
+                        _pickedFileName!,
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    'أو الصق النص يدوياً في حقل النص الخام أدناه:',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
             TextFormField(
               controller: _rawTextCtrl,
               maxLines: 3,
@@ -412,11 +446,46 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ),
                   ],
                 ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                  icon: const Icon(Icons.save, color: Colors.white),
-                  label: const Text('حفظ بالسجل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _saveReview,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.crimson,
+                        side: const BorderSide(color: AppTheme.crimson),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.picture_as_pdf, size: 16),
+                      label: const Text('تصدير PDF', style: TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('سيتم تصدير تقرير مطابقة شهادة الفحص قريباً')),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.emerald,
+                        side: const BorderSide(color: AppTheme.emerald),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.table_chart, size: 16),
+                      label: const Text('Excel', style: TextStyle(fontSize: 12)),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('سيتم تصدير تقرير المطابقة إلى Excel قريباً')),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      icon: const Icon(Icons.save, color: Colors.white),
+                      label: const Text('حفظ بالسجل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _saveReview,
+                    ),
+                  ],
                 ),
               ],
             ),

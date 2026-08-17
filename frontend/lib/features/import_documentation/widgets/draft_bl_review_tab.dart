@@ -59,6 +59,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   String? _safetyWarning;
   DraftBLComparisonResultModel? _comparisonResult;
   DraftBLReviewModel? _activeSession;
+  bool _showReferenceAsVisualBL = true;
 
   @override
   void initState() {
@@ -437,19 +438,21 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         // 5-Stage Stepper Navigation Bar
         Container(
           color: Colors.white,
+          width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
             child: Row(
               children: [
                 _buildStageButton(0, '1. ورقة المراجعة والتدقيق (Review Sheet & Checklist)', Icons.fact_check),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildStageButton(1, '2. تقرير التعديلات وخطاب الخط الملاحي (Revision Report)', Icons.assignment_late),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildStageButton(2, '3. إدارة النسخ v1 / v2 / v3 (Version Branching)', Icons.history),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildStageButton(3, '4. الاعتماد الثنائي (Dual Approval Workspace)', Icons.verified_user),
-                const SizedBox(width: 6),
+                const SizedBox(width: 8),
                 _buildStageButton(4, '5. السجل النهائي المعتمد (Final Certified B/L)', Icons.inventory_2),
               ],
             ),
@@ -561,7 +564,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
                                 );
                               } catch (e) {
-                                if (context.mounted) {
+                                if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('خطأ أثناء تصدير PDF: $e'), backgroundColor: Colors.red),
                                   );
@@ -585,13 +588,13 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                   draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
                                   bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
                                 );
-                                if (context.mounted && res != null) {
+                                if (mounted && res != null) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('✔ تم تصدير مسودة البوليصة بصيغة Excel / CSV بنجاح ($res)'), backgroundColor: Colors.green),
                                   );
                                 }
                               } catch (e) {
-                                if (context.mounted) {
+                                if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(content: Text('خطأ أثناء تصدير Excel: $e'), backgroundColor: Colors.red),
                                   );
@@ -773,6 +776,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                           ),
                         ),
                       ),
+                  ],
+                ),
                 // Safety Guardrail Warning Banner
                 if (_missingCriticalFields.isNotEmpty) ...[
                   const SizedBox(height: 12),
@@ -883,57 +888,142 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         ),
         const SizedBox(height: 16),
 
-        // SECTION 1: AUTO GENERATED SHIPMENT SUMMARY (REFERENCE VALUES)
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Row(
-                  children: [
-                    Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      '1. ملخص الشحنة المرجعي التلقائي (Auto Generated Shipment Summary)',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد والحجز الملاحي وبيان العبوة المعتمد.',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                ),
-                const Divider(height: 20),
-                Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  children: [
-                    _buildSummaryBox('المصدر / الشاحن (Shipper)', sys['shipper'] ?? 'غير محدد', Icons.business, Colors.indigo, flex: 2),
-                    _buildSummaryBox('المستورد (Consignee)', sys['consignee'] ?? 'غير محدد', Icons.account_balance, Colors.blue, flex: 2),
-                    _buildSummaryBox('جهة الإخطار (Notify Party)', sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
-                    _buildSummaryBox('الباخرة والرحلة (Vessel/Voyage)', '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
-                    _buildSummaryBox('الموانئ (POL / POD)', '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
-                    _buildSummaryBox('شروط النولون (Freight Terms)', sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, Colors.orange),
-                    _buildSummaryBox('رقم الحجز (Booking No)', sys['booking_no'] ?? 'N/A', Icons.confirmation_number, Colors.brown),
-                    _buildSummaryBox('رقم القيد الجمركي (ACID No)', sys['acid_number'] ?? 'N/A', Icons.security, Colors.red, isCritical: true),
-                    _buildSummaryBox('البطاقة الضريبية للمستورد', sys['importer_tax_id'] ?? 'N/A', Icons.badge, Colors.red, isCritical: true),
-                    _buildSummaryBox('رقم تسجيل المصدر (Shipper Reg)', sys['shipper_reg_id'] ?? 'N/A', Icons.pin, Colors.red, isCritical: true),
-                    _buildSummaryBox('الحاويات والرصاص (Containers)', sys['container_summary'] ?? 'N/A', Icons.inventory, Colors.teal, flex: 2),
-                    _buildSummaryBox('الوزن القائم (Gross Weight)', '${sys['total_gross_weight_kg'] ?? 0.0} كجم', Icons.scale, Colors.green),
-                    _buildSummaryBox('الوزن الصافي (Net Weight)', '${sys['total_net_weight_kg'] ?? 0.0} كجم', Icons.fitness_center, Colors.indigo),
-                    _buildSummaryBox('الحجم الإجمالي (Measurement CBM)', '${sys['cbm'] ?? 0.0} م³', Icons.view_in_ar, Colors.orange),
-                    _buildSummaryBox('عدد ونوع الطرود', '${sys['qty_pkg'] ?? 0} طرد (${sys['goods_description'] ?? 'Goods'})', Icons.category, Colors.deepPurple, flex: 2),
-                  ],
-                ),
-              ],
+        // SECTION 1: AUTO GENERATED SHIPMENT SUMMARY (REFERENCE VALUES AS VISUAL B/L)
+        if (_showReferenceAsVisualBL) ...[
+          VisualDraftBLSheet(
+            systemData: sys,
+            draftData: sys,
+            isReferenceOnly: true,
+            title: '1. ملخص الشحنة المرجعي كشكل بوليصة شحن (System Reference B/L Sheet)',
+            subtitle: 'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد وبيان العبوة والحجز الملاحي ومعايير نافذة (ACID)',
+            onRefresh: () => _runComparison(silent: true),
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 8),
+              child: TextButton.icon(
+                onPressed: () => setState(() => _showReferenceAsVisualBL = false),
+                icon: const Icon(Icons.grid_view, size: 16, color: AppTheme.cobalt),
+                label: const Text('التبديل إلى عرض البطاقات التفصيلية (Grid View)', style: TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+        ] else ...[
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.hub, color: AppTheme.cobalt, size: 22),
+                          SizedBox(width: 8),
+                          Text(
+                            '1. ملخص الشحنة المرجعي التلقائي (Auto Generated Shipment Summary)',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      Row(
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.description, size: 16),
+                            label: const Text('عرض كشكل بوليصة رسمية (Visual B/L)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => setState(() => _showReferenceAsVisualBL = true),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.print, size: 16),
+                            label: const Text('طباعة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => DraftBLExportService.printDraftBL(
+                              systemData: sys,
+                              draftData: sys,
+                              documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.crimson,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.picture_as_pdf, size: 16),
+                            label: const Text('PDF', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => DraftBLExportService.exportDraftBLToPdf(
+                              systemData: sys,
+                              draftData: sys,
+                              documentTitle: 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE',
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.table_chart, size: 16),
+                            label: const Text('Excel', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: () => DraftBLExportService.exportDraftBLToExcel(
+                              systemData: sys,
+                              draftData: sys,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'البيانات المرجعية المسجلة داخل النظام من ماستر داتا المورد والمستورد والحجز الملاحي وبيان العبوة المعتمد.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                  const Divider(height: 20),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    children: [
+                      _buildSummaryBox('المصدر / الشاحن (Shipper)', sys['shipper'] ?? 'غير محدد', Icons.business, Colors.indigo, flex: 2),
+                      _buildSummaryBox('المستورد (Consignee)', sys['consignee'] ?? 'غير محدد', Icons.account_balance, Colors.blue, flex: 2),
+                      _buildSummaryBox('جهة الإخطار (Notify Party)', sys['notify_party'] ?? 'SAME AS CONSIGNEE', Icons.notifications_active, Colors.cyan, flex: 2),
+                      _buildSummaryBox('الباخرة والرحلة (Vessel/Voyage)', '${sys['vessel_name'] ?? 'N/A'} - ${sys['voyage_number'] ?? 'N/A'}', Icons.directions_boat, Colors.teal),
+                      _buildSummaryBox('الموانئ (POL / POD)', '${sys['pol'] ?? 'N/A'} ➔ ${sys['pod'] ?? 'N/A'}', Icons.anchor, Colors.purple),
+                      _buildSummaryBox('شروط النولون (Freight Terms)', sys['freight_terms'] ?? 'Freight Prepaid', Icons.payment, Colors.orange),
+                      _buildSummaryBox('رقم الحجز (Booking No)', sys['booking_no'] ?? 'N/A', Icons.confirmation_number, Colors.brown),
+                      _buildSummaryBox('رقم القيد الجمركي (ACID No)', sys['acid_number'] ?? 'N/A', Icons.security, Colors.red, isCritical: true),
+                      _buildSummaryBox('البطاقة الضريبية للمستورد', sys['importer_tax_id'] ?? 'N/A', Icons.badge, Colors.red, isCritical: true),
+                      _buildSummaryBox('رقم تسجيل المصدر (Shipper Reg)', sys['shipper_reg_id'] ?? 'N/A', Icons.pin, Colors.red, isCritical: true),
+                      _buildSummaryBox('الحاويات والرصاص (Containers)', sys['container_summary'] ?? 'N/A', Icons.inventory, Colors.teal, flex: 2),
+                      _buildSummaryBox('الوزن القائم (Gross Weight)', '${sys['total_gross_weight_kg'] ?? 0.0} كجم', Icons.scale, Colors.green),
+                      _buildSummaryBox('الوزن الصافي (Net Weight)', '${sys['total_net_weight_kg'] ?? 0.0} كجم', Icons.fitness_center, Colors.indigo),
+                      _buildSummaryBox('الحجم الإجمالي (Measurement CBM)', '${sys['cbm'] ?? 0.0} م³', Icons.view_in_ar, Colors.orange),
+                      _buildSummaryBox('عدد ونوع الطرود', '${sys['qty_pkg'] ?? 0} طرد (${sys['goods_description'] ?? 'Goods'})', Icons.category, Colors.deepPurple, flex: 2),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
         // SECTION 2: REVIEW CHECKLIST TABLE (THE 20-FIELD COMPARISON ENGINE)
         Card(
@@ -1189,6 +1279,8 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
             draftData: _comparisonResult!.draftData,
             draftBlNumber: _draftBlNumberCtrl.text.isNotEmpty ? _draftBlNumberCtrl.text : null,
             bookingNumber: _bookingNoCtrl.text.isNotEmpty ? _bookingNoCtrl.text : null,
+            title: '5. شكل بوليصة مسودة الخط الملاحي المستخرجة (Extracted Draft B/L Sheet)',
+            subtitle: 'مطابقة حية وتأكيد لصحة بيانات بوليصة الشحن مع متطلبات نافذة (ACID)',
           ),
         ],
       ],
@@ -1613,6 +1705,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
               )
             else
               DataTable(
+                columnSpacing: 20,
                 columns: const [
                   DataColumn(label: Text('رقم الجلسة')),
                   DataColumn(label: Text('رقم الدرافت')),
@@ -1621,6 +1714,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                   DataColumn(label: Text('اعتماد المستورد')),
                   DataColumn(label: Text('اعتماد المخلص')),
                   DataColumn(label: Text('الحالة')),
+                  DataColumn(label: Text('الإجراءات')),
                 ],
                 rows: allReviews.map((r) {
                   return DataRow(cells: [
@@ -1631,6 +1725,80 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                     DataCell(Text(r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
                     DataCell(Text(r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
                     DataCell(Text(r.status, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Tooltip(
+                            message: 'معاينة البوليصة',
+                            child: IconButton(
+                              icon: const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
+                              onPressed: () {
+                                setState(() {
+                                  _activeSession = r;
+                                  _activeStep = 3; // Jump to Dual Approval view of this session
+                                });
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: Text('معاينة الجلسة #${r.blReviewId}: ${r.draftBlNumber}')),
+                                );
+                              },
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'طباعة البوليصة',
+                            child: IconButton(
+                              icon: const Icon(Icons.print, size: 18, color: AppTheme.charcoal),
+                              onPressed: () async {
+                                try {
+                                  final sysData = r.systemDataSnapshot ?? {};
+                                  final draftData = r.draftExtractedData ?? {};
+                                  await DraftBLExportService.printDraftBL(
+                                    systemData: sysData,
+                                    draftData: draftData,
+                                    draftBlNumber: r.draftBlNumber,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('خطأ في الطباعة: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                          Tooltip(
+                            message: 'تنزيل PDF',
+                            child: IconButton(
+                              icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
+                              onPressed: () async {
+                                try {
+                                  final sysData = r.systemDataSnapshot ?? {};
+                                  final draftData = r.draftExtractedData ?? {};
+                                  await DraftBLExportService.exportDraftBLToPdf(
+                                    systemData: sysData,
+                                    draftData: draftData,
+                                    draftBlNumber: r.draftBlNumber,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('خطأ في التصدير: $e'), backgroundColor: Colors.red),
+                                    );
+                                  }
+                                }
+                              },
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ]);
                 }).toList(),
               ),

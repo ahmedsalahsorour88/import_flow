@@ -1795,7 +1795,7 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل (MD-019.1 Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                     ],
                   ),
@@ -2270,7 +2270,7 @@ class _ImportFileDetailsDialogWidgetState extends ConsumerState<_ImportFileDetai
                             ),
                           ] else ...[
                             const Text(
-                              'لم يتم استخراج رقم ACID بعد لهذا الملف. يمكنك بدء إجراءات طلب واستخراج الـ ACID من موديول التوثيق (BP-014).',
+                              'لم يتم استخراج رقم ACID بعد لهذا الملف. يمكنك بدء إجراءات طلب واستخراج الـ ACID من قسم نافذة والـ ACID.',
                               style: TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],

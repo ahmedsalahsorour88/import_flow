@@ -786,11 +786,8 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
 
     # Containers from Phase 5 Cargo Shipping
     containers = []
-    total_cbm = 0.0
-    total_gw = 0.0
-    total_nw = 0.0
-    total_pkgs = 0
-    total_pcs = 0
+    cargo_gw = 0.0
+    cargo_nw = 0.0
     hs_codes = set()
     goods_desc = []
     container_str_parts = []
@@ -809,37 +806,89 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
                 "net_weight_kg": float(c_dict.get("net_weight_kg") or 0.0),
                 "vgm_status": c_dict.get("vgm_status", "Submitted"),
             })
-            total_gw += float(c_dict.get("gross_weight_kg") or 0.0)
-            total_nw += float(c_dict.get("net_weight_kg") or 0.0)
+            cargo_gw += float(c_dict.get("gross_weight_kg") or 0.0)
+            cargo_nw += float(c_dict.get("net_weight_kg") or 0.0)
             if c_no:
                 container_str_parts.append(f"{c_no} / Seal: {s_no} ({c_sz})")
 
+    has_any_pl = any(bool(po.packing_list_items) for po in pos)
+
+    pl_total_cbm = 0.0
+    pl_total_gw = 0.0
+    pl_total_nw = 0.0
+    pl_total_pkgs = 0
+    pl_total_pcs = 0
+
+    inv_total_cbm = 0.0
+    inv_total_gw = 0.0
+    inv_total_nw = 0.0
+    inv_total_pkgs = 0
+    inv_total_pcs = 0
+
     for po in pos:
+        # 1. Line items
         if po.line_items:
             for itm in po.line_items:
-                goods_desc.append(itm.description_ar or itm.description_en or itm.item_code or "Goods")
-                total_pcs += int(float(itm.quantity or 0))
-                total_pkgs += int(float(itm.quantity or 0))
-                total_cbm += float(itm.total_cbm or 0.0)
+                desc = itm.description_ar or itm.description_en or itm.item_code
+                if desc and desc not in goods_desc:
+                    goods_desc.append(desc)
+                qty = float(itm.quantity or 0.0)
+                inv_total_pcs += int(qty)
+                inv_total_pkgs += int(qty)
+                inv_total_cbm += float(itm.total_cbm or 0.0)
+                inv_total_gw += float(itm.gross_weight_kg or 0.0)
+                inv_total_nw += float(itm.net_weight_kg or 0.0)
                 if itm.tariff and itm.tariff.hs_code:
                     hs_codes.add(itm.tariff.hs_code)
+
+        # 2. Packing list items
         if po.packing_list_items:
             for pl in po.packing_list_items:
-                if pl.total_gross_weight_kg and pl.total_gross_weight_kg > 0:
-                    total_gw = max(total_gw, float(pl.total_gross_weight_kg))
-                if pl.total_net_weight_kg and pl.total_net_weight_kg > 0:
-                    total_nw = max(total_nw, float(pl.total_net_weight_kg))
-                if pl.total_cbm and pl.total_cbm > 0:
-                    total_cbm = max(total_cbm, float(pl.total_cbm))
-                if pl.qty_pkg and pl.qty_pkg > 0:
-                    total_pkgs = max(total_pkgs, int(float(pl.qty_pkg)))
+                p_code = pl.item_code or pl.hs_code
+                if p_code and p_code not in goods_desc:
+                    goods_desc.append(p_code)
+                q_pkg = float(pl.qty_pkg or 0.0)
+                q_pcs = float(pl.qty_pcs or 0.0)
+                pl_total_pkgs += int(q_pkg)
+                pl_total_pcs += int(q_pcs)
 
-    if total_cbm == 0.0:
-        total_cbm = 58.4
-    if total_gw == 0.0:
-        total_gw = 24500.0
-    if total_nw == 0.0:
-        total_nw = 20700.0
+                # CBM
+                cbm_val = float(pl.total_cbm or 0.0)
+                if cbm_val <= 0:
+                    l_m = float(pl.length_cm or 0.0) / 100.0
+                    w_m = float(pl.width_cm or 0.0) / 100.0
+                    h_m = float(pl.height_cm or 0.0) / 100.0
+                    cbm_val = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
+                pl_total_cbm += cbm_val
+
+                # Gross Weight
+                gw_val = float(pl.total_gross_weight_kg or 0.0)
+                if gw_val <= 0 and float(pl.gross_weight_unit_kg or 0.0) > 0:
+                    gw_val = round(q_pkg * float(pl.gross_weight_unit_kg), 2)
+                pl_total_gw += gw_val
+
+                # Net Weight
+                nw_val = float(pl.total_net_weight_kg or 0.0)
+                if nw_val <= 0 and float(pl.net_weight_unit_kg or 0.0) > 0:
+                    nw_val = round(q_pkg * float(pl.net_weight_unit_kg), 2)
+                pl_total_nw += nw_val
+
+                if pl.hs_code:
+                    hs_codes.add(pl.hs_code)
+
+    # Determine final totals with priority to detailed Packing List
+    if has_any_pl and (pl_total_pkgs > 0 or pl_total_gw > 0 or pl_total_cbm > 0):
+        total_cbm = pl_total_cbm
+        total_gw = pl_total_gw
+        total_nw = pl_total_nw
+        total_pkgs = pl_total_pkgs
+        total_pcs = pl_total_pcs if pl_total_pcs > 0 else inv_total_pcs
+    else:
+        total_cbm = inv_total_cbm
+        total_gw = cargo_gw if cargo_gw > 0 else inv_total_gw
+        total_nw = cargo_nw if cargo_nw > 0 else inv_total_nw
+        total_pkgs = inv_total_pkgs
+        total_pcs = inv_total_pcs
 
     shipper_name = supplier.company_name if supplier else (imp_file.supplier_name if imp_file else 'Foreign Supplier')
     shipper_addr = supplier.address if (supplier and supplier.address) else 'Export Industrial District, Global Port'
@@ -852,22 +901,22 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
     consignee_full = f"{consignee_name}\nAddress: {consignee_addr}\nPhone: {consignee_phone}".strip()
 
     notify_party_full = consignee_full
-    vessel = booking.vessel_name if (booking and booking.vessel_name) else "CMA CGM ANTOINE DE SAINT EXUPERY"
-    voyage = getattr(booking, 'voyage_number', None) or getattr(booking, 'voyage_no', None) or "0VEC1W1MA"
-    pol = booking.pol_name if (booking and booking.pol_name) else "Hamburg Port (DEHAM)"
-    pod = booking.pod_name if (booking and booking.pod_name) else "Alexandria Port (EGALY)"
+    vessel = booking.vessel_name if (booking and booking.vessel_name) else "OCEAN VESSEL"
+    voyage = getattr(booking, 'voyage_number', None) or getattr(booking, 'voyage_no', None) or "VOY-01"
+    pol = booking.pol_name if (booking and booking.pol_name) else "Port of Loading (POL)"
+    pod = booking.pod_name if (booking and booking.pod_name) else "Port of Discharge (POD)"
     freight_terms = getattr(booking, 'freight_terms', None) or "Freight Prepaid"
     place_of_deliv = getattr(booking, 'place_of_delivery', None) or pod
-    bkg_no = booking.booking_confirmation_no if (booking and booking.booking_confirmation_no) else (cargo_shp.booking_no if (cargo_shp and cargo_shp.booking_no) else "BKG-2026-0099")
-    acid_no = imp_file.acid_number if (imp_file and imp_file.acid_number) else "EG-998877665544-2026"
-    tax_id = company.vat_id if company else "EG-123456789"
-    shipper_reg = getattr(supplier, 'registration_id', None) or getattr(supplier, 'tax_id', None) or "DE-99881122"
+    bkg_no = booking.booking_confirmation_no if (booking and booking.booking_confirmation_no) else (cargo_shp.booking_no if (cargo_shp and cargo_shp.booking_no) else "BKG-REF")
+    acid_no = imp_file.acid_number if (imp_file and imp_file.acid_number) else "N/A"
+    tax_id = company.vat_id if company else "N/A"
+    shipper_reg = getattr(supplier, 'registration_id', None) or getattr(supplier, 'tax_id', None) or "N/A"
     shp_mode = booking.shipment_type if (booking and booking.shipment_type) else "FCL / FCL"
-    container_summary_str = "; ".join(container_str_parts) if container_str_parts else "MSCU1234567 / Seal: SL-99001 (40HC)"
+    container_summary_str = "; ".join(container_str_parts) if container_str_parts else "N/A"
 
     return {
         "forwarder_name": booking.freight_forwarder_name if (booking and booking.freight_forwarder_name) else "Direct Shipping Line",
-        "shipping_line": booking.shipping_line_name if (booking and booking.shipping_line_name) else (cargo_shp.shipping_line if (cargo_shp and cargo_shp.shipping_line) else "MSC Mediterranean Shipping"),
+        "shipping_line": booking.shipping_line_name if (booking and booking.shipping_line_name) else (cargo_shp.shipping_line if (cargo_shp and cargo_shp.shipping_line) else "OCEAN CARRIER / FREIGHT LINE"),
         "vessel_name": vessel,
         "voyage_number": voyage,
         "pol": pol,
@@ -885,17 +934,15 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
         "shipper": shipper_full,
         "consignee": consignee_full,
         "notify_party": notify_party_full,
-        "hs_codes": list(hs_codes) if hs_codes else ["8471.30.00"],
-        "goods_description": ", ".join(goods_desc[:3]) if goods_desc else "Industrial Commercial Equipment & Spare Parts",
-        "qty_pcs": total_pcs if total_pcs > 0 else 500,
-        "qty_pkg": total_pkgs if total_pkgs > 0 else 24,
-        "total_net_weight_kg": round(total_nw if total_nw > 0 else 20700.0, 2),
-        "total_gross_weight_kg": round(total_gw if total_gw > 0 else 24500.0, 2),
-        "cbm": round(total_cbm if total_cbm > 0 else 58.4, 2),
-        "containers": containers if containers else [
-            {"container_no": "MSCU1234567", "seal_no": "SL-99001", "container_type": "40HC", "gross_weight_kg": 24500.0}
-        ],
-        "container_count": len(containers) if containers else 1,
+        "hs_codes": list(hs_codes) if hs_codes else ["N/A"],
+        "goods_description": ", ".join(goods_desc) if goods_desc else "General Merchandise & Import Goods",
+        "qty_pcs": total_pcs,
+        "qty_pkg": total_pkgs,
+        "total_net_weight_kg": round(total_nw, 2),
+        "total_gross_weight_kg": round(total_gw, 2),
+        "cbm": round(total_cbm, 4),
+        "containers": containers,
+        "container_count": len(containers),
     }
 
 

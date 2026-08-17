@@ -393,12 +393,13 @@ class ContainerRequirementEngine {
 
       if (isPlaced) continue;
 
-      // 2. Place on floor (z = 0) in existing floor shelves
+      // 2. Place on floor (z = 0) in existing floor shelves using Best Fit Decreasing
       int? bestShelfIdx;
       List<double>? bestOrientation; // [placedLength, placedWidth]
+      double minWastedDepth = double.infinity;
 
       final orientations = [[item.length, item.width]];
-      if (item.rotate) {
+      if (item.rotate && (item.length - item.width).abs() > 0.1) {
         orientations.add([item.width, item.length]);
       }
 
@@ -410,17 +411,19 @@ class ContainerRequirementEngine {
         for (final orient in orientations) {
           final L = orient[0];
           final W = orient[1];
-          if (W <= shelfDepth && (xCursor + L) <= spec.internalLength) {
-            bestShelfIdx = i;
-            bestOrientation = orient;
-            break;
+          if (W <= shelfDepth + 0.1 && (xCursor + L) <= spec.internalLength + 0.1) {
+            final wasted = shelfDepth - W;
+            if (wasted < minWastedDepth) {
+              minWastedDepth = wasted;
+              bestShelfIdx = i;
+              bestOrientation = orient;
+            }
           }
         }
-        if (bestShelfIdx != null) break;
       }
 
-      if (bestShelfIdx != null) {
-        final L = bestOrientation![0];
+      if (bestShelfIdx != null && bestOrientation != null) {
+        final L = bestOrientation[0];
         final W = bestOrientation[1];
         final shelf = shelves[bestShelfIdx];
         placed.add(PlacedItem(
@@ -446,7 +449,7 @@ class ContainerRequirementEngine {
       for (final orient in orientations) {
         final L = orient[0];
         final W = orient[1];
-        if ((currentWidthUsed + W) <= spec.internalWidth && L <= spec.internalLength) {
+        if ((currentWidthUsed + W) <= spec.internalWidth + 0.1 && L <= spec.internalLength + 0.1) {
           shelves.add([currentWidthUsed, W, L]);
           placed.add(PlacedItem(
             item: item,

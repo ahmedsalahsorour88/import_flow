@@ -89,7 +89,7 @@ void main() {
     expect(find.textContaining('تجهيز وشحن البضائع ومتابعة تحميل الحاويات'), findsOneWidget);
     
     // Tap Tab 2 (Saved Registry)
-    await tester.tap(find.textContaining('سجل متابعة الشحنات والتحميل المحفوظ'));
+    await tester.tap(find.textContaining('سجل متابعة الشحنات والتحميل'));
     await tester.pumpAndSettle();
 
     // Find the record and verify it exists

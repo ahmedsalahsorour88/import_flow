@@ -11,6 +11,7 @@ class CBMItemBase(BaseModel):
     height: float = Field(default=60.0, gt=0, json_schema_extra={"example": 100.0})
     unit: str = Field(default="cm", json_schema_extra={"example": "cm"})  # mm, cm, m
     gross_weight_per_unit_kg: float = Field(default=0.0, ge=0, json_schema_extra={"example": 25.0})
+    is_stackable: bool = Field(default=True, json_schema_extra={"example": True})
 
     @model_validator(mode="before")
     @classmethod
@@ -59,6 +60,7 @@ class CBMItemResponse(BaseModel):
     total_cbm: float
     volumetric_weight_kg: float
     total_gross_weight_kg: float
+    is_stackable: bool = True
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -70,6 +72,7 @@ class CBMCalculationBase(BaseModel):
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None
+    is_stackable: Optional[bool] = Field(default=True, json_schema_extra={"example": True})
 
 
 class CBMCalculationCreate(CBMCalculationBase):
@@ -82,6 +85,7 @@ class CBMCalculationUpdate(BaseModel):
     project_id: Optional[int] = None
     po_id: Optional[int] = None
     notes: Optional[str] = None
+    is_stackable: Optional[bool] = None
     items: Optional[List[CBMItemCreate]] = None
 
 
@@ -98,6 +102,7 @@ class CBMCalculationResponse(CBMCalculationBase):
     recommended_shipping_method: Optional[str] = None
     recommended_container_type: Optional[str] = None
     recommended_container_count: int = 0
+    is_stackable: Optional[bool] = True
     is_active: bool
     created_at: datetime
     updated_at: datetime

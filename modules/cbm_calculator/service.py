@@ -84,6 +84,7 @@ class CBMService:
                 "total_cbm": round(line_cbm, 4),
                 "volumetric_weight_kg": round(line_volumetric_wt, 2),
                 "total_gross_weight_kg": round(line_gross_wt, 2),
+                "is_stackable": getattr(item, "is_stackable", True),
             })
 
         total_cbm = round(sum_cbm, 4)
@@ -156,6 +157,7 @@ class CBMService:
             "project_id": payload.project_id,
             "po_id": payload.po_id,
             "notes": payload.notes,
+            "is_stackable": payload.is_stackable if payload.is_stackable is not None else True,
             **summary,
         }
 
@@ -207,12 +209,16 @@ class CBMService:
         calc_data = {}
         if payload.title is not None:
             calc_data["title"] = payload.title
+        if payload.import_file_id is not None:
+            calc_data["import_file_id"] = payload.import_file_id
         if payload.project_id is not None:
             calc_data["project_id"] = payload.project_id
         if payload.po_id is not None:
             calc_data["po_id"] = payload.po_id
         if payload.notes is not None:
             calc_data["notes"] = payload.notes
+        if payload.is_stackable is not None:
+            calc_data["is_stackable"] = payload.is_stackable
 
         computed_items = None
         if payload.items is not None:

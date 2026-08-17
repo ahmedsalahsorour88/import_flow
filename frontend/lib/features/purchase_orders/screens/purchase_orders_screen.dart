@@ -492,11 +492,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
           'total_cbm': 0.0,
         };
       }
+      final double itemNet = (p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg;
+      final double itemGross = (p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg;
+      final double itemCbm = p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm;
       hsSummaryMap[hs]!['qty_pcs'] += p.qtyPcs;
       hsSummaryMap[hs]!['qty_pkg'] += p.qtyPkg;
-      hsSummaryMap[hs]!['total_net'] += p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg);
-      hsSummaryMap[hs]!['total_gross'] += p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg);
-      hsSummaryMap[hs]!['total_cbm'] += p.totalCbm;
+      hsSummaryMap[hs]!['total_net'] += itemNet;
+      hsSummaryMap[hs]!['total_gross'] += itemGross;
+      hsSummaryMap[hs]!['total_cbm'] += itemCbm;
     }
 
     // Validation checks
@@ -537,7 +540,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     indicatorColor: AppTheme.cobalt,
                     tabs: [
                       Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'PO Line Items (الفاتورة المبدئية)'),
-                      Tab(icon: Icon(Icons.fact_check, size: 18), text: 'BP-003 Review Packing List (بيان التعبئة والوزن)'),
+                      Tab(icon: Icon(Icons.fact_check, size: 18), text: 'Review Packing List (بيان التعبئة والوزن)'),
                     ],
                   ),
                 ),
@@ -549,11 +552,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                         padding: const EdgeInsets.all(12),
                         child: Builder(builder: (context) {
                             final double effectivePackingListCbm = po.packingListItems.isNotEmpty
-                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
+                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm))
                                 : po.totalCbm;
-                            final double effectivePackingListWeight = po.packingListItems.isNotEmpty
-                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
+                            final double effectivePackingListGrossWeight = po.packingListItems.isNotEmpty
+                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.grossWeightUnitKg * pl.qtyPkg) : pl.totalGrossWeightKg))
                                 : po.totalGrossWeightKg;
+                            final double effectivePackingListNetWeight = po.packingListItems.isNotEmpty
+                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.netWeightUnitKg * pl.qtyPkg) : pl.totalNetWeightKg))
+                                : po.totalNetWeightKg;
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,7 +577,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
                                     _buildDetailItem('Total PI/PO Amount', '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
                                     _buildDetailItem('Total Volume (Packing List)', '${effectivePackingListCbm.toStringAsFixed(3)} CBM'),
-                                    _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListWeight.toStringAsFixed(1)} kg / ${po.totalNetWeightKg} kg'),
+                                    _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg'),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -886,9 +892,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                           Padding(padding: const EdgeInsets.all(6), child: Text('${p.qtyPkg}', style: const TextStyle(fontSize: 11))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text(p.packageType, style: const TextStyle(fontSize: 11))),
                                           Padding(padding: const EdgeInsets.all(6), child: Text(p.lengthCm > 0 ? '${p.lengthCm}x${p.widthCm}x${p.heightCm}' : 'N/A', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalNetWeightKg > 0 ? p.totalNetWeightKg : (p.qtyPkg * p.netWeightUnitKg)}', style: const TextStyle(fontSize: 11))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
-                                          Padding(padding: const EdgeInsets.all(6), child: Text('${p.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${((p.netWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.netWeightUnitKg) : p.totalNetWeightKg).toStringAsFixed(1)}', style: const TextStyle(fontSize: 11))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${((p.grossWeightUnitKg > 0 && p.qtyPkg > 0) ? (p.qtyPkg * p.grossWeightUnitKg) : p.totalGrossWeightKg).toStringAsFixed(1)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                          Padding(padding: const EdgeInsets.all(6), child: Text('${(p.calculatedCbm > 0 ? p.calculatedCbm : p.totalCbm).toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold))),
                                         ],
                                       );
                                     },
@@ -1824,11 +1830,11 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                 tabs: [
                   Tab(
                     icon: const Icon(Icons.list_alt, size: 18),
-                    text: '1. Commercial Header & Items (${_dialogItems.length})',
+                    text: 'Commercial Header & Items (${_dialogItems.length})',
                   ),
                   Tab(
                     icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                    text: '2. BP-003 Packing List (${_dialogPackingItems.length})',
+                    text: 'Packing List (${_dialogPackingItems.length})',
                   ),
                 ],
               ),

@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -781,38 +781,67 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   Widget build(BuildContext context) {
     final suppliersState = ref.watch(suppliersProvider);
     final paymentsState = ref.watch(paymentRequestsProvider);
+    final budgetsState = ref.watch(importBudgetsProvider);
 
     final suppliersList = suppliersState.value ?? [];
+    final totalRecords = (paymentsState.value?.length ?? 0) + (budgetsState.value?.length ?? 0);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.account_balance_wallet, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('الموافقات المالية وإدارة الميزانية (Phase 2 – Financial & Management Approval)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
-        actions: const [
-          BackToDashboardButton(),
-          SizedBox(width: 10),
-        ],
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.cobalt,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.payment), text: 'Payment Requests (BP-012 طلبات السداد المالي)'),
-            Tab(icon: Icon(Icons.pie_chart), text: 'Import Budget Approval (BP-013 اعتماد الميزانية)'),
-            Tab(icon: Icon(Icons.history), text: 'Financial History Registry (سجل العمليات المالي)'),
-          ],
-        ),
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.payment_outlined,
+        titleEn: 'Payment Requests',
+        titleAr: 'طلبات السداد المالي للمورد',
       ),
-      body: TabBarView(
-        controller: _tabController,
+      const VerticalNavTabItem(
+        icon: Icons.pie_chart_outline,
+        titleEn: 'Import Budget Approval',
+        titleAr: 'اعتماد الميزانية الاستيرادية',
+      ),
+      VerticalNavTabItem(
+        icon: Icons.history_edu_outlined,
+        titleEn: 'Financial History Registry',
+        titleAr: 'سجل العمليات والتسويات',
+        badge: totalRecords > 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.orange.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$totalRecords',
+                  style: const TextStyle(color: AppTheme.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Financial Approvals & Import Budget Management',
+      titleAr: 'الموافقات المالية وإدارة الميزانية',
+      headerIcon: Icons.account_balance_wallet_outlined,
+      headerColor: AppTheme.orange,
+      tabs: tabs,
+      selectedIndex: _tabController.index,
+      onTabSelected: (index) => setState(() => _tabController.index = index),
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'Live Refresh (تحديث حي)',
+          onPressed: () {
+            ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
+            ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+            ref.read(importFilesProvider.notifier).fetchImportFiles();
+            ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+            ref.read(suppliersProvider.notifier).fetchSuppliers();
+            ref.read(currenciesProvider.notifier).fetchCurrencies();
+          },
+        ),
+      ],
+      body: IndexedStack(
+        index: _tabController.index,
         children: [
           // ── TAB 1: PAYMENT REQUEST FORM (BP-012) ───────────────────────────
           SingleChildScrollView(

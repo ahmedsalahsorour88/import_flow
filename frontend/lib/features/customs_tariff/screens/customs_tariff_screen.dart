@@ -66,7 +66,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Customs Tariff / HS Code Master (MD-008)',
+                      'Customs Tariff & HS Codes',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
@@ -852,7 +852,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
               const SizedBox(width: 8),
               Text(
                 tariff == null
-                    ? 'إضافة بند جمركي واشتراطات (Add HS Code MD-008)'
+                    ? 'إضافة بند جمركي واشتراطات (Add HS Code)'
                     : 'تعديل بند جمركي - ${tariff.hsCode}',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),

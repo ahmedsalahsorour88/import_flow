@@ -125,8 +125,8 @@ class PurchaseOrderRepository:
             pkg_count = 0.0
 
             for pitem in data.packing_list_items:
-                tot_net = round(pitem.qty_pcs * pitem.net_weight_unit_kg, 2)
-                tot_gross = round(pitem.qty_pcs * pitem.gross_weight_unit_kg, 2)
+                tot_net = round(pitem.qty_pkg * pitem.net_weight_unit_kg, 2)
+                tot_gross = round(pitem.qty_pkg * pitem.gross_weight_unit_kg, 2)
                 unit_str = getattr(pitem, "unit", "cm") or "cm"
                 l_val = pitem.length_cm or 0.0
                 w_val = pitem.width_cm or 0.0
@@ -213,7 +213,7 @@ class PurchaseOrderRepository:
             total_pkgs = 0
 
             for item_dict in items_data:
-                qty = item_dict.get("quantity", 1.0)
+                qty = item_dict.get("quantity", 0.0)
                 price = item_dict.get("unit_price", 0.0)
                 cbm_unit = item_dict.get("cbm_per_unit", 0.0)
                 gross = item_dict.get("gross_weight_kg", 0.0)
@@ -273,8 +273,8 @@ class PurchaseOrderRepository:
                     l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
                     l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
 
-                tot_net = round(q_pcs * net_u, 2)
-                tot_gross = round(q_pcs * gross_u, 2)
+                tot_net = round(q_pkg * net_u, 2)
+                tot_gross = round(q_pkg * gross_u, 2)
                 tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
 

@@ -5,12 +5,13 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 
 class DraftBLExportService {
-  /// Generates and downloads standard Maritime Draft B/L as PDF
-  static Future<void> exportDraftBLToPdf({
+  /// Generates the pdf.Document instance for Maritime Draft B/L
+  static Future<pw.Document> generateDraftBLPdf({
     required Map<String, dynamic> systemData,
     required Map<String, dynamic> draftData,
     String? draftBlNumber,
     String? bookingNumber,
+    String? documentTitle,
   }) async {
     final pdf = pw.Document();
     final fontCairo = await PdfGoogleFonts.cairoRegular();
@@ -18,14 +19,17 @@ class DraftBLExportService {
 
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
     final bkgNo = (draftData['booking_no'] ?? bookingNumber ?? systemData['booking_no'] ?? 'BKG-REF').toString();
-    final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'N/A').toString();
-    final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'N/A').toString();
+    final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'EXPORTER / SUPPLIER').toString();
+    final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'IMPORTER / CONSIGNEE').toString();
     final notifyParty = (draftData['notify_party'] ?? systemData['notify_party'] ?? 'SAME AS CONSIGNEE').toString();
-    final shippingLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? 'MEDITERRANEAN SHIPPING COMPANY').toString();
-    final vessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? 'MSC VESSEL').toString();
-    final voyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? 'VOY-01').toString();
+    final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
+    final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
+    final rawVessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? '').toString().trim();
+    final vessel = rawVessel.isNotEmpty ? rawVessel : 'OCEAN VESSEL';
+    final rawVoyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? '').toString().trim();
+    final voyage = rawVoyage.isNotEmpty ? rawVoyage : 'VOY-01';
     final pol = (draftData['pol'] ?? systemData['pol'] ?? 'PORT OF LOADING').toString();
-    final pod = (draftData['pod'] ?? systemData['pod'] ?? 'ALEXANDRIA, EGYPT').toString();
+    final pod = (draftData['pod'] ?? systemData['pod'] ?? 'PORT OF DISCHARGE').toString();
     final placeOfDelivery = (draftData['place_of_delivery'] ?? systemData['place_of_delivery'] ?? pod).toString();
     final freightTerms = (draftData['freight_terms'] ?? systemData['freight_terms'] ?? 'FREIGHT PREPAID').toString().toUpperCase();
 
@@ -68,7 +72,7 @@ class DraftBLExportService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(shippingLine.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
-                          pw.Text('BILL OF LADING (DRAFT - NON-NEGOTIABLE)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.red900)),
+                          pw.Text(documentTitle ?? 'BILL OF LADING (DRAFT - NON-NEGOTIABLE)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.red900)),
                         ],
                       ),
                       pw.Column(
@@ -123,7 +127,7 @@ class DraftBLExportService {
                             pw.Text("CARRIER'S AGENTS ENDORSEMENTS:", style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
                             pw.Text('SHIPPER’S LOAD, STOW & COUNT / FCL / FCL', style: const pw.TextStyle(fontSize: 8)),
-                            pw.Text('Lloyds/IMO: 9720198', style: const pw.TextStyle(fontSize: 8)),
+                            pw.Text('Standard Maritime Carrier Endorsement', style: const pw.TextStyle(fontSize: 8)),
                           ],
                         ),
                       ),
@@ -171,8 +175,8 @@ class DraftBLExportService {
                           children: [
                             pw.Text('PORT OF DISCHARGE AGENT:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
-                            pw.Text('$shippingLine (Egypt Agency)', style: const pw.TextStyle(fontSize: 8)),
-                            pw.Text('Alexandria Port, Egypt', style: const pw.TextStyle(fontSize: 8)),
+                            pw.Text(shippingLine, style: const pw.TextStyle(fontSize: 8)),
+                            pw.Text(pod, style: const pw.TextStyle(fontSize: 8)),
                           ],
                         ),
                       ),
@@ -363,7 +367,7 @@ class DraftBLExportService {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('ImportFlow ERP Draft B/L Certification Engine (BP-016)', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                          pw.Text('ImportFlow ERP Draft B/L Certification Engine', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                           pw.Text('Generated: ${DateTime.now().toIso8601String().substring(0, 19)}', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                         ],
                       ),
@@ -385,8 +389,51 @@ class DraftBLExportService {
       ),
     );
 
+    return pdf;
+  }
+
+  /// Generates and downloads standard Maritime Draft B/L as PDF
+  static Future<void> exportDraftBLToPdf({
+    required Map<String, dynamic> systemData,
+    required Map<String, dynamic> draftData,
+    String? draftBlNumber,
+    String? bookingNumber,
+    String? documentTitle,
+  }) async {
+    final pdf = await generateDraftBLPdf(
+      systemData: systemData,
+      draftData: draftData,
+      draftBlNumber: draftBlNumber,
+      bookingNumber: bookingNumber,
+      documentTitle: documentTitle,
+    );
+
+    final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
     final filename = 'Draft_BL_${blNo.replaceAll('/', '_')}_${DateTime.now().millisecondsSinceEpoch}.pdf';
     await Printing.sharePdf(bytes: await pdf.save(), filename: filename);
+  }
+
+  /// Interactively prints or opens the Print Preview dialog for Maritime Draft B/L
+  static Future<void> printDraftBL({
+    required Map<String, dynamic> systemData,
+    required Map<String, dynamic> draftData,
+    String? draftBlNumber,
+    String? bookingNumber,
+    String? documentTitle,
+  }) async {
+    final pdf = await generateDraftBLPdf(
+      systemData: systemData,
+      draftData: draftData,
+      draftBlNumber: draftBlNumber,
+      bookingNumber: bookingNumber,
+      documentTitle: documentTitle,
+    );
+
+    final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Draft_BL_${blNo.replaceAll('/', '_')}',
+    );
   }
 
   /// Generates and downloads structured Draft B/L as Excel / CSV
@@ -401,7 +448,8 @@ class DraftBLExportService {
 
     final blNo = draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL';
     final bkgNo = draftData['booking_no'] ?? bookingNumber ?? systemData['booking_no'] ?? 'BKG-REF';
-    final shippingLine = draftData['shipping_line'] ?? systemData['shipping_line'] ?? 'MEDITERRANEAN SHIPPING COMPANY';
+    final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
+    final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
 
     buffer.writeln('ImportFlow ERP — مسودة بوليصة الشحن البحرية (Draft Bill of Lading)');
     buffer.writeln('رقم المسودة (B/L No.),$blNo');

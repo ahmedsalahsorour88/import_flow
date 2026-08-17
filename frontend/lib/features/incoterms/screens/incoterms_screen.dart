@@ -57,7 +57,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Incoterms Master (MD-006)',
+                      'Incoterms Rules',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,

@@ -56,7 +56,11 @@ class PurchaseOrderService:
             h_cm = float(item.height_cm or 0.0)
 
             t_net = float(item.total_net_weight_kg or 0.0)
+            if t_net <= 0 and net_u > 0 and q_pkg > 0:
+                t_net = round(q_pkg * net_u, 2)
             t_gross = float(item.total_gross_weight_kg or 0.0)
+            if t_gross <= 0 and gross_u > 0 and q_pkg > 0:
+                t_gross = round(q_pkg * gross_u, 2)
             t_cbm = float(item.total_cbm or 0.0)
             chg_wt = float(item.chargeable_weight_kg or 0.0)
 

@@ -125,8 +125,8 @@ class TestPackingListBackend:
         assert len(resp.packing_list_items) == 2
 
         item1 = resp.packing_list_items[0]
-        assert item1.total_net_weight_kg == 2200.0  # 100 * 22
-        assert item1.total_gross_weight_kg == 2500.0  # 100 * 25
+        assert item1.total_net_weight_kg == 220.0  # 10 * 22
+        assert item1.total_gross_weight_kg == 250.0  # 10 * 25
         assert item1.total_cbm == pytest.approx(19.2, rel=1e-2)  # 10 * (120*100*160 / 1e6) = 19.2
 
         item2 = resp.packing_list_items[1]
@@ -166,8 +166,8 @@ class TestPackingListBackend:
         assert len(report.errors) == 0
         assert report.total_items == 1
         assert report.total_pcs == 50.0
-        assert report.total_net_weight_kg == 500.0
-        assert report.total_gross_weight_kg == 600.0
+        assert report.total_net_weight_kg == 50.0   # 5 * 10
+        assert report.total_gross_weight_kg == 60.0  # 5 * 12
         assert len(report.hs_code_summary) == 1
         assert report.hs_code_summary[0].hs_code == "8471.30.00"
 

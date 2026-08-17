@@ -895,7 +895,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'سياسات وشرائح الخطوط الملاحية المعتمدة (MD-024 / MD-025)',
+                    'سياسات وشرائح الخطوط الملاحية المعتمدة',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                   ),
                   SizedBox(height: 4),

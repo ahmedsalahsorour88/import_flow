@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
-import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
@@ -99,15 +98,15 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
           final pl = po.packingListItems[i];
 
           double initPackages = pl.qtyPkg > 0 ? pl.qtyPkg : 1.0;
-          double initNetW = pl.totalNetWeightKg > 0
-              ? pl.totalNetWeightKg
-              : (pl.netWeightUnitKg > 0 ? pl.netWeightUnitKg * initPackages : 0.0);
-          double initGrossW = pl.totalGrossWeightKg > 0
-              ? pl.totalGrossWeightKg
-              : (pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg * initPackages : 0.0);
-          double initCbm = pl.totalCbm > 0
-              ? pl.totalCbm
-              : (pl.calculatedCbm > 0 ? pl.calculatedCbm : 0.0);
+          double initNetW = (pl.netWeightUnitKg > 0 && pl.qtyPkg > 0)
+              ? (pl.netWeightUnitKg * pl.qtyPkg)
+              : (pl.totalNetWeightKg > 0 ? pl.totalNetWeightKg : 0.0);
+          double initGrossW = (pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0)
+              ? (pl.grossWeightUnitKg * pl.qtyPkg)
+              : (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : 0.0);
+          double initCbm = (pl.calculatedCbm > 0)
+              ? pl.calculatedCbm
+              : (pl.totalCbm > 0 ? pl.totalCbm : 0.0);
           String pkgType = pl.packageType.isNotEmpty ? pl.packageType : 'Carton';
           String code = pl.itemCode.isNotEmpty ? pl.itemCode : 'PL-${i + 1}';
 
@@ -343,15 +342,15 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
             // Summary Metrics Cards
             Row(
               children: [
-                _buildSummaryCard('إجمالي الفاتورة النهائية', '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, Colors.blue),
+                _buildSummaryCard('إجمالي الفاتورة النهائية', '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt),
                 const SizedBox(width: 12),
-                _buildSummaryCard('إجمالي الطرود الفعلية', '${totalPackages.toStringAsFixed(0)} طرد', Icons.all_inbox, Colors.purple),
+                _buildSummaryCard('إجمالي الطرود الفعلية', '${totalPackages.toStringAsFixed(0)} طرد', Icons.all_inbox, AppTheme.charcoal),
                 const SizedBox(width: 12),
-                _buildSummaryCard('إجمالي الوزن القائم (Gross)', '${totalGrossWeight.toStringAsFixed(2)} كجم', Icons.scale, Colors.teal),
+                _buildSummaryCard('إجمالي الوزن القائم (Gross)', '${totalGrossWeight.toStringAsFixed(2)} كجم', Icons.scale, AppTheme.orange),
                 const SizedBox(width: 12),
-                _buildSummaryCard('إجمالي الوزن الصافي (Net)', '${totalNetWeight.toStringAsFixed(2)} كجم', Icons.fitness_center, Colors.indigo),
+                _buildSummaryCard('إجمالي الوزن الصافي (Net)', '${totalNetWeight.toStringAsFixed(2)} كجم', Icons.fitness_center, AppTheme.emerald),
                 const SizedBox(width: 12),
-                _buildSummaryCard('إجمالي الحجم (CBM)', '${totalCbm.toStringAsFixed(3)} م³', Icons.view_in_ar, Colors.orange),
+                _buildSummaryCard('إجمالي الحجم (CBM)', '${totalCbm.toStringAsFixed(3)} م³', Icons.view_in_ar, AppTheme.cobalt),
               ],
             ),
             const SizedBox(height: 20),
@@ -375,16 +374,35 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
                             Text('1. مراجعة وتأكيد بنود وأسعار الفاتورة التجارية النهائية (Invoice Items & Price Review)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
                           ],
                         ),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cobalt,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          ),
-                          icon: _isSubmitting
-                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                              : const Icon(Icons.verified, color: Colors.white),
-                          label: const Text('اعتماد ومطابقة البيانات النهائية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: _isSubmitting ? null : _submitCertification,
+                        Row(
+                          children: [
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.charcoal,
+                                side: const BorderSide(color: AppTheme.charcoal),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              ),
+                              icon: const Icon(Icons.restart_alt, size: 16),
+                              label: const Text('إعادة تعيين للقيم الأصلية', style: TextStyle(fontSize: 12.5)),
+                              onPressed: () {
+                                if (_selectedImportFileId != null) {
+                                  _loadPOItems(_selectedImportFileId!);
+                                }
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              ),
+                              icon: _isSubmitting
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                  : const Icon(Icons.verified, color: Colors.white),
+                              label: const Text('اعتماد ومطابقة البيانات النهائية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                              onPressed: _isSubmitting ? null : _submitCertification,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -660,14 +678,20 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3)),
-          boxShadow: [BoxShadow(color: color.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+          border: Border.all(color: color.withOpacity(0.25)),
+          boxShadow: [
+            BoxShadow(color: color.withOpacity(0.06), blurRadius: 6, offset: const Offset(0, 2)),
+          ],
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              backgroundColor: color.withOpacity(0.12),
-              radius: 18,
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
               child: Icon(icon, color: color, size: 20),
             ),
             const SizedBox(width: 10),
@@ -675,8 +699,8 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600)),
-                  const SizedBox(height: 2),
+                  Text(title, style: TextStyle(fontSize: 11, color: Colors.grey.shade600, height: 1.2)),
+                  const SizedBox(height: 3),
                   Text(value, style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: color)),
                 ],
               ),

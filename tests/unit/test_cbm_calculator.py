@@ -2,6 +2,7 @@ import pytest
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+import main  # Ensures all SQLAlchemy models are registered in Base.metadata
 from database.database import SessionLocal, Base, engine
 from modules.cbm_calculator.schemas import (
     CBMCalculationCreate,
@@ -15,6 +16,9 @@ from modules.projects.model import Project
 from modules.purchase_orders.model import PurchaseOrder
 from seed import seed_data
 
+
+import modules.customs_consultation.model
+import modules.import_requirements.model
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -177,3 +181,67 @@ class TestCBMCalculatorBackend:
         # Restore
         restored = CBMService.restore_service(db, calc.calc_id)
         assert restored.is_active is True
+
+    def test_is_stackable_persistence_and_update(self, db: Session):
+        # 1. Create with mixed stackability
+        item_stackable = CBMItemCreate(
+            package_type="Carton",
+            quantity=10,
+            length_cm=50.0,
+            width_cm=40.0,
+            height_cm=30.0,
+            gross_weight_per_unit_kg=5.0,
+            is_stackable=True,
+        )
+        item_non_stackable = CBMItemCreate(
+            package_type="Pallet",
+            quantity=2,
+            length_cm=200.0,
+            width_cm=150.0,
+            height_cm=100.0,
+            gross_weight_per_unit_kg=200.0,
+            is_stackable=False,
+        )
+
+        calc = CBMService.create_calculation_service(
+            db,
+            CBMCalculationCreate(
+                title="Stacking Verification Test",
+                is_stackable=False,
+                items=[item_stackable, item_non_stackable],
+            ),
+        )
+
+        assert calc.is_stackable is False
+        assert len(calc.items) == 2
+        assert calc.items[0].is_stackable is True
+        assert calc.items[1].is_stackable is False
+
+        # 2. Retrieve from DB and verify stackability is preserved
+        fetched = CBMService.get_calculation_service(db, calc.calc_id)
+        assert fetched.is_stackable is False
+        assert fetched.items[0].is_stackable is True
+        assert fetched.items[1].is_stackable is False
+
+        # 3. Update calculation and change stackability
+        updated_item = CBMItemCreate(
+            package_type="Pallet",
+            quantity=4,
+            length_cm=200.0,
+            width_cm=150.0,
+            height_cm=100.0,
+            gross_weight_per_unit_kg=250.0,
+            is_stackable=False,
+        )
+        updated = CBMService.update_calculation_service(
+            db,
+            calc.calc_id,
+            CBMCalculationUpdate(
+                title="Updated Stacking Session",
+                is_stackable=False,
+                items=[updated_item],
+            ),
+        )
+        assert updated.title == "Updated Stacking Session"
+        assert len(updated.items) == 1
+        assert updated.items[0].is_stackable is False

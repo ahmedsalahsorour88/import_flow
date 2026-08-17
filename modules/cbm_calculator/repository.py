@@ -45,6 +45,7 @@ class CBMRepository:
             recommended_container_type=calc_data.get("recommended_container_type"),
             recommended_container_count=calc_data.get("recommended_container_count", 0),
             notes=calc_data.get("notes"),
+            is_stackable=calc_data.get("is_stackable", True),
             is_active=True,
         )
         db.add(calc)
@@ -62,6 +63,7 @@ class CBMRepository:
                 total_cbm=item_dict.get("total_cbm", 0.0),
                 volumetric_weight_kg=item_dict.get("volumetric_weight_kg", 0.0),
                 total_gross_weight_kg=item_dict.get("total_gross_weight_kg", 0.0),
+                is_stackable=item_dict.get("is_stackable", True),
             )
             db.add(item)
 
@@ -134,6 +136,7 @@ class CBMRepository:
                     total_cbm=item_dict.get("total_cbm", 0.0),
                     volumetric_weight_kg=item_dict.get("volumetric_weight_kg", 0.0),
                     total_gross_weight_kg=item_dict.get("total_gross_weight_kg", 0.0),
+                    is_stackable=item_dict.get("is_stackable", True),
                 )
                 db.add(item)
 

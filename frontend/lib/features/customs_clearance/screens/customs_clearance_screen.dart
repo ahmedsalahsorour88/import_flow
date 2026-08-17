@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../models/customs_clearance_model.dart';
@@ -66,28 +66,40 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   Widget build(BuildContext context) {
     final recordsState = ref.watch(customsClearanceProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.gavel, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('التخليص الجمركي والمعاينة الإجبارية (Phase 7 - Customs Clearance & Release)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(customsClearanceProvider.notifier).fetchRecords(),
-          ),
-          const SizedBox(width: 10),
-        ],
-
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.find_in_page_outlined,
+        titleEn: 'Clearance & Release Registry',
+        titleAr: 'سجل التخليص والمعاينة الجمركية',
       ),
-      body: Padding(
+      const VerticalNavTabItem(
+        icon: Icons.add_task_outlined,
+        titleEn: 'New Clearance Entry',
+        titleAr: 'قيد معاملة تخليص ومعاينة',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Customs Clearance & Inspection',
+      titleAr: 'التخليص الجمركي والمعاينة الإجبارية',
+      headerIcon: Icons.gavel,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showAddEditDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات',
+          onPressed: () => ref.read(customsClearanceProvider.notifier).fetchRecords(),
+        ),
+      ],
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -269,7 +281,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
                                       icon: const Icon(Icons.receipt_long, size: 16, color: Colors.white),
-                                      label: const Text('تسجيل سداد الرسوم (BP-031)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('تسجيل سداد الرسوم', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showDutyPaymentDialog(r),
                                     ),
                                     const SizedBox(width: 8),
@@ -278,7 +290,7 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                       icon: const Icon(Icons.verified, size: 16, color: Colors.white),
-                                      label: const Text('الإفراج النهائي (BP-032)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('الإفراج النهائي', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showFinalReleaseDialog(r),
                                     ),
                                     const SizedBox(width: 8),

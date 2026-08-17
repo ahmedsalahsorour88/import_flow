@@ -132,7 +132,7 @@ class CustomsExportService {
     buffer.writeln('');
 
     // 2. HS Code Itemized Customs Breakdown Table
-    buffer.writeln('=== جدول تفاصيل بنود التعريفة والضرائب الجمركية للشحنة (MD-008 Engine) ===');
+    buffer.writeln('=== جدول تفاصيل بنود التعريفة والضرائب الجمركية للشحنة ===');
     buffer.writeln('بند التعريفة (HS Code),بيان الصنف والمواصفات,الكمية,الوحدة,القيمة ($currency),FOB (EGP),النولون (EGP),التأمين (EGP),CIF الجمركي (EGP),ضريبة الوارد %,مبلغ الوارد (EGP),ض.قيمة مضافة %,مبلغ VAT (EGP),ض.جدول %,خدمات/تنمية %,إجمالي الضرائب والرسوم (EGP),الاشتراطات والعروض');
 
     for (final line in calcLines) {

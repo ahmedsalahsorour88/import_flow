@@ -483,7 +483,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                     SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'لم يتم حفظ دراسة استشارة جمركية بعد لملف هذه الشحنة. يمكنك فتح "مركز الاستشارة الجمركية (BP-009)" لإنشاء ومزامنة بنود التعريفة وقائمة المستندات.',
+                        'لم يتم حفظ دراسة استشارة جمركية بعد لملف هذه الشحنة. يمكنك فتح "مركز الاستشارة الجمركية" لإنشاء ومزامنة بنود التعريفة وقائمة المستندات.',
                         style: TextStyle(fontSize: 12, color: AppTheme.charcoal, fontWeight: FontWeight.w500),
                       ),
                     ),

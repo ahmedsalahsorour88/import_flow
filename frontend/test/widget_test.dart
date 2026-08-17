@@ -43,7 +43,7 @@ void main() {
 
     await tester.pump();
 
-    expect(find.text('Egyptian Import Companies (MD-001)'), findsOneWidget);
+    expect(find.text('Egyptian Import Companies'), findsOneWidget);
     expect(find.text('Add Importer Company'), findsOneWidget);
     expect(find.text('Pharaohs Importers'), findsOneWidget);
   });

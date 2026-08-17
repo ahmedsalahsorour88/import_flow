@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/file_closure_provider.dart';
 
@@ -47,28 +47,40 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
   Widget build(BuildContext context) {
     final closuresState = ref.watch(fileClosureProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.archive, color: AppTheme.emerald),
-            SizedBox(width: 10),
-            Text('إغلاق الملف والأرشفة التاريخية (Phase 10 - Import File Closure & Historical Archival)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 17)),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
-          ),
-          const SizedBox(width: 10),
-        ],
-
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.archive_outlined,
+        titleEn: 'Archived Files Registry',
+        titleAr: 'سجل الملفات المغلقة والمؤرشفة',
       ),
-      body: Padding(
+      const VerticalNavTabItem(
+        icon: Icons.inventory_2_outlined,
+        titleEn: 'Close Import File',
+        titleAr: 'إغلاق وأرشفة ملف شحنة',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Import File Final Closure & Archival',
+      titleAr: 'إغلاق الملف والأرشفة التاريخية',
+      headerIcon: Icons.archive,
+      headerColor: AppTheme.emerald,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showCloseFileDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات',
+          onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
+        ),
+      ],
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

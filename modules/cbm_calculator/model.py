@@ -41,6 +41,7 @@ class CBMCalculation(Base):
     recommended_container_count = Column(Integer, default=0, nullable=False)
 
     notes = Column(Text, nullable=True)
+    is_stackable = Column(Boolean, default=True, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
 
     created_at = Column(
@@ -85,5 +86,6 @@ class CBMCalculationItem(Base):
     total_cbm = Column(Float, default=0.0, nullable=False)
     volumetric_weight_kg = Column(Float, default=0.0, nullable=False)
     total_gross_weight_kg = Column(Float, default=0.0, nullable=False)
+    is_stackable = Column(Boolean, default=True, nullable=False)
 
     calculation = relationship("CBMCalculation", back_populates="items")

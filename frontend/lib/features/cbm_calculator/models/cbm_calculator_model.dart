@@ -123,6 +123,7 @@ class CBMCalculationModel {
   final String? recommendedContainerType;
   final int recommendedContainerCount;
   final String? notes;
+  final bool isStackable;
   final bool isActive;
   final String? createdAt;
   final String? updatedAt;
@@ -147,6 +148,7 @@ class CBMCalculationModel {
     this.recommendedContainerType,
     this.recommendedContainerCount = 0,
     this.notes,
+    this.isStackable = true,
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
@@ -173,6 +175,7 @@ class CBMCalculationModel {
       recommendedContainerType: json['recommended_container_type'],
       recommendedContainerCount: _numToInt(json['recommended_container_count']),
       notes: json['notes'],
+      isStackable: json['is_stackable'] as bool? ?? true,
       isActive: json['is_active'] ?? true,
       createdAt: json['created_at'],
       updatedAt: json['updated_at'],
@@ -194,6 +197,7 @@ class CBMCalculationModel {
       'project_id': projectId,
       'po_id': poId,
       'notes': notes,
+      'is_stackable': isStackable,
       'items': items.map((i) => i.toJson()).toList(),
     };
   }
@@ -205,6 +209,19 @@ class CBMCalculationModel {
       if (projectId != null) 'project_id': projectId,
       if (poId != null) 'po_id': poId,
       if (notes != null && notes!.isNotEmpty) 'notes': notes,
+      'is_stackable': isStackable,
+      'items': items.map((i) => i.toCreateJson()).toList(),
+    };
+  }
+
+  Map<String, dynamic> toUpdateJson() {
+    return {
+      'title': title,
+      'import_file_id': importFileId,
+      'project_id': projectId,
+      'po_id': poId,
+      'notes': notes,
+      'is_stackable': isStackable,
       'items': items.map((i) => i.toCreateJson()).toList(),
     };
   }

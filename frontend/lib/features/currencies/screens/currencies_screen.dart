@@ -46,7 +46,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Currencies & Exchange Rates (MD-004)',
+                      'Currencies & Exchange Rates',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,

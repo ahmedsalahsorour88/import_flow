@@ -7,6 +7,10 @@ class VisualDraftBLSheet extends StatelessWidget {
   final Map<String, dynamic> draftData;
   final String? draftBlNumber;
   final String? bookingNumber;
+  final String? title;
+  final String? subtitle;
+  final bool isReferenceOnly;
+  final VoidCallback? onRefresh;
 
   const VisualDraftBLSheet({
     super.key,
@@ -14,36 +18,43 @@ class VisualDraftBLSheet extends StatelessWidget {
     required this.draftData,
     this.draftBlNumber,
     this.bookingNumber,
+    this.title,
+    this.subtitle,
+    this.isReferenceOnly = false,
+    this.onRefresh,
   });
 
   @override
   Widget build(BuildContext context) {
     final blNo = (draftData['draft_bl_number'] ?? draftBlNumber ?? systemData['draft_bl_number'] ?? 'DRAFT-BL').toString();
     final bkgNo = (draftData['booking_no'] ?? bookingNumber ?? systemData['booking_no'] ?? 'BKG-REF').toString();
-    final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'G.I. Industrial Holding S.p.A.').toString();
-    final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'ECO ASSOCIATES for Trading and Contracting').toString();
+    final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'EXPORTER / SUPPLIER').toString();
+    final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'IMPORTER / CONSIGNEE').toString();
     final notifyParty = (draftData['notify_party'] ?? systemData['notify_party'] ?? consignee).toString();
-    final shippingLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? 'MEDITERRANEAN SHIPPING COMPANY').toString();
-    final vessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? 'MSC PORTO III').toString();
-    final voyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? 'AB635A').toString();
-    final pol = (draftData['pol'] ?? systemData['pol'] ?? 'Genoa Port (ميناء جنوى)').toString();
-    final pod = (draftData['pod'] ?? systemData['pod'] ?? 'El Dekheila Port (ميناء الدخيلة)').toString();
+    final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
+    final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
+    final rawVessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? '').toString().trim();
+    final vessel = rawVessel.isNotEmpty ? rawVessel : 'OCEAN VESSEL';
+    final rawVoyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? '').toString().trim();
+    final voyage = rawVoyage.isNotEmpty ? rawVoyage : 'VOY-01';
+    final pol = (draftData['pol'] ?? systemData['pol'] ?? 'PORT OF LOADING').toString();
+    final pod = (draftData['pod'] ?? systemData['pod'] ?? 'PORT OF DISCHARGE').toString();
     final placeOfDelivery = (draftData['place_of_delivery'] ?? systemData['place_of_delivery'] ?? pod).toString();
     final freightTerms = (draftData['freight_terms'] ?? systemData['freight_terms'] ?? 'FREIGHT PREPAID').toString().toUpperCase();
 
-    final acid = (draftData['acid_number'] ?? systemData['acid_number'] ?? '7595528271019210013').toString();
-    final taxId = (draftData['importer_tax_id'] ?? systemData['importer_tax_id'] ?? '759552827').toString();
+    final acid = (draftData['acid_number'] ?? systemData['acid_number'] ?? 'N/A').toString();
+    final taxId = (draftData['importer_tax_id'] ?? systemData['importer_tax_id'] ?? 'N/A').toString();
     final regType = (draftData['shipper_reg_type'] ?? systemData['shipper_reg_type'] ?? 'VAT NUMBER').toString();
-    final regId = (draftData['shipper_reg_id'] ?? systemData['shipper_reg_id'] ?? 'IT000458921').toString();
-    final country = (draftData['shipper_country'] ?? systemData['shipper_country'] ?? 'ITALY').toString();
-    final countryCode = (draftData['shipper_country_code'] ?? systemData['shipper_country_code'] ?? 'IT').toString();
+    final regId = (draftData['shipper_reg_id'] ?? systemData['shipper_reg_id'] ?? 'N/A').toString();
+    final country = (draftData['shipper_country'] ?? systemData['shipper_country'] ?? 'N/A').toString();
+    final countryCode = (draftData['shipper_country_code'] ?? systemData['shipper_country_code'] ?? '').toString();
 
-    final goodsDesc = (draftData['goods_description'] ?? systemData['goods_description'] ?? 'AIR CONDITIONING UNITS & CHILLERS').toString();
-    final grossWeight = (draftData['total_gross_weight_kg'] ?? systemData['total_gross_weight_kg'] ?? '20030.00').toString();
-    final netWeight = (draftData['total_net_weight_kg'] ?? systemData['total_net_weight_kg'] ?? '18500.00').toString();
-    final cbm = (draftData['cbm'] ?? systemData['cbm'] ?? '65.40').toString();
-    final pkgCount = (draftData['qty_pkg'] ?? systemData['packages_count'] ?? '31').toString();
-    final containerSummary = (draftData['container_summary'] ?? systemData['container_summary'] ?? 'BEAU5851356 (40\' HIGH CUBE) / Seal: 177345').toString();
+    final goodsDesc = (draftData['goods_description'] ?? systemData['goods_description'] ?? 'GENERAL MERCHANDISE & IMPORT GOODS').toString();
+    final grossWeight = (draftData['total_gross_weight_kg'] ?? systemData['total_gross_weight_kg'] ?? '0.00').toString();
+    final netWeight = (draftData['total_net_weight_kg'] ?? systemData['total_net_weight_kg'] ?? '0.00').toString();
+    final cbm = (draftData['cbm'] ?? systemData['cbm'] ?? '0.00').toString();
+    final pkgCount = (draftData['qty_pkg'] ?? systemData['packages_count'] ?? '0').toString();
+    final containerSummary = (draftData['container_summary'] ?? systemData['container_summary'] ?? 'N/A').toString();
 
     return Card(
       elevation: 3,
@@ -61,22 +72,26 @@ class VisualDraftBLSheet extends StatelessWidget {
               runSpacing: 8,
               children: [
                 ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
+                  constraints: const BoxConstraints(maxWidth: 520),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.description, color: AppTheme.charcoal, size: 22),
-                      const SizedBox(width: 8),
+                      Icon(isReferenceOnly ? Icons.hub_rounded : Icons.description_rounded, color: isReferenceOnly ? AppTheme.cobalt : AppTheme.charcoal, size: 24),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'معاينة شكل مسودة البوليصة المعتمدة (Draft Bill of Lading Sheet)',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            Text(
+                              title ?? (isReferenceOnly
+                                  ? 'ملخص الشحنة المرجعي كشكل بوليصة (System Reference B/L Sheet)'
+                                  : 'معاينة شكل مسودة البوليصة المعتمدة (Draft Bill of Lading Sheet)'),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
                             Text(
-                              'عرض رسمي مطابق لنموذج الخط الملاحي والبيانات المستخرجة ومعايير نافذة (ACID)',
+                              subtitle ?? (isReferenceOnly
+                                  ? 'عرض بيانات الشحنة المسجلة بالنظام من ماستر داتا المورد والمستورد ومعايير نافذة (ACID) بهيئة بوليصة رسمية'
+                                  : 'عرض رسمي مطابق لنموذج الخط الملاحي والبيانات المستخرجة ومعايير نافذة (ACID)'),
                               style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                             ),
                           ],
@@ -87,7 +102,48 @@ class VisualDraftBLSheet extends StatelessWidget {
                 ),
                 Wrap(
                   spacing: 8,
+                  runSpacing: 6,
                   children: [
+                    if (onRefresh != null)
+                      OutlinedButton.icon(
+                        onPressed: onRefresh,
+                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                        label: const Text('تحديث', style: TextStyle(fontSize: 12, color: AppTheme.cobalt)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          side: const BorderSide(color: AppTheme.cobalt),
+                        ),
+                      ),
+                    // 1. PRINT BUTTON (طباعة البوليصة)
+                    ElevatedButton.icon(
+                      onPressed: () async {
+                        try {
+                          await DraftBLExportService.printDraftBL(
+                            systemData: systemData,
+                            draftData: draftData,
+                            draftBlNumber: draftBlNumber,
+                            bookingNumber: bookingNumber,
+                            documentTitle: isReferenceOnly
+                                ? 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE'
+                                : 'BILL OF LADING (DRAFT — NOT NEGOTIABLE)',
+                          );
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('خطأ أثناء إرسال أمر الطباعة: $e'), backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      icon: const Icon(Icons.print, color: Colors.white, size: 16),
+                      label: const Text('طباعة البوليصة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                    ),
+                    // 2. PDF BUTTON (تنزيل PDF)
                     ElevatedButton.icon(
                       onPressed: () async {
                         try {
@@ -96,10 +152,13 @@ class VisualDraftBLSheet extends StatelessWidget {
                             draftData: draftData,
                             draftBlNumber: draftBlNumber,
                             bookingNumber: bookingNumber,
+                            documentTitle: isReferenceOnly
+                                ? 'SYSTEM REFERENCE BILL OF LADING — NOT NEGOTIABLE'
+                                : 'BILL OF LADING (DRAFT — NOT NEGOTIABLE)',
                           );
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('✔ تم تصدير مسودة البوليصة بصيغة PDF بنجاح'), backgroundColor: Colors.green),
+                              const SnackBar(content: Text('✔ تم تصدير البوليصة بصيغة PDF بنجاح'), backgroundColor: Colors.green),
                             );
                           }
                         } catch (e) {
@@ -118,6 +177,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                     ),
+                    // 3. EXCEL BUTTON (تنزيل Excel / CSV)
                     ElevatedButton.icon(
                       onPressed: () async {
                         try {
@@ -129,7 +189,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                           );
                           if (context.mounted && res != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('✔ تم حفظ مسودة البوليصة بصيغة Excel / CSV بنجاح ($res)'), backgroundColor: Colors.green),
+                              SnackBar(content: Text('✔ تم حفظ البوليصة بصيغة Excel / CSV بنجاح ($res)'), backgroundColor: Colors.green),
                             );
                           }
                         } catch (e) {
@@ -238,7 +298,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                     Text("CARRIER'S AGENTS ENDORSEMENTS:", style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
                                     const Text("SHIPPER'S LOAD, STOW AND COUNT; FCL/FCL; SAID TO CONTAIN", style: TextStyle(fontSize: 9.5)),
-                                    const Text("Lloyd's/IMO Number: 9720198", style: TextStyle(fontSize: 9.5)),
+                                    const Text("Standard International Maritime Carrier Endorsement", style: TextStyle(fontSize: 9.5)),
                                   ],
                                 ),
                               ),
@@ -281,8 +341,8 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   children: [
                                     Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
-                                    Text('$shippingLine (Egypt Agency)', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-                                    const Text('Alexandria Port, Egypt', style: TextStyle(fontSize: 9.5)),
+                                    Text(shippingLine, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
+                                    Text(pod, style: const TextStyle(fontSize: 9.5)),
                                   ],
                                 ),
                               ),
@@ -492,7 +552,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('ImportFlow ERP Draft B/L Certification Engine (BP-016)', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
+                                const Text('ImportFlow ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
                                 Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
                               ],
                             ),
@@ -501,7 +561,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                               children: [
                                 const Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
                                 const SizedBox(height: 8),
-                                Text('Mediterranean Shipping Co. (Egypt)', style: TextStyle(fontSize: 10, color: Colors.grey.shade800)),
+                                Text('$shippingLine / Authorized Agent', style: TextStyle(fontSize: 10, color: Colors.grey.shade800)),
                               ],
                             ),
                           ],

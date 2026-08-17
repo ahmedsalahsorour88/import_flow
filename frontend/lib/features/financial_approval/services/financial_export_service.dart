@@ -57,7 +57,7 @@ class FinancialExportService {
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
-                            'وثيقة رسمية لاعتماد مخصصات الشحنة المالية (BP-013)',
+                            'وثيقة رسمية لاعتماد مخصصات الشحنة المالية',
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -270,7 +270,7 @@ class FinancialExportService {
     // UTF-8 BOM for Excel Arabic compatibility
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — بيان تقرير اعتماد الميزانية الاستيرادية الشاملة (BP-013)');
+    buffer.writeln('ImportFlow ERP — بيان تقرير اعتماد الميزانية الاستيرادية الشاملة');
     buffer.writeln('كود الميزانية,${budget.budgetCode}');
     buffer.writeln('عنوان الميزانية,${budget.title}');
     buffer.writeln('كود ملف الشحنة,${budget.importFileCode ?? (prefill?.importFileCode ?? "-")}');
@@ -348,7 +348,7 @@ class FinancialExportService {
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
-                            'مستند رسمي لإصدار التحويلات البنكية والسويفت (BP-012)',
+                            'مستند رسمي لإصدار التحويلات البنكية والسويفت',
                             style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 9),
                           ),
                         ],
@@ -501,7 +501,7 @@ class FinancialExportService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — سجل العمليات المالي وطلبات السداد (BP-012)');
+    buffer.writeln('ImportFlow ERP — سجل العمليات المالي وطلبات السداد');
     buffer.writeln('كود الطلب,ملف الشحنة,عنوان الطلب,المورد المستفيد,البنك,السويفت,الحساب/IBAN,طريقة السداد,المبلغ المطلوب,العملة,سعر الصرف,المعادل EGP,تاريخ الطلب,تاريخ الاستحقاق,الحالة,رقم إشعار السويفت');
 
     for (final p in list) {

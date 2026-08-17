@@ -51,7 +51,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Egyptian Import Companies (MD-001)',
+                        'Egyptian Import Companies',
                         style: TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -440,7 +440,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                       Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
                       const SizedBox(width: 12),
                       Text(
-                        isEditing ? 'Edit Egyptian Import Company (MD-001)' : 'Add Egyptian Import Company (MD-001)',
+                        isEditing ? 'Edit Egyptian Import Company' : 'Add Egyptian Import Company',
                         style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ],

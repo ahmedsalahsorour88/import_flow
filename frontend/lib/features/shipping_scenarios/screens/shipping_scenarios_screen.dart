@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
@@ -11,6 +10,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 
 import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -299,41 +299,50 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     final List<PartnerModel> customsBrokers = partnersList.where((p) => p.partnerType.contains('Customs Broker')).toList();
     final portsList = portsState.value ?? [];
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.directions_boat, color: Colors.white),
-            SizedBox(width: 10),
-            Text('Shipping Scenarios & Quotes Evaluation (BP-007/8 سيناريو وعروض الشحن)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'Live Refresh (تحديث حي)',
-            onPressed: () => _refreshData(force: true),
-          ),
-          const SizedBox(width: 12),
-        ],
-
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.cobalt,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.grey.shade400,
-          tabs: const [
-            Tab(icon: Icon(Icons.analytics), text: 'Shipping Scenarios Evaluator (دراسة وسيناريوهات الشحن)'),
-            Tab(icon: Icon(Icons.history), text: 'Saved Evaluations Log (سجل الدراسات المحفوظة)'),
-          ],
-        ),
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.analytics_outlined,
+        titleEn: 'Scenarios Evaluator',
+        titleAr: 'دراسة وسيناريوهات الشحن',
       ),
-      body: TabBarView(
-        controller: _tabController,
+      VerticalNavTabItem(
+        icon: Icons.history_edu_outlined,
+        titleEn: 'Saved Evaluations Log',
+        titleAr: 'سجل الدراسات المحفوظة',
+        badge: state.sessions.isNotEmpty
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${state.sessions.length}',
+                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Freight Shipping Scenarios & Carrier Quotes Evaluation',
+      titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
+      headerIcon: Icons.alt_route_outlined,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: _tabController.index,
+      onTabSelected: (index) => setState(() => _tabController.index = index),
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'Live Refresh (تحديث حي)',
+          onPressed: () => _refreshData(force: true),
+        ),
+      ],
+      body: IndexedStack(
+        index: _tabController.index,
         children: [
           _buildEvaluatorTab(state, poList, projectsList, freightForwarders, shippingLines, customsBrokers, portsList, currenciesList),
           _buildHistoryRegistryTab(state, poList, projectsList),
@@ -759,7 +768,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     spacing: 8,
                                     runSpacing: 6,
                                     children: [
-                                      const Text('🚚 اقتراح الحاوية التلقائي (MD-019.1 Engine): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      const Text('🚚 اقتراح الحاوية التلقائي: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
@@ -1715,24 +1716,68 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('مركز الاستشارة والفحص الجمركي (BP-009 / BP-010 – Customs Workspace)'),
-        backgroundColor: AppTheme.charcoal,
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppTheme.cobalt,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.assignment_turned_in), text: 'Customs Workspace (مركز الاستشارة والفحص)'),
-            Tab(icon: Icon(Icons.history), text: 'Saved Consultations Log (سجل الدراسات المحفوظة)'),
-            Tab(icon: Icon(Icons.price_change), text: 'Broker Price Lists & Catalog (قوائم الأسعار وتكويد المصروفات)'),
-          ],
-        ),
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.gavel_outlined,
+        titleEn: 'Customs Workspace',
+        titleAr: 'مركز الاستشارة والفحص الجمركي',
       ),
-      body: TabBarView(
-        controller: _tabController,
+      VerticalNavTabItem(
+        icon: Icons.history_edu_outlined,
+        titleEn: 'Consultations Log',
+        titleAr: 'سجل الدراسات المحفوظة',
+        badge: (consultationsState.value?.length ?? 0) > 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${consultationsState.value!.length}',
+                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
+      ),
+      const VerticalNavTabItem(
+        icon: Icons.price_change_outlined,
+        titleEn: 'Broker Price Lists & Catalog',
+        titleAr: 'قوائم الأسعار وتكويد المصروفات',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Customs Broker Consultation & Inspection Workspace',
+      titleAr: 'مركز الاستشارة والفحص الجمركي',
+      headerIcon: Icons.gavel_outlined,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: _tabController.index,
+      onTabSelected: (index) {
+        setState(() => _tabController.index = index);
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات (Refresh)',
+          onPressed: () {
+            ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+            ref.read(importFilesProvider.notifier).fetchImportFiles();
+            ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+            ref.read(customsTariffProvider.notifier).fetchTariffs();
+            ref.read(currenciesProvider.notifier).fetchCurrencies();
+            ref.read(shippingScenariosProvider.notifier).fetchSessions();
+            ref.read(partnersProvider.notifier).fetchPartners();
+            ref.read(projectsProvider.notifier).fetchProjects();
+            ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+            ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+          },
+        ),
+      ],
+      body: IndexedStack(
+        index: _tabController.index,
         children: [
           // TAB 1: CUSTOMS CONSULTATION WORKSPACE
           SingleChildScrollView(
@@ -2068,7 +2113,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('محرك حساب الرسوم والضرائب الجمركية للشحنة (MD-008 Customs Calculation Engine)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                    Text('محرك حساب الرسوم والضرائب الجمركية للشحنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                                     Text('يستدعي بنود HS Code والقيم والاشتراطات تلقائياً من ملف الشحنة وأوامر الشراء المربوطة ويحسب الجمارك والـ VAT ورسم التنمية', style: TextStyle(fontSize: 12, color: Colors.grey)),
                                   ],
                                 ),

@@ -3,10 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -74,33 +74,43 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
   Widget build(BuildContext context) {
     final bookingsState = ref.watch(freightBookingProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.directions_boat, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text(
-              'حجز الشحن وتخصيص الحاويات (Freight Booking & Carrier Allocation - Phase 4)',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () {
-              ref.read(freightBookingProvider.notifier).fetchBookings();
-              ref.read(shippingScenariosProvider.notifier).fetchSessions();
-            },
-          ),
-          const SizedBox(width: 10),
-        ],
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.directions_boat_outlined,
+        titleEn: 'Freight Bookings Registry',
+        titleAr: 'سجل حجوزات الشحن والناقلين',
       ),
-      body: Padding(
+      const VerticalNavTabItem(
+        icon: Icons.add_task_outlined,
+        titleEn: 'New Booking Request',
+        titleAr: 'طلب حجز شحن جديد',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Freight Booking & Carrier Allocation',
+      titleAr: 'حجز الشحن وتخصيص الحاويات',
+      headerIcon: Icons.directions_boat,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showAddEditBookingDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات',
+          onPressed: () {
+            ref.read(freightBookingProvider.notifier).fetchBookings();
+            ref.read(shippingScenariosProvider.notifier).fetchSessions();
+          },
+        ),
+      ],
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

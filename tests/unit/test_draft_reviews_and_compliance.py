@@ -78,6 +78,25 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         self.db.add(self.supplier)
         self.db.flush()
 
+        # Seed Incoterm & Currency
+        self.incoterm = incoterm_models.Incoterm(incoterm_code="FOB", incoterm_name="Free On Board", is_active=True)
+        self.currency = curr_models.Currency(currency_code="USD", currency_name="US Dollar", currency_symbol="$", is_active=True)
+        self.db.add_all([self.incoterm, self.currency])
+        self.db.flush()
+
+        # Seed Project
+        self.project = proj_models.Project(
+            project_code="PRJ-TEST-01",
+            project_name="Test Project Solar",
+            project_owner="Eng. Ali",
+            company_id=self.company.company_id,
+            supplier_id=self.supplier.supplier_id,
+            incoterm_id=self.incoterm.incoterm_id,
+            is_active=True,
+        )
+        self.db.add(self.project)
+        self.db.flush()
+
         # Seed Import File
         self.import_file = imp_models.ImportFile(
             import_file_code="6701068100-HSR",
@@ -400,12 +419,68 @@ class TestDraftReviewsAndCompliance(unittest.TestCase):
         raw_text_bytes = b"ACID: 7595528271019210013\nEGYPTIAN IMPORTER TAX ID: 759552827\nGross Cargo Weight: 20030.000 kgs\nFREIGHT PREPAID"
         extracted_txt = service.extract_text_from_uploaded_file("draft_bl.txt", raw_text_bytes)
         self.assertIn("7595528271019210013", extracted_txt)
-        
+
         parsed = service.parse_draft_bl_raw_text(extracted_txt)
         self.assertEqual(parsed["acid_number"], "7595528271019210013")
         self.assertEqual(parsed["importer_tax_id"], "759552827")
         self.assertEqual(parsed["freight_terms"], "Freight Prepaid")
         self.assertEqual(parsed["total_gross_weight_kg"], 20030.0)
+
+    def test_build_system_bl_snapshot_multi_po_multi_line_aggregation(self):
+        import modules.purchase_orders.model as po_models
+        from modules.purchase_orders.schemas import PurchaseOrderCreate, PackingListItemCreate
+        from modules.purchase_orders.service import PurchaseOrderService
+
+        po_srv = PurchaseOrderService(self.db)
+
+        # PO 1 with 2 Packing List Items:
+        # Line 1: 2 Pallets, 2250 kg Net, 2270 kg Gross, 39.99 CBM
+        # Line 2: 2 Cartons (2 kg Net unit, 2 kg Gross unit) -> 4 kg Net, 4 kg Gross, 0.023 CBM
+        po1 = po_srv.create(PurchaseOrderCreate(
+            proforma_invoice_number="PI-PO1-MULTI",
+            import_file_id=self.import_file.import_file_id,
+            company_id=self.company.company_id,
+            supplier_id=self.supplier.supplier_id,
+            project_id=self.project.project_id,
+            incoterm_id=self.incoterm.incoterm_id,
+            currency_id=self.currency.currency_id,
+            packing_list_items=[
+                PackingListItemCreate(
+                    hs_code="8471.30.00",
+                    item_code="SOLAR-PANEL",
+                    qty_pcs=2.0,
+                    qty_pkg=2.0,
+                    package_type="Pallet",
+                    length_cm=200.0,
+                    width_cm=100.0,
+                    height_cm=100.0,
+                    net_weight_unit_kg=1125.0,
+                    gross_weight_unit_kg=1135.0,
+                ),
+                PackingListItemCreate(
+                    hs_code="8504.40.90",
+                    item_code="SPARE-CARTON",
+                    qty_pcs=1.0,
+                    qty_pkg=2.0,
+                    package_type="Carton",
+                    length_cm=35.0,
+                    width_cm=25.0,
+                    height_cm=26.0,
+                    net_weight_unit_kg=2.0,
+                    gross_weight_unit_kg=2.0,
+                ),
+            ],
+        ))
+
+        snapshot = service._build_system_bl_snapshot(self.db, self.import_file.import_file_id)
+
+        # Multi-line & Multi-package aggregation assertions
+        self.assertEqual(snapshot["qty_pkg"], 4)  # 2 Pallets + 2 Cartons = 4 Packages
+        self.assertEqual(snapshot["total_net_weight_kg"], 2254.0)  # (2 * 1125) + (2 * 2) = 2250 + 4 = 2254.0 kg
+        self.assertEqual(snapshot["total_gross_weight_kg"], 2274.0)  # (2 * 1135) + (2 * 2) = 2270 + 4 = 2274.0 kg
+        self.assertAlmostEqual(snapshot["cbm"], 4.0455, places=2)  # (2 * 2.0 m³) + (2 * 0.02275 m³) = 4.0455 m³
+        self.assertIn("SOLAR-PANEL", snapshot["goods_description"])
+        self.assertIn("SPARE-CARTON", snapshot["goods_description"])
 
 
 if __name__ == "__main__":

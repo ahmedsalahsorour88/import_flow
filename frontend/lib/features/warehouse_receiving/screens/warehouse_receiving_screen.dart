@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/warehouse_receiving_model.dart';
 import '../providers/warehouse_receiving_provider.dart';
@@ -56,28 +56,40 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   Widget build(BuildContext context) {
     final recordsState = ref.watch(warehouseReceivingProvider);
 
-    return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        backgroundColor: AppTheme.charcoal,
-        title: const Row(
-          children: [
-            Icon(Icons.inventory, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('استلام البضائع بالخزائن والجودة (Phase 8 - Warehouse Receiving & GRN)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
-          ),
-          const SizedBox(width: 10),
-        ],
-
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.inventory_outlined,
+        titleEn: 'Goods Receiving Notes (GRN)',
+        titleAr: 'سجل أذون الإضافة المخزنية',
       ),
-      body: Padding(
+      const VerticalNavTabItem(
+        icon: Icons.add_business_outlined,
+        titleEn: 'New GRN Entry',
+        titleAr: 'إنشاء إذن استلام وفحص مخزني',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Warehouse Receiving & Inspection (GRN)',
+      titleAr: 'استلام البضائع بالمخازن وفحص الجودة',
+      headerIcon: Icons.inventory,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: 0,
+      onTabSelected: (index) {
+        if (index == 1) {
+          _showAddEditDialog();
+        }
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات',
+          onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
+        ),
+      ],
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -233,7 +245,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
                                       icon: const Icon(Icons.warning_amber, size: 16, color: Colors.white),
-                                      label: const Text('إثبات عجز/تلف (BP-035)', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                      label: const Text('إثبات عجز / تلف', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showDiscrepancyDialog(r),
                                     ),
                                     const SizedBox(width: 8),

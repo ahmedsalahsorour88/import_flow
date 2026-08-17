@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -600,43 +600,37 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F9),
-      appBar: AppBar(
-        title: const Row(
-          children: [
-            Icon(Icons.local_shipping_outlined, color: AppTheme.cobalt, size: 24),
-            SizedBox(width: 10),
-            Text(
-              'تجهيز وشحن البضائع ومتابعة تحميل الحاويات (Container Loading Follow-up & 48h SLA)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
-            ),
-          ],
-        ),
-        backgroundColor: AppTheme.charcoal,
-        bottom: TabBar(
-          controller: _mainTabController,
-          indicatorColor: AppTheme.emerald,
-          indicatorWeight: 3,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          tabs: const [
-            Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: '🚢 تسجيل ومتابعة الشحنة والتحميل (Form & Tracking)'),
-            Tab(icon: Icon(Icons.folder_shared_outlined, size: 18), text: '📑 سجل متابعة الشحنات والتحميل المحفوظ (Saved Registry)'),
-          ],
-        ),
-        actions: [
-          const BackToDashboardButton(),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'إعادة تحميل حية',
-            onPressed: _refreshAllData,
-          ),
-        ],
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.local_shipping_outlined,
+        titleEn: 'Loading & Tracking Form',
+        titleAr: 'تجهيز الشحن ومتابعة التحميل',
       ),
-      body: TabBarView(
-        controller: _mainTabController,
+      const VerticalNavTabItem(
+        icon: Icons.history_edu_outlined,
+        titleEn: 'Saved Cargo Registry',
+        titleAr: 'سجل متابعة الشحنات والتحميل',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Cargo Shipping & Container Loading',
+      titleAr: 'تجهيز وشحن البضائع ومتابعة تحميل الحاويات',
+      headerIcon: Icons.local_shipping_outlined,
+      headerColor: AppTheme.emerald,
+      tabs: tabs,
+      selectedIndex: _mainTabController.index,
+      onTabSelected: (index) => setState(() => _mainTabController.index = index),
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'إعادة تحميل حية',
+          onPressed: _refreshAllData,
+        ),
+      ],
+      body: IndexedStack(
+        index: _mainTabController.index,
         children: [
           _buildInteractiveShippingFormTab(),
           _buildSavedShippingRegistryTab(),
@@ -897,7 +891,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     border: Border.all(color: Colors.green.shade400),
                   ),
                   child: Text(
-                    'اقتراح الحاوية التلقائي (MD-019.1 Engine): ${activeContainerRec.requiredContainersCount} x ${activeContainerRec.recommendedContainerCode} (استغلال المساحة: ${activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1)}% | استغلال الوزن: ${activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1)}%)',
+                    'اقتراح الحاوية التلقائي: ${activeContainerRec.requiredContainersCount} x ${activeContainerRec.recommendedContainerCode} (استغلال المساحة: ${activeContainerRec.spaceUtilizationPercent.toStringAsFixed(1)}% | استغلال الوزن: ${activeContainerRec.payloadUtilizationPercent.toStringAsFixed(1)}%)',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green.shade900),
                   ),
                 ),

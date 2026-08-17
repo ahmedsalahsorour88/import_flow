@@ -443,7 +443,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
           children: [
             Icon(Icons.directions_boat, color: AppTheme.cobalt),
             SizedBox(width: 10),
-            Text('إدارة ومقارنة عروض أسعار الشحن (BP-008 – Freight Quotations RFQ)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            Text('إدارة ومقارنة عروض أسعار الشحن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         bottom: TabBar(
@@ -702,7 +702,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             const Text(
-                                              '🚚 اقتراح أعداد وأنواع الحاويات التلقائي (MD-019.1 Engine):',
+                                              '🚚 اقتراح أعداد وأنواع الحاويات التلقائي:',
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                             ),
                                             const SizedBox(height: 2),
@@ -1013,7 +1013,7 @@ class _FreightQuotationsScreenState extends ConsumerState<FreightQuotationsScree
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل (MD-019.1 Matrix)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                       Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                     ],
                   ),

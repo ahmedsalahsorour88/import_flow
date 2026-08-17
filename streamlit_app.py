@@ -685,7 +685,7 @@ with ws_col1:
                         🌍 المورد: {file.get('supplier_name', 'N/A')} | أمر الشراء: {file.get('po_number', 'N/A')}
                     </div>
                     <div style="font-size: 12px; color: #059669; font-weight: 700; margin-top: 2px;">
-                        💰 القيمة: {file.get('estimated_cost', 0):,.2f} {file.get('estimated_cost_currency', 'USD')}
+                        💰 القيمة: {(file.get('estimated_cost') or 0.0):,.2f} {file.get('estimated_cost_currency') or 'USD'}
                     </div>
                     <div style="font-size: 11.5px; color: #475569; margin-top: 4px; background: #f8fafc; padding: 4px 6px; border-radius: 4px;">
                         📝 الملاحظة: {file.get('activity_notes') or 'قيد المتابعة التشغيلية'}
@@ -759,7 +759,7 @@ with ws_col2:
                 elif selected_step_info["code"] == "STEP_04":  # Finance Approvals
                     col_a, col_b = st.columns(2)
                     with col_a:
-                        st.number_input("مبلغ الدفعة المعتمدة للمورد", value=float(file_data.get("estimated_cost", 50000)), step=1000.0)
+                        st.number_input("مبلغ الدفعة المعتمدة للمورد", value=float(file_data.get("estimated_cost") or 50000.0), step=1000.0)
                         st.selectbox("طريقة السداد", ["تحويل بنكي مقدم (Advance TT)", "اعتماد مستندي (L/C)", "مستندات برسم التحصيل (CAD)"])
                     with col_b:
                         st.selectbox("البنك المعتمد للتحويل", ["البنك الأهلي المصري", "بنك مصر", "البنك التجاري الدولي CIB", "بنك QNB الأهلي"])
@@ -781,7 +781,7 @@ with ws_col2:
                         st.date_input("تاريخ إصدار النموذج", value=date.today())
                     with col_b:
                         st.selectbox("البنك المصدر", ["البنك الأهلي المصري", "بنك مصر", "CIB", "QNB"])
-                        st.number_input("القيمة المعتمدة بالنموذج ($)", value=float(file_data.get("estimated_cost", 25000)))
+                        st.number_input("القيمة المعتمدة بالنموذج ($)", value=float(file_data.get("estimated_cost") or 25000.0))
 
                 elif selected_step_info["code"] == "STEP_13":  # Customs Declaration 46
                     col_a, col_b = st.columns(2)

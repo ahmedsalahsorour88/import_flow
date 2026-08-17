@@ -209,7 +209,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     setState(() => _isExtracting = true);
     try {
       final dio = Dio(BaseOptions(
-        baseUrl: ApiConstants.baseUrl,
         connectTimeout: const Duration(seconds: 30),
         receiveTimeout: const Duration(seconds: 30),
       ));
@@ -242,7 +241,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         }
 
         response = await dio.post(
-          '/import-documentation/po-reconciliation/extract-files-and-compare',
+          '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/extract-files-and-compare',
           data: formData,
         );
       } else {
@@ -255,7 +254,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         };
 
         response = await dio.post(
-          '/import-documentation/po-reconciliation/extract-and-compare',
+          '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/extract-and-compare',
           data: payload,
         );
       }
@@ -289,6 +288,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     if (_extractedReconciliationData == null) return;
 
     final invData = _extractedReconciliationData!['extracted_invoice_data'] as Map<String, dynamic>? ?? {};
+    final plData = _extractedReconciliationData!['extracted_packing_data'] as Map<String, dynamic>? ?? {};
     final recInv = (_extractedReconciliationData!['reconciled_invoice_items'] as List<dynamic>? ?? [])
         .map((x) => POReconciliationItemModel.fromJson(x as Map<String, dynamic>))
         .toList();
@@ -300,6 +300,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       if (invData['invoice_number'] != null && invData['invoice_number'].toString().isNotEmpty) {
         _finalInvNumberCtrl.text = invData['invoice_number'].toString();
       }
+      if (plData['packing_list_number'] != null && plData['packing_list_number'].toString().isNotEmpty) {
+        _finalPLNumberCtrl.text = plData['packing_list_number'].toString();
+      } else if (_selectedPackingFileName != null && _finalPLNumberCtrl.text.isEmpty) {
+        _finalPLNumberCtrl.text = _selectedPackingFileName!.replaceAll(RegExp(r'\.(pdf|txt|csv|docx|xlsx)$', caseSensitive: false), '');
+      }
+
       if (recInv.isNotEmpty) {
         _invoiceItems = recInv;
       }
@@ -315,6 +321,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       ),
     );
   }
+
 
 
   @override

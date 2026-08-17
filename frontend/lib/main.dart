@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
@@ -74,6 +75,16 @@ void main() {
   );
 }
 
+class AppCustomScrollBehavior extends MaterialScrollBehavior {
+  @override
+  Set<PointerDeviceKind> get dragDevices => {
+        PointerDeviceKind.touch,
+        PointerDeviceKind.mouse,
+        PointerDeviceKind.trackpad,
+        PointerDeviceKind.stylus,
+      };
+}
+
 class ImportFlowApp extends StatelessWidget {
   const ImportFlowApp({super.key});
 
@@ -83,6 +94,7 @@ class ImportFlowApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'ImportFlow ERP',
       theme: AppTheme.lightTheme,
+      scrollBehavior: AppCustomScrollBehavior(),
       home: const HomeScreen(),
     );
   }

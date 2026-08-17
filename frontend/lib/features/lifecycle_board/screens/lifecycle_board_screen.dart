@@ -19,6 +19,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   int? _selectedPhaseId;
 
   final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _topPhasesScrollController = ScrollController();
 
   // Step definitions with English & Arabic names
@@ -55,6 +56,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   @override
   void dispose() {
     _horizontalScrollController.dispose();
+    _verticalScrollController.dispose();
     _topPhasesScrollController.dispose();
     super.dispose();
   }
@@ -538,17 +540,23 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         return Scrollbar(
-          controller: _horizontalScrollController,
+          controller: _verticalScrollController,
           thumbVisibility: true,
           trackVisibility: true,
-          child: SingleChildScrollView(
+          child: Scrollbar(
             controller: _horizontalScrollController,
-            scrollDirection: Axis.horizontal,
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minWidth: constraints.maxWidth),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.vertical,
-                child: DataTable(
+            thumbVisibility: true,
+            trackVisibility: true,
+            notificationPredicate: (notif) => notif.depth == 1,
+            child: SingleChildScrollView(
+              controller: _horizontalScrollController,
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                child: SingleChildScrollView(
+                  controller: _verticalScrollController,
+                  scrollDirection: Axis.vertical,
+                  child: DataTable(
                   headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                   dataRowMinHeight: 44,
                   dataRowMaxHeight: 58,
@@ -692,10 +700,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               ),
             ),
           ),
-        );
-      },
-    );
-  }
+        ),
+      );
+    },
+  );
+}
 
   Widget _buildEmptyState() {
     return Center(

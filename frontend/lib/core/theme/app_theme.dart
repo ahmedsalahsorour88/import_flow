@@ -23,6 +23,27 @@ class AppTheme {
         elevation: 0,
       ),
 
+      // Global Scrollbar Theme across all pages
+      scrollbarTheme: ScrollbarThemeData(
+        thumbVisibility: WidgetStateProperty.all(true),
+        trackVisibility: WidgetStateProperty.all(true),
+        thickness: WidgetStateProperty.all(8.0),
+        radius: const Radius.circular(6),
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.dragged)) {
+            return cobalt;
+          }
+          if (states.contains(WidgetState.hovered)) {
+            return cobalt.withOpacity(0.85);
+          }
+          return Colors.grey.shade400;
+        }),
+        trackColor: WidgetStateProperty.all(Colors.grey.shade200),
+        trackBorderColor: WidgetStateProperty.all(Colors.transparent),
+        crossAxisMargin: 2,
+        mainAxisMargin: 2,
+      ),
+
       // Color Scheme
       colorScheme: const ColorScheme.light(
         primary: cobalt,

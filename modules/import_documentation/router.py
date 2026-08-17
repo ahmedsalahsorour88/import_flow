@@ -25,6 +25,22 @@ from modules.import_documentation.schemas import (
     ShipmentDocumentResponse,
     CustomsDeclarationCreate,
     CustomsDeclarationResponse,
+    DraftBLComparisonRequest,
+    DraftBLReviewCreate,
+    DraftBLReviewUpdate,
+    DraftBLReviewResponse,
+    CertificateOfOriginReviewCreate,
+    CertificateOfOriginReviewUpdate,
+    CertificateOfOriginReviewResponse,
+    COOComparisonRequest,
+    InspectionCertificateReviewCreate,
+    InspectionCertificateReviewUpdate,
+    InspectionCertificateReviewResponse,
+    InspectionComparisonRequest,
+    LegalDocsExpiryComplianceResponse,
+    InvoiceBLExtractAndMatchRequest,
+    InvoiceBLExtractAndMatchResponse,
+    InvoiceBLSyncRequest,
 )
 import modules.import_documentation.service as service
 import modules.import_documentation.repository as repo
@@ -489,4 +505,69 @@ def update_inspection_review(
 )
 def get_legal_compliance(import_file_id: int, db: Session = Depends(get_db)):
     return service.check_acid_and_company_docs_validity_service(db, import_file_id)
+
+
+# --- 6. COMMERCIAL INVOICE VS. BILL OF LADING CROSS-MATCHING & RECONCILIATION ---
+@router.post(
+    "/invoice-bl/extract-and-match",
+    response_model=InvoiceBLExtractAndMatchResponse,
+    status_code=status.HTTP_200_OK,
+)
+def extract_and_match_invoice_bl(
+    payload: InvoiceBLExtractAndMatchRequest, db: Session = Depends(get_db)
+):
+    """
+    Intelligently extracts Commercial Invoice and Draft B/L data,
+    executes 10-point cross-comparison matrix, and generates a formal discrepancy/correction report.
+    """
+    return service.extract_and_match_invoice_bl_service(db, payload)
+
+
+@router.post(
+    "/invoice-bl/extract-files-and-match",
+    response_model=InvoiceBLExtractAndMatchResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def extract_invoice_bl_files_and_match(
+    invoice_file: Optional[UploadFile] = File(None),
+    bl_file: Optional[UploadFile] = File(None),
+    import_file_id: Optional[int] = Form(None),
+    invoice_text: Optional[str] = Form(None),
+    bl_text: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts uploaded Invoice and/or B/L files (PDF, Word, Excel, Text) and executes automated cross-matching.
+    """
+    inv_raw = invoice_text or ""
+    bl_raw = bl_text or ""
+
+    if invoice_file:
+        content = await invoice_file.read()
+        inv_raw = service.extract_text_from_uploaded_file(invoice_file.filename, content)
+
+    if bl_file:
+        content = await bl_file.read()
+        bl_raw = service.extract_text_from_uploaded_file(bl_file.filename, content)
+
+    req = InvoiceBLExtractAndMatchRequest(
+        import_file_id=import_file_id,
+        invoice_raw_text=inv_raw,
+        bl_raw_text=bl_raw,
+    )
+    return service.extract_and_match_invoice_bl_service(db, req)
+
+
+@router.post(
+    "/invoice-bl/certify-and-sync",
+    status_code=status.HTTP_200_OK,
+)
+def certify_and_sync_invoice_bl(
+    payload: InvoiceBLSyncRequest, db: Session = Depends(get_db)
+):
+    """
+    Certifies reconciled invoice and B/L parameters and synchronizes them with the Import File and Downstream Records.
+    """
+    return service.sync_certified_invoice_bl_to_file_service(db, payload)
+
 

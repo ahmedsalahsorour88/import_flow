@@ -723,3 +723,48 @@ class LegalDocsExpiryComplianceResponse(BaseModel):
     overall_compliance_status: str # 'COMPLIANT', 'CRITICAL_ACTION_REQUIRED', 'WARNING'
     persistent_banner_text: Optional[str] = None
 
+
+# --- PHASE 6: COMMERCIAL INVOICE VS. BILL OF LADING SMART RECONCILIATION SCHEMAS ---
+class InvoiceBLDiscrepancyMatrixItem(BaseModel):
+    item_code: str
+    field_name_ar: str
+    field_name_en: str
+    invoice_value: Any
+    bl_value: Any
+    match_status: str  # 'MATCH', 'MISMATCH_MINOR', 'MISMATCH_CRITICAL'
+    severity: str      # 'NONE', 'WARNING', 'BLOCKING'
+    tolerance: Optional[str] = None
+    details: str
+
+
+class InvoiceBLExtractAndMatchRequest(BaseModel):
+    import_file_id: Optional[int] = None
+    invoice_raw_text: Optional[str] = None
+    bl_raw_text: Optional[str] = None
+    invoice_fields: Optional[Dict[str, Any]] = None
+    bl_fields: Optional[Dict[str, Any]] = None
+
+
+class InvoiceBLExtractAndMatchResponse(BaseModel):
+    import_file_id: Optional[int] = None
+    import_file_code: Optional[str] = None
+    overall_status: str  # 'FULLY_MATCHED', 'ACCEPTED_WITH_WARNINGS', 'DISCREPANCY_DETECTED'
+    is_safe_for_certification: bool
+    match_score_percentage: float
+    critical_discrepancies_count: int
+    warning_discrepancies_count: int
+    comparison_matrix: List[InvoiceBLDiscrepancyMatrixItem]
+    correction_letter: Optional[str] = None
+    invoice_data: Dict[str, Any]
+    bl_data: Dict[str, Any]
+
+
+class InvoiceBLSyncRequest(BaseModel):
+    import_file_id: int
+    invoice_data: Dict[str, Any]
+    bl_data: Dict[str, Any]
+    sync_to_po: bool = True
+    sync_to_shipping: bool = True
+    notes: Optional[str] = None
+
+

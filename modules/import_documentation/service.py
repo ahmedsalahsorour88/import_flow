@@ -646,6 +646,9 @@ from modules.import_documentation.schemas import (
     InspectionComparisonRequest,
     LegalDocsExpiryComplianceResponse,
     LegalDocAlertItem,
+    InvoiceBLExtractAndMatchRequest,
+    InvoiceBLExtractAndMatchResponse,
+    InvoiceBLSyncRequest,
 )
 
 
@@ -1807,4 +1810,120 @@ def check_acid_and_company_docs_validity_service(db: Session, import_file_id: in
         overall_compliance_status=overall_status,
         persistent_banner_text=banner_text,
     )
+
+
+# --- PHASE 6: COMMERCIAL INVOICE VS. BILL OF LADING CROSS-MATCHING SERVICE ---
+def extract_and_match_invoice_bl_service(
+    db: Session, request: InvoiceBLExtractAndMatchRequest
+) -> InvoiceBLExtractAndMatchResponse:
+    from modules.import_documentation.ai_document_parser import (
+        extract_commercial_invoice_data,
+        extract_draft_bl_with_ai,
+        match_invoice_with_bl,
+    )
+
+    # 1. Parse Invoice
+    invoice_data = dict(request.invoice_fields or {})
+    if request.invoice_raw_text and request.invoice_raw_text.strip():
+        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
+        for k, v in extracted_inv.items():
+            if k not in invoice_data or not invoice_data[k]:
+                invoice_data[k] = v
+
+    # 2. Parse Bill of Lading
+    bl_data = dict(request.bl_fields or {})
+    if request.bl_raw_text and request.bl_raw_text.strip():
+        extracted_bl = extract_draft_bl_with_ai(request.bl_raw_text)
+        for k, v in extracted_bl.items():
+            if k not in bl_data or not bl_data[k]:
+                bl_data[k] = v
+
+    # 3. System snapshot if import_file_id is provided
+    sys_data = None
+    imp_file_code = None
+    if request.import_file_id:
+        sys_data = _build_system_bl_snapshot(db, request.import_file_id)
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+        if imp_file:
+            imp_file_code = imp_file.import_file_code
+
+    # 4. Execute Smart Cross-Matching
+    match_result = match_invoice_with_bl(invoice_data, bl_data, sys_data)
+
+    return InvoiceBLExtractAndMatchResponse(
+        import_file_id=request.import_file_id,
+        import_file_code=imp_file_code,
+        overall_status=match_result["overall_status"],
+        is_safe_for_certification=match_result["is_safe_for_certification"],
+        match_score_percentage=match_result["match_score_percentage"],
+        critical_discrepancies_count=match_result["critical_discrepancies_count"],
+        warning_discrepancies_count=match_result["warning_discrepancies_count"],
+        comparison_matrix=match_result["comparison_matrix"],
+        correction_letter=match_result["correction_letter"],
+        invoice_data=match_result["invoice_data"],
+        bl_data=match_result["bl_data"],
+    )
+
+
+def sync_certified_invoice_bl_to_file_service(
+    db: Session, request: InvoiceBLSyncRequest
+) -> dict:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    inv = request.invoice_data or {}
+    bl = request.bl_data or {}
+
+    # Sync Invoice fields
+    if inv.get("invoice_number"):
+        imp_file.pi_number = str(inv["invoice_number"])
+    if inv.get("total_amount"):
+        try:
+            imp_file.total_amount = float(inv["total_amount"])
+        except (ValueError, TypeError):
+            pass
+    if inv.get("currency"):
+        imp_file.currency = str(inv["currency"])
+    if inv.get("incoterm"):
+        imp_file.incoterm = str(inv["incoterm"])
+
+    # Sync B/L fields
+    if bl.get("draft_bl_number"):
+        imp_file.bl_number = str(bl["draft_bl_number"])
+    if bl.get("booking_no"):
+        imp_file.booking_no = str(bl["booking_no"])
+    if bl.get("vessel_name"):
+        imp_file.vessel_name = str(bl["vessel_name"])
+
+    # Sync to Cargo Shipping Record if requested
+    if request.sync_to_shipping:
+        cargo_shp = db.query(CargoShippingRecord).filter(
+            CargoShippingRecord.import_file_id == request.import_file_id,
+            CargoShippingRecord.is_active == True
+        ).first()
+        if cargo_shp:
+            if bl.get("draft_bl_number"):
+                cargo_shp.bl_number = str(bl["draft_bl_number"])
+            if bl.get("vessel_name"):
+                cargo_shp.vessel_name = str(bl["vessel_name"])
+            if bl.get("containers"):
+                cargo_shp.containers_loading_data = bl["containers"]
+            if bl.get("total_gross_weight_kg"):
+                cargo_shp.total_gross_weight_kg = float(bl["total_gross_weight_kg"])
+
+    db.commit()
+    db.refresh(imp_file)
+
+    return {
+        "status": "success",
+        "message": f"تمت مطابقة واعتماد الفاتورة ({inv.get('invoice_number', 'N/A')}) والبوليصة ({bl.get('draft_bl_number', 'N/A')}) ومزامنة بياناتهما مع ملف الشحنة بنجاح.",
+        "import_file_id": imp_file.import_file_id,
+        "import_file_code": imp_file.import_file_code,
+        "synced_invoice_number": imp_file.pi_number,
+        "synced_bl_number": imp_file.bl_number,
+        "total_amount": imp_file.total_amount,
+        "currency": imp_file.currency,
+    }
+
 

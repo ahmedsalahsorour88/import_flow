@@ -10,6 +10,7 @@ import '../providers/import_documentation_provider.dart';
 import '../widgets/coo_review_tab.dart';
 import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
+import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
@@ -30,15 +31,16 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   // Active Vertical Sub-Tab:
   // 0: 📦 مطابقة الفاتورة والباكينج (PO & Packing Reconciliation)
   // 1: 📄 مسودة بوليصة الشحن (Draft B/L Review & Dual Approval)
-  // 2: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
-  // 3: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
-  // 4: 📁 السجل المركزي وتظهير CargoX (Central Docs & CargoX Archive)
+  // 2: ⚡ الاستخراج ومطابقة الفاتورة والبوليصة (Smart Invoice vs. B/L Reconciliation)
+  // 3: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
+  // 4: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
+  // 5: 📁 السجل المركزي وتظهير CargoX (Central Docs & CargoX Archive)
   int _selectedSubTab = 0;
 
   // Selected Import File
   int? _selectedImportFileId;
 
-  // State for Central Archive (Tab 4)
+  // State for Central Archive (Tab 5)
   final _docFormKey = GlobalKey<FormState>();
   final TextEditingController _docNameCtrl = TextEditingController(text: 'Commercial Invoice');
   final TextEditingController _docNumberCtrl = TextEditingController();
@@ -90,6 +92,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleAr: 'مسودة بوليصة الشحن والاعتماد',
       ),
       const VerticalNavTabItem(
+        icon: Icons.auto_awesome,
+        titleEn: 'Smart Invoice vs B/L Match',
+        titleAr: 'استخراج ومطابقة الفاتورة والبوليصة',
+      ),
+      const VerticalNavTabItem(
         icon: Icons.flag_circle_outlined,
         titleEn: 'Draft COO & EUR.1 Review',
         titleAr: 'مسودة شهادة المنشأ و EUR.1',
@@ -129,7 +136,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
-        if (index == 4) {
+        if (index == 5) {
           ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
         }
       },
@@ -140,7 +147,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onPressed: _refreshData,
         ),
       ],
-      body: _selectedSubTab == 4
+      body: _selectedSubTab == 5
           ? SingleChildScrollView(padding: const EdgeInsets.all(20), child: _buildCentralDocsArchiveView())
           : _buildCurrentSubTabContent(),
     );
@@ -153,8 +160,17 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       case 1:
         return DraftBLReviewTab(initialImportFileId: _selectedImportFileId);
       case 2:
-        return COOReviewTab(initialImportFileId: _selectedImportFileId);
+        return InvoiceBLMatcherTab(
+          selectedImportFileId: _selectedImportFileId,
+          onImportFileChanged: (newId) {
+            setState(() {
+              _selectedImportFileId = newId;
+            });
+          },
+        );
       case 3:
+        return COOReviewTab(initialImportFileId: _selectedImportFileId);
+      case 4:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       default:
         return POReconciliationTab(initialImportFileId: _selectedImportFileId);

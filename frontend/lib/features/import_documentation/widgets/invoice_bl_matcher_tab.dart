@@ -1,0 +1,1062 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
+
+import '../../../core/constants/api_constants.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/error_details_dialog.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../import_files/providers/import_files_provider.dart';
+
+class InvoiceBLMatcherTab extends ConsumerStatefulWidget {
+  final int? selectedImportFileId;
+  final Function(int)? onImportFileChanged;
+
+  const InvoiceBLMatcherTab({
+    super.key,
+    this.selectedImportFileId,
+    this.onImportFileChanged,
+  });
+
+  @override
+  ConsumerState<InvoiceBLMatcherTab> createState() => _InvoiceBLMatcherTabState();
+}
+
+class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  final TextEditingController _invoiceTextCtrl = TextEditingController();
+  final TextEditingController _blTextCtrl = TextEditingController();
+
+  String? _invoiceFileName;
+  String? _blFileName;
+  bool _isLoading = false;
+  bool _isSyncing = false;
+
+  Map<String, dynamic>? _matchResult;
+  int? _activeFileId;
+
+  // Real Sample Data Presets
+  static const String sampleShawInvoice = '''
+Commercial Invoice
+Shaw Europe Limited
+Blackaddie Road, Sanquhar, United Kingdom, DG4 6DB
+VAT Number 428102677
+
+Order Date 24-06-2026
+Order Number 35220
+Shipment Number 688990
+Purchase Order RSA-ARCE-Found Ever
+Currency USD
+Incoterms EXW
+Incoterms Location UK
+Freight Terms COLLECT
+
+Bill To:
+ARCHI BRANDS FOR CORPET AND FLOOR TRADING
+44 Street 18, Maadi Sarayat, Cairo, Egypt
+Tax ID 759552827
+
+ACID 7595528271019210013
+Order Total \$85,060.57
+
+Container: BEAU5851356 Seal: 177345
+960 boxes / 31 pallets
+Gross weight 20030kg
+Net weight 19410kg
+HS Code: 5703299100
+''';
+
+  static const String sampleMscBL = '''
+MEDITERRANEAN SHIPPING COMPANY S.A.
+BILL OF LADING No. MEDURE910647
+DRAFT - SCAC Code: MEDU
+
+SHIPPER:
+SHAW EUROPE LTD
+BUILDING E, BLACKADDIE RD SANQUHAR, DG4 6DB. UNITED KINGDOM
+
+CONSIGNEE:
+ARCHI Brands for Corpet and Floor Trading
+St.81 with st.18 building 44, 3rd floor, SARAYAT EL MAADI, Cairo- Egypt
+VAT No: 759-552-827
+
+VESSEL AND VOYAGE NO: MSC GISELLE - NL630A
+BOOKING REF. (or) SHIPPER'S REF.
+EBKG18064984
+
+PORT OF LOADING: London Gateway Port
+PORT OF DISCHARGE: Alexandria El Dekheila, EGYPT
+
+Container Numbers, Seal Numbers:
+BEAU5851356 / 40' HIGH CUBE
+Seal Number: 177345
+
+Description of Packages and Goods:
+31 Pallet(s) 1 X 40' HIGH CUBE CONTAINING 31 PALLETS OF FLOORING
+ACID: 7595528271019210013
+EGYPTIAN IMPORTER TAX ID: 759552827
+SHIPPER REGISTRATION TYPE: VAT NUMBER
+SHIPPER ID: GB428102677
+SHIPPER COUNTRY: UNITED KINGDOM (GB)
+
+FREIGHT PREPAID
+Gross Cargo Weight: 20,030.000 kgs.
+Total Items: 31 Total: 20,030.000 kgs.
+''';
+
+  @override
+  void initState() {
+    super.initState();
+    _activeFileId = widget.selectedImportFileId;
+  }
+
+  @override
+  void didUpdateWidget(covariant InvoiceBLMatcherTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selectedImportFileId != oldWidget.selectedImportFileId) {
+      setState(() {
+        _activeFileId = widget.selectedImportFileId;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _invoiceTextCtrl.dispose();
+    _blTextCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile(bool isInvoice) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'txt', 'csv', 'doc', 'docx', 'xlsx'],
+        withData: true,
+      );
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (!mounted) return;
+        setState(() {
+          if (isInvoice) {
+            _invoiceFileName = file.name;
+            if (file.bytes != null) {
+              _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+            }
+          } else {
+            _blFileName = file.name;
+            if (file.bytes != null) {
+              _blTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+            }
+          }
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم تحميل ملف ${file.name} بنجاح'),
+              backgroundColor: AppTheme.emerald,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تعذر قراءة الملف: $e'),
+            backgroundColor: AppTheme.crimson,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _loadSampleData() {
+    setState(() {
+      _invoiceTextCtrl.text = sampleShawInvoice.trim();
+      _invoiceFileName = 'ShawContract_Commercial_Invoice.txt';
+      _blTextCtrl.text = sampleMscBL.trim();
+      _blFileName = 'MSC_Draft_BL_MEDURE910647.txt';
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('تم تحميل بيانات العينات الفعلية (Shaw Europe + MSC B/L)'),
+          backgroundColor: AppTheme.cobalt,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _runCrossMatching() async {
+    if (_invoiceTextCtrl.text.trim().isEmpty && _blTextCtrl.text.trim().isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى إدخال أو رفع نصوص الفاتورة وبوليصة الشحن للمطابقة'),
+            backgroundColor: AppTheme.orange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/extract-and-match',
+        data: {
+          'import_file_id': _activeFileId,
+          'invoice_raw_text': _invoiceTextCtrl.text,
+          'bl_raw_text': _blTextCtrl.text,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = response.data is Map<String, dynamic>
+            ? response.data as Map<String, dynamic>
+            : jsonDecode(response.data.toString()) as Map<String, dynamic>;
+        if (!mounted) return;
+        setState(() {
+          _matchResult = data;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('اكتملت المطابقة الذكية بنجاح! نسبة التطابق: ${data['match_score_percentage']}%'),
+              backgroundColor: data['is_safe_for_certification'] == true ? AppTheme.emerald : AppTheme.orange,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Server returned ${response.statusCode}: ${response.data}');
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: 'خطأ في المطابقة الذكية', error: e);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _certifyAndSync() async {
+    if (_matchResult == null || _activeFileId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('يرجى اختيار ملف شحنة وإجراء المطابقة أولاً للمزامنة'),
+            backgroundColor: AppTheme.crimson,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    setState(() {
+      _isSyncing = true;
+    });
+
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/certify-and-sync',
+        data: {
+          'import_file_id': _activeFileId,
+          'invoice_data': _matchResult!['invoice_data'],
+          'bl_data': _matchResult!['bl_data'],
+          'sync_to_po': true,
+          'sync_to_shipping': true,
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final res = response.data;
+        ref.invalidate(importFilesProvider);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(res['message'] ?? 'تمت المزامنة والاعتماد بنجاح!'),
+              backgroundColor: AppTheme.emerald,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      } else {
+        throw Exception('Server error ${response.statusCode}: ${response.data}');
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: 'فشل مزامنة البيانات', error: e);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncing = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. Header & Import File Selector Bar
+          _buildHeaderControlBar(importFiles),
+          const SizedBox(height: 16),
+
+          // 2. Dual Document Ingestion Section (Invoice vs B/L)
+          _buildDualIngestionSection(),
+          const SizedBox(height: 16),
+
+          // 3. Action Buttons (Run Match, Load Samples, Reset)
+          _buildActionButtonsBar(),
+          const SizedBox(height: 20),
+
+          // 4. Comparison Results & Score Matrix
+          if (_isLoading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32.0),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      'جاري التحليل واستخراج الحقول المطابقة بالذكاء الاصطناعي...',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_matchResult != null) ...[
+            _buildMatchSummaryCard(),
+            const SizedBox(height: 16),
+            _buildComparisonMatrixTable(),
+            const SizedBox(height: 16),
+            _buildExtractedFieldsCards(),
+            if (_matchResult!['correction_letter'] != null &&
+                _matchResult!['correction_letter'].toString().isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _buildCorrectionLetterCard(),
+            ],
+            const SizedBox(height: 24),
+            _buildSyncActionFooter(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeaderControlBar(List<dynamic> importFiles) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.cobalt.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 28),
+          ),
+          const SizedBox(width: 14),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'أداة الاستخراج الذكي والمطابقة الفورية (Commercial Invoice vs. Bill of Lading)',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                ),
+                SizedBox(height: 4),
+                Text(
+                  'استخراج الحقول المستهدفة ومطابقة الفاتورة النهائية مع البوليصة ومنع أي تعارض جمركي أو بنكي.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          SizedBox(
+            width: 320,
+            child: SearchableDropdownField<int>(
+              labelText: 'ربط بملف استيراد',
+              hintText: 'اختر ملف الشحنة للمزامنة...',
+              value: _activeFileId,
+              items: importFiles
+                  .map(
+                    (f) => SearchableDropdownItem<int>(
+                      value: f.importFileId,
+                      label: '${f.importFileCode} - ${f.supplierName} (${f.status})',
+                    ),
+                  )
+                  .toList(),
+              onChanged: (val) {
+                setState(() {
+                  _activeFileId = val;
+                });
+                if (widget.onImportFileChanged != null && val != null) {
+                  widget.onImportFileChanged!(val);
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDualIngestionSection() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 800;
+        return Flex(
+          direction: isWide ? Axis.horizontal : Axis.vertical,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Left / First: Commercial Invoice
+            Expanded(
+              flex: isWide ? 1 : 0,
+              child: _buildDocumentInputBox(
+                titleAr: '1. الفاتورة التجارية النهائية (Commercial Invoice)',
+                titleEn: 'Final Commercial Invoice / Packing List',
+                icon: Icons.receipt_long,
+                color: AppTheme.cobalt,
+                controller: _invoiceTextCtrl,
+                fileName: _invoiceFileName,
+                isInvoice: true,
+                placeholder: 'الصق نص الفاتورة هنا أو اضغط رفع PDF / ملف تجاري...',
+              ),
+            ),
+            SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+            // Right / Second: Draft Bill of Lading
+            Expanded(
+              flex: isWide ? 1 : 0,
+              child: _buildDocumentInputBox(
+                titleAr: '2. مسودة بوليصة الشحن (Draft B/L)',
+                titleEn: 'Draft Bill of Lading (Carrier / Forwarder)',
+                icon: Icons.directions_boat,
+                color: AppTheme.emerald,
+                controller: _blTextCtrl,
+                fileName: _blFileName,
+                isInvoice: false,
+                placeholder: 'الصق مسودة البوليصة هنا أو اضغط رفع PDF الخط الملاحي...',
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDocumentInputBox({
+    required String titleAr,
+    required String titleEn,
+    required IconData icon,
+    required Color color,
+    required TextEditingController controller,
+    required String? fileName,
+    required bool isInvoice,
+    required String placeholder,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.4)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titleAr,
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+                    ),
+                    Text(
+                      titleEn,
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _pickFile(isInvoice),
+                icon: const Icon(Icons.upload_file, size: 16),
+                label: Text(fileName != null ? 'تغيير الملف' : 'رفع ملف'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: color,
+                  side: BorderSide(color: color),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                ),
+              ),
+            ],
+          ),
+          if (fileName != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.check_circle, size: 14, color: color),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'الملف المرفوع: $fileName',
+                      style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          TextField(
+            controller: controller,
+            maxLines: 8,
+            style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
+            decoration: InputDecoration(
+              hintText: placeholder,
+              hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 11),
+              filled: true,
+              fillColor: Colors.grey.shade50,
+              contentPadding: const EdgeInsets.all(12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: BorderSide(color: Colors.grey.shade300),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtonsBar() {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 10,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        ElevatedButton.icon(
+          onPressed: _isLoading ? null : _runCrossMatching,
+          icon: _isLoading
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                )
+              : const Icon(Icons.compare_arrows, size: 20),
+          label: const Text(
+            'تنفيذ الاستخراج الذكي والمطابقة الفورية',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.cobalt,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            elevation: 2,
+          ),
+        ),
+        OutlinedButton.icon(
+          onPressed: _loadSampleData,
+          icon: const Icon(Icons.auto_stories, size: 18, color: AppTheme.charcoal),
+          label: const Text(
+            'تحميل نموذج تجريبي حقيقي (Shaw Europe + MSC)',
+            style: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+          style: OutlinedButton.styleFrom(
+            side: const BorderSide(color: Colors.grey),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: () {
+            setState(() {
+              _invoiceTextCtrl.clear();
+              _blTextCtrl.clear();
+              _invoiceFileName = null;
+              _blFileName = null;
+              _matchResult = null;
+            });
+          },
+          icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
+          label: const Text('إعادة تعيين', style: TextStyle(color: Colors.grey)),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMatchSummaryCard() {
+    final res = _matchResult!;
+    final score = res['match_score_percentage'] ?? 0.0;
+    final isSafe = res['is_safe_for_certification'] == true;
+    final criticalCount = res['critical_discrepancies_count'] ?? 0;
+    final warningCount = res['warning_discrepancies_count'] ?? 0;
+
+    final color = isSafe ? (warningCount > 0 ? AppTheme.orange : AppTheme.emerald) : AppTheme.crimson;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              isSafe ? Icons.verified_rounded : Icons.gpp_bad_rounded,
+              color: color,
+              size: 36,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      isSafe ? 'مستندات متطابقة وجاهزة للاعتماد' : 'تم اكتشاف اختلافات حرجة تمنع الاعتماد',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+                    ),
+                    const SizedBox(width: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: color,
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        'نسبة المطابقة: $score%',
+                        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  isSafe
+                      ? 'كافة الحقول الجمركية والمصرفية مطابقة بنسبة آمنة. يمكنك مزامنة البيانات مباشرة مع ملف الشحنة.'
+                      : 'توجد $criticalCount فوارق حرجة تمنع الإفراج الجمركي أو مطابقة نموذج 4. يجب تعديل البوليصة أو الفاتورة قبل الاعتماد.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade800),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          Column(
+            children: [
+              _buildBadgeCounter('فوارق حرجة', criticalCount, AppTheme.crimson),
+              const SizedBox(height: 6),
+              _buildBadgeCounter('تنبيهات ثانوية', warningCount, AppTheme.orange),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBadgeCounter(String label, int count, Color col) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: count > 0 ? col.withOpacity(0.15) : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: count > 0 ? col : Colors.grey.shade300),
+      ),
+      child: Text(
+        '$label: $count',
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: count > 0 ? col : Colors.grey.shade600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComparisonMatrixTable() {
+    final matrix = (_matchResult!['comparison_matrix'] as List<dynamic>?) ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.table_chart_outlined, size: 18, color: AppTheme.charcoal),
+                SizedBox(width: 8),
+                Text(
+                  'مصفوفة المطابقة التفصيلية (10 بنود فحص جمركية ومصرفية)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                ),
+              ],
+            ),
+          ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(Colors.grey.shade50),
+              horizontalMargin: 16,
+              columnSpacing: 24,
+              columns: const [
+                DataColumn(label: Text('بند الفحص والمطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('القيمة بالفاتورة النهائية', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('القيمة بمسودة البوليصة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('النتيجة والإجراء المطلوب', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+              rows: matrix.map((item) {
+                final status = item['match_status'] ?? 'MATCH';
+                final isMatch = status == 'MATCH';
+                final isMinor = status == 'MISMATCH_MINOR';
+
+                final statusCol = isMatch ? AppTheme.emerald : (isMinor ? AppTheme.orange : AppTheme.crimson);
+                final statusTxt = isMatch ? 'مطابق ✅' : (isMinor ? 'فارق طفيف ⚠️' : 'غير مطابق ❌');
+
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(item['field_name_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                          Text(item['field_name_en'] ?? '', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        '${item['invoice_value'] ?? '—'}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.cobalt),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        '${item['bl_value'] ?? '—'}',
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald),
+                      ),
+                    ),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: statusCol.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: statusCol),
+                        ),
+                        child: Text(
+                          statusTxt,
+                          style: TextStyle(color: statusCol, fontWeight: FontWeight.bold, fontSize: 10),
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      Text(
+                        item['details'] ?? '',
+                        style: TextStyle(fontSize: 11, color: isMatch ? Colors.grey.shade800 : statusCol),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExtractedFieldsCards() {
+    final inv = _matchResult!['invoice_data'] ?? {};
+    final bl = _matchResult!['bl_data'] ?? {};
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Extracted Invoice Data Card
+        Expanded(
+          child: _buildDataSummaryCard(
+            title: 'البيانات المستخرجة من الفاتورة',
+            icon: Icons.receipt_long,
+            color: AppTheme.cobalt,
+            data: inv,
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Extracted B/L Data Card
+        Expanded(
+          child: _buildDataSummaryCard(
+            title: 'البيانات المستخرجة من مسودة البوليصة',
+            icon: Icons.directions_boat,
+            color: AppTheme.emerald,
+            data: bl,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDataSummaryCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required Map<String, dynamic> data,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(title, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color)),
+            ],
+          ),
+          const Divider(),
+          ...data.entries.map((e) {
+            if (e.key.startsWith('_') || e.value == null || e.value.toString().isEmpty) {
+              return const SizedBox.shrink();
+            }
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 3),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 130,
+                    child: Text(
+                      '${e.key}:',
+                      style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      '${e.value}',
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCorrectionLetterCard() {
+    final letter = _matchResult!['correction_letter'].toString();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade400),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.mark_email_unread_outlined, color: AppTheme.orange, size: 22),
+              const SizedBox(width: 8),
+              const Text(
+                'خطاب طلب التعديل التلقائي للخط الملاحي (B/L Correction Request)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              ),
+              const Spacer(),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: letter));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('تم نسخ خطاب التعديل إلى الحافظة بنجاح'),
+                      backgroundColor: AppTheme.cobalt,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.copy, size: 14),
+                label: const Text('نسخ الخطاب'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.orange,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: SelectableText(
+              letter,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 11, height: 1.4),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSyncActionFooter() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.sync_alt, color: AppTheme.cobalt, size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'اعتماد النتائج ومزامنة بيانات الفاتورة والبوليصة مع ملف الاستيراد',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                ),
+                Text(
+                  _activeFileId != null
+                      ? 'سيتم تحديث رقم البوليصة، رقم الفاتورة، القيمة الإجمالية، والحاويات في ملف الشحنة المحدد.'
+                      : 'يرجى اختيار ملف شحنة من القائمة بالأعلى للمزامنة.',
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            onPressed: (_activeFileId == null || _isSyncing) ? null : _certifyAndSync,
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  )
+                : const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text(
+              'اعتماد ومزامنة مع ملف الشحنة',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

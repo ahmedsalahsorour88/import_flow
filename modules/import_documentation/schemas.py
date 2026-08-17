@@ -741,8 +741,10 @@ class InvoiceBLExtractAndMatchRequest(BaseModel):
     import_file_id: Optional[int] = None
     invoice_raw_text: Optional[str] = None
     bl_raw_text: Optional[str] = None
+    packing_list_raw_text: Optional[str] = None
     invoice_fields: Optional[Dict[str, Any]] = None
     bl_fields: Optional[Dict[str, Any]] = None
+    packing_list_fields: Optional[Dict[str, Any]] = None
 
 
 class InvoiceBLExtractAndMatchResponse(BaseModel):
@@ -757,6 +759,8 @@ class InvoiceBLExtractAndMatchResponse(BaseModel):
     correction_letter: Optional[str] = None
     invoice_data: Dict[str, Any]
     bl_data: Dict[str, Any]
+    packing_list_data: Optional[Dict[str, Any]] = None
+
 
 
 class POHeaderDiscrepancyItem(BaseModel):

@@ -184,3 +184,36 @@ def test_api_extract_and_match():
     assert data["is_safe_for_certification"] is True
     assert data["match_score_percentage"] >= 90.0
     assert len(data["comparison_matrix"]) == 10
+
+
+def test_api_extract_and_match_with_packing_list():
+    sample_pl_text = """
+    PACKING LIST
+    Packing List No: PL-2026-8899
+    Date: 24-06-2026
+    ACID: 7595528271019210013
+    Shipper: Shaw Europe Limited
+    Consignee: ARCHI BRANDS FOR CORPET AND FLOOR TRADING
+    Gross Weight: 20030.00 KGS
+    Net Weight: 19410.00 KGS
+    Total Packages: 31 Pallets
+    Measurement: 45.50 CBM
+    Container: BEAU5851356 / Seal: 177345
+    """
+
+    response = client.post(
+        "/api/v1/import-documentation/invoice-bl/extract-and-match",
+        json={
+            "invoice_raw_text": SHAW_INVOICE_TEXT,
+            "packing_list_raw_text": sample_pl_text,
+            "bl_raw_text": MSC_BL_TEXT,
+        }
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["packing_list_data"] is not None
+    assert data["invoice_data"]["total_gross_weight_kg"] == 20030.0
+    assert data["invoice_data"]["qty_pkg"] == 31
+    assert data["is_safe_for_certification"] is True
+
+

@@ -121,8 +121,8 @@ class MockPOReconciliationSessionsNotifier
 }
 
 void main() {
-  testWidgets('POReconciliationTab renders smart extraction tool card, dual tabs and loads sample data', (WidgetTester tester) async {
-    tester.view.physicalSize = const Size(1440, 900);
+  testWidgets('POReconciliationTab renders smart extraction tool card and saved sessions in single unified screen', (WidgetTester tester) async {
+    tester.view.physicalSize = const Size(1440, 1600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
 
@@ -143,9 +143,8 @@ void main() {
 
     await tester.pumpAndSettle();
 
-    // Verify presence of Dual Tabs
-    expect(find.textContaining('مراجعة وتدقيق المستندات والمطابقة الذكية'), findsOneWidget);
-    expect(find.textContaining('سجل جلسات المطابقة المحفوظة'), findsOneWidget);
+    // Verify presence of Editor and Saved Sessions Sections on Unified Screen
+    expect(find.textContaining('سجل جلسات المطابقة المحفوظة'), findsWidgets);
 
     // Verify presence of the Smart Extraction & 3-Way Reconciliation Tool Card
     expect(find.textContaining('Smart 3-Way Extractor'), findsOneWidget);
@@ -165,14 +164,10 @@ void main() {
     expect(find.textContaining('2001830441013710010'), findsWidgets);
     expect(find.textContaining('RTAXT/K/EC/MS 182'), findsWidgets);
 
-    // Switch to Saved Sessions History Tab
-    final historyTab = find.textContaining('سجل جلسات المطابقة المحفوظة');
-    await tester.tap(historyTab);
-    await tester.pumpAndSettle();
-
-    // Verify saved session row exists with REC-2026-0001
+    // Verify saved session row exists with REC-2026-0001 in the unified registry below
     expect(find.text('REC-2026-0001'), findsOneWidget);
     expect(find.text('ECO ASSOCIATES'), findsWidgets);
     expect(find.text('37741.00 EUR'), findsOneWidget);
   });
 }
+

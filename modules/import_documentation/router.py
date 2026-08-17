@@ -446,8 +446,9 @@ async def extract_draft_bl_from_file(
     and optionally executes comparison against the active import file.
     """
     content_bytes = await file.read()
-    raw_text = service.extract_text_from_uploaded_file(file.filename, content_bytes)
-    extracted_fields = service.parse_draft_bl_raw_text(raw_text)
+    raw_text, spatial_boxes = service.extract_text_and_boxes_from_uploaded_file(file.filename, content_bytes)
+    extracted_fields = service.parse_draft_bl_raw_text(raw_text, spatial_boxes=spatial_boxes)
+
 
     comp_result = None
     if import_file_id:
@@ -671,16 +672,20 @@ def extract_and_match_invoice_bl(
 async def extract_invoice_bl_files_and_match(
     invoice_file: Optional[UploadFile] = File(None),
     bl_file: Optional[UploadFile] = File(None),
+    packing_list_file: Optional[UploadFile] = File(None),
     import_file_id: Optional[int] = Form(None),
     invoice_text: Optional[str] = Form(None),
     bl_text: Optional[str] = Form(None),
+    packing_list_text: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     """
-    Accepts uploaded Invoice and/or B/L files (PDF, Word, Excel, Text) and executes automated cross-matching.
+    Accepts uploaded Invoice, Packing List (additional file), and/or B/L files (PDF, Word, Excel, Text)
+    and executes automated cross-matching.
     """
     inv_raw = invoice_text or ""
     bl_raw = bl_text or ""
+    pl_raw = packing_list_text or ""
 
     if invoice_file:
         content = await invoice_file.read()
@@ -690,12 +695,18 @@ async def extract_invoice_bl_files_and_match(
         content = await bl_file.read()
         bl_raw = service.extract_text_from_uploaded_file(bl_file.filename, content)
 
+    if packing_list_file:
+        content = await packing_list_file.read()
+        pl_raw = service.extract_text_from_uploaded_file(packing_list_file.filename, content)
+
     req = InvoiceBLExtractAndMatchRequest(
         import_file_id=import_file_id,
         invoice_raw_text=inv_raw,
         bl_raw_text=bl_raw,
+        packing_list_raw_text=pl_raw,
     )
     return service.extract_and_match_invoice_bl_service(db, req)
+
 
 
 @router.post(

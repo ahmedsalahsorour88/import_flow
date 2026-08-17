@@ -484,17 +484,20 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columns: const [
-              DataColumn(label: Text('كود المستند', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('البنك المعتمد', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('المبلغ والعملة', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('تاريخ التقديم', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('حالة التوثيق', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
-            ],
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+              columns: const [
+                DataColumn(label: Text('كود المستند', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('البنك المعتمد', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('المبلغ والعملة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('تاريخ التقديم', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('حالة التوثيق', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+
             rows: filtered.map((d) {
               return DataRow(
                 cells: [
@@ -533,8 +536,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             }).toList(),
           ),
         ),
-      ],
-    );
+      ),
+    ],
+  );
+
   }
 
   Future<void> _saveBankingDoc() async {

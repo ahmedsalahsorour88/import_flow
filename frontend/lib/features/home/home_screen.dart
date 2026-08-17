@@ -326,14 +326,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.teal,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.domain_outlined, 'Import Companies', 'الشركات المستوردة', 34, selectedIndex),
-                  _buildMenuItem(Icons.business_outlined, 'Foreign Suppliers', 'دليل الموردين الأجانب', 35, selectedIndex),
-                  _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks', 'الشركاء والبنوك ومقدمو الخدمات', 36, selectedIndex),
-                  _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 33, selectedIndex),
-                  _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 38, selectedIndex),
-                  _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 37, selectedIndex),
-                  _buildMenuItem(Icons.description_outlined, 'Customs Tariff Schedule', 'جدول التعريفة الجمركية', 43, selectedIndex),
-                  _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 44, selectedIndex),
+                  _buildMenuItem(Icons.domain_outlined, 'Import Companies', 'الشركات المستوردة', 32, selectedIndex),
+                  _buildMenuItem(Icons.business_outlined, 'Foreign Suppliers', 'دليل الموردين الأجانب', 33, selectedIndex),
+                  _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks', 'الشركاء والبنوك ومقدمو الخدمات', 34, selectedIndex),
+                  _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 31, selectedIndex),
+                  _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 37, selectedIndex),
+                  _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 35, selectedIndex),
+                  _buildMenuItem(Icons.description_outlined, 'Customs Tariff Schedule', 'جدول التعريفة الجمركية', 36, selectedIndex),
+                  _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 38, selectedIndex),
                 ],
               ),
 
@@ -365,7 +365,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.compare_arrows_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
                   _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
-                  _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 46, selectedIndex),
+                  _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43, selectedIndex),
                 ],
               ),
 
@@ -394,12 +394,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.teal,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 16, selectedIndex),
-                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع', 17, selectedIndex),
-                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 18, selectedIndex),
+                  _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
+                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع', 26, selectedIndex),
+                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 26, selectedIndex),
                   _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review', 'مراجعة وتدقيق مسودات المستندات', 19, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 21, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 6, selectedIndex),
                 ],
               ),
 
@@ -414,8 +414,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Follow-up / Upload', 'متابعة ورفع المستندات عبر نافذة و CargoX', 22, selectedIndex),
-                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة', 23, selectedIndex),
-                  _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 24, selectedIndex),
+                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة', 18, selectedIndex),
+                  _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 16, selectedIndex),
                 ],
               ),
 
@@ -429,12 +429,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: Colors.purple,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 25, selectedIndex),
-                  _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتفتيش الجمركي', 26, selectedIndex),
+                  _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 23, selectedIndex),
+                  _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتفتيش الجمركي', 27, selectedIndex),
                   _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وتحديد عجز البضائع', 27, selectedIndex),
-                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 28, selectedIndex),
-                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 29, selectedIndex),
-                  _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 30, selectedIndex),
+                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 27, selectedIndex),
+                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 27, selectedIndex),
+                  _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 44, selectedIndex),
                 ],
               ),
 
@@ -448,9 +448,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.emerald,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 31, selectedIndex),
-                  _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 32, selectedIndex),
-                  _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 45, selectedIndex),
+                  _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 28, selectedIndex),
+                  _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 29, selectedIndex),
+                  _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 30, selectedIndex),
                 ],
               ),
 

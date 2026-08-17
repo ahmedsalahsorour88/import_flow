@@ -615,9 +615,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
 
     return VerticalStageScaffold(
       stageCode: '',
-      titleEn: 'Cargo Shipping & Container Loading',
-      titleAr: 'تجهيز وشحن البضائع ومتابعة تحميل الحاويات',
-      headerIcon: Icons.local_shipping_outlined,
+      titleEn: 'Freight Allocations & Cargo Shipping',
+      titleAr: 'تخصيص وتوزيع الحاويات ومتابعة حركة الشحن',
+      headerIcon: Icons.grid_view_outlined,
       headerColor: AppTheme.emerald,
       tabs: tabs,
       selectedIndex: _mainTabController.index,

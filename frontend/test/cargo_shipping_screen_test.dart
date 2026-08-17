@@ -86,7 +86,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Verify screen loaded
-    expect(find.textContaining('تجهيز وشحن البضائع ومتابعة تحميل الحاويات'), findsOneWidget);
+    expect(find.textContaining('تخصيص وتوزيع الحاويات ومتابعة حركة الشحن'), findsOneWidget);
     
     // Tap Tab 2 (Saved Registry)
     await tester.tap(find.textContaining('سجل متابعة الشحنات والتحميل'));
@@ -99,14 +99,14 @@ void main() {
     await tester.tap(find.textContaining('SHP-2026-0004'));
     await tester.pumpAndSettle();
 
-    // Verify the milestone datetime display strings are formatted and present
+    // Verify all 5 timestamps are loaded in step 2
     expect(find.textContaining('2026-08-16 | 12:00'), findsOneWidget);
     expect(find.textContaining('2026-08-16 | 1:56'), findsOneWidget);
     expect(find.textContaining('2026-08-16 | 3:56'), findsOneWidget);
     expect(find.textContaining('2026-08-16 | 6:56'), findsOneWidget);
     expect(find.textContaining('2026-08-16 | 11:56'), findsOneWidget);
 
-    // Verify notes are loaded both in milestone box badge and note textfield
+    // Verify note is loaded
     expect(find.textContaining('تخصيص الحاوية بواسطة الخط الملاحي'), findsNWidgets(2));
   });
 
@@ -188,11 +188,11 @@ void main() {
     await tester.pumpAndSettle();
 
     // Select import file from SearchableDropdownField
-    await tester.tap(find.textContaining('اختر ملف الشحنة...'));
+    await tester.tap(find.textContaining('اختر ملف الشحنة...'), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // Tap the option for file 1
-    await tester.tap(find.textContaining('ECO ASSOCIATES').last);
+    await tester.tap(find.textContaining('ECO ASSOCIATES').last, warnIfMissed: false);
     await tester.pumpAndSettle();
 
     // Verify all 5 timestamps are loaded
@@ -205,6 +205,7 @@ void main() {
     // Verify note is loaded
     expect(find.textContaining('تخصيص الحاوية بواسطة الخط الملاحي'), findsNWidgets(2));
   });
+
 }
 
 class _MockCargoShippingNotifier extends CargoShippingNotifier {

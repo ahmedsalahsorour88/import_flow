@@ -21,9 +21,8 @@ class POReconciliationTab extends ConsumerStatefulWidget {
   ConsumerState<POReconciliationTab> createState() => _POReconciliationTabState();
 }
 
-class _POReconciliationTabState extends ConsumerState<POReconciliationTab>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
+class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
+  final ScrollController _mainScrollController = ScrollController();
   final _formKey = GlobalKey<FormState>();
   int? _selectedImportFileId;
   final TextEditingController _finalInvNumberCtrl = TextEditingController();
@@ -111,7 +110,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
     _selectedImportFileId = widget.initialImportFileId;
     Future.microtask(() async {
       await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
@@ -124,7 +122,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   @override
   void dispose() {
-    _tabController.dispose();
+    _mainScrollController.dispose();
     _finalInvNumberCtrl.dispose();
     _finalPLNumberCtrl.dispose();
     _invoiceTextCtrl.dispose();
@@ -132,6 +130,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     _searchHistoryCtrl.dispose();
     super.dispose();
   }
+
 
   void _loadSampleData() {
     setState(() {
@@ -857,7 +856,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (mounted) {
         _showSaveSuccessReportDialog(context, created);
-        _tabController.animateTo(1);
       }
     } catch (e) {
       if (mounted) {
@@ -908,7 +906,6 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (mounted) {
         _showSaveSuccessReportDialog(context, updated);
-        _tabController.animateTo(1);
       }
     } catch (e) {
       if (mounted) {
@@ -950,15 +947,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('✔ تم اعتماد الأرقام النهائية للفاتورة والباكينج ليست بنجاح وتحديث بيانات المنظومة'),
-            backgroundColor: Colors.green,
+            content: Text('✔ تم اعتماد مطابقة المستندات وتحديث ملف الاستيراد وسجل الجلسات بنجاح!'),
+            backgroundColor: AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الاعتماد: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ أثناء اعتماد المطابقة: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -999,7 +996,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       };
     });
 
-    _tabController.animateTo(0);
+    if (_mainScrollController.hasClients) {
+      _mainScrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -1021,74 +1024,35 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight = _packingItems.fold(0.0, (s, itm) => s + itm.finalNetWeightKg);
     double totalCbm = _packingItems.fold(0.0, (s, itm) => s + itm.finalCbm);
 
-    return Column(
-      children: [
-        // TOP TAB BAR
-        Container(
-          color: AppTheme.charcoal,
-          child: TabBar(
-            controller: _tabController,
-            indicatorColor: AppTheme.cobalt,
-            indicatorWeight: 3.5,
-            labelColor: Colors.white,
-            unselectedLabelColor: Colors.white60,
-            labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5),
-            tabs: [
-              const Tab(
-                icon: Icon(Icons.fact_check_rounded, size: 20),
-                text: '⚡ مراجعة وتدقيق المستندات والمطابقة الذكية (Editor)',
-              ),
-              Tab(
-                icon: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.folder_shared_rounded, size: 20),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AppTheme.cobalt,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '${sessionsList.length}',
-                        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ],
-                ),
-                text: '📚 سجل جلسات المطابقة المحفوظة (Saved Sessions)',
-              ),
-            ],
+    return SingleChildScrollView(
+      controller: _mainScrollController,
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ==========================================
+          // PART 1: ACTIVE RECONCILIATION & AUDIT EDITOR
+          // ==========================================
+          _buildReconciliationEditorTab(
+            importFiles,
+            totalAmount,
+            totalPackages,
+            totalGrossWeight,
+            totalNetWeight,
+            totalCbm,
           ),
-        ),
 
-        // TAB VIEWS
-        Expanded(
-          child: TabBarView(
-            controller: _tabController,
-            children: [
-              // TAB 1: Active Reconciliation Editor
-              SingleChildScrollView(
-                padding: const EdgeInsets.all(24),
-                child: _buildReconciliationEditorTab(
-                  importFiles,
-                  totalAmount,
-                  totalPackages,
-                  totalGrossWeight,
-                  totalNetWeight,
-                  totalCbm,
-                ),
-              ),
+          const SizedBox(height: 36),
 
-              // TAB 2: Saved Sessions History (Designed like Shipping Scenarios)
-              _buildSavedSessionsHistoryTab(sessionsList),
-            ],
-          ),
-        ),
-      ],
+          // ==========================================
+          // PART 2: SAVED SESSIONS HISTORY REGISTRY
+          // ==========================================
+          _buildSavedSessionsHistorySection(sessionsList),
+        ],
+      ),
     );
   }
+
 
   // ==========================================
   // TAB 1: RECONCILIATION EDITOR
@@ -1564,9 +1528,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   // ==========================================
-  // TAB 2: SAVED SESSIONS HISTORY (SHIPPING SCENARIOS DESIGN)
+  // PART 2: SAVED SESSIONS HISTORY SECTION
   // ==========================================
-  Widget _buildSavedSessionsHistoryTab(List<POReconciliationSessionModel> allSessions) {
+  Widget _buildSavedSessionsHistorySection(List<POReconciliationSessionModel> allSessions) {
     // Apply filters
     var filtered = allSessions.where((s) {
       if (_statusFilter != 'All' && s.overallStatus != _statusFilter) return false;
@@ -1584,17 +1548,77 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     }).toList();
 
     // Stats calculations
-    final totalSessions = allSessions.length;
     final matchedSessions = allSessions.where((s) => s.overallStatus == 'FULLY_MATCHED').length;
     final varianceSessions = allSessions.where((s) => s.overallStatus != 'FULLY_MATCHED').length;
     final totalVal = allSessions.fold(0.0, (sum, s) => sum + s.totalInvoiceAmount);
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. STATS BAR (Identical to Shipping Scenarios _histStatCard)
+        // 1. SECTION HEADER CARD
+        Card(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade300),
+          ),
+          color: AppTheme.cloudWhite,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.charcoal,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.folder_shared_rounded, color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'سجل جلسات المطابقة المحفوظة (Saved Sessions Registry)',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.charcoal,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'أرشيف جلسات مطابقة وتدقيق مستندات الشحن والفواتير وقوائم التعبئة',
+                      style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '${allSessions.length} جلسة محفوظة',
+                    style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // 2. STATS BAR (Identical to Shipping Scenarios _histStatCard)
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          color: AppTheme.charcoal.withOpacity(0.92),
+          decoration: BoxDecoration(
+            color: AppTheme.charcoal.withOpacity(0.92),
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -1602,7 +1626,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 _histStatCard(
                   icon: Icons.all_inbox_rounded,
                   label: 'إجمالي الجلسات المحفوظة',
-                  value: '$totalSessions جلسة',
+                  value: '${allSessions.length} جلسة',
                   color: AppTheme.cobalt,
                 ),
                 const SizedBox(width: 14),
@@ -1640,19 +1664,29 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       _activeSessionId = null;
                       _activeSessionCode = null;
                     });
-                    _tabController.animateTo(0);
+                    if (_mainScrollController.hasClients) {
+                      _mainScrollController.animateTo(
+                        0,
+                        duration: const Duration(milliseconds: 400),
+                        curve: Curves.easeInOut,
+                      );
+                    }
                   },
                 ),
               ],
             ),
           ),
         ),
+        const SizedBox(height: 16),
 
-
-        // 2. SEARCH & FILTER TOOLBAR
+        // 3. SEARCH & FILTER TOOLBAR
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          color: Colors.white,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
           child: Row(
             children: [
               Expanded(
@@ -1699,12 +1733,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             ],
           ),
         ),
-        const Divider(height: 1),
+        const SizedBox(height: 16),
 
-        // 3. DATA TABLE
-        Expanded(
-          child: filtered.isEmpty
-              ? Center(
+        // 4. DATA TABLE OR EMPTY STATE
+        filtered.isEmpty
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 40),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -1720,43 +1755,51 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add, size: 16),
                         label: const Text('إنشاء أول جلسة مطابقة'),
-                        onPressed: () => _tabController.animateTo(0),
+                        onPressed: () {
+                          if (_mainScrollController.hasClients) {
+                            _mainScrollController.animateTo(
+                              0,
+                              duration: const Duration(milliseconds: 400),
+                              curve: Curves.easeInOut,
+                            );
+                          }
+                        },
                       ),
                     ],
                   ),
-                )
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: DataTable(
-                          columnSpacing: 18,
-                          headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
-                          columns: const [
-                            DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('رمز الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('ملف الشحنة / المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الفاتورة & الباكينج', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('إجمالي القيمة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الطرود & الأوزان', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الحجم CBM', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('تاريخ الحفظ', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
-                          ],
-                          rows: filtered.asMap().entries.map((entry) {
-                            final idx = entry.key + 1;
-                            final sess = entry.value;
+                ),
+              )
+            : Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columnSpacing: 18,
+                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
+                      columns: const [
+                        DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('رمز الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('ملف الشحنة / المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('الفاتورة & الباكينج', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('إجمالي القيمة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('الطرود & الأوزان', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('الحجم CBM', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('تاريخ الحفظ', style: TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                      ],
+                      rows: filtered.asMap().entries.map((entry) {
+                        final idx = entry.key + 1;
+                        final sess = entry.value;
 
-                            return DataRow(
-                              cells: [
-                                // 1. Index
-                                DataCell(Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold))),
+                        return DataRow(
+                          cells: [
+                            // 1. Index
+                            DataCell(Text('$idx', style: const TextStyle(fontWeight: FontWeight.bold))),
+
 
                                 // 2. Session Code
                                 DataCell(
@@ -1907,11 +1950,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       ),
                     ),
                   ),
-                ),
-        ),
       ],
     );
   }
+
 
   Widget _buildStatusFilterChip(String value, String label) {
     final isSelected = _statusFilter == value;

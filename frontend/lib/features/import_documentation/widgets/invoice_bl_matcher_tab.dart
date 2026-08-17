@@ -35,11 +35,15 @@ class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
 
   final TextEditingController _invoiceTextCtrl = TextEditingController();
   final TextEditingController _blTextCtrl = TextEditingController();
+  final TextEditingController _packingTextCtrl = TextEditingController();
 
   String? _invoiceFileName;
   String? _blFileName;
+  String? _packingFileName;
   Uint8List? _invoiceFileBytes;
   Uint8List? _blFileBytes;
+  Uint8List? _packingFileBytes;
+  bool _showPackingList = false;
   bool _isLoading = false;
   bool _isSyncing = false;
 
@@ -115,17 +119,17 @@ Total Items: 31 Total: 20,030.000 kgs.
   void dispose() {
     _invoiceTextCtrl.dispose();
     _blTextCtrl.dispose();
+    _packingTextCtrl.dispose();
     super.dispose();
   }
 
-  Future<void> _pickFile(bool isInvoice) async {
+  Future<void> _pickFile(String docType) async {
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['pdf', 'txt', 'csv', 'doc', 'docx', 'xlsx', 'xls'],
         withData: true,
       );
-
 
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
@@ -134,7 +138,7 @@ Total Items: 31 Total: 20,030.000 kgs.
 
         if (!mounted) return;
         setState(() {
-          if (isInvoice) {
+          if (docType == 'invoice') {
             _invoiceFileName = file.name;
             _invoiceFileBytes = file.bytes;
             if (isTextFormat && file.bytes != null) {
@@ -145,6 +149,19 @@ Total Items: 31 Total: 20,030.000 kgs.
               }
             } else {
               _invoiceTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومطابقة محتواه آلياً عند الضغط على زر المطابقة]';
+            }
+          } else if (docType == 'packing') {
+            _showPackingList = true;
+            _packingFileName = file.name;
+            _packingFileBytes = file.bytes;
+            if (isTextFormat && file.bytes != null) {
+              try {
+                _packingTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+              } catch (_) {
+                _packingTextCtrl.text = '';
+              }
+            } else {
+              _packingTextCtrl.text = '[تم تحميل كشف تعبئة رقمي: ${file.name} — سيتم استخراج الأوزان والأحجام والطرود آلياً عند المطابقة]';
             }
           } else {
             _blFileName = file.name;
@@ -207,17 +224,20 @@ Total Items: 31 Total: 20,030.000 kgs.
   Future<void> _runCrossMatching() async {
     final hasInvoiceFile = _invoiceFileBytes != null;
     final hasBlFile = _blFileBytes != null;
+    final hasPackingFile = _packingFileBytes != null;
     final invText = _invoiceTextCtrl.text.trim();
     final blText = _blTextCtrl.text.trim();
+    final plText = _packingTextCtrl.text.trim();
 
     final hasInvContent = hasInvoiceFile || (invText.isNotEmpty && !invText.startsWith('[تم تحميل'));
     final hasBlContent = hasBlFile || (blText.isNotEmpty && !blText.startsWith('[تم تحميل'));
+    final hasPlContent = hasPackingFile || (plText.isNotEmpty && !plText.startsWith('[تم تحميل'));
 
-    if (!hasInvContent && !hasBlContent) {
+    if (!hasInvContent && !hasBlContent && !hasPlContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('يرجى إدخال أو رفع نصوص الفاتورة وبوليصة الشحن للمطابقة'),
+            content: Text('يرجى إدخال أو رفع نصوص ومستندات الفاتورة أو كشف التعبئة أو بوليصة الشحن للمطابقة'),
             backgroundColor: AppTheme.orange,
             behavior: SnackBarBehavior.floating,
           ),
@@ -233,7 +253,7 @@ Total Items: 31 Total: 20,030.000 kgs.
     try {
       Response response;
 
-      if (hasInvoiceFile || hasBlFile) {
+      if (hasInvoiceFile || hasBlFile || hasPackingFile) {
         final formData = FormData();
         if (_activeFileId != null) {
           formData.fields.add(MapEntry('import_file_id', _activeFileId.toString()));
@@ -246,6 +266,15 @@ Total Items: 31 Total: 20,030.000 kgs.
           ));
         } else if (invText.isNotEmpty && !invText.startsWith('[تم تحميل')) {
           formData.fields.add(MapEntry('invoice_text', invText));
+        }
+
+        if (hasPackingFile) {
+          formData.files.add(MapEntry(
+            'packing_list_file',
+            MultipartFile.fromBytes(_packingFileBytes!, filename: _packingFileName ?? 'packing_list.pdf'),
+          ));
+        } else if (plText.isNotEmpty && !plText.startsWith('[تم تحميل')) {
+          formData.fields.add(MapEntry('packing_list_text', plText));
         }
 
         if (hasBlFile) {
@@ -268,9 +297,11 @@ Total Items: 31 Total: 20,030.000 kgs.
             'import_file_id': _activeFileId,
             'invoice_raw_text': _invoiceTextCtrl.text,
             'bl_raw_text': _blTextCtrl.text,
+            'packing_list_raw_text': _packingTextCtrl.text,
           },
         );
       }
+
 
       if (response.statusCode == 200) {
         final data = response.data is Map<String, dynamic>
@@ -493,45 +524,140 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Widget _buildDualIngestionSection() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth > 800;
-        return Flex(
-          direction: isWide ? Axis.horizontal : Axis.vertical,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Left / First: Commercial Invoice
-            Expanded(
-              flex: isWide ? 1 : 0,
-              child: _buildDocumentInputBox(
-                titleAr: '1. الفاتورة التجارية النهائية (Commercial Invoice)',
-                titleEn: 'Final Commercial Invoice / Packing List',
-                icon: Icons.receipt_long,
-                color: AppTheme.cobalt,
-                controller: _invoiceTextCtrl,
-                fileName: _invoiceFileName,
-                isInvoice: true,
-                placeholder: 'الصق نص الفاتورة هنا أو اضغط رفع PDF / ملف تجاري...',
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (!_showPackingList)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _showPackingList = true;
+                    });
+                  },
+                  icon: const Icon(Icons.post_add, size: 18, color: AppTheme.orange),
+                  label: const Text(
+                    '+ إضافة كشف التعبئة كملف إضافي (Packing List)',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.orange),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AppTheme.orange),
+                    backgroundColor: AppTheme.orange.withOpacity(0.04),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
             ),
-            SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
-            // Right / Second: Draft Bill of Lading
-            Expanded(
-              flex: isWide ? 1 : 0,
-              child: _buildDocumentInputBox(
-                titleAr: '2. مسودة بوليصة الشحن (Draft B/L)',
-                titleEn: 'Draft Bill of Lading (Carrier / Forwarder)',
-                icon: Icons.directions_boat,
-                color: AppTheme.emerald,
-                controller: _blTextCtrl,
-                fileName: _blFileName,
-                isInvoice: false,
-                placeholder: 'الصق مسودة البوليصة هنا أو اضغط رفع PDF الخط الملاحي...',
-              ),
-            ),
-          ],
-        );
-      },
+          ),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final isVeryWide = constraints.maxWidth > 1050;
+            final isWide = constraints.maxWidth > 750;
+
+            final invoiceBox = _buildDocumentInputBox(
+              titleAr: '1. الفاتورة التجارية النهائية (Commercial Invoice)',
+              titleEn: 'Final Commercial Invoice',
+              icon: Icons.receipt_long,
+              color: AppTheme.cobalt,
+              controller: _invoiceTextCtrl,
+              fileName: _invoiceFileName,
+              docType: 'invoice',
+              placeholder: 'الصق نص الفاتورة هنا أو اضغط رفع PDF / ملف تجاري...',
+            );
+
+            final packingBox = _buildDocumentInputBox(
+              titleAr: '2. كشف التعبئة النهائي (Packing List)',
+              titleEn: 'Final Packing List (Additional File)',
+              icon: Icons.inventory_2,
+              color: AppTheme.orange,
+              controller: _packingTextCtrl,
+              fileName: _packingFileName,
+              docType: 'packing',
+              placeholder: 'الصق نص كشف التعبئة هنا أو اضغط رفع كشف التعبئة (PDF/Excel)...',
+              onRemove: () {
+                setState(() {
+                  _showPackingList = false;
+                  _packingFileName = null;
+                  _packingFileBytes = null;
+                  _packingTextCtrl.clear();
+                });
+              },
+            );
+
+            final blBox = _buildDocumentInputBox(
+              titleAr: _showPackingList ? '3. مسودة بوليصة الشحن (Draft B/L)' : '2. مسودة بوليصة الشحن (Draft B/L)',
+              titleEn: 'Draft Bill of Lading (Carrier / Forwarder)',
+              icon: Icons.directions_boat,
+              color: AppTheme.emerald,
+              controller: _blTextCtrl,
+              fileName: _blFileName,
+              docType: 'bl',
+              placeholder: 'الصق مسودة البوليصة هنا أو اضغط رفع PDF الخط الملاحي...',
+            );
+
+            if (_showPackingList) {
+              if (isVeryWide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: invoiceBox),
+                    const SizedBox(width: 14),
+                    Expanded(child: packingBox),
+                    const SizedBox(width: 14),
+                    Expanded(child: blBox),
+                  ],
+                );
+              } else if (isWide) {
+                return Column(
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: invoiceBox),
+                        const SizedBox(width: 14),
+                        Expanded(child: packingBox),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    blBox,
+                  ],
+                );
+              } else {
+                return Column(
+                  children: [
+                    invoiceBox,
+                    const SizedBox(height: 14),
+                    packingBox,
+                    const SizedBox(height: 14),
+                    blBox,
+                  ],
+                );
+              }
+            }
+
+            return Flex(
+              direction: isWide ? Axis.horizontal : Axis.vertical,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  flex: isWide ? 1 : 0,
+                  child: invoiceBox,
+                ),
+                SizedBox(width: isWide ? 16 : 0, height: isWide ? 0 : 16),
+                Expanded(
+                  flex: isWide ? 1 : 0,
+                  child: blBox,
+                ),
+              ],
+            );
+          },
+        ),
+      ],
     );
   }
 
@@ -542,8 +668,9 @@ Total Items: 31 Total: 20,030.000 kgs.
     required Color color,
     required TextEditingController controller,
     required String? fileName,
-    required bool isInvoice,
+    required String docType,
     required String placeholder,
+    VoidCallback? onRemove,
   }) {
     return Container(
       padding: const EdgeInsets.all(14),
@@ -573,16 +700,20 @@ Total Items: 31 Total: 20,030.000 kgs.
                     Text(
                       titleAr,
                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: color),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       titleEn,
                       style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
               ),
               OutlinedButton.icon(
-                onPressed: () => _pickFile(isInvoice),
+                onPressed: () => _pickFile(docType),
                 icon: const Icon(Icons.upload_file, size: 16),
                 label: Text(fileName != null ? 'تغيير الملف' : 'رفع ملف'),
                 style: OutlinedButton.styleFrom(
@@ -591,6 +722,16 @@ Total Items: 31 Total: 20,030.000 kgs.
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
               ),
+              if (onRemove != null) ...[
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Colors.red),
+                  tooltip: 'إلغاء وإخفاء كشف التعبئة',
+                  onPressed: onRemove,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                ),
+              ],
             ],
           ),
           if (fileName != null) ...[
@@ -685,14 +826,21 @@ Total Items: 31 Total: 20,030.000 kgs.
             setState(() {
               _invoiceTextCtrl.clear();
               _blTextCtrl.clear();
+              _packingTextCtrl.clear();
               _invoiceFileName = null;
               _blFileName = null;
+              _packingFileName = null;
+              _invoiceFileBytes = null;
+              _blFileBytes = null;
+              _packingFileBytes = null;
+              _showPackingList = false;
               _matchResult = null;
             });
           },
           icon: const Icon(Icons.refresh, size: 18, color: Colors.grey),
           label: const Text('إعادة تعيين', style: TextStyle(color: Colors.grey)),
         ),
+
       ],
     );
   }

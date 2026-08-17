@@ -956,6 +956,40 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
     }
 
 
+def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: bytes) -> Tuple[str, dict]:
+    """
+    Extracts raw text and 2D spatial bounding boxes from uploaded PDF or files.
+    """
+    lower_name = filename.lower()
+    text_content = ""
+    spatial_boxes: dict = {}
+
+    if lower_name.endswith(".pdf"):
+        try:
+            from modules.import_documentation.ai_document_parser import extract_spatial_pdf_text_and_boxes
+            text_content, spatial_boxes = extract_spatial_pdf_text_and_boxes(content_bytes)
+        except Exception as e:
+            logger.warning(f"Spatial PDF extraction failed: {e}. Falling back to pypdf.")
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+                parts = []
+                for page in reader.pages:
+                    try:
+                        t = page.extract_text(extraction_mode="layout")
+                    except Exception:
+                        t = page.extract_text()
+                    if t:
+                        parts.append(t)
+                text_content = "\n\n".join(parts)
+            except Exception as e2:
+                text_content = f"PDF Extraction Note: {str(e2)}"
+    else:
+        text_content = extract_text_from_uploaded_file(filename, content_bytes)
+
+    return text_content, spatial_boxes
+
+
 def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
     """
     Extracts raw text and table structures from uploaded PDF, Word (.docx), Excel (.xlsx), or Text files.
@@ -965,16 +999,26 @@ def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
 
     if lower_name.endswith(".pdf"):
         try:
-            import pypdf
-            reader = pypdf.PdfReader(io.BytesIO(content_bytes))
-            parts = []
-            for page in reader.pages:
-                t = page.extract_text()
-                if t:
-                    parts.append(t)
-            text_content = "\n".join(parts)
+            from modules.import_documentation.ai_document_parser import extract_spatial_pdf_text_and_boxes
+            spatial_text, _ = extract_spatial_pdf_text_and_boxes(content_bytes)
+            text_content = spatial_text
         except Exception as e:
-            text_content = f"PDF Extraction Note: {str(e)}"
+            logger.warning(f"Spatial PDF extraction failed: {e}. Falling back to pypdf.")
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+                parts = []
+                for page in reader.pages:
+                    try:
+                        t = page.extract_text(extraction_mode="layout")
+                    except Exception:
+                        t = page.extract_text()
+                    if t:
+                        parts.append(t)
+                text_content = "\n\n".join(parts)
+            except Exception as e2:
+                text_content = f"PDF Extraction Note: {str(e2)}"
+
 
     elif lower_name.endswith(".docx") or lower_name.endswith(".doc"):
         try:
@@ -1012,9 +1056,10 @@ def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
     return text_content
 
 
-def parse_draft_bl_raw_text(raw_text: str) -> dict:
+def parse_draft_bl_raw_text(raw_text: str, spatial_boxes: Optional[dict] = None) -> dict:
     from modules.import_documentation.ai_document_parser import extract_draft_bl_with_ai
-    return extract_draft_bl_with_ai(raw_text)
+    return extract_draft_bl_with_ai(raw_text, spatial_boxes=spatial_boxes)
+
 
 
 
@@ -1825,6 +1870,7 @@ def extract_and_match_invoice_bl_service(
 ) -> InvoiceBLExtractAndMatchResponse:
     from modules.import_documentation.ai_document_parser import (
         extract_commercial_invoice_data,
+        extract_packing_list_data,
         extract_draft_bl_with_ai,
         match_invoice_with_bl,
     )
@@ -1837,7 +1883,38 @@ def extract_and_match_invoice_bl_service(
             if k not in invoice_data or not invoice_data[k]:
                 invoice_data[k] = v
 
-    # 2. Parse Bill of Lading
+    # 2. Parse Packing List (if provided as additional file / text)
+    pl_data = dict(request.packing_list_fields or {})
+    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
+        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
+        for k, v in extracted_pl.items():
+            if k not in pl_data or not pl_data[k]:
+                pl_data[k] = v
+
+    # Merge Packing List parameters into invoice_data to ensure complete cross-matching
+    if pl_data:
+        if not invoice_data.get("total_gross_weight_kg") and pl_data.get("total_gross_weight_kg"):
+            invoice_data["total_gross_weight_kg"] = pl_data["total_gross_weight_kg"]
+        if not invoice_data.get("total_net_weight_kg") and pl_data.get("total_net_weight_kg"):
+            invoice_data["total_net_weight_kg"] = pl_data["total_net_weight_kg"]
+        if not invoice_data.get("total_packages") and pl_data.get("total_packages"):
+            invoice_data["total_packages"] = pl_data["total_packages"]
+            invoice_data["qty_pkg"] = pl_data["total_packages"]
+        if not invoice_data.get("cbm") and pl_data.get("total_cbm"):
+            invoice_data["cbm"] = pl_data["total_cbm"]
+        if not invoice_data.get("containers") and pl_data.get("containers"):
+            invoice_data["containers"] = pl_data["containers"]
+        if not invoice_data.get("acid_number") and pl_data.get("acid_number"):
+            invoice_data["acid_number"] = pl_data["acid_number"]
+        if not invoice_data.get("importer_tax_id") and pl_data.get("importer_tax_id"):
+            invoice_data["importer_tax_id"] = pl_data["importer_tax_id"]
+        if not invoice_data.get("shipper") and pl_data.get("shipper"):
+            invoice_data["shipper"] = pl_data["shipper"]
+        if not invoice_data.get("consignee") and pl_data.get("consignee"):
+            invoice_data["consignee"] = pl_data["consignee"]
+
+
+    # 3. Parse Bill of Lading
     bl_data = dict(request.bl_fields or {})
     if request.bl_raw_text and request.bl_raw_text.strip():
         extracted_bl = extract_draft_bl_with_ai(request.bl_raw_text)
@@ -1845,7 +1922,7 @@ def extract_and_match_invoice_bl_service(
             if k not in bl_data or not bl_data[k]:
                 bl_data[k] = v
 
-    # 3. System snapshot if import_file_id is provided
+    # 4. System snapshot if import_file_id is provided
     sys_data = None
     imp_file_code = None
     if request.import_file_id:
@@ -1854,7 +1931,7 @@ def extract_and_match_invoice_bl_service(
         if imp_file:
             imp_file_code = imp_file.import_file_code
 
-    # 4. Execute Smart Cross-Matching
+    # 5. Execute Smart Cross-Matching
     match_result = match_invoice_with_bl(invoice_data, bl_data, sys_data)
 
     return InvoiceBLExtractAndMatchResponse(
@@ -1869,7 +1946,9 @@ def extract_and_match_invoice_bl_service(
         correction_letter=match_result["correction_letter"],
         invoice_data=match_result["invoice_data"],
         bl_data=match_result["bl_data"],
+        packing_list_data=pl_data or None,
     )
+
 
 
 def sync_certified_invoice_bl_to_file_service(

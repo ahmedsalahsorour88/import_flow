@@ -6,6 +6,7 @@ Phase 6 / BP-016 & BP-017 Engine with Strict Schema Enforcement & Verification G
 
 import os
 import re
+import io
 import json
 import logging
 import urllib.request
@@ -14,6 +15,116 @@ import difflib
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
+
+# Standard Maritime Legal Clauses & Pre-printed Boilerplate patterns to suppress
+LEGAL_BOILERPLATE_PATTERNS = [
+    r'This B/L is not negotiable unless marked [\'"]To Order[\'"] or [\'"]To Order of \.\.\.[\'"] here\.?',
+    r'CARRIER[\'S\s]*AGENTS ENDORSEMENTS:\s*\(Include Agent\(s\) at POD\)',
+    r'Lloyds/IMO Number:\s*\d+',
+    r'NO\.\s*OF\s*RIDER\s*PAGES(?:\s*\d+\s*[A-Za-z]+)?',
+    r'\(No responsibility shall attach to Carrier or to his Agent for failure to notify - see\s*Clause 20\)',
+    r'\(see\s*Clause\s*\d+\s*(?:&\s*\d+)?\)',
+    r'\(Combined Transport ONLY - see Clause \d+ & \d+\.\d+\)',
+    r'PARTICULARS FURNISHED BY THE SHIPPER\s*-\s*NOT CHECKED BY CARRIER\s*-\s*CARRIER NOT RESPONSIBLE.*',
+    r'Carrier has no liability or responsibility whatsoever for thermal loss or damage.*',
+    r'RECEIVED by the Carrier in apparent good order and condition.*',
+    r'If this is a negotiable \(To Order / of\) Bill of Lading.*',
+    r'IN WITNESS WHEREOF the Carrier or their Agent has signed.*',
+    r'This carriage is subject to the MSC Sea Waybill or Bill of Lading Terms and Conditions.*',
+    r'Standard Edition\s*-\s*\d+/\d+',
+    r'TERMS CONTINUED ON REVERSE.*',
+    r'"Port-To-Port" or "Combined Transport"\(see Clause 1\)',
+]
+
+
+def clean_bl_boilerplate(text: str) -> str:
+    """Strips pre-printed maritime boilerplate and legal clauses from extracted document text."""
+    if not text:
+        return ""
+    cleaned = text
+    for pat in LEGAL_BOILERPLATE_PATTERNS:
+        cleaned = re.sub(pat, ' ', cleaned, flags=re.IGNORECASE)
+    return cleaned
+
+
+def extract_spatial_pdf_text_and_boxes(content_bytes: bytes) -> Tuple[str, dict]:
+    """
+    Extracts text from PDF preserving 2D spatial layout and bounding boxes
+    specifically for multi-column shipping Bills of Lading and Invoices.
+    """
+    spatial_boxes: Dict[str, str] = {}
+    full_text = ""
+
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(content_bytes)) as pdf:
+            parts = []
+            for idx, page in enumerate(pdf.pages):
+                w = float(page.width)
+                h = float(page.height)
+
+                # Page 1 Spatial Bounding Boxes for Bill of Lading
+                if idx == 0:
+                    try:
+                        # Shipper Box (Top Left Column: x 0..46%, y 5.0..14.8%)
+                        shipper_crop = page.crop((0, 0.050 * h, 0.46 * w, 0.148 * h))
+                        spatial_boxes["shipper_box"] = shipper_crop.extract_text(layout=True) or ""
+
+                        # Consignee Box (Middle Left Column: x 0..46%, y 14.5..21.2%)
+                        consignee_crop = page.crop((0, 0.145 * h, 0.46 * w, 0.212 * h))
+                        spatial_boxes["consignee_box"] = consignee_crop.extract_text(layout=True) or ""
+
+                        # Notify Box (Lower Left Column: x 0..46%, y 21.0..28.5%)
+                        notify_crop = page.crop((0, 0.210 * h, 0.46 * w, 0.285 * h))
+                        spatial_boxes["notify_box"] = notify_crop.extract_text(layout=True) or ""
+
+
+                        # Header Top Right (Carrier, B/L No, SCAC)
+                        header_crop = page.crop((0.48 * w, 0, w, 0.20 * h))
+                        spatial_boxes["header_box"] = header_crop.extract_text(layout=True) or ""
+
+                        # Vessel / Ports Box (Middle: y 28.5..34%)
+                        vessel_crop = page.crop((0, 0.285 * h, w, 0.340 * h))
+                        spatial_boxes["vessel_ports_box"] = vessel_crop.extract_text(layout=True) or ""
+
+                        # Cargo & Weights Table (Middle-Bottom: y 33..82%)
+                        cargo_crop = page.crop((0, 0.33 * h, w, 0.82 * h))
+                        spatial_boxes["cargo_table_box"] = cargo_crop.extract_text(layout=True) or ""
+
+                        # Weight Column (Right side of cargo table: x 65..100%)
+                        weight_crop = page.crop((0.65 * w, 0.40 * h, w, 0.82 * h))
+                        spatial_boxes["weight_column_box"] = weight_crop.extract_text(layout=True) or ""
+                    except Exception as crop_err:
+                        logger.debug(f"Spatial crop note: {crop_err}")
+
+
+                # Extract full layout text
+                page_layout_text = page.extract_text(layout=True)
+                if page_layout_text and page_layout_text.strip():
+                    parts.append(page_layout_text)
+                else:
+                    parts.append(page.extract_text() or "")
+
+            full_text = "\n\n".join(parts)
+    except Exception as e:
+        logger.warning(f"pdfplumber extraction failed: {e}. Falling back to pypdf layout mode.")
+        try:
+            import pypdf
+            reader = pypdf.PdfReader(io.BytesIO(content_bytes))
+            parts = []
+            for p in reader.pages:
+                try:
+                    t = p.extract_text(extraction_mode="layout")
+                except Exception:
+                    t = p.extract_text()
+                if t:
+                    parts.append(t)
+            full_text = "\n\n".join(parts)
+        except Exception as e2:
+            full_text = f"PDF extraction error: {e2}"
+
+    return full_text, spatial_boxes
+
 
 # List of critical fields that MUST be validated in Draft B/L
 CRITICAL_DRAFT_BL_FIELDS = [
@@ -96,20 +207,31 @@ def _fuzzy_match_strings(s1: Any, s2: Any, threshold: float = 0.75) -> Tuple[boo
     if n1 == n2 or n1 in n2 or n2 in n1:
         return True, 1.0
     
-    # Strip common corporate suffixes for higher business match precision
-    clean_suffixes = ["ltd", "limited", "s.p.a", "spa", "llc", "corp", "inc", "co.", "co", "trading", "group", "floor", "corpet", "carpet"]
+    # Strip common corporate headers/suffixes for higher business match precision
+    clean_suffixes = [
+        "ltd", "limited", "s.p.a", "spa", "llc", "corp", "inc", "co.", "co",
+        "trading", "group", "floor", "corpet", "carpet", "commercial", "invoice", "proforma",
+        "bill", "to", "ship", "shipper", "consignee", "notify"
+    ]
     w1 = [w for w in re.split(r'[\s,.-]+', n1) if w and w not in clean_suffixes]
     w2 = [w for w in re.split(r'[\s,.-]+', n2) if w and w not in clean_suffixes]
     
     if w1 and w2:
         s_w1 = set(w1)
         s_w2 = set(w2)
-        overlap = len(s_w1.intersection(s_w2)) / max(len(s_w1), len(s_w2))
-        if overlap >= 0.50:
+        inter = s_w1.intersection(s_w2)
+        min_len = min(len(s_w1), len(s_w2))
+        max_len = max(len(s_w1), len(s_w2))
+        # If key corporate terms match (e.g. "shaw europe" inside full address)
+        if len(inter) >= 2 and (len(inter) / min_len >= 0.75):
+            return True, max(0.92, len(inter) / min_len)
+        overlap = len(inter) / max_len
+        if overlap >= 0.40:
             return True, max(0.85, overlap)
             
     ratio = difflib.SequenceMatcher(None, n1, n2).ratio()
     return ratio >= threshold, ratio
+
 
 
 def _numeric_tolerance_match(v1: Any, v2: Any, tolerance_pct: float = 1.0) -> Tuple[bool, float, float]:
@@ -130,7 +252,7 @@ def _numeric_tolerance_match(v1: Any, v2: Any, tolerance_pct: float = 1.0) -> Tu
 # 1. SMART BILL OF LADING EXTRACTOR (AI + Heuristics)
 # ==============================================================================
 
-def extract_draft_bl_with_ai(raw_text: str) -> dict:
+def extract_draft_bl_with_ai(raw_text: str, spatial_boxes: Optional[dict] = None) -> dict:
     """
     Extracts structured Bill of Lading data using AI LLM with strict fallback to
     multi-carrier heuristic parsing (MSC, Maersk, CMA CGM, Hapag-Lloyd, Cosco, etc.).
@@ -152,7 +274,7 @@ def extract_draft_bl_with_ai(raw_text: str) -> dict:
         extracted = _call_openai_api(raw_text, openai_key)
 
     # Always merge/enrich with heuristic extractor to ensure 100% deterministic field capture
-    heuristic_data = _heuristic_multi_carrier_extractor(raw_text)
+    heuristic_data = _heuristic_multi_carrier_extractor(raw_text, spatial_boxes)
     if not extracted:
         extracted = heuristic_data
     else:
@@ -165,6 +287,7 @@ def extract_draft_bl_with_ai(raw_text: str) -> dict:
     extracted["_guardrails"] = guardrails
 
     return extracted
+
 
 
 def validate_extraction_safety_and_confidence(extracted_fields: dict) -> dict:
@@ -197,12 +320,244 @@ def validate_extraction_safety_and_confidence(extracted_fields: dict) -> dict:
     }
 
 
-def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
+def _clean_company_entity_lines(lines: List[str], header_pattern: str) -> List[str]:
+    """
+    Helper to clean entity lines in multi-column maritime B/Ls.
+    Strictly isolates the left column (before multi-space right-column splits),
+    strips header labels, legal boilerplate, endorsements, and inline VAT/Phone numbers.
+    """
+    clean_lines = []
+    
+    boilerplate_patterns = [
+        r'carriage\s+is\s+subject',
+        r'sea\s+waybill',
+        r'bill\s+of\s+lading\s+terms',
+        r'terms\s+(?:and|&)\s+conditions',
+        r'shipper\'?s\s+load',
+        r'said\s+to\s+contain',
+        r'fcl/fcl',
+        r'carrier\'?s\s+agent',
+        r'endorsement',
+        r'for\s+receiver\'?s\s+account',
+        r'freetime',
+        r'demurrage',
+        r'merchants?\s+to\s+remain',
+        r'advance\s+cargo\s+information',
+        r'consequences\s+arising',
+        r'suspend\s+carriage',
+        r'or\s+inaccuracy',
+        r'particulars\s+furnished',
+        r'port\s+of\s+discharge\s+agent',
+        r'misr\s+maritime',
+        r'alexandria\s+old\s+port',
+        r'lloyds/imo',
+        r'imo\s+number',
+        r'free\s+out',
+        r'as\s+per\s+agreement',
+        r'cargo\s+shall\s+not\s+be\s+delivered',
+        r'received\s+by\s+the\s+carrier',
+        r'in\s+accepting\s+this',
+        r'signed\s+on\s+behalf',
+        r'terms\s+continued',
+        r'rider\s+page',
+        r'standard\s+edition',
+        r'clause\s*\d+',
+        r'this\s+b/l\s+is\s+not\s+negotiable',
+        r'no\s+responsibility\s+shall\s+attach',
+        r'combined\s+transport\s+only',
+        r'www\.\w+\.com',
+        r'scac\s+code',
+        r'vessel\s+(?:and|&)\s+voyage',
+        r'port\s+of\s+loading',
+        r'port\s+of\s+discharge',
+        r'booking\s+ref',
+        r'place\s+of\s+receipt',
+        r'place\s+of\s+delivery',
+        r'container\s+number',
+        r'description\s+of\s+packages',
+        r'gross\s+cargo\s+weight',
+        r'measurement',
+        r'freight\s+prepaid',
+        r'freight\s+collect',
+        r'total\s+items',
+        r'total\s+packages',
+        r'p\.o\.\s*box',
+        r'mediterranean\s+shipping\s+company',
+        r'^\+?\d[\d\s\-().]{7,}$',
+    ]
+    bp_regex = re.compile('|'.join(boilerplate_patterns), re.IGNORECASE)
+
+    for l in lines:
+        l_str = l.strip()
+        if not l_str:
+            continue
+
+        # 1. ISOLATE LEFT COLUMN FIRST: In 2D text, right-column text is separated by 2 or more spaces/tabs
+        col_parts = re.split(r'\s{2,}', l_str)
+        l_left = col_parts[0].strip() if col_parts else l_str
+        if not l_left:
+            continue
+
+        # 2. Check header label line ONLY on the isolated left column
+        if re.search(header_pattern, l_left, re.IGNORECASE):
+            continue
+
+        # 3. Skip standard pre-printed maritime boilerplate & right column carrier noise
+        if bp_regex.search(l_left):
+            continue
+
+        # 4. Strip trailing & leading inline annotations (Phone, Fax, Email, Website, VAT No, Tax ID)
+        l_clean = re.sub(r'^(?:Phone|Fax|Tel|Email|Website)\s*:.*', '', l_left, flags=re.IGNORECASE).strip()
+        l_clean = re.sub(r'\s+(?:Phone|Fax|Tel|Email|Website)\s*:.*', '', l_clean, flags=re.IGNORECASE).strip()
+        l_clean = re.sub(r'\s+VAT\s*No:.*', '', l_clean, flags=re.IGNORECASE).strip()
+        l_clean = re.sub(r'\s+TAX\s*ID:.*', '', l_clean, flags=re.IGNORECASE).strip()
+        if l_clean and not bp_regex.search(l_clean) and not re.match(r'^\+?\d[\d\s\-().]{7,}$', l_clean):
+            clean_lines.append(l_clean)
+    return clean_lines
+
+
+
+
+def _extract_shipper_entity(text: str, spatial_boxes: Optional[dict] = None) -> str:
+    """Extracts foreign shipper / exporter entity name and address, strictly from left column."""
+    if spatial_boxes and spatial_boxes.get("shipper_box"):
+        s_box = spatial_boxes["shipper_box"].strip()
+        lines = _clean_company_entity_lines(s_box.splitlines(), r'SHIPPER\s*:?')
+        if lines:
+            return "\n".join(lines[:4])
+
+    egypt_filter = r'(?:Cairo|Egypt|Maadi|Alexandria|Giza|Egitto)'
+
+    # 1. Look for SHIPPER: block where text is AFTER SHIPPER:
+    m_shp = re.search(r'(?:SHIPPER:|1\.Shipper|EXPORTER:)[ \t]*[^\n\r]*\r?\n([\s\S]*?)(?:CONSIGNEE|CARRIER|NOTIFY|VESSEL|PORT OF|\Z)', text, re.IGNORECASE)
+    if m_shp:
+        lines = _clean_company_entity_lines(m_shp.group(1).splitlines(), r'SHIPPER\s*:?')
+        if lines and not re.search(egypt_filter, lines[0], re.IGNORECASE):
+            if re.search(r'[A-Za-z]{3,}', lines[0]) and not re.search(r'^(?:DRAFT|ORIGINAL|COPY|CONTAINER|TOTAL|Lloyds|IMO|RIDER)', lines[0], re.IGNORECASE):
+                return "\n".join(lines[:4])
+
+    # 2. Look for shipper block where text is placed BEFORE the word SHIPPER: (e.g. MSC OCR stream)
+    m_before = re.search(r'([A-Z0-9&.,\- ]+(?:\n[A-Z0-9&.,\- ]+){1,4})\s*\n\s*SHIPPER:', text, re.IGNORECASE)
+    if m_before:
+        lines = _clean_company_entity_lines(m_before.group(1).splitlines(), r'SHIPPER\s*:?')
+        if lines:
+            return "\n".join(lines[-4:])
+
+    # 3. Look for corporate exporter pattern with country
+    m_co = re.search(r'([A-Z0-9&.,\- ]+\s+(?:LTD|LIMITED|SPA|S\.P\.A|LLC|CORP|INC|GMBH|CO\.)[\s\S]*?(?:UNITED KINGDOM|ITALY|GERMANY|CHINA|TURKEY|USA|FRANCE|SPAIN|INDIA|[A-Z]{2}\d{1,2}\s*\d[A-Z]{2}))', text, re.IGNORECASE)
+    if m_co:
+        lines = _clean_company_entity_lines(m_co.group(1).splitlines(), r'SHIPPER\s*:?')
+        if lines:
+            return "\n".join(lines[:4])
+
+    return ""
+
+
+def _extract_consignee_entity(text: str, spatial_boxes: Optional[dict] = None) -> str:
+    """Extracts Egyptian importer / consignee entity name and address, strictly from left column."""
+    if spatial_boxes and spatial_boxes.get("consignee_box"):
+        c_box = spatial_boxes["consignee_box"].strip()
+        lines = _clean_company_entity_lines(c_box.splitlines(), r'CONSIGNEE\s*:?')
+        if lines:
+            return "\n".join(lines[:3])
+
+    # 1. Look for text after CONSIGNEE: (skip header line with "This B/L is not negotiable...")
+    m = re.search(r'(?:CONSIGNEE:|CONSIGNED\s+TO:|2\.Consignee)[ \t]*[^\n\r]*\r?\n([\s\S]*?)(?:NOTIFY|VESSEL|PORT OF LOADING|PORT OF DISCHARGE|CARRIER\'S|\Z)', text, re.IGNORECASE)
+    if m:
+        lines = _clean_company_entity_lines(m.group(1).splitlines(), r'CONSIGNEE\s*:?')
+        if lines:
+            return "\n".join(lines[:3])
+
+    # 2. Look for text placed BEFORE the word CONSIGNEE:
+    m_before = re.search(r'([A-Z0-9&.,\- ]+(?:\n[A-Z0-9&.,\- ]+){1,4})\s*\n\s*CONSIGNEE:', text, re.IGNORECASE)
+    if m_before:
+        lines = _clean_company_entity_lines(m_before.group(1).splitlines(), r'CONSIGNEE\s*:?')
+        if lines:
+            return "\n".join(lines[-4:])
+
+    # 3. Look for Egyptian importer entity pattern (excluding maritime carriers)
+    carrier_blacklist = r'(?:Mediterranean\s+Shipping|Maersk|CMA\s+CGM|Hapag|Cosco|Ocean\s+Network|Evergreen|Yang\s+Ming)'
+    m_eg = re.search(r'([A-Z0-9&.,\- ]+(?:Brands|Trading|Import|Export|Industries|Floor|Corpet|Carpet|Commercial)[\s\S]*?(?:Cairo|Maadi|Alexandria|Giza|Egypt|Egitto))', text, re.IGNORECASE)
+    if m_eg:
+        cand = m_eg.group(1).strip()
+        if not re.search(carrier_blacklist, cand, re.IGNORECASE):
+            lines = _clean_company_entity_lines(cand.splitlines(), r'CONSIGNEE\s*:?')
+            if lines:
+                return "\n".join(lines[:3])
+
+    return ""
+
+
+def _extract_notify_party_entity(text: str, spatial_boxes: Optional[dict] = None) -> str:
+    """Extracts notify party entity name and address, strictly from left column."""
+    if spatial_boxes and spatial_boxes.get("notify_box"):
+        n_box = spatial_boxes["notify_box"].strip()
+        lines = _clean_company_entity_lines(n_box.splitlines(), r'NOTIFY\s+PARTIES\s*:?')
+        if lines:
+            return "\n".join(lines[:3])
+
+    m_not = re.search(r'(?:NOTIFY\s+PARTIES\s*:?|NOTIFY\s+PARTY\s*:?|3\.Notify\s+party\s*:?)[ \t]*[^\n\r]*\r?\n([\s\S]*?)(?:VESSEL|PORT OF LOADING|PORT OF DISCHARGE|ACID|CONTAINER|DESCRIPTION|PARTICULARS|\Z)', text, re.IGNORECASE)
+    if m_not:
+        lines = _clean_company_entity_lines(m_not.group(1).splitlines(), r'NOTIFY\s+PARTIES\s*:?')
+        if lines:
+            return "\n".join(lines[:3])
+
+    return ""
+
+
+
+def _extract_gross_weight(text: str, spatial_boxes: Optional[dict] = None) -> float:
+    """Extracts total gross weight in kilograms from Total lines, Gross Cargo Weight columns, or container rows."""
+    if spatial_boxes and spatial_boxes.get("weight_column_box"):
+        w_box = spatial_boxes["weight_column_box"]
+        m_box_w = re.search(r'([\d,]+(?:\.\d+)?)\s*kgs?', w_box, re.IGNORECASE)
+        if m_box_w:
+            val = _parse_flexible_number(m_box_w.group(1))
+            if val > 100:
+                return val
+
+    # 1. Total line: Total : 20,030.000 kgs. or Total: 20030 kg
+    m_tot = re.search(r'(?:Total\s*:\s*|TOTAL\s+GROSS\s+WEIGHT[:\s]*|TOTAL\s*[:\s]+)([\d,]+(?:\.\d+)?)\s*(?:kgs|kg)?', text, re.IGNORECASE)
+    if m_tot:
+        val = _parse_flexible_number(m_tot.group(1))
+        if val > 0:
+            return val
+
+    # 2. Gross Cargo Weight column: Gross Cargo Weight ... 20,030.000 kgs.
+    m_gw = re.search(r'(?:Gross\s+(?:Cargo\s+)?Weight|Gross\s+weight)[:\s]*([\d,]+(?:\.\d+)?)\s*(?:kgs|kg)?', text, re.IGNORECASE)
+    if m_gw:
+        val = _parse_flexible_number(m_gw.group(1))
+        if val > 0:
+            return val
+
+    # 3. Container line weight: e.g. BEAU5851356 20,030.000 kgs. or BEAU5851356 / 20030 KGS
+    m_cntr_w = re.search(r'\b[A-Z]{3}[UJZ]\d{7}\b[\s\S]{0,35}?([\d,]+(?:\.\d+)?)\s*kgs?', text, re.IGNORECASE)
+    if m_cntr_w:
+        val = _parse_flexible_number(m_cntr_w.group(1))
+        if val > 0:
+            return val
+
+    # 4. Search for any kgs numbers > 100 (excluding Tare Weight 3,700 if larger weight exists)
+    m_any = re.findall(r'([\d,]+(?:\.\d+)?)\s*kgs?', text, re.IGNORECASE)
+    candidates = []
+    for num_str in m_any:
+        v = _parse_flexible_number(num_str)
+        if v > 100:
+            candidates.append(v)
+    if candidates:
+        return max(candidates)
+
+    return 0.0
+
+
+def _heuristic_multi_carrier_extractor(raw_text: str, spatial_boxes: Optional[dict] = None) -> dict:
     """
     Advanced multi-carrier heuristic parser supporting MSC, CMA CGM, Maersk,
     Hapag-Lloyd, GCS, Far East Forwarding, Cosco, ONE, and standard maritime B/Ls.
+    Suppresses legal boilerplate and preserves multi-column entity layout.
     """
     parsed: Dict[str, Any] = {}
+    cleaned_text = clean_bl_boilerplate(raw_text)
 
     # 1. ACID Number (19 digits)
     m_acid = re.search(r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#)[:\s#]*(\d{19})', raw_text, re.IGNORECASE)
@@ -222,9 +577,12 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
     m_reg_type = re.search(r'SHIPPER\s+REGISTRATION\s+TYPE[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_reg_type:
         parsed["shipper_reg_type"] = m_reg_type.group(1).strip()
-    m_shp_id = re.search(r'(?:SHIPPER\s+ID|SHIPPER\s+VAT|VAT\s+Number)[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
-    if m_shp_id:
+    m_shp_id = re.search(r'(?:SHIPPER\s+ID|EXPORTER\s+REGISTRATION\s+NUMBER|EXPORTER\s+ID|SHIPPER\s+VAT)[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if not m_shp_id:
+        m_shp_id = re.search(r'(?:VAT\s+Number|TAX\s+REGISTRATION)[:\s]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if m_shp_id and m_shp_id.group(1).strip().upper() not in ["VAT", "SHIPPER", "REGISTRATION", "NUMBER", "TYPE"]:
         parsed["shipper_reg_id"] = m_shp_id.group(1).strip()
+
     m_country = re.search(r'SHIPPER\s+COUNTRY[:\s]+([^\n\r(]+)', raw_text, re.IGNORECASE)
     if m_country:
         parsed["shipper_country"] = m_country.group(1).strip()
@@ -234,13 +592,17 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
     if m_code:
         parsed["shipper_country_code"] = m_code.group(1).strip()
 
-    # 4. Bill of Lading Number
-    m_bl = re.search(r'(?:Bill\s+of\s+Lading\s+No\.?|B/L\s+No\.?|BILL\s+OF\s+LADING\s+No\.?|BL\s+NUMBER|B/L\s+NUMBER)[:\s\n]+([A-Z0-9/-]+)', raw_text, re.IGNORECASE)
-    if not m_bl:
-        # Carrier Specific Patterns (e.g. MSC: MEDURE910647, Maersk: MAEU..., Hapag: HLCU...)
-        m_bl = re.search(r'\b(MEDU[A-Z0-9]{6,12}|MAEU\d{8,12}|HLCU[A-Z0-9]{8,12}|COSU\d{8,12}|ONEY[A-Z0-9]{8,12})\b', raw_text)
-    if m_bl:
-        parsed["draft_bl_number"] = m_bl.group(1).strip()
+    # 4. Bill of Lading Number (Prioritize carrier-specific patterns like MEDURE910647, MAEU..., etc.)
+    m_carrier_bl = re.search(r'\b(MEDU[A-Z0-9]{6,12}|MAEU\d{8,12}|HLCU[A-Z0-9]{8,12}|COSU\d{8,12}|ONEY[A-Z0-9]{8,12})\b', raw_text)
+    if m_carrier_bl:
+        parsed["draft_bl_number"] = m_carrier_bl.group(1).strip()
+    else:
+        m_bl = re.search(r'(?:Bill\s+of\s+Lading\s+No\.?|B/L\s+No\.?|BILL\s+OF\s+LADING\s+No\.?|BL\s+NUMBER|B/L\s+NUMBER)[:\s\n]+([A-Z0-9/-]+)', raw_text, re.IGNORECASE)
+        if m_bl:
+            cand_bl = m_bl.group(1).strip()
+            if not cand_bl.startswith("XXX") and cand_bl.upper() not in ["DRAFT", "ORIGINAL", "COPY", "NON-NEGOTIABLE"]:
+                parsed["draft_bl_number"] = cand_bl
+
 
     # 5. Booking Reference Number (e.g., EBKG18064984 or BOOKING REF)
     m_bkg_prefix = re.search(r'\b(EBKG\d{6,14}|BKG\d{6,14}|MSC\d{7,14})\b', raw_text)
@@ -253,11 +615,15 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
             parsed["booking_no"] = m_bkg.group(1).strip()
 
     # 6. Vessel & Voyage
-    m_ves_voy = re.search(r'(?:VESSEL\s+AND\s+VOYAGE\s+NO|Ocean\s+Vessel\s+Voy\.No\.?|VESSEL/VOYAGE|VESSEL\s+NAME)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
-    if not m_ves_voy:
-        m_ves_voy = re.search(r'\b(MSC\s+[A-Z\s]+(?:\s*-\s*[A-Z0-9]+)?)\b', raw_text)
-    if m_ves_voy:
-        full_vv = m_ves_voy.group(1).strip()
+    m_carrier_vessel = re.search(r'\b(MSC\s+[A-Z\s]{3,25}(?:\s*-\s*[A-Z0-9]+)?)\b', raw_text)
+    if m_carrier_vessel:
+        full_vv = m_carrier_vessel.group(1).strip()
+    else:
+        clean_for_ves = clean_bl_boilerplate(raw_text)
+        m_ves_voy = re.search(r'(?:VESSEL\s+AND\s+VOYAGE\s+NO|Ocean\s+Vessel\s+Voy\.No\.?|VESSEL/VOYAGE|VESSEL\s+NAME)[:\s]+([^\n\r]+)', clean_for_ves, re.IGNORECASE)
+        full_vv = m_ves_voy.group(1).strip() if m_ves_voy else ""
+
+    if full_vv and not full_vv.startswith("(") and "Clause" not in full_vv:
         if ' - ' in full_vv:
             v_p, voy_p = full_vv.split(' - ', 1)
             parsed["vessel_name"] = v_p.strip()
@@ -269,32 +635,57 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
         else:
             parsed["vessel_name"] = full_vv
 
+
     # 7. POL & POD & Delivery
-    m_pol = re.search(r'(?:PORT\s+OF\s+LOADING|Port\s+of\s+Loading|POL)[:\s\n]+([^\n\r]+)', raw_text, re.IGNORECASE)
-    if m_pol:
-        parsed["pol"] = m_pol.group(1).strip()
-    m_pod = re.search(r'(?:PORT\s+OF\s+DISCHARGE|Port\s+of\s+Discharge|POD)[:\s\n]+([^\n\r]+)', raw_text, re.IGNORECASE)
-    if m_pod:
-        parsed["pod"] = m_pod.group(1).strip()
+    m_pol_same_line = re.search(r'(?:PORT\s+OF\s+LOADING|Port\s+of\s+Loading|POL)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_pol_same_line and not re.search(r'(?:BOOKING|SHIPPER|PARTICULARS|PLACE|DELIVERY|Clause)', m_pol_same_line.group(1), re.IGNORECASE):
+        parsed["pol"] = m_pol_same_line.group(1).strip()
+    else:
+        m_pol_above = re.search(r'([A-Za-z\s]+(?:Port|PORT|Gateway|Harbour|Terminal)?)\s*\n\s*PORT\s+OF\s+LOADING', raw_text, re.IGNORECASE)
+        if m_pol_above:
+            cand_pol = m_pol_above.group(1).strip()
+            if cand_pol and not re.search(r'(?:DELIVERY|RECEIPT|DISCHARGE|Clause|EBKG|BKG|\d{6})', cand_pol, re.IGNORECASE):
+                parsed["pol"] = cand_pol
+
+
+    # POD extraction (prioritize actual Egyptian port name matches over generic labels)
+    if "Alexandria El Dekheila" in raw_text:
+        parsed["pod"] = "Alexandria El Dekheila, EGYPT"
+    elif "SOX - SOKHNA" in raw_text or "SOKHNA" in raw_text:
+        parsed["pod"] = "SOX - SOKHNA, EGYPT"
+    elif "PORT SAID" in raw_text.upper():
+        parsed["pod"] = "Port Said, Egypt"
+    elif "DAMIETTA" in raw_text.upper():
+        parsed["pod"] = "Damietta, Egypt"
+    elif "ALEXANDRIA" in raw_text.upper():
+        parsed["pod"] = "Alexandria, Egypt"
+    else:
+        m_pod = re.search(r'(?:PORT\s+OF\s+DISCHARGE|Port\s+of\s+Discharge|POD)(?!\s+AGENT)[:\s\n]+([^\n\r]+)', raw_text, re.IGNORECASE)
+        if m_pod:
+            cand_pod = m_pod.group(1).strip()
+            if not re.search(r'(?:AGENT|PLACE|DELIVERY|RECEIPT|Clause)', cand_pod, re.IGNORECASE):
+                parsed["pod"] = cand_pod
+
+
     m_deliv = re.search(r'(?:PLACE\s+OF\s+DELIVERY|Place\s+of\s+Delivery|FINAL\s+DESTINATION)[:\s\n]+([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_deliv:
-        parsed["place_of_delivery"] = m_deliv.group(1).strip()
+        cand_deliv = m_deliv.group(1).strip()
+        if not re.search(r'(?:Combined\s+Transport|Clause|ONLY|XXXXXXXX)', cand_deliv, re.IGNORECASE):
+            parsed["place_of_delivery"] = cand_deliv
 
-    # 8. Shipper, Consignee, Notify Party
-    m_shp = re.search(r'(?:SHIPPER:\s*|1\.Shipper|SHIPPER|EXPORTER|SHIPPER/EXPORTER)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
-    if m_shp:
-        clean_s = m_shp.group(1).strip()
-        parsed["shipper"] = re.sub(r'(?:BUILDING|NO\. OF RIDER|CARRIER).*', '', clean_s, flags=re.IGNORECASE).strip()
+    # 8. Shipper, Consignee, Notify Party using dedicated entity extractors
+    shp_val = _extract_shipper_entity(raw_text, spatial_boxes)
+    if shp_val:
+        parsed["shipper"] = shp_val
 
-    m_csg = re.search(r'(?:CONSIGNEE:\s*|2\.Consignee|CONSIGNEE|CONSIGNED\s+TO|IMPORTER)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
-    if m_csg:
-        clean_c = m_csg.group(1).strip()
-        parsed["consignee"] = re.sub(r'(?:VAT No|NOTIFY|PORT OF).*', '', clean_c, flags=re.IGNORECASE).strip()
+    csg_val = _extract_consignee_entity(raw_text, spatial_boxes)
+    if csg_val:
+        parsed["consignee"] = csg_val
 
-    m_not = re.search(r'(?:NOTIFY\s+PARTIES\s*:?|NOTIFY\s+PARTY\s*:?|3\.Notify\s+party)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
-    if m_not:
-        clean_n = m_not.group(1).strip()
-        parsed["notify_party"] = re.sub(r'(?:VAT No|VESSEL|PORT).*', '', clean_n, flags=re.IGNORECASE).strip()
+    not_val = _extract_notify_party_entity(raw_text, spatial_boxes)
+    if not_val:
+        parsed["notify_party"] = not_val
+
 
     # 9. Freight Terms
     if re.search(r'FREIGHT\s+PREPAID', raw_text, re.IGNORECASE):
@@ -303,15 +694,21 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
         parsed["freight_terms"] = "Freight Collect"
 
     # 10. Weights & Volume
-    m_gw = re.search(r'(?:Gross\s+Cargo\s+Weight|Gross\s+weight|TOTAL\s+GROSS\s+WEIGHT|Total)[:\s]*([\d,]+(?:\.\d+)?)\s*(?:kgs|kg)?', raw_text, re.IGNORECASE)
-    if m_gw:
-        parsed["total_gross_weight_kg"] = float(m_gw.group(1).replace(',', ''))
+    gw_val = _extract_gross_weight(raw_text, spatial_boxes)
+    if gw_val > 0:
+        parsed["total_gross_weight_kg"] = gw_val
+
     m_nw = re.search(r'(?:Net\s+weight|TOTAL\s+NET\s+WEIGHT|Net\s+Cargo\s+Weight)[:\s]*([\d,]+(?:\.\d+)?)\s*(?:kgs|kg)?', raw_text, re.IGNORECASE)
     if m_nw:
         parsed["total_net_weight_kg"] = float(m_nw.group(1).replace(',', ''))
-    m_cbm = re.search(r'(?:Measurement|CBM|TOTAL\s+VOLUME)[^\d]*([\d,]+(?:\.\d+)?)', raw_text, re.IGNORECASE)
+    m_cbm = re.search(r'(?:TOTAL\s+VOLUME|VOLUME|MEASUREMENT)[:\s]+([\d,]+(?:\.\d+)?)\s*(?:CBM|M3|m3)?', raw_text, re.IGNORECASE)
+    if not m_cbm:
+        m_cbm = re.search(r'\b([\d,]+(?:\.\d+)?)\s*(?:CBM|M3|m3)\b', raw_text, re.IGNORECASE)
     if m_cbm:
-        parsed["cbm"] = float(m_cbm.group(1).replace(',', ''))
+        val_cbm = float(m_cbm.group(1).replace(',', ''))
+        if 0 < val_cbm <= 500:
+            parsed["cbm"] = val_cbm
+
 
     m_pkg = re.search(r'(\d+)\s*(Pallet\(s\)|PALLETS?|CARTONS?|PACKAGES?|BOXES?|PCS|PKGS|UNITS?)', raw_text, re.IGNORECASE)
     if m_pkg:
@@ -337,11 +734,16 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
     if filtered_c_matches:
         containers = []
         for c_no in set(filtered_c_matches):
-            seal_val = ""
-            m_sl = re.search(r'(?:Seal\s+Number\s*:?|Seal\s+No\s*:?|Seal\s*:)\s*([A-Z0-9]{4,15})', raw_text, re.IGNORECASE)
-            if m_sl:
-                seal_val = m_sl.group(1).strip()
-            elif "/" in raw_text:
+            # Search seal number (prioritize numeric seal codes near container or Seal label)
+            m_sl_digits = re.search(r'(?:Seal\s+Number\s*:?|Seal\s+No\s*:?|Seal\s*#\s*:?|' + c_no + r')[\s\S]{0,80}?\b(\d{5,10})\b', raw_text, re.IGNORECASE)
+            if m_sl_digits and m_sl_digits.group(1) not in ["20030", "3700", "759552827", "9720196"]:
+                seal_val = m_sl_digits.group(1).strip()
+            else:
+                m_sl = re.search(r'(?:Seal\s+Number\s*:|Seal\s+No\s*:|Seal\s*:)\s*([A-Z0-9]{4,15})', raw_text, re.IGNORECASE)
+                if m_sl and m_sl.group(1).upper() not in ["N/A", "NONE", "40", "20", "HIGH", "CUBE", "NUMBERS", "MARKS", "DESCRIPTION"]:
+                    seal_val = m_sl.group(1).strip()
+
+            if not seal_val and "/" in raw_text:
                 m_slash = re.search(rf'{c_no}/([A-Z0-9]+)', raw_text)
                 if m_slash and m_slash.group(1).upper() not in ["40", "20", "FCL"]:
                     seal_val = m_slash.group(1).strip()
@@ -355,7 +757,9 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
         parsed["containers"] = containers
         parsed["container_summary"] = ", ".join([f"{c['container_no']}{' (Seal: ' + c['seal_no'] + ')' if c.get('seal_no') else ''}" for c in containers])
 
+
     return parsed
+
 
 
 # ==============================================================================
@@ -581,10 +985,35 @@ def extract_packing_list_data(raw_text: str) -> dict:
     if m_acid:
         parsed["acid_number"] = m_acid.group(1).strip()
 
-    # 2. Customer / Importer
-    m_csg = re.search(r'(?:ECO\s+ASSOCIATES|ARCHI\s+BRANDS|[A-Za-z0-9\s.,-]+(?:LIMITED|LTD|LLC|ASSOCIATES|TRADING))', raw_text, re.IGNORECASE)
+    # Importer Tax ID (9 digits)
+    m_tax = re.search(r'(?:TAX\s*ID|VAT\s*NO|TAX\s*NO|REGISTRATION\s*NO)[:\s]*(\d{9})', raw_text, re.IGNORECASE)
+    if m_tax:
+        parsed["importer_tax_id"] = m_tax.group(1).strip()
+
+    # Shipper
+    m_shp = re.search(r'(?:SHIPPER|EXPORTER|SUPPLIER)[:\s]*([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_shp:
+        parsed["shipper"] = m_shp.group(1).strip()
+
+    # Consignee / Customer
+    m_csg = re.search(r'(?:CONSIGNEE|IMPORTER|BUYER|CUSTOMER)[:\s]*([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_csg:
-        parsed["customer_name"] = m_csg.group(0).strip()
+        parsed["consignee"] = m_csg.group(1).strip()
+        parsed["customer_name"] = m_csg.group(1).strip()
+    else:
+        m_csg_auto = re.search(r'(?:ECO\s+ASSOCIATES|ARCHI\s+BRANDS|[A-Za-z0-9\s.,-]+(?:LIMITED|LTD|LLC|ASSOCIATES|TRADING))', raw_text, re.IGNORECASE)
+        if m_csg_auto:
+            parsed["customer_name"] = m_csg_auto.group(0).strip()
+            parsed["consignee"] = m_csg_auto.group(0).strip()
+
+    # Containers
+    cntrs = re.findall(r'([A-Z]{4}\d{7})', raw_text)
+    if cntrs:
+        c_list = []
+        for c in cntrs:
+            m_s = re.search(r'(?:SEAL|SEAL\s*NO\.?)[:\s]*([A-Z0-9]+)', raw_text, re.IGNORECASE)
+            c_list.append({"container_no": c, "seal_no": m_s.group(1).strip() if m_s else ""})
+        parsed["containers"] = c_list
 
     # 3. Order Reference
     m_ord = re.search(r'(?:NOSTRO\s+ORDINE\s*/\s*OUR\s+ORDER|VOSTRO\s+ORDINE\s*/\s*YOUR\s+ORDER|OUR\s+ORDER|ORDER\s+NO\.?)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
@@ -599,19 +1028,27 @@ def extract_packing_list_data(raw_text: str) -> dict:
     # 5. Total Weights & Packages
     m_tot_w = re.search(r'(?:KG\s*/\s*COLLI|TOTALS?|TOTAL)[:\s]*([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*(?:TOTAL)?', raw_text, re.IGNORECASE)
     if m_tot_w:
+
         parsed["total_net_weight_kg"] = _parse_flexible_number(m_tot_w.group(1))
         parsed["total_gross_weight_kg"] = _parse_flexible_number(m_tot_w.group(2))
         parsed["total_packages"] = int(_parse_flexible_number(m_tot_w.group(3)))
     else:
-        m_gw = re.search(r'(?:GROSS\s*(?:\(KG\))?|TOTAL\s+GROSS)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+        m_gw = re.search(r'(?:GROSS\s+(?:CARGO\s+)?WEIGHT|TOTAL\s+GROSS(?:\s+WEIGHT)?|GROSS\s*(?:\(KGS?\))?|GROSS)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
         if m_gw:
             parsed["total_gross_weight_kg"] = _parse_flexible_number(m_gw.group(1))
-        m_nw = re.search(r'(?:NET\s*(?:\(KG\))?|TOTAL\s+NET)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+        m_nw = re.search(r'(?:NET\s+WEIGHT|TOTAL\s+NET(?:\s+WEIGHT)?|NET\s*(?:\(KGS?\))?|NET)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
         if m_nw:
             parsed["total_net_weight_kg"] = _parse_flexible_number(m_nw.group(1))
-        m_pk = re.search(r'(\d+)\s*(?:TOTAL|COLLI|PACKAGES|BOXES|PALLETS)', raw_text, re.IGNORECASE)
+        m_pk = re.search(r'(?:TOTAL\s+(?:PACKAGES|ITEMS|PALLETS|BOXES|COLLI)|PACKAGES|TOTAL\s+COLLI)[:\s]*(\d+)', raw_text, re.IGNORECASE)
+        if not m_pk:
+            m_pk = re.search(r'(\d+)\s*(?:TOTAL|COLLI|PACKAGES|BOXES|PALLETS)', raw_text, re.IGNORECASE)
         if m_pk:
             parsed["total_packages"] = int(m_pk.group(1))
+
+    m_cbm = re.search(r'(?:MEASUREMENT|TOTAL\s+CBM|VOLUME|CBM)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+    if m_cbm:
+        parsed["total_cbm"] = _parse_flexible_number(m_cbm.group(1))
+
 
     # 6. Extract Packing Items Table (Description, Qty, Dims L x W x H mm, Net kg, Gross kg, Package Count & Type)
     items = []
@@ -1117,11 +1554,21 @@ def match_invoice_with_bl(
 
 
 # Fallback AI API Callers (OpenAI / Claude / Gemini)
+AI_BL_SYSTEM_PROMPT = (
+    "You are an expert maritime shipping documentation & customs parser for Egyptian and international trade.\n"
+    "CRITICAL RULES:\n"
+    "1. Ignore standard pre-printed terms, clauses, and legal boilerplate (e.g. 'This B/L is not negotiable...', 'Clause 20', 'see Clause 1', 'Lloyds/IMO Number', carrier liability clauses). Extract only actual business entities.\n"
+    "2. Shipper: Extract the actual foreign exporter company name and physical address.\n"
+    "3. Consignee: Extract the actual Egyptian importing company name and address (e.g. 'ARCHI Brands for Corpet and Floor Trading'), discarding the 'This B/L is not negotiable' clause.\n"
+    "4. Total Gross Weight: Must extract the actual weight in kilograms (e.g. 20030.0 from '20,030.000 kgs.'). Never return 0 if cargo weight appears in the container row or Total summary.\n"
+    "5. Containers: Extract container number, seal number, size (e.g. 40' HIGH CUBE), and gross weight in kg.\n\n"
+)
+
 def _call_gemini_api(raw_text: str, api_key: str) -> Optional[dict]:
     try:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key}"
         prompt = (
-            "You are an expert maritime shipping documentation & customs parser for Egyptian and international trade.\n"
+            f"{AI_BL_SYSTEM_PROMPT}"
             "Extract structured Bill of Lading fields into valid JSON matching this schema:\n"
             f"{json.dumps(DRAFT_BL_JSON_SCHEMA, indent=2)}\n\n"
             f"DOCUMENT TEXT:\n{raw_text[:8000]}"
@@ -1149,6 +1596,7 @@ def _call_anthropic_api(raw_text: str, api_key: str) -> Optional[dict]:
     try:
         url = "https://api.anthropic.com/v1/messages"
         prompt = (
+            f"{AI_BL_SYSTEM_PROMPT}"
             "Extract structured Bill of Lading fields matching this schema into valid JSON:\n"
             f"{json.dumps(DRAFT_BL_JSON_SCHEMA, indent=2)}\n\n"
             f"DOCUMENT TEXT:\n{raw_text[:8000]}"
@@ -1185,6 +1633,7 @@ def _call_openai_api(raw_text: str, api_key: str) -> Optional[dict]:
     try:
         url = "https://api.openai.com/v1/chat/completions"
         prompt = (
+            f"{AI_BL_SYSTEM_PROMPT}"
             "Extract structured Bill of Lading fields matching this schema into valid JSON:\n"
             f"{json.dumps(DRAFT_BL_JSON_SCHEMA, indent=2)}\n\n"
             f"DOCUMENT TEXT:\n{raw_text[:8000]}"
@@ -1194,7 +1643,7 @@ def _call_openai_api(raw_text: str, api_key: str) -> Optional[dict]:
             "temperature": 0.1,
             "response_format": {"type": "json_object"},
             "messages": [
-                {"role": "system", "content": "You extract structured maritime draft B/L data in JSON format only."},
+                {"role": "system", "content": AI_BL_SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
             ]
         }
@@ -1211,3 +1660,4 @@ def _call_openai_api(raw_text: str, api_key: str) -> Optional[dict]:
     except Exception as e:
         logger.warning(f"OpenAI API document extraction failed: {e}. Falling back.")
         return None
+

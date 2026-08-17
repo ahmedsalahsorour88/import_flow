@@ -82,6 +82,7 @@ from modules.smart_tasks.router import router as smart_tasks_router
 from modules.shipment_updates.router import router as shipment_updates_router
 from modules.import_requirements.router import router as import_requirements_router
 from modules.demurrage_detention.router import router as demurrage_detention_router
+from modules.lifecycle_board.router import router as lifecycle_board_router
 
 
 # ==================================================
@@ -192,6 +193,7 @@ app.include_router(smart_tasks_router)
 app.include_router(shipment_updates_router)
 app.include_router(import_requirements_router)
 app.include_router(demurrage_detention_router)
+app.include_router(lifecycle_board_router)
 
 
 # ==================================================

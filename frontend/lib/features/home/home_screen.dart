@@ -32,11 +32,11 @@ import '../incoterms/screens/incoterms_screen.dart';
 import '../notifications/widgets/notification_bell_widget.dart';
 import '../operational_dashboard/screens/operational_dashboard_screen.dart';
 import '../projects/screens/projects_screen.dart';
+import '../lifecycle_board/screens/lifecycle_board_screen.dart';
 import '../purchase_orders/screens/purchase_orders_screen.dart';
 import '../shipment_updates/screens/shipment_update_engine_screen.dart';
 import '../shipping_scenarios/screens/shipping_scenarios_screen.dart';
 import '../smart_tasks/screens/smart_tasks_screen.dart';
-import '../streamlit_board/screens/streamlit_board_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
@@ -122,8 +122,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         SwiftReconciliationScreen(),
         ImportFileComprehensiveReportScreen(),
 
-        // 48: Streamlit Operations & Lifecycle Board
-        StreamlitBoardScreen(),
+        // 48: Native 6-Phase Lifecycle Operations Board
+        LifecycleBoardScreen(),
       ];
 
   String _searchQuery = '';
@@ -359,7 +359,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         initiallyExpanded: false,
                         children: [
                           _buildMenuItem(Icons.dashboard_customize_outlined, 'Operational Dashboard', 'لوحة التحكم ومؤشرات الأداء', 0, selectedIndex),
-                          _buildMenuItem(Icons.view_kanban_outlined, 'Streamlit Lifecycle Board', 'لوحة تتبع الشحنات Streamlit', 48, selectedIndex),
+                          _buildMenuItem(Icons.view_kanban_outlined, 'Lifecycle Operations Board', 'لوحة تتبع ومراحل الشحنات التفاعلية', 48, selectedIndex),
                           _buildMenuItem(Icons.summarize_outlined, 'Master Shipment Report', 'تقرير الشحنة الشامل المدمج', 47, selectedIndex),
                           _buildMenuItem(Icons.assessment_outlined, 'Dynamic Report Builder', 'مُنشئ التقارير المخصصة', 41, selectedIndex),
                           _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),

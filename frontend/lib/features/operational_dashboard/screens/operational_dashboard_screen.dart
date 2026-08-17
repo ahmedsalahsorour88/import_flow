@@ -1060,7 +1060,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   Row(
                     children: [
                       Text(
-                        'لوحة تتبع ومراحل الشحنات التفاعلية (Streamlit 6-Phase Operations Board)',
+                        'لوحة تتبع ومراحل الشحنات التفاعلية (Native 6-Phase Operations Board)',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                       SizedBox(width: 8),
@@ -1072,7 +1072,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ),
                   SizedBox(height: 3),
                   Text(
-                    'لوحة بصرية متكاملة (6 مراحل كبرى — 21 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة لنفس الشحنة والمزامنة اللحظية.',
+                    'لوحة بصرية متكاملة مدمجة داخل البرنامج (6 مراحل كبرى — 21 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة ونقل الشحنات لحظياً.',
                     style: TextStyle(color: Colors.white70, fontSize: 11.5),
                   ),
                 ],
@@ -1085,10 +1085,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
               ),
-              onPressed: () => selectNavigationIndex(ref, 48), // Streamlit Board Screen
+              onPressed: () => selectNavigationIndex(ref, 48), // Native Lifecycle Board Screen
               icon: const Icon(Icons.launch, size: 16, color: Colors.white),
               label: const Text(
-                'فتح لوحة المراحل',
+                'فتح لوحة المراحل التفاعلية',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),

@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
+
+
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -36,6 +38,8 @@ class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
 
   String? _invoiceFileName;
   String? _blFileName;
+  Uint8List? _invoiceFileBytes;
+  Uint8List? _blFileBytes;
   bool _isLoading = false;
   bool _isSyncing = false;
 
@@ -53,24 +57,11 @@ Order Date 24-06-2026
 Order Number 35220
 Shipment Number 688990
 Purchase Order RSA-ARCE-Found Ever
-Currency USD
-Incoterms EXW
-Incoterms Location UK
-Freight Terms COLLECT
 
 Bill To:
 ARCHI BRANDS FOR CORPET AND FLOOR TRADING
 44 Street 18, Maadi Sarayat, Cairo, Egypt
 Tax ID 759552827
-
-ACID 7595528271019210013
-Order Total \$85,060.57
-
-Container: BEAU5851356 Seal: 177345
-960 boxes / 31 pallets
-Gross weight 20030kg
-Net weight 19410kg
-HS Code: 5703299100
 ''';
 
   static const String sampleMscBL = '''
@@ -88,25 +79,18 @@ St.81 with st.18 building 44, 3rd floor, SARAYAT EL MAADI, Cairo- Egypt
 VAT No: 759-552-827
 
 VESSEL AND VOYAGE NO: MSC GISELLE - NL630A
-BOOKING REF. (or) SHIPPER'S REF.
-EBKG18064984
+PORT OF LOADING: FELIXSTOWE, UNITED KINGDOM
+PORT OF DISCHARGE: SOX - SOKHNA, EGYPT
+PLACE OF DELIVERY: SOKHNA, EGYPT
 
-PORT OF LOADING: London Gateway Port
-PORT OF DISCHARGE: Alexandria El Dekheila, EGYPT
+ACID NUMBER: 7595528271019210013
+IMPORTER TAX ID: 759552827
+EXPORTER REGISTRATION NUMBER: 428102677
 
-Container Numbers, Seal Numbers:
-BEAU5851356 / 40' HIGH CUBE
-Seal Number: 177345
-
-Description of Packages and Goods:
-31 Pallet(s) 1 X 40' HIGH CUBE CONTAINING 31 PALLETS OF FLOORING
-ACID: 7595528271019210013
-EGYPTIAN IMPORTER TAX ID: 759552827
-SHIPPER REGISTRATION TYPE: VAT NUMBER
-SHIPPER ID: GB428102677
-SHIPPER COUNTRY: UNITED KINGDOM (GB)
-
-FREIGHT PREPAID
+CONTAINER NUMBER: BEAU5851356 / 40HC / SEAL: 177345
+PACKAGES: 31 PALLETS (CONTAINING 960 BOXES)
+COMMODITY: TUFTED CARPET TILES OF NYLON
+HS CODE: 5703299100
 Gross Cargo Weight: 20,030.000 kgs.
 Total Items: 31 Total: 20,030.000 kgs.
 ''';
@@ -138,30 +122,49 @@ Total Items: 31 Total: 20,030.000 kgs.
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt', 'csv', 'doc', 'docx', 'xlsx'],
+        allowedExtensions: ['pdf', 'txt', 'csv', 'doc', 'docx', 'xlsx', 'xls'],
         withData: true,
       );
 
+
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
+        final ext = (file.name.split('.').last).toLowerCase();
+        final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
+
         if (!mounted) return;
         setState(() {
           if (isInvoice) {
             _invoiceFileName = file.name;
-            if (file.bytes != null) {
-              _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+            _invoiceFileBytes = file.bytes;
+            if (isTextFormat && file.bytes != null) {
+              try {
+                _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+              } catch (_) {
+                _invoiceTextCtrl.text = '';
+              }
+            } else {
+              _invoiceTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومطابقة محتواه آلياً عند الضغط على زر المطابقة]';
             }
           } else {
             _blFileName = file.name;
-            if (file.bytes != null) {
-              _blTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+            _blFileBytes = file.bytes;
+            if (isTextFormat && file.bytes != null) {
+              try {
+                _blTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+              } catch (_) {
+                _blTextCtrl.text = '';
+              }
+            } else {
+              _blTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومطابقة محتواه آلياً عند الضغط على زر المطابقة]';
             }
           }
         });
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم تحميل ملف ${file.name} بنجاح'),
+              content: Text('تم اختيار ملف ${file.name} بنجاح'),
               backgroundColor: AppTheme.emerald,
               behavior: SnackBarBehavior.floating,
             ),
@@ -187,6 +190,8 @@ Total Items: 31 Total: 20,030.000 kgs.
       _invoiceFileName = 'ShawContract_Commercial_Invoice.txt';
       _blTextCtrl.text = sampleMscBL.trim();
       _blFileName = 'MSC_Draft_BL_MEDURE910647.txt';
+      _invoiceFileBytes = null;
+      _blFileBytes = null;
     });
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -200,7 +205,15 @@ Total Items: 31 Total: 20,030.000 kgs.
   }
 
   Future<void> _runCrossMatching() async {
-    if (_invoiceTextCtrl.text.trim().isEmpty && _blTextCtrl.text.trim().isEmpty) {
+    final hasInvoiceFile = _invoiceFileBytes != null;
+    final hasBlFile = _blFileBytes != null;
+    final invText = _invoiceTextCtrl.text.trim();
+    final blText = _blTextCtrl.text.trim();
+
+    final hasInvContent = hasInvoiceFile || (invText.isNotEmpty && !invText.startsWith('[تم تحميل'));
+    final hasBlContent = hasBlFile || (blText.isNotEmpty && !blText.startsWith('[تم تحميل'));
+
+    if (!hasInvContent && !hasBlContent) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -218,14 +231,46 @@ Total Items: 31 Total: 20,030.000 kgs.
     });
 
     try {
-      final response = await _dio.post(
-        '${ApiConstants.baseUrl}/import-documentation/invoice-bl/extract-and-match',
-        data: {
-          'import_file_id': _activeFileId,
-          'invoice_raw_text': _invoiceTextCtrl.text,
-          'bl_raw_text': _blTextCtrl.text,
-        },
-      );
+      Response response;
+
+      if (hasInvoiceFile || hasBlFile) {
+        final formData = FormData();
+        if (_activeFileId != null) {
+          formData.fields.add(MapEntry('import_file_id', _activeFileId.toString()));
+        }
+
+        if (hasInvoiceFile) {
+          formData.files.add(MapEntry(
+            'invoice_file',
+            MultipartFile.fromBytes(_invoiceFileBytes!, filename: _invoiceFileName ?? 'invoice.pdf'),
+          ));
+        } else if (invText.isNotEmpty && !invText.startsWith('[تم تحميل')) {
+          formData.fields.add(MapEntry('invoice_text', invText));
+        }
+
+        if (hasBlFile) {
+          formData.files.add(MapEntry(
+            'bl_file',
+            MultipartFile.fromBytes(_blFileBytes!, filename: _blFileName ?? 'bl.pdf'),
+          ));
+        } else if (blText.isNotEmpty && !blText.startsWith('[تم تحميل')) {
+          formData.fields.add(MapEntry('bl_text', blText));
+        }
+
+        response = await _dio.post(
+          '${ApiConstants.baseUrl}/import-documentation/invoice-bl/extract-files-and-match',
+          data: formData,
+        );
+      } else {
+        response = await _dio.post(
+          '${ApiConstants.baseUrl}/import-documentation/invoice-bl/extract-and-match',
+          data: {
+            'import_file_id': _activeFileId,
+            'invoice_raw_text': _invoiceTextCtrl.text,
+            'bl_raw_text': _blTextCtrl.text,
+          },
+        );
+      }
 
       if (response.statusCode == 200) {
         final data = response.data is Map<String, dynamic>

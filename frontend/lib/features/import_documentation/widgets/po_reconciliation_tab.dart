@@ -1,14 +1,17 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -36,6 +39,8 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
   final TextEditingController _packingTextCtrl = TextEditingController();
   String? _selectedInvoiceFileName;
   String? _selectedPackingFileName;
+  Uint8List? _invoiceFileBytes;
+  Uint8List? _packingFileBytes;
   Map<String, dynamic>? _extractedReconciliationData;
 
   static const String sampleGIIndustrialInvoice = '''
@@ -111,6 +116,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       _packingTextCtrl.text = sampleGIIndustrialPackingList.trim();
       _selectedInvoiceFileName = 'Commercial_Invoice_V1_2562.pdf';
       _selectedPackingFileName = 'Packing_and_Weight_List_M26_413.pdf';
+      _invoiceFileBytes = null;
+      _packingFileBytes = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -125,34 +132,54 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
-        allowedExtensions: ['pdf', 'txt', 'csv', 'xlsx', 'docx'],
+        allowedExtensions: ['pdf', 'txt', 'csv', 'xlsx', 'docx', 'doc', 'xls'],
         withData: true,
       );
 
-
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
-        String rawText = '';
-        if (file.bytes != null) {
-          try {
-            rawText = utf8.decode(file.bytes!, allowMalformed: true);
-          } catch (_) {
-            rawText = '--- محتوى مستند ${file.name} مرفوع (${file.size} بايت) ---';
-          }
-        }
+        final ext = (file.name.split('.').last).toLowerCase();
+        final isTextFormat = ['txt', 'csv', 'json', 'xml', 'log'].contains(ext);
+
         setState(() {
           if (isInvoice) {
             _selectedInvoiceFileName = file.name;
-            if (rawText.isNotEmpty && rawText.length > 20) {
-              _invoiceTextCtrl.text = rawText;
+            _invoiceFileBytes = file.bytes;
+            if (isTextFormat && file.bytes != null) {
+              try {
+                _invoiceTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+              } catch (_) {
+                _invoiceTextCtrl.text = '';
+              }
+            } else {
+              // For binary PDF/DOC/XLSX, do NOT put raw binary into the text controller to avoid browser hang
+              _invoiceTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومعالجة بنوده آلياً عند الضغط على زر الاستخراج والمطابقة]';
             }
           } else {
             _selectedPackingFileName = file.name;
-            if (rawText.isNotEmpty && rawText.length > 20) {
-              _packingTextCtrl.text = rawText;
+            _packingFileBytes = file.bytes;
+            if (isTextFormat && file.bytes != null) {
+              try {
+                _packingTextCtrl.text = utf8.decode(file.bytes!, allowMalformed: true);
+              } catch (_) {
+                _packingTextCtrl.text = '';
+              }
+            } else {
+              // For binary PDF/DOC/XLSX, do NOT put raw binary into the text controller to avoid browser hang
+              _packingTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومعالجة بنوده آلياً عند الضغط على زر الاستخراج والمطابقة]';
             }
           }
         });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✔ تم اختيار ملف ${file.name} بنجاح'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -164,10 +191,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _runSmartExtractionAndComparison() async {
+    final hasInvoiceFile = _invoiceFileBytes != null;
+    final hasPackingFile = _packingFileBytes != null;
     final invText = _invoiceTextCtrl.text.trim();
     final plText = _packingTextCtrl.text.trim();
 
-    if (invText.isEmpty && plText.isEmpty) {
+    final hasInvContent = hasInvoiceFile || (invText.isNotEmpty && !invText.startsWith('[تم تحميل'));
+    final hasPlContent = hasPackingFile || (plText.isNotEmpty && !plText.startsWith('[تم تحميل'));
+
+    if (!hasInvContent && !hasPlContent) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('يرجى إدخال أو رفع نص الفاتورة و/أو قائمة التعبئة أولاً'), backgroundColor: Colors.orange),
       );
@@ -177,21 +209,56 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     setState(() => _isExtracting = true);
     try {
       final dio = Dio(BaseOptions(
-        baseUrl: 'http://127.0.0.1:8000',
-        headers: {'Content-Type': 'application/json'},
+        baseUrl: ApiConstants.baseUrl,
+        connectTimeout: const Duration(seconds: 30),
+        receiveTimeout: const Duration(seconds: 30),
       ));
 
-      final payload = {
-        'import_file_id': _selectedImportFileId,
-        'invoice_raw_text': invText,
-        'packing_list_raw_text': plText,
-        'system_items': _invoiceItems.map((i) => i.toJson()).toList(),
-      };
+      Response response;
 
-      final response = await dio.post(
-        '/api/v1/import-documentation/po-reconciliation/extract-and-compare',
-        data: payload,
-      );
+      if (hasInvoiceFile || hasPackingFile) {
+        // Use Multipart upload endpoint for binary/pdf files
+        final formData = FormData();
+        if (_selectedImportFileId != null) {
+          formData.fields.add(MapEntry('import_file_id', _selectedImportFileId.toString()));
+        }
+
+        if (hasInvoiceFile) {
+          formData.files.add(MapEntry(
+            'invoice_file',
+            MultipartFile.fromBytes(_invoiceFileBytes!, filename: _selectedInvoiceFileName ?? 'invoice.pdf'),
+          ));
+        } else if (invText.isNotEmpty && !invText.startsWith('[تم تحميل')) {
+          formData.fields.add(MapEntry('invoice_text', invText));
+        }
+
+        if (hasPackingFile) {
+          formData.files.add(MapEntry(
+            'packing_file',
+            MultipartFile.fromBytes(_packingFileBytes!, filename: _selectedPackingFileName ?? 'packing_list.pdf'),
+          ));
+        } else if (plText.isNotEmpty && !plText.startsWith('[تم تحميل')) {
+          formData.fields.add(MapEntry('packing_text', plText));
+        }
+
+        response = await dio.post(
+          '/import-documentation/po-reconciliation/extract-files-and-compare',
+          data: formData,
+        );
+      } else {
+        // Use JSON endpoint for pure text
+        final payload = {
+          'import_file_id': _selectedImportFileId,
+          'invoice_raw_text': invText,
+          'packing_list_raw_text': plText,
+          'system_items': _invoiceItems.map((i) => i.toJson()).toList(),
+        };
+
+        response = await dio.post(
+          '/import-documentation/po-reconciliation/extract-and-compare',
+          data: payload,
+        );
+      }
 
       if (response.statusCode == 200 && response.data != null) {
         setState(() {
@@ -216,6 +283,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       if (mounted) setState(() => _isExtracting = false);
     }
   }
+
 
   void _applyExtractedDataToTables() {
     if (_extractedReconciliationData == null) return;

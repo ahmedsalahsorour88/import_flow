@@ -380,7 +380,9 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('BILL OF LADING (DRAFT — NOT NEGOTIABLE)'), findsOneWidget);
+      expect(find.textContaining('BILL OF LADING (DRAFT)'), findsOneWidget);
+      expect(find.textContaining('CONSIGNEE:'), findsOneWidget);
+      expect(find.textContaining('NOTIFY PARTY:'), findsOneWidget);
       expect(find.textContaining('7595528271019210013'), findsOneWidget);
       expect(find.textContaining('G.I. Industrial Holding S.p.A.'), findsOneWidget);
       expect(find.textContaining('تنزيل PDF'), findsOneWidget);

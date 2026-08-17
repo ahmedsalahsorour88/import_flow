@@ -22,8 +22,6 @@ class DraftBLExportService {
     final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'EXPORTER / SUPPLIER').toString();
     final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'IMPORTER / CONSIGNEE').toString();
     final notifyParty = (draftData['notify_party'] ?? systemData['notify_party'] ?? 'SAME AS CONSIGNEE').toString();
-    final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
-    final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
     final rawVessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? '').toString().trim();
     final vessel = rawVessel.isNotEmpty ? rawVessel : 'OCEAN VESSEL';
     final rawVoyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? '').toString().trim();
@@ -71,8 +69,8 @@ class DraftBLExportService {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text(shippingLine.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
-                          pw.Text(documentTitle ?? 'BILL OF LADING (DRAFT - NON-NEGOTIABLE)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.red900)),
+                          pw.Text('BILL OF LADING (DRAFT)', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
+                          pw.Text(documentTitle ?? 'NON-NEGOTIABLE — FOR DRAFT REVIEW ONLY', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9, color: PdfColors.red900)),
                         ],
                       ),
                       pw.Column(
@@ -154,7 +152,7 @@ class DraftBLExportService {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('CONSIGNEE (Not Negotiable unless to order):', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                            pw.Text('CONSIGNEE:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
                             pw.Text(consignee, style: const pw.TextStyle(fontSize: 9), maxLines: 4),
                           ],
@@ -175,7 +173,6 @@ class DraftBLExportService {
                           children: [
                             pw.Text('PORT OF DISCHARGE AGENT:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
-                            pw.Text(shippingLine, style: const pw.TextStyle(fontSize: 8)),
                             pw.Text(pod, style: const pw.TextStyle(fontSize: 8)),
                           ],
                         ),
@@ -194,7 +191,7 @@ class DraftBLExportService {
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('NOTIFY PARTIES (No responsibility shall attach to Carrier for failure to notify):', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
+                      pw.Text('NOTIFY PARTY:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold, color: PdfColors.grey700)),
                       pw.SizedBox(height: 2),
                       pw.Text(notifyParty, style: const pw.TextStyle(fontSize: 8.5), maxLines: 3),
                     ],

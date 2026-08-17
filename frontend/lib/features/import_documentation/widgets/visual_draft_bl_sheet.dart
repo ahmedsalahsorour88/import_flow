@@ -31,8 +31,6 @@ class VisualDraftBLSheet extends StatelessWidget {
     final shipper = (draftData['shipper'] ?? systemData['shipper'] ?? 'EXPORTER / SUPPLIER').toString();
     final consignee = (draftData['consignee'] ?? systemData['consignee'] ?? 'IMPORTER / CONSIGNEE').toString();
     final notifyParty = (draftData['notify_party'] ?? systemData['notify_party'] ?? consignee).toString();
-    final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
-    final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
     final rawVessel = (draftData['vessel_name'] ?? systemData['vessel_name'] ?? '').toString().trim();
     final vessel = rawVessel.isNotEmpty ? rawVessel : 'OCEAN VESSEL';
     final rawVoyage = (draftData['voyage_number'] ?? systemData['voyage_number'] ?? '').toString().trim();
@@ -239,16 +237,16 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Column(
+                            const Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  shippingLine.toUpperCase(),
-                                  style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.8),
+                                  'BILL OF LADING (DRAFT)',
+                                  style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.8, color: AppTheme.charcoal),
                                 ),
-                                const Text(
-                                  'BILL OF LADING (DRAFT — NOT NEGOTIABLE)',
-                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.red),
+                                Text(
+                                  'NON-NEGOTIABLE — FOR DRAFT & REFERENCE REVIEW ONLY',
+                                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.red),
                                 ),
                               ],
                             ),
@@ -324,7 +322,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('CONSIGNEE (This B/L is not negotiable unless marked "To Order"):', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                                    Text('CONSIGNEE:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
                                     Text(consignee, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                                   ],
@@ -341,8 +339,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                                   children: [
                                     Text('PORT OF DISCHARGE AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                                     const SizedBox(height: 4),
-                                    Text(shippingLine, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w500)),
-                                    Text(pod, style: const TextStyle(fontSize: 9.5)),
+                                    Text(pod, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.w600)),
                                   ],
                                 ),
                               ),
@@ -358,7 +355,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('NOTIFY PARTIES (No responsibility shall attach to Carrier or to its Agent for failure to notify):', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                            Text('NOTIFY PARTY:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
                             const SizedBox(height: 4),
                             Text(notifyParty, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600)),
                           ],
@@ -556,12 +553,12 @@ class VisualDraftBLSheet extends StatelessWidget {
                                 Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
                               ],
                             ),
-                            Column(
+                            const Column(
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                const Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
-                                const SizedBox(height: 8),
-                                Text('$shippingLine / Authorized Agent', style: TextStyle(fontSize: 10, color: Colors.grey.shade800)),
+                                Text('SIGNED FOR THE CARRIER / AGENT:', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold)),
+                                SizedBox(height: 8),
+                                Text('OCEAN CARRIER / Authorized Agent', style: TextStyle(fontSize: 10, color: Colors.black87)),
                               ],
                             ),
                           ],

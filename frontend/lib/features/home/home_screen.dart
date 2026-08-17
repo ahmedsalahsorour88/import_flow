@@ -126,6 +126,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         LifecycleBoardScreen(),
       ];
 
+  bool _isSidebarCollapsed = false;
   String _searchQuery = '';
 
   @override
@@ -137,277 +138,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Scaffold(
       body: Row(
         children: [
-          // Compact Professional Sidebar
-          Container(
-            width: 235,
+          // Animated Collapsible Professional Sidebar (52px <-> 235px)
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeInOut,
+            width: _isSidebarCollapsed ? 52 : 235,
             color: AppTheme.charcoal,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Logo & Header
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(5),
-                        decoration: BoxDecoration(
-                          color: AppTheme.cobalt,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
-                      ),
-                      const SizedBox(width: 8),
-                      const Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ImportFlow ERP',
-                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                          ),
-                          Text(
-                            'إدارة الاستيراد والتخليص الجمركي',
-                            style: TextStyle(color: Colors.white54, fontSize: 9),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      const NotificationBellWidget(),
-                    ],
-                  ),
-                ),
-
-                // Quick Search Bar in Sidebar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                  child: Container(
-                    height: 28,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(5),
-                    ),
-                    child: TextField(
-                      style: const TextStyle(color: Colors.white, fontSize: 11),
-                      onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
-                      decoration: InputDecoration(
-                        hintText: 'بحث سريع / Search...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
-                        prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.5), size: 14),
-                        suffixIcon: _searchQuery.isNotEmpty
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, color: Colors.white54, size: 12),
-                                onPressed: () => setState(() => _searchQuery = ''),
-                              )
-                            : null,
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(vertical: 6),
-                      ),
-                    ),
-                  ),
-                ),
-                const Divider(color: Colors.white24, height: 1),
-
-                // Navigation Hubs List (Organized strictly according to Shipment Workflow & Stages)
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
-                    children: [
-                      // =========================================================
-                      // HUB 1: MASTER DATA & REGISTRIES (البيانات والجداول الأساسية)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.storage_outlined,
-                        titleEn: 'Master Data & Tables',
-                        titleAr: 'البيانات والجداول الأساسية',
-                        color: Colors.teal,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.domain_outlined, 'Import Companies', 'الشركات المستوردة', 32, selectedIndex),
-                          _buildMenuItem(Icons.business_outlined, 'Foreign Suppliers', 'دليل الموردين الأجانب', 33, selectedIndex),
-                          _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks', 'الشركاء والبنوك ومقدمو الخدمات', 34, selectedIndex),
-                          _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 31, selectedIndex),
-                          _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 37, selectedIndex),
-                          _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 35, selectedIndex),
-                          _buildMenuItem(Icons.description_outlined, 'Customs Tariff Schedule', 'جدول التعريفة الجمركية', 36, selectedIndex),
-                          _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 38, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // HUB 2: SHIPMENT PLANNING & SOURCING (ملفات وأوامر الشراء)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.folder_special_outlined,
-                        titleEn: 'Shipment Planning',
-                        titleAr: 'تخطيط الشحنة وأوامر الشراء',
-                        color: Colors.cyan,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.folder_special_outlined, 'Import Files', 'ملفات الشحنات الاستيرادية', 1, selectedIndex),
-                          _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders & Origin', 'أوامر الشراء وإثبات المنشأ', 2, selectedIndex),
-                          _buildMenuItem(Icons.calculate_outlined, 'CBM & Container Loading', 'حاسبة الأحجام وتوزيع الحاويات', 3, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 1: PRE-PLANNING & STUDIES (التخطيط والدراسات المسبقة)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.analytics_outlined,
-                        titleEn: '1. Pre-Planning & Studies',
-                        titleAr: 'المرحلة 1: التخطيط والدراسات المسبقة',
-                        color: Colors.amber.shade800,
-                        initiallyExpanded: true,
-                        children: [
-                          _buildMenuItem(Icons.analytics_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
-                          _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
-                          _buildMenuItem(Icons.rule_folder_outlined, 'Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 2: SHIPMENT INITIATION & REGISTRATION (بداية الشحنة)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.qr_code_scanner_outlined,
-                        titleEn: '2. Shipment Initiation',
-                        titleAr: 'المرحلة 2: بداية الشحنة والتسجيل المسبق',
-                        color: AppTheme.cobalt,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.payment_outlined, 'Finance Approvals & Budget', 'اعتمادات الميزانية وسداد الموردين', 8, selectedIndex),
-                          _buildMenuItem(Icons.qr_code_scanner_outlined, 'ACID Operations', 'الرقم التعريفي المبدئي ACID', 11, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 3: FREIGHT BOOKING & DOC PREPARATION (حجز الشحن والتدقيق المستندي)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.directions_boat_outlined,
-                        titleEn: '3. Booking & Doc Prep',
-                        titleAr: 'المرحلة 3: حجز الشحن والتدقيق المستندي',
-                        color: AppTheme.emerald,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.directions_boat_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
-                          _buildMenuItem(Icons.local_shipping_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع', 26, selectedIndex),
-                          _buildMenuItem(Icons.assignment_turned_in_outlined, 'Draft Docs Review', 'مراجعة وتدقيق مسودات الشحن', 19, selectedIndex),
-                          _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد الجمركي النهائي للمستندات', 18, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 4: DIGITAL PROCESSING & BANKING (التوثيق الرقمي والاعتماد البنكي)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.account_balance_outlined,
-                        titleEn: '4. Digital & Banking',
-                        titleAr: 'المرحلة 4: التوثيق الرقمي والاعتماد البنكي',
-                        color: AppTheme.orange,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Follow-up / Upload', 'متابعة ورفع المستندات عبر CargoX', 22, selectedIndex),
-                          _buildMenuItem(Icons.markunread_mailbox_outlined, 'Original Docs Collection', 'استلام وتدقيق أصول مستندات الشحن', 20, selectedIndex),
-                          _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'نموذج 4 والمطابقة والتوثيق البنكي', 16, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 5: PORT OPERATIONS & CLEARANCE (التخليص الجمركي وإدارة الميناء)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.gavel,
-                        titleEn: '5. Port Operations & Clearance',
-                        titleAr: 'المرحلة 5: التخليص الجمركي وإدارة الميناء',
-                        color: Colors.indigo,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'قيد شهادة الإجراءات إقرار 46', 23, selectedIndex),
-                          _buildMenuItem(Icons.find_in_page_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتخليص', 27, selectedIndex),
-                          _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وإثبات الفاقد الجمركي', 27, selectedIndex),
-                          _buildMenuItem(Icons.warning_amber_outlined, 'Cargo Discrepancy / Damage', 'محضر إثبات العجز والتلف بالمعاينة', 28, selectedIndex),
-                          _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Calculation', 'المطالبة وسداد الرسوم والضرائب', 27, selectedIndex),
-                          _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'فترات السماح وغرامات الأرضيات', 44, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // PHASE 6: INBOUND LOGISTICS & FINAL CLOSURE (الاستلام المخزني والتسوية المالية)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.archive_outlined,
-                        titleEn: '6. Inbound & Final Closure',
-                        titleAr: 'المرحلة 6: الاستلام والتسوية والإغلاق',
-                        color: AppTheme.crimson,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.inventory_outlined, 'Warehouse Receiving (GRN)', 'إشعار المخازن وإذن الإضافة GRN', 28, selectedIndex),
-                          _buildMenuItem(Icons.calculate_outlined, 'Landed Cost Settlement', 'تسوية التكلفة الاستيرادية الشاملة', 29, selectedIndex),
-                          _buildMenuItem(Icons.archive_outlined, 'Import File Final Closure', 'المراجعة الختامية وإغلاق الملف', 30, selectedIndex),
-                        ],
-                      ),
-
-                      // =========================================================
-                      // HUB: DASHBOARD & INTELLIGENCE (لوحة القيادة والتقارير والرقابة)
-                      // =========================================================
-                      _buildHubTile(
-                        icon: Icons.analytics_outlined,
-                        titleEn: 'Dashboard & Reports',
-                        titleAr: 'لوحة القيادة والتقارير والرقابة',
-                        color: Colors.blueGrey,
-                        initiallyExpanded: false,
-                        children: [
-                          _buildMenuItem(Icons.dashboard_customize_outlined, 'Operational Dashboard', 'لوحة التحكم ومؤشرات الأداء', 0, selectedIndex),
-                          _buildMenuItem(Icons.view_kanban_outlined, 'Lifecycle Operations Board', 'لوحة تتبع ومراحل الشحنات التفاعلية', 48, selectedIndex),
-                          _buildMenuItem(Icons.summarize_outlined, 'Master Shipment Report', 'تقرير الشحنة الشامل المدمج', 47, selectedIndex),
-                          _buildMenuItem(Icons.assessment_outlined, 'Dynamic Report Builder', 'مُنشئ التقارير المخصصة', 41, selectedIndex),
-                          _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),
-                          _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
-                          _buildMenuItem(Icons.saved_search, 'HS Code Tariff Explorer', 'مستكشف بنود التعريفة الجمركية', 45, selectedIndex),
-                          _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                const Divider(color: Colors.white24, height: 1),
-
-                // User Profile & RBAC Footer
-                if (user != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    color: Colors.black.withOpacity(0.15),
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
-                          radius: 13,
-                          child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                user.fullName,
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                user.role,
-                                style: TextStyle(color: _getRoleColor(user.role), fontSize: 9, fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
+            child: _isSidebarCollapsed
+                ? _buildCollapsedRail(selectedIndex, user)
+                : _buildFullSidebar(selectedIndex, user),
           ),
 
           // Main Content View
@@ -416,6 +155,364 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  // ─── Mini Icon Rail (52px width) ───────────────────────────────────────────
+
+  Widget _buildCollapsedRail(int selectedIndex, dynamic user) {
+    return Column(
+      children: [
+        const SizedBox(height: 8),
+        IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white, size: 20),
+          tooltip: 'إظهار القائمة الجانبية الكاملة (Expand Sidebar)',
+          onPressed: () => setState(() => _isSidebarCollapsed = false),
+        ),
+        const Divider(color: Colors.white24, height: 10),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            children: [
+              _buildRailIcon(Icons.view_kanban_outlined, 'لوحة مراحل وتتبع الشحنات (Operations Board)', 48, selectedIndex, AppTheme.cobalt),
+              _buildRailIcon(Icons.dashboard_customize_outlined, 'لوحة التحكم ومؤشرات الأداء (Dashboard)', 0, selectedIndex, AppTheme.emerald),
+              const Divider(color: Colors.white12, height: 8),
+              _buildRailIcon(Icons.analytics_outlined, 'المرحلة 1: التخطيط والدراسات المسبقة', 4, selectedIndex, Colors.amber.shade700),
+              _buildRailIcon(Icons.app_registration_outlined, 'المرحلة 2: بداية الشحنة وإصدار ACID', 8, selectedIndex, AppTheme.cobalt),
+              _buildRailIcon(Icons.assignment_turned_in_outlined, 'المرحلة 3: حجز وتدقيق الشحن المستندي', 11, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.verified_user_outlined, 'المرحلة 4: التوثيق الرقمي والاعتماد البنكي', 20, selectedIndex, AppTheme.crimson),
+              _buildRailIcon(Icons.anchor_outlined, 'المرحلة 5: عمليات الميناء والتخليص الجمركي', 24, selectedIndex, Colors.purple),
+              _buildRailIcon(Icons.inventory_outlined, 'المرحلة 6: الاستلام المخزني والتسوية المالية', 31, selectedIndex, AppTheme.emerald),
+              const Divider(color: Colors.white12, height: 8),
+              _buildRailIcon(Icons.folder_special_outlined, 'تخطيط الشحنة وأوامر الشراء', 1, selectedIndex, Colors.cyan),
+              _buildRailIcon(Icons.storage_outlined, 'البيانات والجداول الأساسية', 34, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.summarize_outlined, 'التقارير وسجلات التدقيق', 47, selectedIndex, Colors.indigo),
+            ],
+          ),
+        ),
+        const Divider(color: Colors.white24, height: 8),
+        const NotificationBellWidget(),
+        const SizedBox(height: 6),
+        if (user != null)
+          Tooltip(
+            message: '${user.fullName} (${user.role})',
+            child: CircleAvatar(
+              backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+              radius: 12,
+              child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
+            ),
+          ),
+        const SizedBox(height: 10),
+      ],
+    );
+  }
+
+  Widget _buildRailIcon(IconData icon, String tooltip, int index, int selectedIndex, Color color) {
+    final isSelected = selectedIndex == index;
+    return Tooltip(
+      message: tooltip,
+      preferBelow: false,
+      child: InkWell(
+        onTap: () => selectNavigationIndex(ref, index),
+        borderRadius: BorderRadius.circular(6),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+          padding: const EdgeInsets.all(7),
+          decoration: BoxDecoration(
+            color: isSelected ? color.withOpacity(0.3) : Colors.transparent,
+            borderRadius: BorderRadius.circular(6),
+            border: isSelected ? Border.all(color: color, width: 1.5) : null,
+          ),
+          child: Icon(
+            icon,
+            size: 17,
+            color: isSelected ? color : Colors.white70,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ─── Full Sidebar (235px width) ────────────────────────────────────────────
+
+  Widget _buildFullSidebar(int selectedIndex, dynamic user) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Logo & Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
+              ),
+              const SizedBox(width: 6),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ImportFlow ERP',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+                    ),
+                    Text(
+                      'إدارة الاستيراد والتخليص',
+                      style: TextStyle(color: Colors.white54, fontSize: 8.5),
+                    ),
+                  ],
+                ),
+              ),
+              const NotificationBellWidget(),
+              const SizedBox(width: 2),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.keyboard_double_arrow_left, color: Colors.white70, size: 18),
+                tooltip: 'إخفاء القائمة لتوسيع الشاشة (Collapse Sidebar)',
+                onPressed: () => setState(() => _isSidebarCollapsed = true),
+              ),
+            ],
+          ),
+        ),
+
+        // Quick Search Bar in Sidebar
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+          child: Container(
+            height: 28,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(5),
+            ),
+            child: TextField(
+              style: const TextStyle(color: Colors.white, fontSize: 11),
+              onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
+              decoration: InputDecoration(
+                hintText: 'بحث سريع / Search...',
+                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
+                prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.5), size: 14),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear, color: Colors.white54, size: 12),
+                        onPressed: () => setState(() => _searchQuery = ''),
+                      )
+                    : null,
+                border: InputBorder.none,
+                contentPadding: const EdgeInsets.symmetric(vertical: 6),
+              ),
+            ),
+          ),
+        ),
+        const Divider(color: Colors.white24, height: 1),
+
+        // Navigation Hubs List (Organized strictly according to Shipment Workflow & Stages)
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            children: [
+              // =========================================================
+              // HUB 1: MASTER DATA & REGISTRIES (البيانات والجداول الأساسية)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.storage_outlined,
+                titleEn: 'Master Data & Tables',
+                titleAr: 'البيانات والجداول الأساسية',
+                color: Colors.teal,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.domain_outlined, 'Import Companies', 'الشركات المستوردة', 34, selectedIndex),
+                  _buildMenuItem(Icons.business_outlined, 'Foreign Suppliers', 'دليل الموردين الأجانب', 35, selectedIndex),
+                  _buildMenuItem(Icons.account_balance_outlined, 'Partners & Banks', 'الشركاء والبنوك ومقدمو الخدمات', 36, selectedIndex),
+                  _buildMenuItem(Icons.assignment_outlined, 'Projects & Cost Centers', 'المشاريع ومراكز التكلفة', 33, selectedIndex),
+                  _buildMenuItem(Icons.location_on_outlined, 'Ports & Locations', 'الموانئ والمنافذ الجمركية', 38, selectedIndex),
+                  _buildMenuItem(Icons.handshake_outlined, 'Incoterms Rules', 'الشروط التجارية الدولية', 37, selectedIndex),
+                  _buildMenuItem(Icons.description_outlined, 'Customs Tariff Schedule', 'جدول التعريفة الجمركية', 43, selectedIndex),
+                  _buildMenuItem(Icons.currency_exchange_outlined, 'Currencies & Rates', 'العملات وأسعار الصرف', 44, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // HUB 2: SHIPMENT PLANNING & SOURCING (ملفات وأوامر الشراء)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.folder_special_outlined,
+                titleEn: 'Shipment Planning',
+                titleAr: 'تخطيط الشحنة وأوامر الشراء',
+                color: Colors.cyan,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.folder_special_outlined, 'Import Files', 'ملفات الشحنات الاستيرادية', 1, selectedIndex),
+                  _buildMenuItem(Icons.shopping_cart_outlined, 'Purchase Orders & Origin', 'أوامر الشراء وإثبات المنشأ', 2, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'CBM & Container Loading', 'حاسبة الأحجام وتوزيع الحاويات', 3, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 1: PRE-PLANNING & STUDIES (التخطيط والدراسات المسبقة)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.analytics_outlined,
+                titleEn: '1. Pre-Planning & Studies',
+                titleAr: 'المرحلة 1: التخطيط والدراسات المسبقة',
+                color: Colors.amber.shade800,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.compare_arrows_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
+                  _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
+                  _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 46, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 2: SHIPMENT INITIATION (بداية الشحنة والتسجيل المسبق)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.app_registration_outlined,
+                titleEn: '2. Shipment Initiation',
+                titleAr: 'المرحلة 2: بداية الشحنة والتسجيل المسبق',
+                color: AppTheme.cobalt,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.account_balance_wallet_outlined, 'Finance Approvals & Budget', 'اعتمادات الميزانية وسداد الموردين', 8, selectedIndex),
+                  _buildMenuItem(Icons.qr_code_2_outlined, 'ACID Operations', 'الرقم التعريفي المبدئي للشحنة ACID', 11, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 3: BOOKING & DOC PREPARATION (حجز الشحن والتدقيق المبدئي)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.assignment_turned_in_outlined,
+                titleEn: '3. Booking & Doc Prep',
+                titleAr: 'المرحلة 3: حجز الشحن والتدقيق المستندي المبدئي',
+                color: Colors.teal,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 16, selectedIndex),
+                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع', 17, selectedIndex),
+                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 18, selectedIndex),
+                  _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review', 'مراجعة وتدقيق مسودات المستندات', 19, selectedIndex),
+                  _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 21, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 4: DIGITAL & BANKING (التوثيق الرقمي والاعتماد البنكي)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.verified_user_outlined,
+                titleEn: '4. Digital & Banking',
+                titleAr: 'المرحلة 4: التوثيق الرقمي والاعتماد البنكي',
+                color: AppTheme.crimson,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Follow-up / Upload', 'متابعة ورفع المستندات عبر نافذة و CargoX', 22, selectedIndex),
+                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة', 23, selectedIndex),
+                  _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 24, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 5: PORT & CLEARANCE (الميناء والتخليص الجمركي)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.anchor_outlined,
+                titleEn: '5. Port & Clearance',
+                titleAr: 'المرحلة 5: الميناء والتخليص الجمركي',
+                color: Colors.purple,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 25, selectedIndex),
+                  _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتفتيش الجمركي', 26, selectedIndex),
+                  _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وتحديد عجز البضائع', 27, selectedIndex),
+                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 28, selectedIndex),
+                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 29, selectedIndex),
+                  _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 30, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // PHASE 6: INBOUND & CLOSURE (الاستلام والتسوية المالية)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.inventory_outlined,
+                titleEn: '6. Inbound & Closure',
+                titleAr: 'المرحلة 6: الاستلام المخزني والتسوية المالية',
+                color: AppTheme.emerald,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 31, selectedIndex),
+                  _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 32, selectedIndex),
+                  _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 45, selectedIndex),
+                ],
+              ),
+
+              // =========================================================
+              // HUB 3: DASHBOARDS & AUDIT (لوحات القيادة والتقارير الرقابية)
+              // =========================================================
+              _buildHubTile(
+                icon: Icons.analytics_outlined,
+                titleEn: 'Dashboard & Reports',
+                titleAr: 'لوحة القيادة والتقارير والرقابة',
+                color: Colors.blueGrey,
+                initiallyExpanded: false,
+                children: [
+                  _buildMenuItem(Icons.dashboard_customize_outlined, 'Operational Dashboard', 'لوحة التحكم ومؤشرات الأداء', 0, selectedIndex),
+                  _buildMenuItem(Icons.view_kanban_outlined, 'Lifecycle Operations Board', 'لوحة تتبع ومراحل الشحنات التفاعلية', 48, selectedIndex),
+                  _buildMenuItem(Icons.summarize_outlined, 'Master Shipment Report', 'تقرير الشحنة الشامل المدمج', 47, selectedIndex),
+                  _buildMenuItem(Icons.assessment_outlined, 'Dynamic Report Builder', 'مُنشئ التقارير المخصصة', 41, selectedIndex),
+                  _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),
+                  _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
+                  _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        const Divider(color: Colors.white24, height: 1),
+
+        // User Profile & RBAC Footer
+        if (user != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            color: Colors.black.withOpacity(0.15),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  backgroundColor: _getRoleColor(user.role).withOpacity(0.2),
+                  radius: 13,
+                  child: Icon(Icons.person, color: _getRoleColor(user.role), size: 14),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        user.fullName,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        user.role,
+                        style: TextStyle(color: _getRoleColor(user.role), fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 

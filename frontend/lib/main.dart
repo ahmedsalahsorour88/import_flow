@@ -83,6 +83,16 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
         PointerDeviceKind.trackpad,
         PointerDeviceKind.stylus,
       };
+
+  @override
+  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+    return Scrollbar(
+      controller: details.controller,
+      thumbVisibility: true,
+      trackVisibility: true,
+      child: child,
+    );
+  }
 }
 
 class ImportFlowApp extends StatelessWidget {

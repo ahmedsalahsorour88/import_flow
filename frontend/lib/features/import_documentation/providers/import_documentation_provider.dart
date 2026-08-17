@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/import_documentation_model.dart';
+import '../models/po_reconciliation_session_model.dart';
+
 
 final acidSessionsProvider =
     StateNotifierProvider<AcidSessionsNotifier, AsyncValue<List<AcidRegistrationModel>>>((ref) {
@@ -628,5 +630,94 @@ class POReconciliationService {
     }
   }
 }
+
+// 6. PO Reconciliation Saved Sessions Provider (Phase 6 / BP-016)
+final poReconciliationSessionsProvider =
+    StateNotifierProvider<POReconciliationSessionsNotifier, AsyncValue<List<POReconciliationSessionModel>>>((ref) {
+  return POReconciliationSessionsNotifier();
+});
+
+class POReconciliationSessionsNotifier
+    extends StateNotifier<AsyncValue<List<POReconciliationSessionModel>>> {
+  final Dio _dio = Dio(BaseOptions(
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
+  ));
+
+  POReconciliationSessionsNotifier() : super(const AsyncValue.loading()) {
+    fetchSessions();
+  }
+
+  Future<void> fetchSessions({
+    int? importFileId,
+    String? overallStatus,
+    String? search,
+  }) async {
+    try {
+      state = const AsyncValue.loading();
+      final queryParams = <String, dynamic>{};
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+      if (overallStatus != null && overallStatus.isNotEmpty && overallStatus != 'All') {
+        queryParams['overall_status'] = overallStatus;
+      }
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions',
+        queryParameters: queryParams,
+      );
+
+      final List<dynamic> data = response.data;
+      final sessions = data
+          .map((json) => POReconciliationSessionModel.fromJson(json as Map<String, dynamic>))
+          .toList();
+      state = AsyncValue.data(sessions);
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<POReconciliationSessionModel> createSession(POReconciliationSessionModel session) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions',
+        data: session.toJson(),
+      );
+      final created = POReconciliationSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<POReconciliationSessionModel> updateSession(
+      int sessionId, Map<String, dynamic> updateData) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions/$sessionId',
+        data: updateData,
+      );
+      final updated = POReconciliationSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteSession(int sessionId) async {
+    try {
+      await _dio.delete(
+        '${ApiConstants.baseUrl}/import-documentation/po-reconciliation/sessions/$sessionId',
+      );
+      await fetchSessions();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
+}
+
 
 

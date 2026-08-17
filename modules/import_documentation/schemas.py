@@ -799,3 +799,69 @@ class InvoiceBLSyncRequest(BaseModel):
     sync_to_shipping: bool = True
     notes: Optional[str] = None
 
+
+class POReconciliationSessionBase(BaseModel):
+    import_file_id: int
+    final_invoice_number: Optional[str] = None
+    final_packing_list_number: Optional[str] = None
+    acid_number: Optional[str] = None
+    shipper_name: Optional[str] = None
+    total_invoice_amount: float = 0.0
+    currency: str = "EUR"
+    total_packages: float = 0.0
+    total_net_weight_kg: float = 0.0
+    total_gross_weight_kg: float = 0.0
+    total_cbm: float = 0.0
+    overall_status: str = "FULLY_MATCHED"
+    is_safe_for_certification: bool = True
+    critical_discrepancies_count: int = 0
+    warning_discrepancies_count: int = 0
+    header_discrepancies: Optional[List[Dict[str, Any]]] = None
+    reconciled_invoice_items: Optional[List[Dict[str, Any]]] = None
+    reconciled_packing_items: Optional[List[Dict[str, Any]]] = None
+    extracted_invoice_data: Optional[Dict[str, Any]] = None
+    extracted_packing_data: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    certified_by: Optional[str] = None
+
+
+class POReconciliationSessionCreate(POReconciliationSessionBase):
+    pass
+
+
+class POReconciliationSessionUpdate(BaseModel):
+    final_invoice_number: Optional[str] = None
+    final_packing_list_number: Optional[str] = None
+    acid_number: Optional[str] = None
+    shipper_name: Optional[str] = None
+    total_invoice_amount: Optional[float] = None
+    currency: Optional[str] = None
+    total_packages: Optional[float] = None
+    total_net_weight_kg: Optional[float] = None
+    total_gross_weight_kg: Optional[float] = None
+    total_cbm: Optional[float] = None
+    overall_status: Optional[str] = None
+    is_safe_for_certification: Optional[bool] = None
+    critical_discrepancies_count: Optional[int] = None
+    warning_discrepancies_count: Optional[int] = None
+    header_discrepancies: Optional[List[Dict[str, Any]]] = None
+    reconciled_invoice_items: Optional[List[Dict[str, Any]]] = None
+    reconciled_packing_items: Optional[List[Dict[str, Any]]] = None
+    extracted_invoice_data: Optional[Dict[str, Any]] = None
+    extracted_packing_data: Optional[Dict[str, Any]] = None
+    notes: Optional[str] = None
+    certified_by: Optional[str] = None
+
+
+class POReconciliationSessionResponse(POReconciliationSessionBase):
+    session_id: int
+    session_code: str
+    import_file_code: Optional[str] = None
+    importer_name: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+

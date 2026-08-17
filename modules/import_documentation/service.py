@@ -13,6 +13,7 @@ from modules.import_documentation.model import (
     BankingDocumentSession,
     ShipmentDocumentItem,
     CustomsDeclarationDraft,
+    POPackingReconciliationSession,
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
@@ -22,7 +23,11 @@ from modules.import_documentation.schemas import (
     ShipmentDocumentCreate,
     ShipmentDocumentUpdate,
     CustomsDeclarationCreate,
+    POReconciliationSessionCreate,
+    POReconciliationSessionUpdate,
+    POReconciliationSessionResponse,
 )
+
 from modules.import_documentation.validators import (
     validate_acid_number,
     validate_acid_expiry,
@@ -2025,6 +2030,128 @@ def extract_and_compare_po_documents_service(
         extracted_invoice_data=reconciled["extracted_invoice_data"],
         extracted_packing_data=reconciled["extracted_packing_data"],
     )
+
+
+# --- PO & PACKING RECONCILIATION SESSIONS SERVICES (BP-016) ---
+def enrich_po_reconciliation_session_response(
+    db: Session, session: POPackingReconciliationSession
+) -> POReconciliationSessionResponse:
+    import_file_code = None
+    importer_name = None
+
+    if session.import_file_id:
+        file = db.query(ImportFile).filter(ImportFile.import_file_id == session.import_file_id).first()
+        if file:
+            import_file_code = file.import_file_code
+            importer_name = file.company_name or (file.company.importer_name if file.company else None)
+
+
+    resp_dict = {
+        "session_id": session.session_id,
+        "session_code": session.session_code,
+        "import_file_id": session.import_file_id,
+        "import_file_code": import_file_code,
+        "importer_name": importer_name,
+        "final_invoice_number": session.final_invoice_number,
+        "final_packing_list_number": session.final_packing_list_number,
+        "acid_number": session.acid_number,
+        "shipper_name": session.shipper_name,
+        "total_invoice_amount": session.total_invoice_amount,
+        "currency": session.currency,
+        "total_packages": session.total_packages,
+        "total_net_weight_kg": session.total_net_weight_kg,
+        "total_gross_weight_kg": session.total_gross_weight_kg,
+        "total_cbm": session.total_cbm,
+        "overall_status": session.overall_status,
+        "is_safe_for_certification": session.is_safe_for_certification,
+        "critical_discrepancies_count": session.critical_discrepancies_count,
+        "warning_discrepancies_count": session.warning_discrepancies_count,
+        "header_discrepancies": session.header_discrepancies,
+        "reconciled_invoice_items": session.reconciled_invoice_items,
+        "reconciled_packing_items": session.reconciled_packing_items,
+        "extracted_invoice_data": session.extracted_invoice_data,
+        "extracted_packing_data": session.extracted_packing_data,
+        "notes": session.notes,
+        "certified_by": session.certified_by,
+        "is_active": session.is_active,
+        "created_at": session.created_at,
+        "updated_at": session.updated_at,
+    }
+    return POReconciliationSessionResponse(**resp_dict)
+
+
+def create_po_reconciliation_session_service(
+    db: Session, schema: POReconciliationSessionCreate
+) -> POReconciliationSessionResponse:
+    # 1. Validate import file exists
+    file = db.query(ImportFile).filter(ImportFile.import_file_id == schema.import_file_id).first()
+    if not file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"الملف الاستيرادي رقم {schema.import_file_id} غير موجود بالمنظومة.",
+        )
+
+    # 2. Strict Rule: Prevent duplicate session for the same import file!
+    existing = repo.get_po_reconciliation_session_by_file_id(db, schema.import_file_id)
+    if existing:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"يوجد بالفعل جلسة مطابقة محفوظة لهذا الملف الاستيرادي (رمز الجلسة: {existing.session_code}). "
+                f"لا يُسمح بإنشاء أكثر من جلسة حفظ لنفس الملف الاستيرادي. يمكنك تحديث الجلسة الحالية أو استعراضها من سجل الجلسات."
+            ),
+        )
+
+    session = repo.create_po_reconciliation_session(db, schema)
+    return enrich_po_reconciliation_session_response(db, session)
+
+
+def get_po_reconciliation_sessions_service(
+    db: Session,
+    import_file_id: int | None = None,
+    overall_status: str | None = None,
+    search: str | None = None,
+) -> list[POReconciliationSessionResponse]:
+    sessions = repo.get_po_reconciliation_sessions(
+        db, import_file_id=import_file_id, overall_status=overall_status, search=search
+    )
+    return [enrich_po_reconciliation_session_response(db, s) for s in sessions]
+
+
+def get_po_reconciliation_session_by_id_service(
+    db: Session, session_id: int
+) -> POReconciliationSessionResponse:
+    session = repo.get_po_reconciliation_session_by_id(db, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة المطابقة رقم {session_id} غير موجودة.",
+        )
+    return enrich_po_reconciliation_session_response(db, session)
+
+
+def update_po_reconciliation_session_service(
+    db: Session, session_id: int, schema: POReconciliationSessionUpdate
+) -> POReconciliationSessionResponse:
+    session = repo.get_po_reconciliation_session_by_id(db, session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة المطابقة رقم {session_id} غير موجودة للتحديث.",
+        )
+    updated = repo.update_po_reconciliation_session(db, session_id, schema)
+    return enrich_po_reconciliation_session_response(db, updated)
+
+
+def delete_po_reconciliation_session_service(db: Session, session_id: int) -> dict:
+    ok = repo.delete_po_reconciliation_session(db, session_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة المطابقة رقم {session_id} غير موجودة للحذف.",
+        )
+    return {"message": f"تم حذف جلسة المطابقة رقم {session_id} بنجاح", "deleted": True}
+
 
 
 

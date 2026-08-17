@@ -12,6 +12,7 @@ from modules.import_documentation.model import (
     DraftBLReviewSession,
     CertificateOfOriginReviewSession,
     InspectionCertificateReviewSession,
+    POPackingReconciliationSession,
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
@@ -21,7 +22,10 @@ from modules.import_documentation.schemas import (
     ShipmentDocumentCreate,
     ShipmentDocumentUpdate,
     CustomsDeclarationCreate,
+    POReconciliationSessionCreate,
+    POReconciliationSessionUpdate,
 )
+
 
 
 # --- ACID REPOSITORY (BP-014) ---
@@ -673,3 +677,117 @@ def delete_inspection_review(db: Session, review_id: int) -> bool:
     item.updated_at = datetime.now(timezone.utc)
     db.commit()
     return True
+
+
+# --- PO & PACKING FINAL RECONCILIATION SESSION REPOSITORY (BP-016) ---
+def generate_po_reconciliation_session_code(db: Session) -> str:
+    current_year = datetime.now(timezone.utc).year
+    prefix = f"REC-{current_year}-"
+    last_record = (
+        db.query(POPackingReconciliationSession)
+        .filter(POPackingReconciliationSession.session_code.like(f"{prefix}%"))
+        .order_by(POPackingReconciliationSession.session_id.desc())
+        .first()
+    )
+    if not last_record:
+        return f"{prefix}0001"
+    try:
+        num = int(last_record.session_code.replace(prefix, "")) + 1
+        return f"{prefix}{num:04d}"
+    except ValueError:
+        return f"{prefix}0001"
+
+
+def get_po_reconciliation_sessions(
+    db: Session,
+    include_inactive: bool = False,
+    import_file_id: int | None = None,
+    overall_status: str | None = None,
+    search: str | None = None,
+) -> list[POPackingReconciliationSession]:
+    query = db.query(POPackingReconciliationSession)
+    if not include_inactive:
+        query = query.filter(POPackingReconciliationSession.is_active == True)
+    if import_file_id:
+        query = query.filter(POPackingReconciliationSession.import_file_id == import_file_id)
+    if overall_status and overall_status != "All":
+        query = query.filter(POPackingReconciliationSession.overall_status == overall_status)
+    if search:
+        s = f"%{search.strip()}%"
+        query = query.filter(
+            (POPackingReconciliationSession.session_code.ilike(s))
+            | (POPackingReconciliationSession.final_invoice_number.ilike(s))
+            | (POPackingReconciliationSession.final_packing_list_number.ilike(s))
+            | (POPackingReconciliationSession.acid_number.ilike(s))
+            | (POPackingReconciliationSession.shipper_name.ilike(s))
+        )
+    return query.order_by(POPackingReconciliationSession.session_id.desc()).all()
+
+
+def get_po_reconciliation_session_by_id(
+    db: Session, session_id: int, include_inactive: bool = False
+) -> POPackingReconciliationSession | None:
+    query = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.session_id == session_id
+    )
+    if not include_inactive:
+        query = query.filter(POPackingReconciliationSession.is_active == True)
+    return query.first()
+
+
+def get_po_reconciliation_session_by_file_id(
+    db: Session, import_file_id: int, include_inactive: bool = False
+) -> POPackingReconciliationSession | None:
+    query = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id
+    )
+    if not include_inactive:
+        query = query.filter(POPackingReconciliationSession.is_active == True)
+    return query.order_by(POPackingReconciliationSession.session_id.desc()).first()
+
+
+def create_po_reconciliation_session(
+    db: Session, schema: POReconciliationSessionCreate
+) -> POPackingReconciliationSession:
+    code = generate_po_reconciliation_session_code(db)
+    data = schema.model_dump(exclude_unset=True)
+    db_item = POPackingReconciliationSession(
+        session_code=code,
+        **data,
+        is_active=True,
+    )
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+
+
+def update_po_reconciliation_session(
+    db: Session, session_id: int, schema: POReconciliationSessionUpdate
+) -> POPackingReconciliationSession:
+    item = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.session_id == session_id
+    ).first()
+    if not item:
+        raise ValueError(f"Reconciliation Session ID {session_id} not found.")
+    data = schema.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(item, k, v)
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+def delete_po_reconciliation_session(db: Session, session_id: int) -> bool:
+    item = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.session_id == session_id
+    ).first()
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+

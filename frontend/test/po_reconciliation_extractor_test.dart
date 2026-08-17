@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/import_documentation/models/po_reconciliation_session_model.dart';
+import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
 import 'package:frontend/features/import_documentation/widgets/po_reconciliation_tab.dart';
-import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 
 class MockImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>>
@@ -64,8 +66,62 @@ class MockPurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState>
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class MockPOReconciliationSessionsNotifier
+    extends StateNotifier<AsyncValue<List<POReconciliationSessionModel>>>
+    implements POReconciliationSessionsNotifier {
+  MockPOReconciliationSessionsNotifier()
+      : super(
+          AsyncValue.data([
+            POReconciliationSessionModel(
+              sessionId: 1,
+              sessionCode: 'REC-2026-0001',
+              importFileId: 101,
+              importFileCode: 'IMP-2026-00101',
+              importerName: 'ECO ASSOCIATES',
+              finalInvoiceNumber: 'V1/2562',
+              finalPackingListNumber: 'M26 413',
+              acidNumber: '2001830441013710010',
+              shipperName: 'G.I. INDUSTRIAL HOLDING SPA',
+              totalInvoiceAmount: 37741.0,
+              currency: 'EUR',
+              totalPackages: 4,
+              totalNetWeightKg: 2254.0,
+              totalGrossWeightKg: 2274.0,
+              totalCbm: 39.99,
+              overallStatus: 'FULLY_MATCHED',
+              isSafeForCertification: true,
+              criticalDiscrepanciesCount: 0,
+              warningDiscrepanciesCount: 0,
+              createdAt: '2026-08-17 12:00:00',
+              updatedAt: '2026-08-17 12:00:00',
+            )
+          ]),
+        );
+
+  @override
+  Future<void> fetchSessions({int? importFileId, String? search, String? overallStatus}) async {}
+
+  @override
+  Future<POReconciliationSessionModel> createSession(POReconciliationSessionModel payload) async {
+    return payload;
+  }
+
+  @override
+  Future<POReconciliationSessionModel> updateSession(int id, Map<String, dynamic> data) async {
+    return state.value!.first;
+  }
+
+  @override
+  Future<bool> deleteSession(int id) async {
+    return true;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
-  testWidgets('POReconciliationTab renders smart extraction tool card and loads sample data', (WidgetTester tester) async {
+  testWidgets('POReconciliationTab renders smart extraction tool card, dual tabs and loads sample data', (WidgetTester tester) async {
     tester.view.physicalSize = const Size(1440, 900);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() => tester.view.resetPhysicalSize());
@@ -75,6 +131,7 @@ void main() {
         overrides: [
           importFilesProvider.overrideWith((ref) => MockImportFilesNotifier()),
           purchaseOrdersProvider.overrideWith((ref) => MockPurchaseOrdersNotifier()),
+          poReconciliationSessionsProvider.overrideWith((ref) => MockPOReconciliationSessionsNotifier()),
         ],
         child: const MaterialApp(
           home: Scaffold(
@@ -84,8 +141,11 @@ void main() {
       ),
     );
 
-
     await tester.pumpAndSettle();
+
+    // Verify presence of Dual Tabs
+    expect(find.textContaining('مراجعة وتدقيق المستندات والمطابقة الذكية'), findsOneWidget);
+    expect(find.textContaining('سجل جلسات المطابقة المحفوظة'), findsOneWidget);
 
     // Verify presence of the Smart Extraction & 3-Way Reconciliation Tool Card
     expect(find.textContaining('Smart 3-Way Extractor'), findsOneWidget);
@@ -104,5 +164,15 @@ void main() {
     expect(find.textContaining('G.I. INDUSTRIAL HOLDING SPA'), findsWidgets);
     expect(find.textContaining('2001830441013710010'), findsWidgets);
     expect(find.textContaining('RTAXT/K/EC/MS 182'), findsWidgets);
+
+    // Switch to Saved Sessions History Tab
+    final historyTab = find.textContaining('سجل جلسات المطابقة المحفوظة');
+    await tester.tap(historyTab);
+    await tester.pumpAndSettle();
+
+    // Verify saved session row exists with REC-2026-0001
+    expect(find.text('REC-2026-0001'), findsOneWidget);
+    expect(find.text('ECO ASSOCIATES'), findsWidgets);
+    expect(find.text('37741.00 EUR'), findsOneWidget);
   });
 }

@@ -478,3 +478,62 @@ class InspectionCertificateReviewSession(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
     )
+
+
+class POPackingReconciliationSession(Base):
+    """
+    PO & Packing List Final Reconciliation Session Model (BP-016 / Phase 6).
+    Persists 3-way reconciliation audit between PO in system, Commercial Invoice, and Packing List.
+    Enforces uniqueness per Import File (One active reconciliation session per import_file_id).
+    """
+
+    __tablename__ = "po_packing_reconciliation_sessions"
+
+    session_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, index=True, autoincrement=True
+    )
+    session_code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )
+
+    import_file_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("import_files.import_file_id"), nullable=False, unique=True, index=True
+    )
+
+    final_invoice_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    final_packing_list_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    acid_number: Mapped[str] = mapped_column(String(50), nullable=True)
+    shipper_name: Mapped[str] = mapped_column(String(200), nullable=True)
+
+    total_invoice_amount: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    currency: Mapped[str] = mapped_column(String(10), default="EUR", nullable=False)
+
+    total_packages: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    total_net_weight_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    total_gross_weight_kg: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    total_cbm: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+
+    overall_status: Mapped[str] = mapped_column(
+        String(50), default="FULLY_MATCHED", nullable=False, index=True
+    )
+    is_safe_for_certification: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    critical_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    warning_discrepancies_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+
+    header_discrepancies: Mapped[list] = mapped_column(JSON, nullable=True)
+    reconciled_invoice_items: Mapped[list] = mapped_column(JSON, nullable=True)
+    reconciled_packing_items: Mapped[list] = mapped_column(JSON, nullable=True)
+    extracted_invoice_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+    extracted_packing_data: Mapped[dict] = mapped_column(JSON, nullable=True)
+
+    notes: Mapped[str] = mapped_column(Text, nullable=True)
+    certified_by: Mapped[str] = mapped_column(String(100), nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False
+    )
+

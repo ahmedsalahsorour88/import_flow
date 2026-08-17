@@ -272,6 +272,10 @@ from modules.import_documentation.schemas import (
     POFinalAdjustmentRequest,
     POExtractAndCompareRequest,
     POExtractAndCompareResponse,
+    InvoiceBLSyncRequest,
+    POReconciliationSessionCreate,
+    POReconciliationSessionUpdate,
+    POReconciliationSessionResponse,
     DraftBLComparisonRequest,
     DraftBLReviewCreate,
     DraftBLReviewUpdate,
@@ -345,6 +349,88 @@ async def extract_po_reconciliation_files_and_compare(
         packing_list_raw_text=pl_raw,
     )
     return service.extract_and_compare_po_documents_service(db, req)
+
+
+# --- PO & PACKING RECONCILIATION SESSIONS ENDPOINTS (BP-016) ---
+@router.post(
+    "/po-reconciliation/sessions",
+    response_model=POReconciliationSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def create_po_reconciliation_session(
+    payload: POReconciliationSessionCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Creates a new PO & Packing List final reconciliation session.
+    Strictly prevents duplicate sessions for the same import file.
+    """
+    return service.create_po_reconciliation_session_service(db, payload)
+
+
+@router.get(
+    "/po-reconciliation/sessions",
+    response_model=List[POReconciliationSessionResponse],
+    status_code=status.HTTP_200_OK,
+)
+def get_po_reconciliation_sessions(
+    import_file_id: Optional[int] = None,
+    overall_status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """
+    Lists saved PO & Packing List final reconciliation sessions with optional filters.
+    """
+    return service.get_po_reconciliation_sessions_service(
+        db, import_file_id=import_file_id, overall_status=overall_status, search=search
+    )
+
+
+@router.get(
+    "/po-reconciliation/sessions/{session_id}",
+    response_model=POReconciliationSessionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_po_reconciliation_session_by_id(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves a single PO & Packing List final reconciliation session by ID.
+    """
+    return service.get_po_reconciliation_session_by_id_service(db, session_id)
+
+
+@router.put(
+    "/po-reconciliation/sessions/{session_id}",
+    response_model=POReconciliationSessionResponse,
+    status_code=status.HTTP_200_OK,
+)
+def update_po_reconciliation_session(
+    session_id: int,
+    payload: POReconciliationSessionUpdate,
+    db: Session = Depends(get_db),
+):
+    """
+    Updates an existing PO & Packing List final reconciliation session.
+    """
+    return service.update_po_reconciliation_session_service(db, session_id, payload)
+
+
+@router.delete(
+    "/po-reconciliation/sessions/{session_id}",
+    status_code=status.HTTP_200_OK,
+)
+def delete_po_reconciliation_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Soft-deletes a PO & Packing List final reconciliation session.
+    """
+    return service.delete_po_reconciliation_session_service(db, session_id)
+
 
 
 

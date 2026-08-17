@@ -33,7 +33,9 @@ from modules.import_documentation.model import (
     BankingDocumentSession,
     ShipmentDocumentItem,
     CustomsDeclarationDraft,
+    POPackingReconciliationSession,
 )
+
 from modules.import_files.model import ImportFile
 from modules.freight_booking.model import ShipmentBooking
 from modules.cargo_shipping.model import CargoShippingRecord

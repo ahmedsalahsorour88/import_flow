@@ -18,6 +18,9 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   String? _selectedStepCode;
   int? _selectedPhaseId;
 
+  final ScrollController _horizontalScrollController = ScrollController();
+  final ScrollController _topPhasesScrollController = ScrollController();
+
   // Step definitions with English & Arabic names
   final Map<String, Map<String, String>> _stepMetadata = {
     'STEP_01': {'en': 'Freight Studies', 'ar': 'دراسات النولون', 'phase': '1'},
@@ -46,8 +49,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   @override
   void initState() {
     super.initState();
-    // Default to first step
     _selectedStepCode = 'STEP_01';
+  }
+
+  @override
+  void dispose() {
+    _horizontalScrollController.dispose();
+    _topPhasesScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -132,10 +141,10 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
           return Column(
             children: [
-              // ─── UPPER 1/3: 6 Colored Phase Overview Cards with Live Counts ────
+              // ─── UPPER 1/3: Compact 6 Phase Overview Cards ────────────────────
               Container(
                 color: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -144,57 +153,72 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       children: [
                         const Row(
                           children: [
-                            Icon(Icons.layers_outlined, color: AppTheme.cobalt, size: 20),
-                            SizedBox(width: 8),
+                            Icon(Icons.layers_outlined, color: AppTheme.cobalt, size: 18),
+                            SizedBox(width: 6),
                             Text(
                               'المستويات الـ 6 الكبرى — اضغط على أي مرحلة لعرض وتحديث شحناتها بالجدول أدناه:',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                             ),
                           ],
                         ),
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
                                 color: AppTheme.cobalt.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(16),
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                               ),
                               child: Text(
-                                'إجمالي الشحنات النشطة: ${boardData.totalActiveFiles} ملف (${boardData.allShipments.length} مرحلة)',
-                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.cobalt),
+                                'إجمالي الشحنات: ${boardData.totalActiveFiles} ملف (${boardData.allShipments.length} مرحلة)',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
                               ),
                             ),
                             if (_selectedStepCode != null || _selectedPhaseId != null) ...[
                               const SizedBox(width: 8),
                               TextButton.icon(
-                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4)),
+                                style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), visualDensity: VisualDensity.compact),
                                 onPressed: () {
                                   setState(() {
                                     _selectedStepCode = null;
                                     _selectedPhaseId = null;
                                   });
                                 },
-                                icon: const Icon(Icons.clear_all, size: 16, color: AppTheme.crimson),
-                                label: const Text('عرض كافة المراحل', style: TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
+                                icon: const Icon(Icons.clear_all, size: 14, color: AppTheme.crimson),
+                                label: const Text('عرض كافة المراحل', style: TextStyle(color: AppTheme.crimson, fontSize: 11)),
                               ),
                             ],
                           ],
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 6),
 
                     // The 6 Phase Cards Row (Upper 1/3)
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: boardData.phases.map((phase) {
-                          return _buildPhaseTopCard(phase);
-                        }).toList(),
-                      ),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final availableWidth = constraints.maxWidth;
+                        final cardWidth = availableWidth > 1150
+                            ? (availableWidth - 50) / 6.0
+                            : 185.0;
+
+                        return Scrollbar(
+                          controller: _topPhasesScrollController,
+                          thumbVisibility: true,
+                          child: SingleChildScrollView(
+                            controller: _topPhasesScrollController,
+                            scrollDirection: Axis.horizontal,
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: boardData.phases.map((phase) {
+                                return _buildPhaseTopCard(phase, cardWidth);
+                              }).toList(),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -202,19 +226,19 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
               const Divider(height: 1, color: Colors.black12),
 
-              // ─── LOWER 2/3: Interactive Shipment Data Table ───────────────────
+              // ─── LOWER 2/3: Interactive Shipment Data Table with Horizontal Scrollbar ─
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(12),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.grey.shade300),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.03),
-                          blurRadius: 6,
+                          blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
                       ],
@@ -225,7 +249,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         // Table Top Filter Bar & Current Step Title
                         _buildTableTopBar(filteredShipments.length, boardData.phases),
 
-                        // Table Content
+                        // Scrollable Table Area with Horizontal Navigation Bar
                         Expanded(
                           child: filteredShipments.isEmpty
                               ? _buildEmptyState()
@@ -243,27 +267,27 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     );
   }
 
-  // ─── Phase Top Card (Upper 1/3) ────────────────────────────────────────────
+  // ─── Phase Top Card (Compact Upper 1/3) ────────────────────────────────────
 
-  Widget _buildPhaseTopCard(PhaseSummaryModel phase) {
+  Widget _buildPhaseTopCard(PhaseSummaryModel phase, double width) {
     final headerColor = _parseColor(phase.colorHex);
     final isPhaseSelected = _selectedPhaseId == phase.phaseId && _selectedStepCode == null;
 
     return Container(
-      width: 225,
-      margin: const EdgeInsets.only(right: 10),
+      width: width,
+      margin: const EdgeInsets.only(right: 8),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(6),
         border: Border.all(
           color: isPhaseSelected ? headerColor : headerColor.withOpacity(0.35),
           width: isPhaseSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
           ),
         ],
       ),
@@ -279,14 +303,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 _selectedStepCode = null;
               });
             },
-            borderRadius: const BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7)),
+            borderRadius: const BorderRadius.only(topLeft: Radius.circular(5), topRight: Radius.circular(5)),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
               decoration: BoxDecoration(
                 color: headerColor,
                 borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(7),
-                  topRight: Radius.circular(7),
+                  topLeft: Radius.circular(5),
+                  topRight: Radius.circular(5),
                 ),
               ),
               child: Row(
@@ -298,13 +322,13 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       children: [
                         Text(
                           phase.titleEn,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                         Text(
                           phase.titleAr,
-                          style: const TextStyle(color: Colors.white70, fontSize: 9),
+                          style: const TextStyle(color: Colors.white70, fontSize: 8.5),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -312,14 +336,14 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.25),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${phase.totalActiveShipments}',
-                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
                     ),
                   ),
                 ],
@@ -329,7 +353,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
           // Steps list inside Phase
           Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+            padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 3),
             child: Column(
               children: phase.stepCodes.map((stepCode) {
                 final count = phase.stepCounts[stepCode] ?? 0;
@@ -343,18 +367,18 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       _selectedPhaseId = phase.phaseId;
                     });
                   },
-                  borderRadius: BorderRadius.circular(5),
+                  borderRadius: BorderRadius.circular(4),
                   child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 150),
-                    margin: const EdgeInsets.only(bottom: 3),
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                    duration: const Duration(milliseconds: 120),
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
                     decoration: BoxDecoration(
                       color: isStepSelected
                           ? headerColor.withOpacity(0.18)
                           : count > 0
                               ? Colors.grey.shade50
                               : Colors.transparent,
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: BorderRadius.circular(4),
                       border: Border.all(
                         color: isStepSelected
                             ? headerColor
@@ -368,12 +392,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                       children: [
                         Icon(
                           isStepSelected ? Icons.check_circle : (count > 0 ? Icons.radio_button_checked : Icons.radio_button_unchecked),
-                          size: 13,
+                          size: 11,
                           color: isStepSelected
                               ? headerColor
                               : (count > 0 ? headerColor : Colors.grey.shade400),
                         ),
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 4),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -381,7 +405,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               Text(
                                 meta['en']!,
                                 style: TextStyle(
-                                  fontSize: 10,
+                                  fontSize: 9.5,
                                   fontWeight: isStepSelected || count > 0 ? FontWeight.bold : FontWeight.w500,
                                   color: isStepSelected ? headerColor : AppTheme.charcoal,
                                 ),
@@ -390,7 +414,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                               ),
                               Text(
                                 meta['ar']!,
-                                style: TextStyle(fontSize: 8.5, color: Colors.grey.shade600),
+                                style: TextStyle(fontSize: 8, color: Colors.grey.shade600),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -398,15 +422,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
                             color: count > 0 ? headerColor.withOpacity(0.2) : Colors.grey.shade200,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
                             '$count',
                             style: TextStyle(
-                              fontSize: 9.5,
+                              fontSize: 9,
                               fontWeight: FontWeight.bold,
                               color: count > 0 ? headerColor : Colors.grey.shade600,
                             ),
@@ -445,16 +469,16 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     }
 
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.grey.shade50,
-        borderRadius: const BorderRadius.only(topLeft: Radius.circular(9), topRight: Radius.circular(9)),
+        borderRadius: const BorderRadius.only(topLeft: Radius.circular(7), topRight: Radius.circular(7)),
         border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
               color: badgeColor.withOpacity(0.12),
               borderRadius: BorderRadius.circular(6),
@@ -463,19 +487,19 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.filter_list_alt, size: 16, color: badgeColor),
-                const SizedBox(width: 6),
+                Icon(Icons.filter_list_alt, size: 15, color: badgeColor),
+                const SizedBox(width: 5),
                 Text(
                   selectedTitle,
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: badgeColor),
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: badgeColor),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
                   child: Text(
                     '$filteredCount شحنة',
-                    style: const TextStyle(color: Colors.white, fontSize: 10.5, fontWeight: FontWeight.bold),
+                    style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
                   ),
                 ),
               ],
@@ -485,18 +509,18 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
           // Search Field inside table
           SizedBox(
-            width: 320,
-            height: 36,
+            width: 280,
+            height: 32,
             child: TextField(
               decoration: InputDecoration(
                 hintText: 'بحث بكود الشحنة، المورد، PO، أو الملاحظات...',
-                hintStyle: const TextStyle(fontSize: 11.5),
-                prefixIcon: const Icon(Icons.search, size: 16),
+                hintStyle: const TextStyle(fontSize: 10.5),
+                prefixIcon: const Icon(Icons.search, size: 15),
                 isDense: true,
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
-                contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(vertical: 6),
               ),
               onChanged: (val) {
                 setState(() => _searchQuery = val.trim());
@@ -508,170 +532,188 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
     );
   }
 
-  // ─── Shipments Data Table ──────────────────────────────────────────────────
+  // ─── Shipments Data Table with Horizontal Scrollbar ────────────────────────
 
   Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases) {
-    return SingleChildScrollView(
-      child: DataTable(
-        headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-        dataRowMinHeight: 48,
-        dataRowMaxHeight: 64,
-        columnSpacing: 16,
-        horizontalMargin: 16,
-        columns: const [
-          DataColumn(label: Text('كود الشحنة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('الخطوة الحالية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('أمر الشراء PO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('نوع الشحن والشرط', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('القيمة التقديرية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('الملاحظات والأنشطة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-          DataColumn(label: Text('الإجراءات والترحيل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-        ],
-        rows: shipments.map((s) {
-          final phaseId = int.tryParse(_stepMetadata[s.stepCode]?['phase'] ?? '1') ?? 1;
-          final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
-          final stepColor = _parseColor(p.colorHex);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return Scrollbar(
+          controller: _horizontalScrollController,
+          thumbVisibility: true,
+          trackVisibility: true,
+          child: SingleChildScrollView(
+            controller: _horizontalScrollController,
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: constraints.maxWidth),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.vertical,
+                child: DataTable(
+                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                  dataRowMinHeight: 44,
+                  dataRowMaxHeight: 58,
+                  columnSpacing: 20,
+                  horizontalMargin: 12,
+                  columns: const [
+                    DataColumn(label: Text('كود الشحنة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('الخطوة الحالية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('أمر الشراء PO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('نوع الشحن والشرط', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('القيمة التقديرية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('الملاحظات والأنشطة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    DataColumn(label: Text('الإجراءات والترحيل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                  ],
+                  rows: shipments.map((s) {
+                    final phaseId = int.tryParse(_stepMetadata[s.stepCode]?['phase'] ?? '1') ?? 1;
+                    final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
+                    final stepColor = _parseColor(p.colorHex);
 
-          return DataRow(
-            cells: [
-              // 1. File Code
-              DataCell(
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cobalt.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    s.importFileCode,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt),
-                  ),
-                ),
-              ),
+                    return DataRow(
+                      cells: [
+                        // 1. File Code
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                            ),
+                            child: Text(
+                              s.importFileCode,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
+                            ),
+                          ),
+                        ),
 
-              // 2. Step Name
-              DataCell(
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: stepColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: stepColor.withOpacity(0.3)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(s.stepNameEn, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: stepColor)),
-                      Text(s.stepNameAr, style: TextStyle(fontSize: 9.5, color: stepColor.withOpacity(0.85))),
-                    ],
-                  ),
-                ),
-              ),
+                        // 2. Step Name
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: stepColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: stepColor.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(s.stepNameEn, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: stepColor)),
+                                Text(s.stepNameAr, style: TextStyle(fontSize: 9, color: stepColor.withOpacity(0.85))),
+                              ],
+                            ),
+                          ),
+                        ),
 
-              // 3. Company
-              DataCell(
-                Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11.5)),
-              ),
+                        // 3. Company
+                        DataCell(
+                          Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
+                        ),
 
-              // 4. Supplier
-              DataCell(
-                Text(s.supplierName, style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
-              ),
+                        // 4. Supplier
+                        DataCell(
+                          Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
+                        ),
 
-              // 5. PO Number
-              DataCell(
-                Text(s.poNumber ?? 'غير محدد', style: const TextStyle(fontSize: 11)),
-              ),
+                        // 5. PO Number
+                        DataCell(
+                          Text(s.poNumber ?? 'غير محدد', style: const TextStyle(fontSize: 10.5)),
+                        ),
 
-              // 6. Mode & Incoterm
-              DataCell(
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    '${s.shipmentMode} | ${s.incotermCode}',
-                    style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
-                  ),
-                ),
-              ),
+                        // 6. Mode & Incoterm
+                        DataCell(
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade200,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${s.shipmentMode} | ${s.incotermCode}',
+                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                            ),
+                          ),
+                        ),
 
-              // 7. Value
-              DataCell(
-                Text(
-                  '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11.5),
-                ),
-              ),
+                        // 7. Value
+                        DataCell(
+                          Text(
+                            '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
+                          ),
+                        ),
 
-              // 8. Notes
-              DataCell(
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 180),
-                  child: Text(
-                    s.notes ?? 'قيد المتابعة التشغيلية',
-                    style: TextStyle(fontSize: 10.5, color: Colors.grey.shade700),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ),
+                        // 8. Notes
+                        DataCell(
+                          Container(
+                            constraints: const BoxConstraints(maxWidth: 200),
+                            child: Text(
+                              s.notes ?? 'قيد المتابعة التشغيلية',
+                              style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
 
-              // 9. Workstation Action Button
-              DataCell(
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: stepColor,
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  ),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      barrierDismissible: false,
-                      builder: (ctx) => StepActionDialog(
-                        shipment: s,
-                        allPhases: phases,
-                      ),
+                        // 9. Workstation Action Button
+                        DataCell(
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: stepColor,
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (ctx) => StepActionDialog(
+                                  shipment: s,
+                                  allPhases: phases,
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                            label: const Text(
+                              'تنفيذ وترحيل الخطوة',
+                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                            ),
+                          ),
+                        ),
+                      ],
                     );
-                  },
-                  icon: const Icon(Icons.play_circle_outline, size: 14, color: Colors.white),
-                  label: const Text(
-                    'تنفيذ وترحيل الخطوة',
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10.5),
-                  ),
+                  }).toList(),
                 ),
               ),
-            ],
-          );
-        }).toList(),
-      ),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildEmptyState() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(30),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.folder_open_outlined, size: 50, color: Colors.grey.shade300),
-            const SizedBox(height: 12),
+            Icon(Icons.folder_open_outlined, size: 44, color: Colors.grey.shade300),
+            const SizedBox(height: 8),
             Text(
               'لا توجد شحنات مسجلة حالياً في هذه المرحلة المحددة',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             Text(
               'يمكنك اختيار مرحلة أخرى من الأقسام بالأعلى أو إلغاء التصفية لعرض كافة الشحنات.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],
         ),

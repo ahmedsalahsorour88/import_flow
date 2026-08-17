@@ -362,9 +362,48 @@ def _heuristic_multi_carrier_extractor(raw_text: str) -> dict:
 # 2. SMART COMMERCIAL INVOICE EXTRACTOR (AI + Heuristics)
 # ==============================================================================
 
+def _parse_flexible_number(val: Any) -> float:
+    if val is None:
+        return 0.0
+    s = str(val).strip()
+    if not s:
+        return 0.0
+    s = re.sub(r'[$€£¥a-zA-Z\s]', '', s)
+    if not s:
+        return 0.0
+    
+    if '.' in s and ',' in s:
+        if s.rfind(',') > s.rfind('.'):
+            # European format: 37.741,00 or 2.254,000 -> 37741.00, 2254.0
+            s = s.replace('.', '').replace(',', '.')
+        else:
+            # US format: 37,741.00 -> 37741.00
+            s = s.replace(',', '')
+    elif ',' in s and '.' not in s:
+        parts = s.split(',')
+        if len(parts) == 2 and len(parts[1]) in [1, 2, 3]:
+            s = s.replace(',', '.')
+        else:
+            s = s.replace(',', '')
+    elif '.' in s and ',' not in s:
+        parts = s.split('.')
+        # If e.g. "2.274" (European thousand without decimals), convert if context indicates thousands
+        if len(parts) == 2 and len(parts[0]) <= 3 and len(parts[1]) == 3 and int(parts[0]) < 100:
+            pass
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return 0.0
+
+
+# ==============================================================================
+# 2. SMART COMMERCIAL INVOICE EXTRACTOR (AI + Heuristics)
+# ==============================================================================
+
 def extract_commercial_invoice_data(raw_text: str) -> dict:
     """
-    Extracts structured fields from Commercial Invoices & Final Packing Lists (ShawContract, etc.).
+    Extracts structured fields and line items from Commercial Invoices & Final Packing Lists.
+    Supports European (Italian, German, French), American, Asian, and Egyptian trade invoices.
     """
     if not raw_text or not raw_text.strip():
         return {}
@@ -374,79 +413,89 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
     }
 
     # 1. ACID Number (19 digits)
-    m_acid = re.search(r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#)[:\s#]*(\d{19})', raw_text, re.IGNORECASE)
+    m_acid = re.search(r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NR\.?)[:\s#]*(\d{19})', raw_text, re.IGNORECASE)
     if not m_acid:
         m_acid = re.search(r'\b(\d{19})\b', raw_text)
     if m_acid:
         parsed["acid_number"] = m_acid.group(1).strip()
 
     # 2. Importer Tax ID (9 digits)
-    m_tax = re.search(r'(?:Tax\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID)[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})', raw_text, re.IGNORECASE)
+    m_tax = re.search(r'(?:Tax\s+ID|VAT\s+ID|VAT\s+No|TAX\s+REG|EGYPTIAN\s+IMPORTER\s+TAX\s+ID|IMPORTER\s+TAX\s+ID)[:\s#]*(\d{3}[-\s]?\d{3}[-\s]?\d{3}|\d{9})', raw_text, re.IGNORECASE)
+    if not m_tax:
+        m_tax = re.search(r'(?:V\.A\.T\.\s+ID\s+Number|Client\s+id\.\s+no\.?)[:\s\n]*(\d{9})', raw_text, re.IGNORECASE)
     if m_tax:
         parsed["importer_tax_id"] = re.sub(r'[\s-]', '', m_tax.group(1).strip())
 
-    # 3. Invoice Number / Order Number
-    m_inv = re.search(r'(?:Invoice\s+Number|Invoice\s+No\.?|Order\s+Number|Order\s+No\.?|INV\s*#)[:\s]+([A-Z0-9/-]+)', raw_text, re.IGNORECASE)
-    if m_inv:
-        parsed["invoice_number"] = m_inv.group(1).strip()
+    # 3. Exporter Registration Number (Foreign Tax / VAT / Reg No)
+    m_exp_reg = re.search(r'(?:EXPORTER\s+REGISTRATION\s+NUMBER|EXPORTER\s+ID|AUTHORIZATION\s+NO\.?)[:\s#]+([A-Z0-9/_-]+)', raw_text, re.IGNORECASE)
+    if not m_exp_reg:
+        m_exp_reg = re.search(r'(?:P\.IVA|P\.IVA\s+IT|VAT\s+Number)[:\s#]*([A-Z0-9]+)', raw_text, re.IGNORECASE)
+    if m_exp_reg:
+        parsed["exporter_registration_no"] = m_exp_reg.group(1).strip()
 
-    # 4. Invoice Date / Order Date
-    m_date = re.search(r'(?:Order\s+Date|Invoice\s+Date|Date)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', raw_text, re.IGNORECASE)
+    # 4. Invoice Number / Order Number
+    m_inv = re.search(r'(?:Invoice\s+Number|Invoice\s+No\.?|Order\s+Number|Order\s+No\.?|INV\s*#)[:\s]*([A-Z0-9/_-]+)', raw_text, re.IGNORECASE)
+    if not m_inv:
+        m_inv = re.search(r'\b(V\d+/\s*\d+)\b', raw_text)
+    if not m_inv:
+        m_inv = re.search(r'(?:COMMERCIAL\s+INVOICE[^\n]*\n+)(?:[^\n]*Page[^\n]*\n+)?\s*(V\d+/\s*\d+|[A-Z0-9/_-]{3,20})', raw_text, re.IGNORECASE)
+    if m_inv:
+        inv_str = m_inv.group(1).strip()
+        if inv_str.lower() not in ["date", "page", "client"]:
+            parsed["invoice_number"] = inv_str
+
+
+    # 5. Invoice Date / Order Date
+    m_date = re.search(r'(?:Date|Order\s+Date|Invoice\s+Date)[:\s]+(\d{1,2}[-/]\d{1,2}[-/]\d{2,4}|\d{4}[-/]\d{1,2}[-/]\d{1,2})', raw_text, re.IGNORECASE)
     if m_date:
         parsed["invoice_date"] = m_date.group(1).strip()
 
-    # 5. Purchase Order / Reference
-    m_po = re.search(r'(?:Purchase\s+Order|PO\s+Number|PO\s*#|PO\s+REF)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    # 6. Purchase Order / Reference
+    m_po = re.search(r'(?:VOSTRO\s+ORDINE\s*/\s*YOUR\s+ORDER|Purchase\s+Order|PO\s+Number|PO\s*#|PO\s+REF|Your\s+order)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_po:
         parsed["purchase_order"] = m_po.group(1).strip()
 
-    # 6. Currency & Totals
+    # 7. Currency & Totals
     m_curr = re.search(r'(?:Currency)[:\s]+([A-Z]{3})', raw_text, re.IGNORECASE)
     if m_curr:
         parsed["currency"] = m_curr.group(1).strip().upper()
     else:
-        if "$" in raw_text or "USD" in raw_text:
-            parsed["currency"] = "USD"
-        elif "€" in raw_text or "EUR" in raw_text:
+        if "EUR" in raw_text or "€" in raw_text:
             parsed["currency"] = "EUR"
+        elif "$" in raw_text or "USD" in raw_text:
+            parsed["currency"] = "USD"
         elif "£" in raw_text or "GBP" in raw_text:
             parsed["currency"] = "GBP"
+        else:
+            parsed["currency"] = "EUR"
 
-    m_tot = re.search(r'(?:Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total|Total)[:\s]*[$€£]?\s*([\d,]+(?:\.\d+)?)', raw_text, re.IGNORECASE)
+    m_tot = re.search(r'(?:TOTAL\s+INVOICE\s+AMOUNT|Total\s+goods|Order\s+Total|Total\s+Amount|Invoice\s+Total|Line\s+Total|Total)[:\s]*[$€£]?\s*([\d.,]+(?:\s*[A-Z]{3})?)', raw_text, re.IGNORECASE)
     if m_tot:
-        parsed["total_amount"] = float(m_tot.group(1).replace(',', ''))
+        parsed["total_amount"] = _parse_flexible_number(m_tot.group(1))
 
-    # 7. Incoterms & Location
-    m_inco = re.search(r'(?:Incoterms|Inco\s+Terms)[:\s]+(EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)', raw_text, re.IGNORECASE)
+    # 8. Incoterms & Location
+    m_inco = re.search(r'(?:INCOTERMS[®\s\d]*|Incoterms|Inco\s+Terms)[:\s\n]*(EX\s*WORKS|EXW|FOB|CFR|CIF|DAP|DDP|FCA|CPT|CIP)', raw_text, re.IGNORECASE)
     if m_inco:
-        parsed["incoterm"] = m_inco.group(1).strip().upper()
+        term = m_inco.group(1).strip().upper()
+        parsed["incoterm"] = "EXW" if "EX" in term else term
     m_inco_loc = re.search(r'(?:Incoterms\s+Location)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
     if m_inco_loc:
         parsed["incoterm_location"] = m_inco_loc.group(1).strip()
 
-    # 8. Freight Terms
-    m_frt = re.search(r'(?:Freight\s+Terms)[:\s]+(COLLECT|PREPAID|FREIGHT\s+COLLECT|FREIGHT\s+PREPAID)', raw_text, re.IGNORECASE)
-    if m_frt:
-        parsed["freight_terms"] = "Freight " + ("Prepaid" if "PREPAID" in m_frt.group(1).upper() else "Collect")
-
-    # 9. Shipper / Exporter & VAT
-    m_shp_vat = re.search(r'(?:VAT\s+Number|VAT\s+Reg|Tax\s+Number)[:\s#]+([A-Z0-9]+)', raw_text, re.IGNORECASE)
-    if m_shp_vat:
-        parsed["shipper_vat"] = m_shp_vat.group(1).strip()
-    m_shp_name = re.search(r'(?:Commercial\s+Invoice\s*\n+([A-Za-z0-9\s.,-]+Limited|[A-Za-z0-9\s.,-]+Ltd|[A-Za-z0-9\s.,-]+S\.p\.A|[A-Za-z0-9\s.,-]+LLC)|ShawContract|Shaw\s+Europe\s+Limited)', raw_text, re.IGNORECASE)
-    if m_shp_name:
-        parsed["shipper"] = m_shp_name.group(0).strip()
+    # 9. Shipper / Exporter
+    m_shp = re.search(r'(?:G\.I\.\s*INDUSTRIAL\s+HOLDING\s+SPA|Shaw\s+Europe\s+Limited|ShawContract|[A-Za-z0-9\s.,-]+(?:Limited|Ltd|S\.p\.A|SPA|LLC|GmbH|GMBH))', raw_text, re.IGNORECASE)
+    if m_shp:
+        parsed["shipper"] = m_shp.group(0).strip()
     else:
-        # Fallback to header text
         lines = [ln.strip() for ln in raw_text.split('\n') if ln.strip() and len(ln.strip()) > 3]
         if lines:
             parsed["shipper"] = lines[0]
 
-    # 10. Consignee / Importer (Bill To / Ship To)
-    m_csg = re.search(r'(?:Bill\s+To|Ship\s+To)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
+    # 10. Consignee / Importer (Messrs / Bill To / Ship To)
+    m_csg = re.search(r'(?:Messers|Messrs|Bill\s+To|Ship\s+To)[:\s\n]+([^\n\r]+(?:\n[^\n\r]+){0,2})', raw_text, re.IGNORECASE)
     if m_csg:
         clean_c = m_csg.group(1).strip()
-        parsed["consignee"] = re.sub(r'(?:44 Street|Maadi|Cairo|Egypt|DUNS|Tax ID).*', '', clean_c, flags=re.IGNORECASE).strip()
+        parsed["consignee"] = re.sub(r'(?:7 HOSNI|44 Street|Maadi|Cairo|Egypt|Egitto|DUNS|Tax ID).*', '', clean_c, flags=re.IGNORECASE).strip()
 
     # 11. Containers & Seals
     m_cntr = re.search(r'(?:Container:?\s*([A-Z]{4}\d{7}))(?:\s*Seal:?\s*([A-Z0-9]+))?', raw_text, re.IGNORECASE)
@@ -457,33 +506,377 @@ def extract_commercial_invoice_data(raw_text: str) -> dict:
         parsed["container_summary"] = f"{c_no}{' (Seal: ' + s_no + ')' if s_no else ''}"
 
     # 12. Weights & Packages
-    m_gw = re.search(r'(?:Gross\s+weight|TOTAL\s+GROSS\s+WEIGHT)[:\s]*([\d,]+(?:\.\d+)?)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
+    m_gw = re.search(r'(?:Gross\s+weight\s*(?:kg)?|TOTAL\s+GROSS\s+WEIGHT)[:\s]*([\d.,]+)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
     if m_gw:
-        parsed["total_gross_weight_kg"] = float(m_gw.group(1).replace(',', ''))
-    m_nw = re.search(r'(?:Net\s+weight|TOTAL\s+NET\s+WEIGHT)[:\s]*([\d,]+(?:\.\d+)?)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
+        parsed["total_gross_weight_kg"] = _parse_flexible_number(m_gw.group(1))
+    m_nw = re.search(r'(?:Net\s+weight\s*(?:kg)?|TOTAL\s+NET\s+WEIGHT)[:\s]*([\d.,]+)\s*(?:kg|kgs)?', raw_text, re.IGNORECASE)
     if m_nw:
-        parsed["total_net_weight_kg"] = float(m_nw.group(1).replace(',', ''))
+        parsed["total_net_weight_kg"] = _parse_flexible_number(m_nw.group(1))
 
-    m_pkg = re.search(r'(\d+)\s*(?:boxes|cartons|pkgs)\s*/\s*(\d+)\s*(?:pallets?|pallet\(s\))', raw_text, re.IGNORECASE)
-    if m_pkg:
-        parsed["qty_boxes"] = int(m_pkg.group(1))
-        parsed["qty_pallets"] = int(m_pkg.group(2))
-        parsed["qty_pkg"] = int(m_pkg.group(2))
+    m_pkg_pal = re.search(r'(\d+)\s*(?:boxes|cartons|pkgs)\s*/\s*(\d+)\s*(?:pallets?|pallet\(s\))', raw_text, re.IGNORECASE)
+    if m_pkg_pal:
+        parsed["qty_boxes"] = int(m_pkg_pal.group(1))
+        parsed["qty_pallets"] = int(m_pkg_pal.group(2))
+        parsed["qty_pkg"] = int(m_pkg_pal.group(2))
         parsed["package_type"] = "Pallets"
     else:
-        m_single_pkg = re.search(r'(\d+)\s*(pallets?|boxes|cartons|packages|units)', raw_text, re.IGNORECASE)
-        if m_single_pkg:
-            parsed["qty_pkg"] = int(m_single_pkg.group(1))
-            parsed["package_type"] = m_single_pkg.group(2)
+        m_pkg = re.search(r'(?:Packages|TOTAL\s+PACKAGES)[:\s]*(\d+)', raw_text, re.IGNORECASE)
+        if m_pkg:
+            parsed["qty_pkg"] = int(m_pkg.group(1))
+            parsed["package_type"] = "Packages"
 
-    # 13. HS Codes in Invoice Lines
+
+    # 13. Extract Line Items Table
+    items = []
+    # Match patterns like: Code Description Commodity/HS Qty UnitPrice TotalPrice
+    # E.g.: CYK4R6018210001 RTAXT/K/EC/MS 182 ... 84158200 2,000 NR 18.602,37500 37.204,75
+    # E.g.: QCR12026802R AG - RUBBER SHOCK ABSORBERS ... 2,000 NR 268,12500 536,25
+    item_blocks = re.findall(
+        r'([A-Z0-9]{8,20})\s+([^\n\r]+?)\s+(?:(\d{8,10})\s+)?(\d+[.,]?\d*)\s*(?:NR|PCE|PCS|BOX|UNITS?)?\s+([\d.,]+)\s+([\d.,]+)',
+        raw_text,
+        re.IGNORECASE
+    )
+    for block in item_blocks:
+        code, desc, hs, qty_s, price_s, tot_s = block
+        items.append({
+            "item_code": code.strip(),
+            "description": desc.strip(),
+            "hs_code": hs.strip() if hs else "",
+            "quantity": _parse_flexible_number(qty_s),
+            "unit_price": _parse_flexible_number(price_s),
+            "total_price": _parse_flexible_number(tot_s),
+        })
+    parsed["items"] = items
+
+    # 14. HS Codes
     hs_matches = re.findall(r'\b(\d{10}|\d{8})\b', raw_text)
     if hs_matches:
-        valid_hs = [h for h in set(hs_matches) if not h.startswith('75955') and len(h) in [8, 10]]
+        valid_hs = [h for h in set(hs_matches) if not h.startswith('20018') and not h.startswith('75955') and len(h) in [8, 10]]
         if valid_hs:
             parsed["hs_codes"] = valid_hs
 
     return parsed
+
+
+# ==============================================================================
+# 2.B SMART PACKING & WEIGHT LIST EXTRACTOR (AI + Heuristics)
+# ==============================================================================
+
+def extract_packing_list_data(raw_text: str) -> dict:
+    """
+    Extracts structured dimensions, weights, package types, and line items from Final Packing Lists.
+    (e.g., G.I. Industrial, Shaw, international freight packing sheets).
+    """
+    if not raw_text or not raw_text.strip():
+        return {}
+
+    parsed: Dict[str, Any] = {
+        "document_type": "Packing and Weight List",
+    }
+
+    # 1. ACID Number (19 digits)
+    m_acid = re.search(r'(?:ACID|ACI\s+NO|ADVANCE\s+CARGO\s+INFO|ACID:\s*|ACID\s+#|ACID\s+NUMBER)[:\s#]*(\d{19})', raw_text, re.IGNORECASE)
+    if not m_acid:
+        m_acid = re.search(r'\b(\d{19})\b', raw_text)
+    if m_acid:
+        parsed["acid_number"] = m_acid.group(1).strip()
+
+    # 2. Customer / Importer
+    m_csg = re.search(r'(?:ECO\s+ASSOCIATES|ARCHI\s+BRANDS|[A-Za-z0-9\s.,-]+(?:LIMITED|LTD|LLC|ASSOCIATES|TRADING))', raw_text, re.IGNORECASE)
+    if m_csg:
+        parsed["customer_name"] = m_csg.group(0).strip()
+
+    # 3. Order Reference
+    m_ord = re.search(r'(?:NOSTRO\s+ORDINE\s*/\s*OUR\s+ORDER|VOSTRO\s+ORDINE\s*/\s*YOUR\s+ORDER|OUR\s+ORDER|ORDER\s+NO\.?)[:\s]+([^\n\r]+)', raw_text, re.IGNORECASE)
+    if m_ord:
+        parsed["order_number"] = m_ord.group(1).strip()
+
+    # 4. Date
+    m_date = re.search(r'(?:Date|Latisana,\s*)[:\s]*(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})', raw_text, re.IGNORECASE)
+    if m_date:
+        parsed["date"] = m_date.group(1).strip()
+
+    # 5. Total Weights & Packages
+    m_tot_w = re.search(r'(?:KG\s*/\s*COLLI|TOTALS?|TOTAL)[:\s]*([\d.,]+)\s+([\d.,]+)\s+([\d.,]+)\s*(?:TOTAL)?', raw_text, re.IGNORECASE)
+    if m_tot_w:
+        parsed["total_net_weight_kg"] = _parse_flexible_number(m_tot_w.group(1))
+        parsed["total_gross_weight_kg"] = _parse_flexible_number(m_tot_w.group(2))
+        parsed["total_packages"] = int(_parse_flexible_number(m_tot_w.group(3)))
+    else:
+        m_gw = re.search(r'(?:GROSS\s*(?:\(KG\))?|TOTAL\s+GROSS)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+        if m_gw:
+            parsed["total_gross_weight_kg"] = _parse_flexible_number(m_gw.group(1))
+        m_nw = re.search(r'(?:NET\s*(?:\(KG\))?|TOTAL\s+NET)[:\s]*([\d.,]+)', raw_text, re.IGNORECASE)
+        if m_nw:
+            parsed["total_net_weight_kg"] = _parse_flexible_number(m_nw.group(1))
+        m_pk = re.search(r'(\d+)\s*(?:TOTAL|COLLI|PACKAGES|BOXES|PALLETS)', raw_text, re.IGNORECASE)
+        if m_pk:
+            parsed["total_packages"] = int(m_pk.group(1))
+
+    # 6. Extract Packing Items Table (Description, Qty, Dims L x W x H mm, Net kg, Gross kg, Package Count & Type)
+    items = []
+    # E.g. RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
+    # E.g. QCR12026802R 1 275 265 160 4 4 2 BOX
+    pl_lines = re.findall(
+        r'([A-Z0-9/_-]{3,30}(?:\s+[A-Z0-9/_-]+){0,4})\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+([\d.,]+)\s+([\d.,]+)\s+(\d+)\s+([A-Z]+)',
+        raw_text,
+        re.IGNORECASE
+    )
+    total_calc_cbm = 0.0
+    for row in pl_lines:
+        desc_code, qty_s, l_s, w_s, h_s, net_s, gross_s, pkg_count_s, pkg_type = row
+        qty = int(qty_s)
+        pkg_cnt = int(pkg_count_s)
+        l_mm = float(l_s)
+        w_mm = float(w_s)
+        h_mm = float(h_s)
+        
+        # Calculate CBM: (L * W * H in mm) / 1,000,000,000 * pkg_cnt
+        item_cbm = ((l_mm * w_mm * h_mm) / 1_000_000_000.0) * pkg_cnt
+        total_calc_cbm += item_cbm
+
+        items.append({
+            "item_code": desc_code.strip(),
+            "description": desc_code.strip(),
+            "quantity": float(qty),
+            "length_mm": l_mm,
+            "width_mm": w_mm,
+            "height_mm": h_mm,
+            "net_weight_kg": _parse_flexible_number(net_s),
+            "gross_weight_kg": _parse_flexible_number(gross_s),
+            "packages_count": float(pkg_cnt),
+            "package_type": pkg_type.capitalize(),
+            "calculated_cbm": round(item_cbm, 4),
+        })
+
+    parsed["items"] = items
+    parsed["total_cbm"] = round(total_calc_cbm, 3)
+
+    return parsed
+
+
+# ==============================================================================
+# 2.C 3-WAY PO & PACKING RECONCILIATION ENGINE
+# ==============================================================================
+
+def reconcile_po_documents_with_system(
+    invoice_data: dict,
+    pl_data: dict,
+    system_po_items: List[dict],
+    file_metadata: Optional[dict] = None
+) -> dict:
+    """
+    Executes 3-way reconciliation comparing:
+    1. Final Commercial Invoice Data (Prices, Totals, Quantities)
+    2. Final Packing List Data (Packages, Net/Gross Weights, CBM)
+    3. Initial System Purchase Order Data (Initial quantities, budgeted prices, initial specs)
+    """
+    file_meta = file_metadata or {}
+    discrepancies: List[Dict[str, Any]] = []
+    has_critical = False
+    has_warning = False
+
+    # 1. Header Checks
+    inv_acid = invoice_data.get("acid_number") or pl_data.get("acid_number")
+    sys_acid = file_meta.get("acid_number")
+    acid_match = True
+    if sys_acid and inv_acid:
+        acid_match = sys_acid == inv_acid
+        if not acid_match:
+            has_critical = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_ACID",
+        "field_name_ar": "رقم القيد الجمركي المسبق (ACID)",
+        "system_value": sys_acid or "غير مسجل بالسستم",
+        "extracted_value": inv_acid or "غير متوفر بالمستند",
+        "status": "MATCH" if acid_match else "CRITICAL_VARIANCE",
+        "details": "رقم ACID مطابق تماماً" if acid_match else "❌ رقم ACID في الفاتورة يختلف عن رقم ACID المسجل بالسستم!",
+    })
+
+    # Tax ID Check
+    inv_tax = invoice_data.get("importer_tax_id")
+    sys_tax = file_meta.get("importer_tax_id")
+    tax_match = True
+    if sys_tax and inv_tax:
+        tax_match = sys_tax == inv_tax
+        if not tax_match:
+            has_critical = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_TAX_ID",
+        "field_name_ar": "البطاقة الضريبية للمستورد (Tax ID)",
+        "system_value": sys_tax or "غير مسجل",
+        "extracted_value": inv_tax or "غير متوفر",
+        "status": "MATCH" if tax_match else "CRITICAL_VARIANCE",
+        "details": "الرقم الضريبي مطابق" if tax_match else "❌ اختلاف في الرقم الضريبي للمستورد.",
+    })
+
+    # Total Amount Check
+    inv_tot = invoice_data.get("total_amount", 0.0)
+    sys_tot = file_meta.get("total_amount", 0.0)
+    amt_match, amt_pct, amt_diff = _numeric_tolerance_match(sys_tot, inv_tot, tolerance_pct=0.01)
+    if not amt_match and (sys_tot > 0 and inv_tot > 0):
+        has_warning = True
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_TOTAL_AMOUNT",
+        "field_name_ar": "إجمالي قيمة الفاتورة (Total Invoice Amount)",
+        "system_value": f"{sys_tot:,.2f} {file_meta.get('currency', 'EUR')}",
+        "extracted_value": f"{inv_tot:,.2f} {invoice_data.get('currency', 'EUR')}",
+        "status": "MATCH" if (amt_match or sys_tot == 0) else "MINOR_VARIANCE",
+        "details": f"فارق القيمة: {amt_diff:,.2f} ({amt_pct:.2f}%)" if not amt_match and sys_tot > 0 else "القيمة الإجمالية متطابقة",
+    })
+
+    # Total Packages Check
+    pl_pkgs = pl_data.get("total_packages") or invoice_data.get("qty_pkg", 0)
+    sys_pkgs = file_meta.get("total_packages", 0)
+    pkg_match = bool(pl_pkgs == sys_pkgs or sys_pkgs == 0)
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_PACKAGES",
+        "field_name_ar": "إجمالي عدد الطرود (Total Packages / Colli)",
+        "system_value": f"{sys_pkgs} طرد",
+        "extracted_value": f"{pl_pkgs} طرد",
+        "status": "MATCH" if pkg_match else "MINOR_VARIANCE",
+        "details": "عدد الطرود متطابق" if pkg_match else f"فارق عدد الطرود: {abs(pl_pkgs - sys_pkgs)} طرد",
+    })
+
+    # Total Gross Weight Check
+    pl_gw = pl_data.get("total_gross_weight_kg") or invoice_data.get("total_gross_weight_kg", 0.0)
+    sys_gw = file_meta.get("total_gross_weight_kg", 0.0)
+    gw_match, gw_pct, gw_diff = _numeric_tolerance_match(sys_gw, pl_gw, tolerance_pct=2.0)
+    discrepancies.append({
+        "category": "HEADER",
+        "check_code": "CHK_GROSS_WEIGHT",
+        "field_name_ar": "الوزن القائم الإجمالي (Total Gross Weight KG)",
+        "system_value": f"{sys_gw:,.2f} كجم",
+        "extracted_value": f"{pl_gw:,.2f} كجم",
+        "status": "MATCH" if (gw_match or sys_gw == 0) else "MINOR_VARIANCE",
+        "details": "الوزن القائم متطابق" if (gw_match or sys_gw == 0) else f"فارق الوزن: {gw_diff:,.2f} كجم ({gw_pct:.2f}%)",
+    })
+
+    # 2. Line Items Reconciliation
+    inv_items = invoice_data.get("items", [])
+    pl_items = pl_data.get("items", [])
+
+    reconciled_inv_items: List[Dict[str, Any]] = []
+    reconciled_pl_items: List[Dict[str, Any]] = []
+
+    # Map System Items
+    for idx, sys_itm in enumerate(system_po_items, 1):
+        s_code = sys_itm.get("item_code", str(idx))
+        s_desc = sys_itm.get("description", "")
+        s_qty = float(sys_itm.get("initial_quantity") or sys_itm.get("quantity") or 1.0)
+        s_price = float(sys_itm.get("initial_unit_price") or sys_itm.get("unit_price") or 0.0)
+        s_pkg = float(sys_itm.get("initial_packages_count") or 1.0)
+        s_net = float(sys_itm.get("initial_net_weight_kg") or 0.0)
+        s_gross = float(sys_itm.get("initial_gross_weight_kg") or 0.0)
+        s_cbm = float(sys_itm.get("initial_cbm") or 0.0)
+
+        # Match with Invoice Item
+        matched_inv = None
+        for inv_i in inv_items:
+            m_code, _ = _fuzzy_match_strings(s_code, inv_i.get("item_code"))
+            m_desc, _ = _fuzzy_match_strings(s_desc, inv_i.get("description"))
+            if m_code or m_desc:
+                matched_inv = inv_i
+                break
+        if not matched_inv and idx <= len(inv_items):
+            matched_inv = inv_items[idx - 1]
+
+        final_qty = matched_inv.get("quantity", s_qty) if matched_inv else s_qty
+        final_price = matched_inv.get("unit_price", s_price) if matched_inv else s_price
+        inv_desc = matched_inv.get("description", s_desc) if matched_inv else s_desc
+        inv_hs = matched_inv.get("hs_code", sys_itm.get("hs_code", "")) if matched_inv else sys_itm.get("hs_code", "")
+
+        # Match with Packing List Item
+        matched_pl = None
+        for pl_i in pl_items:
+            m_code, _ = _fuzzy_match_strings(s_code, pl_i.get("item_code"))
+            m_desc, _ = _fuzzy_match_strings(s_desc, pl_i.get("description"))
+            if m_code or m_desc:
+                matched_pl = pl_i
+                break
+        if not matched_pl and idx <= len(pl_items):
+            matched_pl = pl_items[idx - 1]
+
+        final_pkgs = matched_pl.get("packages_count", s_pkg) if matched_pl else s_pkg
+        final_net = matched_pl.get("net_weight_kg", s_net) if matched_pl else s_net
+        final_gross = matched_pl.get("gross_weight_kg", s_gross) if matched_pl else s_gross
+        final_cbm = matched_pl.get("calculated_cbm", s_cbm) if matched_pl else s_cbm
+        pkg_type = matched_pl.get("package_type", sys_itm.get("package_type", "Carton")) if matched_pl else sys_itm.get("package_type", "Carton")
+
+        # Variances
+        qty_var = round(((final_qty - s_qty) / s_qty) * 100.0, 2) if s_qty > 0 else 0.0
+        price_var = round(((final_price - s_price) / s_price) * 100.0, 2) if s_price > 0 else 0.0
+        weight_var = round(((final_gross - s_gross) / s_gross) * 100.0, 2) if s_gross > 0 else 0.0
+
+        if abs(qty_var) > 5.0 or abs(price_var) > 5.0:
+            has_warning = True
+
+        reconciled_inv_items.append({
+            "po_item_id": sys_itm.get("po_item_id") or idx,
+            "item_code": s_code,
+            "description": inv_desc,
+            "hs_code": inv_hs,
+            "package_type": pkg_type,
+            "initial_quantity": s_qty,
+            "final_quantity": final_qty,
+            "initial_unit_price": s_price,
+            "unit_price": final_price,
+            "final_unit_price": final_price,
+            "initial_packages_count": s_pkg,
+            "final_packages_count": final_pkgs,
+            "initial_net_weight_kg": s_net,
+            "final_net_weight_kg": final_net,
+            "initial_gross_weight_kg": s_gross,
+            "final_gross_weight_kg": final_gross,
+            "initial_cbm": s_cbm,
+            "final_cbm": final_cbm,
+            "variance_percentage": qty_var,
+            "price_variance_percentage": price_var,
+            "weight_variance_percentage": weight_var,
+        })
+
+        reconciled_pl_items.append({
+            "po_item_id": sys_itm.get("po_item_id") or idx,
+            "item_code": s_code,
+            "description": f"{s_code} - {inv_desc}",
+            "hs_code": inv_hs,
+            "package_type": pkg_type,
+            "initial_quantity": s_qty,
+            "final_quantity": final_qty,
+            "initial_unit_price": 0.0,
+            "unit_price": 0.0,
+            "final_unit_price": 0.0,
+            "initial_packages_count": s_pkg,
+            "final_packages_count": final_pkgs,
+            "initial_net_weight_kg": s_net,
+            "final_net_weight_kg": final_net,
+            "initial_gross_weight_kg": s_gross,
+            "final_gross_weight_kg": final_gross,
+            "initial_cbm": s_cbm,
+            "final_cbm": final_cbm,
+            "variance_percentage": qty_var,
+            "price_variance_percentage": 0.0,
+            "weight_variance_percentage": weight_var,
+        })
+
+    overall_status = "FULLY_MATCHED" if (not has_critical and not has_warning) else ("ACCEPTED_WITH_WARNINGS" if not has_critical else "CRITICAL_VARIANCE")
+
+    return {
+        "overall_status": overall_status,
+        "is_safe_for_certification": not has_critical,
+        "critical_discrepancies_count": len([d for d in discrepancies if d["status"] == "CRITICAL_VARIANCE"]),
+        "warning_discrepancies_count": len([d for d in discrepancies if d["status"] == "MINOR_VARIANCE"]),
+        "header_discrepancies": discrepancies,
+        "reconciled_invoice_items": reconciled_inv_items,
+        "reconciled_packing_items": reconciled_pl_items,
+        "extracted_invoice_data": invoice_data,
+        "extracted_packing_data": pl_data,
+    }
+
 
 
 # ==============================================================================

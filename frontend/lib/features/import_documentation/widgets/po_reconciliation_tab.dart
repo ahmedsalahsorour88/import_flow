@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
@@ -26,6 +29,70 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
   bool _isSubmitting = false;
   POReconciliationResultModel? _reconciliationResult;
 
+  // --- SMART EXTRACTION & 3-WAY RECONCILIATION TOOL STATE ---
+  bool _showSmartExtractionTool = true;
+  bool _isExtracting = false;
+  final TextEditingController _invoiceTextCtrl = TextEditingController();
+  final TextEditingController _packingTextCtrl = TextEditingController();
+  String? _selectedInvoiceFileName;
+  String? _selectedPackingFileName;
+  Map<String, dynamic>? _extractedReconciliationData;
+
+  static const String sampleGIIndustrialInvoice = '''
+G.I. INDUSTRIAL HOLDING SPA
+Via G. Agnelli, 7 - 33053 Latisana (UD) - Italy
+P.IVA IT01982510305
+COMMERCIAL INVOICE Date 30/06/2026 Page 1
+V1/ 2562
+Client id. no. 801765
+V.A.T. ID Number 200183044
+Messrs
+ECO ASSOCIATES
+7 HOSNI OSMAN ST., SEFARAT DISTRICT
+11471 NASR CITY, CAIRO
+Egitto
+Payment condition 100% AVV. MERCE PRONTA-PICK UP CONF.
+Bank IT80Q0503412301USD100004026
+SWIFT BAPPIT21682
+Shipping - Delivery terms - As per INCOTERMS 2020
+EX WORKS EXTRA UE
+
+Your order ECO/049/2026/REV00
+Our order confirmation M26 413 date 5/03/26
+Commessa 27/360012
+CYK4R6018210001 RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS DOUBLE SKIN PACKAGED ROOF TOP 84158200 2,000 NR 18.602,37500 37.204,75 NI
+QCR12026802R AG - RUBBER SHOCK ABSORBERS 2,000 NR 268,12500 536,25 NI
+
+ACID NR. 2001830441013710010
+IMPORTER TAX ID: 200183044
+EXPORTER REGISTRATION NUMBER: 01982510305
+
+Total goods 37.741,00
+TOTAL INVOICE AMOUNT 37.741,00 EUR
+Net weight kg 2.254,000
+Gross weight kg 2.274,000
+Packages 4
+''';
+
+  static const String sampleGIIndustrialPackingList = '''
+Latisana, 30/06/2026
+ECO ASSOCIATES
+7 HOSNI OSMAN ST. SEFARAT DISTRICT
+11471 NASR CITY, CAIRO
+EGYPT
+
+NOSTRO ORDINE / OUR ORDER M26 413
+COMMESSA 27/360012
+VOSTRO ORDINE / YOUR ORDER ECO/049/2026/REV00
+ACID NUMBER 2001830441013710010
+
+PACKING AND WEIGHT LIST
+DESCRIZIONE / DESCRIPTION Q.TY (NO) LENGTH (mm.) WIDTH (mm.) HEIGHT (mm.) NET (KG) GROSS (KG) (NO) (TYPE)
+RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
+QCR12026802R 1 275 265 160 4 4 2 BOX
+KG / COLLI 2254,0 2274,0 4,0 TOTAL
+''';
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +104,150 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
       }
     });
   }
+
+  void _loadSampleData() {
+    setState(() {
+      _invoiceTextCtrl.text = sampleGIIndustrialInvoice.trim();
+      _packingTextCtrl.text = sampleGIIndustrialPackingList.trim();
+      _selectedInvoiceFileName = 'Commercial_Invoice_V1_2562.pdf';
+      _selectedPackingFileName = 'Packing_and_Weight_List_M26_413.pdf';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✔ تم تحميل النموذج التجريبي الحقيقي (G.I. INDUSTRIAL / ECO ASSOCIATES) بنجاح'),
+        backgroundColor: Colors.blueGrey,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _pickFile(bool isInvoice) async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'txt', 'csv', 'xlsx', 'docx'],
+        withData: true,
+      );
+
+
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        String rawText = '';
+        if (file.bytes != null) {
+          try {
+            rawText = utf8.decode(file.bytes!, allowMalformed: true);
+          } catch (_) {
+            rawText = '--- محتوى مستند ${file.name} مرفوع (${file.size} بايت) ---';
+          }
+        }
+        setState(() {
+          if (isInvoice) {
+            _selectedInvoiceFileName = file.name;
+            if (rawText.isNotEmpty && rawText.length > 20) {
+              _invoiceTextCtrl.text = rawText;
+            }
+          } else {
+            _selectedPackingFileName = file.name;
+            if (rawText.isNotEmpty && rawText.length > 20) {
+              _packingTextCtrl.text = rawText;
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء اختيار الملف: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  Future<void> _runSmartExtractionAndComparison() async {
+    final invText = _invoiceTextCtrl.text.trim();
+    final plText = _packingTextCtrl.text.trim();
+
+    if (invText.isEmpty && plText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى إدخال أو رفع نص الفاتورة و/أو قائمة التعبئة أولاً'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isExtracting = true);
+    try {
+      final dio = Dio(BaseOptions(
+        baseUrl: 'http://127.0.0.1:8000',
+        headers: {'Content-Type': 'application/json'},
+      ));
+
+      final payload = {
+        'import_file_id': _selectedImportFileId,
+        'invoice_raw_text': invText,
+        'packing_list_raw_text': plText,
+        'system_items': _invoiceItems.map((i) => i.toJson()).toList(),
+      };
+
+      final response = await dio.post(
+        '/api/v1/import-documentation/po-reconciliation/extract-and-compare',
+        data: payload,
+      );
+
+      if (response.statusCode == 200 && response.data != null) {
+        setState(() {
+          _extractedReconciliationData = response.data;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✔ تم الاستخراج الذكي والمطابقة مع بيانات السستم بنجاح! راجع الفوارق بالجدول أدناه.'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء الاستخراج والمطابقة: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isExtracting = false);
+    }
+  }
+
+  void _applyExtractedDataToTables() {
+    if (_extractedReconciliationData == null) return;
+
+    final invData = _extractedReconciliationData!['extracted_invoice_data'] as Map<String, dynamic>? ?? {};
+    final recInv = (_extractedReconciliationData!['reconciled_invoice_items'] as List<dynamic>? ?? [])
+        .map((x) => POReconciliationItemModel.fromJson(x as Map<String, dynamic>))
+        .toList();
+    final recPl = (_extractedReconciliationData!['reconciled_packing_items'] as List<dynamic>? ?? [])
+        .map((x) => POReconciliationItemModel.fromJson(x as Map<String, dynamic>))
+        .toList();
+
+    setState(() {
+      if (invData['invoice_number'] != null && invData['invoice_number'].toString().isNotEmpty) {
+        _finalInvNumberCtrl.text = invData['invoice_number'].toString();
+      }
+      if (recInv.isNotEmpty) {
+        _invoiceItems = recInv;
+      }
+      if (recPl.isNotEmpty) {
+        _packingItems = recPl;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✔ تم تطبيق كافة البيانات والكميات والأسعار والأوزان المستخرجة في جداول المطابقة بنجاح!'),
+        backgroundColor: Colors.teal,
+      ),
+    );
+  }
+
 
   @override
   void didUpdateWidget(covariant POReconciliationTab oldWidget) {
@@ -245,17 +456,23 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.fact_check, color: AppTheme.cobalt, size: 28),
-                            SizedBox(width: 10),
-                            Text(
-                              'مراجعة وتأكيد الفاتورة التجارية والباكينج ليست النهائية (PO Final Reconciliation & Review)',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                        const Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.fact_check, color: AppTheme.cobalt, size: 28),
+                              SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'مراجعة وتأكيد الفاتورة التجارية والباكينج ليست النهائية (PO Final Reconciliation & Review)',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         if (_reconciliationResult != null)
+
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
@@ -339,6 +556,10 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
             ),
             const SizedBox(height: 20),
 
+            // SMART EXTRACTION & 3-WAY RECONCILIATION TOOL CARD
+            _buildSmartExtractionCard(),
+            const SizedBox(height: 20),
+
             // Summary Metrics Cards
             Row(
               children: [
@@ -358,6 +579,7 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
             // SECTION 1: INVOICE & PRICE RECONCILIATION TABLE
             Card(
               elevation: 2,
+
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -367,13 +589,22 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.receipt, color: AppTheme.cobalt),
-                            SizedBox(width: 8),
-                            Text('1. مراجعة وتأكيد بنود وأسعار الفاتورة التجارية النهائية (Invoice Items & Price Review)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                          ],
+                        const Expanded(
+                          child: Row(
+                            children: [
+                              Icon(Icons.receipt, color: AppTheme.cobalt),
+                              SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  '1. مراجعة وتأكيد بنود وأسعار الفاتورة التجارية النهائية (Invoice Items & Price Review)',
+                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                        const SizedBox(width: 10),
                         Row(
                           children: [
                             OutlinedButton.icon(
@@ -392,6 +623,7 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
                             ),
                             const SizedBox(width: 10),
                             ElevatedButton.icon(
+
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppTheme.cobalt,
                                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
@@ -517,12 +749,16 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
                       children: [
                         Icon(Icons.inventory_2, color: Colors.teal),
                         SizedBox(width: 8),
-                        Text(
-                          '2. مراجعة وتأكيد بيان العبوة والباكينج ليست النهائية (Packing List & Actual Packages/Weights)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        Expanded(
+                          child: Text(
+                            '2. مراجعة وتأكيد بيان العبوة والباكينج ليست النهائية (Packing List & Actual Packages/Weights)',
+                            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
+
                     const SizedBox(height: 4),
                     Text(
                       'مراجعة الأعداد الفعلية للطرود/الكراتين، والأوزان الصافية والقائمة الفعلية، والحجم الفعلي لتطابق درافت البوليصة والمخزن.',
@@ -730,4 +966,493 @@ class _POReconciliationTabState extends ConsumerState<POReconciliationTab> {
       ),
     );
   }
+
+  // --- SMART EXTRACTION & 3-WAY RECONCILIATION CARD WIDGET ---
+  Widget _buildSmartExtractionCard() {
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppTheme.cobalt.withOpacity(0.35), width: 1.5),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Bar with Toggle & 1-Click Sample
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              '⚡ أداة الرفع والاستخراج الذكي والمطابقة الثلاثية (Smart 3-Way Extractor & Matcher)',
+                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'استخراج بنود الفاتورة النهائية وقائمة التعبئة ومطابقتها آلياً مع أمر الشراء بالسستم وكشف الفوارق',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Row(
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF16A085),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      ),
+                      icon: const Icon(Icons.dataset_linked, size: 16),
+                      label: const Text('تحميل نموذج تجريبي حقيقي (G.I. INDUSTRIAL)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: _loadSampleData,
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        _showSmartExtractionTool ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                        color: AppTheme.charcoal,
+                      ),
+                      tooltip: _showSmartExtractionTool ? 'إخفاء الأداة' : 'عرض الأداة',
+                      onPressed: () {
+                        setState(() => _showSmartExtractionTool = !_showSmartExtractionTool);
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+
+            if (_showSmartExtractionTool) ...[
+              const Divider(height: 24),
+              // Side by Side Input Boxes
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // LEFT: Commercial Invoice Input
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        '1. الفاتورة التجارية النهائية (Commercial Invoice)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      textStyle: const TextStyle(fontSize: 11),
+                                    ),
+                                    icon: const Icon(Icons.upload_file, size: 14),
+                                    label: Text(_selectedInvoiceFileName != null ? 'تغيير الملف' : 'رفع ملف PDF/Text'),
+                                    onPressed: () => _pickFile(true),
+                                  ),
+                                  if (_invoiceTextCtrl.text.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                                      tooltip: 'مسح',
+                                      onPressed: () {
+                                        setState(() {
+                                          _invoiceTextCtrl.clear();
+                                          _selectedInvoiceFileName = null;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (_selectedInvoiceFileName != null) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.blue.shade200),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.attach_file, size: 13, color: AppTheme.cobalt),
+                                  const SizedBox(width: 4),
+                                  Text(_selectedInvoiceFileName!, style: const TextStyle(fontSize: 11.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _invoiceTextCtrl,
+                            maxLines: 7,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: 'الصق نص الفاتورة التجارية هنا أو ارفع الملف...',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              contentPadding: const EdgeInsets.all(10),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+
+                  // RIGHT: Packing and Weight List Input
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Expanded(
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.inventory_2, color: Colors.teal, size: 20),
+                                    SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        '2. قائمة التعبئة والأوزان (Packing & Weight List)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  OutlinedButton.icon(
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      textStyle: const TextStyle(fontSize: 11),
+                                    ),
+                                    icon: const Icon(Icons.upload_file, size: 14),
+                                    label: Text(_selectedPackingFileName != null ? 'تغيير الملف' : 'رفع ملف PDF/Text'),
+                                    onPressed: () => _pickFile(false),
+                                  ),
+                                  if (_packingTextCtrl.text.isNotEmpty) ...[
+                                    const SizedBox(width: 6),
+                                    IconButton(
+                                      icon: const Icon(Icons.clear, size: 16, color: Colors.grey),
+                                      tooltip: 'مسح',
+                                      onPressed: () {
+                                        setState(() {
+                                          _packingTextCtrl.clear();
+                                          _selectedPackingFileName = null;
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (_selectedPackingFileName != null) ...[
+                            const SizedBox(height: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.teal.shade200),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Icon(Icons.attach_file, size: 13, color: Colors.teal),
+                                  const SizedBox(width: 4),
+                                  Text(_selectedPackingFileName!, style: const TextStyle(fontSize: 11.5, color: Colors.teal, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
+                            ),
+                          ],
+                          const SizedBox(height: 8),
+                          TextFormField(
+                            controller: _packingTextCtrl,
+                            maxLines: 7,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                            decoration: InputDecoration(
+                              hintText: 'الصق نص بيان التعبئة والأوزان هنا أو ارفع الملف...',
+                              filled: true,
+                              fillColor: Colors.white,
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
+                              contentPadding: const EdgeInsets.all(10),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Action Execute Button
+              Center(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    elevation: 2,
+                  ),
+                  icon: _isExtracting
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Icon(Icons.compare_arrows, size: 20),
+                  label: Text(
+                    _isExtracting ? 'جاري الاستخراج والمطابقة الذكية...' : '⚡ تنفيذ الاستخراج الذكي والمطابقة مع بيانات السستم',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ),
+                  onPressed: _isExtracting ? null : _runSmartExtractionAndComparison,
+                ),
+              ),
+
+              // Discrepancies Result Section
+              if (_extractedReconciliationData != null) ...[
+                const SizedBox(height: 20),
+                _buildDiscrepanciesResultSection(),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDiscrepanciesResultSection() {
+    final overallStatus = _extractedReconciliationData!['overall_status'] as String? ?? 'FULLY_MATCHED';
+    final headerDiscrepancies = _extractedReconciliationData!['header_discrepancies'] as List<dynamic>? ?? [];
+    final invData = _extractedReconciliationData!['extracted_invoice_data'] as Map<String, dynamic>? ?? {};
+    final plData = _extractedReconciliationData!['extracted_packing_data'] as Map<String, dynamic>? ?? {};
+
+    Color statusColor;
+    String statusTitle;
+    IconData statusIcon;
+
+    if (overallStatus == 'FULLY_MATCHED') {
+      statusColor = Colors.green;
+      statusTitle = '🟢 مطابقة ناجحة 100% — لا توجد أي فوارق جوهرية أو مخالفات جمركية';
+      statusIcon = Icons.check_circle;
+    } else if (overallStatus == 'ACCEPTED_WITH_WARNINGS') {
+      statusColor = Colors.orange.shade800;
+      statusTitle = '🟡 مطابقة مقبولة مع وجود فوارق طفيفة مسموح بها في الأوزان أو الكميات';
+      statusIcon = Icons.warning_amber;
+    } else {
+      statusColor = Colors.red;
+      statusTitle = '❌ تم اكتشاف فوارق حرجة في رقم ACID أو البطاقة الضريبية تتطلب المراجعة قبل الاعتماد!';
+      statusIcon = Icons.error_outline;
+    }
+
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: statusColor.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: statusColor.withOpacity(0.4), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Status Strip Banner
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(statusIcon, color: statusColor, size: 22),
+                  const SizedBox(width: 8),
+                  Text(statusTitle, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: statusColor)),
+                ],
+              ),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF27AE60),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                icon: const Icon(Icons.playlist_add_check, size: 18),
+                label: const Text('✔ تطبيق البيانات المستخرجة في جداول المطابقة أدناه', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                onPressed: _applyExtractedDataToTables,
+              ),
+            ],
+          ),
+          const Divider(height: 20),
+
+          // Header Checks Table
+          const Text('فحص ومطابقة البيانات الحاكمة (Header & Compliance Checks):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 38,
+              dataRowMinHeight: 36,
+              dataRowMaxHeight: 44,
+              columnSpacing: 20,
+              columns: const [
+                DataColumn(label: Text('بند الفحص')),
+                DataColumn(label: Text('القيمة بالسستم')),
+                DataColumn(label: Text('القيمة بالمستند المرفوع')),
+                DataColumn(label: Text('حالة المطابقة')),
+                DataColumn(label: Text('التفاصيل')),
+              ],
+              rows: headerDiscrepancies.map((d) {
+                final map = d as Map<String, dynamic>;
+                final status = map['status'] as String? ?? 'MATCH';
+                return DataRow(cells: [
+                  DataCell(Text(map['field_name_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5))),
+                  DataCell(Text(map['system_value']?.toString() ?? '—', style: TextStyle(color: Colors.grey.shade800, fontSize: 12))),
+                  DataCell(Text(map['extracted_value']?.toString() ?? '—', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt))),
+                  DataCell(_buildDiscrepancyBadge(status)),
+                  DataCell(Text(map['details']?.toString() ?? '', style: TextStyle(fontSize: 12, color: status == 'MATCH' ? Colors.green.shade800 : Colors.red.shade800))),
+                ]);
+              }).toList(),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // Summary Key Extracted Values Preview
+          Row(
+            children: [
+              _buildExtractedPill('رقم الفاتورة', invData['invoice_number']?.toString() ?? 'N/A', Icons.receipt),
+              const SizedBox(width: 8),
+              _buildExtractedPill('رقم ACID', invData['acid_number']?.toString() ?? plData['acid_number']?.toString() ?? 'N/A', Icons.security),
+              const SizedBox(width: 8),
+              _buildExtractedPill('المصدر الأجنبي', invData['shipper']?.toString() ?? 'N/A', Icons.business),
+              const SizedBox(width: 8),
+              _buildExtractedPill('إجمالي القيمة', '${invData['total_amount']?.toString() ?? '0'} ${invData['currency'] ?? 'EUR'}', Icons.payments),
+              const SizedBox(width: 8),
+              _buildExtractedPill('إجمالي الطرود', '${plData['total_packages']?.toString() ?? invData['qty_pkg']?.toString() ?? '0'} طرد', Icons.all_inbox),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDiscrepancyBadge(String status) {
+    Color bg;
+    Color fg;
+    String label;
+
+    if (status == 'MATCH') {
+      bg = Colors.green.shade50;
+      fg = Colors.green.shade800;
+      label = 'مطابق ✔';
+    } else if (status == 'MINOR_VARIANCE') {
+      bg = Colors.amber.shade50;
+      fg = Colors.amber.shade900;
+      label = 'فارق طفيف ⚠️';
+    } else {
+      bg = Colors.red.shade50;
+      fg = Colors.red.shade800;
+      label = 'غير مطابق ❌';
+    }
+
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: fg.withOpacity(0.4)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _buildExtractedPill(String label, String value, IconData icon) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: AppTheme.cobalt),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+                  Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

@@ -642,14 +642,16 @@ from modules.import_documentation.schemas import (
     COOComparisonRequest,
     InspectionCertificateReviewCreate,
     InspectionCertificateReviewUpdate,
-    InspectionCertificateReviewResponse,
-    InspectionComparisonRequest,
     LegalDocsExpiryComplianceResponse,
     LegalDocAlertItem,
     InvoiceBLExtractAndMatchRequest,
     InvoiceBLExtractAndMatchResponse,
     InvoiceBLSyncRequest,
+    POExtractAndCompareRequest,
+    POExtractAndCompareResponse,
 )
+
+
 
 
 def _normalize_str(s: Any) -> str:
@@ -1925,5 +1927,104 @@ def sync_certified_invoice_bl_to_file_service(
         "total_amount": imp_file.total_amount,
         "currency": imp_file.currency,
     }
+
+
+def extract_and_compare_po_documents_service(
+    db: Session, request: POExtractAndCompareRequest
+) -> POExtractAndCompareResponse:
+    from modules.import_documentation.ai_document_parser import (
+        extract_commercial_invoice_data,
+        extract_packing_list_data,
+        reconcile_po_documents_with_system,
+    )
+    from modules.import_files.model import ImportFile
+
+    # 1. Extract Invoice Data
+    inv_data = dict(request.invoice_data or {})
+    if request.invoice_raw_text and request.invoice_raw_text.strip():
+        extracted_inv = extract_commercial_invoice_data(request.invoice_raw_text)
+        for k, v in extracted_inv.items():
+            if k not in inv_data or not inv_data[k]:
+                inv_data[k] = v
+
+    # 2. Extract Packing List Data
+    pl_data = dict(request.packing_data or {})
+    if request.packing_list_raw_text and request.packing_list_raw_text.strip():
+        extracted_pl = extract_packing_list_data(request.packing_list_raw_text)
+        for k, v in extracted_pl.items():
+            if k not in pl_data or not pl_data[k]:
+                pl_data[k] = v
+
+    # 3. Fetch System PO Items and File Metadata if import_file_id is provided
+    system_items = list(request.system_items or [])
+    file_metadata = {}
+    if request.import_file_id:
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+        if imp_file:
+            tax_no = None
+            if imp_file.company and hasattr(imp_file.company, 'tax_card_number'):
+                tax_no = imp_file.company.tax_card_number
+            file_metadata = {
+                "import_file_id": imp_file.import_file_id,
+                "import_file_code": imp_file.import_file_code,
+                "acid_number": imp_file.acid_number,
+                "importer_tax_id": tax_no,
+                "total_amount": imp_file.total_amount or 0.0,
+                "currency": imp_file.currency or "EUR",
+                "total_packages": imp_file.total_packages or 0,
+                "total_gross_weight_kg": imp_file.total_gross_weight_kg or 0.0,
+            }
+            if not system_items:
+                from modules.purchase_orders.model import PurchaseOrder
+                po_records = db.query(PurchaseOrder).filter(PurchaseOrder.import_file_id == request.import_file_id).all()
+                for po in po_records:
+                    for itm in po.items:
+                        system_items.append({
+                            "po_item_id": itm.item_id,
+                            "item_code": itm.item_code or str(itm.item_id),
+                            "description": itm.description_ar or itm.description_en or "بند أمر الشراء",
+                            "hs_code": itm.hs_code or "",
+                            "package_type": "Carton",
+                            "initial_quantity": itm.quantity,
+                            "initial_unit_price": itm.unit_price,
+                            "initial_packages_count": 1.0,
+                            "initial_net_weight_kg": itm.net_weight_kg or 0.0,
+                            "initial_gross_weight_kg": itm.gross_weight_kg or 0.0,
+                            "initial_cbm": itm.total_cbm or 0.0,
+                        })
+
+    if not system_items:
+        inv_itms = inv_data.get("items", [])
+        for idx, itm in enumerate(inv_itms, 1):
+            system_items.append({
+                "po_item_id": idx,
+                "item_code": itm.get("item_code", f"ITEM-{idx}"),
+                "description": itm.get("description", f"بند {idx}"),
+                "hs_code": itm.get("hs_code", ""),
+                "package_type": "Package",
+                "initial_quantity": itm.get("quantity", 1.0),
+                "initial_unit_price": itm.get("unit_price", 0.0),
+                "initial_packages_count": 1.0,
+                "initial_net_weight_kg": 0.0,
+                "initial_gross_weight_kg": 0.0,
+                "initial_cbm": 0.0,
+            })
+
+    # 4. Perform 3-Way Reconciliation
+    reconciled = reconcile_po_documents_with_system(inv_data, pl_data, system_items, file_metadata)
+
+    return POExtractAndCompareResponse(
+        import_file_id=request.import_file_id,
+        overall_status=reconciled["overall_status"],
+        is_safe_for_certification=reconciled["is_safe_for_certification"],
+        critical_discrepancies_count=reconciled["critical_discrepancies_count"],
+        warning_discrepancies_count=reconciled["warning_discrepancies_count"],
+        header_discrepancies=reconciled["header_discrepancies"],
+        reconciled_invoice_items=reconciled["reconciled_invoice_items"],
+        reconciled_packing_items=reconciled["reconciled_packing_items"],
+        extracted_invoice_data=reconciled["extracted_invoice_data"],
+        extracted_packing_data=reconciled["extracted_packing_data"],
+    )
+
 
 

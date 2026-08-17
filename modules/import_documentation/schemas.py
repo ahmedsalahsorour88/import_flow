@@ -759,6 +759,38 @@ class InvoiceBLExtractAndMatchResponse(BaseModel):
     bl_data: Dict[str, Any]
 
 
+class POHeaderDiscrepancyItem(BaseModel):
+    category: str
+    check_code: str
+    field_name_ar: str
+    system_value: Any
+    extracted_value: Any
+    status: str  # 'MATCH', 'MINOR_VARIANCE', 'CRITICAL_VARIANCE'
+    details: str
+
+
+class POExtractAndCompareRequest(BaseModel):
+    import_file_id: Optional[int] = None
+    invoice_raw_text: Optional[str] = None
+    packing_list_raw_text: Optional[str] = None
+    invoice_data: Optional[Dict[str, Any]] = None
+    packing_data: Optional[Dict[str, Any]] = None
+    system_items: Optional[List[Dict[str, Any]]] = None
+
+
+class POExtractAndCompareResponse(BaseModel):
+    import_file_id: Optional[int] = None
+    overall_status: str  # 'FULLY_MATCHED', 'ACCEPTED_WITH_WARNINGS', 'CRITICAL_VARIANCE'
+    is_safe_for_certification: bool
+    critical_discrepancies_count: int
+    warning_discrepancies_count: int
+    header_discrepancies: List[POHeaderDiscrepancyItem]
+    reconciled_invoice_items: List[POReconciliationItem]
+    reconciled_packing_items: List[POReconciliationItem]
+    extracted_invoice_data: Dict[str, Any]
+    extracted_packing_data: Dict[str, Any]
+
+
 class InvoiceBLSyncRequest(BaseModel):
     import_file_id: int
     invoice_data: Dict[str, Any]
@@ -766,5 +798,4 @@ class InvoiceBLSyncRequest(BaseModel):
     sync_to_po: bool = True
     sync_to_shipping: bool = True
     notes: Optional[str] = None
-
 

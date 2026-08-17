@@ -270,6 +270,8 @@ def create_customs_declaration(
 # ==============================================================================
 from modules.import_documentation.schemas import (
     POFinalAdjustmentRequest,
+    POExtractAndCompareRequest,
+    POExtractAndCompareResponse,
     DraftBLComparisonRequest,
     DraftBLReviewCreate,
     DraftBLReviewUpdate,
@@ -292,6 +294,58 @@ def reconcile_po_final_adjustments(
     payload: POFinalAdjustmentRequest, db: Session = Depends(get_db)
 ):
     return service.reconcile_po_final_adjustments_service(db, payload)
+
+
+@router.post(
+    "/po-reconciliation/extract-and-compare",
+    response_model=POExtractAndCompareResponse,
+    status_code=status.HTTP_200_OK,
+)
+def extract_and_compare_po_documents(
+    payload: POExtractAndCompareRequest, db: Session = Depends(get_db)
+):
+    """
+    Intelligently extracts Commercial Invoice and Final Packing List data,
+    executes 3-way reconciliation against System PO, and returns discrepancy variances.
+    """
+    return service.extract_and_compare_po_documents_service(db, payload)
+
+
+@router.post(
+    "/po-reconciliation/extract-files-and-compare",
+    response_model=POExtractAndCompareResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def extract_po_reconciliation_files_and_compare(
+    invoice_file: Optional[UploadFile] = File(None),
+    packing_file: Optional[UploadFile] = File(None),
+    import_file_id: Optional[int] = Form(None),
+    invoice_text: Optional[str] = Form(None),
+    packing_text: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Accepts uploaded Commercial Invoice and/or Packing List files (PDF, Word, Excel, Text)
+    and executes 3-way reconciliation against System PO data.
+    """
+    inv_raw = invoice_text or ""
+    pl_raw = packing_text or ""
+
+    if invoice_file:
+        content = await invoice_file.read()
+        inv_raw = service.extract_text_from_uploaded_file(invoice_file.filename, content)
+
+    if packing_file:
+        content = await packing_file.read()
+        pl_raw = service.extract_text_from_uploaded_file(packing_file.filename, content)
+
+    req = POExtractAndCompareRequest(
+        import_file_id=import_file_id,
+        invoice_raw_text=inv_raw,
+        packing_list_raw_text=pl_raw,
+    )
+    return service.extract_and_compare_po_documents_service(db, req)
+
 
 
 # --- 2. DRAFT BILL OF LADING (B/L) ENDPOINTS ---

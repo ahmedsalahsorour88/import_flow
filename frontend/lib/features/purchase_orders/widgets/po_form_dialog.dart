@@ -11,10 +11,12 @@ import '../../customs_tariff/widgets/tariff_form_dialog.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
+import '../../import_companies/models/import_company_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
+import '../../suppliers/models/supplier_model.dart';
 import '../models/purchase_order_model.dart';
 import '../providers/purchase_orders_provider.dart';
 import 'po_reconciliation_warning_dialog.dart';
@@ -273,6 +275,49 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return null;
   }
 
+  int? _matchCompanyId(Map<String, dynamic> ext, List<ImportCompanyModel> companies) {
+    final rawComp = _getExt(ext, ['importer_name', 'importer name', 'company_name', 'company name', 'importer', 'company', 'consignee', 'client_name'])?.toString().trim().toLowerCase();
+    final rawCompTax = _getExt(ext, ['importer_tax_id', 'importer tax id', 'tax_id', 'vat_id'])?.toString().trim();
+    if (rawComp == null || rawComp.isEmpty) return null;
+
+    final matchedComp = companies.where((c) {
+      final cName = c.importerName.toLowerCase();
+      final cTax = c.vatId.trim();
+      if (rawCompTax != null && rawCompTax.isNotEmpty && (cTax == rawCompTax || cTax.replaceAll(RegExp(r'[^\d]'), '') == rawCompTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
+      if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
+      final noise = {'trading', 'contracting', 'for', 'and', 'co', 'ltd', 'llc', 'corp', 'spa', 'gmbh', 'sae', 's.a.e', 'group', 'the', '&'};
+      final rawTokens = rawComp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      final cTokens = cName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      final intersection = rawTokens.intersection(cTokens);
+      return intersection.isNotEmpty && (intersection.length >= 2 || intersection.length == rawTokens.length || intersection.length == cTokens.length);
+    }).firstOrNull;
+
+    return matchedComp?.companyId;
+  }
+
+  int? _matchSupplierId(Map<String, dynamic> ext, List<SupplierModel> suppliers) {
+    final rawSupp = _getExt(ext, ['supplier_name', 'supplier name', 'supplier', 'vendor_name', 'vendor name', 'vendor', 'shipper', 'exporter_name', 'exporter name', 'exporter'])?.toString().trim().toLowerCase();
+    final rawSuppTax = _getExt(ext, ['supplier_tax_id', 'supplier tax id', 'exporter_id', 'vat_number', 'tax_id'])?.toString().trim();
+    final rawSuppEmail = _getExt(ext, ['supplier_email', 'supplier email', 'email'])?.toString().trim().toLowerCase();
+    if (rawSupp == null || rawSupp.isEmpty) return null;
+
+    final matchedSupp = suppliers.where((s) {
+      final sName = s.companyName.toLowerCase();
+      final sTax = s.foreignExporterId.trim();
+      final sEmail = s.email?.trim().toLowerCase();
+      if (rawSuppTax != null && rawSuppTax.isNotEmpty && (sTax == rawSuppTax || sTax.replaceAll(RegExp(r'[^\d]'), '') == rawSuppTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
+      if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
+      if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
+      final noise = {'ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.', 'co', 'the', '&', 'group', 'uab'};
+      final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+      final intersection = rawTokens.intersection(sTokens);
+      return intersection.isNotEmpty && (intersection.length >= 1 || intersection.length == rawTokens.length || intersection.length == sTokens.length);
+    }).firstOrNull;
+
+    return matchedSupp?.supplierId;
+  }
+
   void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
@@ -291,46 +336,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 1. Company Matching (الشركة المستوردة)
-      final rawComp = _getExt(ext, ['importer_name', 'importer name', 'company_name', 'company name', 'importer', 'company', 'consignee', 'client_name'])?.toString().trim().toLowerCase();
-      final rawCompTax = _getExt(ext, ['importer_tax_id', 'importer tax id', 'tax_id', 'vat_id'])?.toString().trim();
-      if (rawComp != null && rawComp.isNotEmpty) {
-        final matchedComp = companies.where((c) {
-          final cName = c.importerName.toLowerCase();
-          final cTax = c.vatId.trim();
-          if (rawCompTax != null && rawCompTax.isNotEmpty && (cTax == rawCompTax || cTax.replaceAll(RegExp(r'[^\d]'), '') == rawCompTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
-          if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
-          final noise = {'trading', 'contracting', 'for', 'and', 'co', 'ltd', 'llc', 'corp', 'spa', 'gmbh', 'sae', 's.a.e', 'group', 'the', '&'};
-          final rawTokens = rawComp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
-          final cTokens = cName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
-          final intersection = rawTokens.intersection(cTokens);
-          return intersection.isNotEmpty && (intersection.length >= 2 || intersection.length == rawTokens.length || intersection.length == cTokens.length);
-        }).firstOrNull;
-        if (matchedComp != null) {
-          _selectedCompanyId = matchedComp.companyId;
-        }
+      final matchedCompanyId = _matchCompanyId(ext, companies);
+      if (matchedCompanyId != null) {
+        _selectedCompanyId = matchedCompanyId;
       }
 
       // 2. Supplier Matching (المورد الأجنبي)
-      final rawSupp = _getExt(ext, ['supplier_name', 'supplier name', 'supplier', 'vendor_name', 'vendor name', 'vendor', 'shipper', 'exporter_name', 'exporter name', 'exporter'])?.toString().trim().toLowerCase();
-      final rawSuppTax = _getExt(ext, ['supplier_tax_id', 'supplier tax id', 'exporter_id', 'vat_number', 'tax_id'])?.toString().trim();
-      final rawSuppEmail = _getExt(ext, ['supplier_email', 'supplier email', 'email'])?.toString().trim().toLowerCase();
-      if (rawSupp != null && rawSupp.isNotEmpty) {
-        final matchedSupp = suppliers.where((s) {
-          final sName = s.companyName.toLowerCase();
-          final sTax = s.foreignExporterId.trim();
-          final sEmail = s.email?.trim().toLowerCase();
-          if (rawSuppTax != null && rawSuppTax.isNotEmpty && (sTax == rawSuppTax || sTax.replaceAll(RegExp(r'[^\d]'), '') == rawSuppTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
-          if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
-          if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
-          final noise = {'ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.', 'co', 'the', '&', 'group', 'uab'};
-          final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
-          final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
-          final intersection = rawTokens.intersection(sTokens);
-          return intersection.isNotEmpty && (intersection.length >= 1 || intersection.length == rawTokens.length || intersection.length == sTokens.length);
-        }).firstOrNull;
-        if (matchedSupp != null) {
-          _selectedSupplierId = matchedSupp.supplierId;
-        }
+      final matchedSupplierId = _matchSupplierId(ext, suppliers);
+      if (matchedSupplierId != null) {
+        _selectedSupplierId = matchedSupplierId;
       }
 
       // 3. Incoterm Matching (شروط التعاقد)
@@ -642,66 +656,24 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     final ext = widget.initialExtractedFields;
     if (widget.po == null && ext != null) {
-      // 1. Company
-      if (_selectedCompanyId == null && companies.isNotEmpty) {
-        final rawComp = (ext['importer_name'] ?? ext['company_name'] ?? ext['importer'])?.toString().trim().toLowerCase();
-        final rawCompTax = ext['importer_tax_id']?.toString().trim();
-        if (rawComp != null && rawComp.isNotEmpty) {
-          final matchedComp = companies.where((c) {
-            final cName = c.importerName.toLowerCase();
-            final cTax = c.vatId.trim();
-            if (rawCompTax != null && rawCompTax.isNotEmpty && cTax == rawCompTax) return true;
-            if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
-            final rawWords = rawComp.split(RegExp(r'\s+')).where((w) => w.length > 3);
-            final cWords = cName.split(RegExp(r'\s+')).where((w) => w.length > 3);
-            return rawWords.any((rw) => cWords.any((cw) => cw.contains(rw) || rw.contains(cw)));
-          }).firstOrNull;
-          if (matchedComp != null) {
-            _selectedCompanyId = matchedComp.companyId;
-          }
-        }
+      if (_selectedCompanyId == null) {
+        _selectedCompanyId = _matchCompanyId(ext, companies);
       }
-
-      // 2. Supplier
-      if (_selectedSupplierId == null && suppliers.isNotEmpty) {
-        final rawSupp = (ext['supplier_name'] ?? ext['supplier'] ?? ext['vendor_name'])?.toString().trim().toLowerCase();
-        final rawSuppTax = ext['supplier_tax_id']?.toString().trim();
-        final rawSuppEmail = ext['supplier_email']?.toString().trim().toLowerCase();
-        if (rawSupp != null && rawSupp.isNotEmpty) {
-          final matchedSupp = suppliers.where((s) {
-            final sName = s.companyName.toLowerCase();
-            final sTax = s.foreignExporterId.trim();
-            final sEmail = s.email?.trim().toLowerCase();
-            if (rawSuppTax != null && rawSuppTax.isNotEmpty && sTax == rawSuppTax) return true;
-            if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
-            if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
-            final rawWords = rawSupp.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
-            final sWords = sName.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
-            return rawWords.any((rw) => sWords.any((sw) => sw.contains(rw) || rw.contains(sw)));
-          }).firstOrNull;
-          if (matchedSupp != null) {
-            _selectedSupplierId = matchedSupp.supplierId;
-          }
-        }
+      if (_selectedSupplierId == null) {
+        _selectedSupplierId = _matchSupplierId(ext, suppliers);
       }
-
-      // 3. Incoterm
       if (_selectedIncotermId == null && incoterms.isNotEmpty) {
-        final rawInco = (ext['incoterms'] ?? ext['incoterm'])?.toString().trim().toUpperCase();
+        final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
         if (rawInco != null && rawInco.isNotEmpty) {
           final matchedInco = incoterms.where((i) {
             final code = i.incotermCode.toUpperCase().trim();
             return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
           }).firstOrNull;
-          if (matchedInco != null) {
-            _selectedIncotermId = matchedInco.incotermId;
-          }
+          if (matchedInco != null) _selectedIncotermId = matchedInco.incotermId;
         }
       }
-
-      // 4. Currency
       if (_selectedCurrencyId == null && currencies.isNotEmpty) {
-        final rawCurr = (ext['currency'] ?? ext['currency_code'])?.toString().trim().toUpperCase();
+        final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
         if (rawCurr != null && rawCurr.isNotEmpty) {
           final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
           if (matchedCurr != null) {
@@ -710,22 +682,27 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           }
         }
       }
-
-      // 5. Country of Origin
       if (_selectedCountryOfOrigin == null) {
-        final rawCty = (ext['country_of_origin'] ?? ext['supplier_country'] ?? ext['country'])?.toString().trim().toUpperCase();
+        final rawCty = _getExt(ext, ['country_of_origin', 'country of origin', 'origin_country', 'supplier_country', 'supplier country', 'country'])?.toString().trim().toUpperCase();
         if (rawCty != null && rawCty.isNotEmpty) {
-          final matchedCty = countryOptions.where((c) =>
-            c['code'] == rawCty ||
-            c['name']!.toUpperCase().contains(rawCty) ||
-            (rawCty == 'LT' && (c['code'] == 'LT' || c['name']!.contains('Lithuania') || c['name']!.contains('ليتوانيا'))) ||
-            (rawCty == 'CN' && (c['code'] == 'CN' || c['name']!.contains('China') || c['name']!.contains('الصين'))) ||
-            (rawCty == 'IT' && (c['code'] == 'IT' || c['name']!.contains('Italy') || c['name']!.contains('إيطاليا')))
-          ).firstOrNull;
-          if (matchedCty != null) {
-            _selectedCountryOfOrigin = matchedCty['name'];
-          }
+          _selectedCountryOfOrigin = normalizeCountryName(rawCty);
         }
+      }
+    }
+
+    // Default fallback only if not matched
+    if (_selectedCompanyId == null && companies.isNotEmpty) {
+      if (ext != null) {
+        _selectedCompanyId = _matchCompanyId(ext, companies) ?? companies.first.companyId;
+      } else {
+        _selectedCompanyId = companies.first.companyId;
+      }
+    }
+    if (_selectedSupplierId == null && suppliers.isNotEmpty) {
+      if (ext != null) {
+        _selectedSupplierId = _matchSupplierId(ext, suppliers) ?? suppliers.first.supplierId;
+      } else {
+        _selectedSupplierId = suppliers.first.supplierId;
       }
     }
 

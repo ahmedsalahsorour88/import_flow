@@ -9,6 +9,7 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/row_context_menu.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
@@ -71,6 +72,22 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                 Row(
                   children: [
                     const BackToDashboardButton(),
+                    const SizedBox(width: 10),
+                    ElevatedButton.icon(
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: const Text('⚡ AI Extractor & Coding'),
+                      onPressed: () => UniversalEntityExtractorDialog.show(
+                        context,
+                        initialTarget: EntityTarget.supplier,
+                        onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 18),

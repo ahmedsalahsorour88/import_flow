@@ -49,6 +49,16 @@ class SmartUploadResponse(BaseModel):
     extraction_notes: Optional[str] = None
     raw_text_preview: Optional[str] = None  # First 500 chars of extracted text (debug)
 
+    # ── Entity Verification Results ─────────────────────────────────────────
+    # Indicates whether supplier_name / importer_name extracted from the document
+    # were matched against existing records in the database.
+    supplier_verified: Optional[bool] = None   # True=found, False=not found, None=not applicable
+    supplier_id: Optional[int] = None          # DB supplier_id if matched
+    supplier_code: Optional[str] = None        # Business code if matched (e.g. SUP-000001)
+    importer_verified: Optional[bool] = None   # True=found, False=not found, None=not applicable
+    importer_id: Optional[int] = None          # DB company_id if matched
+    importer_code: Optional[str] = None        # Business importer_id code if matched
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Upload Session list/detail

@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../models/purchase_order_model.dart';
@@ -58,7 +59,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
       final response = await _dio.get(
-        '/purchase-orders',
+        ApiConstants.purchaseOrders,
         queryParameters: {
           'include_inactive': state.showInactive,
           if (state.statusFilter != null && state.statusFilter!.isNotEmpty) 'status': state.statusFilter,
@@ -99,7 +100,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<String?> createPurchaseOrder(PurchaseOrderModel po) async {
     try {
-      await _dio.post('/purchase-orders', data: po.toJson());
+      await _dio.post(ApiConstants.purchaseOrders, data: po.toJson());
       await fetchPurchaseOrders();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
@@ -127,7 +128,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<String?> updatePurchaseOrder(int poId, Map<String, dynamic> data) async {
     try {
-      await _dio.put('/purchase-orders/$poId', data: data);
+      await _dio.put('${ApiConstants.purchaseOrders}/$poId', data: data);
       await fetchPurchaseOrders();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
@@ -155,7 +156,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> deletePurchaseOrder(int poId) async {
     try {
-      await _dio.delete('/purchase-orders/$poId');
+      await _dio.delete('${ApiConstants.purchaseOrders}/$poId');
       await fetchPurchaseOrders();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
@@ -168,7 +169,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 
   Future<bool> restorePurchaseOrder(int poId) async {
     try {
-      await _dio.post('/purchase-orders/$poId/restore');
+      await _dio.post('${ApiConstants.purchaseOrders}/$poId/restore');
       await fetchPurchaseOrders();
       _ref.read(importFilesProvider.notifier).fetchImportFiles();
       _ref.read(shippingScenariosProvider.notifier).fetchSessions();
@@ -180,15 +181,7 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
   }
 }
 
-final purchaseOrdersDioProvider = Provider<Dio>((ref) {
-  return Dio(BaseOptions(
-    baseUrl: ApiConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 180),
-    receiveTimeout: const Duration(seconds: 180),
-  ));
-});
-
 final purchaseOrdersProvider = StateNotifierProvider<PurchaseOrdersNotifier, PurchaseOrdersState>((ref) {
-  final dio = ref.watch(purchaseOrdersDioProvider);
+  final dio = ref.watch(dioProvider);
   return PurchaseOrdersNotifier(dio, ref);
 });

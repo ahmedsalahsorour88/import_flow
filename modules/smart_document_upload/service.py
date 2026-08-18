@@ -27,6 +27,11 @@ from modules.smart_document_upload.extractors.master_data_entity import MasterDa
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 import modules.smart_document_upload.repository as repo
 
+# Entity verification imports
+from modules.suppliers.model import Supplier
+from modules.import_companies.model import ImportCompany
+
+
 logger = logging.getLogger(__name__)
 
 # ─── Extractor Registry ───────────────────────────────────────────────────────
@@ -97,6 +102,88 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
         return f"[Extraction error: {e}]"
 
 
+# ─── Entity Verification ──────────────────────────────────────────────────────
+
+def verify_extracted_entities(db: Session, extracted_fields: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    After field extraction, checks whether the identified supplier_name and
+    importer_name (consignee) exist in the database.
+
+    Returns a dict with verification results:
+    {
+        supplier_verified: bool | None,
+        supplier_id: int | None,
+        supplier_code: str | None,
+        importer_verified: bool | None,
+        importer_id: int | None,
+        importer_code: str | None,
+    }
+    Uses case-insensitive LIKE search to handle minor name differences.
+    """
+    result: Dict[str, Any] = {
+        "supplier_verified": None,
+        "supplier_id": None,
+        "supplier_code": None,
+        "importer_verified": None,
+        "importer_id": None,
+        "importer_code": None,
+    }
+
+    # ── Supplier verification ────────────────────────────────────────────────
+    supplier_name: Optional[str] = extracted_fields.get("supplier_name") or extracted_fields.get("shipper")
+    if supplier_name and supplier_name.strip():
+        name_clean = supplier_name.strip()
+        try:
+            from sqlalchemy import func as sa_func
+            matched_supplier = (
+                db.query(Supplier)
+                .filter(
+                    Supplier.is_active == True,
+                    sa_func.lower(Supplier.company_name).contains(name_clean.lower()[:40])
+                )
+                .first()
+            )
+            if matched_supplier:
+                result["supplier_verified"] = True
+                result["supplier_id"] = matched_supplier.supplier_id
+                result["supplier_code"] = matched_supplier.supplier_code
+            else:
+                result["supplier_verified"] = False
+        except Exception as e:
+            logger.warning(f"Supplier verification query failed: {e}")
+            result["supplier_verified"] = False
+
+    # ── Importer / Consignee verification ────────────────────────────────────
+    importer_name: Optional[str] = (
+        extracted_fields.get("importer_name")
+        or extracted_fields.get("consignee")
+        or extracted_fields.get("company_name")
+    )
+    if importer_name and importer_name.strip():
+        name_clean = importer_name.strip()
+        try:
+            from sqlalchemy import func as sa_func
+            matched_company = (
+                db.query(ImportCompany)
+                .filter(
+                    ImportCompany.is_active == True,
+                    sa_func.lower(ImportCompany.importer_name).contains(name_clean.lower()[:40])
+                )
+                .first()
+            )
+            if matched_company:
+                result["importer_verified"] = True
+                result["importer_id"] = matched_company.company_id
+                result["importer_code"] = matched_company.importer_id  # business code field
+            else:
+                result["importer_verified"] = False
+        except Exception as e:
+            logger.warning(f"Importer verification query failed: {e}")
+            result["importer_verified"] = False
+
+    return result
+
+
 # ─── Main Service Function ────────────────────────────────────────────────────
 
 def parse_uploaded_document(
@@ -151,7 +238,10 @@ def parse_uploaded_document(
         + (f"Missing: {', '.join(missing)}." if missing else "All required fields found.")
     )
 
-    # Step 5 — Save session
+    # Step 5 — Verify extracted entities against DB (supplier + importer)
+    entity_verification = verify_extracted_entities(db, extracted_fields)
+
+    # Step 6 — Save session
     session_id = None
     session_ref = None
     if save_session:
@@ -187,6 +277,7 @@ def parse_uploaded_document(
         "missing_fields": missing,
         "extraction_notes": notes,
         "raw_text_preview": raw_text[:500] if raw_text else None,
+        **entity_verification,
     }
 
 
@@ -238,6 +329,9 @@ def parse_multiple_uploaded_documents(
         + (f"Missing: {', '.join(missing)}." if missing else "All required fields found.")
     )
 
+    # Verify extracted entities against DB (supplier + importer)
+    entity_verification = verify_extracted_entities(db, extracted_fields)
+
     session_id = None
     session_ref = None
     if save_session:
@@ -273,6 +367,7 @@ def parse_multiple_uploaded_documents(
         "missing_fields": missing,
         "extraction_notes": notes,
         "raw_text_preview": full_text[:500] if full_text else None,
+        **entity_verification,
     }
 
 
@@ -306,6 +401,9 @@ def parse_raw_text_directly(
         f"Confidence: {confidence:.0%}. "
         + (f"Missing: {', '.join(missing)}." if missing else "All required fields found.")
     )
+
+    # Verify extracted entities against DB (supplier + importer)
+    entity_verification = verify_extracted_entities(db, extracted_fields)
 
     session_id = None
     session_ref = None
@@ -341,7 +439,9 @@ def parse_raw_text_directly(
         "extracted_fields": extracted_fields,
         "missing_fields": missing,
         "extraction_notes": notes,
+        **entity_verification,
     }
+
 
 def get_upload_sessions_service(db: Session, module_name: str = None, skip: int = 0, limit: int = 50):
     return repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)

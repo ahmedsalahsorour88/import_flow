@@ -4,6 +4,13 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, 
 from sqlalchemy.orm import relationship
 
 from database.database import Base
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.projects.model import Project
+from modules.incoterms.model import Incoterm
+from modules.currencies.model import Currency
+from modules.customs_tariff.model import CustomsTariff
+from modules.import_files.model import ImportFile
 
 
 # ==================================================

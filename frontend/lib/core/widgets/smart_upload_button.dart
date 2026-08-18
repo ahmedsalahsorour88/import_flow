@@ -51,6 +51,14 @@ class SmartUploadResult {
   final String? extractionNotes;
   final String? rawTextPreview;
 
+  // ── Entity Verification ─────────────────────────────────────────────────
+  final bool? supplierVerified;
+  final int? supplierId;
+  final String? supplierCode;
+  final bool? importerVerified;
+  final int? importerDbId;
+  final String? importerCode;
+
   const SmartUploadResult({
     this.sessionId,
     this.sessionRef,
@@ -63,6 +71,13 @@ class SmartUploadResult {
     required this.missingFields,
     this.extractionNotes,
     this.rawTextPreview,
+    // verification
+    this.supplierVerified,
+    this.supplierId,
+    this.supplierCode,
+    this.importerVerified,
+    this.importerDbId,
+    this.importerCode,
   });
 
   factory SmartUploadResult.fromJson(Map<String, dynamic> json) {
@@ -78,6 +93,13 @@ class SmartUploadResult {
       missingFields: List<String>.from(json['missing_fields'] ?? []),
       extractionNotes: json['extraction_notes'],
       rawTextPreview: json['raw_text_preview'],
+      // verification
+      supplierVerified: json['supplier_verified'] as bool?,
+      supplierId: json['supplier_id'] as int?,
+      supplierCode: json['supplier_code'] as String?,
+      importerVerified: json['importer_verified'] as bool?,
+      importerDbId: json['importer_id'] as int?,
+      importerCode: json['importer_code'] as String?,
     );
   }
 
@@ -98,6 +120,12 @@ class SmartUploadResult {
     List<String>? missingFields,
     String? extractionNotes,
     String? rawTextPreview,
+    bool? supplierVerified,
+    int? supplierId,
+    String? supplierCode,
+    bool? importerVerified,
+    int? importerDbId,
+    String? importerCode,
   }) {
     return SmartUploadResult(
       sessionId: sessionId ?? this.sessionId,
@@ -111,6 +139,12 @@ class SmartUploadResult {
       missingFields: missingFields ?? this.missingFields,
       extractionNotes: extractionNotes ?? this.extractionNotes,
       rawTextPreview: rawTextPreview ?? this.rawTextPreview,
+      supplierVerified: supplierVerified ?? this.supplierVerified,
+      supplierId: supplierId ?? this.supplierId,
+      supplierCode: supplierCode ?? this.supplierCode,
+      importerVerified: importerVerified ?? this.importerVerified,
+      importerDbId: importerDbId ?? this.importerDbId,
+      importerCode: importerCode ?? this.importerCode,
     );
   }
 }
@@ -589,6 +623,68 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                       ],
                     ),
                     const SizedBox(height: 8),
+
+                    // ── Entity Verification Panel ──────────────────────────
+                    if (result.supplierVerified != null || result.importerVerified != null) ...[
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppTheme.charcoal.withOpacity(0.04),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Row(
+                              children: [
+                                Icon(Icons.verified_user_rounded, size: 15, color: AppTheme.charcoal),
+                                SizedBox(width: 6),
+                                Text(
+                                  'التحقق من تسجيل الأطراف في قاعدة البيانات',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            if (result.supplierVerified != null)
+                              _EntityVerificationRow(
+                                icon: Icons.factory_rounded,
+                                label: 'المورد الأجنبي',
+                                entityName: _currentFields['supplier_name']?.toString() ??
+                                    _currentFields['shipper']?.toString() ?? '—',
+                                isVerified: result.supplierVerified!,
+                                entityCode: result.supplierCode,
+                                verifiedTooltip: result.supplierCode != null
+                                    ? 'مسجل بالكود: ${result.supplierCode}'
+                                    : 'مسجل في النظام',
+                                unverifiedTooltip: 'غير موجود في الموردين — يلزم التسجيل',
+                                onRegisterTap: result.supplierVerified! ? null : () =>
+                                    UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.supplier),
+                              ),
+                            if (result.supplierVerified != null && result.importerVerified != null)
+                              const SizedBox(height: 6),
+                            if (result.importerVerified != null)
+                              _EntityVerificationRow(
+                                icon: Icons.domain_rounded,
+                                label: 'الشركة المستوردة',
+                                entityName: _currentFields['importer_name']?.toString() ??
+                                    _currentFields['consignee']?.toString() ?? '—',
+                                isVerified: result.importerVerified!,
+                                entityCode: result.importerCode,
+                                verifiedTooltip: result.importerCode != null
+                                    ? 'مسجلة بالكود: ${result.importerCode}'
+                                    : 'مسجلة في النظام',
+                                unverifiedTooltip: 'غير موجودة في الشركات المستوردة — يلزم التسجيل',
+                                onRegisterTap: result.importerVerified! ? null : () =>
+                                    UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.company),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     if (nonNullFields.isNotEmpty) ...[
                       ...nonNullFields.map((e) => _FieldRow(
                             fieldKey: e.key,
@@ -613,49 +709,6 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                           ),
                         ),
                       ),
-
-                    // Quick Registration Actions for Supplier & Importer
-                    const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        if (_currentFields['supplier_name'] != null)
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.cobalt,
-                              side: const BorderSide(color: AppTheme.cobalt),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.auto_awesome, size: 16),
-                            label: Text(
-                              '🤖 استدعاء AI Coding لتكويد "${_currentFields['supplier_name']}"',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: () => UniversalEntityExtractorDialog.show(
-                              context,
-                              initialTarget: EntityTarget.supplier,
-                            ),
-                          ),
-                        if (_currentFields['importer_name'] != null)
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: AppTheme.emerald,
-                              side: const BorderSide(color: AppTheme.emerald),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            ),
-                            icon: const Icon(Icons.domain_add_rounded, size: 16),
-                            label: Text(
-                              '🤖 استدعاء AI Coding لتكويد "${_currentFields['importer_name']}"',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                            ),
-                            onPressed: () => UniversalEntityExtractorDialog.show(
-                              context,
-                              initialTarget: EntityTarget.company,
-                            ),
-                          ),
-                      ],
-                    ),
 
                     // HS Code Compliance & Registration Warning with Smart Nafeza Trigger
                     if (_currentFields['hs_code_compliance_warning'] != null) ...[
@@ -835,6 +888,112 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
     }
     if (value is Map) return '{...}';
     return value.toString();
+  }
+}
+
+
+// ─── _EntityVerificationRow ───────────────────────────────────────────────────
+class _EntityVerificationRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String entityName;
+  final bool isVerified;
+  final String? entityCode;
+  final String verifiedTooltip;
+  final String unverifiedTooltip;
+  final VoidCallback? onRegisterTap;
+
+  const _EntityVerificationRow({
+    required this.icon,
+    required this.label,
+    required this.entityName,
+    required this.isVerified,
+    this.entityCode,
+    required this.verifiedTooltip,
+    required this.unverifiedTooltip,
+    this.onRegisterTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final badgeColor = isVerified ? AppTheme.emerald : AppTheme.crimson;
+    final badgeIcon = isVerified ? Icons.check_circle_rounded : Icons.cancel_rounded;
+    final badgeLabel = isVerified ? 'مؤكد' : 'غير مؤكد';
+    final tooltip = isVerified ? verifiedTooltip : unverifiedTooltip;
+
+    return Tooltip(
+      message: tooltip,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        decoration: BoxDecoration(
+          color: badgeColor.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: badgeColor.withOpacity(0.25)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 16, color: badgeColor),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 100,
+              child: Text(
+                label,
+                style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Expanded(
+              child: Text(
+                entityName,
+                style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: badgeColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(badgeIcon, size: 13, color: badgeColor),
+                  const SizedBox(width: 4),
+                  Text(
+                    badgeLabel,
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: badgeColor),
+                  ),
+                ],
+              ),
+            ),
+            if (!isVerified && onRegisterTap != null) ...[
+              const SizedBox(width: 6),
+              InkWell(
+                onTap: onRegisterTap,
+                borderRadius: BorderRadius.circular(6),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_rounded, size: 13, color: AppTheme.cobalt),
+                      SizedBox(width: 3),
+                      Text('سجّل', style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -6,6 +6,8 @@ import 'features/home/home_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 
+final appReloadKeyProvider = StateProvider<int>((ref) => 0);
+
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -38,7 +40,7 @@ void main() {
               ),
               const SizedBox(height: 8),
               Text(
-                'تأكد من تشغيل سيرفر الباك إند (FastAPI) على http://127.0.0.1:8000 ثم قم بعمل تحديث للصفحة (F5).',
+                'تأكد من تشغيل سيرفر الباك إند (FastAPI) على http://127.0.0.1:8000 ثم اضغط على زر إعادة المحاولة أدناه.',
                 style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                 textAlign: TextAlign.center,
               ),
@@ -57,11 +59,20 @@ void main() {
                 ),
               ),
               const SizedBox(height: 16),
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                onPressed: () {},
-                icon: const Icon(Icons.refresh, color: Colors.white),
-                label: const Text('تحديث الصفحة (F5)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              Consumer(
+                builder: (context, ref, child) {
+                  return ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.cobalt,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                    ),
+                    onPressed: () {
+                      ref.read(appReloadKeyProvider.notifier).state++;
+                    },
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    label: const Text('إعادة المحاولة وتحديث البيانات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  );
+                },
               ),
             ],
           ),
@@ -102,14 +113,18 @@ class ImportFlowApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final reloadKey = ref.watch(appReloadKeyProvider);
     final authState = ref.watch(authProvider);
 
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'ImportFlow ERP',
-      theme: AppTheme.lightTheme,
-      scrollBehavior: AppCustomScrollBehavior(),
-      home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+    return KeyedSubtree(
+      key: ValueKey(reloadKey),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'ImportFlow ERP',
+        theme: AppTheme.lightTheme,
+        scrollBehavior: AppCustomScrollBehavior(),
+        home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+      ),
     );
   }
 }

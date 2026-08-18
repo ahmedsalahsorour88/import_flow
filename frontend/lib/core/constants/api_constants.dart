@@ -4,8 +4,9 @@ class ApiConstants {
   // ── Server & Base ─────────────────────────────────────────
   static String get serverUrl {
     if (kIsWeb) {
-      final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
-      return 'http://$host:8000';
+      final host = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
+      final resolvedHost = (host == 'localhost') ? '127.0.0.1' : host;
+      return 'http://$resolvedHost:8000';
     }
     return 'http://127.0.0.1:8000';
   }

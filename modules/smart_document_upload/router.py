@@ -1,0 +1,313 @@
+"""
+Smart Document Upload — FastAPI Router
+Universal file upload & AI extraction endpoint for all ImportFlow modules.
+"""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session
+
+from database.database import get_db
+from modules.smart_document_upload.schemas import SmartUploadResponse, UploadSessionResponse
+from modules.smart_document_upload.validators import (
+    validate_module_name,
+    validate_upload_file,
+    validate_file_size,
+    SUPPORTED_MODULES,
+)
+import modules.smart_document_upload.service as service
+import modules.smart_document_upload.repository as repo
+
+router = APIRouter(
+    prefix="/api/v1/smart-upload",
+    tags=["Smart Document Upload"],
+)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Main Parse Endpoint — Universal
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/parse/{module}",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload a document and extract fields for a specific module",
+)
+async def parse_document_for_module(
+    module: str,
+    file: UploadFile = File(..., description="PDF, Word (.docx), or Excel (.xlsx) file"),
+    save_session: bool = Form(True, description="Save this upload as a session record"),
+    db: Session = Depends(get_db),
+):
+    """
+    Universal smart document upload endpoint.
+
+    Accepts a PDF, Word, or Excel file and extracts structured data for the specified module.
+
+    **Supported modules:**
+    - `purchase-order` — Commercial Invoice / PO document
+    - `import-file` — Commercial Invoice to pre-fill Import File
+    - `cargo-shipping` — Bill of Lading (B/L)
+    - `customs-clearance` — Customs Declaration / Bayaan
+    - `freight-quotation` — Freight Rate Quote
+    - `freight-booking` — Booking Confirmation
+    - `customs-consultation` — Invoice for HS code consultation
+    - `coo-certificate` — Certificate of Origin
+    - `inspection-certificate` — Inspection / Quality Certificate
+    - `financial-document` — Financial Invoice / Payment document
+    - `warehouse-receiving` — Delivery Note
+    - `demurrage` — Demurrage / Detention Invoice
+    """
+    # Validate module
+    validate_module_name(module)
+
+    # Validate file type
+    file_type = validate_upload_file(file)
+
+    # Read file content
+    content_bytes = await file.read()
+
+    # Validate file size
+    validate_file_size(content_bytes, file.filename or "unknown")
+
+    # Parse & extract
+    result = service.parse_uploaded_document(
+        db=db,
+        module_name=module,
+        filename=file.filename or "unknown",
+        file_type=file_type,
+        content_bytes=content_bytes,
+        save_session=save_session,
+    )
+
+    return SmartUploadResponse(**result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Convenience Module-Specific Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/parse/purchase-order",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Purchase Order fields from uploaded document",
+)
+async def parse_purchase_order(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload a Commercial Invoice or PO document to auto-fill Purchase Order form."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="purchase-order", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/parse/cargo-shipping",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Bill of Lading fields from uploaded document",
+)
+async def parse_cargo_shipping(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload a Bill of Lading PDF to auto-fill Cargo Shipping record."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="cargo-shipping", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/parse/customs-clearance",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Customs Declaration fields from uploaded document",
+)
+async def parse_customs_clearance(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload a Customs Declaration (بيان جمركي) PDF to auto-fill Customs Clearance record."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="customs-clearance", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/parse/import-file",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Import File fields from Commercial Invoice",
+)
+async def parse_import_file(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload a Commercial Invoice to auto-fill Import File record."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="import-file", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/parse/coo-certificate",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Certificate of Origin fields",
+)
+async def parse_coo_certificate(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload a Certificate of Origin to auto-fill COO Review fields."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="coo-certificate", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+@router.post(
+    "/parse/inspection-certificate",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Extract Inspection Certificate fields",
+)
+async def parse_inspection_certificate(
+    file: UploadFile = File(...),
+    save_session: bool = Form(True),
+    db: Session = Depends(get_db),
+):
+    """Upload an Inspection Certificate to auto-fill Inspection Review fields."""
+    file_type = validate_upload_file(file)
+    content_bytes = await file.read()
+    validate_file_size(content_bytes, file.filename or "unknown")
+    result = service.parse_uploaded_document(
+        db=db, module_name="inspection-certificate", filename=file.filename or "unknown",
+        file_type=file_type, content_bytes=content_bytes, save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Session History Endpoints
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/sessions",
+    response_model=List[UploadSessionResponse],
+    status_code=status.HTTP_200_OK,
+    summary="List all upload sessions",
+)
+def list_upload_sessions(
+    module_name: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    db: Session = Depends(get_db),
+):
+    """List smart upload sessions, optionally filtered by module name."""
+    sessions = repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)
+    result = []
+    for s in sessions:
+        d = {
+            "id": s.id,
+            "session_ref": s.session_ref,
+            "module_name": s.module_name,
+            "filename": s.filename,
+            "file_type": s.file_type,
+            "file_size_bytes": s.file_size_bytes,
+            "extraction_status": s.extraction_status,
+            "confidence_score": s.confidence_score or 0.0,
+            "extracted_fields": s.get_extracted_fields(),
+            "missing_fields": s.get_missing_fields(),
+            "extraction_notes": s.extraction_notes,
+            "linked_record_id": s.linked_record_id,
+            "linked_module": s.linked_module,
+            "created_at": s.created_at,
+        }
+        result.append(UploadSessionResponse(**d))
+    return result
+
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=UploadSessionResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get a specific upload session by ID",
+)
+def get_upload_session(session_id: int, db: Session = Depends(get_db)):
+    s = repo.get_upload_session_by_id(db, session_id)
+    if not s:
+        raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
+    return UploadSessionResponse(
+        id=s.id,
+        session_ref=s.session_ref,
+        module_name=s.module_name,
+        filename=s.filename,
+        file_type=s.file_type,
+        file_size_bytes=s.file_size_bytes,
+        extraction_status=s.extraction_status,
+        confidence_score=s.confidence_score or 0.0,
+        extracted_fields=s.get_extracted_fields(),
+        missing_fields=s.get_missing_fields(),
+        extraction_notes=s.extraction_notes,
+        linked_record_id=s.linked_record_id,
+        linked_module=s.linked_module,
+        created_at=s.created_at,
+    )
+
+
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Soft-delete an upload session",
+)
+def delete_upload_session(session_id: int, db: Session = Depends(get_db)):
+    deleted = repo.soft_delete_upload_session(db, session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
+    return {"message": f"Upload session {session_id} deleted successfully."}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Info Endpoint
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/modules", status_code=status.HTTP_200_OK, summary="List supported modules")
+def list_supported_modules():
+    """Returns list of all supported modules for smart document upload."""
+    return {"supported_modules": sorted(SUPPORTED_MODULES)}

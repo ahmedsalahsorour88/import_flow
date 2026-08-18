@@ -26,6 +26,7 @@ import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
 import '../../../core/widgets/row_actions_pill.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/stop_shipment_dialog.dart';
 import '../models/import_file_model.dart';
 
@@ -1032,6 +1033,23 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           ],
         ),
         actions: [
+          SmartUploadButton(
+            module: SmartUploadModule.importFile,
+            label: 'رفع وثيقة ملف استيراد (PDF / Word / Excel)',
+            onDataExtracted: (result) {
+              final fields = result.extractedFields;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'تم استخراج بيانات ملف الاستيراد بنجاح (${fields['commodity_description'] ?? fields['invoice_number'] ?? 'جاهز'})',
+                  ),
+                  backgroundColor: AppTheme.emerald,
+                  duration: const Duration(seconds: 5),
+                ),
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),

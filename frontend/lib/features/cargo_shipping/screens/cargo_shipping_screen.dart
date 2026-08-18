@@ -6,6 +6,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -623,6 +624,23 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       selectedIndex: _mainTabController.index,
       onTabSelected: (index) => setState(() => _mainTabController.index = index),
       headerActions: [
+        SmartUploadButton(
+          module: SmartUploadModule.cargoShipping,
+          label: 'رفع واستخراج B/L (PDF / Word / Excel)',
+          onDataExtracted: (result) {
+            final fields = result.extractedFields;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'تم استخراج بيانات شحنة B/L بنجاح (${fields['bl_number'] ?? 'بدون رقم B/L'})',
+                ),
+                backgroundColor: AppTheme.emerald,
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          },
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: 'إعادة تحميل حية',

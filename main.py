@@ -47,6 +47,7 @@ from modules.notifications.model import SystemNotification
 from modules.smart_tasks.model import SmartTask
 from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
+from modules.smart_document_upload.model import UploadSession
 
 
 # ==================================================
@@ -85,6 +86,7 @@ from modules.shipment_updates.router import router as shipment_updates_router
 from modules.import_requirements.router import router as import_requirements_router
 from modules.demurrage_detention.router import router as demurrage_detention_router
 from modules.lifecycle_board.router import router as lifecycle_board_router
+from modules.smart_document_upload.router import router as smart_document_upload_router
 
 
 # ==================================================
@@ -196,6 +198,7 @@ app.include_router(shipment_updates_router)
 app.include_router(import_requirements_router)
 app.include_router(demurrage_detention_router)
 app.include_router(lifecycle_board_router)
+app.include_router(smart_document_upload_router)
 
 
 # ==================================================

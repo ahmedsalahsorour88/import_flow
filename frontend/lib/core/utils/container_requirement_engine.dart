@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 class CargoItem {
   final String itemId;
   final double length; // cm
@@ -55,6 +57,7 @@ class ContainerPackingResult {
   final double totalWeight;
   final double totalVolume;
   final bool fits;
+  final String? failureReason;
 
   ContainerPackingResult({
     required this.containerCode,
@@ -64,6 +67,7 @@ class ContainerPackingResult {
     required this.totalWeight,
     required this.totalVolume,
     required this.fits,
+    this.failureReason,
   });
 }
 
@@ -302,9 +306,9 @@ class ContainerRequirementEngine {
     );
   }
 
-  /// Advanced 3D/2.5D Cargo Packing Algorithm supporting mixed Stackable and Non-Stackable Cargo:
+  /// Advanced 3D/2.5D Cargo Packing Algorithm using Extreme-Point 3D Bin Packing:
   /// - Non-stackable cargo: Placed strictly on the container floor (z = 0) and blocks all vertical space above.
-  /// - Stackable cargo: Can be placed on the floor (z = 0) or stacked on top of compatible stackable items below.
+  /// - Stackable cargo: Can be placed on the floor (z = 0) or tiled on top of compatible stackable items below.
   static ContainerPackingResult packCargo({
     required List<CargoItem> items,
     required ContainerSpec spec,
@@ -322,7 +326,6 @@ class ContainerRequirementEngine {
         if ((volA - volB).abs() > 0.01) {
           return volB.compareTo(volA);
         }
-        // If same dimensions, place non-stackable first on floor
         if (a.isStackable != b.isStackable) {
           return a.isStackable ? 1 : -1;
         }
@@ -332,140 +335,138 @@ class ContainerRequirementEngine {
     final List<PlacedItem> placed = [];
     final List<CargoItem> unplaced = [];
 
-    // Shelves along container floor: [y_start, shelf_depth, x_cursor]
-    final List<List<double>> shelves = [];
+    // Helper: 3D bounding box collision check
+    bool hasCollision(double x, double y, double z, double L, double W, double H) {
+      for (final p in placed) {
+        final bool overlapX = x < (p.x + p.length - 0.01) && (x + L - 0.01) > p.x;
+        final bool overlapY = y < (p.y + p.width - 0.01) && (y + W - 0.01) > p.y;
+        final bool overlapZ = z < (p.z + p.height - 0.01) && (z + H - 0.01) > p.z;
+        if (overlapX && overlapY && overlapZ) return true;
+        // Non-stackable items block all space above them
+        if (!p.item.isStackable && overlapX && overlapY && z >= (p.z + p.height - 0.01)) return true;
+      }
+      return false;
+    }
 
     for (final item in sortedItems) {
-      if (item.height > spec.internalHeight || item.length > spec.internalLength || item.width > spec.internalWidth) {
-        // Exceeds raw container physical dimensions
+      final bool fitsNormal = item.length <= spec.internalLength + 0.1 && item.width <= spec.internalWidth + 0.1;
+      final bool fitsRotated = item.rotate && item.width <= spec.internalLength + 0.1 && item.length <= spec.internalWidth + 0.1;
+      final bool fitsHeight = item.height <= spec.internalHeight + 0.1;
+
+      // Reject early ONLY if neither orientation fits inside container boundaries or height exceeds internal height
+      if (!fitsHeight || (!fitsNormal && !fitsRotated)) {
         unplaced.add(item);
         continue;
       }
 
       bool isPlaced = false;
 
-      // 1. If item is stackable, check if it can be stacked vertically on top of an already placed stackable item
+      // Evaluate both orientations (swapping Length and Width if rotation is allowed)
+      final orientations = <List<double>>[];
+      if (fitsNormal) {
+        orientations.add([item.length, item.width]);
+      }
+      if (fitsRotated && (item.length - item.width).abs() > 0.1) {
+        orientations.add([item.width, item.length]);
+      }
+      if (orientations.isEmpty) {
+        orientations.add([item.length, item.width]);
+      }
+
+      // 1. If stackable, try placing on top of compatible stackable base items
       if (item.isStackable) {
-        for (int i = 0; i < placed.length; i++) {
-          final base = placed[i];
-          if (!base.item.isStackable) continue; // Cannot stack on non-stackable item
-
+        for (final base in placed) {
+          if (!base.item.isStackable) continue;
           final double topZ = base.z + base.height;
-          if (topZ + item.height > spec.internalHeight) continue; // Exceeds ceiling height
+          if (topZ + item.height > spec.internalHeight + 0.1) continue;
 
-          // Check if top space is already occupied
-          final bool alreadyOccupiedAbove = placed.any((p) =>
-              p.z >= topZ &&
-              p.x < (base.x + base.length) &&
-              (p.x + p.length) > base.x &&
-              p.y < (base.y + base.width) &&
-              (p.y + p.width) > base.y);
-          if (alreadyOccupiedAbove) continue;
+          // Candidate surface coordinates on top of base
+          final List<List<double>> candidateOffsets = [];
+          for (final orient in orientations) {
+            final L = orient[0];
+            final W = orient[1];
 
-          // Check footprint compatibility
-          if (item.length <= base.length && item.width <= base.width) {
-            placed.add(PlacedItem(
-              item: item,
-              x: base.x,
-              y: base.y,
-              z: topZ,
-              length: item.length,
-              width: item.width,
-              height: item.height,
-            ));
-            isPlaced = true;
-            break;
-          } else if (item.rotate && item.width <= base.length && item.length <= base.width) {
-            placed.add(PlacedItem(
-              item: item,
-              x: base.x,
-              y: base.y,
-              z: topZ,
-              length: item.width,
-              width: item.length,
-              height: item.height,
-            ));
-            isPlaced = true;
-            break;
+            // Try grid positions on base surface
+            for (double subX = base.x; subX <= (base.x + base.length - L + 0.1); subX += math.min(L, 10.0)) {
+              for (double subY = base.y; subY <= (base.y + base.width - W + 0.1); subY += math.min(W, 10.0)) {
+                candidateOffsets.add([subX, subY, L, W]);
+              }
+            }
           }
+
+          for (final cand in candidateOffsets) {
+            final cX = cand[0];
+            final cY = cand[1];
+            final L = cand[2];
+            final W = cand[3];
+
+            if ((cX + L) <= spec.internalLength + 0.1 && (cY + W) <= spec.internalWidth + 0.1) {
+              if (!hasCollision(cX, cY, topZ, L, W, item.height)) {
+                placed.add(PlacedItem(
+                  item: item,
+                  x: cX,
+                  y: cY,
+                  z: topZ,
+                  length: L,
+                  width: W,
+                  height: item.height,
+                ));
+                isPlaced = true;
+                break;
+              }
+            }
+          }
+          if (isPlaced) break;
         }
       }
 
       if (isPlaced) continue;
 
-      // 2. Place on floor (z = 0) in existing floor shelves using Best Fit Decreasing
-      int? bestShelfIdx;
-      List<double>? bestOrientation; // [placedLength, placedWidth]
-      double minWastedDepth = double.infinity;
-
-      final orientations = [[item.length, item.width]];
-      if (item.rotate && (item.length - item.width).abs() > 0.1) {
-        orientations.add([item.width, item.length]);
+      // 2. Place on container floor (z = 0) using Extreme Points
+      final List<List<double>> floorCandidates = [[0.0, 0.0]];
+      for (final p in placed) {
+        if (p.x + p.length <= spec.internalLength) floorCandidates.add([p.x + p.length, p.y]);
+        if (p.y + p.width <= spec.internalWidth) floorCandidates.add([p.x, p.y + p.width]);
+        if (p.x + p.length <= spec.internalLength && p.y + p.width <= spec.internalWidth) {
+          floorCandidates.add([p.x + p.length, p.y + p.width]);
+        }
       }
 
-      for (int i = 0; i < shelves.length; i++) {
-        final shelf = shelves[i];
-        final shelfDepth = shelf[1];
-        final xCursor = shelf[2];
+      // Sort candidate floor points: Y ascending, then X ascending
+      floorCandidates.sort((a, b) {
+        final cmpY = a[1].compareTo(b[1]);
+        if (cmpY != 0) return cmpY;
+        return a[0].compareTo(b[0]);
+      });
+
+      for (final cand in floorCandidates) {
+        final cX = cand[0];
+        final cY = cand[1];
 
         for (final orient in orientations) {
           final L = orient[0];
           final W = orient[1];
-          if (W <= shelfDepth + 0.1 && (xCursor + L) <= spec.internalLength + 0.1) {
-            final wasted = shelfDepth - W;
-            if (wasted < minWastedDepth) {
-              minWastedDepth = wasted;
-              bestShelfIdx = i;
-              bestOrientation = orient;
+
+          if ((cX + L) <= spec.internalLength + 0.1 && (cY + W) <= spec.internalWidth + 0.1) {
+            if (!hasCollision(cX, cY, 0.0, L, W, item.height)) {
+              placed.add(PlacedItem(
+                item: item,
+                x: cX,
+                y: cY,
+                z: 0.0,
+                length: L,
+                width: W,
+                height: item.height,
+              ));
+              isPlaced = true;
+              break;
             }
           }
         }
+        if (isPlaced) break;
       }
 
-      if (bestShelfIdx != null && bestOrientation != null) {
-        final L = bestOrientation[0];
-        final W = bestOrientation[1];
-        final shelf = shelves[bestShelfIdx];
-        placed.add(PlacedItem(
-          item: item,
-          x: shelf[2],
-          y: shelf[0],
-          z: 0.0,
-          length: L,
-          width: W,
-          height: item.height,
-        ));
-        shelf[2] = shelf[2] + L; // Increment shelf cursor
-        continue;
-      }
-
-      // 3. Open a new shelf on the floor
-      double currentWidthUsed = 0.0;
-      for (final s in shelves) {
-        currentWidthUsed += s[1];
-      }
-
-      bool placedOnNewShelf = false;
-      for (final orient in orientations) {
-        final L = orient[0];
-        final W = orient[1];
-        if ((currentWidthUsed + W) <= spec.internalWidth + 0.1 && L <= spec.internalLength + 0.1) {
-          shelves.add([currentWidthUsed, W, L]);
-          placed.add(PlacedItem(
-            item: item,
-            x: 0.0,
-            y: currentWidthUsed,
-            z: 0.0,
-            length: L,
-            width: W,
-            height: item.height,
-          ));
-          placedOnNewShelf = true;
-          break;
-        }
-      }
-
-      if (!placedOnNewShelf) {
+      if (!isPlaced) {
         unplaced.add(item);
       }
     }
@@ -473,6 +474,33 @@ class ContainerRequirementEngine {
     final totalWeight = placed.fold(0.0, (sum, p) => sum + p.item.weight);
     final totalVolume = placed.fold(0.0, (sum, p) => sum + p.item.volumeM3);
     final fits = unplaced.isEmpty && totalWeight <= spec.maxPayloadKg;
+
+    String? failureReason;
+    if (unplaced.isNotEmpty) {
+      final reasons = <String>[];
+      for (final u in unplaced) {
+        final bool fitsNormal = u.length <= spec.internalLength + 0.1 && u.width <= spec.internalWidth + 0.1;
+        final bool fitsRotated = u.rotate && u.width <= spec.internalLength + 0.1 && u.length <= spec.internalWidth + 0.1;
+        final bool fitsHeight = u.height <= spec.internalHeight + 0.1;
+
+        if (!fitsNormal && !fitsRotated) {
+          if (u.length > spec.internalWidth && u.width > spec.internalWidth) {
+            reasons.add('فشل الرص: تجاوز الطول والعرض الأبعاد القياسية للحاوية (أبعاد الطرد: ${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم - أقصى عرض مسموح للحاوية ${spec.internalWidth.toStringAsFixed(0)} سم)');
+          } else if (u.length > spec.internalLength || u.width > spec.internalLength) {
+            reasons.add('فشل الرص: أبعاد الطرد (${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم) تتجاوز الطول الداخلي للحاوية (${spec.internalLength.toStringAsFixed(0)} سم)');
+          } else {
+            reasons.add('فشل الرص: أبعاد الطرد (${u.length.toStringAsFixed(0)} × ${u.width.toStringAsFixed(0)} سم) تتجاوز الأبعاد القياسية الداخلية للحاوية ${spec.code}');
+          }
+        } else if (!fitsHeight) {
+          reasons.add('فشل الرص: ارتفاع الطرد (${u.height.toStringAsFixed(0)} سم) يتجاوز الارتفاع الداخلي للحاوية (${spec.internalHeight.toStringAsFixed(0)} سم)');
+        } else {
+          reasons.add('فشل الرص: يتعذر رص الطرد داخل الحاوية بسبب تزاحم المساحة الأرضية أو سعة الاستيعاب');
+        }
+      }
+      failureReason = reasons.toSet().join(' | ');
+    } else if (totalWeight > spec.maxPayloadKg) {
+      failureReason = 'فشل الرص: إجمالي وزن الحمولة (${totalWeight.toStringAsFixed(0)} kg) يتجاوز الوزن المسموح للحاوية (${spec.maxPayloadKg.toStringAsFixed(0)} kg)';
+    }
 
     return ContainerPackingResult(
       containerCode: spec.code,
@@ -482,6 +510,7 @@ class ContainerRequirementEngine {
       totalWeight: totalWeight,
       totalVolume: totalVolume,
       fits: fits,
+      failureReason: failureReason,
     );
   }
 
@@ -562,6 +591,7 @@ class ContainerRequirementEngine {
             totalWeight: 0,
             totalVolume: 0,
             fits: false,
+            failureReason: fallbackRes.failureReason ?? 'فشل الرص: تجاوز أبعاد الطرد الأبعاد القياسية المسموح بها داخل الحاوية',
           ));
           break;
         }

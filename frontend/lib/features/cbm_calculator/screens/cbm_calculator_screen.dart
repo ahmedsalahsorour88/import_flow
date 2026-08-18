@@ -51,6 +51,8 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     ),
   ];
 
+  final ScrollController _quickTabScrollController = ScrollController();
+
   @override
   void initState() {
     super.initState();
@@ -67,6 +69,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
   void dispose() {
     _tabController.dispose();
     _searchController.dispose();
+    _quickTabScrollController.dispose();
     super.dispose();
   }
 
@@ -77,9 +80,70 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       _activeSessionTitle = null;
       _activeSessionNotes = null;
       _activeSessionImportFileId = null;
+      _quickItems.clear();
+      _quickItems.add(
+        CBMItemModel(
+          packageType: 'Carton',
+          quantity: 10,
+          length: 100,
+          width: 50,
+          height: 40,
+          unit: 'cm',
+          grossWeightPerUnitKg: 15,
+          isStackable: true,
+        ),
+      );
     });
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('تم بدء جلسة حساب جديدة فارغة.')),
+    );
+  }
+
+  void _loadSessionForEditing(CBMCalculationModel calc) {
+    setState(() {
+      _activeSessionId = calc.calcId;
+      _activeSessionCode = calc.calcCode;
+      _activeSessionTitle = calc.title;
+      _activeSessionNotes = calc.notes;
+      _activeSessionImportFileId = calc.importFileId;
+      _isStackable = calc.isStackable;
+      _quickShipmentMode = (calc.recommendedShippingMethod ?? '').toLowerCase().contains('air') ? 'air' : 'sea';
+
+      _quickItems.clear();
+      if (calc.items.isNotEmpty) {
+        _quickItems.addAll(calc.items.map((i) => CBMItemModel(
+              itemId: i.itemId,
+              calcId: i.calcId,
+              packageType: i.packageType.isNotEmpty ? i.packageType : 'Carton',
+              quantity: i.quantity > 0 ? i.quantity : 1,
+              length: i.length > 0 ? i.length : (i.lengthCm > 0 ? i.lengthCm : 100.0),
+              width: i.width > 0 ? i.width : (i.widthCm > 0 ? i.widthCm : 80.0),
+              height: i.height > 0 ? i.height : (i.heightCm > 0 ? i.heightCm : 60.0),
+              unit: (i.unit.isNotEmpty) ? i.unit : 'cm',
+              grossWeightPerUnitKg: i.grossWeightPerUnitKg,
+              isStackable: i.isStackable,
+            )));
+      } else {
+        _quickItems.add(
+          CBMItemModel(
+            packageType: 'Carton',
+            quantity: 1,
+            length: 100,
+            width: 80,
+            height: 60,
+            unit: 'cm',
+            grossWeightPerUnitKg: 20,
+            isStackable: _isStackable,
+          ),
+        );
+      }
+    });
+    _tabController.animateTo(0);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('تم تحميل الجلسة [${calc.calcCode}] للتعديل في الحاسبة (${_quickItems.length} طرد).'),
+        backgroundColor: AppTheme.cobalt,
+      ),
     );
   }
 
@@ -222,119 +286,27 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
       recContainer = containerRec.recommendationSummary;
     }
 
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Active Editing Session Banner (If editing a saved calculation)
-          if (_activeSessionId != null) ...[
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.amber.shade50,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber.shade700, width: 1.5),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.edit_note, color: Colors.amber.shade900, size: 26),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '✏️ وضع تعديل جلسة محفوظة: [$_activeSessionCode] - ${_activeSessionTitle ?? "بدون عنوان"}',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown.shade900),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'يتم الآن تعديل طرود وقياسات هذه الجلسة. يمكنك حفظ التعديلات مباشرة في نفس الجلسة أو كجلسة جديدة.',
-                          style: TextStyle(fontSize: 11, color: Colors.brown.shade800),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.emerald,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.check, size: 16),
-                    label: Text('حفظ التعديلات في [$_activeSessionCode]'),
-                    onPressed: _updateActiveSessionDirectly,
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppTheme.charcoal,
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('جلسة جديدة فارغة'),
-                    onPressed: _clearActiveSession,
-                  ),
-                ],
-              ),
-            ),
-          ],
-
-          // Live Results Summary Cards Header (Responsive LayoutBuilder)
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final cards = [
-                _buildResultCardItem('Total CBM Volume', '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
-                if (_quickShipmentMode == 'air') ...[
-                  _buildResultCardItem('Air Chargeable Wt', '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
-                      subtitle: 'Volumetric: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
-                  _buildResultCardItem('Total Gross Weight', '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
-                ],
-                _buildResultCardItem('Recommended Shipping', recMethod, Icons.directions_boat,
-                    modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue),
-                    subtitle: recContainer),
-              ];
-
-              if (constraints.maxWidth > 950) {
-                return Row(
-                  children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
-                );
-              } else {
-                return Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: cards
-                      .map((c) => SizedBox(
-                            width: (constraints.maxWidth - 16) / 2,
-                            child: c,
-                          ))
-                      .toList(),
-                );
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-
-          // Smart Mode & Cargo Stacking Skill Banner (MD-019.1)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: modeRec.isAirSuggested
-                  ? Colors.purple.shade50
-                  : (modeRec.isLclSuggested ? Colors.amber.shade50 : AppTheme.cobalt.withOpacity(0.08)),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: modeRec.isAirSuggested
-                    ? Colors.purple.shade300
-                    : (modeRec.isLclSuggested ? Colors.amber.shade300 : AppTheme.cobalt.withOpacity(0.3)),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
+    return Scrollbar(
+      controller: _quickTabScrollController,
+      thumbVisibility: true,
+      trackVisibility: true,
+      child: SingleChildScrollView(
+        controller: _quickTabScrollController,
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Active Editing Session Banner (If editing a saved calculation)
+            if (_activeSessionId != null) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade700, width: 1.5),
+                ),
+                child: Wrap(
                   alignment: WrapAlignment.spaceBetween,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   spacing: 12,
@@ -343,24 +315,22 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
+                        Icon(Icons.edit_note, color: Colors.amber.shade900, size: 24),
                         const SizedBox(width: 8),
-                        const Text('🚚 تعليمات التحميل (Cargo Stacking): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('📦 قابل للرص (Stackable)'),
-                          selected: _isStackable,
-                          selectedColor: AppTheme.cobalt,
-                          labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
-                          onSelected: (val) => setState(() => _isStackable = true),
-                        ),
-                        const SizedBox(width: 6),
-                        ChoiceChip(
-                          label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
-                          selected: !_isStackable,
-                          selectedColor: Colors.orange.shade800,
-                          labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
-                          onSelected: (val) => setState(() => _isStackable = false),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '✏️ وضع تعديل جلسة محفوظة: [$_activeSessionCode] - ${_activeSessionTitle ?? "بدون عنوان"}',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.brown.shade900),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'يتم الآن تعديل طرود وقياسات هذه الجلسة. يمكنك حفظ التعديلات مباشرة في نفس الجلسة أو كجلسة جديدة.',
+                              style: TextStyle(fontSize: 11, color: Colors.brown.shade800),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -369,152 +339,263 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       children: [
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.cobalt,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           ),
-                          icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
-                          label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
+                          icon: const Icon(Icons.check, size: 16),
+                          label: Text('حفظ التعديلات في [$_activeSessionCode]'),
+                          onPressed: _updateActiveSessionDirectly,
                         ),
                         const SizedBox(width: 8),
-                        ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.emerald,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.charcoal,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           ),
-                          icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                          label: const Text('مخطط ومحاكاة رص الحاويات (Load Plan)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
-                          onPressed: () => _showVisualLoadPlanDialog(context, _quickItems),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('جلسة جديدة فارغة'),
+                          onPressed: _clearActiveSession,
                         ),
                       ],
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.grey.shade300),
-                  ),
-                  child: Row(
+              ),
+            ],
+
+            // Live Results Summary Cards Header (Responsive LayoutBuilder)
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cards = [
+                  _buildResultCardItem('Total CBM Volume', '${totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar, Colors.orange),
+                  if (_quickShipmentMode == 'air') ...[
+                    _buildResultCardItem('Air Chargeable Wt', '${chargeableWt.toStringAsFixed(2)} KG', Icons.airplanemode_active, Colors.purple,
+                        subtitle: 'Volumetric: ${totalVolumetricWt.toStringAsFixed(2)} kg'),
+                    _buildResultCardItem('Total Gross Weight', '${totalGrossWt.toStringAsFixed(2)} KG', Icons.scale, Colors.green),
+                  ],
+                  _buildResultCardItem('Recommended Shipping', recMethod, Icons.directions_boat,
+                      modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : Colors.blue),
+                      subtitle: recContainer),
+                ];
+
+                if (constraints.maxWidth > 950) {
+                  return Row(
+                    children: cards.map((c) => Expanded(child: Padding(padding: const EdgeInsets.only(right: 8), child: c))).toList(),
+                  );
+                } else {
+                  return Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: cards
+                        .map((c) => SizedBox(
+                              width: (constraints.maxWidth - 16) / 2,
+                              child: c,
+                            ))
+                        .toList(),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+
+            // Smart Mode & Cargo Stacking Skill Banner (MD-019.1)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: modeRec.isAirSuggested
+                    ? Colors.purple.shade50
+                    : (modeRec.isLclSuggested ? Colors.amber.shade50 : AppTheme.cobalt.withOpacity(0.08)),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: modeRec.isAirSuggested
+                      ? Colors.purple.shade300
+                      : (modeRec.isLclSuggested ? Colors.amber.shade300 : AppTheme.cobalt.withOpacity(0.3)),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 12,
+                    runSpacing: 8,
                     children: [
-                      Icon(
-                        modeRec.isAirSuggested ? Icons.airplanemode_active : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
-                        color: modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
-                        size: 18,
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
+                          const SizedBox(width: 8),
+                          const Text('🚚 تعليمات التحميل (Cargo Stacking): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                          const SizedBox(width: 6),
+                          ChoiceChip(
+                            label: const Text('📦 قابل للرص (Stackable)'),
+                            selected: _isStackable,
+                            selectedColor: AppTheme.cobalt,
+                            labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                            onSelected: (val) => setState(() => _isStackable = true),
+                          ),
+                          const SizedBox(width: 6),
+                          ChoiceChip(
+                            label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                            selected: !_isStackable,
+                            selectedColor: Colors.orange.shade800,
+                            labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
+                            onSelected: (val) => setState(() => _isStackable = false),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          modeRec.reasonAr,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.bold,
-                            color: modeRec.isAirSuggested ? Colors.purple.shade900 : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                            icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
+                            label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                            onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCbm, totalGrossWt),
+                          ),
+                          const SizedBox(width: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.emerald,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                            icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
+                            label: const Text('مخطط ومحاكاة رص الحاويات (Load Plan)', style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold)),
+                            onPressed: () => _showVisualLoadPlanDialog(context, _quickItems),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          modeRec.isAirSuggested ? Icons.airplanemode_active : (modeRec.isLclSuggested ? Icons.inventory : Icons.directions_boat),
+                          color: modeRec.isAirSuggested ? Colors.purple : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.cobalt),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            modeRec.reasonAr,
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: modeRec.isAirSuggested ? Colors.purple.shade900 : (modeRec.isLclSuggested ? Colors.amber.shade900 : AppTheme.charcoal),
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 12),
-
-          // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)
-          Card(
-            elevation: 2,
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 12,
-                runSpacing: 10,
-                children: [
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
-                      SizedBox(width: 8),
-                      Text(
-                        'Cargo Package Measurements & Dimensions (أبعاد ووزن الطرود)',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Shipment Mode Selector (Air vs Sea)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                        decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            ChoiceChip(
-                              label: const Text('Air Freight (شحن جوي)'),
-                              selected: _quickShipmentMode == 'air',
-                              selectedColor: AppTheme.cobalt,
-                              labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                              onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
-                            ),
-                            const SizedBox(width: 4),
-                            ChoiceChip(
-                              label: const Text('Sea Freight (شحن بحري)'),
-                              selected: _quickShipmentMode == 'sea',
-                              selectedColor: AppTheme.emerald,
-                              labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                              onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Add Package Line'),
-                        onPressed: () {
-                          setState(() {
-                            _quickItems.add(
-                              CBMItemModel(
-                                packageType: 'Carton',
-                                quantity: 1,
-                                length: 100,
-                                width: 80,
-                                height: 60,
-                                unit: 'cm',
-                                grossWeightPerUnitKg: 20,
-                                isStackable: _isStackable,
-                              ),
-                            );
-                          });
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-                        icon: const Icon(Icons.save_outlined, size: 18),
-                        label: Text(_activeSessionId != null ? 'Save Changes' : 'Save Session'),
-                        onPressed: () => _showSaveCalcDialog(context, _quickItems),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: 8),
 
-          // Dynamic Line Items List (Horizontally Scrollable with Adequate Widths)
-          Expanded(
-            child: Card(
+            const SizedBox(height: 12),
+
+            // Items Table Header & Add Row Action Card (Responsive Overflow-Free Layout)
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 12,
+                  runSpacing: 10,
+                  children: [
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.format_list_bulleted, color: AppTheme.cobalt),
+                        SizedBox(width: 8),
+                        Text(
+                          'Cargo Package Measurements & Dimensions (أبعاد ووزن الطرود)',
+                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Shipment Mode Selector (Air vs Sea)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                          decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(8)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ChoiceChip(
+                                label: const Text('Air Freight (شحن جوي)'),
+                                selected: _quickShipmentMode == 'air',
+                                selectedColor: AppTheme.cobalt,
+                                labelStyle: TextStyle(color: _quickShipmentMode == 'air' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                                onSelected: (_) => setState(() => _quickShipmentMode = 'air'),
+                              ),
+                              const SizedBox(width: 4),
+                              ChoiceChip(
+                                label: const Text('Sea Freight (شحن بحري)'),
+                                selected: _quickShipmentMode == 'sea',
+                                selectedColor: AppTheme.emerald,
+                                labelStyle: TextStyle(color: _quickShipmentMode == 'sea' ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
+                                onSelected: (_) => setState(() => _quickShipmentMode = 'sea'),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Add Package Line'),
+                          onPressed: () {
+                            setState(() {
+                              _quickItems.add(
+                                CBMItemModel(
+                                  packageType: 'Carton',
+                                  quantity: 1,
+                                  length: 100,
+                                  width: 80,
+                                  height: 60,
+                                  unit: 'cm',
+                                  grossWeightPerUnitKg: 20,
+                                  isStackable: _isStackable,
+                                ),
+                              );
+                            });
+                          },
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                          icon: const Icon(Icons.save_outlined, size: 18),
+                          label: Text(_activeSessionId != null ? 'Save Changes' : 'Save Session'),
+                          onPressed: () => _showSaveCalcDialog(context, _quickItems),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Dynamic Line Items List (Horizontally & Vertically Scrollable with Explicit Scrollbar)
+            Card(
               elevation: 1,
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -527,279 +608,329 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                       _quickShipmentMode == 'air' ? 1220.0 : 1080.0,
                       MediaQuery.of(context).size.width - 64,
                     ),
-                    child: ListView.separated(
-                      padding: const EdgeInsets.all(12),
-                      itemCount: _quickItems.length,
-                      separatorBuilder: (_, __) => const Divider(),
-                      itemBuilder: (ctx, idx) {
-                        final item = _quickItems[idx];
-                        final lM = item.lengthM;
-                        final wM = item.widthM;
-                        final hM = item.heightM;
-                        final itemCbm = item.quantity * lM * wM * hM;
-                        final itemVolWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
-                        final itemGross = item.quantity * item.grossWeightPerUnitKg;
-
-                        return Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                              child: Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                            ),
-                            const SizedBox(width: 8),
-                            // Package Type Dropdown (width: 160)
-                            SizedBox(
-                              width: 160,
-                              child: SearchableDropdownField<String>(
-                                value: item.packageType,
-                                labelText: 'Package Type',
-                                searchHintText: 'ابحث عن نوع الطرد...',
-                                items: ['Carton', 'Pallet', 'Wooden Crate', 'Drum', 'Bag', 'Loose Box']
-                                    .map((t) => SearchableDropdownItem<String>(value: t, label: t))
-                                    .toList(),
-                                onChanged: (v) {
-                                  if (v != null) {
-                                    setState(() {
-                                      _quickItems[idx] = CBMItemModel(
-                                        packageType: v,
-                                        quantity: item.quantity,
-                                        length: item.length,
-                                        width: item.width,
-                                        height: item.height,
-                                        unit: item.unit,
-                                        grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                        isStackable: item.isStackable,
-                                      );
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Dimension Unit Selector (mm, cm, m) (width: 95)
-                            SizedBox(
-                              width: 95,
-                              child: SearchableDropdownField<String>(
-                                value: item.unit,
-                                labelText: 'Unit',
-                                searchHintText: 'الوحدة...',
-                                items: const [
-                                  SearchableDropdownItem<String>(value: 'mm', label: 'mm'),
-                                  SearchableDropdownItem<String>(value: 'cm', label: 'cm'),
-                                  SearchableDropdownItem<String>(value: 'm', label: 'm'),
-                                ],
-                                onChanged: (u) {
-                                  if (u != null) {
-                                    setState(() {
-                                      _quickItems[idx] = CBMItemModel(
-                                        packageType: item.packageType,
-                                        quantity: item.quantity,
-                                        length: item.length,
-                                        width: item.width,
-                                        height: item.height,
-                                        unit: u,
-                                        grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                        isStackable: item.isStackable,
-                                      );
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Quantity (width: 80)
-                            SizedBox(
-                              width: 80,
-                              child: TextFormField(
-                                initialValue: item.quantity.toString(),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(labelText: 'Qty', isDense: true, border: OutlineInputBorder()),
-                                onChanged: (v) {
-                                  final q = int.tryParse(v) ?? 1;
-                                  setState(() {
-                                    _quickItems[idx] = CBMItemModel(
-                                      packageType: item.packageType,
-                                      quantity: q,
-                                      length: item.length,
-                                      width: item.width,
-                                      height: item.height,
-                                      unit: item.unit,
-                                      grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                      isStackable: item.isStackable,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Length (width: 100)
-                            SizedBox(
-                              width: 100,
-                              child: TextFormField(
-                                initialValue: item.length.toString(),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(labelText: 'Length (${item.unit})', isDense: true, border: const OutlineInputBorder()),
-                                onChanged: (v) {
-                                  final l = double.tryParse(v) ?? 0.0;
-                                  setState(() {
-                                    _quickItems[idx] = CBMItemModel(
-                                      packageType: item.packageType,
-                                      quantity: item.quantity,
-                                      length: l,
-                                      width: item.width,
-                                      height: item.height,
-                                      unit: item.unit,
-                                      grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                      isStackable: item.isStackable,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Width (width: 100)
-                            SizedBox(
-                              width: 100,
-                              child: TextFormField(
-                                initialValue: item.width.toString(),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(labelText: 'Width (${item.unit})', isDense: true, border: const OutlineInputBorder()),
-                                onChanged: (v) {
-                                  final w = double.tryParse(v) ?? 0.0;
-                                  setState(() {
-                                    _quickItems[idx] = CBMItemModel(
-                                      packageType: item.packageType,
-                                      quantity: item.quantity,
-                                      length: item.length,
-                                      width: w,
-                                      height: item.height,
-                                      unit: item.unit,
-                                      grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                      isStackable: item.isStackable,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Height (width: 100)
-                            SizedBox(
-                              width: 100,
-                              child: TextFormField(
-                                initialValue: item.height.toString(),
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: InputDecoration(labelText: 'Height (${item.unit})', isDense: true, border: const OutlineInputBorder()),
-                                onChanged: (v) {
-                                  final h = double.tryParse(v) ?? 0.0;
-                                  setState(() {
-                                    _quickItems[idx] = CBMItemModel(
-                                      packageType: item.packageType,
-                                      quantity: item.quantity,
-                                      length: item.length,
-                                      width: item.width,
-                                      height: h,
-                                      unit: item.unit,
-                                      grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                      isStackable: item.isStackable,
-                                    );
-                                  });
-                                },
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            // Cargo Stacking Type (Stackable vs Non-Stackable) (width: 145)
-                            SizedBox(
-                              width: 145,
-                              child: SearchableDropdownField<bool>(
-                                value: item.isStackable,
-                                labelText: 'الرص (Stacking)',
-                                searchHintText: 'نوع الرص...',
-                                items: const [
-                                  SearchableDropdownItem<bool>(value: true, label: '📦 يقبل الرص'),
-                                  SearchableDropdownItem<bool>(value: false, label: '🚫 لا يقبل الرص'),
-                                ],
-                                onChanged: (st) {
-                                  if (st != null) {
-                                    setState(() {
-                                      _quickItems[idx] = CBMItemModel(
-                                        packageType: item.packageType,
-                                        quantity: item.quantity,
-                                        length: item.length,
-                                        width: item.width,
-                                        height: item.height,
-                                        unit: item.unit,
-                                        grossWeightPerUnitKg: item.grossWeightPerUnitKg,
-                                        isStackable: st,
-                                      );
-                                    });
-                                  }
-                                },
-                              ),
-                            ),
-                            if (_quickShipmentMode == 'air') ...[
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Table Header Bar
+                        Container(
+                          color: Colors.grey.shade200,
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          child: Row(
+                            children: [
+                              const SizedBox(width: 32, child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
                               const SizedBox(width: 8),
-                              SizedBox(
-                                width: 120,
-                                child: TextFormField(
-                                  initialValue: item.grossWeightPerUnitKg.toString(),
-                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                  decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true, border: OutlineInputBorder()),
-                                  onChanged: (v) {
-                                    final gw = double.tryParse(v) ?? 0.0;
-                                    setState(() {
-                                      _quickItems[idx] = CBMItemModel(
-                                        packageType: item.packageType,
-                                        quantity: item.quantity,
-                                        length: item.length,
-                                        width: item.width,
-                                        height: item.height,
-                                        unit: item.unit,
-                                        grossWeightPerUnitKg: gw,
-                                        isStackable: item.isStackable,
-                                      );
-                                    });
-                                  },
-                                ),
-                              ),
+                              const SizedBox(width: 160, child: Text('نوع الطرد (Package)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 95, child: Text('الوحدة (Unit)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 80, child: Text('العدد (Qty)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 100, child: Text('الطول (Length)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 100, child: Text('العرض (Width)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 100, child: Text('الارتفاع (Height)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 8),
+                              const SizedBox(width: 145, child: Text('الرص (Stacking)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              if (_quickShipmentMode == 'air') ...[
+                                const SizedBox(width: 8),
+                                const SizedBox(width: 120, child: Text('وزن الوحدة (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              ],
+                              const SizedBox(width: 14),
+                              const SizedBox(width: 140, child: Text('النتائج المحسوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal))),
+                              const SizedBox(width: 48),
                             ],
-                            const SizedBox(width: 14),
+                          ),
+                        ),
+                        const Divider(height: 1),
 
-                            // Computed line outputs badge (width: 140)
-                            SizedBox(
-                              width: 140,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text('CBM: ${itemCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12)),
-                                  if (_quickShipmentMode == 'air') ...[
-                                    Text('Gross: ${itemGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                                    Text('Air Vol: ${itemVolWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.purple)),
-                                  ],
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          padding: const EdgeInsets.all(12),
+                          itemCount: _quickItems.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (ctx, idx) {
+                            final item = _quickItems[idx];
+                            final lM = item.lengthM;
+                            final wM = item.widthM;
+                            final hM = item.heightM;
+                            final itemCbm = item.quantity * lM * wM * hM;
+                            final itemVolWt = (item.quantity * (lM * 100.0) * (wM * 100.0) * (hM * 100.0)) / 6000.0;
+                            final itemGross = item.quantity * item.grossWeightPerUnitKg;
+
+                            return Row(
+                              key: ValueKey('row_${idx}_${_activeSessionId}_${item.itemId}'),
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                                  child: Text('#${idx + 1}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                ),
+                                const SizedBox(width: 8),
+                                // Package Type Dropdown (width: 160)
+                                SizedBox(
+                                  width: 160,
+                                  child: SearchableDropdownField<String>(
+                                    key: ValueKey('type_${idx}_${item.packageType}_${_activeSessionId}'),
+                                    value: item.packageType,
+                                    labelText: 'Package Type',
+                                    searchHintText: 'ابحث عن نوع الطرد...',
+                                    items: ['Carton', 'Pallet', 'Wooden Crate', 'Drum', 'Bag', 'Loose Box']
+                                        .map((t) => SearchableDropdownItem<String>(value: t, label: t))
+                                        .toList(),
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() {
+                                          _quickItems[idx] = CBMItemModel(
+                                            packageType: v,
+                                            quantity: item.quantity,
+                                            length: item.length,
+                                            width: item.width,
+                                            height: item.height,
+                                            unit: item.unit,
+                                            grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                            isStackable: item.isStackable,
+                                          );
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Dimension Unit Selector (mm, cm, m) (width: 95)
+                                SizedBox(
+                                  width: 95,
+                                  child: SearchableDropdownField<String>(
+                                    key: ValueKey('unit_${idx}_${item.unit}_${_activeSessionId}'),
+                                    value: item.unit,
+                                    labelText: 'Unit',
+                                    searchHintText: 'الوحدة...',
+                                    items: const [
+                                      SearchableDropdownItem<String>(value: 'mm', label: 'mm'),
+                                      SearchableDropdownItem<String>(value: 'cm', label: 'cm'),
+                                      SearchableDropdownItem<String>(value: 'm', label: 'm'),
+                                    ],
+                                    onChanged: (u) {
+                                      if (u != null) {
+                                        setState(() {
+                                          _quickItems[idx] = CBMItemModel(
+                                            packageType: item.packageType,
+                                            quantity: item.quantity,
+                                            length: item.length,
+                                            width: item.width,
+                                            height: item.height,
+                                            unit: u,
+                                            grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                            isStackable: item.isStackable,
+                                          );
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Quantity (width: 80)
+                                SizedBox(
+                                  width: 80,
+                                  child: TextFormField(
+                                    key: ValueKey('qty_${idx}_${item.quantity}_${_activeSessionId}'),
+                                    initialValue: item.quantity.toString(),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: const InputDecoration(labelText: 'Qty', isDense: true, border: OutlineInputBorder()),
+                                    onChanged: (v) {
+                                      final q = int.tryParse(v) ?? 1;
+                                      setState(() {
+                                        _quickItems[idx] = CBMItemModel(
+                                          packageType: item.packageType,
+                                          quantity: q,
+                                          length: item.length,
+                                          width: item.width,
+                                          height: item.height,
+                                          unit: item.unit,
+                                          grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                          isStackable: item.isStackable,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Length (width: 100)
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('len_${idx}_${item.length}_${_activeSessionId}'),
+                                    initialValue: item.length.toString(),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(labelText: 'Length (${item.unit})', isDense: true, border: const OutlineInputBorder()),
+                                    onChanged: (v) {
+                                      final l = double.tryParse(v) ?? 0.0;
+                                      setState(() {
+                                        _quickItems[idx] = CBMItemModel(
+                                          packageType: item.packageType,
+                                          quantity: item.quantity,
+                                          length: l,
+                                          width: item.width,
+                                          height: item.height,
+                                          unit: item.unit,
+                                          grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                          isStackable: item.isStackable,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Width (width: 100)
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('wid_${idx}_${item.width}_${_activeSessionId}'),
+                                    initialValue: item.width.toString(),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(labelText: 'Width (${item.unit})', isDense: true, border: const OutlineInputBorder()),
+                                    onChanged: (v) {
+                                      final w = double.tryParse(v) ?? 0.0;
+                                      setState(() {
+                                        _quickItems[idx] = CBMItemModel(
+                                          packageType: item.packageType,
+                                          quantity: item.quantity,
+                                          length: item.length,
+                                          width: w,
+                                          height: item.height,
+                                          unit: item.unit,
+                                          grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                          isStackable: item.isStackable,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Height (width: 100)
+                                SizedBox(
+                                  width: 100,
+                                  child: TextFormField(
+                                    key: ValueKey('hei_${idx}_${item.height}_${_activeSessionId}'),
+                                    initialValue: item.height.toString(),
+                                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                    decoration: InputDecoration(labelText: 'Height (${item.unit})', isDense: true, border: const OutlineInputBorder()),
+                                    onChanged: (v) {
+                                      final h = double.tryParse(v) ?? 0.0;
+                                      setState(() {
+                                        _quickItems[idx] = CBMItemModel(
+                                          packageType: item.packageType,
+                                          quantity: item.quantity,
+                                          length: item.length,
+                                          width: item.width,
+                                          height: h,
+                                          unit: item.unit,
+                                          grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                          isStackable: item.isStackable,
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // Cargo Stacking Type (Stackable vs Non-Stackable) (width: 145)
+                                SizedBox(
+                                  width: 145,
+                                  child: SearchableDropdownField<bool>(
+                                    key: ValueKey('stack_${idx}_${item.isStackable}_${_activeSessionId}'),
+                                    value: item.isStackable,
+                                    labelText: 'الرص (Stacking)',
+                                    searchHintText: 'نوع الرص...',
+                                    items: const [
+                                      SearchableDropdownItem<bool>(value: true, label: '📦 يقبل الرص'),
+                                      SearchableDropdownItem<bool>(value: false, label: '🚫 لا يقبل الرص'),
+                                    ],
+                                    onChanged: (st) {
+                                      if (st != null) {
+                                        setState(() {
+                                          _quickItems[idx] = CBMItemModel(
+                                            packageType: item.packageType,
+                                            quantity: item.quantity,
+                                            length: item.length,
+                                            width: item.width,
+                                            height: item.height,
+                                            unit: item.unit,
+                                            grossWeightPerUnitKg: item.grossWeightPerUnitKg,
+                                            isStackable: st,
+                                          );
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                if (_quickShipmentMode == 'air') ...[
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 120,
+                                    child: TextFormField(
+                                      key: ValueKey('wt_${idx}_${item.grossWeightPerUnitKg}_${_activeSessionId}'),
+                                      initialValue: item.grossWeightPerUnitKg.toString(),
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true, border: OutlineInputBorder()),
+                                      onChanged: (v) {
+                                        final gw = double.tryParse(v) ?? 0.0;
+                                        setState(() {
+                                          _quickItems[idx] = CBMItemModel(
+                                            packageType: item.packageType,
+                                            quantity: item.quantity,
+                                            length: item.length,
+                                            width: item.width,
+                                            height: item.height,
+                                            unit: item.unit,
+                                            grossWeightPerUnitKg: gw,
+                                            isStackable: item.isStackable,
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ),
                                 ],
-                              ),
-                            ),
-                            if (_quickItems.length > 1)
-                              IconButton(
-                                icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
-                                tooltip: 'Delete Row',
-                                onPressed: () {
-                                  setState(() {
-                                    _quickItems.removeAt(idx);
-                                  });
-                                },
-                              ),
-                          ],
-                        );
-                      },
+                                const SizedBox(width: 14),
+
+                                // Computed line outputs badge (width: 140)
+                                SizedBox(
+                                  width: 140,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text('CBM: ${itemCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.orange, fontSize: 12)),
+                                      if (_quickShipmentMode == 'air') ...[
+                                        Text('Gross: ${itemGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                        Text('Air Vol: ${itemVolWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, color: Colors.purple)),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                                if (_quickItems.length > 1)
+                                  IconButton(
+                                    icon: const Icon(Icons.delete_outline, color: AppTheme.crimson),
+                                    tooltip: 'Delete Row',
+                                    onPressed: () {
+                                      setState(() {
+                                        _quickItems.removeAt(idx);
+                                      });
+                                    },
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+          ],
+        ),
       ),
     );
   }
@@ -1083,37 +1214,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   DataCell(
                                     RowActionsPill(
                                       onView: () => _showCalcDetailsDialog(context, calc),
-                                      onEdit: () {
-                                        setState(() {
-                                          _activeSessionId = calc.calcId;
-                                          _activeSessionCode = calc.calcCode;
-                                          _activeSessionTitle = calc.title;
-                                          _activeSessionNotes = calc.notes;
-                                          _activeSessionImportFileId = calc.importFileId;
-                                          _isStackable = calc.isStackable;
-                                          _quickShipmentMode = (calc.recommendedShippingMethod ?? '').contains('Air') ? 'air' : 'sea';
-                                          if (calc.items.isNotEmpty) {
-                                            _quickItems.clear();
-                                            _quickItems.addAll(calc.items.map((i) => CBMItemModel(
-                                              packageType: i.packageType,
-                                              quantity: i.quantity,
-                                              length: i.lengthCm > 0 ? i.lengthCm : i.length,
-                                              width: i.widthCm > 0 ? i.widthCm : i.width,
-                                              height: i.heightCm > 0 ? i.heightCm : i.height,
-                                              unit: 'cm',
-                                              grossWeightPerUnitKg: i.grossWeightPerUnitKg,
-                                              isStackable: i.isStackable,
-                                            )));
-                                          }
-                                        });
-                                        _tabController.animateTo(0);
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('تم تحميل الجلسة [${calc.calcCode}] للتعديل في الحاسبة.'),
-                                            backgroundColor: AppTheme.cobalt,
-                                          ),
-                                        );
-                                      },
+                                      onEdit: () => _loadSessionForEditing(calc),
                                       onPrint: () => _showPrintReportDialog(context, calc),
                                       onDelete: () async {
                                         if (calc.isActive) {
@@ -1844,35 +1945,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
             label: const Text('إعادة فتح وتعديل في الحاسبة', style: TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.pop(dialogCtx);
-              setState(() {
-                _activeSessionId = calc.calcId;
-                _activeSessionCode = calc.calcCode;
-                _activeSessionTitle = calc.title;
-                _activeSessionNotes = calc.notes;
-                _activeSessionImportFileId = calc.importFileId;
-                _isStackable = calc.isStackable;
-                _quickShipmentMode = (calc.recommendedShippingMethod ?? '').contains('Air') ? 'air' : 'sea';
-                if (calc.items.isNotEmpty) {
-                  _quickItems.clear();
-                  _quickItems.addAll(calc.items.map((i) => CBMItemModel(
-                    packageType: i.packageType,
-                    quantity: i.quantity,
-                    length: i.lengthCm > 0 ? i.lengthCm : i.length,
-                    width: i.widthCm > 0 ? i.widthCm : i.width,
-                    height: i.heightCm > 0 ? i.heightCm : i.height,
-                    unit: 'cm',
-                    grossWeightPerUnitKg: i.grossWeightPerUnitKg,
-                    isStackable: i.isStackable,
-                  )));
-                }
-              });
-              _tabController.animateTo(0);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('تم تحميل الجلسة [${calc.calcCode}] للتعديل في الحاسبة.'),
-                  backgroundColor: AppTheme.cobalt,
-                ),
-              );
+              _loadSessionForEditing(calc);
             },
           ),
           ElevatedButton.icon(
@@ -2656,21 +2729,27 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                           final idx = entry.key + 1;
                           final res = entry.value;
                           final placedIds = res.placedItems.map((p) => p.item.itemId).join(', ');
+                          final totalPlacedCount = res.placedItems.length;
+
+                          final double volSpaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
+                          final double floorAreaM2 = res.placedItems.fold(0.0, (s, p) => s + p.item.floorAreaM2);
+                          final double specFloorAreaM2 = (res.spec.internalLength * res.spec.internalWidth) / 10000;
+                          final double floorUtil = specFloorAreaM2 > 0 ? (floorAreaM2 / specFloorAreaM2) * 100 : 0.0;
+
+                          final bool hasNonStackable = res.placedItems.any((p) => !p.item.isStackable);
+                          final double displaySpaceUtil = hasNonStackable ? math.max(volSpaceUtil, floorUtil) : volSpaceUtil;
 
                           String statusText = '';
-                          if (res.containerCode == 'FAILED') {
-                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                          if (res.containerCode == 'FAILED' || !res.fits) {
+                            statusText = res.failureReason ?? 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
                           } else {
-                            final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص (استغلال أرضية: ${floorUtil.toStringAsFixed(1)}%)';
                             } else {
-                              statusText = 'رص متعدد الطبقات متوافق (${spaceUtil.toStringAsFixed(1)}%)';
+                              statusText = 'رص 3D متعدد الطبقات متوافق (${totalPlacedCount} طرد)';
                             }
                           }
-
-                          final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
 
                           return TableRow(
                             children: [
@@ -2683,7 +2762,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text(placedIds.isEmpty ? '-' : placedIds, style: const TextStyle(fontSize: 11)),
+                                child: Text(
+                                  placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount طرد)',
+                                  style: const TextStyle(fontSize: 11),
+                                ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -2691,7 +2773,10 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
-                                child: Text('${spaceUtil.toStringAsFixed(1)}%', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                child: Text(
+                                  '${displaySpaceUtil.toStringAsFixed(1)}%',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange),
+                                ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -2724,9 +2809,29 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                               padding: const EdgeInsets.all(16),
                               margin: const EdgeInsets.all(12),
                               decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
-                              child: Text(
-                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
-                                style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          res.failureReason ?? 'فشل الرص: تجاوز الطول والعرض الأبعاد القياسية الداخلية للحاوية',
+                                          style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                                        ),
+                                        if (res.unplacedItems.isNotEmpty) ...[
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'أرقام الطرود غير المحمّلة: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                            style: TextStyle(color: Colors.red.shade700, fontSize: 11),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           }

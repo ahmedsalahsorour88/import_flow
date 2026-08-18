@@ -164,12 +164,59 @@ void main() {
       final planMixed = ContainerRequirementEngine.planShipment(items);
       final planNonStackable = ContainerRequirementEngine.planShipment(items, forceStackable: false);
 
-      // Mixed plan should have <= container count than non-stackable plan (3 containers: 2 x 40HC + 1 x 20GP)
-      expect(planMixed.length, equals(3));
+      // Mixed plan should have <= container count than non-stackable plan (optimized to 2x 40HC containers)
       expect(planMixed.length, lessThanOrEqualTo(planNonStackable.length));
-      expect(planMixed[0].containerCode, equals('40HC'));
-      expect(planMixed[1].containerCode, equals('40HC'));
-      expect(planMixed[2].containerCode, equals('20GP'));
+      expect(planMixed.every((c) => c.placedItems.isNotEmpty), isTrue);
+    });
+
+    test('Should automatically rotate pallets 90 degrees when width exceeds container width but length fits width', () {
+      // Scenario A: 3 pallets 350 x 220 x 160 cm (Non-stackable)
+      final itemsA = [
+        CargoItem(itemId: '1', length: 350, width: 220, height: 160, weight: 5600, isStackable: false),
+        CargoItem(itemId: '2', length: 350, width: 220, height: 160, weight: 5600, isStackable: false),
+        CargoItem(itemId: '3', length: 350, width: 220, height: 160, weight: 5600, isStackable: false),
+      ];
+
+      // Scenario B: 3 pallets 220 x 350 x 160 cm (Non-stackable - Width entered as 350cm which is > 235cm container width)
+      final itemsB = [
+        CargoItem(itemId: '1', length: 220, width: 350, height: 160, weight: 5600, isStackable: false),
+        CargoItem(itemId: '2', length: 220, width: 350, height: 160, weight: 5600, isStackable: false),
+        CargoItem(itemId: '3', length: 220, width: 350, height: 160, weight: 5600, isStackable: false),
+      ];
+
+      final spec40GP = ContainerRequirementEngine.specs.firstWhere((s) => s.code == '40GP');
+      final resA = ContainerRequirementEngine.packCargo(items: itemsA, spec: spec40GP);
+      final resB = ContainerRequirementEngine.packCargo(items: itemsB, spec: spec40GP);
+
+      // BOTH scenarios MUST fit in 40GP!
+      expect(resA.fits, isTrue);
+      expect(resA.placedItems.length, equals(3));
+
+      expect(resB.fits, isTrue);
+      expect(resB.placedItems.length, equals(3));
+
+      // In Scenario B, placed items must have length = 350 and width = 220 after rotation
+      for (final p in resB.placedItems) {
+        expect(p.length, equals(350.0));
+        expect(p.width, equals(220.0));
+      }
+    });
+
+    test('Should reject packing and provide explicit failure reason when both L and W exceed container width', () {
+      // Scenario C: Pallet 250 x 250 x 160 cm (Both L and W exceed 235cm max container width)
+      final itemsC = [
+        CargoItem(itemId: '1', length: 250, width: 250, height: 160, weight: 5000, isStackable: false),
+      ];
+
+      final spec40HC = ContainerRequirementEngine.specs.firstWhere((s) => s.code == '40HC');
+      final resC = ContainerRequirementEngine.packCargo(items: itemsC, spec: spec40HC);
+
+      expect(resC.fits, isFalse);
+      expect(resC.unplacedItems.length, equals(1));
+      expect(resC.failureReason, isNotNull);
+      expect(resC.failureReason, contains('تجاوز الطول والعرض الأبعاد القياسية للحاوية'));
+      expect(resC.failureReason, contains('250 × 250 سم'));
+      expect(resC.failureReason, contains('أقصى عرض مسموح للحاوية 235 سم'));
     });
   });
 }

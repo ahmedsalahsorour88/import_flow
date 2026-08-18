@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
+import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
@@ -95,8 +98,25 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 const Spacer(),
                 const BackToDashboardButton(),
                 const SizedBox(width: 10),
+                SmartUploadButton(
+                  module: SmartUploadModule.purchaseOrder,
+                  label: 'رفع واستخراج أمر الشراء (PDF / Excel / Word)',
+                  onDataExtracted: (result) {
+                    final fields = result.extractedFields;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'تم استخراج بيانات أمر الشراء بنجاح (${fields['po_number'] ?? 'بدون رقم'}) — انقر على "New Purchase Order" لاستكمال الحفظ',
+                        ),
+                        backgroundColor: AppTheme.emerald,
+                        duration: const Duration(seconds: 5),
+                      ),
+                    );
+                    _showPODialog(context, null);
+                  },
+                ),
+                const SizedBox(width: 10),
                 ElevatedButton.icon(
-
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.emerald,
                     foregroundColor: Colors.white,
@@ -2370,6 +2390,13 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                         },
                                       ),
                                       const SizedBox(width: 8),
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.flatOrange, foregroundColor: Colors.white),
+                                        icon: const Icon(Icons.view_in_ar_rounded, size: 16),
+                                        label: const Text('محاكاة ورص الحاويات 3D', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
+                                      ),
+                                      const SizedBox(width: 8),
                                       TextButton.icon(
                                         icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
                                         label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
@@ -3094,6 +3121,129 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showPoVisualLoadPlannerDialog(BuildContext context, List<PackingListItemModel> packingItems) {
+    if (packingItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الرجاء إضافة بنود تعبئة أولاً في قائمة التعبئة لمعاينة رص الحاويات.')),
+      );
+      return;
+    }
+
+    final cargoItems = packingItems.asMap().entries.map((entry) {
+      final idx = entry.key + 1;
+      final p = entry.value;
+      final lCm = p.unit == 'mm' ? p.lengthCm / 10.0 : (p.unit == 'm' ? p.lengthCm * 100.0 : p.lengthCm);
+      final wCm = p.unit == 'mm' ? p.widthCm / 10.0 : (p.unit == 'm' ? p.widthCm * 100.0 : p.widthCm);
+      final hCm = p.unit == 'mm' ? p.heightCm / 10.0 : (p.unit == 'm' ? p.heightCm * 100.0 : p.heightCm);
+      final grossWt = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg);
+
+      return CargoItem(
+        itemId: '$idx',
+        length: lCm > 0 ? lCm : 100.0,
+        width: wCm > 0 ? wCm : 80.0,
+        height: hCm > 0 ? hCm : 60.0,
+        weight: grossWt > 0 ? grossWt : 10.0,
+        isStackable: p.isStackable,
+        rotate: true,
+        packageType: p.packageType,
+        description: p.itemCode,
+      );
+    }).toList();
+
+    final plan = ContainerRequirementEngine.planShipment(cargoItems);
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return Dialog(
+          insetPadding: const EdgeInsets.all(16),
+          child: Container(
+            width: 1100,
+            height: 700,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          'مخطط ومحاكاة رص الحاويات 3D (Purchase Order Load Planner)',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                        ),
+                      ],
+                    ),
+                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                  ],
+                ),
+                const Divider(),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: plan.length,
+                    itemBuilder: (ctx, pIdx) {
+                      final res = plan[pIdx];
+                      if (res.containerCode == 'FAILED') {
+                        return Container(
+                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red.shade300),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  res.failureReason ?? 'فشل الرص: تجاوز أبعاد الطرد أو الوزن الأبعاد القياسية المسموح بها داخل الحاوية',
+                                  style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 16),
+                        elevation: 3,
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "حاوية #${pIdx + 1}: ${res.spec.code} — (${res.placedItems.length} طرد) — استغلال المساحة: ${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%",
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                              ),
+                              const SizedBox(height: 12),
+                              SizedBox(
+                                height: 380,
+                                child: ContainerLoadPlanPainterWidget(
+                                  spec: res.spec,
+                                  placedItems: res.placedItems,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -216,8 +216,12 @@ class ContainerLoadPlanPainter extends CustomPainter {
   void _drawCargoPackages(Canvas canvas, Rect innerRect, double scale, double contH, double palletHeightPx) {
     final TextPainter textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    for (int i = 0; i < plan.placedItems.length; i++) {
-      final p = plan.placedItems[i];
+    // Sort items by z ascending so bottom items draw first and top items overlay naturally
+    final itemsToDraw = List<PlacedItem>.from(plan.placedItems)
+      ..sort((a, b) => a.z.compareTo(b.z));
+
+    for (int i = 0; i < itemsToDraw.length; i++) {
+      final p = itemsToDraw[i];
       final Color baseColor = packageColors[i % packageColors.length];
 
       double itemX = innerRect.left + (p.x * scale);
@@ -226,7 +230,11 @@ class ContainerLoadPlanPainter extends CustomPainter {
       double itemH = 0.0;
 
       if (isTopView) {
-        itemY = innerRect.top + (contH - p.y - p.width) * scale;
+        // 2.5D Elevation offset: shift stacked items slightly UP and RIGHT so lower layers remain visible underneath
+        final double elevationShift = (p.z / plan.spec.internalHeight) * 14.0;
+        itemX += elevationShift;
+        itemY = innerRect.top + (contH - p.y - p.width) * scale - elevationShift;
+        itemW = p.length * scale;
         itemH = p.width * scale;
       } else {
         final double elevation = p.z * scale;
@@ -236,6 +244,14 @@ class ContainerLoadPlanPainter extends CustomPainter {
       }
 
       final Rect itemRect = Rect.fromLTWH(itemX + 1, itemY, math.max(itemW - 2, 2), math.max(itemH, 2));
+
+      // 0. Draw Drop Shadow for Stacked Items (z > 0)
+      if (p.z > 0.01) {
+        final Paint shadowPaint = Paint()
+          ..color = Colors.black.withOpacity(0.3)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
+        canvas.drawRect(itemRect.shift(const Offset(2, 3)), shadowPaint);
+      }
 
       // 1. Cargo Box Base Fill with Subtle 3D Depth
       final Paint itemPaint = Paint()..color = baseColor;
@@ -258,7 +274,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
 
       // 3. Subtle Outer Border
       final Paint borderPaint = Paint()
-        ..color = Colors.black.withOpacity(0.35)
+        ..color = Colors.black.withOpacity(0.4)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.0;
       canvas.drawRRect(RRect.fromRectAndRadius(itemRect, const Radius.circular(2)), borderPaint);
@@ -267,11 +283,11 @@ class ContainerLoadPlanPainter extends CustomPainter {
       final String seqNumber = p.item.itemId;
       final double badgeRadius = math.min(11.0, math.min(itemRect.width / 4, itemRect.height / 3.5));
 
-      if (badgeRadius >= 6.0 && itemRect.width >= 20 && itemRect.height >= 24) {
-        final Offset badgeCenter = Offset(itemRect.left + (itemRect.width / 2), itemRect.top + badgeRadius + 4.0);
+      if (badgeRadius >= 5.5 && itemRect.width >= 18 && itemRect.height >= 20) {
+        final Offset badgeCenter = Offset(itemRect.left + (itemRect.width / 2), itemRect.top + badgeRadius + 3.0);
 
-        // Circular background (semi-transparent white fill with white ring)
-        final Paint circleBgPaint = Paint()..color = Colors.white.withOpacity(0.25);
+        // Circular background
+        final Paint circleBgPaint = Paint()..color = Colors.white.withOpacity(0.3);
         canvas.drawCircle(badgeCenter, badgeRadius, circleBgPaint);
 
         final Paint circleRingPaint = Paint()
@@ -281,7 +297,7 @@ class ContainerLoadPlanPainter extends CustomPainter {
         canvas.drawCircle(badgeCenter, badgeRadius, circleRingPaint);
 
         // Number Text inside Circle
-        final double numFontSize = math.max(8.0, badgeRadius * 1.1);
+        final double numFontSize = math.max(7.5, badgeRadius * 1.05);
         textPainter.text = TextSpan(
           text: seqNumber,
           style: TextStyle(
@@ -298,9 +314,9 @@ class ContainerLoadPlanPainter extends CustomPainter {
       }
 
       // 5. Dimension & Weight Information Text (Under the badge)
-      if (itemRect.width >= 35 && itemRect.height >= 38) {
-        final double fontSize = math.min(10.0, math.max(7.0, itemRect.width / 16));
-        final String dimText = '${p.item.length.toStringAsFixed(0)} x ${p.item.width.toStringAsFixed(0)} x ${p.item.height.toStringAsFixed(0)} cm';
+      if (itemRect.width >= 35 && itemRect.height >= 36) {
+        final double fontSize = math.min(9.5, math.max(6.5, itemRect.width / 16));
+        final String dimText = '${p.length.toStringAsFixed(0)} x ${p.width.toStringAsFixed(0)} x ${p.height.toStringAsFixed(0)} cm';
         final String wtText = '${p.item.weight.toStringAsFixed(0)} kg';
 
         // Dimensions Text
@@ -316,32 +332,33 @@ class ContainerLoadPlanPainter extends CustomPainter {
           ),
         );
         textPainter.layout(maxWidth: itemRect.width - 4);
-        final double dimY = itemRect.top + (badgeRadius * 2) + 7;
+        final double dimY = itemRect.top + (badgeRadius * 2) + 5;
         if (dimY + textPainter.height < itemRect.bottom - 4) {
           textPainter.paint(canvas, Offset(itemRect.left + (itemRect.width - textPainter.width) / 2, dimY));
         }
 
-        // Weight Text
+        // Weight & Elevation Text
+        final String statusLabel = p.z > 0.01 ? '$wtText | 🥞 z:${p.z.toStringAsFixed(0)}cm' : wtText;
         textPainter.text = TextSpan(
-          text: wtText,
+          text: statusLabel,
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.bold,
-            fontSize: fontSize * 0.95,
+            fontSize: fontSize * 0.9,
             shadows: const [
               Shadow(color: Colors.black45, offset: Offset(0.5, 0.5), blurRadius: 1),
             ],
           ),
         );
         textPainter.layout(maxWidth: itemRect.width - 4);
-        final double wtY = dimY + fontSize + 3;
+        final double wtY = dimY + fontSize + 2;
         if (wtY + textPainter.height < itemRect.bottom - 2) {
           textPainter.paint(canvas, Offset(itemRect.left + (itemRect.width - textPainter.width) / 2, wtY));
         }
       }
 
-      // 6. Non-Stackable Visual Badge (if cargo is non-stackable)
-      if (!p.item.isStackable && itemRect.width >= 24 && itemRect.height >= 20) {
+      // 6. Non-Stackable Visual Badge
+      if (!p.item.isStackable && itemRect.width >= 20 && itemRect.height >= 18) {
         final Paint noStackPaint = Paint()..color = Colors.red.shade900.withOpacity(0.85);
         final Rect noStackRect = Rect.fromLTWH(itemRect.left + 2, itemRect.top + 2, 14, 12);
         canvas.drawRRect(RRect.fromRectAndRadius(noStackRect, const Radius.circular(2)), noStackPaint);

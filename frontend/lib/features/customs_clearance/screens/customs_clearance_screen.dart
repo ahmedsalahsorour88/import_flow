@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -125,6 +126,24 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                       onPressed: () => _showAddEditDialog(),
                       icon: const Icon(Icons.add_task, color: Colors.white),
                       label: const Text('تسجيل معاملة تخليص ومعاينة جمركية (New Customs Entry)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 10),
+                    SmartUploadButton(
+                      module: SmartUploadModule.customsClearance,
+                      label: 'رفع واستخراج الإقرار الجمركي 46 (PDF / Word / Excel)',
+                      onDataExtracted: (result) {
+                        final fields = result.extractedFields;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'تم استخراج بيانات الإقرار الجمركي بنجاح (${fields['declaration_no'] ?? 'بدون رقم بيان'})',
+                            ),
+                            backgroundColor: AppTheme.emerald,
+                            duration: const Duration(seconds: 5),
+                          ),
+                        );
+                        _showAddEditDialog();
+                      },
                     ),
                     const Spacer(),
                     SizedBox(

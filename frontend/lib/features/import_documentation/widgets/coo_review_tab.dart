@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
 
@@ -346,18 +347,33 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               ],
             ),
             const SizedBox(height: 16),
-            // File Picker Row
+            // File Picker & Smart Upload Row
             Row(
               children: [
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppTheme.cobalt,
-                    side: const BorderSide(color: AppTheme.cobalt),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  ),
-                  icon: const Icon(Icons.attach_file, size: 18),
-                  label: const Text('إرفاق ملف الشهادة (PDF / صورة)'),
-                  onPressed: _pickCertificateFile,
+                SmartUploadButton(
+                  module: SmartUploadModule.cooCertificate,
+                  label: 'رفع واستخراج شهادة المنشأ الذكي (PDF / Word / Excel)',
+                  onDataExtracted: (result) {
+                    final fields = result.extractedFields;
+                    setState(() {
+                      _pickedFileName = result.filename;
+                      if (fields['certificate_number'] != null && fields['certificate_number'].toString().isNotEmpty) {
+                        _certNumberCtrl.text = fields['certificate_number'].toString();
+                      }
+                      if (fields['origin_country'] != null && fields['origin_country'].toString().isNotEmpty) {
+                        _originCountryCtrl.text = fields['origin_country'].toString();
+                      }
+                      if (fields['exporter_name'] != null && fields['exporter_name'].toString().isNotEmpty) {
+                        _exporterCtrl.text = fields['exporter_name'].toString();
+                      }
+                      if (fields['consignee_name'] != null && fields['consignee_name'].toString().isNotEmpty) {
+                        _importerCtrl.text = fields['consignee_name'].toString();
+                      }
+                      if (fields['invoice_number'] != null && fields['invoice_number'].toString().isNotEmpty) {
+                        _invoiceNoCtrl.text = fields['invoice_number'].toString();
+                      }
+                    });
+                  },
                 ),
                 if (_pickedFileName != null) ...
                   [
@@ -372,13 +388,6 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       ),
                     ),
                   ],
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(
-                    'أو الصق النص يدوياً في حقل النص الخام أدناه:',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 12),

@@ -23,6 +23,7 @@ from modules.smart_document_upload.extractors.other_extractors import (
     InspectionCertificateExtractor,
     FinancialDocumentExtractor,
 )
+from modules.smart_document_upload.extractors.master_data_entity import MasterDataEntityExtractor
 from modules.smart_document_upload.extractors.base_extractor import BaseExtractor
 import modules.smart_document_upload.repository as repo
 
@@ -40,6 +41,9 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "coo-certificate": COOCertificateExtractor(),
     "inspection-certificate": InspectionCertificateExtractor(),
     "financial-document": FinancialDocumentExtractor(),
+    "master-data-entity": MasterDataEntityExtractor(),
+    "supplier-entity": MasterDataEntityExtractor(),
+    "importer-entity": MasterDataEntityExtractor(),
     # Aliases
     "customs-consultation": ImportFileExtractor(),   # extracts invoice fields
     "warehouse-receiving": ImportFileExtractor(),    # same as invoice extraction
@@ -269,4 +273,72 @@ def parse_multiple_uploaded_documents(
         "missing_fields": missing,
         "extraction_notes": notes,
         "raw_text_preview": full_text[:500] if full_text else None,
+    }
+
+
+def parse_raw_text_directly(
+    db: Session,
+    module_name: str,
+    raw_text: str,
+    save_session: bool = False,
+    created_by: str = "system",
+) -> dict:
+    """
+    Parses raw text directly without file upload (e.g. pasted contact info / address block)
+    and returns structured extracted entity or document fields.
+    """
+    extractor = _EXTRACTOR_MAP.get(module_name)
+    if extractor is None:
+        extractor = MasterDataEntityExtractor()
+
+    try:
+        extracted_fields = extractor.extract(raw_text, {})
+    except Exception as e:
+        logger.error(f"Direct raw text extractor error for '{module_name}': {e}")
+        extracted_fields = {}
+
+    confidence = extractor.compute_confidence(extracted_fields)
+    missing = extractor.missing_required(extracted_fields)
+    status = "SUCCESS" if confidence >= 0.8 else ("PARTIAL" if confidence >= 0.4 else "FAILED")
+
+    notes = (
+        f"Parsed raw text block ({len(raw_text)} chars). "
+        f"Confidence: {confidence:.0%}. "
+        + (f"Missing: {', '.join(missing)}." if missing else "All required fields found.")
+    )
+
+    session_id = None
+    session_ref = None
+    if save_session:
+        try:
+            session = repo.create_upload_session(
+                db=db,
+                module_name=module_name,
+                filename="pasted_raw_text",
+                file_type="text",
+                file_size_bytes=len(raw_text.encode("utf-8")),
+                extraction_status=status,
+                confidence_score=confidence,
+                extracted_fields=extracted_fields,
+                missing_fields=missing,
+                extraction_notes=notes,
+                created_by=created_by,
+            )
+            session_id = session.id
+            session_ref = session.session_ref
+        except Exception as e:
+            logger.warning(f"Could not save text parse session: {e}")
+
+    return {
+        "session_id": session_id,
+        "session_ref": session_ref,
+        "module_name": module_name,
+        "filename": "pasted_raw_text",
+        "file_type": "text",
+        "file_size_bytes": len(raw_text.encode("utf-8")),
+        "extraction_status": status,
+        "confidence_score": confidence,
+        "extracted_fields": extracted_fields,
+        "missing_fields": missing,
+        "extraction_notes": notes,
     }

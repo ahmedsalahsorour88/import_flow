@@ -12,6 +12,7 @@ ALLOWED_EXTENSIONS = {
     ".pdf", ".docx", ".doc",
     ".xlsx", ".xls",
     ".txt", ".csv",
+    ".png", ".jpg", ".jpeg", ".webp",
 }
 
 EXTENSION_TO_TYPE = {
@@ -22,6 +23,10 @@ EXTENSION_TO_TYPE = {
     ".xls": "excel",
     ".txt": "text",
     ".csv": "text",
+    ".png": "image",
+    ".jpg": "image",
+    ".jpeg": "image",
+    ".webp": "image",
 }
 
 SUPPORTED_MODULES = {
@@ -37,6 +42,9 @@ SUPPORTED_MODULES = {
     "financial-document",
     "coo-certificate",
     "inspection-certificate",
+    "master-data-entity",
+    "supplier-entity",
+    "importer-entity",
 }
 
 

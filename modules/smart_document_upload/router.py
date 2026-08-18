@@ -122,6 +122,37 @@ async def parse_multiple_documents_for_module(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Raw Text Parse Endpoint — Universal
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/parse-text/{module}",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Parse raw text directly to extract structured entity or document fields",
+)
+async def parse_text_for_module(
+    module: str,
+    raw_text: str = Form(..., description="Raw text block pasted by the user"),
+    save_session: bool = Form(False, description="Save parse session"),
+    db: Session = Depends(get_db),
+):
+    """
+    Direct raw text parsing endpoint.
+    Accepts pasted contact info, business cards, email signatures, or address blocks
+    and extracts structured entity fields (Company, Supplier, Partner, Bank).
+    """
+    validate_module_name(module)
+    result = service.parse_raw_text_directly(
+        db=db,
+        module_name=module,
+        raw_text=raw_text,
+        save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Convenience Module-Specific Endpoints
 # ─────────────────────────────────────────────────────────────────────────────
 

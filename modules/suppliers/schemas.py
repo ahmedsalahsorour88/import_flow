@@ -14,19 +14,19 @@ class SupplierBase(BaseModel):
 
     # Supplier Classification
 
-    supplier_type: str
+    supplier_type: str = "Manufacturer"
 
-    registration_type: str
+    registration_type: str = "Foreign Exporter"
 
-    foreign_exporter_id: str
+    foreign_exporter_id: str = ""
 
     cargox_platform_id: str | None = None
 
-    foreign_exporter_country: str
+    foreign_exporter_country: str = "United Kingdom"
 
-    foreign_exporter_country_code: str
+    foreign_exporter_country_code: str = "GB"
 
-    address: str
+    address: str = "Exporter Address"
 
     phone: str | None = None
 

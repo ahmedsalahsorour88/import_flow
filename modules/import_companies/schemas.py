@@ -12,47 +12,22 @@ from pydantic import EmailStr
 
 class ImportCompanyBase(BaseModel):
 
-    # ==========================
-    # Company Information
-    # ==========================
-
     importer_name: str
-    address: str
-    country: str
+    address: str = "Cairo, Egypt"
+    country: str = "Egypt"
     foreign_exporter_registration_type: str | None = None
 
-    # ==========================
-    # Importer ID
-    # ==========================
+    importer_id: str = "IMP-REG-001"
+    importer_id_expiry: date = date(2030, 12, 31)
 
-    importer_id: str
-    importer_id_expiry: date
+    vat_id: str = "000000000"
+    vat_id_expiry: date = date(2030, 12, 31)
 
-    # ==========================
-    # VAT Registration
-    # ==========================
-
-    vat_id: str
-    vat_id_expiry: date
-
-    # ==========================
-    # Commercial Registration
-    # ==========================
-
-    registration_number: str
-    registration_expiry: date
-
-    # ==========================
-    # Contact Information
-    # ==========================
+    registration_number: str = "000000"
+    registration_expiry: date = date(2030, 12, 31)
 
     phone: str | None = None
-    email: EmailStr | None = None
-
-    # ==========================
-    # Notes
-    # ==========================
-
+    email: str | None = None
     notes: str | None = None
 
 

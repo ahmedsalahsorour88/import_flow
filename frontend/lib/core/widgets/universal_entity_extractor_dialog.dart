@@ -191,30 +191,43 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       switch (_selectedTarget) {
         case EntityTarget.supplier:
           endpoint = '${ApiConstants.baseUrl}/suppliers';
+          final cty = _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'United Kingdom';
+          final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'GB';
           payload = {
             'company_name': name,
-            'country': _countryCtrl.text.trim(),
+            'supplier_type': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'Manufacturer',
+            'registration_type': 'Foreign Exporter',
+            'foreign_exporter_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
+            'foreign_exporter_country': cty,
+            'foreign_exporter_country_code': ctyCode,
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Exporter Address',
             'phone': _phoneCtrl.text.trim(),
+            'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'website': _websiteCtrl.text.trim(),
-            'address': _addressCtrl.text.trim(),
-            'foreign_exporter_id': _taxIdCtrl.text.trim(),
           };
           break;
         case EntityTarget.company:
           endpoint = '${ApiConstants.baseUrl}/import-companies';
           payload = {
-            'company_name': name,
-            'tax_id': _taxIdCtrl.text.trim(),
+            'importer_name': name,
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
+            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
+            'importer_id': 'IMP-${DateTime.now().millisecondsSinceEpoch}',
+            'importer_id_expiry': '2030-12-31',
+            'vat_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : '000000000',
+            'vat_id_expiry': '2030-12-31',
+            'registration_number': '000000',
+            'registration_expiry': '2030-12-31',
             'phone': _phoneCtrl.text.trim(),
-            'contact_email': _emailCtrl.text.trim(),
-            'address': _addressCtrl.text.trim(),
+            'email': _emailCtrl.text.trim(),
           };
           break;
         case EntityTarget.partner:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
             'provider_name': name,
+            'service_category': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'Freight Forwarder',
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
@@ -222,11 +235,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           };
           break;
         case EntityTarget.bank:
-          endpoint = '${ApiConstants.baseUrl}/import-companies';
+          endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'company_name': name,
-            'tax_id': _taxIdCtrl.text.trim(),
+            'provider_name': name,
+            'service_category': 'Bank',
+            'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
+            'email': _emailCtrl.text.trim(),
             'address': _addressCtrl.text.trim(),
           };
           break;
@@ -247,8 +262,15 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
+        String msg = '$e';
+        if (e is DioException && e.response?.data != null) {
+          final data = e.response!.data;
+          if (data is Map && data['detail'] != null) {
+            msg = data['detail'].toString();
+          }
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل التكويد: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text('فشل التكويد: $msg'), backgroundColor: AppTheme.crimson),
         );
       }
     }

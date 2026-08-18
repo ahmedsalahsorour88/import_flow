@@ -376,10 +376,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
           String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
           if (itemCty != null && itemCty.isNotEmpty) {
-            final matchedCty = countryOptions.where((c) => c['code'] == itemCty?.toUpperCase() || c['name']!.toUpperCase().contains(itemCty!.toUpperCase())).firstOrNull;
-            if (matchedCty != null) itemCty = matchedCty['name'];
+            itemCty = normalizeCountryName(itemCty);
           } else {
-            itemCty = _selectedCountryOfOrigin;
+            itemCty = normalizeCountryName(_selectedCountryOfOrigin);
           }
 
           int? matchedTariffId;
@@ -914,7 +913,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         items: companies
                                             .map((c) => SearchableDropdownItem<int?>(
                                                   value: c.companyId,
-                                                  label: '${c.importerName} (${c.vatId})',
+                                                  label: c.importerName,
                                                 ))
                                             .toList(),
                                         onChanged: (v) {
@@ -957,7 +956,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         items: suppliers
                                             .map((s) => SearchableDropdownItem<int?>(
                                                   value: s.supplierId,
-                                                  label: '[${s.supplierCode}] ${s.companyName} (${s.foreignExporterCountry})',
+                                                  label: s.companyName,
                                                 ))
                                             .toList(),
                                         onChanged: (v) {
@@ -1153,6 +1152,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               final isMismatched = itemHs.isNotEmpty && mismatchedHsCodes.contains(itemHs);
 
                               return Card(
+                                key: ValueKey('card_${idx}_${item.itemCode}_${item.descriptionAr}_${_dialogItems.length}'),
                                 color: isMismatched ? Colors.red.shade50.withOpacity(0.4) : Colors.grey.shade50,
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(8),
@@ -1174,6 +1174,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 2,
                                             child: TextFormField(
+                                              key: ValueKey('code_${idx}_${item.itemCode}'),
                                               initialValue: item.itemCode,
                                               decoration: const InputDecoration(labelText: 'Item Code (كود البند)', isDense: true),
                                               onChanged: (v) => _dialogItems[idx] = _dialogItems[idx].copyWith(itemCode: v.trim().isEmpty ? null : v.trim()),
@@ -1183,6 +1184,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 3,
                                             child: TextFormField(
+                                              key: ValueKey('desc_${idx}_${item.descriptionAr}'),
                                               initialValue: item.descriptionAr,
                                               decoration: const InputDecoration(labelText: 'Arabic Description *', isDense: true),
                                               validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -1257,6 +1259,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         children: [
                                           Expanded(
                                             child: TextFormField(
+                                              key: ValueKey('qty_${idx}_${item.quantity}'),
                                               initialValue: item.quantity.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Qty (العدد)', isDense: true),
@@ -1271,6 +1274,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: TextFormField(
+                                              key: ValueKey('price_${idx}_${item.unitPrice}'),
                                               initialValue: item.unitPrice.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                               decoration: const InputDecoration(labelText: 'Unit Price (سعر الوحده)', isDense: true),

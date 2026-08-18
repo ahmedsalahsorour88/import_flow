@@ -13,6 +13,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database.database import Base
 
+# Referenced models for SQLAlchemy registry
+from modules.import_files.model import ImportFile
+from modules.freight_booking.model import ShipmentBooking
+
 class CargoShippingRecord(Base):
     """
     Phase 5 Cargo Preparation & Shipping Model (BP-020 to BP-025)

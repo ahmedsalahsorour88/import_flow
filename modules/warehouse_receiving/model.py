@@ -13,6 +13,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database.database import Base
 
+# Referenced models for SQLAlchemy registry
+from modules.import_files.model import ImportFile
+
 class WarehouseReceivingRecord(Base):
     """
     Phase 8 Warehouse Receiving & Quality Control Model (BP-033 to BP-035)

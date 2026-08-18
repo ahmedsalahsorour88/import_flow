@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/smart_task_model.dart';
 
 class SmartTasksState {
@@ -32,10 +33,15 @@ class SmartTasksState {
   }
 }
 
-class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
-  final Dio _dio = Dio();
+final smartTasksProvider =
+    StateNotifierProvider<SmartTasksNotifier, SmartTasksState>((ref) {
+  return SmartTasksNotifier(ref.read(dioProvider));
+});
 
-  SmartTasksNotifier() : super(SmartTasksState()) {
+class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
+  final Dio _dio;
+
+  SmartTasksNotifier(this._dio) : super(SmartTasksState()) {
     fetchTasks();
   }
 

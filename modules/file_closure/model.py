@@ -12,6 +12,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database.database import Base
 
+# Referenced models for SQLAlchemy registry
+from modules.import_files.model import ImportFile
+
 class ImportFileClosureRecord(Base):
     """
     Phase 10 File Closure & Historical Archival Model (BP-040)

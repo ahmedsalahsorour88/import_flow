@@ -4,6 +4,9 @@ from sqlalchemy.orm import relationship
 
 from database.database import Base
 
+# Referenced models for SQLAlchemy registry
+from modules.import_files.model import ImportFile
+
 
 class ShipmentBooking(Base):
     __tablename__ = "shipment_bookings"

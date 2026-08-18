@@ -13,6 +13,9 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from database.database import Base
 
+# Referenced models for SQLAlchemy registry
+from modules.import_files.model import ImportFile
+
 class LandedCostSettlementRecord(Base):
     """
     Phase 9 Financial Settlement & Landed Cost Engine Model (BP-036 to BP-039)

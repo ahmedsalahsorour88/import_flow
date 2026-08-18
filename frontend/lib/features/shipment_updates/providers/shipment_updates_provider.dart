@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
 import '../models/shipment_update_model.dart';
 
 class ShipmentUpdatesState {
@@ -36,10 +37,15 @@ class ShipmentUpdatesState {
   }
 }
 
-class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
-  final Dio _dio = Dio();
+final shipmentUpdatesProvider =
+    StateNotifierProvider<ShipmentUpdatesNotifier, ShipmentUpdatesState>((ref) {
+  return ShipmentUpdatesNotifier(ref.read(dioProvider));
+});
 
-  ShipmentUpdatesNotifier() : super(ShipmentUpdatesState()) {
+class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
+  final Dio _dio;
+
+  ShipmentUpdatesNotifier(this._dio) : super(ShipmentUpdatesState()) {
     fetchLogs();
   }
 

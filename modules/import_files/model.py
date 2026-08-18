@@ -20,6 +20,11 @@ from sqlalchemy.orm import relationship
 
 from database.database import Base
 
+# Referenced Models for SQLAlchemy registry
+from modules.import_companies.model import ImportCompany
+from modules.suppliers.model import Supplier
+from modules.external_service_providers.model import ExternalServiceProvider
+
 
 class ImportFile(Base):
     __tablename__ = "import_files"

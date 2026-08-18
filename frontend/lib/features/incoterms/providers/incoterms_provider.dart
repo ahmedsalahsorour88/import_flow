@@ -102,8 +102,8 @@ final costItemsProvider =
 class CostItemsNotifier
     extends StateNotifier<AsyncValue<List<CostItemModel>>> {
   final Ref ref;
-  final Dio _dio = Dio();
   final bool showInactive;
+  Dio get _dio => ref.read(dioProvider);
 
   CostItemsNotifier({required this.ref, required this.showInactive})
       : super(const AsyncValue.loading()) {
@@ -182,7 +182,7 @@ final responsibilityMatrixProvider = StateNotifierProvider<
 class ResponsibilityMatrixNotifier
     extends StateNotifier<AsyncValue<List<IncotermResponsibilityModel>>> {
   final Ref ref;
-  final Dio _dio = Dio();
+  Dio get _dio => ref.read(dioProvider);
 
   ResponsibilityMatrixNotifier({required this.ref})
       : super(const AsyncValue.loading()) {

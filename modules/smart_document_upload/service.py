@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import io
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy.orm import Session
 
@@ -183,4 +183,90 @@ def parse_uploaded_document(
         "missing_fields": missing,
         "extraction_notes": notes,
         "raw_text_preview": raw_text[:500] if raw_text else None,
+    }
+
+
+def parse_multiple_uploaded_documents(
+    db: Session,
+    module_name: str,
+    files_data: List[Tuple[str, str, bytes]],
+    save_session: bool = True,
+    created_by: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    Parses multiple documents (e.g. Commercial Invoice + Packing List) concurrently,
+    extracts raw text from each file, combines the raw text and spatial boxes,
+    runs the module extractor, and returns a unified combined response.
+    """
+    combined_texts = []
+    combined_boxes = {}
+    combined_filenames = []
+    total_size = 0
+
+    for filename, file_type, content_bytes in files_data:
+        raw_text, spatial_boxes = extract_raw_text_and_boxes(filename, content_bytes)
+        combined_texts.append(f"=== DOCUMENT: {filename} ===\n{raw_text}")
+        combined_boxes.update(spatial_boxes)
+        combined_filenames.append(filename)
+        total_size += len(content_bytes)
+
+    full_text = "\n\n".join(combined_texts)
+    unified_filename = " + ".join(combined_filenames)
+    primary_file_type = files_data[0][1] if files_data else "pdf"
+
+    extractor = _EXTRACTOR_MAP.get(module_name)
+    if extractor is None:
+        extractor = ImportFileExtractor()
+
+    try:
+        extracted_fields = extractor.extract(full_text, combined_boxes)
+    except Exception as e:
+        logger.error(f"Multi-document extractor error for '{module_name}': {e}")
+        extracted_fields = {}
+
+    confidence = extractor.compute_confidence(extracted_fields)
+    missing = extractor.missing_required(extracted_fields)
+
+    status = "SUCCESS" if confidence >= 0.8 else ("PARTIAL" if confidence >= 0.4 else "FAILED")
+    notes = (
+        f"Extracted {len([v for v in extracted_fields.values() if v is not None])} fields from {len(files_data)} documents ({unified_filename}). "
+        f"Confidence: {confidence:.0%}. "
+        + (f"Missing: {', '.join(missing)}." if missing else "All required fields found.")
+    )
+
+    session_id = None
+    session_ref = None
+    if save_session:
+        try:
+            session = repo.create_upload_session(
+                db=db,
+                module_name=module_name,
+                filename=unified_filename,
+                file_type=primary_file_type,
+                file_size_bytes=total_size,
+                extraction_status=status,
+                confidence_score=confidence,
+                extracted_fields=extracted_fields,
+                missing_fields=missing,
+                extraction_notes=notes,
+                created_by=created_by,
+            )
+            session_id = session.id
+            session_ref = session.session_ref
+        except Exception as e:
+            logger.warning(f"Could not save multi-upload session: {e}")
+
+    return {
+        "session_id": session_id,
+        "session_ref": session_ref,
+        "module_name": module_name,
+        "filename": unified_filename,
+        "file_type": primary_file_type,
+        "file_size_bytes": total_size,
+        "extraction_status": status,
+        "confidence_score": confidence,
+        "extracted_fields": extracted_fields,
+        "missing_fields": missing,
+        "extraction_notes": notes,
+        "raw_text_preview": full_text[:500] if full_text else None,
     }

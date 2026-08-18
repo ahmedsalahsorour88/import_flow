@@ -87,6 +87,40 @@ async def parse_document_for_module(
     return SmartUploadResponse(**result)
 
 
+@router.post(
+    "/parse-multi/{module}",
+    response_model=SmartUploadResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Upload multiple documents (e.g., Commercial Invoice + Packing List) and merge extracted fields",
+)
+async def parse_multiple_documents_for_module(
+    module: str,
+    files: List[UploadFile] = File(..., description="List of PDF, Word (.docx), or Excel (.xlsx) files"),
+    save_session: bool = Form(True, description="Save this multi-upload as a session record"),
+    db: Session = Depends(get_db),
+):
+    """
+    Multi-document smart upload endpoint.
+    Accepts multiple files (e.g. Commercial Invoice + Packing List) and combines extracted text into a unified model.
+    """
+    validate_module_name(module)
+    files_data = []
+
+    for f in files:
+        file_type = validate_upload_file(f)
+        content_bytes = await f.read()
+        validate_file_size(content_bytes, f.filename or "unknown")
+        files_data.append((f.filename or "unknown", file_type, content_bytes))
+
+    result = service.parse_multiple_uploaded_documents(
+        db=db,
+        module_name=module,
+        files_data=files_data,
+        save_session=save_session,
+    )
+    return SmartUploadResponse(**result)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Convenience Module-Specific Endpoints
 # ─────────────────────────────────────────────────────────────────────────────

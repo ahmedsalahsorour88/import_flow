@@ -114,25 +114,32 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
   bool _isLoading = false;
 
   Future<void> _handleUpload() async {
-    // 1 — Pick file
+    // 1 — Pick file(s) (supports selecting Commercial Invoice + Packing List together)
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'txt', 'csv'],
+      allowMultiple: true,
       withData: true,
     );
 
     if (result == null || result.files.isEmpty) return;
-    final file = result.files.first;
-    if (file.bytes == null) {
-      _showError('تعذر قراءة الملف. يرجى المحاولة مرة أخرى.');
+
+    final validFiles = result.files.where((f) => f.bytes != null).toList();
+    if (validFiles.isEmpty) {
+      _showError('تعذر قراءة الملفات المحددة. يرجى المحاولة مرة أخرى.');
       return;
     }
 
     setState(() => _isLoading = true);
 
     try {
-      // 2 — Upload & parse
-      final uploadResult = await _uploadAndParse(file.name, file.bytes!);
+      // 2 — Upload & parse (single or multi-file)
+      final SmartUploadResult uploadResult;
+      if (validFiles.length == 1) {
+        uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!);
+      } else {
+        uploadResult = await _uploadAndParseMulti(validFiles);
+      }
 
       setState(() => _isLoading = false);
 
@@ -157,13 +164,29 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     }
   }
 
-  Future<SmartUploadResult> _uploadAndParse(String filename, Uint8List bytes) async {
+  Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes) async {
     final dio = Dio();
-    final endpoint =
-        '${ApiConstants.baseUrl}/smart-upload/parse/${widget.module.apiValue}';
+    final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse/${widget.module.apiValue}';
 
     final formData = FormData.fromMap({
       'file': MultipartFile.fromBytes(bytes, filename: filename),
+      'save_session': 'true',
+    });
+
+    final response = await dio.post(endpoint, data: formData);
+    return SmartUploadResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files) async {
+    final dio = Dio();
+    final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse-multi/${widget.module.apiValue}';
+
+    final multiFiles = files
+        .map((f) => MultipartFile.fromBytes(f.bytes!, filename: f.name))
+        .toList();
+
+    final formData = FormData.fromMap({
+      'files': multiFiles,
       'save_session': 'true',
     });
 
@@ -439,22 +462,22 @@ class SmartUploadPreviewDialog extends StatelessWidget {
 
   String _formatFieldName(String key) {
     final labels = {
-      'po_number': 'رقم أمر الشراء',
-      'supplier_name': 'اسم المورد',
-      'order_date': 'تاريخ الأمر',
+      'po_number': 'رقم أمر الشراء / الفاتورة',
+      'order_date': 'تاريخ أمر الشراء / الفاتورة',
+      'supplier_name': 'اسم المورد / الشركة',
       'currency': 'العملة',
-      'incoterms': 'شروط التسليم',
-      'delivery_port': 'ميناء التسليم',
-      'payment_terms': 'شروط الدفع',
-      'total_amount': 'الإجمالي',
-      'items': 'بنود الأمر',
+      'total_amount': 'الإجمالي الفعلي',
       'bl_number': 'رقم سند الشحن',
       'vessel_name': 'اسم السفينة',
       'voyage_number': 'رقم الرحلة',
-      'carrier_name': 'الناقل',
       'loading_port': 'ميناء الشحن',
       'discharge_port': 'ميناء التفريغ',
-      'etd': 'تاريخ المغادرة',
+      'acid_number': 'رقم إقرار الشحنة (ACID)',
+      'country_of_origin': 'بلد المنشأ',
+      'payment_terms': 'شروط الدفع والتعاقد',
+      'items': 'جدول البنود المالية والكميات',
+      'packing_list_items': 'بيانات طرود التعبئة والأبعاد (Packing List)',
+      'delivery_port': 'ميناء الشحن / التوصيل',
       'eta': 'تاريخ الوصول',
       'total_gross_weight_kg': 'الوزن الإجمالي (كجم)',
       'total_cbm': 'الحجم (م³)',
@@ -476,7 +499,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
       'invoice_value': 'قيمة الفاتورة',
       'certificate_number': 'رقم الشهادة',
       'issue_date': 'تاريخ الإصدار',
-      'carrier_name': 'اسم الناقل',
+      'carrier_name': 'اسم الناقل البحرى / الجوي',
       'freight_rate': 'سعر الشحن',
       'transit_days': 'أيام العبور',
       'validity_date': 'تاريخ الصلاحية',

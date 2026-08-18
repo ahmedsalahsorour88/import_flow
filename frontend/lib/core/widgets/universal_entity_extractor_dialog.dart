@@ -111,11 +111,21 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'txt'],
+      withData: true,
     );
 
     if (result == null || result.files.isEmpty) return;
 
     final file = result.files.first;
+    if (file.bytes == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر قراءة محتوى الملف المختَار.'), backgroundColor: AppTheme.crimson),
+        );
+      }
+      return;
+    }
+
     setState(() {
       _isExtracting = true;
       _selectedFileName = file.name;
@@ -123,14 +133,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
     try {
       final dio = Dio();
-      MultipartFile multipartFile;
-      if (file.bytes != null) {
-        multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
-      } else if (file.path != null) {
-        multipartFile = await MultipartFile.fromFile(file.path!, filename: file.name);
-      } else {
-        throw Exception('عفواً، لم يتم العثور على محتوى الملف.');
-      }
+      final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
 
       final formData = FormData.fromMap({'file': multipartFile});
       final resp = await dio.post(

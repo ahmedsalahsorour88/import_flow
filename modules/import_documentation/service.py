@@ -45,7 +45,7 @@ from modules.import_documentation.nafeza_acid_parser import (
 )
 
 
-def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegistrationResponse:
+def enrich_acid_response(db: Session, item: AcidRegistrationSession, import_files_map: dict = None) -> AcidRegistrationResponse:
     today = date.today()
     # Safely compute days remaining — expiry_date can be None for legacy/pending records
     if item.expiry_date:
@@ -66,10 +66,15 @@ def enrich_acid_response(db: Session, item: AcidRegistrationSession) -> AcidRegi
 
     import_file_code = None
     if item.import_file_id:
-        from modules.import_files.model import ImportFile
-        imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
-        if imp:
-            import_file_code = imp.import_file_code or imp.custom_file_number
+        if import_files_map is not None:
+            imp = import_files_map.get(item.import_file_id)
+            if imp:
+                import_file_code = imp.import_file_code or imp.custom_file_number
+        else:
+            from modules.import_files.model import ImportFile
+            imp = db.query(ImportFile).filter(ImportFile.import_file_id == item.import_file_id).first()
+            if imp:
+                import_file_code = imp.import_file_code or imp.custom_file_number
 
     return AcidRegistrationResponse(
         acid_id=item.acid_id,

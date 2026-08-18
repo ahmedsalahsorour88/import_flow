@@ -602,19 +602,27 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       'YE', 'SD', 'LY', 'TN', 'DZ', 'MA', 'PS', 'EG'
     };
 
+    // Pre-index tariffs for instant O(1) lookups
+    final Map<int, CustomsTariffModel> tariffById = {
+      for (final t in tariffsList) t.tariffId: t,
+    };
+    final Map<String, CustomsTariffModel> tariffByNormalizedHs = {
+      for (final t in tariffsList) t.hsCode.replaceAll('.', '').trim(): t,
+    };
+
     final List<CustomsItemCalcRow> result = [];
     for (final entry in flatLineEntries) {
       final POLineItemModel l = entry['item'] as POLineItemModel;
       final PurchaseOrderModel po = entry['po'] as PurchaseOrderModel;
       final hs = (l.hsCode != null && l.hsCode!.trim().isNotEmpty) ? l.hsCode!.trim() : 'UNASSIGNED';
       
-      // Match tariff
+      // Match tariff via O(1) lookup
       CustomsTariffModel? matchedTariff;
       if (l.tariffId != null) {
-        matchedTariff = tariffsList.where((t) => t.tariffId == l.tariffId).firstOrNull;
+        matchedTariff = tariffById[l.tariffId];
       }
       if (matchedTariff == null && hs != 'UNASSIGNED') {
-        matchedTariff = tariffsList.where((t) => t.hsCode.replaceAll('.', '').trim() == hs.replaceAll('.', '').trim()).firstOrNull;
+        matchedTariff = tariffByNormalizedHs[hs.replaceAll('.', '').trim()];
       }
 
       // Country of origin resolution

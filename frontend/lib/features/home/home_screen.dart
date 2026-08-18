@@ -519,6 +519,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ],
                   ),
                 ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert_rounded, color: Colors.white70, size: 16),
+                  tooltip: 'خيارات المستخدم',
+                  onSelected: (val) {
+                    if (val == 'LOGOUT') {
+                      ref.read(authProvider.notifier).logout();
+                    } else {
+                      ref.read(authProvider.notifier).switchDemoRole(val);
+                    }
+                  },
+                  itemBuilder: (ctx) => [
+                    const PopupMenuItem(value: 'ADMIN', child: Text('تبديل كـ: Admin 🔴')),
+                    const PopupMenuItem(value: 'MANAGER', child: Text('تبديل كـ: Manager 🔵')),
+                    const PopupMenuItem(value: 'OPERATOR', child: Text('تبديل كـ: Specialist 🟢')),
+                    const PopupMenuDivider(),
+                    const PopupMenuItem(
+                      value: 'LOGOUT',
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, color: AppTheme.crimson, size: 16),
+                          SizedBox(width: 8),
+                          Text('تسجيل الخروج (Logout)', style: TextStyle(color: AppTheme.crimson)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),

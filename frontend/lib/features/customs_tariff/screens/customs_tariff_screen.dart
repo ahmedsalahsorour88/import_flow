@@ -99,7 +99,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2C3E50),
+                        backgroundColor: AppTheme.charcoal,
                         padding: const EdgeInsets.symmetric(
                             horizontal: 14, vertical: 12),
                       ),
@@ -695,7 +695,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
               ruleText,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF2C3E50),
+                color: AppTheme.charcoal,
                 height: 1.4,
               ),
               textDirection: TextDirection.rtl,

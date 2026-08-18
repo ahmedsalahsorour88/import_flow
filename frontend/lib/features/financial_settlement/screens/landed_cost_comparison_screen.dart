@@ -26,10 +26,10 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   Map<String, dynamic>? _settlementRecord;
 
   // Colors based on AppTheme specifications
-  final Color _charcoal = const Color(0xFF2C3E50);
-  final Color _cobalt = const Color(0xFF3498DB);
-  final Color _emerald = const Color(0xFF27AE60);
-  final Color _crimson = const Color(0xFFC0392B);
+  final Color _charcoal = AppTheme.charcoal;
+  final Color _cobalt = AppTheme.cobalt;
+  final Color _emerald = AppTheme.emerald;
+  final Color _crimson = AppTheme.crimson;
 
   @override
   void initState() {

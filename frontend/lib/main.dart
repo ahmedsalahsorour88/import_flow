@@ -95,17 +95,22 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class ImportFlowApp extends StatelessWidget {
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
+
+class ImportFlowApp extends ConsumerWidget {
   const ImportFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'ImportFlow ERP',
       theme: AppTheme.lightTheme,
       scrollBehavior: AppCustomScrollBehavior(),
-      home: const HomeScreen(),
+      home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
     );
   }
 }

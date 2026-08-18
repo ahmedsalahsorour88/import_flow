@@ -13,10 +13,10 @@ class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
 }
 
 class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuotationsComparisonScreen> {
-  final Color _charcoal = const Color(0xFF2C3E50);
-  final Color _cobalt = const Color(0xFF3498DB);
-  final Color _emerald = const Color(0xFF27AE60);
-  final Color _gold = const Color(0xFFFFD700);
+  final Color _charcoal = AppTheme.charcoal;
+  final Color _cobalt = AppTheme.cobalt;
+  final Color _emerald = AppTheme.emerald;
+  final Color _gold = Colors.amber.shade700;
 
   bool _isLoading = false;
   String? _error;

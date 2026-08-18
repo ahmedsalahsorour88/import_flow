@@ -318,7 +318,7 @@ Widget _buildNafezaRulesList(
               ruleText,
               style: const TextStyle(
                 fontSize: 13,
-                color: Color(0xFF2C3E50),
+                color: AppTheme.charcoal,
                 height: 1.4,
               ),
               textDirection: TextDirection.rtl,

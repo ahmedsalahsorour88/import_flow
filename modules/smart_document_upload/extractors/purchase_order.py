@@ -28,7 +28,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
             "total_amount": self.find_float([
-                r"(?:grand\s+total|total\s+amount|total\s+value)[:\s]+(?:[A-Z]{3}\s*)?([0-9,]+\.?\d*)",
+                r"(?:grand\s+total|total\s+amount|total\s+value|amount\s+due|invoice\s+total|net\s+amount)[:\s]+(?:[A-Z]{3}\s*)?([0-9,]+\.?\d*)",
                 r"(?:total)[:\s]+(?:[A-Z]{3}\s*)?([0-9,]+\.?\d*)",
                 r"[A-Z]{3}\s+([0-9,]+\.?\d*)\s*$",
             ], text),
@@ -40,20 +40,23 @@ class PurchaseOrderExtractor(BaseExtractor):
         return self.find_first([
             r"P\.?O\.?\s*(?:No\.?|Number|#|Num)[:\s]*([A-Z0-9/\-]+)",
             r"Purchase\s+Order\s+(?:No\.?|Number|#)?[:\s]*([A-Z0-9/\-]+)",
+            r"(?:Commercial\s+)?Invoice\s*(?:No\.?|Number|#|Num)[:\s]*([A-Z0-9/\-]+)",
+            r"Inv(?:oice)?\s*(?:No\.?|#)[:\s]*([A-Z0-9/\-]+)",
             r"Order\s+(?:No\.?|#)[:\s]*([A-Z0-9/\-]+)",
             r"(?:PO)[:\s]*([A-Z0-9/\-]{4,})",
         ], text)
 
     def _extract_supplier(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Supplier|Vendor|Seller|From|Sold By)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
-            r"(?:Company)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"(?:Supplier|Vendor|Seller|Exporter|Shipper|From|Sold By|Beneficiary|Shipped By)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"(?:Company|Messrs|M/S|Messers)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"^([A-Z0-9\s&,.'-]{4,60}\s+(?:LTD|LIMITED|INC|CORP|CORPORATION|CO\.|GMBH|LLC|PLC|S\.P\.A|S\.R\.L))",
         ], text)
 
     def _extract_date(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Order\s+Date|Date|Issue\s+Date)[:\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
-            r"(?:Order\s+Date|Date|Issue\s+Date)[:\s]+(\d{4}-\d{2}-\d{2})",
+            r"(?:Order\s+Date|Invoice\s+Date|Date|Issue\s+Date)[:\s]+(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
+            r"(?:Order\s+Date|Invoice\s+Date|Date|Issue\s+Date)[:\s]+(\d{4}-\d{2}-\d{2})",
             r"(?:Dated?)[:\s]+(\d{1,2}\s+\w+\s+\d{4})",
         ], text)
 
@@ -66,20 +69,19 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_payment_terms(self, text: str) -> Optional[str]:
         return self.find_first([
             r"(?:Payment\s+Terms?|Terms?\s+of\s+Payment)[:\s]+([^\n]{3,60})",
-            r"\b(T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment)\b",
+            r"\b(T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|PBS\s+CHK/CR/DBT|SWIFT)\b",
         ], text)
 
     def _extract_line_items(self, text: str) -> List[Dict[str, Any]]:
         """
         Attempts to extract tabular line items from the document.
-        Handles both pipe-separated (Excel rows) and space-aligned (PDF table) formats.
+        Handles pipe-separated (Excel rows), space-aligned (PDF table), and invoice row formats.
         """
         items = []
 
-        # Pattern for pipe-separated rows (from Excel/openpyxl extraction)
-        # e.g. "PRODUCT A | 100 | PCS | 12.50 | 1250.00"
+        # 1. Pattern for pipe-separated rows (from Excel/openpyxl extraction)
         pipe_pattern = re.compile(
-            r"([A-Za-z][^|]{2,60})\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*([A-Za-z]{2,10})\s*\|\s*([0-9,]+\.?\d*)\s*\|\s*([0-9,]+\.?\d*)",
+            r"([A-Za-z0-9][^|]{2,60})\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*([A-Za-z]{2,10})\s*\|\s*([0-9,]+\.?\d*)\s*\|\s*([0-9,]+\.?\d*)",
             re.IGNORECASE,
         )
         for m in pipe_pattern.finditer(text):
@@ -94,7 +96,28 @@ class PurchaseOrderExtractor(BaseExtractor):
             except ValueError:
                 continue
 
-        # Fallback: simpler pattern for description + total
+        # 2. Standard commercial invoice row pattern: Description Qty Price Amount
+        if not items:
+            invoice_pattern = re.compile(
+                r"(?:[0-9]+[\.\)\s]+)?([A-Za-z0-9\s\-/]{3,50}?)\s+(\d+(?:\.\d+)?)\s+(?:PCS|KGS|CTNS|UNITS|SETS|BOXES|BAGS)?\s*(?:[A-Z]{3}\s*)?([0-9,]+\.?\d*)\s+(?:[A-Z]{3}\s*)?([0-9,]+\.?\d*)",
+                re.IGNORECASE | re.MULTILINE,
+            )
+            for m in invoice_pattern.finditer(text):
+                try:
+                    qty = float(m.group(2).replace(",", ""))
+                    price = float(m.group(3).replace(",", ""))
+                    total = float(m.group(4).replace(",", ""))
+                    if qty > 0 and price > 0 and total > 0:
+                        items.append({
+                            "description": m.group(1).strip(),
+                            "quantity": qty,
+                            "unit_price": price,
+                            "total_price": total,
+                        })
+                except ValueError:
+                    continue
+
+        # 3. Fallback: simpler pattern for description + total
         if not items:
             simple_pattern = re.compile(
                 r"^\s*(\d+)\s+(.{5,60?})\s+(\d+(?:\.\d+)?)\s+([0-9,]+\.?\d+)\s*$",
@@ -111,4 +134,4 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except ValueError:
                     continue
 
-        return items[:50]  # Cap at 50 line items
+        return items[:50]

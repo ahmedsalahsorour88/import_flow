@@ -106,13 +106,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'تم استخراج بيانات أمر الشراء بنجاح (${fields['po_number'] ?? 'بدون رقم'}) — انقر على "New Purchase Order" لاستكمال الحفظ',
+                          'تم استخراج بيانات أمر الشراء بنجاح (${fields['po_number'] ?? 'بدون رقم'}) — جاري تعبئة أمر الشراء تلقائياً...',
                         ),
                         backgroundColor: AppTheme.emerald,
-                        duration: const Duration(seconds: 5),
+                        duration: const Duration(seconds: 4),
                       ),
                     );
-                    _showPODialog(context, null);
+                    _showPODialog(context, null, initialExtractedFields: fields);
                   },
                 ),
                 const SizedBox(width: 10),
@@ -1016,10 +1016,10 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
     );
   }
 
-  void _showPODialog(BuildContext context, PurchaseOrderModel? po) {
+  void _showPODialog(BuildContext context, PurchaseOrderModel? po, {Map<String, dynamic>? initialExtractedFields}) {
     showDialog(
       context: context,
-      builder: (dialogCtx) => _PODialogWidget(po: po),
+      builder: (dialogCtx) => _PODialogWidget(po: po, initialExtractedFields: initialExtractedFields),
     );
   }
 }
@@ -1435,55 +1435,11 @@ class _ReconciliationWarningDialogState extends State<_ReconciliationWarningDial
                       decoration: InputDecoration(
                         labelText: 'سبب الاستمرار وتبرير الاختلاف (Discrepancy Justification Reason) *',
                         hintText: 'مثال: كل قطعة بالفاتورة تتكون من كرتونتين مكملتين في بيان التعبئة، أو شحنة مجزأة...',
-                        border: const OutlineInputBorder(),
-                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.amber.shade800, width: 2)),
-                      ),
-                      validator: (val) {
-                        if (val == null || val.trim().isEmpty) {
-                          return 'يجب إدخال سبب وتبرير استمرار الحفظ رغم وجود الاختلاف.';
-                        }
-                        if (val.trim().length < 5) {
-                          return 'الرجاء إدخال تبرير واضح ومفصل (5 أحرف على الأقل).';
-                        }
-                        return null;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      actions: [
-        OutlinedButton.icon(
-          icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('الرجوع للتعديل (Back to Edit)'),
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
-          onPressed: () => Navigator.pop(context, null),
-        ),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.check_circle_outline, size: 16),
-          label: const Text('الاستمرار وحفظ أمر الشراء (Continue & Save)'),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber.shade800,
-            foregroundColor: Colors.white,
-          ),
-          onPressed: () {
-            if (_formKey.currentState!.validate()) {
-              Navigator.pop(context, _reasonCtrl.text.trim());
-            }
-          },
-        ),
-      ],
-    );
-  }
-}
-
 class _PODialogWidget extends ConsumerStatefulWidget {
   final PurchaseOrderModel? po;
+  final Map<String, dynamic>? initialExtractedFields;
 
-  const _PODialogWidget({this.po});
+  const _PODialogWidget({this.po, this.initialExtractedFields});
 
   @override
   ConsumerState<_PODialogWidget> createState() => _PODialogWidgetState();
@@ -1589,34 +1545,22 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                       onChanged: (v) => setDialogState(() => search = v),
                     ),
                     const SizedBox(height: 12),
-                    ListTile(
-                      tileColor: Colors.grey.shade100,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                      title: const Text('None / General (بدون بند جمركي)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                      subtitle: const Text('إلغاء ربط البند الجمركي لهذا السطر'),
-                      onTap: () => Navigator.pop(ctx, null),
-                    ),
-                    const Divider(),
                     Expanded(
                       child: filtered.isEmpty
-                          ? const Center(
-                              child: Text('لا يوجد بند جمركي يطابق البحث', style: TextStyle(color: Colors.grey)),
-                            )
-                          : ListView.separated(
+                          ? const Center(child: Text('لا توجد نتائج مطابقة لمفتاح البحث'))
+                          : ListView.builder(
                               itemCount: filtered.length,
-                              separatorBuilder: (_, __) => const Divider(height: 1),
-                              itemBuilder: (context, index) {
-                                final item = filtered[index];
+                              itemBuilder: (context, i) {
+                                final item = filtered[i];
                                 return ListTile(
                                   dense: true,
                                   title: Row(
                                     children: [
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.cobalt.withOpacity(0.12),
+                                          color: AppTheme.cobalt.withOpacity(0.1),
                                           borderRadius: BorderRadius.circular(4),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
                                         ),
                                         child: Text(
                                           item.hsCode,
@@ -1693,16 +1637,28 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   void initState() {
     super.initState();
     final po = widget.po;
+    final ext = widget.initialExtractedFields;
+
     _selectedOrderDate = po?.orderDate ?? DateTime.now();
-    _piCtrl = TextEditingController(text: po?.proformaInvoiceNumber ?? '');
+    if (po == null && ext != null) {
+      final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
+      if (dateStr != null && dateStr.isNotEmpty) {
+        final parsed = DateTime.tryParse(dateStr);
+        if (parsed != null) _selectedOrderDate = parsed;
+      }
+    }
+
+    final defaultPiNumber = po?.proformaInvoiceNumber ??
+        (ext != null ? (ext['po_number'] ?? ext['proforma_invoice_number'])?.toString() : null) ?? '';
+    _piCtrl = TextEditingController(text: defaultPiNumber);
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'Draft';
 
-    final rawTerms = po?.paymentTerms;
-    if (rawTerms != null && (rawTerms.contains('LC') || rawTerms.contains('اعتماد'))) {
+    final rawTerms = po?.paymentTerms ?? (ext != null ? ext['payment_terms']?.toString() : null);
+    if (rawTerms != null && (rawTerms.contains('LC') || rawTerms.contains('اعتماد') || rawTerms.contains('CREDIT'))) {
       _selectedPaymentTerms = 'Letter of Credit / LC';
-    } else if (rawTerms != null && (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت'))) {
+    } else if (rawTerms != null && (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت') || rawTerms.contains('T/T') || rawTerms.contains('CHK') || rawTerms.contains('DBT'))) {
       _selectedPaymentTerms = 'Cash in Advance / SWIFT';
     } else {
       _selectedPaymentTerms = rawTerms ?? 'Cash in Advance / SWIFT';
@@ -1785,6 +1741,53 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
         .where((item) => !item.isMatched || item.isMissingInPacking || item.isMissingInInvoice)
         .map((item) => item.hsCode)
         .toSet();
+
+    final ext = widget.initialExtractedFields;
+    if (widget.po == null && ext != null) {
+      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
+        final extCurr = (ext['currency'] ?? ext['currency_code'] ?? '').toString().trim().toUpperCase();
+        if (extCurr.isNotEmpty) {
+          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase() == extCurr).firstOrNull;
+          if (matchedCurr != null) {
+            _selectedCurrencyId = matchedCurr.currencyId;
+            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+          }
+        }
+      }
+
+      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
+        final extInco = (ext['incoterms'] ?? ext['incoterm'] ?? '').toString().trim().toUpperCase();
+        if (extInco.isNotEmpty) {
+          final matchedInco = incoterms.where((i) => i.code.toUpperCase() == extInco || extInco.contains(i.code.toUpperCase())).firstOrNull;
+          if (matchedInco != null) {
+            _selectedIncotermId = matchedInco.incotermId;
+          }
+        }
+      }
+
+      if (_selectedSupplierId == null && suppliers.isNotEmpty) {
+        final extSupp = (ext['supplier_name'] ?? ext['supplier'] ?? '').toString().trim().toLowerCase();
+        if (extSupp.isNotEmpty) {
+          final matchedSupp = suppliers.where((s) {
+            final sName = s.companyName.toLowerCase();
+            return sName.contains(extSupp) || extSupp.contains(sName);
+          }).firstOrNull;
+          if (matchedSupp != null) {
+            _selectedSupplierId = matchedSupp.supplierId;
+          }
+        }
+      }
+
+      if (_selectedCountryOfOrigin == null) {
+        final extCountry = (ext['country_of_origin'] ?? ext['country'] ?? '').toString().trim().toUpperCase();
+        if (extCountry.isNotEmpty) {
+          final matchedCty = countryOptions.where((c) => c['code'] == extCountry || c['name']!.toUpperCase().contains(extCountry)).firstOrNull;
+          if (matchedCty != null) {
+            _selectedCountryOfOrigin = matchedCty['code'];
+          }
+        }
+      }
+    }
 
     if (_selectedProjectId == null && projects.isNotEmpty) {
       _selectedProjectId = projects.first.projectId;

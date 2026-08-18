@@ -65,14 +65,37 @@ class BaseExtractor(ABC):
         return None
 
     @staticmethod
+    def parse_numeric_str(raw: str) -> float:
+        """
+        Parses numeric string supporting both US/UK (15,375.50 or 623,000) and European (37.741,00 or 18.602,37500 or 536,25) formats.
+        """
+        clean = raw.strip()
+        if "." in clean and "," in clean:
+            if clean.rfind(",") > clean.rfind("."):
+                # European format with dot thousand and comma decimal: 37.741,00 or 18.602,37500
+                clean = clean.replace(".", "").replace(",", ".")
+            else:
+                # US/UK format with comma thousand and dot decimal: 15,375.50
+                clean = clean.replace(",", "")
+        elif "," in clean:
+            parts = clean.split(",")
+            # If exactly 2 digits after comma (e.g. 536,25 or 37204,75), treat as decimal comma
+            if len(parts) == 2 and len(parts[1]) == 2:
+                clean = clean.replace(",", ".")
+            else:
+                # Thousands comma: 623,000 or 2,500 or 10,510
+                clean = clean.replace(",", "")
+        return float(clean)
+
+    @staticmethod
     def find_float(patterns: List[str], text: str) -> Optional[float]:
-        """Try multiple patterns, return first numeric match as float."""
+        """Try multiple patterns, return first numeric match as float with international format support."""
         for pat in patterns:
             m = re.search(pat, text, re.IGNORECASE)
             if m:
                 try:
-                    raw = m.group(1).replace(",", "").strip()
-                    return float(raw)
+                    raw = m.group(1).strip()
+                    return BaseExtractor.parse_numeric_str(raw)
                 except (IndexError, ValueError):
                     pass
         return None
@@ -99,14 +122,14 @@ class BaseExtractor(ABC):
             symbol_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
             return symbol_map.get(code, code)
 
-        # 2. Check suffix after numeric amounts (e.g. "15,375.50 EUR")
+        # 2. Check suffix after numeric amounts (e.g. "15,375.50 EUR" or "37.741,00 EUR" or "Amount(USD)")
         amount_suffix_match = re.search(
-            r"\b\d{1,3}(?:,\d{3})*(?:\.\d{2})\s*(EUR|USD|GBP|EGP|CNY|JPY|AED|SAR|€|\$|£|¥)\b",
+            r"(?:\b\d{1,3}(?:[.,]\d{3})*(?:[.,]\d{2,5})?\s*(EUR|USD|GBP|EGP|CNY|JPY|AED|SAR|€|\$|£|¥)\b|\((USD|EUR|GBP|EGP|CNY)\))",
             text,
             re.IGNORECASE,
         )
         if amount_suffix_match:
-            code = amount_suffix_match.group(1).upper()
+            code = (amount_suffix_match.group(1) or amount_suffix_match.group(2)).upper()
             symbol_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
             return symbol_map.get(code, code)
 
@@ -122,7 +145,27 @@ class BaseExtractor(ABC):
 
     @staticmethod
     def normalize_incoterms(text: str) -> Optional[str]:
-        """Extract Incoterm from text."""
+        """Extract Incoterm from text, recognizing full text expansions."""
+        if not text:
+            return None
+
+        # 1. Full terms mapping
+        if re.search(r"\bEX[\s\-]*(?:WORKS|WORK)(?:\s+EXTRA\s+UE)?\b", text, re.IGNORECASE):
+            return "EXW"
+        if re.search(r"\bFREE\s+ON\s+BOARD\b", text, re.IGNORECASE):
+            return "FOB"
+        if re.search(r"\bCOST\s+(?:AND|&)\s+FREIGHT\b", text, re.IGNORECASE):
+            return "CFR"
+        if re.search(r"\bCOST\s*,?\s*INSURANCE\s+(?:AND|&)\s+FREIGHT\b", text, re.IGNORECASE):
+            return "CIF"
+        if re.search(r"\bDELIVERED\s+DUTY\s+PAID\b", text, re.IGNORECASE):
+            return "DDP"
+        if re.search(r"\bDELIVERED\s+AT\s+PLACE\b", text, re.IGNORECASE):
+            return "DAP"
+        if re.search(r"\bFREE\s+CARRIER\b", text, re.IGNORECASE):
+            return "FCA"
+
+        # 2. Standard 3-letter codes
         pattern = r"\b(FOB|CIF|CFR|EXW|DAP|DDP|FCA|CPT|CIP|DAT|FAS)\b"
         m = re.search(pattern, text, re.IGNORECASE)
         return m.group(1).upper() if m else None

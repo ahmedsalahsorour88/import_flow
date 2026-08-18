@@ -391,6 +391,43 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                         ),
                       ),
 
+                    // Quick Registration Actions for Supplier & Importer
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        if (result.extractedFields['supplier_name'] != null)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.cobalt,
+                              side: const BorderSide(color: AppTheme.cobalt),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                            label: Text(
+                              'تسجيل "${result.extractedFields['supplier_name']}" كمورد جديد',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () => _showRegisterSupplierDialog(context, result.extractedFields),
+                          ),
+                        if (result.extractedFields['importer_name'] != null)
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.emerald,
+                              side: const BorderSide(color: AppTheme.emerald),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            ),
+                            icon: const Icon(Icons.domain_add_rounded, size: 16),
+                            label: Text(
+                              'تسجيل "${result.extractedFields['importer_name']}" كشركة مستوردة',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () => _showRegisterImporterDialog(context, result.extractedFields),
+                          ),
+                      ],
+                    ),
+
                     // Missing fields warning
                     if (result.missingFields.isNotEmpty) ...[
                       const SizedBox(height: 12),
@@ -520,6 +557,260 @@ class SmartUploadPreviewDialog extends StatelessWidget {
     }
     if (value is Map) return '{...}';
     return value.toString();
+  }
+
+  void _showRegisterSupplierDialog(BuildContext context, Map<String, dynamic> ext) {
+    final suppName = ext['supplier_name']?.toString() ?? '';
+    final country = ext['supplier_country']?.toString() ?? ext['country_of_origin']?.toString() ?? '';
+    final phone = ext['supplier_phone']?.toString() ?? '';
+    final email = ext['supplier_email']?.toString() ?? '';
+    final address = ext['supplier_address']?.toString() ?? '';
+    final taxId = ext['supplier_tax_id']?.toString() ?? '';
+
+    final nameCtrl = TextEditingController(text: suppName);
+    final countryCtrl = TextEditingController(text: country);
+    final phoneCtrl = TextEditingController(text: phone);
+    final emailCtrl = TextEditingController(text: email);
+    final addressCtrl = TextEditingController(text: address);
+    final taxIdCtrl = TextEditingController(text: taxId);
+    bool isSaving = false;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: const Row(
+            children: [
+              Icon(Icons.person_add_alt_1_rounded, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('تسجيل مورد أجنبي جديد', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'اسم الشركة الموردة *'),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: countryCtrl,
+                          decoration: const InputDecoration(labelText: 'دولة المنشأ / المقر'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: taxIdCtrl,
+                          decoration: const InputDecoration(labelText: 'الرقم الضريبي / VAT'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: phoneCtrl,
+                          decoration: const InputDecoration(labelText: 'رقم الهاتف'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: emailCtrl,
+                          decoration: const InputDecoration(labelText: 'البريد / الموقع الإلكتروني'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: addressCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي للمورد'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              icon: isSaving
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded, size: 16),
+              label: const Text('حفظ المورد بالنظام'),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      try {
+                        final dio = Dio();
+                        await dio.post(
+                          '${ApiConstants.baseUrl}/suppliers',
+                          data: {
+                            'company_name': nameCtrl.text.trim(),
+                            'country': countryCtrl.text.trim(),
+                            'phone': phoneCtrl.text.trim(),
+                            'email': emailCtrl.text.trim(),
+                            'address': addressCtrl.text.trim(),
+                            'foreign_exporter_id': taxIdCtrl.text.trim(),
+                          },
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('تم تسجيل المورد "${nameCtrl.text.trim()}" بنجاح!'),
+                              backgroundColor: AppTheme.emerald,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('فشل حفظ المورد: $e'), backgroundColor: AppTheme.crimson),
+                        );
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRegisterImporterDialog(BuildContext context, Map<String, dynamic> ext) {
+    final impName = ext['importer_name']?.toString() ?? '';
+    final taxId = ext['importer_tax_id']?.toString() ?? '';
+    final phone = ext['importer_phone']?.toString() ?? '';
+    final email = ext['importer_email']?.toString() ?? '';
+    final address = ext['importer_address']?.toString() ?? '';
+
+    final nameCtrl = TextEditingController(text: impName);
+    final taxIdCtrl = TextEditingController(text: taxId);
+    final phoneCtrl = TextEditingController(text: phone);
+    final emailCtrl = TextEditingController(text: email);
+    final addressCtrl = TextEditingController(text: address);
+    bool isSaving = false;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: const Row(
+            children: [
+              Icon(Icons.domain_add_rounded, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('تسجيل شركة مستوردة جديدة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 440,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(labelText: 'اسم الشركة المستوردة *'),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: taxIdCtrl,
+                          decoration: const InputDecoration(labelText: 'الرقم الضريبي للمستورد *'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: TextField(
+                          controller: phoneCtrl,
+                          decoration: const InputDecoration(labelText: 'رقم الهاتف'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: emailCtrl,
+                    decoration: const InputDecoration(labelText: 'البريد الإلكتروني للشركة'),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: addressCtrl,
+                    maxLines: 2,
+                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي كائن بمصر'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              icon: isSaving
+                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.save_rounded, size: 16),
+              label: const Text('حفظ الشركة بالنظام'),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      setDialogState(() => isSaving = true);
+                      try {
+                        final dio = Dio();
+                        await dio.post(
+                          '${ApiConstants.baseUrl}/import-companies',
+                          data: {
+                            'company_name': nameCtrl.text.trim(),
+                            'tax_id': taxIdCtrl.text.trim(),
+                            'phone': phoneCtrl.text.trim(),
+                            'contact_email': emailCtrl.text.trim(),
+                            'address': addressCtrl.text.trim(),
+                          },
+                        );
+                        if (context.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('تم تسجيل الشركة المستوردة "${nameCtrl.text.trim()}" بنجاح!'),
+                              backgroundColor: AppTheme.emerald,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('فشل حفظ الشركة: $e'), backgroundColor: AppTheme.crimson),
+                        );
+                      }
+                    },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -1,6 +1,7 @@
 """
 Purchase Order Extractor
 Extracts PO fields from Commercial Invoices, PO PDFs, Excel POs, and Word PO documents.
+Supports full Supplier & Importer registration field extraction.
 """
 
 from __future__ import annotations
@@ -22,6 +23,16 @@ class PurchaseOrderExtractor(BaseExtractor):
         result: Dict[str, Any] = {
             "po_number": self._extract_po_number(text),
             "supplier_name": self._extract_supplier(text),
+            "supplier_address": self._extract_supplier_address(text),
+            "supplier_phone": self._extract_supplier_phone(text),
+            "supplier_email": self._extract_supplier_email(text),
+            "supplier_tax_id": self._extract_supplier_tax_id(text),
+            "supplier_country": self._extract_country(text),
+            "importer_name": self._extract_importer_name(text),
+            "importer_address": self._extract_importer_address(text),
+            "importer_phone": self._extract_importer_phone(text),
+            "importer_email": self._extract_importer_email(text),
+            "importer_tax_id": self._extract_importer_tax_id(text),
             "order_date": self._extract_date(text),
             "acid_number": self.find_first([
                 r"ACID\s*(?:NUMBER|NR\.?|#)?[:\s]*([0-9]{19})",
@@ -59,7 +70,6 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_supplier(self, text: str) -> Optional[str]:
-        # 1. Explicit label matching
         labeled = self.find_first([
             r"(?:Supplier|Vendor|Seller|Exporter|Shipper|From|Sold By|Beneficiary|Shipped By)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
             r"(?:Company|Messrs|M/S|Messers)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
@@ -67,7 +77,6 @@ class PurchaseOrderExtractor(BaseExtractor):
         if labeled:
             return labeled.strip()
 
-        # 2. Header scan: top lines matching corporate name
         lines = [line.strip() for line in text.splitlines() if line.strip()][:25]
         for line in lines:
             upper = line.upper()
@@ -75,6 +84,64 @@ class PurchaseOrderExtractor(BaseExtractor):
                 if not any(stop in upper for stop in ["COMMERCIAL INVOICE", "PACKING LIST", "PURCHASE ORDER", "ORDER DATE", "BILL TO", "SHIP TO", "TAX ID", "VAT NUMBER"]):
                     return line
         return lines[0] if lines else None
+
+    def _extract_supplier_phone(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Phone|Tel\.?|Telephone)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
+            r"(\+86\s*1[3-9]\d{9})",
+            r"(\+39\s*0\d{2,4}\s*\d{5,8})",
+            r"(\+370\s*5\s*\d{3}\s*\d{4})",
+            r"(\+44\s*1\d{3}\s*\d{5})",
+        ], text)
+
+    def _extract_supplier_email(self, text: str) -> Optional[str]:
+        m = re.search(r"\b([a-zA-Z0-9._%+-]+@(?!archi-brands|ecoasso)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
+        if m:
+            return m.group(1)
+        web = re.search(r"\b(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
+        return web.group(1) if web else None
+
+    def _extract_supplier_tax_id(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:VAT\s+Number|VAT\s+No\.?|P\.IVA|Enterprise\s+code)[:\s]*([A-Za-z0-9]+)",
+            r"C\.F\.\s*([0-9]+)",
+            r"EXPORTER\s+REGISTRATION\s+NUMBER[:\s]*([0-9]+)",
+        ], text)
+
+    def _extract_supplier_address(self, text: str) -> Optional[str]:
+        # Look for address lines after supplier name in header
+        match = re.search(r"(?:Road|Street|Town|City|g\.|Via|No\.\d+)[^\n]{5,80}", text, re.IGNORECASE)
+        return match.group(0).strip() if match else None
+
+    def _extract_importer_name(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:SOLD\s+TO|Bill\s+To|Ship\s+To|Customer|Messrs)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"(?:To|NOTIFY)[:\s]+(ARCHI\s+BRANDS[^\n]*|SCAS\s+CONSTRUCTION[^\n]*|ECO\s+ASSOCIATES[^\n]*)",
+            r"\b(ARCHI\s+BRANDS\s+FOR\s+CORPET\s+AND\s+FLOOR\s+TRADING|SCAS\s+Construction\s+&Finishing|ECO\s+ASSOCIATES)\b",
+        ], text)
+
+    def _extract_importer_address(self, text: str) -> Optional[str]:
+        match = re.search(r"(?:44\s+Street|42,\s*RD|7\s+HOSNI|Maadi)[^\n]{5,80}", text, re.IGNORECASE)
+        return match.group(0).strip() if match else None
+
+    def _extract_importer_phone(self, text: str) -> Optional[str]:
+        match = re.search(r"(\+20\s*[0-9\s\-]{8,15})", text)
+        if match:
+            return match.group(1).strip()
+        # Look near Hana Bayoumi or ECO Associates contact
+        match2 = re.search(r"(?:Hana\s+Bayoumi|Tel\.:?\s*\+20)[^\n]*?(\+?[0-9\s\-]{10,18})", text)
+        return match2.group(1).strip() if match2 else None
+
+    def _extract_importer_email(self, text: str) -> Optional[str]:
+        m = re.search(r"\b([a-zA-Z0-9._%+-]+@(archi-brands\.com|ecoasso\.com))\b", text, re.IGNORECASE)
+        return m.group(1) if m else None
+
+    def _extract_importer_tax_id(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Tax\s+ID|IMPORTER\s+TAX\s+ID|VAT\s+ID\s+Number)[:\s]*([0-9]{9,12})",
+            r"VAT\s+Number\s+([0-9]{9})",
+            r"Tax\s+ID\s+([0-9]{9})",
+        ], text)
 
     def _extract_date(self, text: str) -> Optional[str]:
         raw_date = self.find_first([
@@ -87,7 +154,6 @@ class PurchaseOrderExtractor(BaseExtractor):
         if not raw_date:
             return None
 
-        # Handle text date like "July 30th,2026"
         month_names = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6, "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
         text_m = re.search(r"([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s*(\d{4})", raw_date, re.IGNORECASE)
         if text_m:
@@ -98,7 +164,6 @@ class PurchaseOrderExtractor(BaseExtractor):
                 y_num = int(text_m.group(3))
                 return f"{y_num:04d}-{m_num:02d}-{d_num:02d}"
 
-        # Normalize DD-MM-YYYY or DD/MM/YYYY to YYYY-MM-DD for ISO standard
         parts = re.split(r"[/-]", raw_date.strip())
         if len(parts) == 3:
             if len(parts[0]) == 4:  # YYYY-MM-DD
@@ -149,13 +214,9 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_line_items(self, text: str) -> List[Dict[str, Any]]:
-        """
-        Extracts tabular line items from commercial invoices and POs.
-        Handles multi-column tables, sub-color item lines, Italian GI Industrial invoices, Narbutas invoices, and pipe-separated tables.
-        """
         items: List[Dict[str, Any]] = []
 
-        # 1. Narbutas / Standard Invoice item row pattern (e.g. PSHD041 .PA01.MA03 Mobile table... 4.00 Pcs 124.00 496.00 0.00 %)
+        # 1. Narbutas / Standard Invoice item row pattern
         narbutas_pattern = re.compile(
             r"([A-Z0-9\-]{4,20})\s+(\.[A-Z0-9\.]+)?\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(?:Pcs|PCS|vnt|UNT|Box|BOX)\s+([0-9.,]+)\s+([0-9.,]+)",
             re.IGNORECASE,
@@ -177,7 +238,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             except ValueError:
                 continue
 
-        # 2. Italian G.I. Industrial invoice row pattern (e.g. CYK4R6018210001 84158200 2,000 NR 18.602,37500 37.204,75)
+        # 2. Italian G.I. Industrial invoice row pattern
         if not items:
             gi_pattern = re.compile(
                 r"([A-Z0-9]{8,20})\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
@@ -201,7 +262,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except ValueError:
                     continue
 
-        # 3. Pipe-separated rows (from Excel/openpyxl or markdown extraction)
+        # 3. Pipe-separated rows
         if not items:
             pipe_pattern = re.compile(
                 r"([A-Za-z0-9][^|]{2,60})\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*([A-Za-z]{2,10})\s*\|\s*([0-9,]+\.?\d*)\s*\|\s*([0-9,]+\.?\d*)",
@@ -220,7 +281,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except ValueError:
                     continue
 
-        # 4. Color sub-row pattern (e.g. YH-652 100, YH-644 100, YH-610 120)
+        # 4. Color sub-row pattern
         if not items:
             global_unit_price = self.find_float([r"\b60\.7\b", r"Unit\s+price[^\n]*?(\d+(?:\.\d+)?)"], text)
             color_item_pattern = re.compile(
@@ -243,13 +304,8 @@ class PurchaseOrderExtractor(BaseExtractor):
         return items[:50]
 
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
-        """
-        Extracts cargo dimensions and packing list details from invoice footers or packing list summaries.
-        Handles Narbutas packing slips (Volume, Weight netto, Weight brutto, Number of packages, Number of pallets).
-        """
         packing: List[Dict[str, Any]] = []
 
-        # 1. Narbutas Packing Summary Footers (Volume 26.059, Weight netto 1,362.314, Weight brutto 1,789.511, Number of packages 142, Number of pallets 13)
         vol_m = re.search(r"Volume\s*([0-9.,]+)", text, re.IGNORECASE)
         net_m = re.search(r"Weight\s+netto\s*([0-9.,]+)", text, re.IGNORECASE)
         gross_m = re.search(r"Weight\s+brutto\s*([0-9.,]+)", text, re.IGNORECASE)
@@ -284,7 +340,6 @@ class PurchaseOrderExtractor(BaseExtractor):
             except ValueError:
                 pass
 
-        # 2. Italian Packing List Table (e.g. RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE)
         italy_pattern = re.compile(
             r"([A-Z0-9/\-]{4,45})\s+(\d+)\s+(\d{3,5})\s+(\d{3,5})\s+(\d{3,5})\s+(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d+)\s+([A-Z]{3,10})",
             re.IGNORECASE,

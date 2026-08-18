@@ -257,6 +257,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return DateTime.now();
   }
 
+  dynamic _getExt(Map<String, dynamic> ext, List<String> candidateKeys) {
+    for (final ck in candidateKeys) {
+      if (ext.containsKey(ck) && ext[ck] != null && ext[ck].toString().trim().isNotEmpty) {
+        return ext[ck];
+      }
+    }
+    final normExt = ext.map((k, v) => MapEntry(k.toLowerCase().replaceAll(RegExp(r'[\s_\-]'), ''), v));
+    for (final ck in candidateKeys) {
+      final normCk = ck.toLowerCase().replaceAll(RegExp(r'[\s_\-]'), '');
+      if (normExt.containsKey(normCk) && normExt[normCk] != null && normExt[normCk].toString().trim().isNotEmpty) {
+        return normExt[normCk];
+      }
+    }
+    return null;
+  }
+
   void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
@@ -275,17 +291,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 1. Company Matching (الشركة المستوردة)
-      final rawComp = (ext['importer_name'] ?? ext['company_name'] ?? ext['importer'])?.toString().trim().toLowerCase();
-      final rawCompTax = ext['importer_tax_id']?.toString().trim();
+      final rawComp = _getExt(ext, ['importer_name', 'importer name', 'company_name', 'company name', 'importer', 'company', 'consignee', 'client_name'])?.toString().trim().toLowerCase();
+      final rawCompTax = _getExt(ext, ['importer_tax_id', 'importer tax id', 'tax_id', 'vat_id'])?.toString().trim();
       if (rawComp != null && rawComp.isNotEmpty) {
         final matchedComp = companies.where((c) {
           final cName = c.importerName.toLowerCase();
           final cTax = c.vatId.trim();
-          if (rawCompTax != null && rawCompTax.isNotEmpty && cTax == rawCompTax) return true;
+          if (rawCompTax != null && rawCompTax.isNotEmpty && (cTax == rawCompTax || cTax.replaceAll(RegExp(r'[^\d]'), '') == rawCompTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
           if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
-          final rawWords = rawComp.split(RegExp(r'\s+')).where((w) => w.length > 3);
-          final cWords = cName.split(RegExp(r'\s+')).where((w) => w.length > 3);
-          return rawWords.any((rw) => cWords.any((cw) => cw.contains(rw) || rw.contains(cw)));
+          final noise = {'trading', 'contracting', 'for', 'and', 'co', 'ltd', 'llc', 'corp', 'spa', 'gmbh', 'sae', 's.a.e', 'group', 'the', '&'};
+          final rawTokens = rawComp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+          final cTokens = cName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+          final intersection = rawTokens.intersection(cTokens);
+          return intersection.isNotEmpty && (intersection.length >= 2 || intersection.length == rawTokens.length || intersection.length == cTokens.length);
         }).firstOrNull;
         if (matchedComp != null) {
           _selectedCompanyId = matchedComp.companyId;
@@ -293,20 +311,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 2. Supplier Matching (المورد الأجنبي)
-      final rawSupp = (ext['supplier_name'] ?? ext['supplier'] ?? ext['vendor_name'])?.toString().trim().toLowerCase();
-      final rawSuppTax = ext['supplier_tax_id']?.toString().trim();
-      final rawSuppEmail = ext['supplier_email']?.toString().trim().toLowerCase();
+      final rawSupp = _getExt(ext, ['supplier_name', 'supplier name', 'supplier', 'vendor_name', 'vendor name', 'vendor', 'shipper', 'exporter_name', 'exporter name', 'exporter'])?.toString().trim().toLowerCase();
+      final rawSuppTax = _getExt(ext, ['supplier_tax_id', 'supplier tax id', 'exporter_id', 'vat_number', 'tax_id'])?.toString().trim();
+      final rawSuppEmail = _getExt(ext, ['supplier_email', 'supplier email', 'email'])?.toString().trim().toLowerCase();
       if (rawSupp != null && rawSupp.isNotEmpty) {
         final matchedSupp = suppliers.where((s) {
           final sName = s.companyName.toLowerCase();
           final sTax = s.foreignExporterId.trim();
           final sEmail = s.email?.trim().toLowerCase();
-          if (rawSuppTax != null && rawSuppTax.isNotEmpty && sTax == rawSuppTax) return true;
+          if (rawSuppTax != null && rawSuppTax.isNotEmpty && (sTax == rawSuppTax || sTax.replaceAll(RegExp(r'[^\d]'), '') == rawSuppTax.replaceAll(RegExp(r'[^\d]'), ''))) return true;
           if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
           if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
-          final rawWords = rawSupp.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
-          final sWords = sName.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
-          return rawWords.any((rw) => sWords.any((sw) => sw.contains(rw) || rw.contains(sw)));
+          final noise = {'ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.', 'co', 'the', '&', 'group', 'uab'};
+          final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+          final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
+          final intersection = rawTokens.intersection(sTokens);
+          return intersection.isNotEmpty && (intersection.length >= 1 || intersection.length == rawTokens.length || intersection.length == sTokens.length);
         }).firstOrNull;
         if (matchedSupp != null) {
           _selectedSupplierId = matchedSupp.supplierId;
@@ -314,7 +334,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 3. Incoterm Matching (شروط التعاقد)
-      final rawInco = (ext['incoterms'] ?? ext['incoterm'])?.toString().trim().toUpperCase();
+      final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
       if (rawInco != null && rawInco.isNotEmpty) {
         final matchedInco = incoterms.where((i) {
           final code = i.incotermCode.toUpperCase().trim();
@@ -326,7 +346,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 4. Currency Matching (العملة)
-      final rawCurr = (ext['currency'] ?? ext['currency_code'])?.toString().trim().toUpperCase();
+      final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
       if (rawCurr != null && rawCurr.isNotEmpty) {
         final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
         if (matchedCurr != null) {
@@ -336,7 +356,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 5. Country of Origin (بلد المنشأ)
-      final rawCty = (ext['country_of_origin'] ?? ext['supplier_country'] ?? ext['country'])?.toString().trim().toUpperCase();
+      final rawCty = _getExt(ext, ['country_of_origin', 'country of origin', 'origin_country', 'supplier_country', 'supplier country', 'country'])?.toString().trim().toUpperCase();
       if (rawCty != null && rawCty.isNotEmpty) {
         final matchedCty = countryOptions.where((c) =>
           c['code'] == rawCty ||

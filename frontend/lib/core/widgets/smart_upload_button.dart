@@ -335,6 +335,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
     final valCtrl = TextEditingController();
 
     final presets = {
+      'hs_code': 'بند التعريفة الجمركية (HS Code)',
       'acid_number': 'رقم إقرار الشحنة المسبق (ACID)',
       'bl_number': 'رقم بوليصة الشحن (B/L Number)',
       'container_number': 'رقم الحاوية (Container Number)',

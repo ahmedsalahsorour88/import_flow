@@ -5,8 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
-import '../../import_requirements/models/import_requirement_model.dart';
-import '../../import_requirements/providers/import_requirements_provider.dart';
 
   void showDutyCalculatorDialog(BuildContext context, WidgetRef ref,
       {String? initialHsCode}) {

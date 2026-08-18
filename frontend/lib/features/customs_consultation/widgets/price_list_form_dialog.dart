@@ -3,12 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
-import '../../external_service_providers/providers/partners_provider.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
 
-  void showPriceListFormDialog({
-    BrokerPriceListModel? existingPriceList,
-    required List<dynamic> brokersList,
-  }) {
+void showPriceListFormDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  BrokerPriceListModel? existingPriceList,
+  required List<dynamic> brokersList,
+}) {
     if (brokersList.isEmpty && existingPriceList == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('لا يوجد مخلصين جمركيين مسجلين في الشركاء.'), backgroundColor: Colors.orange),
@@ -466,7 +468,7 @@ import '../../external_service_providers/providers/partners_provider.dart';
                                       'items': itemsPayload,
                                     },
                                   );
-                                  if (mounted) {
+                                  if (ctx.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text('✅ تم تحديث وتعديل أسعار القائمة بنجاح!'), backgroundColor: AppTheme.emerald),
                                     );
@@ -489,13 +491,13 @@ import '../../external_service_providers/providers/partners_provider.dart';
                                     'notes': notesCtrl.text.trim(),
                                     'items': itemsPayload,
                                   });
-                                  if (mounted) {
+                                  if (ctx.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(content: Text('✅ تم إنشاء قائمة أسعار المخلص وحفظ الأسعار بنجاح!'), backgroundColor: AppTheme.emerald),
                                     );
                                   }
                                 }
-                                if (mounted) Navigator.pop(ctx);
+                                if (ctx.mounted) Navigator.pop(ctx);
                               } catch (e) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),

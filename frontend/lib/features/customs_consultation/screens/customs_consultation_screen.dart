@@ -1,11 +1,11 @@
-import '../widgets/broker_cost_row.dart';
+import '../widgets/broker_quote_details_card.dart';
 import '../widgets/blocking_issues_dialog.dart';
-import '../widgets/price_list_form_dialog.dart';
 import '../widgets/broker_price_lists_tab.dart';
 import '../widgets/saved_consultations_tab.dart';
 import '../widgets/nafeza_fee_breakdown_card.dart';
 import '../widgets/consultation_details_dialog.dart';
 import '../widgets/post_save_status_dialog.dart';
+import '../widgets/consultation_metric_badge.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -25,10 +25,6 @@ import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
-import 'package:printing/printing.dart';
-import '../services/customs_consultation_pdf_service.dart';
-import '../services/customs_export_service.dart';
-import '../../../core/widgets/row_actions_pill.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 
 class CustomsItemCalcRow {
@@ -143,9 +139,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   bool _isLoadingPriceList = false;
   String _brokerExpenseCategoryFilter = 'All';
 
-  // Management Tab State
-  int _managementSubTabIndex = 0;
-  int? _selectedMgmtBrokerId;
   bool _isSaving = false;
 
   // History Tab Filter State
@@ -1342,14 +1335,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   // Live Metrics Bar
                   Row(
                     children: [
-                      _buildMetricBadge('جاهزية الفحص الجمركي', '$liveReadinessPct%', Colors.blue),
+                      ConsultationMetricBadge(title: 'جاهزية الفحص الجمركي', value: '$liveReadinessPct%', color: Colors.blue),
                       const SizedBox(width: 12),
-                      _buildMetricBadge('عدد البنود والمستندات', '${_checklist.length}', Colors.grey),
+                      ConsultationMetricBadge(title: 'عدد البنود والمستندات', value: '${_checklist.length}', color: Colors.grey),
                       const SizedBox(width: 12),
-                      _buildMetricBadge(
-                        'عوائق التخليص (Blocking)',
-                        '$blockingCount',
-                        blockingCount > 0 ? Colors.red : Colors.green,
+                      ConsultationMetricBadge(
+                        title: 'عوائق التخليص (Blocking)',
+                        value: '$blockingCount',
+                        color: blockingCount > 0 ? Colors.red : Colors.green,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
                       ),
                       const Spacer(),
@@ -1645,7 +1638,35 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   const SizedBox(height: 20),
 
                   // BROKER CLEARANCE & LOGISTICS QUOTE DETAILS CARD
-                  _buildBrokerQuoteDetailsCard(currenciesList),
+                  BrokerQuoteDetailsCard(
+                    selectedBrokerId: _selectedBrokerId,
+                    isLoadingPriceList: _isLoadingPriceList,
+                    brokerQuoteItems: _brokerQuoteItems,
+                    brokerPriceListTitle: _brokerPriceListTitle,
+                    categoryFilter: _brokerExpenseCategoryFilter,
+                    isExpanded: _isBrokerQuoteExpanded,
+                    currenciesList: currenciesList,
+                    onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
+                    onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
+                    onAddCustomExpense: _addCustomBrokerExpenseRow,
+                    onApplyAll: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          final itm = _brokerQuoteItems[i];
+                          final lineTotal = itm.unitPrice * itm.qty;
+                          _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
+                        }
+                      });
+                    },
+                    onDisableAll: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
+                        }
+                      });
+                    },
+                    onUpdateItem: _updateBrokerQuoteItem,
+                  ),
                   const SizedBox(height: 20),
 
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
@@ -1990,11 +2011,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   alignment: WrapAlignment.spaceBetween,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    _buildMetricBadge('إجمالي FOB بالجنيه', '${totalFobEgp.toStringAsFixed(2)} EGP', Colors.grey.shade800),
-                                    _buildMetricBadge('إجمالي القيمة الجمركية (CIF Base)', '${totalCifEgp.toStringAsFixed(2)} EGP', AppTheme.cobalt),
-                                    _buildMetricBadge('إجمالي ضريبة الوارد (Customs Duty)', '${totalDutyEgp.toStringAsFixed(2)} EGP', Colors.indigo),
-                                    _buildMetricBadge('إجمالي ضريبة القيمة المضافة (VAT)', '${totalVatEgp.toStringAsFixed(2)} EGP', Colors.teal),
-                                    _buildMetricBadge('إجمالي الرسوم والضرائب الجمركية', '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', AppTheme.crimson),
+                                    ConsultationMetricBadge(title: 'إجمالي FOB بالجنيه', value: '${totalFobEgp.toStringAsFixed(2)} EGP', color: Colors.grey.shade800),
+                                    ConsultationMetricBadge(title: 'إجمالي القيمة الجمركية (CIF Base)', value: '${totalCifEgp.toStringAsFixed(2)} EGP', color: AppTheme.cobalt),
+                                    ConsultationMetricBadge(title: 'إجمالي ضريبة الوارد (Customs Duty)', value: '${totalDutyEgp.toStringAsFixed(2)} EGP', color: Colors.indigo),
+                                    ConsultationMetricBadge(title: 'إجمالي ضريبة القيمة المضافة (VAT)', value: '${totalVatEgp.toStringAsFixed(2)} EGP', color: Colors.teal),
+                                    ConsultationMetricBadge(title: 'إجمالي الرسوم والضرائب الجمركية', value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', color: AppTheme.crimson),
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                                       onPressed: () {
@@ -2011,7 +2032,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               const SizedBox(height: 16),
 
                               // NAFEZA STATEMENT FEE BREAKDOWN CARD (تفاصيل بنود التحصيل والإقرارات الرسمية)
-                              buildNafezaFeeBreakdownCard(
+                              NafezaFeeBreakdownCard(
                                 calcLines: calcLines,
                                 totalDutyEgp: totalDutyEgp,
                                 totalVatEgp: totalVatEgp,
@@ -2020,6 +2041,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 totalFreightEgp: totalFreightEgp,
                                 totalInsuranceEgp: totalInsuranceEgp,
                                 exchangeRate: exchangeRate,
+                                editingConsultationId: _editingConsultationId,
+                                editingConsultationCode: _editingConsultationCode,
+                                selectedBrokerId: _selectedBrokerId,
+                                selectedBrokerName: _selectedBrokerName,
+                                title: _titleController.text.trim(),
+                                checklist: _checklist,
+                                brokerQuoteItems: _brokerQuoteItems,
+                                selectedImportFileId: _selectedImportFileId,
+                                customsCurrency: _customsCurrency,
                               ),
                                   ],
                                 ),
@@ -2178,297 +2208,5 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ),
     );
   }
-
-
-
-
-
-  Widget _buildBrokerQuoteDetailsCard(List<CurrencyModel> currenciesList) {
-    if (_selectedBrokerId == null) {
-      return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Row(
-            children: [
-              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Text(
-                  '💡 يرجى تحديد المستخلص الجمركي أعلاه لاستدعاء قائمة أسعار التخليص والنقل الخاصة به تلقائياً وتفعيل بنود المصروفات.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.charcoal),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (_isLoadingPriceList) {
-      return Card(
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-        child: const Padding(
-          padding: EdgeInsets.all(30),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(strokeWidth: 2.5),
-                SizedBox(width: 14),
-                Text('جاري جلب قائمة أسعار التخليص والنقل للمستخلص...', style: TextStyle(fontWeight: FontWeight.bold)),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
-    final appliedCount = _brokerQuoteItems.where((i) => i.isApplicable).length;
-
-    // Filter items by category
-    final categories = [
-      'All',
-      'Clearance Fees (أتعاب ومصاريف تخليص)',
-      'Procedures & Approvals (إجراءات وموافقات وفحص)',
-      'Inland Transport (نقل بري وشاحنات)',
-      'Port & Handling (موانئ وتعتيق وتفريغ)',
-      'Other Fees (مصاريف أخرى)',
-    ];
-
-    final filteredItems = _brokerExpenseCategoryFilter == 'All'
-        ? _brokerQuoteItems
-        : _brokerQuoteItems.where((i) => i.category == _brokerExpenseCategoryFilter).toList();
-
-    return Card(
-      elevation: 3,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                const Icon(Icons.request_quote, color: AppTheme.cobalt, size: 22),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص (Customs Broker Quote Details)',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                      ),
-                      if (_brokerPriceListTitle != null)
-                        Text(
-                          '📋 المصدر: $_brokerPriceListTitle (${_brokerQuoteItems.length} بنود مسعرة)',
-                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
-                        ),
-                    ],
-                  ),
-                ),
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
-                  onPressed: _addCustomBrokerExpenseRow,
-                  icon: const Icon(Icons.add, size: 16),
-                  label: const Text('إضافة بند مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(_isBrokerQuoteExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
-                  tooltip: _isBrokerQuoteExpanded ? 'طي عرض الأسعار' : 'توسيع عرض الأسعار',
-                  onPressed: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
-                ),
-              ],
-            ),
-            if (_isBrokerQuoteExpanded) ...[
-              const Divider(height: 20),
-
-              // Category Filter Bar & Bulk Actions
-              Row(
-                children: [
-                  const Text('تصفية الفئات: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: categories.map((cat) {
-                          final isSelected = _brokerExpenseCategoryFilter == cat;
-                          final label = cat == 'All' ? 'الكل (${_brokerQuoteItems.length})' : cat.split('(').first.trim();
-                          return Padding(
-                            padding: const EdgeInsets.only(left: 6),
-                            child: ChoiceChip(
-                              label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                              selected: isSelected,
-                              selectedColor: AppTheme.cobalt.withOpacity(0.15),
-                              onSelected: (_) => setState(() => _brokerExpenseCategoryFilter = cat),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
-                          final itm = _brokerQuoteItems[i];
-                          final lineTotal = itm.unitPrice * itm.qty;
-                          _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
-                        }
-                      });
-                    },
-                    icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
-                    label: const Text('تطبيق الكل', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
-                  ),
-                  TextButton.icon(
-                    onPressed: () {
-                      setState(() {
-                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
-                          _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
-                        }
-                      });
-                    },
-                    icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
-                    label: const Text('تعطيل الكل', style: TextStyle(fontSize: 11, color: Colors.red)),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Items List
-              if (filteredItems.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-                  child: const Text('لا توجد بنود مصروفات في هذا التصنيف. يمكنك النقر على "إضافة بند مخصص" لإدراج مصروف جديد.'),
-                )
-              else
-                ...filteredItems.map((item) {
-                  final idx = _brokerQuoteItems.indexOf(item);
-                  return buildBrokerCostRow(onUpdate: _updateBrokerQuoteItem, 
-                    index: idx,
-                    item: item,
-                    currenciesList: currenciesList,
-                  );
-                }).toList(),
-
-              const Divider(height: 24),
-
-              // Summary Bar matching Image 4 design
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.account_balance_wallet, color: AppTheme.cobalt, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          '💰 إجمالي عرض أسعار المخلص الجمركي والنقل المطبق ($appliedCount بند مطبق):',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                        ),
-                      ],
-                    ),
-                    Text(
-                      '${totalBrokerFees.toStringAsFixed(2)} EGP',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-
-  Widget const BrokerPriceListsTab() {
-    final priceListsAsync = ref.watch(brokerPriceListsProvider);
-    return priceListsAsync.when(
-    return expenseTypesAsync.when(
-    final codeCtrl = TextEditingController();
-
-
-  Widget _buildMetricBadge(String title, String value, Color color, {VoidCallback? onTap}) {
-    final badge = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
-              if (onTap != null) ...[
-                const SizedBox(width: 4),
-                Icon(Icons.open_in_new, size: 12, color: color),
-              ],
-            ],
-          ),
-          const SizedBox(height: 2),
-          Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-
-    if (onTap != null) {
-      return InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: badge,
-      );
-    }
-    return badge;
-  }
-
-  /// Interactive Modal to review and correct Blocking Clearance Issues
-
-  Widget _buildStatusBadge(String status) {
-    Color bg = Colors.grey;
-    if (status == 'Clearance Ready') bg = Colors.green;
-    if (status == 'Blocked') bg = Colors.red;
-    if (status == 'Action Required') bg = Colors.orange;
-    if (status == 'In Progress') bg = Colors.blue;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 11)),
-    );
-  }
-
-  Widget _buildDocItemStatusBadge(String status) {
-    Color bg = Colors.grey;
-    if (status == 'Approved') bg = Colors.green;
-    if (status == 'Rejected') bg = Colors.red;
-    if (status == 'Verified') bg = Colors.blue;
-    if (status == 'Received') bg = Colors.orange;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: bg.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-      child: Text(status, style: TextStyle(color: bg, fontWeight: FontWeight.bold, fontSize: 10)),
-    );
-  }
 }
+

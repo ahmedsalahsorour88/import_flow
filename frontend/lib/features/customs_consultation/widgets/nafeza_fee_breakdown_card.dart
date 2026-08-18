@@ -1,18 +1,55 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/customs_consultation_model.dart';
-import '../../customs_tariff/services/customs_export_service.dart';
+import '../services/customs_export_service.dart';
+import 'package:printing/printing.dart';
+import '../services/customs_consultation_pdf_service.dart';
+import '../screens/customs_consultation_screen.dart';
 
-  Widget buildNafezaFeeBreakdownCard({
-    required List<CustomsItemCalcRow> calcLines,
-    required double totalDutyEgp,
-    required double totalVatEgp,
-    required double totalServiceFeeEgp,
-    required double totalScheduleTaxEgp,
-    required double totalFreightEgp,
-    required double totalInsuranceEgp,
-    required double exchangeRate,
-  }) {
+class NafezaFeeBreakdownCard extends StatelessWidget {
+  final List<CustomsItemCalcRow> calcLines;
+  final double totalDutyEgp;
+  final double totalVatEgp;
+  final double totalServiceFeeEgp;
+  final double totalScheduleTaxEgp;
+  final double totalFreightEgp;
+  final double totalInsuranceEgp;
+  final double exchangeRate;
+  
+  // State variables passed in
+  final int? editingConsultationId;
+  final String? editingConsultationCode;
+  final int? selectedBrokerId;
+  final String selectedBrokerName;
+  final String title;
+  final List<CustomsChecklistItemModel> checklist;
+  final List<CustomsBrokerQuoteItemModel> brokerQuoteItems;
+  final int? selectedImportFileId;
+  final String customsCurrency;
+
+  const NafezaFeeBreakdownCard({
+    super.key,
+    required this.calcLines,
+    required this.totalDutyEgp,
+    required this.totalVatEgp,
+    required this.totalServiceFeeEgp,
+    required this.totalScheduleTaxEgp,
+    required this.totalFreightEgp,
+    required this.totalInsuranceEgp,
+    required this.exchangeRate,
+    this.editingConsultationId,
+    this.editingConsultationCode,
+    this.selectedBrokerId,
+    required this.selectedBrokerName,
+    required this.title,
+    required this.checklist,
+    required this.brokerQuoteItems,
+    this.selectedImportFileId,
+    required this.customsCurrency,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
       totalDutyEgp: totalDutyEgp,
       totalVatEgp: totalVatEgp,
@@ -69,16 +106,16 @@ import '../../customs_tariff/services/customs_export_service.dart';
                   ),
                   onPressed: () async {
                     final session = CustomsConsultationModel(
-                      consultationId: _editingConsultationId ?? 0,
-                      consultationCode: _editingConsultationCode ?? 'DRAFT-STMT',
-                      brokerId: _selectedBrokerId ?? 0,
-                      brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : 'مستخلص جمركي معتمد',
-                      title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'دراسة استشارة جمركية',
+                      consultationId: editingConsultationId ?? 0,
+                      consultationCode: editingConsultationCode ?? 'DRAFT-STMT',
+                      brokerId: selectedBrokerId ?? 0,
+                      brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'مستخلص جمركي معتمد',
+                      title: title.isNotEmpty ? title : 'دراسة استشارة جمركية',
                       overallStatus: 'Pending Review',
                       estimatedDutiesEgp: nafezaResult.grandTotal,
-                      totalBrokerFeesEgp: _brokerQuoteItems.fold(0.0, (s, i) => s + (i.isApplicable ? i.totalAmount : 0.0)),
-                      checklistItems: _checklist,
-                      brokerQuoteItems: _brokerQuoteItems,
+                      totalBrokerFeesEgp: brokerQuoteItems.fold(0.0, (s, i) => s + (i.isApplicable ? i.totalAmount : 0.0)),
+                      checklistItems: checklist,
+                      brokerQuoteItems: brokerQuoteItems,
                       createdAt: DateTime.now().toIso8601String(),
                       updatedAt: DateTime.now().toIso8601String(),
                     );
@@ -102,26 +139,28 @@ import '../../customs_tariff/services/customs_export_service.dart';
                     try {
                       final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
                         context: context,
-                        title: _titleController.text.trim().isNotEmpty ? _titleController.text.trim() : 'دراسة استشارة جمركية',
-                        importFileCode: _selectedImportFileId != null ? 'IMP-$_selectedImportFileId' : null,
-                        brokerName: _selectedBrokerName.isNotEmpty ? _selectedBrokerName : 'غير محدد',
-                        currency: _customsCurrency,
+                        title: title.isNotEmpty ? title : 'دراسة استشارة جمركية',
+                        importFileCode: selectedImportFileId != null ? 'IMP-$selectedImportFileId' : null,
+                        brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'غير محدد',
+                        currency: customsCurrency,
                         exchangeRate: exchangeRate,
                         totalFreightEgp: totalFreightEgp,
                         totalInsuranceEgp: totalInsuranceEgp,
                         calcLines: calcLines,
                         nafezaResult: nafezaResult,
-                        brokerQuoteItems: _brokerQuoteItems,
+                        brokerQuoteItems: brokerQuoteItems,
                       );
-                      if (savedFile != null && mounted) {
+                      if (savedFile != null && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('✅ تم تصدير وحفظ شيت الإكسيل بنجاح: $savedFile'), backgroundColor: AppTheme.emerald),
                         );
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('❌ خطأ أثناء التصدير: $e'), backgroundColor: Colors.red),
-                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('❌ خطأ أثناء التصدير: $e'), backgroundColor: Colors.red),
+                        );
+                      }
                     }
                   },
                   icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
@@ -238,3 +277,4 @@ import '../../customs_tariff/services/customs_export_service.dart';
       ),
     );
   }
+}

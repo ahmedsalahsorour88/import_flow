@@ -3,7 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
-
+import 'consultation_metric_badge.dart';
+import 'consultation_status_badges.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/row_actions_pill.dart';
+import 'package:printing/printing.dart';
+import '../services/customs_consultation_pdf_service.dart';
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
   final Function(BuildContext, CustomsConsultationModel) onViewDetails;
@@ -82,23 +87,23 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                     ),
                     child: Row(
                       children: [
-                        _buildMetricBadge(
-                            'إجمالي الدراسات', '$totalCount دراسة', AppTheme.charcoal),
+                        ConsultationMetricBadge(
+                            title: 'إجمالي الدراسات', value: '$totalCount دراسة', color: AppTheme.charcoal),
                         const SizedBox(width: 10),
-                        _buildMetricBadge(
-                            'جاهزة للتخليص', '$readyCount', AppTheme.emerald),
+                        ConsultationMetricBadge(
+                            title: 'جاهزة للتخليص', value: '$readyCount', color: AppTheme.emerald),
                         const SizedBox(width: 10),
-                        _buildMetricBadge(
-                            'عوائق مفتوحة',
-                            '$blockedCount',
-                            blockedCount > 0
+                        ConsultationMetricBadge(
+                            title: 'عوائق مفتوحة',
+                            value: '$blockedCount',
+                            color: blockedCount > 0
                                 ? AppTheme.crimson
                                 : Colors.grey),
                         const SizedBox(width: 10),
-                        _buildMetricBadge(
-                            'متوسط الجاهزية',
-                            '${avgReadiness.toStringAsFixed(0)}%',
-                            AppTheme.cobalt),
+                        ConsultationMetricBadge(
+                            title: 'متوسط الجاهزية',
+                            value: '${avgReadiness.toStringAsFixed(0)}%',
+                            color: AppTheme.cobalt),
                         const Spacer(),
                         // Search field
                         SizedBox(
@@ -284,15 +289,13 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                       color:
                                           WidgetStateProperty.all(rowColor),
                                       onSelectChanged: (_) =>
-                                          widget.onViewDetails(
-                                              session),
+                                          widget.onViewDetails(context, session),
                                       cells: [
                                         // ⚡ 1. Actions
                                         DataCell(
                                           RowActionsPill(
                                             onView: () =>
-                                                widget.onViewDetails(
-                                                    session),
+                                                widget.onViewDetails(context, session),
                                             onEdit: () =>
                                                 widget.onEdit(
                                                     session),
@@ -420,8 +423,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         DataCell(
                                           InkWell(
                                             onTap: () =>
-                                                widget.onViewDetails(
-                                                    session),
+                                              widget.onViewDetails(context, session),
                                             borderRadius:
                                                 BorderRadius.circular(6),
                                             child: Container(
@@ -631,8 +633,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
                                         // 8. Status Badge
                                         DataCell(
-                                            _buildStatusBadge(
-                                                session.overallStatus)),
+                                            ConsultationStatusBadge(status: session.overallStatus)),
                                       ],
                                     );
                                   }).toList(),
@@ -644,8 +645,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                 ],
               );
             },
-          ),
-
-;
+          );
   }
 }
+

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/customs_consultation_model.dart';
-
-  void showConsultationDetailsDialog(CustomsConsultationModel session) {
-    showDialog(
+import 'consultation_metric_badge.dart';
+import 'consultation_status_badges.dart';
+import 'package:printing/printing.dart';
+import '../services/customs_consultation_pdf_service.dart';
+import '../services/customs_export_service.dart';
+void showConsultationDetailsDialog(BuildContext context, CustomsConsultationModel session) {
+  showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
@@ -14,7 +18,7 @@ import '../models/customs_consultation_model.dart';
               Expanded(
                 child: Text('تفاصيل الاستشارة الجمركية: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
-              _buildStatusBadge(session.overallStatus),
+              ConsultationStatusBadge(status: session.overallStatus),
             ],
           ),
           content: SizedBox(
@@ -45,13 +49,13 @@ import '../models/customs_consultation_model.dart';
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      _buildMetricBadge('نسبة الجاهزية الجمركية', '${session.readinessPercentage}%', Colors.blue),
+                      ConsultationMetricBadge(title: 'نسبة الجاهزية الجمركية', value: '${session.readinessPercentage}%', color: Colors.blue),
                       const SizedBox(width: 8),
-                      _buildMetricBadge('إجمالي المستندات', '${session.totalDocumentsCount}', Colors.grey),
+                      ConsultationMetricBadge(title: 'إجمالي المستندات', value: '${session.totalDocumentsCount}', color: Colors.grey),
                       const SizedBox(width: 8),
-                      _buildMetricBadge('المستندات المعتمدة', '${session.approvedDocumentsCount}', Colors.green),
+                      ConsultationMetricBadge(title: 'المستندات المعتمدة', value: '${session.approvedDocumentsCount}', color: Colors.green),
                       const SizedBox(width: 8),
-                      _buildMetricBadge('عوائق شحن (Blocking)', '${session.blockingIssuesCount}', session.blockingIssuesCount > 0 ? Colors.red : Colors.green),
+                      ConsultationMetricBadge(title: 'عوائق شحن (Blocking)', value: '${session.blockingIssuesCount}', color: session.blockingIssuesCount > 0 ? Colors.red : Colors.green),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -142,7 +146,7 @@ import '../models/customs_consultation_model.dart';
                               ),
                             ),
                             Padding(padding: const EdgeInsets.all(8), child: Text(doc.responsibleParty)),
-                            Padding(padding: const EdgeInsets.all(8), child: _buildDocItemStatusBadge(doc.status)),
+                            Padding(padding: const EdgeInsets.all(8), child: ConsultationDocStatusBadge(status: doc.status)),
                             Padding(padding: const EdgeInsets.all(8), child: Text(doc.remarks ?? '-')),
                           ],
                         );

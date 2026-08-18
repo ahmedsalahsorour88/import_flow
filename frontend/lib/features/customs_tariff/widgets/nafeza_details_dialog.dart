@@ -1,15 +1,11 @@
-import 'package:file_picker/file_picker.dart';
 import '../widgets/add_agreement_dialog.dart';
 import '../widgets/tariff_form_dialog.dart';
 import '../widgets/verify_tariff_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
-import '../../import_requirements/models/import_requirement_model.dart';
-import '../../import_requirements/providers/import_requirements_provider.dart';
 
   void showNafezaDetailsDialog(
       BuildContext context, WidgetRef ref, CustomsTariffModel tariff) {

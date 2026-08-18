@@ -104,7 +104,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     const Spacer(),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      onPressed: () => showPriceListFormDialog(brokersList: brokersList),
+                      onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
                       icon: const Icon(Icons.add, color: Colors.white),
                       label: const Text('إنشاء قائمة أسعار جديدة لمخلص', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
@@ -126,7 +126,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                           const Text('لا توجد قوائم أسعار مسجلة للمخلصين المحددين.', style: TextStyle(color: Colors.grey, fontSize: 14)),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
-                            onPressed: () => showPriceListFormDialog(brokersList: brokersList),
+                            onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
                             icon: const Icon(Icons.add),
                             label: const Text('إضافة قائمة أسعار الآن'),
                           ),
@@ -163,7 +163,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   ),
-                                  onPressed: () => showPriceListFormDialog(existingPriceList: pl, brokersList: brokersList),
+                                  onPressed: () => showPriceListFormDialog(context, ref, existingPriceList: pl, brokersList: brokersList),
                                   icon: const Icon(Icons.edit, color: Colors.white, size: 14),
                                   label: const Text('تعديل الأسعار والبنود', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),

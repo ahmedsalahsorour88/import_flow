@@ -7,6 +7,8 @@ import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
+import '../../customs_tariff/widgets/tariff_form_dialog.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -47,6 +49,20 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   String? _selectedCountryOfOrigin;
   late String _selectedStatus;
   late String _selectedPaymentTerms;
+
+  static String? normalizeCountryName(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return null;
+    final clean = raw.trim().toUpperCase();
+    final match = countryOptions.where((c) {
+      final code = c['code']!.toUpperCase();
+      final name = c['name']!.toUpperCase();
+      return code == clean || name.contains(clean) || clean.contains(code) || 
+             (clean == 'LITHUANIA' && (code == 'LT' || name.contains('LITHUANIA') || name.contains('ليتوانيا'))) || 
+             (clean == 'ITALY' && (code == 'IT' || name.contains('ITALY') || name.contains('إيطاليا'))) || 
+             (clean == 'CHINA' && (code == 'CN' || name.contains('CHINA') || name.contains('الصين')));
+    }).firstOrNull;
+    return match != null ? match['name'] : raw;
+  }
 
   static const List<Map<String, String>> countryOptions = [
     {'code': 'CN', 'name': 'CN - الصين (China)'},
@@ -335,7 +351,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
 
       // 6. Payment Terms (شروط الدفع)
-      final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString()?.toUpperCase();
+      final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString().toUpperCase();
       if (rawTerms != null && rawTerms.isNotEmpty) {
         if (rawTerms.contains('LC') || rawTerms.contains('LETTER OF CREDIT') || rawTerms.contains('اعتماد')) {
           _selectedPaymentTerms = 'Letter of Credit / LC';
@@ -886,36 +902,91 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             const SizedBox(height: 12),
 
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: SearchableDropdownField<int?>(
-                                    value: _selectedCompanyId,
-                                    labelText: 'Importing Company *',
-                                    items: companies
-                                        .map((c) => SearchableDropdownItem<int?>(
-                                              value: c.companyId,
-                                              label: c.importerName,
-                                            ))
-                                        .toList(),
-                                    onChanged: (v) {
-                                      if (v != null) setState(() => _selectedCompanyId = v);
-                                    },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SearchableDropdownField<int?>(
+                                        value: _selectedCompanyId,
+                                        labelText: 'Importing Company (الشركة المستوردة) *',
+                                        items: companies
+                                            .map((c) => SearchableDropdownItem<int?>(
+                                                  value: c.companyId,
+                                                  label: '${c.importerName} (${c.vatId})',
+                                                ))
+                                            .toList(),
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedCompanyId = v);
+                                        },
+                                      ),
+                                      const SizedBox(height: 3),
+                                      InkWell(
+                                        onTap: () => UniversalEntityExtractorDialog.show(
+                                          context,
+                                          initialTarget: EntityTarget.company,
+                                          onSaved: () => ref.read(importCompaniesProvider.notifier).fetchCompanies(),
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.domain_add, size: 13, color: AppTheme.cobalt),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                '+ استدعاء AI Extractor & Coding لتكويد شركة مستوردة',
+                                                style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: SearchableDropdownField<int?>(
-                                    value: _selectedSupplierId,
-                                    labelText: 'Supplier *',
-                                    items: suppliers
-                                        .map((s) => SearchableDropdownItem<int?>(
-                                              value: s.supplierId,
-                                              label: s.companyName,
-                                            ))
-                                        .toList(),
-                                    onChanged: (v) {
-                                      if (v != null) setState(() => _selectedSupplierId = v);
-                                    },
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      SearchableDropdownField<int?>(
+                                        value: _selectedSupplierId,
+                                        labelText: 'Supplier (المورد الأجنبي) *',
+                                        items: suppliers
+                                            .map((s) => SearchableDropdownItem<int?>(
+                                                  value: s.supplierId,
+                                                  label: '[${s.supplierCode}] ${s.companyName} (${s.foreignExporterCountry})',
+                                                ))
+                                            .toList(),
+                                        onChanged: (v) {
+                                          if (v != null) setState(() => _selectedSupplierId = v);
+                                        },
+                                      ),
+                                      const SizedBox(height: 3),
+                                      InkWell(
+                                        onTap: () => UniversalEntityExtractorDialog.show(
+                                          context,
+                                          initialTarget: EntityTarget.supplier,
+                                          onSaved: () => ref.read(suppliersProvider.notifier).fetchSuppliers(),
+                                        ),
+                                        child: const Padding(
+                                          padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.auto_awesome, size: 13, color: AppTheme.cobalt),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                '+ استدعاء AI Extractor & Coding لتكويد مورد جديد',
+                                                style: TextStyle(fontSize: 10.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
@@ -1157,7 +1228,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           Expanded(
                                             flex: 2,
                                             child: SearchableDropdownField<String?>(
-                                              value: item.countryOfOrigin ?? _selectedCountryOfOrigin,
+                                              value: normalizeCountryName(item.countryOfOrigin ?? _selectedCountryOfOrigin),
                                               labelText: 'بلد المنشأ للبند',
                                               searchHintText: 'ابحث عن بلد المنشأ...',
                                               items: [
@@ -1169,7 +1240,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               ],
                                               onChanged: (v) {
                                                 setState(() {
-                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(countryOfOrigin: v);
+                                                  _dialogItems[idx] = _dialogItems[idx].copyWith(countryOfOrigin: normalizeCountryName(v));
                                                 });
                                               },
                                             ),
@@ -1233,29 +1304,73 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                          ],
                                        ),
 
-                                       // Unregistered HS Code Warning Banner per Item
+                                       // Unregistered HS Code Warning Banner per Item with Smart Nafeza Trigger
                                        if (item.tariffId == null || !tariffs.any((t) => t.tariffId == item.tariffId))
                                          Container(
                                            margin: const EdgeInsets.only(top: 8),
-                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                                            decoration: BoxDecoration(
                                              color: Colors.amber.shade50,
-                                             borderRadius: BorderRadius.circular(6),
-                                             border: Border.all(color: Colors.amber.shade400),
+                                             borderRadius: BorderRadius.circular(8),
+                                             border: Border.all(color: Colors.amber.shade400, width: 1.2),
                                            ),
-                                           child: Row(
+                                           child: Column(
+                                             crossAxisAlignment: CrossAxisAlignment.start,
                                              children: [
-                                               Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 16),
-                                               const SizedBox(width: 6),
-                                               Expanded(
-                                                 child: Text(
-                                                   '⚠️ بند التعريفة الجمركية (HS Code) غير مسجل في جدول التعريفة المعتمد — يرجى اختياره لتطبيق الرسوم الجمركية وضريبة الوارد بدقة.',
-                                                   style: TextStyle(
-                                                     color: Colors.amber.shade900,
-                                                     fontSize: 11,
-                                                     fontWeight: FontWeight.w600,
+                                               Row(
+                                                 children: [
+                                                   Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                                                   const SizedBox(width: 6),
+                                                   Expanded(
+                                                     child: Text(
+                                                       '⚠️ بند التعريفة الجمركية (${item.hsCode ?? "غير مسجل"}) غير مسجل في جدول التعريفة المعتمد — يرجى تسجيله عبر Smart Nafeza لتطبيق الرسوم الجمركية وضريبة الوارد بدقة.',
+                                                       style: TextStyle(
+                                                         color: Colors.amber.shade900,
+                                                         fontSize: 11,
+                                                         fontWeight: FontWeight.bold,
+                                                       ),
+                                                     ),
                                                    ),
-                                                 ),
+                                                 ],
+                                               ),
+                                               const SizedBox(height: 6),
+                                               Wrap(
+                                                 spacing: 8,
+                                                 runSpacing: 4,
+                                                 children: [
+                                                   ElevatedButton.icon(
+                                                     style: ElevatedButton.styleFrom(
+                                                       backgroundColor: AppTheme.orange,
+                                                       foregroundColor: Colors.white,
+                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                       visualDensity: VisualDensity.compact,
+                                                     ),
+                                                     icon: const Icon(Icons.auto_fix_high, size: 14),
+                                                     label: const Text('✨ استدعاء Smart Nafeza & Diff Engine لتسجيل البند', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                     onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
+                                                   ),
+                                                   OutlinedButton.icon(
+                                                     style: OutlinedButton.styleFrom(
+                                                       foregroundColor: AppTheme.cobalt,
+                                                       side: const BorderSide(color: AppTheme.cobalt),
+                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                                       visualDensity: VisualDensity.compact,
+                                                     ),
+                                                     icon: const Icon(Icons.search, size: 14),
+                                                     label: const Text('🔍 بحث واختيار من التعريفة', style: TextStyle(fontSize: 11)),
+                                                     onPressed: () async {
+                                                       final picked = await _showHsCodeSearchPicker(context, tariffs);
+                                                       if (picked != null) {
+                                                         setState(() {
+                                                           _dialogItems[idx] = _dialogItems[idx].copyWith(
+                                                             tariffId: picked.tariffId,
+                                                             hsCode: picked.hsCode,
+                                                           );
+                                                         });
+                                                       }
+                                                     },
+                                                   ),
+                                                 ],
                                                ),
                                              ],
                                            ),

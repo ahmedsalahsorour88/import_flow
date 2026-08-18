@@ -7,6 +7,9 @@ import 'package:flutter/material.dart';
 
 import '../constants/api_constants.dart';
 import '../theme/app_theme.dart';
+import 'universal_entity_extractor_dialog.dart';
+import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Supported module names (must match backend SUPPORTED_MODULES)
@@ -417,12 +420,15 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                               side: const BorderSide(color: AppTheme.cobalt),
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             ),
-                            icon: const Icon(Icons.person_add_alt_1_rounded, size: 16),
+                            icon: const Icon(Icons.auto_awesome, size: 16),
                             label: Text(
-                              'تسجيل "${result.extractedFields['supplier_name']}" كمورد جديد',
+                              '🤖 استدعاء AI Coding لتكويد "${result.extractedFields['supplier_name']}"',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
-                            onPressed: () => _showRegisterSupplierDialog(context, result.extractedFields),
+                            onPressed: () => UniversalEntityExtractorDialog.show(
+                              context,
+                              initialTarget: EntityTarget.supplier,
+                            ),
                           ),
                         if (result.extractedFields['importer_name'] != null)
                           OutlinedButton.icon(
@@ -433,15 +439,18 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                             ),
                             icon: const Icon(Icons.domain_add_rounded, size: 16),
                             label: Text(
-                              'تسجيل "${result.extractedFields['importer_name']}" كشركة مستوردة',
+                              '🤖 استدعاء AI Coding لتكويد "${result.extractedFields['importer_name']}"',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
-                            onPressed: () => _showRegisterImporterDialog(context, result.extractedFields),
+                            onPressed: () => UniversalEntityExtractorDialog.show(
+                              context,
+                              initialTarget: EntityTarget.company,
+                            ),
                           ),
                       ],
                     ),
 
-                    // HS Code Compliance & Registration Warning
+                    // HS Code Compliance & Registration Warning with Smart Nafeza Trigger
                     if (result.extractedFields['hs_code_compliance_warning'] != null) ...[
                       const SizedBox(height: 12),
                       Container(
@@ -449,21 +458,40 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.amber.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.shade400),
+                          border: Border.all(color: Colors.amber.shade400, width: 1.2),
                         ),
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                result.extractedFields['hs_code_compliance_warning'].toString(),
-                                style: TextStyle(
-                                  color: Colors.amber.shade900,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    result.extractedFields['hs_code_compliance_warning'].toString(),
+                                    style: TextStyle(
+                                      color: Colors.amber.shade900,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Consumer(
+                              builder: (context, ref, _) => ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.orange,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                icon: const Icon(Icons.auto_fix_high, size: 16),
+                                label: const Text('✨ استدعاء Smart Nafeza & Diff Engine لتسجيل البند'),
+                                onPressed: () => showTariffDialog(context, ref, initialModeIndex: 0),
                               ),
                             ),
                           ],

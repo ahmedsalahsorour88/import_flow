@@ -52,6 +52,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     {'code': 'CN', 'name': 'CN - الصين (China)'},
     {'code': 'DE', 'name': 'DE - ألمانيا (Germany)'},
     {'code': 'IT', 'name': 'IT - إيطاليا (Italy)'},
+    {'code': 'LT', 'name': 'LT - ليتوانيا (Lithuania)'},
+    {'code': 'TW', 'name': 'TW - تايوان (Taiwan)'},
     {'code': 'TR', 'name': 'TR - تركيا (Turkey)'},
     {'code': 'FR', 'name': 'FR - فرنسا (France)'},
     {'code': 'ES', 'name': 'ES - إسبانيا (Spain)'},
@@ -240,7 +242,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
+    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final incoterms = ref.read(incotermsProvider).value ?? [];
+    final currencies = ref.read(currenciesProvider).value ?? [];
     final tariffs = ref.read(customsTariffProvider).value ?? [];
+
     setState(() {
       final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
       if (poNum != null && poNum.isNotEmpty) {
@@ -251,12 +258,93 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         _selectedOrderDate = _parseFlexDate(dateStr);
       }
 
-      final rawTerms = ext['payment_terms']?.toString();
-      if (rawTerms != null) {
-        if (rawTerms.contains('LC') || rawTerms.contains('اعتماد') || rawTerms.contains('CREDIT')) {
+      // 1. Company Matching (الشركة المستوردة)
+      final rawComp = (ext['importer_name'] ?? ext['company_name'] ?? ext['importer'])?.toString().trim().toLowerCase();
+      final rawCompTax = ext['importer_tax_id']?.toString().trim();
+      if (rawComp != null && rawComp.isNotEmpty) {
+        final matchedComp = companies.where((c) {
+          final cName = c.importerName.toLowerCase();
+          final cTax = c.vatId.trim();
+          if (rawCompTax != null && rawCompTax.isNotEmpty && cTax == rawCompTax) return true;
+          if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
+          final rawWords = rawComp.split(RegExp(r'\s+')).where((w) => w.length > 3);
+          final cWords = cName.split(RegExp(r'\s+')).where((w) => w.length > 3);
+          return rawWords.any((rw) => cWords.any((cw) => cw.contains(rw) || rw.contains(cw)));
+        }).firstOrNull;
+        if (matchedComp != null) {
+          _selectedCompanyId = matchedComp.companyId;
+        }
+      }
+
+      // 2. Supplier Matching (المورد الأجنبي)
+      final rawSupp = (ext['supplier_name'] ?? ext['supplier'] ?? ext['vendor_name'])?.toString().trim().toLowerCase();
+      final rawSuppTax = ext['supplier_tax_id']?.toString().trim();
+      final rawSuppEmail = ext['supplier_email']?.toString().trim().toLowerCase();
+      if (rawSupp != null && rawSupp.isNotEmpty) {
+        final matchedSupp = suppliers.where((s) {
+          final sName = s.companyName.toLowerCase();
+          final sTax = s.foreignExporterId.trim();
+          final sEmail = s.email?.trim().toLowerCase();
+          if (rawSuppTax != null && rawSuppTax.isNotEmpty && sTax == rawSuppTax) return true;
+          if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
+          if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
+          final rawWords = rawSupp.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
+          final sWords = sName.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
+          return rawWords.any((rw) => sWords.any((sw) => sw.contains(rw) || rw.contains(sw)));
+        }).firstOrNull;
+        if (matchedSupp != null) {
+          _selectedSupplierId = matchedSupp.supplierId;
+        }
+      }
+
+      // 3. Incoterm Matching (شروط التعاقد)
+      final rawInco = (ext['incoterms'] ?? ext['incoterm'])?.toString().trim().toUpperCase();
+      if (rawInco != null && rawInco.isNotEmpty) {
+        final matchedInco = incoterms.where((i) {
+          final code = i.incotermCode.toUpperCase().trim();
+          return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
+        }).firstOrNull;
+        if (matchedInco != null) {
+          _selectedIncotermId = matchedInco.incotermId;
+        }
+      }
+
+      // 4. Currency Matching (العملة)
+      final rawCurr = (ext['currency'] ?? ext['currency_code'])?.toString().trim().toUpperCase();
+      if (rawCurr != null && rawCurr.isNotEmpty) {
+        final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
+        if (matchedCurr != null) {
+          _selectedCurrencyId = matchedCurr.currencyId;
+          _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+        }
+      }
+
+      // 5. Country of Origin (بلد المنشأ)
+      final rawCty = (ext['country_of_origin'] ?? ext['supplier_country'] ?? ext['country'])?.toString().trim().toUpperCase();
+      if (rawCty != null && rawCty.isNotEmpty) {
+        final matchedCty = countryOptions.where((c) =>
+          c['code'] == rawCty ||
+          c['name']!.toUpperCase().contains(rawCty) ||
+          (rawCty == 'LT' && (c['code'] == 'LT' || c['name']!.contains('Lithuania') || c['name']!.contains('ليتوانيا'))) ||
+          (rawCty == 'CN' && (c['code'] == 'CN' || c['name']!.contains('China') || c['name']!.contains('الصين'))) ||
+          (rawCty == 'IT' && (c['code'] == 'IT' || c['name']!.contains('Italy') || c['name']!.contains('إيطاليا')))
+        ).firstOrNull;
+        if (matchedCty != null) {
+          _selectedCountryOfOrigin = matchedCty['name'];
+        }
+      }
+
+      // 6. Payment Terms (شروط الدفع)
+      final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString()?.toUpperCase();
+      if (rawTerms != null && rawTerms.isNotEmpty) {
+        if (rawTerms.contains('LC') || rawTerms.contains('LETTER OF CREDIT') || rawTerms.contains('اعتماد')) {
           _selectedPaymentTerms = 'Letter of Credit / LC';
-        } else if (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت') || rawTerms.contains('T/T')) {
+        } else if (rawTerms.contains('PREPAYMENT') || rawTerms.contains('AVV.MERCE') || rawTerms.contains('SWIFT') || rawTerms.contains('CASH') || rawTerms.contains('T/T') || rawTerms.contains('سويفت') || rawTerms.contains('مقدم')) {
           _selectedPaymentTerms = 'Cash in Advance / SWIFT';
+        } else if (rawTerms.contains('CAD') || rawTerms.contains('COLLECTION') || rawTerms.contains('مستندات')) {
+          _selectedPaymentTerms = 'Cash Against Documents / CAD';
+        } else if (rawTerms.contains('OPEN ACCOUNT') || rawTerms.contains('حساب مفتوح')) {
+          _selectedPaymentTerms = 'Open Account';
         }
       }
 
@@ -273,7 +361,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
           if (itemCty != null && itemCty.isNotEmpty) {
             final matchedCty = countryOptions.where((c) => c['code'] == itemCty?.toUpperCase() || c['name']!.toUpperCase().contains(itemCty!.toUpperCase())).firstOrNull;
-            if (matchedCty != null) itemCty = matchedCty['code'];
+            if (matchedCty != null) itemCty = matchedCty['name'];
           } else {
             itemCty = _selectedCountryOfOrigin;
           }
@@ -519,33 +607,42 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     final ext = widget.initialExtractedFields;
     if (widget.po == null && ext != null) {
-      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
-        final extCurr = (ext['currency'] ?? ext['currency_code'] ?? '').toString().trim().toUpperCase();
-        if (extCurr.isNotEmpty) {
-          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase() == extCurr).firstOrNull;
-          if (matchedCurr != null) {
-            _selectedCurrencyId = matchedCurr.currencyId;
-            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+      // 1. Company
+      if (_selectedCompanyId == null && companies.isNotEmpty) {
+        final rawComp = (ext['importer_name'] ?? ext['company_name'] ?? ext['importer'])?.toString().trim().toLowerCase();
+        final rawCompTax = ext['importer_tax_id']?.toString().trim();
+        if (rawComp != null && rawComp.isNotEmpty) {
+          final matchedComp = companies.where((c) {
+            final cName = c.importerName.toLowerCase();
+            final cTax = c.vatId.trim();
+            if (rawCompTax != null && rawCompTax.isNotEmpty && cTax == rawCompTax) return true;
+            if (cName.contains(rawComp) || rawComp.contains(cName)) return true;
+            final rawWords = rawComp.split(RegExp(r'\s+')).where((w) => w.length > 3);
+            final cWords = cName.split(RegExp(r'\s+')).where((w) => w.length > 3);
+            return rawWords.any((rw) => cWords.any((cw) => cw.contains(rw) || rw.contains(cw)));
+          }).firstOrNull;
+          if (matchedComp != null) {
+            _selectedCompanyId = matchedComp.companyId;
           }
         }
       }
 
-      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
-        final extInco = (ext['incoterms'] ?? ext['incoterm'] ?? '').toString().trim().toUpperCase();
-        if (extInco.isNotEmpty) {
-          final matchedInco = incoterms.where((i) => i.incotermCode.toUpperCase() == extInco || extInco.contains(i.incotermCode.toUpperCase())).firstOrNull;
-          if (matchedInco != null) {
-            _selectedIncotermId = matchedInco.incotermId;
-          }
-        }
-      }
-
+      // 2. Supplier
       if (_selectedSupplierId == null && suppliers.isNotEmpty) {
-        final extSupp = (ext['supplier_name'] ?? ext['supplier'] ?? '').toString().trim().toLowerCase();
-        if (extSupp.isNotEmpty) {
+        final rawSupp = (ext['supplier_name'] ?? ext['supplier'] ?? ext['vendor_name'])?.toString().trim().toLowerCase();
+        final rawSuppTax = ext['supplier_tax_id']?.toString().trim();
+        final rawSuppEmail = ext['supplier_email']?.toString().trim().toLowerCase();
+        if (rawSupp != null && rawSupp.isNotEmpty) {
           final matchedSupp = suppliers.where((s) {
             final sName = s.companyName.toLowerCase();
-            return sName.contains(extSupp) || extSupp.contains(sName);
+            final sTax = s.foreignExporterId.trim();
+            final sEmail = s.email?.trim().toLowerCase();
+            if (rawSuppTax != null && rawSuppTax.isNotEmpty && sTax == rawSuppTax) return true;
+            if (rawSuppEmail != null && rawSuppEmail.isNotEmpty && sEmail == rawSuppEmail) return true;
+            if (sName.contains(rawSupp) || rawSupp.contains(sName)) return true;
+            final rawWords = rawSupp.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
+            final sWords = sName.split(RegExp(r'\s+')).where((w) => w.length > 3 && !['ltd', 'inc', 'corp', 'spa', 'gmbh', 'international', 'co.'].contains(w));
+            return rawWords.any((rw) => sWords.any((sw) => sw.contains(rw) || rw.contains(sw)));
           }).firstOrNull;
           if (matchedSupp != null) {
             _selectedSupplierId = matchedSupp.supplierId;
@@ -553,12 +650,45 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         }
       }
 
+      // 3. Incoterm
+      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
+        final rawInco = (ext['incoterms'] ?? ext['incoterm'])?.toString().trim().toUpperCase();
+        if (rawInco != null && rawInco.isNotEmpty) {
+          final matchedInco = incoterms.where((i) {
+            final code = i.incotermCode.toUpperCase().trim();
+            return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
+          }).firstOrNull;
+          if (matchedInco != null) {
+            _selectedIncotermId = matchedInco.incotermId;
+          }
+        }
+      }
+
+      // 4. Currency
+      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
+        final rawCurr = (ext['currency'] ?? ext['currency_code'])?.toString().trim().toUpperCase();
+        if (rawCurr != null && rawCurr.isNotEmpty) {
+          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
+          if (matchedCurr != null) {
+            _selectedCurrencyId = matchedCurr.currencyId;
+            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+          }
+        }
+      }
+
+      // 5. Country of Origin
       if (_selectedCountryOfOrigin == null) {
-        final extCountry = (ext['country_of_origin'] ?? ext['country'] ?? '').toString().trim().toUpperCase();
-        if (extCountry.isNotEmpty) {
-          final matchedCty = countryOptions.where((c) => c['code'] == extCountry || c['name']!.toUpperCase().contains(extCountry)).firstOrNull;
+        final rawCty = (ext['country_of_origin'] ?? ext['supplier_country'] ?? ext['country'])?.toString().trim().toUpperCase();
+        if (rawCty != null && rawCty.isNotEmpty) {
+          final matchedCty = countryOptions.where((c) =>
+            c['code'] == rawCty ||
+            c['name']!.toUpperCase().contains(rawCty) ||
+            (rawCty == 'LT' && (c['code'] == 'LT' || c['name']!.contains('Lithuania') || c['name']!.contains('ليتوانيا'))) ||
+            (rawCty == 'CN' && (c['code'] == 'CN' || c['name']!.contains('China') || c['name']!.contains('الصين'))) ||
+            (rawCty == 'IT' && (c['code'] == 'IT' || c['name']!.contains('Italy') || c['name']!.contains('إيطاليا')))
+          ).firstOrNull;
           if (matchedCty != null) {
-            _selectedCountryOfOrigin = matchedCty['code'];
+            _selectedCountryOfOrigin = matchedCty['name'];
           }
         }
       }

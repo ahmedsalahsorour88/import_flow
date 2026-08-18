@@ -1435,6 +1435,50 @@ class _ReconciliationWarningDialogState extends State<_ReconciliationWarningDial
                       decoration: InputDecoration(
                         labelText: 'سبب الاستمرار وتبرير الاختلاف (Discrepancy Justification Reason) *',
                         hintText: 'مثال: كل قطعة بالفاتورة تتكون من كرتونتين مكملتين في بيان التعبئة، أو شحنة مجزأة...',
+                        border: const OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.amber.shade800, width: 2)),
+                      ),
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) {
+                          return 'يجب إدخال سبب وتبرير استمرار الحفظ رغم وجود الاختلاف.';
+                        }
+                        if (val.trim().length < 5) {
+                          return 'الرجاء إدخال تبرير واضح ومفصل (5 أحرف على الأقل).';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        OutlinedButton.icon(
+          icon: const Icon(Icons.arrow_back, size: 16),
+          label: const Text('الرجوع للتعديل (Back to Edit)'),
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
+          onPressed: () => Navigator.pop(context, null),
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.check_circle_outline, size: 16),
+          label: const Text('الاستمرار وحفظ أمر الشراء (Continue & Save)'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.amber.shade800,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () {
+            if (_formKey.currentState!.validate()) {
+              Navigator.pop(context, _reasonCtrl.text.trim());
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
 class _PODialogWidget extends ConsumerStatefulWidget {
   final PurchaseOrderModel? po;
   final Map<String, dynamic>? initialExtractedFields;

@@ -1,10 +1,9 @@
-// TODO: Refactor to ConsumerWidget to use dioProvider/uploadDioProvider
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:frontend/core/theme/app_theme.dart';
-import 'package:frontend/core/constants/api_constants.dart';
-import 'package:frontend/core/widgets/searchable_dropdown_field.dart';
+import '../theme/app_theme.dart';
+import '../constants/api_constants.dart';
+import 'searchable_dropdown_field.dart';
 
 enum EntityTarget { supplier, company, partner, bank }
 
@@ -44,24 +43,65 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   bool _isSaving = false;
 
   final TextEditingController _rawTextCtrl = TextEditingController();
+
+  // Common Controllers
   final TextEditingController _companyNameCtrl = TextEditingController();
+  final TextEditingController _arabicNameCtrl = TextEditingController();
   final TextEditingController _contactPersonCtrl = TextEditingController();
   final TextEditingController _phoneCtrl = TextEditingController();
   final TextEditingController _mobileCtrl = TextEditingController();
   final TextEditingController _emailCtrl = TextEditingController();
   final TextEditingController _websiteCtrl = TextEditingController();
-  final TextEditingController _taxIdCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
-  final TextEditingController _countryCtrl = TextEditingController();
-  final TextEditingController _industryCtrl = TextEditingController();
+  final TextEditingController _countryCtrl = TextEditingController(text: 'China');
+  final TextEditingController _countryCodeCtrl = TextEditingController(text: 'CN');
+
+  // Supplier Specific
+  final TextEditingController _cargoxIdCtrl = TextEditingController();
+  final TextEditingController _foreignTaxIdCtrl = TextEditingController();
+  final TextEditingController _brandsCtrl = TextEditingController();
+  String _supplierRegType = 'Commercial Register';
+  String _supplierType = 'Manufacturer';
+
+  // Importer Specific
+  final TextEditingController _taxIdCtrl = TextEditingController(); // 9-digits Egyptian Tax
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
-  final TextEditingController _importerIdCtrl = TextEditingController();
+  final TextEditingController _importerCardCtrl = TextEditingController();
+  final TextEditingController _nafezaTokenCtrl = TextEditingController();
+  String _companyType = 'LLC';
+
+  // Partner Specific
+  String _partnerTypeStr = 'Customs Broker';
+  final TextEditingController _brokerLicenseCtrl = TextEditingController();
+  final TextEditingController _portsCtrl = TextEditingController(text: 'الإسكندرية, السخنة');
+
+  // Bank Specific
   final TextEditingController _swiftCodeCtrl = TextEditingController();
+  final TextEditingController _branchNameCtrl = TextEditingController(text: 'Main Branch');
   final TextEditingController _bankAccountCtrl = TextEditingController();
 
-  String _partnerTypeStr = 'Freight Forwarder';
   String? _selectedFileName;
   double _confidenceScore = 0.0;
+
+  static const List<Map<String, String>> _countryList = [
+    {'code': 'CN', 'name': 'الصين (China)'},
+    {'code': 'DE', 'name': 'ألمانيا (Germany)'},
+    {'code': 'IT', 'name': 'إيطاليا (Italy)'},
+    {'code': 'TR', 'name': 'تركيا (Turkey)'},
+    {'code': 'US', 'name': 'الولايات المتحدة (USA)'},
+    {'code': 'GB', 'name': 'المملكة المتحدة (UK)'},
+    {'code': 'ES', 'name': 'إسبانيا (Spain)'},
+    {'code': 'FR', 'name': 'فرنسا (France)'},
+    {'code': 'IN', 'name': 'الهند (India)'},
+    {'code': 'JP', 'name': 'اليابان (Japan)'},
+    {'code': 'KR', 'name': 'كوريا الجنوبية (South Korea)'},
+    {'code': 'AE', 'name': 'الإمارات (UAE)'},
+    {'code': 'SA', 'name': 'السعودية (Saudi Arabia)'},
+    {'code': 'EG', 'name': 'مصر (Egypt)'},
+    {'code': 'BR', 'name': 'البرازيل (Brazil)'},
+    {'code': 'RU', 'name': 'روسيا (Russia)'},
+    {'code': 'VN', 'name': 'فيتنام (Vietnam)'},
+  ];
 
   @override
   void initState() {
@@ -73,18 +113,26 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   void dispose() {
     _rawTextCtrl.dispose();
     _companyNameCtrl.dispose();
+    _arabicNameCtrl.dispose();
     _contactPersonCtrl.dispose();
     _phoneCtrl.dispose();
     _mobileCtrl.dispose();
     _emailCtrl.dispose();
     _websiteCtrl.dispose();
-    _taxIdCtrl.dispose();
     _addressCtrl.dispose();
     _countryCtrl.dispose();
-    _industryCtrl.dispose();
+    _countryCodeCtrl.dispose();
+    _cargoxIdCtrl.dispose();
+    _foreignTaxIdCtrl.dispose();
+    _brandsCtrl.dispose();
+    _taxIdCtrl.dispose();
     _commercialRegisterCtrl.dispose();
-    _importerIdCtrl.dispose();
+    _importerCardCtrl.dispose();
+    _nafezaTokenCtrl.dispose();
+    _brokerLicenseCtrl.dispose();
+    _portsCtrl.dispose();
     _swiftCodeCtrl.dispose();
+    _branchNameCtrl.dispose();
     _bankAccountCtrl.dispose();
     super.dispose();
   }
@@ -104,7 +152,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
       if (resp.statusCode == 200 && resp.data != null) {
         final extracted = resp.data['extracted_fields'] as Map<String, dynamic>? ?? {};
-        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.8;
+        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.85;
         _populateFields(extracted, score);
       }
     } catch (e) {
@@ -154,7 +202,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
       if (resp.statusCode == 200 && resp.data != null) {
         final extracted = resp.data['extracted_fields'] as Map<String, dynamic>? ?? {};
-        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.8;
+        final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.85;
         _populateFields(extracted, score);
       }
     } catch (e) {
@@ -171,20 +219,35 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   void _populateFields(Map<String, dynamic> ext, double score) {
     setState(() {
       _confidenceScore = score;
-      _companyNameCtrl.text = ext['company_name']?.toString() ?? '';
-      _contactPersonCtrl.text = ext['contact_person']?.toString() ?? '';
-      _phoneCtrl.text = ext['phone_number']?.toString() ?? '';
-      _mobileCtrl.text = ext['mobile_number']?.toString() ?? '';
-      _emailCtrl.text = ext['email']?.toString() ?? '';
-      _websiteCtrl.text = ext['website']?.toString() ?? '';
-      _taxIdCtrl.text = ext['vat_tax_id']?.toString() ?? '';
-      _addressCtrl.text = ext['address']?.toString() ?? '';
-      _countryCtrl.text = ext['country_code']?.toString() ?? '';
-      _industryCtrl.text = ext['industry_description']?.toString() ?? '';
-      _commercialRegisterCtrl.text = ext['commercial_register']?.toString() ?? '';
-      _importerIdCtrl.text = ext['importer_id']?.toString() ?? '';
-      _swiftCodeCtrl.text = ext['swift_code']?.toString() ?? '';
-      _bankAccountCtrl.text = ext['bank_account']?.toString() ?? ext['iban']?.toString() ?? '';
+      if (ext['company_name'] != null) _companyNameCtrl.text = ext['company_name'].toString();
+      if (ext['arabic_name'] != null) _arabicNameCtrl.text = ext['arabic_name'].toString();
+      if (ext['contact_person'] != null) _contactPersonCtrl.text = ext['contact_person'].toString();
+      if (ext['phone_number'] != null) _phoneCtrl.text = ext['phone_number'].toString();
+      if (ext['mobile_number'] != null) _mobileCtrl.text = ext['mobile_number'].toString();
+      if (ext['email'] != null) _emailCtrl.text = ext['email'].toString();
+      if (ext['website'] != null) _websiteCtrl.text = ext['website'].toString();
+      if (ext['address'] != null) _addressCtrl.text = ext['address'].toString();
+
+      final ctyCode = ext['country_code']?.toString().toUpperCase() ?? '';
+      if (ctyCode.isNotEmpty) {
+        _countryCodeCtrl.text = ctyCode;
+        final match = _countryList.firstWhere((c) => c['code'] == ctyCode, orElse: () => {'name': ctyCode});
+        _countryCtrl.text = match['name'] ?? ctyCode;
+      }
+
+      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
+      if (ext['vat_tax_id'] != null) {
+        _foreignTaxIdCtrl.text = ext['vat_tax_id'].toString();
+        _taxIdCtrl.text = ext['vat_tax_id'].toString();
+      }
+      if (ext['commercial_register'] != null) _commercialRegisterCtrl.text = ext['commercial_register'].toString();
+      if (ext['importer_id'] != null) _importerCardCtrl.text = ext['importer_id'].toString();
+      if (ext['license_number'] != null) _brokerLicenseCtrl.text = ext['license_number'].toString();
+      if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString();
+      if (ext['bank_account'] != null || ext['iban'] != null) {
+        _bankAccountCtrl.text = ext['bank_account']?.toString() ?? ext['iban']?.toString() ?? '';
+      }
+      if (ext['industry_description'] != null) _brandsCtrl.text = ext['industry_description'].toString();
     });
   }
 
@@ -207,36 +270,41 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         case EntityTarget.supplier:
           endpoint = '${ApiConstants.baseUrl}/suppliers';
           final cty = _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'China';
-          final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'CN';
-          final taxId = _taxIdCtrl.text.trim();
+          final ctyCode = _countryCodeCtrl.text.trim().isNotEmpty ? _countryCodeCtrl.text.trim() : 'CN';
+          final taxId = _foreignTaxIdCtrl.text.trim();
+          final cargox = _cargoxIdCtrl.text.trim();
           payload = {
             'company_name': name,
-            'supplier_type': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'Manufacturer',
-            'registration_type': 'Foreign Exporter',
+            'supplier_type': _supplierType,
+            'registration_type': _supplierRegType,
             'foreign_exporter_id': taxId.isNotEmpty ? taxId : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
             'foreign_exporter_country': cty,
             'foreign_exporter_country_code': ctyCode,
+            'cargox_id': cargox.isNotEmpty ? cargox : null,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Foreign Exporter Address',
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
             'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'website': _websiteCtrl.text.trim(),
-            'brands': _industryCtrl.text.trim(),
+            'brands': _brandsCtrl.text.trim(),
+            'swift_code': _swiftCodeCtrl.text.trim(),
+            'bank_account': _bankAccountCtrl.text.trim(),
           };
           break;
 
         case EntityTarget.company:
           endpoint = '${ApiConstants.baseUrl}/import-companies';
-          final impId = _importerIdCtrl.text.trim();
+          final impId = _importerCardCtrl.text.trim();
           final vatId = _taxIdCtrl.text.trim();
           final regNum = _commercialRegisterCtrl.text.trim();
           payload = {
-            'importer_name': name,
-            'company_type': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'LLC',
+            'importer_name': _arabicNameCtrl.text.trim().isNotEmpty ? _arabicNameCtrl.text.trim() : name,
+            'english_name': name,
+            'company_type': _companyType,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'القاهرة - مصر',
-            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
-            'importer_id': impId.isNotEmpty ? impId : 'IMP-REG-${DateTime.now().millisecondsSinceEpoch}',
+            'country': 'Egypt',
+            'importer_id': impId.isNotEmpty ? impId : 'IMP-${DateTime.now().millisecondsSinceEpoch}',
             'importer_id_expiry': '2030-12-31',
             'vat_id': vatId.isNotEmpty ? vatId : '000000000',
             'vat_id_expiry': '2030-12-31',
@@ -249,6 +317,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             'bank_account': _bankAccountCtrl.text.trim(),
             'iban': _bankAccountCtrl.text.trim(),
             'swift_code': _swiftCodeCtrl.text.trim(),
+            'notes': _nafezaTokenCtrl.text.trim().isNotEmpty ? 'Nafeza E-Token: ${_nafezaTokenCtrl.text.trim()}' : null,
           };
           break;
 
@@ -257,13 +326,15 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           payload = {
             'partner_name': name,
             'partner_type': _partnerTypeStr,
+            'license_number': _brokerLicenseCtrl.text.trim().isNotEmpty ? _brokerLicenseCtrl.text.trim() : null,
+            'ports_of_operation': _portsCtrl.text.trim().isNotEmpty ? _portsCtrl.text.trim() : null,
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
             'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'website': _websiteCtrl.text.trim(),
             'address': _addressCtrl.text.trim(),
-            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
+            'country': 'Egypt',
             'tax_id': _taxIdCtrl.text.trim(),
             'commercial_register': _commercialRegisterCtrl.text.trim(),
           };
@@ -277,13 +348,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             'partner_type': 'Bank',
             'swift_code': swift.isNotEmpty ? swift : 'BANK-EG-SWIFT',
             'bank_code': 'BNK-001',
-            'branch_name': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Main Branch',
+            'branch_name': _branchNameCtrl.text.trim().isNotEmpty ? _branchNameCtrl.text.trim() : 'Main Branch',
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
             'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'address': _addressCtrl.text.trim(),
-            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
+            'country': 'Egypt',
           };
           break;
       }
@@ -296,7 +367,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         widget.onSaved?.call();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم تكويد وحفظ السجل كـ ${_targetLabel(_selectedTarget)} بنجاح!'),
+            content: Text('✅ تم تكويد وحفظ السجل كـ ${_targetLabel(_selectedTarget)} بنجاح في قاعدة البيانات!'),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -304,21 +375,23 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
-        String msg = '$e';
-        if (e is DioException && e.response?.data != null) {
-          final data = e.response!.data;
-          if (data is Map && data['detail'] != null) {
-            msg = data['detail'].toString();
-          }
-        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(msg),
-            backgroundColor: AppTheme.crimson,
-            duration: const Duration(seconds: 6),
-          ),
+          SnackBar(content: Text('خطأ أثناء الحفظ في قاعدة البيانات: $e'), backgroundColor: AppTheme.crimson),
         );
       }
+    }
+  }
+
+  String _targetLabel(EntityTarget target) {
+    switch (target) {
+      case EntityTarget.supplier:
+        return 'مورد أجنبي (Supplier / Exporter)';
+      case EntityTarget.company:
+        return 'شركة مستوردة (Importer / Consignee)';
+      case EntityTarget.partner:
+        return 'شريك / مخلص / ناقل (Partner / Broker)';
+      case EntityTarget.bank:
+        return 'بنك معتمد (Bank / Financial)';
     }
   }
 
@@ -326,219 +399,203 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   Widget build(BuildContext context) {
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 30),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
       child: Container(
-        width: 1020,
-        height: 680,
+        width: 1100,
+        height: 750,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Column(
           children: [
-            // ── Header Bar & Entity Target Selector ──────────────────────────────────
+            // Header Bar
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               decoration: const BoxDecoration(
                 color: AppTheme.charcoal,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
               ),
-              child: Column(
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.psychology_alt_rounded, color: AppTheme.cobalt, size: 24),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'أداة التكويد والاستخراج الذكي الشاملة للمستوردين والموردين والشركاء',
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.close_rounded, color: Colors.white70),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.amber, size: 22),
                   ),
-                  const SizedBox(height: 12),
-
-                  // Target Selector Buttons (الجهة المطلوب التكويد إليها)
-                  Row(
-                    children: [
-                      const Text('توجيه التكويد إلى: ',
-                          style: TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w600)),
-                      const SizedBox(width: 10),
-                      _buildTargetChip(EntityTarget.supplier, '🌍 مورد أجنبي', Icons.public_rounded),
-                      const SizedBox(width: 8),
-                      _buildTargetChip(EntityTarget.company, '🏢 شركة مستوردة', Icons.domain_rounded),
-                      const SizedBox(width: 8),
-                      _buildTargetChip(EntityTarget.partner, '🤝 شريك / مخلص / ناقل', Icons.handshake_rounded),
-                      const SizedBox(width: 8),
-                      _buildTargetChip(EntityTarget.bank, '🏦 بنك / جهة مصرفية', Icons.account_balance_rounded),
-                    ],
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'أداة التكويد والاستخراج الذكي الشاملة للمستوردين والموردين والشركاء والبنوك',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                        Text(
+                          'AI-Powered Universal Master Data Entity Extractor & Auto-Registration Engine',
+                          style: TextStyle(color: Colors.white60, fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white70),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
             ),
 
-            // ── Main Body: Left Input Pane & Right Extracted Form Pane ──────────────
+            // Top Target Selector Strip
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              color: Colors.grey.shade100,
+              child: Row(
+                children: [
+                  const Text('توجيه التكويد المباشر إلى:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                  const SizedBox(width: 12),
+                  _buildTargetButton(EntityTarget.supplier, '🌍 مورد أجنبي', Icons.public),
+                  const SizedBox(width: 8),
+                  _buildTargetButton(EntityTarget.company, '🏢 شركة مستوردة', Icons.domain),
+                  const SizedBox(width: 8),
+                  _buildTargetButton(EntityTarget.partner, '🤝 شريك / مخلص / ناقل', Icons.handshake),
+                  const SizedBox(width: 8),
+                  _buildTargetButton(EntityTarget.bank, '🏦 بنك معتمد', Icons.account_balance),
+                ],
+              ),
+            ),
+
+            // Main Split Workspace
             Expanded(
               child: Row(
                 children: [
-                  // Left Pane: Input Modes (Raw Text / File OCR)
+                  // Left Pane: Input Sources (Text / File / Image)
                   Expanded(
                     flex: 5,
                     child: Container(
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
-                        color: AppTheme.cloudWhite.withOpacity(0.5),
+                        color: AppTheme.cloudWhite.withOpacity(0.35),
                         border: Border(left: BorderSide(color: Colors.grey.shade300)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Input Mode Selector Tabs
                           Row(
                             children: [
-                              ChoiceChip(
-                                label: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [Icon(Icons.paste_rounded, size: 14), SizedBox(width: 6), Text('لصق نص حرة')],
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _inputModeTab == 0 ? AppTheme.emerald : Colors.white,
+                                    foregroundColor: _inputModeTab == 0 ? Colors.white : AppTheme.charcoal,
+                                    elevation: _inputModeTab == 0 ? 2 : 0,
+                                    side: BorderSide(color: _inputModeTab == 0 ? AppTheme.emerald : Colors.grey.shade300),
+                                  ),
+                                  icon: const Icon(Icons.paste_rounded, size: 16),
+                                  label: const Text('لصق نص حر (Raw Text)'),
+                                  onPressed: () => setState(() => _inputModeTab = 0),
                                 ),
-                                selected: _inputModeTab == 0,
-                                onSelected: (sel) => setState(() => _inputModeTab = 0),
                               ),
-                              const SizedBox(width: 8),
-                              ChoiceChip(
-                                label: const Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [Icon(Icons.upload_file_rounded, size: 14), SizedBox(width: 6), Text('صورة / PDF / Excel')],
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _inputModeTab == 1 ? AppTheme.cobalt : Colors.white,
+                                    foregroundColor: _inputModeTab == 1 ? Colors.white : AppTheme.charcoal,
+                                    elevation: _inputModeTab == 1 ? 2 : 0,
+                                    side: BorderSide(color: _inputModeTab == 1 ? AppTheme.cobalt : Colors.grey.shade300),
+                                  ),
+                                  icon: const Icon(Icons.file_present_rounded, size: 16),
+                                  label: const Text('ملف PDF / Excel / صورة'),
+                                  onPressed: () => setState(() => _inputModeTab = 1),
                                 ),
-                                selected: _inputModeTab == 1,
-                                onSelected: (sel) => setState(() => _inputModeTab = 1),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 14),
 
+                          // Left Body
                           if (_inputModeTab == 0) ...[
                             Expanded(
                               child: TextField(
                                 controller: _rawTextCtrl,
                                 maxLines: null,
                                 expands: true,
-                                style: const TextStyle(fontSize: 13, height: 1.4),
+                                textAlignVertical: TextAlignVertical.top,
                                 decoration: InputDecoration(
-                                  hintText: 'الصق النص الكامل للشركة هنا...\nمثال:\nFactory owner M:0086 15962900581 W:www.yhacoustic.com\nSuzhou Yuheng Textile Co.,Ltd\nFactory Address: N0.16, Kangsheng Road...',
+                                  hintText: _getPlaceholderForTarget(_selectedTarget),
+                                  hintStyle: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                   filled: true,
                                   fillColor: Colors.white,
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
-                              height: 42,
+                              height: 44,
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isExtracting ? AppTheme.cobalt.withOpacity(0.7) : AppTheme.cobalt,
+                                  backgroundColor: AppTheme.cobalt,
                                   foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: _isExtracting
                                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.auto_awesome_rounded, size: 18),
-                                label: Text(_isExtracting ? 'جاري تحليل النص واستخراج البيانات...' : 'استخراج وتحليل البيانات تلقائياً'),
+                                    : const Icon(Icons.auto_awesome, size: 18),
+                                label: Text(_isExtracting ? 'جاري تحليل النص بالذكاء الاصطناعي...' : 'استخراج وتحليل البيانات تلقائياً ✨'),
                                 onPressed: _isExtracting ? null : _extractFromRawText,
                               ),
                             ),
                           ] else ...[
                             Expanded(
-                              child: _isExtracting
-                                  ? Container(
-                                      width: double.infinity,
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: AppTheme.cobalt.withOpacity(0.04),
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(color: AppTheme.cobalt, width: 2),
+                              child: InkWell(
+                                onTap: _pickAndExtractFile,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.5), width: 1.5),
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.cloud_upload_rounded, color: AppTheme.cobalt, size: 48),
+                                      const SizedBox(height: 12),
+                                      const Text('اضغط لاختيار صورة، كارت عمل، PDF، أو Excel',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _selectedFileName ?? 'يدعم صيغ (PNG, JPG, PDF, XLSX, DOCX)',
+                                        style: TextStyle(fontSize: 11, color: AppTheme.charcoal.withOpacity(0.6)),
                                       ),
-                                      child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            padding: const EdgeInsets.all(16),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.cobalt.withOpacity(0.1),
-                                              shape: BoxShape.circle,
-                                            ),
-                                            child: const CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 3),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          const Text(
-                                            '🚀 جاري قراءة واستخراج البيانات بالذكاء الاصطناعي...',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          const SizedBox(height: 6),
-                                          Text(
-                                            _selectedFileName != null
-                                                ? 'جاري تحليل المستند: $_selectedFileName\nقد تستغرق العملية بضع ثوانٍ...'
-                                                : 'جاري المعالجة والتحليل...',
-                                            style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                          const SizedBox(height: 16),
-                                          ClipRRect(
-                                            borderRadius: BorderRadius.circular(4),
-                                            child: const SizedBox(
-                                              width: 180,
-                                              height: 4,
-                                              child: LinearProgressIndicator(color: AppTheme.cobalt, backgroundColor: Colors.white),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  : InkWell(
-                                      onTap: _pickAndExtractFile,
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Container(
-                                        width: double.infinity,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius: BorderRadius.circular(12),
-                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.5), width: 1.5),
-                                        ),
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            const Icon(Icons.cloud_upload_rounded, color: AppTheme.cobalt, size: 48),
-                                            const SizedBox(height: 12),
-                                            const Text('اضغط لاختيار صورة، كارت عمل، PDF، أو Excel',
-                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                                            const SizedBox(height: 6),
-                                            Text(
-                                              _selectedFileName ?? 'يدعم صيغ (PNG, JPG, PDF, XLSX, DOCX)',
-                                              style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.6)),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
-                              height: 42,
+                              height: 44,
                               child: ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: _isExtracting ? AppTheme.cobalt.withOpacity(0.7) : AppTheme.cobalt,
+                                  backgroundColor: AppTheme.cobalt,
                                   foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: _isExtracting
                                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                     : const Icon(Icons.file_open_rounded, size: 18),
-                                label: Text(_isExtracting ? 'جاري تحليل المستند واستخراج البيانات...' : 'اختيار ملف واستخراج البيانات'),
+                                label: Text(_isExtracting ? 'جاري قراءة وتحليل المستند...' : 'اختيار ملف واستخراج البيانات ✨'),
                                 onPressed: _isExtracting ? null : _pickAndExtractFile,
                               ),
                             ),
@@ -548,7 +605,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                     ),
                   ),
 
-                  // Right Pane: Extracted Fields Preview & Edit Form
+                  // Right Pane: Dedicated Form Cards per Entity
                   Expanded(
                     flex: 6,
                     child: Padding(
@@ -556,11 +613,20 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Header + Confidence Score + Target Label
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('الحقول والبيانات المستخرجة للتكويد',
-                                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              Row(
+                                children: [
+                                  Icon(_getTargetIcon(_selectedTarget), color: AppTheme.cobalt, size: 20),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'بيانات تكويد ${_targetLabel(_selectedTarget)}',
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                  ),
+                                ],
+                              ),
                               if (_confidenceScore > 0)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -570,249 +636,41 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                     border: Border.all(color: AppTheme.emerald),
                                   ),
                                   child: Text(
-                                    'نسبة الثقة: ${(_confidenceScore * 100).round()}%',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                    'دقة الاستخراج: ${(_confidenceScore * 100).round()}%',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                   ),
                                 ),
                             ],
                           ),
                           const SizedBox(height: 12),
 
+                          // Scrollable Form Fields
                           Expanded(
-                            child: Stack(
-                              children: [
-                                SingleChildScrollView(
-                              child: Column(
-                                children: [
-                                  TextField(
-                                    controller: _companyNameCtrl,
-                                    decoration: const InputDecoration(labelText: 'اسم الشركة / المورد *', prefixIcon: Icon(Icons.business_rounded, size: 18)),
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _contactPersonCtrl,
-                                          decoration: const InputDecoration(labelText: 'المسؤول / المالِك', prefixIcon: Icon(Icons.person_rounded, size: 18)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _countryCtrl,
-                                          decoration: const InputDecoration(labelText: 'دولة المنشأ / المقر (Code)', prefixIcon: Icon(Icons.flag_rounded, size: 18)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _phoneCtrl,
-                                          decoration: const InputDecoration(labelText: 'الهاتف الأرصي / المباشر', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _mobileCtrl,
-                                          decoration: const InputDecoration(labelText: 'المحمول (Mobile / WhatsApp)', prefixIcon: Icon(Icons.phone_android_rounded, size: 18)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _emailCtrl,
-                                          decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_rounded, size: 18)),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _websiteCtrl,
-                                          decoration: const InputDecoration(labelText: 'الموقع الإلكتروني (Web)', prefixIcon: Icon(Icons.language_rounded, size: 18)),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  // Dynamic Entity-Specific Fields
-                                  if (_selectedTarget == EntityTarget.company) ...[
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _importerIdCtrl,
-                                            decoration: const InputDecoration(labelText: 'كود / بطاقة المستورد *', prefixIcon: Icon(Icons.card_membership_rounded, size: 18)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _commercialRegisterCtrl,
-                                            decoration: const InputDecoration(labelText: 'رقم السجل التجاري *', prefixIcon: Icon(Icons.receipt_long_rounded, size: 18)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _taxIdCtrl,
-                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / Tax Card *', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _bankAccountCtrl,
-                                            decoration: const InputDecoration(labelText: 'رقم الحساب البنكي / IBAN', prefixIcon: Icon(Icons.account_balance_wallet_rounded, size: 18)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ] else if (_selectedTarget == EntityTarget.bank) ...[
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _swiftCodeCtrl,
-                                            decoration: const InputDecoration(labelText: 'كود السويفت SWIFT Code *', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _bankAccountCtrl,
-                                            decoration: const InputDecoration(labelText: 'رقم الحساب / الآيبان IBAN', prefixIcon: Icon(Icons.account_balance_wallet_rounded, size: 18)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ] else if (_selectedTarget == EntityTarget.partner) ...[
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: SearchableDropdownField<String>(
-                                            value: _partnerTypeStr,
-                                            labelText: 'نوع الشريك / الخدمة *',
-                                            items: const [
-                                              SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة شحن دولي)'),
-                                              SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (مخلص جمركي)'),
-                                              SearchableDropdownItem(value: 'Shipping Line', label: 'Shipping Line (خط شحن)'),
-                                              SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (ناقل داخلي)'),
-                                              SearchableDropdownItem(value: 'Inspection Agency', label: 'Inspection Agency (شركة فحص ومعاينة)'),
-                                            ],
-                                            onChanged: (v) {
-                                              if (v != null) setState(() => _partnerTypeStr = v);
-                                            },
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _taxIdCtrl,
-                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / السجل', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ] else ...[
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _taxIdCtrl,
-                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / VAT ID / Exporter ID', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _industryCtrl,
-                                            decoration: const InputDecoration(labelText: 'نشاط الشركة / التصنيع / البراندات', prefixIcon: Icon(Icons.category_rounded, size: 18)),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 10),
-                                  ],
-                                  TextField(
-                                    controller: _addressCtrl,
-                                    maxLines: 2,
-                                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي ومقر الشركة / المصنع / البنك', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
-                                  ),
-                                ],
-                              ),
+                            child: SingleChildScrollView(
+                              child: _buildDedicatedFormForTarget(_selectedTarget),
                             ),
-                            if (_isExtracting)
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.88),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: const Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 3),
-                                        SizedBox(height: 16),
-                                        Text(
-                                          '⚡ جاري استخراج وتعبئة الحقول بالذكاء الاصطناعي...',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
-                                        ),
-                                        SizedBox(height: 6),
-                                        Text(
-                                          'سيتم توجيه البيانات المستخرجة إلى حقول التكويد فور الانتهاء',
-                                          style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
+                          ),
 
                           const SizedBox(height: 14),
-                          const Divider(height: 1),
-                          const SizedBox(height: 10),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: const Text('إلغاء'),
+                          // Bottom Save Button
+                          SizedBox(
+                            width: double.infinity,
+                            height: 46,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.emerald,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              const SizedBox(width: 12),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                                ),
-                                icon: _isSaving
-                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                                    : const Icon(Icons.save_rounded, size: 18),
-                                label: Text('حفظ وتكويد كـ ${_targetLabel(_selectedTarget)}'),
-                                onPressed: _isSaving ? null : _saveEntityToDatabase,
+                              icon: _isSaving
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                  : const Icon(Icons.check_circle_rounded, size: 20),
+                              label: Text(
+                                _isSaving ? 'جاري حفظ وتكويد السجل...' : 'حفظ وتكويد ${_targetLabel(_selectedTarget)} في قاعدة البيانات 💾',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                               ),
-                            ],
+                              onPressed: _isSaving ? null : _saveEntityToDatabase,
+                            ),
                           ),
                         ],
                       ),
@@ -827,37 +685,533 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  Widget _buildTargetChip(EntityTarget target, String label, IconData icon) {
+  Widget _buildTargetButton(EntityTarget target, String label, IconData icon) {
     final isSelected = _selectedTarget == target;
-    return FilterChip(
-      selected: isSelected,
-      label: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 14, color: isSelected ? Colors.white : AppTheme.charcoal),
-          const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 12, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-        ],
+    return InkWell(
+      onTap: () => setState(() => _selectedTarget = target),
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.cobalt : Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? AppTheme.cobalt : Colors.grey.shade300),
+          boxShadow: isSelected ? [BoxShadow(color: AppTheme.cobalt.withOpacity(0.2), blurRadius: 4, offset: const Offset(0, 2))] : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: isSelected ? Colors.white : AppTheme.charcoal),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : AppTheme.charcoal,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
       ),
-      selectedColor: AppTheme.cobalt,
-      checkmarkColor: Colors.white,
-      labelStyle: TextStyle(color: isSelected ? Colors.white : AppTheme.charcoal),
-      onSelected: (sel) {
-        if (sel) setState(() => _selectedTarget = target);
-      },
     );
   }
 
-  String _targetLabel(EntityTarget target) {
+  Widget _buildDedicatedFormForTarget(EntityTarget target) {
     switch (target) {
       case EntityTarget.supplier:
-        return 'مورد أجنبي';
+        return _buildSupplierForm();
       case EntityTarget.company:
-        return 'شركة مستوردة';
+        return _buildImporterForm();
       case EntityTarget.partner:
-        return 'شريك / مخلص';
+        return _buildPartnerForm();
       case EntityTarget.bank:
-        return 'بنك مصرفي';
+        return _buildBankForm();
+    }
+  }
+
+  // 1. 🌍 Foreign Supplier Form
+  Widget _buildSupplierForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _companyNameCtrl,
+          decoration: const InputDecoration(
+            labelText: 'اسم المورد الأجنبي بالإنجليزية (Company English Name) *',
+            prefixIcon: Icon(Icons.business_rounded, size: 18),
+            hintText: 'e.g. Suzhou Yuheng Textile Co., Ltd',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                value: _countryCodeCtrl.text.isNotEmpty ? _countryCodeCtrl.text : 'CN',
+                labelText: 'دولة المنشأ / المقر (Country) *',
+                items: _countryList.map((c) => SearchableDropdownItem(value: c['code']!, label: '${c['code']} - ${c['name']}')).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _countryCodeCtrl.text = val;
+                      final match = _countryList.firstWhere((c) => c['code'] == val, orElse: () => {'name': val});
+                      _countryCtrl.text = match['name'] ?? val;
+                    });
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                value: _supplierRegType,
+                labelText: 'نوع السجل الأجنبي *',
+                items: const [
+                  SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register (سجل تجاري)'),
+                  SearchableDropdownItem(value: 'VAT ID', label: 'VAT ID (رقم القيمة المضافة)'),
+                  SearchableDropdownItem(value: 'DUNS Number', label: 'DUNS No (رقم دنك)'),
+                  SearchableDropdownItem(value: 'Tax ID', label: 'Tax Identification Number'),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _supplierRegType = val);
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _foreignTaxIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم التسجيل الأجنبي (Foreign Exporter ID / VAT) *',
+                  prefixIcon: Icon(Icons.badge_rounded, size: 18),
+                  hintText: 'e.g. 91320581MA1X...',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _cargoxIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'معرف كارجو إكس (CargoX Blockchain ID) *',
+                  prefixIcon: Icon(Icons.token_rounded, size: 18, color: Colors.indigo),
+                  hintText: 'e.g. 0x71C... أو CX-98214',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _addressCtrl,
+          decoration: const InputDecoration(
+            labelText: 'عنوان المصنع / المقر الرئيسي (Factory Address) *',
+            prefixIcon: Icon(Icons.location_on_rounded, size: 18),
+            hintText: 'e.g. No.16, Kangsheng Road, Changshu, Jiangsu, China',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _contactPersonCtrl,
+                decoration: const InputDecoration(labelText: 'مسؤول التواصل / المبيعات', prefixIcon: Icon(Icons.person_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _mobileCtrl,
+                decoration: const InputDecoration(labelText: 'واتساب / المحمول (WhatsApp)', prefixIcon: Icon(Icons.phone_android_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'البريد الإلكتروني (Email)', prefixIcon: Icon(Icons.email_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _websiteCtrl,
+                decoration: const InputDecoration(labelText: 'الموقع الإلكتروني (Website)', prefixIcon: Icon(Icons.language_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _swiftCodeCtrl,
+                decoration: const InputDecoration(labelText: 'السويفت كود البنكي (SWIFT)', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _brandsCtrl,
+                decoration: const InputDecoration(labelText: 'العلامات التجارية والنشاط (Brands / Industry)', prefixIcon: Icon(Icons.category_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // 2. 🏢 Importing Company Form
+  Widget _buildImporterForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _arabicNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'اسم الشركة المستوردة بالعربي *',
+                  prefixIcon: Icon(Icons.domain_rounded, size: 18),
+                  hintText: 'مثال: شركة النور للاستيراد والتصدير',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _companyNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'اسم الشركة بالإنجليزي (English Name)',
+                  prefixIcon: Icon(Icons.language_rounded, size: 18),
+                  hintText: 'e.g. Al-Noor Import & Export LLC',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _taxIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم البطاقة الضريبية (9 أرقام مصرية) *',
+                  prefixIcon: Icon(Icons.badge_rounded, size: 18, color: Colors.deepOrange),
+                  hintText: 'مثال: 123-456-789',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _commercialRegisterCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم السجل التجاري *',
+                  prefixIcon: Icon(Icons.receipt_long_rounded, size: 18),
+                  hintText: 'مثال: 45678',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _importerCardCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم البطاقة الاستيرادية (Importer Card No) *',
+                  prefixIcon: Icon(Icons.card_membership_rounded, size: 18, color: AppTheme.cobalt),
+                  hintText: 'مثال: 987654',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _nafezaTokenCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'كود حساب نافذة / الرمز الإلكتروني (Nafeza E-Token)',
+                  prefixIcon: Icon(Icons.vpn_key_rounded, size: 18),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _addressCtrl,
+          decoration: const InputDecoration(
+            labelText: 'المقر الرئيسي والمحافظة (Address) *',
+            prefixIcon: Icon(Icons.location_on_rounded, size: 18),
+            hintText: 'مثال: 15 شارع طلعت حرب - وسط البلد - القاهرة',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _contactPersonCtrl,
+                decoration: const InputDecoration(labelText: 'المدير المسؤول / المفوض', prefixIcon: Icon(Icons.person_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: 'هاتف الشركة / المحمول', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'البريد الإلكتروني للشركة', prefixIcon: Icon(Icons.email_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _bankAccountCtrl,
+                decoration: const InputDecoration(labelText: 'رقم الآيبان البنكي (IBAN / Account)', prefixIcon: Icon(Icons.account_balance_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // 3. 🤝 External Partner Form
+  Widget _buildPartnerForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: SearchableDropdownField<String>(
+                value: _partnerTypeStr,
+                labelText: 'نوع وتصنيف الشريك *',
+                items: const [
+                  SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (مخلص جمركي)'),
+                  SearchableDropdownItem(value: 'Shipping Line', label: 'Shipping Line (خط ملاحي)'),
+                  SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة شحن دولي)'),
+                  SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (ناقل بري محلي)'),
+                  SearchableDropdownItem(value: 'Inspection Agency', label: 'Inspection Agency (شركة فحص ومعاينة)'),
+                  SearchableDropdownItem(value: 'Insurance Company', label: 'Insurance Co (شركة تأمين)'),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _partnerTypeStr = val);
+                },
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              flex: 3,
+              child: TextField(
+                controller: _companyNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'الاسم التجاري للشريك / المكتب *',
+                  prefixIcon: Icon(Icons.handshake_rounded, size: 18),
+                  hintText: 'مثال: مكتب النسر للتخليص الجمركي',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        if (_partnerTypeStr == 'Customs Broker') ...[
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _brokerLicenseCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم رخصة القيد والتخليص الجمركي *',
+                    prefixIcon: Icon(Icons.verified_rounded, size: 18, color: Colors.purple),
+                    hintText: 'مثال: LIC-EG-2024/991',
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: TextField(
+                  controller: _portsCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'موانئ التخصص والعمل *',
+                    prefixIcon: Icon(Icons.anchor_rounded, size: 18),
+                    hintText: 'الإسكندرية, السخنة, بورسعيد...',
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _taxIdCtrl,
+                decoration: const InputDecoration(labelText: 'الرقم الضريبي / السجل', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _contactPersonCtrl,
+                decoration: const InputDecoration(labelText: 'الشخص المسؤول / المنسق', prefixIcon: Icon(Icons.person_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: 'الهاتف المباشر', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _mobileCtrl,
+                decoration: const InputDecoration(labelText: 'المحمول / واتساب العمل', prefixIcon: Icon(Icons.phone_android_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _addressCtrl,
+          decoration: const InputDecoration(
+            labelText: 'عنوان المكتب / الفرع الرئيسي',
+            prefixIcon: Icon(Icons.location_on_rounded, size: 18),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // 4. 🏦 Bank Form
+  Widget _buildBankForm() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _companyNameCtrl,
+          decoration: const InputDecoration(
+            labelText: 'اسم البنك والمؤسسة المصرفية *',
+            prefixIcon: Icon(Icons.account_balance_rounded, size: 18),
+            hintText: 'مثال: البنك التجاري الدولي (CIB) أو Banque Misr',
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _swiftCodeCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'كود السويفت الدولي (SWIFT / BIC Code) *',
+                  prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blue),
+                  hintText: 'e.g. CIBEGGCAXXX',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _branchNameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'اسم الفرع المعتمد (Branch Name) *',
+                  prefixIcon: Icon(Icons.store_rounded, size: 18),
+                  hintText: 'مثال: فرع المهندسين / فرع مدينة نصر',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _addressCtrl,
+          decoration: const InputDecoration(
+            labelText: 'عنوان المقر / الفرع',
+            prefixIcon: Icon(Icons.location_on_rounded, size: 18),
+          ),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: 'هاتف خدمة العملاء والاعتمادات', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'البريد الإلكتروني للفرع', prefixIcon: Icon(Icons.email_rounded, size: 18)),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  IconData _getTargetIcon(EntityTarget target) {
+    switch (target) {
+      case EntityTarget.supplier:
+        return Icons.public;
+      case EntityTarget.company:
+        return Icons.domain;
+      case EntityTarget.partner:
+        return Icons.handshake;
+      case EntityTarget.bank:
+        return Icons.account_balance;
+    }
+  }
+
+  String _getPlaceholderForTarget(EntityTarget target) {
+    switch (target) {
+      case EntityTarget.supplier:
+        return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
+      case EntityTarget.company:
+        return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النور للاستيراد والتصدير ش.م.م\nالسجل التجاري: 88741\nالبطاقة الضريبية: 452-981-300\nالبطاقة الاستيرادية: 19842\nالعنوان: 10 شارع الجمهورية - القاهرة';
+      case EntityTarget.partner:
+        return 'الصق هنا كارت المخلص الجمركي أو شركة الشحن:\n\nمثال:\nمكتب النسر للخدمات اللوجستية والتخليص الجمركي\nرخصة التخليص: 2024/819\nموانئ العمل: الإسكندرية - السخنة - الدخيلة\nهاتف: 01001234567';
+      case EntityTarget.bank:
+        return 'الصق هنا بيانات البنك والسويفت كود:\n\nمثال:\nCommercial International Bank (CIB)\nSWIFT Code: CIBEGGCAXXX\nBranch: Head Office Cairo Egypt';
     }
   }
 }

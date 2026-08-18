@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/providers/navigation_provider.dart';
 import '../../import_files/models/import_file_model.dart';
 
@@ -921,6 +922,63 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // AI Smart Extractor Header & Launch Buttons
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    children: [
+                      Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                      SizedBox(width: 8),
+                      Text(
+                        'أداة التكويد والاستخراج الذكي بالذكاء الاصطناعي (AI Master Data Smart Extractor):',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.public, size: 16),
+                        label: const Text('تكويد مورد أجنبي ذكي 🌍'),
+                        onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.supplier),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.domain, size: 16),
+                        label: const Text('تكويد شركة مستوردة ذكي 🏢'),
+                        onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.company),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade700, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.handshake, size: 16),
+                        label: const Text('تكويد شريك / مخلص ذكي 🤝'),
+                        onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.partner),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.account_balance, size: 16),
+                        label: const Text('تكويد بنك معتمد ذكي 🏦'),
+                        onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.bank),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+
             const Row(
               children: [
                 Icon(Icons.bolt, color: AppTheme.cobalt, size: 22),

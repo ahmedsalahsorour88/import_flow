@@ -17,11 +17,12 @@ class MasterDataEntityExtractor(BaseExtractor):
     def required_fields(self) -> List[str]:
         return ["company_name", "phone_number", "country_code"]
 
-    def extract(self, raw_text: str, spatial_boxes: dict) -> Dict[str, Any]:
+    def extract(self, raw_text: str, spatial_boxes: dict = None) -> Dict[str, Any]:
         text = raw_text or ""
 
         result: Dict[str, Any] = {
             "company_name": self._extract_company_name(text),
+            "arabic_name": self._extract_arabic_name(text),
             "contact_person": self._extract_contact_person(text),
             "mobile_number": self._extract_mobile(text),
             "phone_number": self._extract_phone(text),
@@ -34,11 +35,40 @@ class MasterDataEntityExtractor(BaseExtractor):
             "postcode": self._extract_postcode(text),
             "industry_description": self._extract_industry(text),
             "commercial_register": self._extract_commercial_register(text),
+            "importer_id": self._extract_importer_id(text),
+            "cargox_id": self._extract_cargox_id(text),
+            "license_number": self._extract_broker_license(text),
             "swift_code": self._extract_swift(text),
             "bank_account": self._extract_iban(text),
             "iban": self._extract_iban(text),
         }
         return result
+
+    def _extract_cargox_id(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:CargoX\s+ID|CargoX|Blockchain\s+ID|CargoX\s+Account)[:\s]*([A-Za-z0-9\-_]{5,42})",
+            r"\b(0x[a-fA-F0-9]{40})\b",
+            r"\b(CX-[A-Za-z0-9]{6,16})\b",
+        ], text)
+
+    def _extract_importer_id(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Importer\s+Card|Import\s+Card|بطاقة\s+استيرادية|كود\s+المستورد)[:\s]*([0-9]{4,15})",
+            r"\b(IMP-[0-9]{4,10})\b",
+        ], text)
+
+    def _extract_broker_license(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Broker\s+License|License\s+No\.?|رخصة\s+التخليص|رقم\s+القيد)[:\s]*([A-Za-z0-9\-_/]{3,20})",
+        ], text)
+
+    def _extract_arabic_name(self, text: str) -> Optional[str]:
+        # Look for Arabic company names
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        for l in lines:
+            if re.search(r"[\u0600-\u06FF]{3,}", l) and any(kw in l for kw in ["شركة", "مؤسسة", "مكتب", "للاستيراد", "للتجارة", "ش.م.م", "ذ.م.م"]):
+                return l
+        return None
 
     def _extract_company_name(self, text: str) -> Optional[str]:
         # 1. Look for explicit company lines with legal suffixes

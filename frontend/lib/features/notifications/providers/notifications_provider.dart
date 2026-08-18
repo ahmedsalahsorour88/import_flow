@@ -2,16 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/notification_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final notificationsProvider =
     StateNotifierProvider<NotificationsNotifier, AsyncValue<List<NotificationModel>>>((ref) {
-  return NotificationsNotifier();
+  return NotificationsNotifier(ref.read(dioProvider));
 });
 
 class NotificationsNotifier extends StateNotifier<AsyncValue<List<NotificationModel>>> {
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  NotificationsNotifier() : super(const AsyncValue.loading()) {
+  NotificationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchNotifications();
   }
 

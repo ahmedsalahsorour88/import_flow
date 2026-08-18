@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 # ==================================================
@@ -121,7 +121,7 @@ class CustomsTariffResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================
@@ -159,7 +159,7 @@ class FeeCodeResponse(BaseModel):
     notes: Optional[str]
     is_active: bool
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================
@@ -196,7 +196,7 @@ class PreferentialAgreementResponse(BaseModel):
     effective_to: Optional[date]
     source_url: Optional[str]
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================
@@ -363,7 +363,7 @@ class CustomsDutyBreakdown(BaseModel):
     requires_acid: bool
     regulatory_authority: Optional[str]
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================

@@ -14,7 +14,6 @@ from modules.shipment_updates.schemas import (
     PhaseStatusInspection,
 )
 import modules.shipment_updates.service as service
-import modules.shipment_updates.repository as repo
 
 router = APIRouter(prefix="/api/v1/shipment-updates", tags=["Shipment Operational & Daily Update Engine"])
 
@@ -41,7 +40,7 @@ def list_update_logs(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_update_logs(
+    return service.get_all_update_logs_service(
         db,
         import_file_id=import_file_id,
         update_category=update_category,
@@ -65,7 +64,7 @@ def inspect_shipment_phases(import_file_id: int, db: Session = Depends(get_db)):
     summary="Get single update record by ID",
 )
 def get_update_log(update_id: int, db: Session = Depends(get_db)):
-    log_rec = repo.get_update_log_by_id(db, update_id)
+    log_rec = service.get_update_log_by_id_service(db, update_id)
     if not log_rec:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -89,7 +88,7 @@ def update_log_record(update_id: int, payload: ShipmentUpdateLogUpdate, db: Sess
     summary="Soft delete update record",
 )
 def soft_delete_update_log(update_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_update_log(db, update_id)
+    success = service.soft_delete_update_log_service(db, update_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

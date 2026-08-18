@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/customs_consultation_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 // ==============================================================================
 // Clearance Expense Types Provider
@@ -9,16 +11,13 @@ import '../models/customs_consultation_model.dart';
 
 final clearanceExpenseTypesProvider =
     StateNotifierProvider<ClearanceExpenseTypesNotifier, AsyncValue<List<ClearanceExpenseTypeModel>>>((ref) {
-  return ClearanceExpenseTypesNotifier();
+  return ClearanceExpenseTypesNotifier(ref.read(dioProvider));
 });
 
 class ClearanceExpenseTypesNotifier extends StateNotifier<AsyncValue<List<ClearanceExpenseTypeModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  ClearanceExpenseTypesNotifier() : super(const AsyncValue.loading()) {
+  ClearanceExpenseTypesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchExpenseTypes();
   }
 
@@ -92,16 +91,13 @@ class ClearanceExpenseTypesNotifier extends StateNotifier<AsyncValue<List<Cleara
 
 final brokerPriceListsProvider =
     StateNotifierProvider<BrokerPriceListsNotifier, AsyncValue<List<BrokerPriceListModel>>>((ref) {
-  return BrokerPriceListsNotifier();
+  return BrokerPriceListsNotifier(ref.read(dioProvider));
 });
 
 class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPriceListModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  BrokerPriceListsNotifier() : super(const AsyncValue.loading()) {
+  BrokerPriceListsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchPriceLists();
   }
 
@@ -191,16 +187,13 @@ class BrokerPriceListsNotifier extends StateNotifier<AsyncValue<List<BrokerPrice
 
 final customsConsultationsProvider =
     StateNotifierProvider<CustomsConsultationNotifier, AsyncValue<List<CustomsConsultationModel>>>((ref) {
-  return CustomsConsultationNotifier();
+  return CustomsConsultationNotifier(ref.read(dioProvider));
 });
 
 class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsConsultationModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  CustomsConsultationNotifier() : super(const AsyncValue.loading()) {
+  CustomsConsultationNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchConsultations();
   }
 

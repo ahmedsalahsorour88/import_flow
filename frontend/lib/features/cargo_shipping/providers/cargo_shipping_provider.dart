@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/cargo_shipping_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final cargoShippingProvider =
     StateNotifierProvider<CargoShippingNotifier, AsyncValue<List<CargoShippingModel>>>((ref) {
-  return CargoShippingNotifier();
+  return CargoShippingNotifier(ref.read(dioProvider));
 });
 
 class CargoShippingNotifier extends StateNotifier<AsyncValue<List<CargoShippingModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  CargoShippingNotifier() : super(const AsyncValue.loading()) {
+  CargoShippingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
   }
 

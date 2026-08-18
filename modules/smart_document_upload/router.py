@@ -19,7 +19,6 @@ from modules.smart_document_upload.validators import (
     SUPPORTED_MODULES,
 )
 import modules.smart_document_upload.service as service
-import modules.smart_document_upload.repository as repo
 
 router = APIRouter(
     prefix="/api/v1/smart-upload",
@@ -305,7 +304,7 @@ def list_upload_sessions(
     db: Session = Depends(get_db),
 ):
     """List smart upload sessions, optionally filtered by module name."""
-    sessions = repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)
+    sessions = service.get_upload_sessions_service(db, module_name=module_name, skip=skip, limit=limit)
     result = []
     for s in sessions:
         d = {
@@ -335,7 +334,7 @@ def list_upload_sessions(
     summary="Get a specific upload session by ID",
 )
 def get_upload_session(session_id: int, db: Session = Depends(get_db)):
-    s = repo.get_upload_session_by_id(db, session_id)
+    s = service.get_upload_session_by_id_service(db, session_id)
     if not s:
         raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
     return UploadSessionResponse(
@@ -362,7 +361,7 @@ def get_upload_session(session_id: int, db: Session = Depends(get_db)):
     summary="Soft-delete an upload session",
 )
 def delete_upload_session(session_id: int, db: Session = Depends(get_db)):
-    deleted = repo.soft_delete_upload_session(db, session_id)
+    deleted = service.soft_delete_upload_session_service(db, session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail=f"Upload session {session_id} not found.")
     return {"message": f"Upload session {session_id} deleted successfully."}

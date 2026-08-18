@@ -3,6 +3,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/operational_dashboard_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 class OperationalDashboardState {
   final String? selectedPhase;
@@ -40,17 +42,14 @@ class OperationalDashboardState {
 
 final operationalDashboardProvider =
     StateNotifierProvider<OperationalDashboardNotifier, OperationalDashboardState>((ref) {
-  return OperationalDashboardNotifier();
+  return OperationalDashboardNotifier(ref.read(dioProvider));
 });
 
 class OperationalDashboardNotifier extends StateNotifier<OperationalDashboardState> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
   Timer? _debounceTimer;
 
-  OperationalDashboardNotifier() : super(OperationalDashboardState()) {
+  OperationalDashboardNotifier(this._dio) : super(OperationalDashboardState()) {
     fetchDashboard();
   }
 

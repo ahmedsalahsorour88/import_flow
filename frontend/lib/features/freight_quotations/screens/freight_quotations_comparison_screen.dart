@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_client.dart';
 
 
-class FreightQuotationsComparisonScreen extends StatefulWidget {
+
+class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
   const FreightQuotationsComparisonScreen({super.key});
 
   @override
-  State<FreightQuotationsComparisonScreen> createState() => _FreightQuotationsComparisonScreenState();
+  ConsumerState<FreightQuotationsComparisonScreen> createState() => _FreightQuotationsComparisonScreenState();
 }
 
-class _FreightQuotationsComparisonScreenState extends State<FreightQuotationsComparisonScreen> {
+class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuotationsComparisonScreen> {
   final Color _charcoal = const Color(0xFF2C3E50);
   final Color _cobalt = const Color(0xFF3498DB);
   final Color _emerald = const Color(0xFF27AE60);

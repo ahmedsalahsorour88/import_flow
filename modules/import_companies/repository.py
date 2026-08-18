@@ -34,15 +34,6 @@ def create_company(
     db.commit()
     db.refresh(company)
 
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="ImportCompany",
-        entity_id=company.company_id,
-        entity_code=company.importer_id,
-        action="CREATE",
-        new_data={"importer_name": company.importer_name, "importer_id": company.importer_id, "vat_id": company.vat_id}
-    )
-
     return company
 
 
@@ -175,15 +166,6 @@ def update_company_data(
     try:
         db.commit()
         db.refresh(company)
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="ImportCompany",
-            entity_id=company.company_id,
-            entity_code=company.importer_id,
-            action="UPDATE",
-            old_data=old_data,
-            new_data=update_data,
-        )
     except Exception:
         db.rollback()
         raise
@@ -205,14 +187,6 @@ def delete_company(
     db.commit()
     db.refresh(company)
 
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="ImportCompany",
-        entity_id=company.company_id,
-        entity_code=company.importer_id,
-        action="DELETE",
-    )
-
     return company
 
 
@@ -229,13 +203,5 @@ def restore_company(
 
     db.commit()
     db.refresh(company)
-
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="ImportCompany",
-        entity_id=company.company_id,
-        entity_code=company.importer_id,
-        action="RESTORE",
-    )
 
     return company

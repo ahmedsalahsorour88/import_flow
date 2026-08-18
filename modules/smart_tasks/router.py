@@ -16,7 +16,6 @@ from modules.smart_tasks.schemas import (
 )
 from modules.smart_tasks.model import SmartTask
 import modules.smart_tasks.service as service
-import modules.smart_tasks.repository as repo
 
 router = APIRouter(prefix="/api/v1/smart-tasks", tags=["Smart Task Management & Reminders"])
 
@@ -45,7 +44,7 @@ def list_tasks(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_tasks(
+    return service.get_all_tasks_service(
         db,
         include_inactive=include_inactive,
         task_type=task_type,
@@ -79,7 +78,7 @@ def get_due_reminders(
     Returns tasks segmented into: overdue, due today, due this week.
     Optionally pass target_date=YYYY-MM-DD to simulate a specific day.
     """
-    return repo.get_due_and_overdue_tasks(db, target_date_str=target_date)
+    return service.get_due_and_overdue_tasks_service(db, target_date_str=target_date)
 
 
 @router.get(
@@ -88,7 +87,7 @@ def get_due_reminders(
     summary="Get single smart task by ID",
 )
 def get_task(task_id: int, db: Session = Depends(get_db)):
-    task = repo.get_task_by_id(db, task_id)
+    task = service.get_task_by_id_service(db, task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -112,7 +111,7 @@ def update_task(task_id: int, payload: SmartTaskUpdate, db: Session = Depends(ge
     summary="Soft delete a smart task",
 )
 def soft_delete_task(task_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_task(db, task_id)
+    success = service.soft_delete_task_service(db, task_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -126,7 +125,7 @@ def soft_delete_task(task_id: int, db: Session = Depends(get_db)):
     summary="Restore soft deleted smart task",
 )
 def restore_task(task_id: int, db: Session = Depends(get_db)):
-    task = repo.restore_task(db, task_id)
+    task = service.restore_task_service(db, task_id)
     if not task:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -148,34 +147,7 @@ def generate_phase_tasks(import_file_id: int, db: Session = Depends(get_db)):
     Call this endpoint whenever an import file advances to a new phase.
     System will auto-create standard follow-up tasks for the current phase.
     """
-    from modules.import_files.repository import get_import_file_by_id
-    import_file = get_import_file_by_id(db, import_file_id)
-    if not import_file:
-        raise HTTPException(status_code=404, detail="ملف الاستيراد غير موجود.")
-
-    before_count = db.query(SmartTask).filter(
-        SmartTask.import_file_id == import_file_id,
-        SmartTask.task_type == "System Generated",
-        SmartTask.is_active == True,
-    ).count()
-
-    service.auto_generate_system_tasks_for_file(db, import_file)
-
-    after_count = db.query(SmartTask).filter(
-        SmartTask.import_file_id == import_file_id,
-        SmartTask.task_type == "System Generated",
-        SmartTask.is_active == True,
-    ).count()
-
-    new_tasks_created = after_count - before_count
-    return {
-        "import_file_id": import_file_id,
-        "current_phase": import_file.current_module,
-        "new_tasks_created": new_tasks_created,
-        "total_system_tasks": after_count,
-        "message": f"تم إنشاء {new_tasks_created} مهمة جديدة تلقائياً للمرحلة {import_file.current_module}",
-    }
-
+    return service.generate_phase_tasks_service(db, import_file_id)
 
 @router.post(
     "/phase-transition/complete-phase/{import_file_id}",
@@ -191,19 +163,7 @@ def complete_phase_tasks(
     Medium Priority: Auto-close all system tasks belonging to a completed phase.
     E.g. when Phase 3 is done, all Phase 3 system tasks become 'Completed'.
     """
-    from modules.import_files.repository import get_import_file_by_id
-    import_file = get_import_file_by_id(db, import_file_id)
-    if not import_file:
-        raise HTTPException(status_code=404, detail="ملف الاستيراد غير موجود.")
-
-    service.auto_close_completed_phase_tasks(db, import_file_id, completed_phase)
-
-    return {
-        "import_file_id": import_file_id,
-        "completed_phase": completed_phase,
-        "message": f"تم إغلاق جميع مهام المرحلة {completed_phase} تلقائياً.",
-    }
-
+    return service.complete_phase_tasks_service(db, import_file_id, completed_phase)
 
 @router.post(
     "/sync-all-active-files",

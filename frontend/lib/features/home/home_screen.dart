@@ -20,7 +20,9 @@ import '../file_closure/screens/file_closure_screen.dart';
 import '../financial_approval/screens/financial_approval_screen.dart';
 import '../financial_approval/screens/swift_reconciliation_screen.dart';
 import '../financial_settlement/screens/financial_settlement_screen.dart';
+import '../financial_settlement/screens/landed_cost_comparison_screen.dart';
 import '../freight_booking/screens/freight_booking_screen.dart';
+import '../freight_quotations/screens/freight_quotations_comparison_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../import_documentation/screens/bank_form4_screen.dart';
 import '../import_documentation/screens/customs_declaration46_screen.dart';
@@ -124,6 +126,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 48: Native 6-Phase Lifecycle Operations Board
         LifecycleBoardScreen(),
+
+        // 49: Freight Quotations Comparison
+        FreightQuotationsComparisonScreen(),
+
+        // 50: Landed Cost Comparison
+        LandedCostComparisonScreen(importFileId: 1, importFileCode: 'IMP-DEMO'),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -364,6 +372,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.compare_arrows_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
+                  _buildMenuItem(Icons.price_change_outlined, 'Freight Quotations Comparison', 'مقارنة عروض أسعار الشحن', 49, selectedIndex),
                   _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43, selectedIndex),
                 ],
@@ -450,6 +459,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 28, selectedIndex),
                   _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 29, selectedIndex),
+                  _buildMenuItem(Icons.analytics_outlined, 'Landed Cost Comparison', 'مقارنة تكاليف الوصول', 50, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 30, selectedIndex),
                 ],
               ),

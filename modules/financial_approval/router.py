@@ -18,7 +18,6 @@ from modules.financial_approval.schemas import (
     BudgetPrefillResponse,
 )
 import modules.financial_approval.service as service
-import modules.financial_approval.repository as repo
 
 router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"])
 
@@ -54,7 +53,7 @@ def list_payment_requests(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_payment_requests(
+    return service.get_all_payment_requests_service(
         db,
         include_inactive=include_inactive,
         search=search,
@@ -68,7 +67,7 @@ def list_payment_requests(
     "/payment-requests/{payment_id}", response_model=PaymentRequestResponse
 )
 def get_payment_request(payment_id: int, db: Session = Depends(get_db)):
-    item = repo.get_payment_request_by_id(db, payment_id)
+    item = service.get_payment_request_by_id_service(db, payment_id)
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,7 +121,7 @@ def reconcile_swift_payment(
 
 @router.delete("/payment-requests/{payment_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_payment_request(db, payment_id)
+    success = service.soft_delete_payment_request_service(db, payment_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,7 +131,7 @@ def soft_delete_payment_request(payment_id: int, db: Session = Depends(get_db)):
 
 @router.post("/payment-requests/{payment_id}/restore")
 def restore_payment_request(payment_id: int, db: Session = Depends(get_db)):
-    success = repo.restore_payment_request(db, payment_id)
+    success = service.restore_payment_request_service(db, payment_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -160,7 +159,7 @@ def list_import_budgets(
     budget_status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_import_budgets(
+    return service.get_all_import_budgets_service(
         db,
         include_inactive=include_inactive,
         search=search,

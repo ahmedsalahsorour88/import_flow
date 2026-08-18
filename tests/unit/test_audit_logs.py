@@ -3,8 +3,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from database.database import Base
 from modules.audit_logs.service import AuditLogService
-from modules.suppliers.repository import create_supplier, update_supplier, soft_delete_supplier, restore_supplier
-from modules.suppliers.schemas import SupplierUpdate
+from modules.suppliers.service import create_supplier_service as create_supplier, update_supplier_service as update_supplier, delete_supplier_service as soft_delete_supplier, restore_supplier_service as restore_supplier
+from modules.suppliers.schemas import SupplierUpdate, SupplierCreate
 
 
 class TestAuditLogs(unittest.TestCase):
@@ -46,7 +46,7 @@ class TestAuditLogs(unittest.TestCase):
             "foreign_exporter_country_code": "DE",
             "address": "Berlin, Germany",
         }
-        sup = create_supplier(self.db, supplier_data)
+        sup = create_supplier(self.db, SupplierCreate(**supplier_data))
 
         logs_after_create = self.audit_service.get_logs_for_entity("Supplier", sup.supplier_id)
         self.assertEqual(len(logs_after_create), 1)
@@ -54,7 +54,7 @@ class TestAuditLogs(unittest.TestCase):
 
         # 2. Update
         update_data = SupplierUpdate(company_name="Audit Test Corp Updated", address="Frankfurt, Germany")
-        update_supplier(self.db, sup, update_data)
+        update_supplier(self.db, sup.supplier_id, update_data)
 
         logs_after_update = self.audit_service.get_logs_for_entity("Supplier", sup.supplier_id)
         self.assertEqual(len(logs_after_update), 2)
@@ -62,13 +62,13 @@ class TestAuditLogs(unittest.TestCase):
         self.assertIn("Audit Test Corp", logs_after_update[0].changes_summary)
 
         # 3. Soft Delete
-        soft_delete_supplier(self.db, sup)
+        soft_delete_supplier(self.db, sup.supplier_id)
         logs_after_delete = self.audit_service.get_logs_for_entity("Supplier", sup.supplier_id)
         self.assertEqual(len(logs_after_delete), 3)
         self.assertEqual(logs_after_delete[0].action, "DELETE")
 
         # 4. Restore
-        restore_supplier(self.db, sup)
+        restore_supplier(self.db, sup.supplier_id)
         logs_after_restore = self.audit_service.get_logs_for_entity("Supplier", sup.supplier_id)
         self.assertEqual(len(logs_after_restore), 4)
         self.assertEqual(logs_after_restore[0].action, "RESTORE")

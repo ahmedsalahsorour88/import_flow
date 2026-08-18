@@ -235,3 +235,6 @@ def _ensure_initial_stages(db: Session):
                 started_at=now_str,
                 notes="تهيئة أولية لنشاط الشحنة",
             )
+
+def get_all_activities_service(db: Session, import_file_code: str):
+    return repo.get_all_activities(db, import_file_code=import_file_code)

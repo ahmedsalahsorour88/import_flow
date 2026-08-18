@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class PartnerBase(BaseModel):
-    partner_name: str = Field(..., min_length=2, max_length=200, example="National Bank of Egypt")
-    partner_type: str = Field(..., example="Bank")  # Bank, Shipping Line, Customs Broker, Freight Forwarder, Inland Transport, Inspection Agency
+    partner_name: str = Field(..., min_length=2, max_length=200, json_schema_extra={"example": "National Bank of Egypt"})
+    partner_type: str = Field(..., json_schema_extra={"example": "Bank"})  # Bank, Shipping Line, Customs Broker, Freight Forwarder, Inland Transport, Inspection Agency
+
     tax_id: Optional[str] = Field(None, max_length=50)
     commercial_register: Optional[str] = Field(None, max_length=50)
 
@@ -70,8 +71,7 @@ class PartnerResponse(PartnerBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================

@@ -3,20 +3,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/import_documentation_model.dart';
 import '../models/po_reconciliation_session_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 
 final acidSessionsProvider =
     StateNotifierProvider<AcidSessionsNotifier, AsyncValue<List<AcidRegistrationModel>>>((ref) {
-  return AcidSessionsNotifier();
+  return AcidSessionsNotifier(ref.read(dioProvider));
 });
 
 class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistrationModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  AcidSessionsNotifier() : super(const AsyncValue.loading()) {
+  AcidSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchAcidSessions();
   }
 
@@ -141,16 +140,13 @@ class AcidSessionsNotifier extends StateNotifier<AsyncValue<List<AcidRegistratio
 
 final bankingDocumentsProvider =
     StateNotifierProvider<BankingDocumentsNotifier, AsyncValue<List<BankingDocumentModel>>>((ref) {
-  return BankingDocumentsNotifier();
+  return BankingDocumentsNotifier(ref.read(dioProvider));
 });
 
 class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocumentModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  BankingDocumentsNotifier() : super(const AsyncValue.loading()) {
+  BankingDocumentsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchBankingDocuments();
   }
 
@@ -221,16 +217,13 @@ class BankingDocumentsNotifier extends StateNotifier<AsyncValue<List<BankingDocu
 
 final shipmentDocumentsProvider =
     StateNotifierProvider<ShipmentDocumentsNotifier, AsyncValue<List<ShipmentDocumentModel>>>((ref) {
-  return ShipmentDocumentsNotifier();
+  return ShipmentDocumentsNotifier(ref.read(dioProvider));
 });
 
 class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDocumentModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  ShipmentDocumentsNotifier() : super(const AsyncValue.loading()) {
+  ShipmentDocumentsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchShipmentDocuments();
   }
 
@@ -280,16 +273,13 @@ class ShipmentDocumentsNotifier extends StateNotifier<AsyncValue<List<ShipmentDo
 
 final acidTrackerProvider =
     StateNotifierProvider<AcidTrackerNotifier, AsyncValue<AcidTrackerSummaryModel>>((ref) {
-  return AcidTrackerNotifier();
+  return AcidTrackerNotifier(ref.read(dioProvider));
 });
 
 class AcidTrackerNotifier extends StateNotifier<AsyncValue<AcidTrackerSummaryModel>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  AcidTrackerNotifier() : super(const AsyncValue.loading()) {
+  AcidTrackerNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchAcidTracker();
   }
 
@@ -325,16 +315,13 @@ final legalComplianceFamilyProvider =
 // 2. Draft B/L Review Provider
 final draftBLReviewsProvider =
     StateNotifierProvider<DraftBLNotifier, AsyncValue<List<DraftBLReviewModel>>>((ref) {
-  return DraftBLNotifier();
+  return DraftBLNotifier(ref.read(dioProvider));
 });
 
 class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  DraftBLNotifier() : super(const AsyncValue.loading()) {
+  DraftBLNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -479,16 +466,13 @@ class DraftBLNotifier extends StateNotifier<AsyncValue<List<DraftBLReviewModel>>
 // 3. Certificate of Origin (COO / EUR.1) Provider
 final cooReviewsProvider =
     StateNotifierProvider<COONotifier, AsyncValue<List<CertificateOfOriginReviewModel>>>((ref) {
-  return COONotifier();
+  return COONotifier(ref.read(dioProvider));
 });
 
 class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginReviewModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  COONotifier() : super(const AsyncValue.loading()) {
+  COONotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -544,16 +528,13 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
 // 4. Inspection Certificate Provider
 final inspectionReviewsProvider =
     StateNotifierProvider<InspectionNotifier, AsyncValue<List<InspectionCertificateReviewModel>>>((ref) {
-  return InspectionNotifier();
+  return InspectionNotifier(ref.read(dioProvider));
 });
 
 class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertificateReviewModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  InspectionNotifier() : super(const AsyncValue.loading()) {
+  InspectionNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchReviews();
   }
 
@@ -609,14 +590,14 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
 
 // 5. PO Final Reconciliation Provider
 final poReconciliationProvider = Provider<POReconciliationService>((ref) {
-  return POReconciliationService();
+  final dio = ref.read(dioProvider);
+  return POReconciliationService(dio);
 });
 
 class POReconciliationService {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
+
+  POReconciliationService(this._dio);
 
   Future<POReconciliationResultModel> submitPOFinalReconciliation(Map<String, dynamic> payload) async {
     try {
@@ -634,17 +615,14 @@ class POReconciliationService {
 // 6. PO Reconciliation Saved Sessions Provider (Phase 6 / BP-016)
 final poReconciliationSessionsProvider =
     StateNotifierProvider<POReconciliationSessionsNotifier, AsyncValue<List<POReconciliationSessionModel>>>((ref) {
-  return POReconciliationSessionsNotifier();
+  return POReconciliationSessionsNotifier(ref.read(dioProvider));
 });
 
 class POReconciliationSessionsNotifier
     extends StateNotifier<AsyncValue<List<POReconciliationSessionModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  POReconciliationSessionsNotifier() : super(const AsyncValue.loading()) {
+  POReconciliationSessionsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchSessions();
   }
 

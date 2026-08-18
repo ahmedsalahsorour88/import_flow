@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/lifecycle_board_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final lifecycleBoardSummaryProvider =
     FutureProvider.autoDispose<LifecycleBoardSummaryModel>((ref) async {
@@ -12,9 +14,9 @@ final lifecycleBoardSummaryProvider =
 
 class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  LifecycleBoardNotifier(this.ref) : super(const AsyncValue.data(null));
+  LifecycleBoardNotifier(this.ref, this._dio) : super(const AsyncValue.data(null));
 
   Future<bool> advanceStep({
     required String importFileCode,
@@ -71,5 +73,5 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
 
 final lifecycleBoardActionProvider =
     StateNotifierProvider<LifecycleBoardNotifier, AsyncValue<void>>((ref) {
-  return LifecycleBoardNotifier(ref);
+  return LifecycleBoardNotifier(ref, ref.read(dioProvider));
 });

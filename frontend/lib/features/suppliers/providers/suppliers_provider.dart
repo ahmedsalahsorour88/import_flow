@@ -4,19 +4,21 @@ import '../../../core/constants/api_constants.dart';
 import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/supplier_model.dart';
 
+import '../../../core/network/api_client.dart';
+
 final showInactiveSuppliersProvider = StateProvider<bool>((ref) => true);
 
 final suppliersProvider = StateNotifierProvider<SuppliersNotifier, AsyncValue<List<SupplierModel>>>((ref) {
   final showInactive = ref.watch(showInactiveSuppliersProvider);
-  return SuppliersNotifier(ref: ref, showInactive: showInactive);
+  return SuppliersNotifier(ref: ref, showInactive: showInactive, dio: ref.read(dioProvider));
 });
 
 class SuppliersNotifier extends StateNotifier<AsyncValue<List<SupplierModel>>> {
   final Ref? ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
   final bool showInactive;
 
-  SuppliersNotifier({this.ref, required this.showInactive}) : super(const AsyncValue.loading()) {
+  SuppliersNotifier({this.ref, required this.showInactive, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchSuppliers();
   }
 

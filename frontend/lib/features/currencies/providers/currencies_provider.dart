@@ -2,16 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/currency_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final currenciesProvider =
     StateNotifierProvider<CurrenciesNotifier, AsyncValue<List<CurrencyModel>>>((ref) {
-  return CurrenciesNotifier();
+  return CurrenciesNotifier(ref.read(dioProvider));
 });
 
 class CurrenciesNotifier extends StateNotifier<AsyncValue<List<CurrencyModel>>> {
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  CurrenciesNotifier() : super(const AsyncValue.loading()) {
+  CurrenciesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchCurrencies();
   }
 

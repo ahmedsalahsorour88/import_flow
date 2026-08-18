@@ -135,32 +135,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     }
   }
 
-  Future<void> _pickCertificateFile() async {
-    try {
-      final result = await FilePicker.pickFiles(
-        type: FileType.custom,
-        allowedExtensions: ['pdf', 'jpg', 'jpeg', 'png', 'tiff'],
-        dialogTitle: 'اختر ملف شهادة المنشأ',
-      );
-      if (result != null && result.files.isNotEmpty) {
-        setState(() => _pickedFileName = result.files.first.name);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('تم إرفاق الملف: ${result.files.first.name} — يمكنك نسخ بياناته يدوياً أدناه'),
-              backgroundColor: AppTheme.cobalt,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في فتح الملف: $e'), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
+  // TODO: Implement certificate file picker when upload endpoint is ready
+  // Future<void> _pickCertificateFile() async { ... }
+
+
 
   @override
   Widget build(BuildContext context) {

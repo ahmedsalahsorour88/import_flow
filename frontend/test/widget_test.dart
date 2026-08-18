@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
 import 'package:frontend/features/import_companies/screens/import_companies_screen.dart';
@@ -51,7 +52,7 @@ void main() {
 
 class MockImportCompaniesNotifier extends ImportCompaniesNotifier {
   MockImportCompaniesNotifier(List<ImportCompanyModel> initialData)
-      : super(showInactive: true) {
+      : super(dio: Dio(), showInactive: true) {
     state = AsyncValue.data(initialData);
   }
 

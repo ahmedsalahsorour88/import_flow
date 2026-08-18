@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/file_closure_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final fileClosureProvider =
     StateNotifierProvider<FileClosureNotifier, AsyncValue<List<ImportFileClosureModel>>>((ref) {
-  return FileClosureNotifier();
+  return FileClosureNotifier(ref.read(dioProvider));
 });
 
 class FileClosureNotifier extends StateNotifier<AsyncValue<List<ImportFileClosureModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  FileClosureNotifier() : super(const AsyncValue.loading()) {
+  FileClosureNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchClosures();
   }
 

@@ -262,3 +262,21 @@ def reopen_shipment_service(
     }
 
     return repo.update_import_file(db, import_file_id, update_dict)
+
+def get_all_import_files_service(db: Session, include_inactive: bool = False, search: Optional[str] = None, company_id: Optional[int] = None, supplier_id: Optional[int] = None, status: Optional[str] = None, owner: Optional[str] = None):
+    return repo.get_all_import_files(db, include_inactive=include_inactive, search=search, company_id=company_id, supplier_id=supplier_id, status=status, owner=owner)
+
+def get_paginated_import_files_service(db: Session, page: int = 1, page_size: int = 50, include_inactive: bool = False, search: Optional[str] = None, company_id: Optional[int] = None, supplier_id: Optional[int] = None, status: Optional[str] = None, owner: Optional[str] = None):
+    return repo.get_paginated_import_files(db, include_inactive=include_inactive, search=search, company_id=company_id, supplier_id=supplier_id, status=status, owner=owner, page=page, page_size=page_size)
+
+def get_operational_dashboard_data_service(db: Session, phase: Optional[str] = None, priority: Optional[str] = None, broker_id: Optional[int] = None, broker_name: Optional[str] = None, search: Optional[str] = None):
+    return repo.get_operational_dashboard_data(db, phase=phase, priority=priority, broker_id=broker_id, broker_name=broker_name, search=search)
+
+def get_import_file_by_id_service(db: Session, import_file_id: int):
+    return repo.get_import_file_by_id(db, import_file_id)
+
+def get_import_file_by_code_service(db: Session, import_file_code: str):
+    return repo.get_import_file_by_code(db, import_file_code)
+
+def soft_delete_import_file_service(db: Session, import_file_id: int):
+    return repo.soft_delete_import_file(db, import_file_id)

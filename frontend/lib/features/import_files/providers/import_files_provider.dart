@@ -2,10 +2,11 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/import_file_model.dart';
+import '../../../core/network/api_client.dart';
 
 final importFilesProvider =
     StateNotifierProvider<ImportFilesNotifier, AsyncValue<List<ImportFileModel>>>((ref) {
-  return ImportFilesNotifier();
+  return ImportFilesNotifier(ref.read(dioProvider));
 });
 
 class PaginatedImportFilesState {
@@ -50,16 +51,13 @@ class PaginatedImportFilesState {
 
 final paginatedImportFilesProvider =
     StateNotifierProvider<PaginatedImportFilesNotifier, PaginatedImportFilesState>((ref) {
-  return PaginatedImportFilesNotifier();
+  return PaginatedImportFilesNotifier(ref.read(dioProvider));
 });
 
 class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesState> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  PaginatedImportFilesNotifier() : super(PaginatedImportFilesState()) {
+  PaginatedImportFilesNotifier(this._dio) : super(PaginatedImportFilesState()) {
     fetchPage(1);
   }
 
@@ -118,12 +116,9 @@ class PaginatedImportFilesNotifier extends StateNotifier<PaginatedImportFilesSta
 }
 
 class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  ImportFilesNotifier() : super(const AsyncValue.loading()) {
+  ImportFilesNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchImportFiles();
   }
 

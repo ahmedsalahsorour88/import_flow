@@ -4,7 +4,7 @@ Pydantic Schemas for Smart Task Management & Reminder Engine (Feature 2.4 & 2.5)
 
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SmartTaskBase(BaseModel):
@@ -55,8 +55,7 @@ class SmartTaskResponse(SmartTaskBase):
     updated_at: datetime
     updated_by: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmartTaskSummaryMetrics(BaseModel):

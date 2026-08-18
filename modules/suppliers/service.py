@@ -42,7 +42,17 @@ def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Suppl
     supplier_dict = supplier_data.model_dump()
     supplier_dict["supplier_code"] = code
 
-    return create_supplier(db, supplier_dict)
+    supplier = create_supplier(db, supplier_dict)
+    
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=supplier.supplier_id,
+        entity_code=supplier.supplier_code,
+        action="CREATE",
+        new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id, "foreign_exporter_country_code": supplier.foreign_exporter_country_code}
+    )
+    
+    return supplier
 
 
 
@@ -74,6 +84,8 @@ def get_supplier_by_id_service(db: Session, supplier_id: int) -> Supplier | None
 # Update Supplier Service
 # ==================================================
 
+from modules.audit_logs.service import AuditLogService
+
 def update_supplier_service(
     db: Session,
     supplier_id: int,
@@ -82,7 +94,24 @@ def update_supplier_service(
     supplier = get_supplier_by_id(db, supplier_id)
     if not supplier:
         return None
-    return update_supplier(db, supplier, supplier_data)
+    update_data = supplier_data.model_dump(exclude_unset=True, exclude_none=True)
+    old_data = {
+        k: getattr(supplier, k, None)
+        for k in update_data.keys()
+    }
+    
+    updated = update_supplier(db, supplier, supplier_data)
+    
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=updated.supplier_id,
+        entity_code=updated.supplier_code,
+        action="UPDATE",
+        old_data=old_data,
+        new_data=update_data,
+    )
+    
+    return updated
 
 
 # ==================================================
@@ -95,7 +124,14 @@ def delete_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
         return None
     if not supplier.is_active:
         return supplier
-    return soft_delete_supplier(db, supplier)
+    deleted = soft_delete_supplier(db, supplier)
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=deleted.supplier_id,
+        entity_code=deleted.supplier_code,
+        action="DELETE",
+    )
+    return deleted
 
 
 # ==================================================
@@ -106,4 +142,11 @@ def restore_supplier_service(db: Session, supplier_id: int) -> Supplier | None:
     supplier = get_supplier_by_id(db, supplier_id)
     if not supplier:
         return None
-    return restore_supplier(db, supplier)
+    restored = restore_supplier(db, supplier)
+    AuditLogService(db).log_activity(
+        entity_type="Supplier",
+        entity_id=restored.supplier_id,
+        entity_code=restored.supplier_code,
+        action="RESTORE",
+    )
+    return restored

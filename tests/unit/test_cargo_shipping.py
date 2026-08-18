@@ -203,7 +203,7 @@ class TestCargoShippingModule(unittest.TestCase):
 
     def test_container_tracking_sla_and_auto_status(self):
         # 1. Only assignment
-        res1 = calculate_container_sla_and_status({"container_assignment_date": "2026-08-16"})
+        res1 = calculate_container_sla_and_status({"container_assignment_date": "2026-08-18"})
         self.assertEqual(res1["tracking_status"], "ASSIGNED")
         self.assertFalse(res1["is_sla_breached"])
 

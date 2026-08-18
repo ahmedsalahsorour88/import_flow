@@ -2,16 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/transport_location_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final transportLocationsProvider =
     StateNotifierProvider<TransportLocationsNotifier, AsyncValue<List<TransportLocationModel>>>((ref) {
-  return TransportLocationsNotifier();
+  return TransportLocationsNotifier(ref.read(dioProvider));
 });
 
 class TransportLocationsNotifier extends StateNotifier<AsyncValue<List<TransportLocationModel>>> {
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  TransportLocationsNotifier() : super(const AsyncValue.loading()) {
+  TransportLocationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchLocations();
   }
 

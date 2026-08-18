@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/warehouse_receiving_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final warehouseReceivingProvider =
     StateNotifierProvider<WarehouseReceivingNotifier, AsyncValue<List<WarehouseReceivingModel>>>((ref) {
-  return WarehouseReceivingNotifier();
+  return WarehouseReceivingNotifier(ref.read(dioProvider));
 });
 
 class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<WarehouseReceivingModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  WarehouseReceivingNotifier() : super(const AsyncValue.loading()) {
+  WarehouseReceivingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
   }
 

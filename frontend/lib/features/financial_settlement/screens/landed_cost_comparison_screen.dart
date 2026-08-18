@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/network/api_client.dart';
 
-class LandedCostComparisonScreen extends StatefulWidget {
+
+class LandedCostComparisonScreen extends ConsumerStatefulWidget {
   final int importFileId;
   final String importFileCode;
 
@@ -13,10 +16,10 @@ class LandedCostComparisonScreen extends StatefulWidget {
   });
 
   @override
-  State<LandedCostComparisonScreen> createState() => _LandedCostComparisonScreenState();
+  ConsumerState<LandedCostComparisonScreen> createState() => _LandedCostComparisonScreenState();
 }
 
-class _LandedCostComparisonScreenState extends State<LandedCostComparisonScreen> {
+class _LandedCostComparisonScreenState extends ConsumerState<LandedCostComparisonScreen> {
   bool _isLoading = true;
   String? _error;
 

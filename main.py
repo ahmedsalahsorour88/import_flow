@@ -209,8 +209,11 @@ Base.metadata.create_all(
     bind=engine
 )
 
-from update_db_schema import migrate_db
-migrate_db()
+# DEPRECATED: Manual schema migration removed.
+# All schema changes are now managed via Alembic migrations.
+# Run: python -m alembic upgrade head
+# from update_db_schema import migrate_db
+# migrate_db()  # REMOVED - use Alembic instead
 
 from seed import seed_data
 seed_data()

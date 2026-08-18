@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/financial_settlement_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final financialSettlementProvider =
     StateNotifierProvider<FinancialSettlementNotifier, AsyncValue<List<LandedCostSettlementModel>>>((ref) {
-  return FinancialSettlementNotifier();
+  return FinancialSettlementNotifier(ref.read(dioProvider));
 });
 
 class FinancialSettlementNotifier extends StateNotifier<AsyncValue<List<LandedCostSettlementModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  FinancialSettlementNotifier() : super(const AsyncValue.loading()) {
+  FinancialSettlementNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchSettlements();
   }
 

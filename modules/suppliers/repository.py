@@ -15,15 +15,6 @@ def create_supplier(db: Session, supplier_data: dict) -> Supplier:
     db.commit()
     db.refresh(supplier)
 
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="Supplier",
-        entity_id=supplier.supplier_id,
-        entity_code=supplier.supplier_code,
-        action="CREATE",
-        new_data={"company_name": supplier.company_name, "foreign_exporter_id": supplier.foreign_exporter_id}
-    )
-
     return supplier
 
 
@@ -113,15 +104,6 @@ def update_supplier(db: Session, supplier: Supplier, supplier_data: SupplierUpda
     try:
         db.commit()
         db.refresh(supplier)
-        from modules.audit_logs.service import AuditLogService
-        AuditLogService(db).log_activity(
-            entity_type="Supplier",
-            entity_id=supplier.supplier_id,
-            entity_code=supplier.supplier_code,
-            action="UPDATE",
-            old_data=old_data,
-            new_data=update_data,
-        )
     except Exception:
         db.rollback()
         raise
@@ -138,14 +120,6 @@ def soft_delete_supplier(db: Session, supplier: Supplier) -> Supplier:
     db.commit()
     db.refresh(supplier)
 
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="Supplier",
-        entity_id=supplier.supplier_id,
-        entity_code=supplier.supplier_code,
-        action="DELETE",
-    )
-
     return supplier
 
 
@@ -157,13 +131,5 @@ def restore_supplier(db: Session, supplier: Supplier) -> Supplier:
     supplier.is_active = True
     db.commit()
     db.refresh(supplier)
-
-    from modules.audit_logs.service import AuditLogService
-    AuditLogService(db).log_activity(
-        entity_type="Supplier",
-        entity_id=supplier.supplier_id,
-        entity_code=supplier.supplier_code,
-        action="RESTORE",
-    )
 
     return supplier

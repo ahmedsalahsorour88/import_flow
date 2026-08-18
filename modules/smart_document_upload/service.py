@@ -342,3 +342,12 @@ def parse_raw_text_directly(
         "missing_fields": missing,
         "extraction_notes": notes,
     }
+
+def get_upload_sessions_service(db: Session, module_name: str = None, skip: int = 0, limit: int = 50):
+    return repo.get_upload_sessions(db, module_name=module_name, skip=skip, limit=limit)
+
+def get_upload_session_by_id_service(db: Session, session_id: int):
+    return repo.get_upload_session_by_id(db, session_id)
+
+def soft_delete_upload_session_service(db: Session, session_id: int):
+    return repo.soft_delete_upload_session(db, session_id)

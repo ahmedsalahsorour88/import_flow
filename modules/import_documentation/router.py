@@ -43,7 +43,6 @@ from modules.import_documentation.schemas import (
     InvoiceBLSyncRequest,
 )
 import modules.import_documentation.service as service
-import modules.import_documentation.repository as repo
 
 router = APIRouter(prefix="/api/v1/import-documentation", tags=["Import Documentation"])
 
@@ -118,7 +117,7 @@ def list_acid_sessions(
     status: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    items = repo.get_all_acid_sessions(
+    items = service.get_all_acid_sessions_service(
         db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status
     )
     return [service.enrich_acid_response(db, item) for item in items]
@@ -128,7 +127,7 @@ def list_acid_sessions(
     "/acid-sessions/{acid_id}", response_model=AcidRegistrationResponse
 )
 def get_acid_session(acid_id: int, db: Session = Depends(get_db)):
-    item = repo.get_acid_session_by_id(db, acid_id)
+    item = service.get_acid_session_by_id_service(db, acid_id)
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -150,7 +149,7 @@ def update_acid_session(
 
 @router.delete("/acid-sessions/{acid_id}", status_code=status.HTTP_204_NO_CONTENT)
 def soft_delete_acid_session(acid_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_acid_session(db, acid_id)
+    success = service.soft_delete_acid_session_service(db, acid_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -177,13 +176,13 @@ def create_banking_document(
 
 @router.get("/banking-documents", response_model=List[BankingDocumentResponse])
 def list_banking_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
-    items = repo.get_all_banking_documents(db, import_file_id=import_file_id)
+    items = service.get_all_banking_documents_service(db, import_file_id=import_file_id)
     return [service.enrich_banking_response(db, item) for item in items]
 
 
 @router.get("/banking-documents/{bank_doc_id}", response_model=BankingDocumentResponse)
 def get_banking_document(bank_doc_id: int, db: Session = Depends(get_db)):
-    item = repo.get_banking_document_by_id(db, bank_doc_id)
+    item = service.get_banking_document_by_id_service(db, bank_doc_id)
     if not item:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -234,7 +233,7 @@ def create_shipment_document(
 
 @router.get("/shipment-documents", response_model=List[ShipmentDocumentResponse])
 def list_shipment_documents(import_file_id: Optional[int] = None, db: Session = Depends(get_db)):
-    items = repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+    items = service.get_all_shipment_documents_service(db, import_file_id=import_file_id)
     return [service.enrich_shipment_doc_response(db, item) for item in items]
 
 
@@ -497,7 +496,7 @@ def list_draft_bl_reviews(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_draft_bl_reviews(
+    return service.get_draft_bl_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,
@@ -508,7 +507,7 @@ def list_draft_bl_reviews(
 
 @router.get("/draft-bl/{review_id}", response_model=DraftBLReviewResponse)
 def get_draft_bl_review(review_id: int, db: Session = Depends(get_db)):
-    item = repo.get_draft_bl_review_by_id(db, review_id, include_inactive=True)
+    item = service.get_draft_bl_review_by_id_service(db, review_id, include_inactive=True)
     if not item:
         raise HTTPException(status_code=404, detail="Draft B/L Review not found")
     return item
@@ -579,7 +578,7 @@ def list_coo_reviews(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_coo_reviews(
+    return service.get_coo_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,
@@ -622,7 +621,7 @@ def list_inspection_reviews(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_inspection_reviews(
+    return service.get_inspection_reviews_service(
         db,
         include_inactive=include_inactive,
         import_file_id=import_file_id,

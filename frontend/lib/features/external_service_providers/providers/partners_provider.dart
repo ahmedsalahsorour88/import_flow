@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/partner_model.dart';
+import '../../../core/network/api_client.dart';
 
 final selectedPartnerCategoryProvider = StateProvider<String>((ref) => 'All');
 final showInactivePartnersProvider = StateProvider<bool>((ref) => true);
@@ -10,18 +11,18 @@ final showInactivePartnersProvider = StateProvider<bool>((ref) => true);
 final partnersProvider = StateNotifierProvider<PartnersNotifier, AsyncValue<List<PartnerModel>>>((ref) {
   final category = ref.watch(selectedPartnerCategoryProvider);
   final showInactive = ref.watch(showInactivePartnersProvider);
-  return PartnersNotifier(ref: ref, category: category, showInactive: showInactive);
+  return PartnersNotifier(ref: ref, category: category, showInactive: showInactive, dio: ref.read(dioProvider));
 });
 
 final allPartnersProvider = StateNotifierProvider<AllPartnersNotifier, AsyncValue<List<PartnerModel>>>((ref) {
-  return AllPartnersNotifier(ref: ref);
+  return AllPartnersNotifier(ref: ref, dio: ref.read(dioProvider));
 });
 
 class AllPartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   final Ref? ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
 
-  AllPartnersNotifier({this.ref}) : super(const AsyncValue.loading()) {
+  AllPartnersNotifier({this.ref, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchPartners();
   }
 
@@ -43,11 +44,11 @@ class AllPartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> 
 
 class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
   final Ref? ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
   final String category;
   final bool showInactive;
 
-  PartnersNotifier({this.ref, required this.category, required this.showInactive}) : super(const AsyncValue.loading()) {
+  PartnersNotifier({this.ref, required this.category, required this.showInactive, required Dio dio}) : _dio = dio, super(const AsyncValue.loading()) {
     fetchPartners();
   }
 
@@ -139,7 +140,7 @@ class PartnersNotifier extends StateNotifier<AsyncValue<List<PartnerModel>>> {
 }
 
 final partnerStatementOfAccountProvider = FutureProvider.family<PartnerStatementOfAccountModel?, int>((ref, providerId) async {
-  final dio = Dio();
+  final dio = ref.watch(dioProvider);
   try {
     final response = await dio.get(
       '${ApiConstants.baseUrl}/external-service-providers/$providerId/statement-of-account',

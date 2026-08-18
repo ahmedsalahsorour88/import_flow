@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/freight_quotation_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final freightQuotationsProvider =
     StateNotifierProvider<FreightQuotationsNotifier, AsyncValue<List<FreightRFQRequestModel>>>((ref) {
-  return FreightQuotationsNotifier();
+  return FreightQuotationsNotifier(ref.read(dioProvider));
 });
 
 class FreightQuotationsNotifier extends StateNotifier<AsyncValue<List<FreightRFQRequestModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  FreightQuotationsNotifier() : super(const AsyncValue.loading()) {
+  FreightQuotationsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRFQs();
   }
 

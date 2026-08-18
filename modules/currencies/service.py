@@ -151,7 +151,7 @@ class CurrencyService:
 
         if amount <= 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="المبلغ المراد تحويله يجب أن يكون أكبر من صفر.",
             )
 
@@ -197,7 +197,7 @@ class CurrencyService:
 
         if foreign_amount <= 0 or initial_rate <= 0 or settlement_rate <= 0:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
                 detail="المبالغ وأسعار الصرف يجب أن تكون أكبر من صفر.",
             )
 

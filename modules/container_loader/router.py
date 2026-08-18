@@ -4,9 +4,8 @@ from sqlalchemy.orm import Session
 
 from database.database import get_db
 from .container_specs import ContainerSpec, get_container_specs_dict
-from .repository import get_all_container_specs
 from .schemas import ContainerLoaderEvaluationResult, ContainerLoaderRequest
-from .service import evaluate_container_loading_service
+from .service import evaluate_container_loading_service, list_container_specs_service
 
 container_loader_router = APIRouter(prefix="/api/v1/container-loader", tags=["Container Loader"])
 
@@ -31,7 +30,7 @@ def list_container_specs(db: Session = Depends(get_db)):
     """
     Returns standard container specification metadata (20GP, 40GP, 40HC, 45HC).
     """
-    specs = get_all_container_specs(db)
+    specs = list_container_specs_service(db)
     return [
         {
             "code": s.code,

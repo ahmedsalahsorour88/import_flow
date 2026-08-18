@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../audit_logs/providers/audit_logs_provider.dart';
 import '../models/customs_tariff_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final showInactiveCustomsTariffsProvider = StateProvider<bool>((ref) => false);
 final customsTariffSearchQueryProvider = StateProvider<String>((ref) => '');
@@ -11,13 +13,13 @@ final customsTariffProvider = StateNotifierProvider<CustomsTariffNotifier,
     AsyncValue<List<CustomsTariffModel>>>((ref) {
   final showInactive = ref.watch(showInactiveCustomsTariffsProvider);
   final search = ref.watch(customsTariffSearchQueryProvider);
-  return CustomsTariffNotifier(ref: ref, showInactive: showInactive, search: search);
+  return CustomsTariffNotifier(ref: ref, showInactive: showInactive, search: search, dio: ref.read(dioProvider));
 });
 
 class CustomsTariffNotifier
     extends StateNotifier<AsyncValue<List<CustomsTariffModel>>> {
   final Ref ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
   final bool showInactive;
   final String search;
 
@@ -25,7 +27,8 @@ class CustomsTariffNotifier
     required this.ref,
     required this.showInactive,
     required this.search,
-  }) : super(const AsyncValue.loading()) {
+    required Dio dio,
+  }) : _dio = dio, super(const AsyncValue.loading()) {
     fetchTariffs();
   }
 

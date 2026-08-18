@@ -2,8 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/audit_log_model.dart';
-
-final dioProvider = Provider<Dio>((ref) => Dio());
+import '../../../core/network/api_client.dart';
 
 // Fetch single row history timeline live from API
 final entityAuditTimelineProvider = FutureProvider.family<List<AuditLogModel>, ({String entityType, int entityId})>((ref, arg) async {

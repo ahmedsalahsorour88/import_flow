@@ -6,7 +6,6 @@ from modules.import_requirements.schemas import (
     ImportRequirementCreate, ImportRequirementUpdate, ImportRequirementResponse
 )
 import modules.import_requirements.service as service
-import modules.import_requirements.repository as repo
 
 router = APIRouter(prefix="/api/v1/import-requirements", tags=["Import Requirements Assessment (BP-011)"])
 
@@ -37,7 +36,7 @@ def list_assessments(
     include_inactive: bool = False,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_assessments(
+    return service.get_all_assessments_service(
         db, import_file_id=import_file_id, overall_status=overall_status,
         risk_level=risk_level, search=search, include_inactive=include_inactive
     )
@@ -46,7 +45,7 @@ def list_assessments(
 @router.get("/{assessment_id}", response_model=ImportRequirementResponse,
     summary="Get a single Import Requirements Assessment by ID")
 def get_assessment(assessment_id: int, db: Session = Depends(get_db)):
-    obj = repo.get_assessment_by_id(db, assessment_id)
+    obj = service.get_assessment_by_id_service(db, assessment_id)
     if not obj:
         raise HTTPException(status_code=404, detail="Assessment not found")
     return obj
@@ -73,6 +72,6 @@ def restore_assessment(assessment_id: int, db: Session = Depends(get_db)):
 @router.delete("/{assessment_id}", status_code=status.HTTP_204_NO_CONTENT,
     summary="Soft-delete an Import Requirements Assessment")
 def delete_assessment(assessment_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_assessment(db, assessment_id)
+    success = service.soft_delete_assessment_service(db, assessment_id)
     if not success:
         raise HTTPException(status_code=404, detail="Assessment not found")

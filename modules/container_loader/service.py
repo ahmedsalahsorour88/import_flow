@@ -177,3 +177,7 @@ def evaluate_container_loading_service(
         reasons_ar=best_opt.reasons_ar,
         all_options=evaluations,
     )
+
+
+def list_container_specs_service(db: Session) -> List[ContainerSpec]:
+    return get_all_container_specs(db)

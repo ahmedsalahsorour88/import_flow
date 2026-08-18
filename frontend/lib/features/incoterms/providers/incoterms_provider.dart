@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/incoterm_model.dart';
 
+import '../../../core/network/api_client.dart';
+
 // ==================================================
 // Incoterms Provider (MD-006)
 // ==================================================
@@ -13,17 +15,17 @@ final incotermsProvider =
     StateNotifierProvider<IncotermsNotifier, AsyncValue<List<IncotermModel>>>(
         (ref) {
   final showInactive = ref.watch(showInactiveIncotermsProvider);
-  return IncotermsNotifier(ref: ref, showInactive: showInactive);
+  return IncotermsNotifier(ref: ref, showInactive: showInactive, dio: ref.read(dioProvider));
 });
 
 class IncotermsNotifier
     extends StateNotifier<AsyncValue<List<IncotermModel>>> {
   final Ref ref;
-  final Dio _dio = Dio();
+  final Dio _dio;
   final bool showInactive;
 
-  IncotermsNotifier({required this.ref, required this.showInactive})
-      : super(const AsyncValue.loading()) {
+  IncotermsNotifier({required this.ref, required this.showInactive, required Dio dio})
+      : _dio = dio, super(const AsyncValue.loading()) {
     fetchIncoterms();
   }
 

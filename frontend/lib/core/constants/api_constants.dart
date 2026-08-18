@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class ApiConstants {
+  // ── Server & Base ─────────────────────────────────────────
   static String get serverUrl {
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : 'localhost';
@@ -11,8 +12,57 @@ class ApiConstants {
 
   static String get baseUrl => '$serverUrl/api/v1';
 
-  // Endpoints
-  static String get importFiles => '$baseUrl/import-files';
+  // ── Master Data ───────────────────────────────────────────
   static String get suppliers => '$baseUrl/suppliers';
+  static String get importCompanies => '$baseUrl/import-companies';
+  static String get partners => '$baseUrl/partners';  // external_service_providers
+  static String get currencies => '$baseUrl/currencies';
+  static String get incoterms => '$baseUrl/incoterms';
+  static String get transportLocations => '$baseUrl/transport-locations';
+  static String get projects => '$baseUrl/projects';
+  static String get customsTariff => '$baseUrl/customs-tariff';
+
+  // ── Import Operations ─────────────────────────────────────
+  static String get importFiles => '$baseUrl/import-files';
+  static String get purchaseOrders => '$baseUrl/purchase-orders';
+  static String get importRequirements => '$baseUrl/import-requirements';
+
+  // ── Freight & Shipping ────────────────────────────────────
+  static String get shippingScenarios => '$baseUrl/shipping-scenarios';
+  static String get freightQuotations => '$baseUrl/freight-quotations';
+  static String get freightBooking => '$baseUrl/freight-booking';
+  static String get cargoShipping => '$baseUrl/cargo-shipping';
+  static String get demurrageDetention => '$baseUrl/demurrage-detention';
+
+  // ── Calculations & Tools ──────────────────────────────────
+  static String get cbmCalculator => '$baseUrl/cbm-calculator';
+  static String get containerLoader => '$baseUrl/container-loader';
+
+  // ── Customs ───────────────────────────────────────────────
   static String get customs => '$baseUrl/customs';
+  static String get customsConsultation => '$baseUrl/customs-consultation';
+  static String get customsClearance => '$baseUrl/customs-clearance';
+
+  // ── Finance ───────────────────────────────────────────────
+  static String get financialApproval => '$baseUrl/financial-approval';
+  static String get financialSettlement => '$baseUrl/financial-settlement';
+
+  // ── Documentation ─────────────────────────────────────────
+  static String get importDocumentation => '$baseUrl/import-documentation';
+  static String get warehouseReceiving => '$baseUrl/warehouse-receiving';
+  static String get fileClosure => '$baseUrl/file-closure';
+
+  // ── System ────────────────────────────────────────────────
+  static String get auditLogs => '$baseUrl/audit-logs';
+  static String get notifications => '$baseUrl/notifications';
+  static String get smartTasks => '$baseUrl/smart-tasks';
+  static String get shipmentUpdates => '$baseUrl/shipment-updates';
+  static String get lifecycleBoard => '$baseUrl/lifecycle-board';
+  static String get smartDocumentUpload => '$baseUrl/smart-upload';
+  static String get integrations => '$baseUrl/integrations';
+
+  // ── Auth ──────────────────────────────────────────────────
+  static String get auth => '$baseUrl/auth';
+  static String get login => '$auth/token';
+  static String get currentUser => '$auth/me';
 }

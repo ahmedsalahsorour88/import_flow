@@ -424,3 +424,18 @@ def get_budget_prefill_service(
         estimated_grand_total_egp=grand_total_egp,
         exchange_rate=exchange_rate,
     )
+
+def get_all_payment_requests_service(db: Session, include_inactive: bool = False, search: Optional[str] = None, po_id: Optional[int] = None, supplier_id: Optional[int] = None, status: Optional[str] = None) -> List[PaymentRequestSession]:
+    return repo.get_all_payment_requests(db, include_inactive=include_inactive, search=search, po_id=po_id, supplier_id=supplier_id, status=status)
+
+def get_payment_request_by_id_service(db: Session, payment_id: int) -> Optional[PaymentRequestSession]:
+    return repo.get_payment_request_by_id(db, payment_id)
+
+def soft_delete_payment_request_service(db: Session, payment_id: int) -> bool:
+    return repo.soft_delete_payment_request(db, payment_id)
+
+def restore_payment_request_service(db: Session, payment_id: int) -> bool:
+    return repo.restore_payment_request(db, payment_id)
+
+def get_all_import_budgets_service(db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None, po_id: Optional[int] = None, budget_status: Optional[str] = None) -> List[ImportBudgetApproval]:
+    return repo.get_all_import_budgets(db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id, budget_status=budget_status)

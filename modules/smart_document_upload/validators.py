@@ -51,7 +51,7 @@ SUPPORTED_MODULES = {
 def validate_module_name(module: str) -> None:
     if module not in SUPPORTED_MODULES:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Unsupported module '{module}'. Supported: {sorted(SUPPORTED_MODULES)}",
         )
 

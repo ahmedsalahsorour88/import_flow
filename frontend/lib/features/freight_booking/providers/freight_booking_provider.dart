@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/freight_booking_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final freightBookingProvider =
     StateNotifierProvider<FreightBookingNotifier, AsyncValue<List<ShipmentBookingModel>>>((ref) {
-  return FreightBookingNotifier();
+  return FreightBookingNotifier(ref.read(dioProvider));
 });
 
 class FreightBookingNotifier extends StateNotifier<AsyncValue<List<ShipmentBookingModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  FreightBookingNotifier() : super(const AsyncValue.loading()) {
+  FreightBookingNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchBookings();
   }
 

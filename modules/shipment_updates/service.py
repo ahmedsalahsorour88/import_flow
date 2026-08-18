@@ -125,3 +125,12 @@ def inspect_shipment_phases_service(db: Session, import_file_id: int) -> List[Ph
         )
 
     return inspections
+
+def get_all_update_logs_service(db: Session, import_file_id: int = None, update_category: str = None, target_phase: str = None, search: str = None):
+    return repo.get_all_update_logs(db, import_file_id=import_file_id, update_category=update_category, target_phase=target_phase, search=search)
+
+def get_update_log_by_id_service(db: Session, update_id: int):
+    return repo.get_update_log_by_id(db, update_id)
+
+def soft_delete_update_log_service(db: Session, update_id: int):
+    return repo.soft_delete_update_log(db, update_id)

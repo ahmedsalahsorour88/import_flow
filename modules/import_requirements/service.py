@@ -338,3 +338,12 @@ def get_import_file_prefill_service(db: Session, import_file_id: int) -> ImportR
         special_notes=special_notes,
     )
 
+
+def get_all_assessments_service(db: Session, import_file_id: int = None, overall_status: str = None, risk_level: str = None, search: str = None, include_inactive: bool = False):
+    return repo.get_all_assessments(db, import_file_id=import_file_id, overall_status=overall_status, risk_level=risk_level, search=search, include_inactive=include_inactive)
+
+def get_assessment_by_id_service(db: Session, assessment_id: int):
+    return repo.get_assessment_by_id(db, assessment_id)
+
+def soft_delete_assessment_service(db: Session, assessment_id: int):
+    return repo.soft_delete_assessment(db, assessment_id)

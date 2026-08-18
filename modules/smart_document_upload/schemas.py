@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ class UploadSessionResponse(BaseModel):
     linked_module: Optional[str]
     created_at: Optional[datetime]
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

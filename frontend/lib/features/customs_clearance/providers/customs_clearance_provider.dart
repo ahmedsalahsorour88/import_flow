@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/customs_clearance_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final customsClearanceProvider =
     StateNotifierProvider<CustomsClearanceNotifier, AsyncValue<List<CustomsClearanceModel>>>((ref) {
-  return CustomsClearanceNotifier();
+  return CustomsClearanceNotifier(ref.read(dioProvider));
 });
 
 class CustomsClearanceNotifier extends StateNotifier<AsyncValue<List<CustomsClearanceModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  CustomsClearanceNotifier() : super(const AsyncValue.loading()) {
+  CustomsClearanceNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchRecords();
   }
 

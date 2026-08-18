@@ -6,7 +6,7 @@ class ACIDLiveRequest(BaseModel):
     importer_id: str = Field(..., description="Importer Tax ID / Code")
     exporter_id: str = Field(..., description="Foreign Exporter Registration Code")
     exporter_country_code: str = Field("CN", min_length=2, max_length=2)
-    tariff_hs_codes: List[str] = Field(..., min_items=1)
+    tariff_hs_codes: List[str] = Field(..., min_length=1)
     invoice_value_usd: float = Field(..., gt=0)
     mode: Optional[str] = Field("MOCK", description="MOCK, STAGING, or PRODUCTION")
 

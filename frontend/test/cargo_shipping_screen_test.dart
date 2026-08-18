@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import 'package:frontend/features/cargo_shipping/screens/cargo_shipping_screen.dart';
 import 'package:frontend/features/cargo_shipping/providers/cargo_shipping_provider.dart';
 import 'package:frontend/features/cargo_shipping/models/cargo_shipping_model.dart';
@@ -210,7 +211,7 @@ void main() {
 
 class _MockCargoShippingNotifier extends CargoShippingNotifier {
   final List<CargoShippingModel> initialRecords;
-  _MockCargoShippingNotifier(this.initialRecords) : super() {
+  _MockCargoShippingNotifier(this.initialRecords) : super(Dio()) {
     state = AsyncValue.data(initialRecords);
   }
 
@@ -222,7 +223,7 @@ class _MockCargoShippingNotifier extends CargoShippingNotifier {
 
 class _MockImportFilesNotifier extends ImportFilesNotifier {
   final List<ImportFileModel> initialFiles;
-  _MockImportFilesNotifier(this.initialFiles) : super() {
+  _MockImportFilesNotifier(this.initialFiles) : super(Dio()) {
     state = AsyncValue.data(initialFiles);
   }
 

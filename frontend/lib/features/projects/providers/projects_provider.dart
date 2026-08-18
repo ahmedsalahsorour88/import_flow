@@ -2,19 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../models/project_model.dart';
+import '../../../core/network/api_client.dart';
+
 
 final projectsProvider =
     StateNotifierProvider<ProjectsNotifier, AsyncValue<List<ProjectModel>>>((ref) {
-  return ProjectsNotifier();
+  return ProjectsNotifier(ref.read(dioProvider));
 });
 
 class ProjectsNotifier extends StateNotifier<AsyncValue<List<ProjectModel>>> {
-  final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
-  ));
+  final Dio _dio;
 
-  ProjectsNotifier() : super(const AsyncValue.loading()) {
+  ProjectsNotifier(this._dio) : super(const AsyncValue.loading()) {
     fetchProjects();
   }
 

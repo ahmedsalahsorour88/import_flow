@@ -2234,3 +2234,33 @@ def delete_po_reconciliation_session_service(db: Session, session_id: int) -> di
 
 
 
+
+def get_all_acid_sessions_service(db: Session, include_inactive: bool = False, search: str = None, import_file_id: int = None, status: str = None):
+    return repo.get_all_acid_sessions(db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, status=status)
+
+def get_acid_session_by_id_service(db: Session, acid_id: int):
+    return repo.get_acid_session_by_id(db, acid_id)
+
+def soft_delete_acid_session_service(db: Session, acid_id: int):
+    return repo.soft_delete_acid_session(db, acid_id)
+
+def get_all_banking_documents_service(db: Session, import_file_id: int = None):
+    return repo.get_all_banking_documents(db, import_file_id=import_file_id)
+
+def get_banking_document_by_id_service(db: Session, bank_doc_id: int):
+    return repo.get_banking_document_by_id(db, bank_doc_id)
+
+def get_all_shipment_documents_service(db: Session, import_file_id: int = None):
+    return repo.get_all_shipment_documents(db, import_file_id=import_file_id)
+
+def get_draft_bl_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
+    return repo.get_draft_bl_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+
+def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inactive: bool = True):
+    return repo.get_draft_bl_review_by_id(db, review_id, include_inactive=include_inactive)
+
+def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
+    return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+
+def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
+    return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)

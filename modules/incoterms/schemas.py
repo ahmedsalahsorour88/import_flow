@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 
 # ==================================================
@@ -38,7 +38,7 @@ class IncotermResponse(BaseModel):
     created_by: Optional[str]
     updated_by: Optional[str]
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================
@@ -92,7 +92,7 @@ class CostItemResponse(BaseModel):
     created_by: Optional[str]
     updated_by: Optional[str]
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
 
 # ==================================================
@@ -131,7 +131,7 @@ class IncotermResponsibilityUpdate(BaseModel):
 
 
 from typing import Any, List, Optional
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_validator
 
 
 class IncotermResponsibilityResponse(BaseModel):
@@ -149,7 +149,7 @@ class IncotermResponsibilityResponse(BaseModel):
     cost_item_name: Optional[str] = None
     cost_category: Optional[str] = None
 
-    model_config = {"from_attributes": True}
+    model_config = ConfigDict(from_attributes=True)
 
     @model_validator(mode="before")
     @classmethod

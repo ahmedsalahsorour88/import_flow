@@ -14,7 +14,6 @@ from modules.lifecycle_board.schemas import (
     MultiStageSetPayload,
 )
 import modules.lifecycle_board.service as service
-import modules.lifecycle_board.repository as repo
 
 router = APIRouter(prefix="/api/v1/lifecycle-board", tags=["Shipment Lifecycle Board (6 Phases / 21 Steps)"])
 
@@ -34,7 +33,7 @@ def get_board_summary(db: Session = Depends(get_db)):
     summary="Get all stage activities for a specific shipment",
 )
 def get_shipment_stages(import_file_code: str, db: Session = Depends(get_db)):
-    return repo.get_all_activities(db, import_file_code=import_file_code)
+    return service.get_all_activities_service(db, import_file_code=import_file_code)
 
 
 @router.post(

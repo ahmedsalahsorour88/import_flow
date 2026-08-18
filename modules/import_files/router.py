@@ -18,7 +18,6 @@ from modules.import_files.schemas import (
     ReopenShipmentSubmit,
 )
 import modules.import_files.service as service
-import modules.import_files.repository as repo
 
 router = APIRouter(prefix="/api/v1/import-files", tags=["Import Files Tracking"])
 
@@ -47,7 +46,7 @@ def list_import_files(
     owner: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_all_import_files(
+    return service.get_all_import_files_service(
         db,
         include_inactive=include_inactive,
         search=search,
@@ -74,7 +73,7 @@ def list_paginated_import_files(
     owner: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_paginated_import_files(
+    return service.get_paginated_import_files_service(
         db,
         include_inactive=include_inactive,
         search=search,
@@ -123,7 +122,7 @@ def get_operational_dashboard(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    return repo.get_operational_dashboard_data(
+    return service.get_operational_dashboard_data_service(
         db,
         phase=phase,
         priority=priority,
@@ -140,9 +139,9 @@ def get_operational_dashboard(
 )
 def get_import_file(import_file_id: str, db: Session = Depends(get_db)):
     if import_file_id.isdigit():
-        item = repo.get_import_file_by_id(db, int(import_file_id))
+        item = service.get_import_file_by_id_service(db, int(import_file_id))
     else:
-        item = repo.get_import_file_by_code(db, import_file_id)
+        item = service.get_import_file_by_code_service(db, import_file_id)
 
     if not item:
         raise HTTPException(
@@ -169,7 +168,7 @@ def update_import_file(
     summary="Soft delete an import file",
 )
 def soft_delete_import_file(import_file_id: int, db: Session = Depends(get_db)):
-    success = repo.soft_delete_import_file(db, import_file_id)
+    success = service.soft_delete_import_file_service(db, import_file_id)
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

@@ -104,7 +104,3 @@ class SmartTasksNotifier extends StateNotifier<SmartTasksState> {
     }
   }
 }
-
-final smartTasksProvider = StateNotifierProvider<SmartTasksNotifier, SmartTasksState>((ref) {
-  return SmartTasksNotifier();
-});

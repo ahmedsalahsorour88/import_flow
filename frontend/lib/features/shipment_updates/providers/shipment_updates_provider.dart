@@ -98,7 +98,3 @@ class ShipmentUpdatesNotifier extends StateNotifier<ShipmentUpdatesState> {
     }
   }
 }
-
-final shipmentUpdatesProvider = StateNotifierProvider<ShipmentUpdatesNotifier, ShipmentUpdatesState>((ref) {
-  return ShipmentUpdatesNotifier();
-});

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'features/home/home_screen.dart';
+import 'features/auth/providers/auth_provider.dart';
+import 'features/auth/screens/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -94,9 +96,6 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
     );
   }
 }
-
-import 'features/auth/providers/auth_provider.dart';
-import 'features/auth/screens/login_screen.dart';
 
 class ImportFlowApp extends ConsumerWidget {
   const ImportFlowApp({super.key});

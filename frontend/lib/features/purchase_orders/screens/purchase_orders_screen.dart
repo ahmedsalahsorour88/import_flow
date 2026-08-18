@@ -1802,7 +1802,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
       if (_selectedIncotermId == null && incoterms.isNotEmpty) {
         final extInco = (ext['incoterms'] ?? ext['incoterm'] ?? '').toString().trim().toUpperCase();
         if (extInco.isNotEmpty) {
-          final matchedInco = incoterms.where((i) => i.code.toUpperCase() == extInco || extInco.contains(i.code.toUpperCase())).firstOrNull;
+          final matchedInco = incoterms.where((i) => i.incotermCode.toUpperCase() == extInco || extInco.contains(i.incotermCode.toUpperCase())).firstOrNull;
           if (matchedInco != null) {
             _selectedIncotermId = matchedInco.incotermId;
           }
@@ -2438,7 +2438,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                                       ),
                                       const SizedBox(width: 8),
                                       ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.flatOrange, foregroundColor: Colors.white),
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
                                         icon: const Icon(Icons.view_in_ar_rounded, size: 16),
                                         label: const Text('محاكاة ورص الحاويات 3D', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                         onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
@@ -3274,9 +3274,12 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                               const SizedBox(height: 12),
                               SizedBox(
                                 height: 380,
-                                child: ContainerLoadPlanPainterWidget(
-                                  spec: res.spec,
-                                  placedItems: res.placedItems,
+                                child: CustomPaint(
+                                  size: const Size(double.infinity, 380),
+                                  painter: ContainerLoadPlanPainter(
+                                    plan: res,
+                                    isTopView: true,
+                                  ),
                                 ),
                               ),
                             ],

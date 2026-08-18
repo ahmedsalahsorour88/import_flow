@@ -1702,6 +1702,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
   }
 
   void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
+    final tariffs = ref.read(customsTariffProvider).value ?? [];
     setState(() {
       final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
       if (poNum != null && poNum.isNotEmpty) {
@@ -1729,10 +1730,37 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
           final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
           final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
           final code = i['item_code']?.toString() ?? 'ITEM-001';
+          final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
+
+          String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
+          if (itemCty != null && itemCty.isNotEmpty) {
+            final matchedCty = countryOptions.where((c) => c['code'] == itemCty?.toUpperCase() || c['name']!.toUpperCase().contains(itemCty!.toUpperCase())).firstOrNull;
+            if (matchedCty != null) itemCty = matchedCty['code'];
+          } else {
+            itemCty = _selectedCountryOfOrigin;
+          }
+
+          int? matchedTariffId;
+          String? matchedHsCode = rawHs;
+          if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
+            final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
+            final matched = tariffs.where((t) {
+              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
+              return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+            }).firstOrNull;
+            if (matched != null) {
+              matchedTariffId = matched.tariffId;
+              matchedHsCode = matched.hsCode;
+            }
+          }
+
           return POLineItemModel(
             itemCode: code,
             descriptionAr: desc,
             descriptionEn: desc,
+            countryOfOrigin: itemCty,
+            tariffId: matchedTariffId,
+            hsCode: matchedHsCode,
             quantity: qty > 0 ? qty : 100.0,
             unitPrice: price > 0 ? price : 10.0,
             cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
@@ -1769,6 +1797,7 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     super.initState();
     final po = widget.po;
     final ext = widget.initialExtractedFields;
+    final tariffs = ref.read(customsTariffProvider).value ?? [];
 
     _selectedOrderDate = po?.orderDate ??
         (ext != null ? _parseFlexDate((ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString()) : DateTime.now());
@@ -1819,10 +1848,37 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
         final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
         final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
         final code = i['item_code']?.toString() ?? 'ITEM-001';
+        final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
+
+        String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
+        if (itemCty != null && itemCty.isNotEmpty) {
+          final matchedCty = countryOptions.where((c) => c['code'] == itemCty?.toUpperCase() || c['name']!.toUpperCase().contains(itemCty!.toUpperCase())).firstOrNull;
+          if (matchedCty != null) itemCty = matchedCty['code'];
+        } else {
+          itemCty = _selectedCountryOfOrigin;
+        }
+
+        int? matchedTariffId;
+        String? matchedHsCode = rawHs;
+        if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
+          final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
+          final matched = tariffs.where((t) {
+            final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
+            return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+          }).firstOrNull;
+          if (matched != null) {
+            matchedTariffId = matched.tariffId;
+            matchedHsCode = matched.hsCode;
+          }
+        }
+
         return POLineItemModel(
           itemCode: code,
           descriptionAr: desc,
           descriptionEn: desc,
+          countryOfOrigin: itemCty,
+          tariffId: matchedTariffId,
+          hsCode: matchedHsCode,
           quantity: qty > 0 ? qty : 100.0,
           unitPrice: price > 0 ? price : 10.0,
           cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,

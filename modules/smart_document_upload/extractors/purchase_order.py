@@ -42,6 +42,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             "currency": self.normalize_currency(text),
             "incoterms": self.normalize_incoterms(text),
             "country_of_origin": self._extract_country(text),
+            "hs_code": self._extract_hs_code(text),
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
             "total_amount": self.find_float([
@@ -213,6 +214,17 @@ class PurchaseOrderExtractor(BaseExtractor):
             r"\b(EXW|FOB|CIF|CFR|DDP|T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|Prepayment|PBS\s+CHK/CR/DBT|SWIFT)\b",
         ], text)
 
+    def _extract_hs_code(self, text: str) -> Optional[str]:
+        found = self.find_first([
+            r"(?:Customs\s+Tariff|HS\s+CODE|H\.S\.\s+CODE|Tariff\s+Code|Harmonized\s+System|Tariff\s+No\.?|HSCode)[:\s]*([0-9]{4,10}(?:\.[0-9]{2,4})?)",
+            r"(?:Statistical\s+code|HS\s+code|Customs\s+code)[:\s]*([0-9]{4,10})",
+            r"\b(5602\d{4,6}|8415\d{4,6}|9403\d{4,6}|[0-9]{4}\.[0-9]{2}\.[0-9]{2,4})\b",
+            r"\b([0-9]{8,10})\b",
+        ], text)
+        if found:
+            return found.replace(".", "").strip()
+        return None
+
     def _extract_line_items(self, text: str) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []
 
@@ -300,6 +312,14 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "unit_price": price,
                     "total_price": qty * price,
                 })
+
+        top_hs = self._extract_hs_code(text)
+        top_cty = self._extract_country(text)
+        for item in items:
+            if not item.get("hs_code") and top_hs:
+                item["hs_code"] = top_hs
+            if not item.get("country_of_origin") and top_cty:
+                item["country_of_origin"] = top_cty
 
         return items[:50]
 

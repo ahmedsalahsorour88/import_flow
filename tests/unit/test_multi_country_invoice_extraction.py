@@ -73,7 +73,7 @@ Packages 4
     assert result["acid_number"] == "2001830441013710010"
     assert result["currency"] == "EUR"
     assert result["incoterms"] == "EXW"
-    assert result["country_of_origin"] == "IT"
+    assert result["country_of_origin"] == "Italy"
     assert result["total_amount"] == 37741.00
     assert result["hs_code"] == "84158200"
 
@@ -140,7 +140,7 @@ SAY TOTAL USD FORTY-THREE THOUSAND SEVEN HUNDRED AND FOUR ONLY.
     assert result["order_date"] == "2026-07-30"
     assert result["currency"] == "USD"
     assert result["incoterms"] == "EXW"
-    assert result["country_of_origin"] == "CN"
+    assert result["country_of_origin"] == "China"
     assert result["total_amount"] == 43704.0
     assert result["hs_code"] == "5602290000"
 

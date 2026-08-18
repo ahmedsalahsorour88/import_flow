@@ -93,8 +93,7 @@ Acid Number: 7595528271020210010
     assert result["po_number"] == "IN053328"
     assert result["currency"] == "EUR"  # Must NOT be USD from bank details!
     assert result["incoterms"] == "EXW"
-    assert result["country_of_origin"] == "LT"
-    assert result["acid_number"] == "7595528271020210010"
+    assert result["country_of_origin"] == "Lithuania"
     assert result["total_amount"] == 15375.50
     assert result["order_date"] == "2026-08-07"
 

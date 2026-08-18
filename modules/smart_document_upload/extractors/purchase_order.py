@@ -296,30 +296,83 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_country(self, text: str) -> Optional[str]:
         found = self.find_first([
             r"(?:COUNTRY\s+OF\s+ORIGIN\s*:\s*([A-Za-z\s]{2,25}))",
-            r"(?:Country\s+of\s+origin|Country\s+Of\s+Origin|Incoterms\s+Location|Origin)[:\s]+([A-Za-z]{2,20})\b",
-            r"(?:FROM\s+([A-Z]{2,20})\s+TO)",
-            r"\b(Lithuania|Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|UK|Egypt)\b",
+            r"(?:Country\s+of\s+origin|Country\s+Of\s+Origin|Incoterms\s+Location|Origin)[:\s]+([A-Za-z\s]{2,25})\b",
+            r"(?:FROM\s+([A-Za-z\s]{2,20})\s+TO)",
+            r"\b(Lithuania|Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|United\s+States|Egypt|Japan|South\s+Korea|India|Poland|Netherlands|Belgium|Austria|Sweden|Switzerland|Russia|Vietnam|Thailand|Malaysia|Indonesia|Brazil|Argentina|Taiwan|LTU|LT|CN|IT|DE|TR|GB|UK|US|FR|ES|EG)\b",
         ], text)
         if not found:
             return None
         c = found.strip().upper()
-        if "LITHUANIA" in c or c in ["LT", "LTU"]:
-            return "LT"
-        if "ITALY" in c or "EUROPEAN UNION" in c or c in ["IT"]:
-            return "IT"
-        if "CHINA" in c or "SHANGHAI" in c or c in ["CN"]:
-            return "CN"
-        if "UK" in c or "UNITED KINGDOM" in c:
-            return "GB"
-        if "USA" in c or "UNITED STATES" in c:
-            return "US"
-        if "GERMANY" in c:
-            return "DE"
-        if "TURKEY" in c:
-            return "TR"
-        if "EGYPT" in c:
-            return "EG"
-        return c
+        mapping = {
+            "LITHUANIA": "Lithuania",
+            "LTU": "Lithuania",
+            "LT": "Lithuania",
+            "ITALY": "Italy",
+            "EUROPEAN UNION": "Italy",
+            "IT": "Italy",
+            "CHINA": "China",
+            "SHANGHAI": "China",
+            "CN": "China",
+            "GERMANY": "Germany",
+            "DE": "Germany",
+            "TURKEY": "Turkey",
+            "TR": "Turkey",
+            "UNITED KINGDOM": "United Kingdom",
+            "UK": "United Kingdom",
+            "GB": "United Kingdom",
+            "UNITED STATES": "United States",
+            "USA": "United States",
+            "US": "United States",
+            "FRANCE": "France",
+            "FR": "France",
+            "SPAIN": "Spain",
+            "ES": "Spain",
+            "EGYPT": "Egypt",
+            "EG": "Egypt",
+            "UNITED ARAB EMIRATES": "United Arab Emirates",
+            "UAE": "United Arab Emirates",
+            "AE": "United Arab Emirates",
+            "SAUDI ARABIA": "Saudi Arabia",
+            "SA": "Saudi Arabia",
+            "INDIA": "India",
+            "IN": "India",
+            "JAPAN": "Japan",
+            "JP": "Japan",
+            "SOUTH KOREA": "South Korea",
+            "KR": "South Korea",
+            "POLAND": "Poland",
+            "PL": "Poland",
+            "NETHERLANDS": "Netherlands",
+            "NL": "Netherlands",
+            "BELGIUM": "Belgium",
+            "BE": "Belgium",
+            "AUSTRIA": "Austria",
+            "AT": "Austria",
+            "SWEDEN": "Sweden",
+            "SE": "Sweden",
+            "SWITZERLAND": "Switzerland",
+            "CH": "Switzerland",
+            "RUSSIA": "Russia",
+            "RU": "Russia",
+            "VIETNAM": "Vietnam",
+            "VN": "Vietnam",
+            "THAILAND": "Thailand",
+            "TH": "Thailand",
+            "MALAYSIA": "Malaysia",
+            "MY": "Malaysia",
+            "INDONESIA": "Indonesia",
+            "ID": "Indonesia",
+            "BRAZIL": "Brazil",
+            "BR": "Brazil",
+            "ARGENTINA": "Argentina",
+            "AR": "Argentina",
+            "TAIWAN": "Taiwan",
+            "TW": "Taiwan",
+        }
+        for k, v in mapping.items():
+            if k == c or (len(k) > 2 and k in c):
+                return v
+        return found.strip().title()
 
     def _extract_port(self, text: str) -> Optional[str]:
         return self.find_first([

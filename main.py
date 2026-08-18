@@ -1,4 +1,12 @@
+import sys
+import asyncio
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # ==================================================
 # Database
@@ -104,61 +112,34 @@ app = FastAPI(
 # ==================================================
 # Custom CORS & Private Network Access (PNA) Middleware
 # ==================================================
-# Modern Chrome / Edge browsers enforce strict Private Network Access (PNA) checks
-# for requests originating from Flutter Web or localhost apps to local APIs.
-# This custom ASGI middleware supports full PNA headers and wildcard/matching origins.
 
-class CustomCORSMiddleware:
-    def __init__(self, app):
-        self.app = app
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
 
-    async def __call__(self, scope, receive, send):
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
 
-        headers = dict(scope.get("headers", []))
-        origin = headers.get(b"origin", b"").decode("utf-8")
-        allowed_origin = origin.encode() if origin else b"*"
+@app.middleware("http")
+async def add_pna_and_security_headers(request: Request, call_next):
+    if request.method == "OPTIONS":
+        response = Response(status_code=204)
+        origin = request.headers.get("origin", "*")
+        req_headers = request.headers.get("access-control-request-headers", "*")
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"
+        response.headers["Access-Control-Allow-Headers"] = req_headers
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Private-Network"] = "true"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        return response
 
-        if scope["method"] == "OPTIONS":
-            req_headers = headers.get(b"access-control-request-headers", b"*").decode("utf-8")
-            response_headers = [
-                (b"access-control-allow-origin", allowed_origin),
-                (b"access-control-allow-methods", b"GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"),
-                (b"access-control-allow-headers", req_headers.encode() if req_headers else b"*"),
-                (b"access-control-allow-credentials", b"true"),
-                (b"access-control-allow-private-network", b"true"),
-                (b"access-control-expose-headers", b"*"),
-                (b"access-control-max-age", b"86400"),
-                (b"content-length", b"0"),
-            ]
-            await send({
-                "type": "http.response.start",
-                "status": 204,
-                "headers": response_headers,
-            })
-            await send({
-                "type": "http.response.body",
-                "body": b"",
-            })
-            return
-
-        async def send_wrapper(message):
-            if message["type"] == "http.response.start":
-                resp_headers = [h for h in list(message.get("headers", [])) if not h[0].lower().startswith(b"access-control-")]
-                resp_headers.append((b"access-control-allow-origin", allowed_origin))
-                resp_headers.append((b"access-control-allow-credentials", b"true"))
-                resp_headers.append((b"access-control-allow-methods", b"GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD"))
-                resp_headers.append((b"access-control-allow-headers", b"*"))
-                resp_headers.append((b"access-control-allow-private-network", b"true"))
-                resp_headers.append((b"access-control-expose-headers", b"*"))
-                message["headers"] = resp_headers
-            await send(message)
-
-        await self.app(scope, receive, send_wrapper)
-
-app.add_middleware(CustomCORSMiddleware)
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
+    return response
 
 
 

@@ -1082,21 +1082,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             ),
                                           ),
                                           const SizedBox(width: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                            decoration: BoxDecoration(
-                                              color: Colors.green.shade50,
-                                              borderRadius: BorderRadius.circular(6),
-                                              border: Border.all(color: Colors.green.shade300),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment: CrossAxisAlignment.center,
-                                              children: [
-                                                const Text('Line Total (إجمالي السطر)', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
-                                                Text(
-                                                  '${currencies.firstWhere((c) => c.currencyId == _selectedCurrencyId, orElse: () => CurrencyModel(currencyId: 0, currencyCode: 'USD', currencyName: 'USD', currencySymbol: '\$')).currencyCode} ${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
-                                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
-                                                ),
+                                           Container(
+                                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                             decoration: BoxDecoration(
+                                               color: Colors.green.shade50,
+                                               borderRadius: BorderRadius.circular(6),
+                                               border: Border.all(color: Colors.green.shade300),
+                                             ),
+                                             child: Column(
+                                               crossAxisAlignment: CrossAxisAlignment.center,
+                                               children: [
+                                                 const Text('Line Total (إجمالي السطر)', style: TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                                 Text(
+                                                   '${currencies.firstWhere((c) => c.currencyId == _selectedCurrencyId, orElse: () => CurrencyModel(currencyId: 0, currencyCode: "USD", currencyName: "USD", currencySymbol: "\$")).currencyCode} ${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
+                                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
+                                                 ),
+                                               ],
+                                             ),
+                                           ),
+                                         ],
+                                       ),
 
                                        // Unregistered HS Code Warning Banner per Item
                                        if (item.tariffId == null || !tariffs.any((t) => t.tariffId == item.tariffId))
@@ -1125,17 +1130,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                              ],
                                            ),
                                          ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            }),
-
+                                     ],
+                                   ),
+                                 ),
+                               );
+                             }),
                             const SizedBox(height: 8),
                             TextFormField(
                               controller: _notesCtrl,

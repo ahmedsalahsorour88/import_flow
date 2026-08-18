@@ -441,6 +441,36 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                       ],
                     ),
 
+                    // HS Code Compliance & Registration Warning
+                    if (result.extractedFields['hs_code_compliance_warning'] != null) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade400),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                result.extractedFields['hs_code_compliance_warning'].toString(),
+                                style: TextStyle(
+                                  color: Colors.amber.shade900,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     // Missing fields warning
                     if (result.missingFields.isNotEmpty) ...[
                       const SizedBox(height: 12),

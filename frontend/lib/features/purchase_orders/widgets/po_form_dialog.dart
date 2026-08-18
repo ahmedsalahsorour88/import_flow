@@ -1097,6 +1097,34 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   '${currencies.firstWhere((c) => c.currencyId == _selectedCurrencyId, orElse: () => CurrencyModel(currencyId: 0, currencyCode: 'USD', currencyName: 'USD', currencySymbol: '\$')).currencyCode} ${(item.quantity * item.unitPrice).toStringAsFixed(2)}',
                                                   style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green),
                                                 ),
+
+                                       // Unregistered HS Code Warning Banner per Item
+                                       if (item.tariffId == null || !tariffs.any((t) => t.tariffId == item.tariffId))
+                                         Container(
+                                           margin: const EdgeInsets.only(top: 8),
+                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                           decoration: BoxDecoration(
+                                             color: Colors.amber.shade50,
+                                             borderRadius: BorderRadius.circular(6),
+                                             border: Border.all(color: Colors.amber.shade400),
+                                           ),
+                                           child: Row(
+                                             children: [
+                                               Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 16),
+                                               const SizedBox(width: 6),
+                                               Expanded(
+                                                 child: Text(
+                                                   '⚠️ بند التعريفة الجمركية (HS Code) غير مسجل في جدول التعريفة المعتمد — يرجى اختياره لتطبيق الرسوم الجمركية وضريبة الوارد بدقة.',
+                                                   style: TextStyle(
+                                                     color: Colors.amber.shade900,
+                                                     fontSize: 11,
+                                                     fontWeight: FontWeight.w600,
+                                                   ),
+                                                 ),
+                                               ),
+                                             ],
+                                           ),
+                                         ),
                                               ],
                                             ),
                                           ),

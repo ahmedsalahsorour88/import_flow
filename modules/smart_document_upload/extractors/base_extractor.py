@@ -84,11 +84,40 @@ class BaseExtractor(ABC):
 
     @staticmethod
     def normalize_currency(text: str) -> Optional[str]:
-        """Detect currency code from text."""
+        """Detect currency code from text, prioritizing total lines and frequency."""
+        if not text:
+            return None
+
+        # 1. Check currency explicitly adjacent to total / invoice amount
+        total_curr_match = re.search(
+            r"(?:Total|Invoice\s+amount|Payment\s+amount|Amount\s+due|Grand\s+Total|Total\s+Value)[^\n]*?\b(EUR|USD|GBP|EGP|CNY|JPY|AED|SAR|€|\$|£|¥)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if total_curr_match:
+            code = total_curr_match.group(1).upper()
+            symbol_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
+            return symbol_map.get(code, code)
+
+        # 2. Check suffix after numeric amounts (e.g. "15,375.50 EUR")
+        amount_suffix_match = re.search(
+            r"\b\d{1,3}(?:,\d{3})*(?:\.\d{2})\s*(EUR|USD|GBP|EGP|CNY|JPY|AED|SAR|€|\$|£|¥)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if amount_suffix_match:
+            code = amount_suffix_match.group(1).upper()
+            symbol_map = {"€": "EUR", "$": "USD", "£": "GBP", "¥": "CNY"}
+            return symbol_map.get(code, code)
+
+        # 3. Frequency count across the document
         text_upper = text.upper()
-        for code in ["USD", "EUR", "GBP", "EGP", "CNY", "JPY", "AED", "SAR"]:
-            if code in text_upper:
-                return code
+        currencies = ["EUR", "USD", "GBP", "EGP", "CNY", "JPY", "AED", "SAR"]
+        counts = {c: len(re.findall(rf"\b{c}\b", text_upper)) for c in currencies}
+        sorted_by_freq = sorted(counts.items(), key=lambda x: x[1], reverse=True)
+        if sorted_by_freq and sorted_by_freq[0][1] > 0:
+            return sorted_by_freq[0][0]
+
         return None
 
     @staticmethod

@@ -1,7 +1,7 @@
 """
-Purchase Order Extractor
-Extracts PO fields from Commercial Invoices, PO PDFs, Excel POs, and Word PO documents.
-Supports full Supplier & Importer registration field extraction.
+Purchase Order & Commercial Invoice Extractor
+Extracts PO and Commercial Invoice fields with precision boundary sanitization,
+tariff registration status, and packing metrics.
 """
 
 from __future__ import annotations
@@ -20,6 +20,15 @@ class PurchaseOrderExtractor(BaseExtractor):
     def extract(self, raw_text: str, spatial_boxes: dict) -> Dict[str, Any]:
         text = raw_text or ""
 
+        top_hs = self._extract_hs_code(text)
+        top_cty = self._extract_country(text)
+        extracted_items = self._extract_line_items(text, default_hs=top_hs, default_cty=top_cty)
+
+        # Evaluate if any line item has missing or unregistered HS codes
+        unregistered_hs_items_count = sum(
+            1 for it in extracted_items if not it.get("hs_code") or it.get("hs_code_status") in ("missing", "unregistered")
+        )
+
         result: Dict[str, Any] = {
             "po_number": self._extract_po_number(text),
             "supplier_name": self._extract_supplier(text),
@@ -27,7 +36,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             "supplier_phone": self._extract_supplier_phone(text),
             "supplier_email": self._extract_supplier_email(text),
             "supplier_tax_id": self._extract_supplier_tax_id(text),
-            "supplier_country": self._extract_country(text),
+            "supplier_country": top_cty,
             "importer_name": self._extract_importer_name(text),
             "importer_address": self._extract_importer_address(text),
             "importer_phone": self._extract_importer_phone(text),
@@ -41,8 +50,8 @@ class PurchaseOrderExtractor(BaseExtractor):
             ], text),
             "currency": self.normalize_currency(text),
             "incoterms": self.normalize_incoterms(text),
-            "country_of_origin": self._extract_country(text),
-            "hs_code": self._extract_hs_code(text),
+            "country_of_origin": top_cty,
+            "hs_code": top_hs,
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
             "total_amount": self.find_float([
@@ -51,7 +60,12 @@ class PurchaseOrderExtractor(BaseExtractor):
                 r"(?:total)[:\s]+(?:[A-Z]{3}\s*|\$\s*)?([0-9,]+\.?\d*)",
                 r"[A-Z]{3}\s+([0-9,]+\.?\d*)\s*$",
             ], text),
-            "items": self._extract_line_items(text),
+            "items": extracted_items,
+            "unregistered_hs_items_count": unregistered_hs_items_count,
+            "hs_code_compliance_warning": (
+                f"⚠️ يوجد {unregistered_hs_items_count} بند/أصناف بدون بند تعريفة مسجل (HS Code). يجب ربطها بجدول التعريفة الجمركية (MD-008)."
+                if unregistered_hs_items_count > 0 else None
+            ),
             "packing_list_items": self._extract_packing_list_items(text),
         }
         return result
@@ -59,32 +73,58 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_po_number(self, text: str) -> Optional[str]:
         return self.find_first([
             r"COMMERCIAL\s+INVOICE\s+([Vv]\d+/\s*\d+)",
-            r"INVOICE\s+Nr\.\s*([A-Z0-9/\-]+)",
+            r"INVOICE\s+Nr\.?\s*([A-Z0-9/\-]+)",
+            r"Invoice\s+(?:No\.?|Number|#|Nr\.?)[:\s]*([A-Z0-9/\-]+)",
             r"P\.?O\.?\s*(?:No\.?|Number|#|Num)[:\s]*([A-Z0-9/\-]+(?:\s+Ever)?)",
             r"Purchase\s+Order\s+(?:No\.?|Number|#)?[:\s]*([A-Z0-9/\-]+(?:\s+Ever)?)",
             r"Order\s+Number[:\s]*([A-Z0-9/\-]+)",
             r"(?:Commercial\s+)?Invoice\s*(?:No\.?|Number|#|Num)[:\s]*([A-Z0-9/\-]+)",
             r"INV\.\s*NO\.\s*:?\s*([A-Z0-9/\-]+)",
-            r"Inv(?:oice)?\s*(?:No\.?|#)[:\s]*([A-Z0-9/\-]+)",
             r"Order\s+(?:No\.?|#)[:\s]*([A-Z0-9/\-]+)",
             r"(?:PO)[:\s]*([A-Z0-9/\-]{4,})",
         ], text)
 
     def _extract_supplier(self, text: str) -> Optional[str]:
+        # Filter out common disclaimers & footer text
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+
+        # 1. Multi-line top header extraction (e.g. UAB Narbutas \n International)
+        for i in range(min(12, len(lines))):
+            curr = lines[i]
+            upper = curr.upper()
+            if "NARBUTAS" in upper:
+                if i + 1 < len(lines) and "INTERNATIONAL" in lines[i + 1].upper():
+                    return f"{curr} {lines[i + 1]}".strip()
+                return curr
+
+        # 2. Labeled seller pattern
         labeled = self.find_first([
-            r"(?:Supplier|Vendor|Seller|Exporter|Shipper|From|Sold By|Beneficiary|Shipped By)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"(?:Supplier|Vendor|Seller|Exporter|Shipper|Sold By|Beneficiary|Shipped By)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
             r"(?:Company|Messrs|M/S|Messers)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
         ], text)
         if labeled:
-            return labeled.strip()
+            clean = labeled.strip()
+            if not any(disclaimer in clean.lower() for disclaimer in ["buyer", "processed", "suspended", "payment"]):
+                return clean
 
-        lines = [line.strip() for line in text.splitlines() if line.strip()][:25]
-        for line in lines:
+        # 3. Known supplier patterns in top 20 lines
+        disallowed_keywords = [
+            "COMMERCIAL INVOICE", "PACKING LIST", "PURCHASE ORDER", "ORDER DATE",
+            "BILL TO", "SHIP TO", "TAX ID", "VAT NUMBER", "PLEASE PROVIDE",
+            "BUYER", "SUSPENDED", "PROCESSED", "TERMS", "INVOICE NR",
+        ]
+        for line in lines[:20]:
             upper = line.upper()
-            if any(kw in upper for kw in ["NARBUTAS", "G.I. INDUSTRIAL", "LIMITED", "LTD", "INC", "CORP", "CORPORATION", "CO.", "GMBH", "LLC", "PLC", "S.P.A", "SHAWCONTRACT", "SHAW", "TEXTILE"]):
-                if not any(stop in upper for stop in ["COMMERCIAL INVOICE", "PACKING LIST", "PURCHASE ORDER", "ORDER DATE", "BILL TO", "SHIP TO", "TAX ID", "VAT NUMBER"]):
+            if any(kw in upper for kw in ["UAB", "G.I. INDUSTRIAL", "GMBH", "S.P.A", "SHAW CONTRACT", "SHAW", "LTD", "INC", "CORP", "LLC", "TEXTILE"]):
+                if not any(dis in upper for dis in disallowed_keywords):
                     return line
-        return lines[0] if lines else None
+
+        for line in lines[:10]:
+            upper = line.upper()
+            if len(line) >= 4 and not any(dis in upper for dis in disallowed_keywords) and not re.search(r"^\+?\d", line):
+                return line
+
+        return None
 
     def _extract_supplier_phone(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -96,7 +136,7 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_supplier_email(self, text: str) -> Optional[str]:
-        m = re.search(r"\b([a-zA-Z0-9._%+-]+@(?!archi-brands|ecoasso)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
+        m = re.search(r"\b([a-zA-Z0-9._%+-]+@(?!archi-brands|ecoasso|scas)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
         if m:
             return m.group(1)
         web = re.search(r"\b(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b", text)
@@ -104,32 +144,73 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _extract_supplier_tax_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:VAT\s+Number|VAT\s+No\.?|P\.IVA|Enterprise\s+code)[:\s]*([A-Za-z0-9]+)",
+            r"(?:VAT\s+Number|VAT\s+No\.?|VAT\s+LT|P\.IVA|Enterprise\s+code)[:\s]*([A-Za-z0-9]+)",
             r"C\.F\.\s*([0-9]+)",
             r"EXPORTER\s+REGISTRATION\s+NUMBER[:\s]*([0-9]+)",
         ], text)
 
     def _extract_supplier_address(self, text: str) -> Optional[str]:
-        # Look for address lines after supplier name in header
-        match = re.search(r"(?:Road|Street|Town|City|g\.|Via|No\.\d+)[^\n]{5,80}", text, re.IGNORECASE)
-        return match.group(0).strip() if match else None
+        # Exclude Bank address section and extract address from top supplier header
+        top_text = text
+        bank_split = re.split(r"(?:Bank\s+address|OUR\s+BANK\s+INFORMATION)", text, flags=re.IGNORECASE)
+        if bank_split:
+            top_text = bank_split[0]
+
+        match = re.search(r"(?:Eitmin[ųu]\s+g\.\s*\d+[^\n]*|Via[^\n]*|Road[^\n]*|Street[^\n]*|No\.\d+[^\n]*|Town[^\n]*|City[^\n]*)", top_text, re.IGNORECASE)
+        if match:
+            clean = match.group(0).strip()
+            clean = re.sub(r"\s*VAT\s+[A-Z0-9]+", "", clean, flags=re.IGNORECASE)
+            return clean
+
+        # Fallback to general search
+        match_gen = re.search(r"(?:Eitmin[ųu]\s+g\.\s*\d+|Konstitucijos\s+pr\.|Road|Street|Town|City|g\.|Via|No\.\d+)[^\n]{5,80}", text, re.IGNORECASE)
+        if match_gen:
+            clean = match_gen.group(0).strip()
+            clean = re.sub(r"\s*VAT\s+[A-Z0-9]+", "", clean, flags=re.IGNORECASE)
+            return clean
+        return None
 
     def _extract_importer_name(self, text: str) -> Optional[str]:
-        return self.find_first([
+        # 1. Multi-line under Customer / Sold to header
+        customer_block = re.search(r"(?:Customer|Sold\s+To|Bill\s+To|Consignee)\s*\n\s*([A-Za-z0-9\s&,.'-]{3,60})", text, re.IGNORECASE)
+        if customer_block:
+            name = customer_block.group(1).strip()
+            if not any(stop in name.lower() for stop in ["requisition", "order", "ref", "informa", "invoice", "date"]):
+                return name
+
+        # 2. Match known Egyptian importer entities
+        known_match = re.search(
+            r"\b(Archi\s*Brands\s+(?:for\s+Corpet\s+and\s+Floor\s+Trading|for\s+Carpet\s+and\s+Floor\s+Trading)?|SCAS\s+Construction\s+&Finishing|ECO\s+ASSOCIATES)\b",
+            text,
+            re.IGNORECASE,
+        )
+        if known_match:
+            return known_match.group(1).strip()
+
+        # 3. Labeled pattern excluding requisition
+        labeled = self.find_first([
             r"(?:SOLD\s+TO|Bill\s+To|Ship\s+To|Customer|Messrs)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
-            r"(?:To|NOTIFY)[:\s]+(ARCHI\s+BRANDS[^\n]*|SCAS\s+CONSTRUCTION[^\n]*|ECO\s+ASSOCIATES[^\n]*)",
-            r"\b(ARCHI\s+BRANDS\s+FOR\s+CORPET\s+AND\s+FLOOR\s+TRADING|SCAS\s+Construction\s+&Finishing|ECO\s+ASSOCIATES)\b",
+            r"(?:To|NOTIFY)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
         ], text)
+        if labeled:
+            clean = labeled.strip()
+            if not any(stop in clean.lower() for stop in ["requisition", "informa", "order", "date", "slip"]):
+                return clean
+
+        return None
 
     def _extract_importer_address(self, text: str) -> Optional[str]:
-        match = re.search(r"(?:44\s+Street|42,\s*RD|7\s+HOSNI|Maadi)[^\n]{5,80}", text, re.IGNORECASE)
-        return match.group(0).strip() if match else None
+        match = re.search(r"(?:Maadi,\s*Street\s*18[^\n]*|Maadi[^\n]*Cairo[^\n]*|44\s+Street|42,\s*RD|7\s+HOSNI)[^\n]{5,80}", text, re.IGNORECASE)
+        if match:
+            clean = match.group(0).strip()
+            clean = re.sub(r"\s+Maadi\s*$", "", clean, flags=re.IGNORECASE)
+            return clean
+        return None
 
     def _extract_importer_phone(self, text: str) -> Optional[str]:
         match = re.search(r"(\+20\s*[0-9\s\-]{8,15})", text)
         if match:
             return match.group(1).strip()
-        # Look near Hana Bayoumi or ECO Associates contact
         match2 = re.search(r"(?:Hana\s+Bayoumi|Tel\.:?\s*\+20)[^\n]*?(\+?[0-9\s\-]{10,18})", text)
         return match2.group(1).strip() if match2 else None
 
@@ -177,10 +258,11 @@ class PurchaseOrderExtractor(BaseExtractor):
         return raw_date
 
     def _extract_country(self, text: str) -> Optional[str]:
+        # Match only exact ISO country tokens
         found = self.find_first([
-            r"(?:Country\s+of\s+origin|Country\s+Of\s+Origin|Incoterms\s+Location|Origin)[:\s]+([A-Za-z\s]{2,30})",
-            r"(?:FROM\s+[A-Z\s]+\s+TO\s+([A-Z\s]+))",
-            r"\b(Lithuania|Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|UK|CN|DE|IT|TR|FR|ES|GB|LT)\b",
+            r"(?:Country\s+of\s+origin|Country\s+Of\s+Origin|Incoterms\s+Location|Origin)[:\s]+([A-Za-z]{2,20})\b",
+            r"(?:FROM\s+[A-Z\s]+\s+TO\s+([A-Z]{2,20})\b)",
+            r"\b(Lithuania|Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|UK|Egypt)\b",
         ], text)
         if not found:
             return None
@@ -199,6 +281,8 @@ class PurchaseOrderExtractor(BaseExtractor):
             return "DE"
         if c in ["TURKEY"]:
             return "TR"
+        if c in ["EGYPT", "EGY"]:
+            return "EG"
         return c
 
     def _extract_port(self, text: str) -> Optional[str]:
@@ -215,17 +299,19 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
 
     def _extract_hs_code(self, text: str) -> Optional[str]:
+        # Only match explicit HS code headers, never arbitrary enterprise/tax codes
         found = self.find_first([
             r"(?:Customs\s+Tariff|HS\s+CODE|H\.S\.\s+CODE|Tariff\s+Code|Harmonized\s+System|Tariff\s+No\.?|HSCode)[:\s]*([0-9]{4,10}(?:\.[0-9]{2,4})?)",
-            r"(?:Statistical\s+code|HS\s+code|Customs\s+code)[:\s]*([0-9]{4,10})",
+            r"(?:Statistical\s+code|Customs\s+code)[:\s]*([0-9]{4,10})",
             r"\b(5602\d{4,6}|8415\d{4,6}|9403\d{4,6}|[0-9]{4}\.[0-9]{2}\.[0-9]{2,4})\b",
-            r"\b([0-9]{8,10})\b",
         ], text)
         if found:
-            return found.replace(".", "").strip()
+            clean = found.replace(".", "").strip()
+            if len(clean) in (6, 8, 10):
+                return clean
         return None
 
-    def _extract_line_items(self, text: str) -> List[Dict[str, Any]]:
+    def _extract_line_items(self, text: str, default_hs: Optional[str] = None, default_cty: Optional[str] = None) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []
 
         # 1. Narbutas / Standard Invoice item row pattern
@@ -313,13 +399,20 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "total_price": qty * price,
                 })
 
-        top_hs = self._extract_hs_code(text)
-        top_cty = self._extract_country(text)
         for item in items:
-            if not item.get("hs_code") and top_hs:
-                item["hs_code"] = top_hs
-            if not item.get("country_of_origin") and top_cty:
-                item["country_of_origin"] = top_cty
+            if not item.get("hs_code") and default_hs:
+                item["hs_code"] = default_hs
+            if not item.get("country_of_origin") and default_cty:
+                item["country_of_origin"] = default_cty
+
+            # Check HS code compliance & validation status
+            curr_hs = item.get("hs_code")
+            if not curr_hs or str(curr_hs).strip() == "":
+                item["hs_code_status"] = "missing"
+                item["hs_code_warning"] = "⚠️ بند التعريفة الجمركية (HS Code) غير محدد. يجب اختياره لتطبيق الرسوم الجمركية بدقة."
+            else:
+                item["hs_code_status"] = "registered"
+                item["hs_code_warning"] = None
 
         return items[:50]
 
@@ -349,8 +442,8 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "length_cm": 120.0,
                     "width_cm": 80.0,
                     "height_cm": 150.0,
-                    "gross_weight_unit_kg": gross_val / pkg_count if pkg_count > 0 else gross_val,
-                    "net_weight_unit_kg": net_val / pkg_count if pkg_count > 0 else net_val,
+                    "gross_weight_unit_kg": round(gross_val / pkg_count, 2) if pkg_count > 0 else gross_val,
+                    "net_weight_unit_kg": round(net_val / pkg_count, 2) if pkg_count > 0 else net_val,
                     "total_gross_weight_kg": gross_val,
                     "total_net_weight_kg": net_val,
                     "total_cbm": cbm_val,
@@ -384,8 +477,8 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "length_cm": l_mm / 10.0,
                     "width_cm": w_mm / 10.0,
                     "height_cm": h_mm / 10.0,
-                    "gross_weight_unit_kg": gross_wt / pkg_count if pkg_count > 0 else gross_wt,
-                    "net_weight_unit_kg": net_wt / pkg_count if pkg_count > 0 else net_wt,
+                    "gross_weight_unit_kg": round(gross_wt / pkg_count, 2) if pkg_count > 0 else gross_wt,
+                    "net_weight_unit_kg": round(net_wt / pkg_count, 2) if pkg_count > 0 else net_wt,
                     "total_gross_weight_kg": gross_wt,
                     "total_net_weight_kg": net_wt,
                     "is_stackable": False if ("RTAXT" in code or h_mm > 1500) else True,

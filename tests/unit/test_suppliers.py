@@ -1,4 +1,5 @@
 import unittest
+from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -61,8 +62,9 @@ class TestSuppliersBackend(unittest.TestCase):
         create_supplier_service(self.db, supplier_data)
 
         # Attempt duplicate
-        dup = create_supplier_service(self.db, supplier_data)
-        self.assertIsNone(dup)
+        with self.assertRaises(HTTPException) as ctx:
+            create_supplier_service(self.db, supplier_data)
+        self.assertEqual(ctx.exception.status_code, 400)
 
     def test_soft_delete_and_restore_supplier(self):
         supplier_data = SupplierCreate(

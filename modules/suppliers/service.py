@@ -29,17 +29,15 @@ def generate_supplier_code(db: Session) -> str:
 # Create Supplier Service
 # ==================================================
 
-def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Supplier | None:
-    code = getattr(supplier_data, "supplier_code", None) or generate_supplier_code(db)
+def create_supplier_service(db: Session, supplier_data: SupplierCreate) -> Supplier:
+    from .validators import validate_supplier
+    validate_supplier(db, supplier_data)
 
+    code = getattr(supplier_data, "supplier_code", None) or generate_supplier_code(db)
     exporter_id = (supplier_data.foreign_exporter_id or "").strip()
     if not exporter_id:
         exporter_id = f"EXP-{code}"
         supplier_data.foreign_exporter_id = exporter_id
-    else:
-        existing = get_supplier_by_exporter_id(db, exporter_id)
-        if existing:
-            return None
 
     supplier_dict = supplier_data.model_dump()
     supplier_dict["supplier_code"] = code

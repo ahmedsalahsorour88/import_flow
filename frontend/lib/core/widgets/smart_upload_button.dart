@@ -700,8 +700,15 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                         }
                       } catch (e) {
                         setDialogState(() => isSaving = false);
+                        String msg = '$e';
+                        if (e is DioException && e.response?.data != null) {
+                          final data = e.response!.data;
+                          if (data is Map && data['detail'] != null) {
+                            msg = data['detail'].toString();
+                          }
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('فشل حفظ المورد: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text('فشل حفظ المورد: $msg'), backgroundColor: AppTheme.crimson, duration: const Duration(seconds: 5)),
                         );
                       }
                     },
@@ -825,8 +832,15 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                         }
                       } catch (e) {
                         setDialogState(() => isSaving = false);
+                        String msg = '$e';
+                        if (e is DioException && e.response?.data != null) {
+                          final data = e.response!.data;
+                          if (data is Map && data['detail'] != null) {
+                            msg = data['detail'].toString();
+                          }
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('فشل حفظ الشركة: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text('فشل حفظ الشركة: $msg'), backgroundColor: AppTheme.crimson, duration: const Duration(seconds: 5)),
                         );
                       }
                     },

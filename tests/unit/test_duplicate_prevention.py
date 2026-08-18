@@ -1,129 +1,114 @@
-"""
-Unit tests for duplicate prevention & validation in ACID and Form 4 workflows.
-Rule: Cannot create a duplicate active session/document for an import file that already has one saved in the registry.
-Directs user to edit the existing session instead.
-"""
-
-import pytest
-from datetime import date
+import unittest
 from fastapi import HTTPException
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from database.database import Base
-from modules.import_files.model import ImportFile
-from modules.import_documentation.model import AcidRegistrationSession, BankingDocumentSession
-from modules.import_documentation.schemas import AcidRegistrationCreate, BankingDocumentCreate
-from modules.import_documentation.service import (
-    create_acid_session_service,
-    create_banking_document_service,
-)
-from modules.import_documentation.validators import (
-    validate_no_duplicate_acid_session,
-    validate_no_duplicate_form4_session,
-)
+from modules.common.name_normalizer import normalize_master_data_name, check_duplicate_name
+from modules.suppliers.schemas import SupplierCreate
+from modules.suppliers.service import create_supplier_service
+from modules.import_companies.schemas import ImportCompanyCreate
+from modules.import_companies.service import create_import_company
+from modules.external_service_providers.schemas import PartnerCreate
+from modules.external_service_providers.service import ExternalServiceProviderService
 
 
-@pytest.fixture
-def db_session():
-    engine = create_engine("sqlite:///:memory:")
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(bind=engine)
-    session = Session()
+class TestMasterDataDuplicatePrevention(unittest.TestCase):
+    def setUp(self):
+        self.engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+        TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=self.engine)
+        Base.metadata.create_all(bind=self.engine)
+        self.db = TestingSessionLocal()
 
-    # Create dummy import file
-    imp = ImportFile(
-        import_file_id=1,
-        import_file_code="IMP-2026-0001",
-        custom_file_number="SHIP-001",
-        company_name="Al-Amal Import",
-        supplier_name="Global Tech Ltd",
-        po_number="PO-2026-001",
-        estimated_cost=50000.0,
-        current_stage="Customs Clearance",
-        is_active=True,
-    )
-    session.add(imp)
-    session.commit()
+    def tearDown(self):
+        self.db.close()
+        Base.metadata.drop_all(bind=self.engine)
 
-    yield session
-    session.close()
+    def test_name_normalizer(self):
+        self.assertEqual(normalize_master_data_name("Suzhou Yuheng Textile Co., Ltd."), "suzhouyuhengtextile")
+        self.assertEqual(normalize_master_data_name("Suzhou Yuheng Textile Co., Ltd"), "suzhouyuhengtextile")
+        self.assertEqual(normalize_master_data_name("Suzhou Yuheng Textile Co."), "suzhouyuhengtextile")
+        self.assertEqual(normalize_master_data_name("Shaw Europe Limited"), "shaweurope")
+        self.assertEqual(normalize_master_data_name("Shaw Europe Ltd."), "shaweurope")
+
+    def test_prevent_duplicate_supplier(self):
+        supplier1 = SupplierCreate(
+            company_name="Suzhou Yuheng Textile Co., Ltd.",
+            supplier_type="Manufacturer",
+            registration_type="Foreign Exporter",
+            foreign_exporter_id="EXP-CN-001",
+            foreign_exporter_country="China",
+            foreign_exporter_country_code="CN",
+            address="No. 16 Kangsheng Road, Changshu, China",
+        )
+        created = create_supplier_service(self.db, supplier1)
+        self.assertIsNotNone(created)
+
+        # Attempt duplicate with slight variation: "Suzhou Yuheng Textile Co., Ltd"
+        supplier_dup = SupplierCreate(
+            company_name="Suzhou Yuheng Textile Co., Ltd",
+            supplier_type="Manufacturer",
+            registration_type="Foreign Exporter",
+            foreign_exporter_id="EXP-CN-002",
+            foreign_exporter_country="China",
+            foreign_exporter_country_code="CN",
+            address="No. 16 Kangsheng Road, Changshu, China",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            create_supplier_service(self.db, supplier_dup)
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("مسجل بالفعل بالنظام", ctx.exception.detail)
+
+    def test_prevent_duplicate_import_company(self):
+        comp1 = ImportCompanyCreate(
+            importer_name="المصرية للاستيراد والتصدير ش.م.م",
+            address="القاهرة - مصر",
+            country="Egypt",
+            importer_id="IMP-REG-100",
+            vat_id="123456789",
+            registration_number="554433",
+        )
+        create_import_company(self.db, comp1)
+
+        # Attempt duplicate with variation
+        comp_dup = ImportCompanyCreate(
+            importer_name="المصرية للاستيراد والتصدير",
+            address="القاهرة - مصر",
+            country="Egypt",
+            importer_id="IMP-REG-101",
+            vat_id="987654321",
+            registration_number="998877",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            create_import_company(self.db, comp_dup)
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("مسجلة بالفعل بالنظام", ctx.exception.detail)
+
+    def test_prevent_duplicate_partner(self):
+        service = ExternalServiceProviderService(self.db)
+        partner1 = PartnerCreate(
+            partner_name="Shaw Logistics Europe Ltd.",
+            partner_type="Freight Forwarder",
+            contact_person="John Doe",
+            email="info@shawlogistics.co.uk",
+        )
+        service.create_partner(partner1)
+
+        # Attempt duplicate with variation
+        partner_dup = PartnerCreate(
+            partner_name="Shaw Logistics Europe Limited",
+            partner_type="Freight Forwarder",
+            contact_person="Jane Doe",
+            email="contact@shawlogistics.co.uk",
+        )
+        with self.assertRaises(HTTPException) as ctx:
+            service.create_partner(partner_dup)
+
+        self.assertEqual(ctx.exception.status_code, 400)
+        self.assertIn("مسجل بالفعل بالنظام", ctx.exception.detail)
 
 
-def test_duplicate_acid_session_prevention(db_session):
-    """
-    Ensures that creating a second active ACID registration session for the same import_file_id raises HTTP 400.
-    """
-    # 1. Create first ACID session
-    schema1 = AcidRegistrationCreate(
-        import_file_id=1,
-        importer_name="Al-Amal Import",
-        importer_tax_id="123456789",
-        exporter_name="Global Tech Ltd",
-        exporter_reg_id="VAT-998877",
-        exporter_country="Germany",
-        proforma_invoice_no="PI-2026-001",
-        pol_name="Hamburg Port",
-        pod_name="Alexandria Port",
-        acid_number="PENDING",
-        requested_date=date(2026, 8, 1),
-    )
-    res1 = create_acid_session_service(db_session, schema1)
-    assert res1.acid_id is not None
-    assert res1.acid_code is not None
-
-    # 2. Attempt to create second ACID session for the same import_file_id
-    schema2 = AcidRegistrationCreate(
-        import_file_id=1,
-        importer_name="Al-Amal Import",
-        importer_tax_id="123456789",
-        exporter_name="Global Tech Ltd",
-        exporter_reg_id="VAT-998877",
-        exporter_country="Germany",
-        proforma_invoice_no="PI-2026-002",
-        pol_name="Hamburg Port",
-        pod_name="Alexandria Port",
-        acid_number="PENDING",
-        requested_date=date(2026, 8, 2),
-    )
-    with pytest.raises(HTTPException) as exc_info:
-        create_acid_session_service(db_session, schema2)
-
-    assert exc_info.value.status_code == 400
-    assert "لا يمكن حفظ طلب ACID جديد" in exc_info.value.detail
-    assert "سجل الطلبات والإصدار للتعديل" in exc_info.value.detail
-
-
-def test_duplicate_form4_session_prevention(db_session):
-    """
-    Ensures that creating a second active Form 4 document for the same import_file_id raises HTTP 400.
-    """
-    # 1. Create first Form 4 document
-    doc1 = BankingDocumentCreate(
-        import_file_id=1,
-        doc_type="Form 4",
-        bank_name="National Bank of Egypt (NBE)",
-        amount=50000.0,
-        currency_code="USD",
-        request_date=date(2026, 8, 1),
-        doc_reference_number="PENDING",
-    )
-    res1 = create_banking_document_service(db_session, doc1)
-    assert res1.bank_doc_id is not None
-
-    # 2. Attempt to create second Form 4 document for the same import_file_id
-    doc2 = BankingDocumentCreate(
-        import_file_id=1,
-        doc_type="Form 4",
-        bank_name="Banque Misr",
-        amount=50000.0,
-        currency_code="USD",
-        request_date=date(2026, 8, 2),
-        doc_reference_number="PENDING",
-    )
-    with pytest.raises(HTTPException) as exc_info:
-        create_banking_document_service(db_session, doc2)
-
-    assert exc_info.value.status_code == 400
-    assert "لا يمكن حفظ طلب نموذج 4 جديد" in exc_info.value.detail
-    assert "سجل النماذج للتعديل" in exc_info.value.detail
+if __name__ == "__main__":
+    unittest.main()

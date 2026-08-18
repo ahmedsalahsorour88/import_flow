@@ -6,6 +6,8 @@ import '../widgets/nafeza_fee_breakdown_card.dart';
 import '../widgets/consultation_details_dialog.dart';
 import '../widgets/post_save_status_dialog.dart';
 import '../widgets/consultation_metric_badge.dart';
+import '../widgets/add_checklist_item_dialog.dart';
+import '../widgets/add_custom_expense_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -733,118 +735,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   void _addChecklistItem() {
     showDialog(
       context: context,
-      builder: (context) {
-        final docController = TextEditingController();
-        final hsController = TextEditingController();
-        final agencyController = TextEditingController();
-        final remarksController = TextEditingController();
-        bool isReq = true;
-        bool isBlock = true;
-        String party = 'Customs Broker';
-        String itemStatus = 'Pending';
-
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: const Text('إضافة بند جديد في قائمة الفحص الجمركي (Customs Checklist)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-              content: SizedBox(
-                width: 500,
-                child: SingleChildScrollView(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: docController,
-                        decoration: const InputDecoration(labelText: 'نوع المستند / الموافقة الجمركية *', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: hsController,
-                        decoration: const InputDecoration(labelText: 'بند التعريفة الجمركية المرتبط (HS Code)', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 12),
-                      SearchableDropdownField<String>(
-                        value: party,
-                        labelText: 'الجهة المسؤولة عن المستند',
-                        items: const [
-                          SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (المستخلص الجمركي)'),
-                          SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter (المورد الخارجي)'),
-                          SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team (فريق الاستيراد)'),
-                          SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة الشحن)'),
-                        ],
-                        onChanged: (v) => setDialogState(() => party = v!),
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: agencyController,
-                        decoration: const InputDecoration(labelText: 'الجهة الرقابية / العرض الجمركي (GOEIC, NTRA, Food Safety...)', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 12),
-                      SearchableDropdownField<String>(
-                        value: itemStatus,
-                        labelText: 'حالة المستند المبدئية',
-                        items: const [
-                          SearchableDropdownItem(value: 'Pending', label: 'Pending (قيد الانتظار)'),
-                          SearchableDropdownItem(value: 'Received', label: 'Received (تم الاستلام)'),
-                          SearchableDropdownItem(value: 'Verified', label: 'Verified (تم التدقيق)'),
-                          SearchableDropdownItem(value: 'Approved', label: 'Approved (معتمد جمركياً)'),
-                          SearchableDropdownItem(value: 'Rejected', label: 'Rejected (مرفوض / يتطلب إجراء)'),
-                        ],
-                        onChanged: (v) => setDialogState(() => itemStatus = v!),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: isReq,
-                            onChanged: (v) => setDialogState(() => isReq = v!),
-                          ),
-                          const Text('مستند إجباري (Required)'),
-                          const Spacer(),
-                          Checkbox(
-                            value: isBlock,
-                            onChanged: (v) => setDialogState(() => isBlock = v!),
-                          ),
-                          const Text('يعطل الشحنة (Blocking Shipment)'),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      TextField(
-                        controller: remarksController,
-                        decoration: const InputDecoration(labelText: 'ملاحظات المستخلص / المتطلبات', border: OutlineInputBorder()),
-                        maxLines: 2,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                  onPressed: () {
-                    if (docController.text.trim().isEmpty) return;
-                    setState(() {
-                      _checklist.add(CustomsChecklistItemModel(
-                        documentType: docController.text.trim(),
-                        hsCode: hsController.text.trim().isNotEmpty ? hsController.text.trim() : null,
-                        isRequired: isReq,
-                        isBlockingShipment: isBlock,
-                        responsibleParty: party,
-                        status: itemStatus,
-                        regulatoryAgency: agencyController.text.trim().isNotEmpty ? agencyController.text.trim() : null,
-                        remarks: remarksController.text.trim().isNotEmpty ? remarksController.text.trim() : null,
-                      ));
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: const Text('إضافة البند', style: TextStyle(color: Colors.white)),
-                ),
-              ],
-            );
-          },
-        );
-      },
+      builder: (context) => AddChecklistItemDialog(
+        onItemAdded: (item) {
+          setState(() => _checklist.add(item));
+        },
+      ),
     );
   }
 
@@ -937,111 +832,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   }
 
   void _addCustomBrokerExpenseRow() {
-    final nameCtrl = TextEditingController();
-    final priceCtrl = TextEditingController(text: '0.0');
-    final qtyCtrl = TextEditingController(text: '1.0');
-    String selectedCategory = 'Other Fees (مصاريف أخرى)';
-    String selectedUnit = 'Fixed (مبلغ ثابت)';
-    String selectedCurrency = 'EGP';
-
     showDialog(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDlgState) => AlertDialog(
-          title: const Row(
-            children: [
-              Icon(Icons.add_circle, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('إضافة بند مصروف تخليص / نقل مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-            ],
-          ),
-          content: SizedBox(
-            width: 450,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  controller: nameCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم البند / نوع المصروف *', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 12),
-                SearchableDropdownField<String>(
-                  value: selectedCategory,
-                  labelText: 'التصنيف',
-                  searchHintText: 'ابحث عن التصنيف...',
-                  items: const [
-                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
-                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
-                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
-                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
-                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
-                  ],
-                  onChanged: (v) => setDlgState(() => selectedCategory = v ?? selectedCategory),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: priceCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'السعر', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: SearchableDropdownField<String>(
-                        value: selectedCurrency,
-                        labelText: 'العملة',
-                        searchHintText: 'ابحث عن العملة...',
-                        items: const [
-                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
-                          SearchableDropdownItem(value: 'USD', label: 'USD'),
-                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
-                        ],
-                        onChanged: (v) => setDlgState(() => selectedCurrency = v ?? 'EGP'),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: qtyCtrl,
-                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                        decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
-              onPressed: () {
-                final name = nameCtrl.text.trim();
-                if (name.isEmpty) return;
-                final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
-                final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
-                setState(() {
-                  _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
-                    expenseName: name,
-                    category: selectedCategory,
-                    unitType: selectedUnit,
-                    unitPrice: price,
-                    currency: selectedCurrency,
-                    qty: qty,
-                    isApplicable: true,
-                    totalAmount: price * qty,
-                  ));
-                });
-                Navigator.pop(ctx);
-              },
-              child: const Text('إضافة البند للعرض', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
+      builder: (ctx) => AddCustomExpenseDialog(
+        onExpenseAdded: (item) {
+          setState(() => _brokerQuoteItems.add(item));
+        },
       ),
     );
   }

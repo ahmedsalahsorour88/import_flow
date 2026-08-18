@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:frontend/core/theme/app_theme.dart';
 import 'package:frontend/core/constants/api_constants.dart';
+import 'package:frontend/core/widgets/searchable_dropdown_field.dart';
 
 enum EntityTarget { supplier, company, partner, bank }
 
@@ -52,7 +53,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final TextEditingController _addressCtrl = TextEditingController();
   final TextEditingController _countryCtrl = TextEditingController();
   final TextEditingController _industryCtrl = TextEditingController();
+  final TextEditingController _commercialRegisterCtrl = TextEditingController();
+  final TextEditingController _importerIdCtrl = TextEditingController();
+  final TextEditingController _swiftCodeCtrl = TextEditingController();
+  final TextEditingController _bankAccountCtrl = TextEditingController();
 
+  String _partnerTypeStr = 'Freight Forwarder';
   String? _selectedFileName;
   double _confidenceScore = 0.0;
 
@@ -75,6 +81,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _addressCtrl.dispose();
     _countryCtrl.dispose();
     _industryCtrl.dispose();
+    _commercialRegisterCtrl.dispose();
+    _importerIdCtrl.dispose();
+    _swiftCodeCtrl.dispose();
+    _bankAccountCtrl.dispose();
     super.dispose();
   }
 
@@ -170,6 +180,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       _addressCtrl.text = ext['address']?.toString() ?? '';
       _countryCtrl.text = ext['country_code']?.toString() ?? '';
       _industryCtrl.text = ext['industry_description']?.toString() ?? '';
+      _commercialRegisterCtrl.text = ext['commercial_register']?.toString() ?? '';
+      _importerIdCtrl.text = ext['importer_id']?.toString() ?? '';
+      _swiftCodeCtrl.text = ext['swift_code']?.toString() ?? '';
+      _bankAccountCtrl.text = ext['bank_account']?.toString() ?? ext['iban']?.toString() ?? '';
     });
   }
 
@@ -177,7 +191,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     final name = _companyNameCtrl.text.trim();
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('برجاء إدخال اسم الشركة أو المورد على الأقل.'), backgroundColor: AppTheme.orange),
+        const SnackBar(content: Text('⚠️ اسم الشركة / الجهة مطلوب لإتمام الحفظ والتكويد.'), backgroundColor: AppTheme.orange),
       );
       return;
     }
@@ -191,58 +205,84 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       switch (_selectedTarget) {
         case EntityTarget.supplier:
           endpoint = '${ApiConstants.baseUrl}/suppliers';
-          final cty = _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'United Kingdom';
-          final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'GB';
+          final cty = _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'China';
+          final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'CN';
+          final taxId = _taxIdCtrl.text.trim();
           payload = {
             'company_name': name,
             'supplier_type': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'Manufacturer',
             'registration_type': 'Foreign Exporter',
-            'foreign_exporter_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
+            'foreign_exporter_id': taxId.isNotEmpty ? taxId : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
             'foreign_exporter_country': cty,
             'foreign_exporter_country_code': ctyCode,
-            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Exporter Address',
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Foreign Exporter Address',
+            'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
             'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'website': _websiteCtrl.text.trim(),
+            'brands': _industryCtrl.text.trim(),
           };
           break;
+
         case EntityTarget.company:
           endpoint = '${ApiConstants.baseUrl}/import-companies';
+          final impId = _importerIdCtrl.text.trim();
+          final vatId = _taxIdCtrl.text.trim();
+          final regNum = _commercialRegisterCtrl.text.trim();
           payload = {
             'importer_name': name,
-            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
+            'company_type': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'LLC',
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'القاهرة - مصر',
             'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
-            'importer_id': 'IMP-${DateTime.now().millisecondsSinceEpoch}',
+            'importer_id': impId.isNotEmpty ? impId : 'IMP-REG-${DateTime.now().millisecondsSinceEpoch}',
             'importer_id_expiry': '2030-12-31',
-            'vat_id': _taxIdCtrl.text.trim().isNotEmpty ? _taxIdCtrl.text.trim() : '000000000',
+            'vat_id': vatId.isNotEmpty ? vatId : '000000000',
             'vat_id_expiry': '2030-12-31',
-            'registration_number': '000000',
+            'registration_number': regNum.isNotEmpty ? regNum : '000000',
             'registration_expiry': '2030-12-31',
             'phone': _phoneCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
+            'contact_person': _contactPersonCtrl.text.trim(),
+            'bank_name': 'Commercial International Bank (CIB)',
+            'bank_account': _bankAccountCtrl.text.trim(),
+            'iban': _bankAccountCtrl.text.trim(),
+            'swift_code': _swiftCodeCtrl.text.trim(),
           };
           break;
+
         case EntityTarget.partner:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
           payload = {
-            'provider_name': name,
-            'service_category': _industryCtrl.text.trim().isNotEmpty ? _industryCtrl.text.trim() : 'Freight Forwarder',
+            'partner_name': name,
+            'partner_type': _partnerTypeStr,
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
+            'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
+            'website': _websiteCtrl.text.trim(),
             'address': _addressCtrl.text.trim(),
+            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
+            'tax_id': _taxIdCtrl.text.trim(),
+            'commercial_register': _commercialRegisterCtrl.text.trim(),
           };
           break;
+
         case EntityTarget.bank:
           endpoint = '${ApiConstants.baseUrl}/external-service-providers';
+          final swift = _swiftCodeCtrl.text.trim();
           payload = {
-            'provider_name': name,
-            'service_category': 'Bank',
+            'partner_name': name,
+            'partner_type': 'Bank',
+            'swift_code': swift.isNotEmpty ? swift : 'BANK-EG-SWIFT',
+            'bank_code': 'BNK-001',
+            'branch_name': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Main Branch',
             'contact_person': _contactPersonCtrl.text.trim(),
             'phone': _phoneCtrl.text.trim(),
+            'mobile': _mobileCtrl.text.trim(),
             'email': _emailCtrl.text.trim(),
             'address': _addressCtrl.text.trim(),
+            'country': _countryCtrl.text.trim().isNotEmpty ? _countryCtrl.text.trim() : 'Egypt',
           };
           break;
       }
@@ -250,11 +290,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       await dio.post(endpoint, data: payload);
 
       if (mounted) {
-        Navigator.pop(context);
+        setState(() => _isSaving = false);
+        Navigator.pop(context, true);
         widget.onSaved?.call();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم تكويد وتخصيص "$name" بنجاح!'),
+            content: Text('✅ تم تكويد وحفظ السجل كـ ${_targetLabel(_selectedTarget)} بنجاح!'),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -270,7 +311,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           }
         }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل التكويد: $msg'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(msg),
+            backgroundColor: AppTheme.crimson,
+            duration: const Duration(seconds: 6),
+          ),
         );
       }
     }
@@ -541,24 +586,112 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _taxIdCtrl,
-                                          decoration: const InputDecoration(labelText: 'الرقم الضريبي / VAT ID', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                                  // Dynamic Entity-Specific Fields
+                                  if (_selectedTarget == EntityTarget.company) ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _importerIdCtrl,
+                                            decoration: const InputDecoration(labelText: 'كود / بطاقة المستورد *', prefixIcon: Icon(Icons.card_membership_rounded, size: 18)),
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _industryCtrl,
-                                          decoration: const InputDecoration(labelText: 'نشاط الشركة / التصنيع', prefixIcon: Icon(Icons.category_rounded, size: 18)),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _commercialRegisterCtrl,
+                                            decoration: const InputDecoration(labelText: 'رقم السجل التجاري *', prefixIcon: Icon(Icons.receipt_long_rounded, size: 18)),
+                                          ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _taxIdCtrl,
+                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / Tax Card *', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _bankAccountCtrl,
+                                            decoration: const InputDecoration(labelText: 'رقم الحساب البنكي / IBAN', prefixIcon: Icon(Icons.account_balance_wallet_rounded, size: 18)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ] else if (_selectedTarget == EntityTarget.bank) ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _swiftCodeCtrl,
+                                            decoration: const InputDecoration(labelText: 'كود السويفت SWIFT Code *', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _bankAccountCtrl,
+                                            decoration: const InputDecoration(labelText: 'رقم الحساب / الآيبان IBAN', prefixIcon: Icon(Icons.account_balance_wallet_rounded, size: 18)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ] else if (_selectedTarget == EntityTarget.partner) ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: SearchableDropdownField<String>(
+                                            value: _partnerTypeStr,
+                                            labelText: 'نوع الشريك / الخدمة *',
+                                            items: const [
+                                              SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة شحن دولي)'),
+                                              SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (مخلص جمركي)'),
+                                              SearchableDropdownItem(value: 'Shipping Line', label: 'Shipping Line (خط شحن)'),
+                                              SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (ناقل داخلي)'),
+                                              SearchableDropdownItem(value: 'Inspection Agency', label: 'Inspection Agency (شركة فحص ومعاينة)'),
+                                            ],
+                                            onChanged: (v) {
+                                              if (v != null) setState(() => _partnerTypeStr = v);
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _taxIdCtrl,
+                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / السجل', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ] else ...[
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _taxIdCtrl,
+                                            decoration: const InputDecoration(labelText: 'الرقم الضريبي / VAT ID / Exporter ID', prefixIcon: Icon(Icons.badge_rounded, size: 18)),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _industryCtrl,
+                                            decoration: const InputDecoration(labelText: 'نشاط الشركة / التصنيع / البراندات', prefixIcon: Icon(Icons.category_rounded, size: 18)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
                                   TextField(
                                     controller: _addressCtrl,
                                     maxLines: 2,

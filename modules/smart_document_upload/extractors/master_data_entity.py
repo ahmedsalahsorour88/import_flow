@@ -33,6 +33,10 @@ class MasterDataEntityExtractor(BaseExtractor):
             "country_code": self._extract_country(text),
             "postcode": self._extract_postcode(text),
             "industry_description": self._extract_industry(text),
+            "commercial_register": self._extract_commercial_register(text),
+            "swift_code": self._extract_swift(text),
+            "bank_account": self._extract_iban(text),
+            "iban": self._extract_iban(text),
         }
         return result
 
@@ -154,3 +158,22 @@ class MasterDataEntityExtractor(BaseExtractor):
                 if not any(stop in upper for stop in ["ADDRESS:", "FACTORY ADDRESS", "FACTORY OWNER", "PHONE", "VAT NUMBER", "LIMITED", "LTD"]):
                     return line
         return None
+
+    def _extract_commercial_register(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Sijil|Enterprise\s+code)[:\s]*([A-Za-z0-9]+)",
+            r"Enterprise\s+code\s+([0-9]+)",
+            r"C\.R\.\s*([0-9]+)",
+        ], text)
+
+    def _extract_swift(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:SWIFT|Swift\s+Code|BIC|SWIFT/BIC)[:\s]*([A-Z0-9]{8,11})",
+            r"\b([A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b",
+        ], text)
+
+    def _extract_iban(self, text: str) -> Optional[str]:
+        return self.find_first([
+            r"(?:IBAN|Account\s+No\.?|Account)[:\s]*([A-Z0-9\s]{10,34})",
+            r"\b(EG\d{27})\b",
+        ], text)

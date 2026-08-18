@@ -70,7 +70,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         children: [
           // Header Banner
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [AppTheme.charcoal, AppTheme.cobalt],
@@ -82,25 +82,29 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               children: [
                 const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                const Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Purchase Orders & Proforma Invoices (أوامر الشراء والفواتير المبدئية)',
-                      style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                    ),
-                    Text(
-                      'المرحلة الأولى: إدارة وتسجيل أوامر الشراء، الفواتير المبدئية، وحساب الـ CBM والأوزان الإجمالية',
-                      style: TextStyle(color: AppTheme.cloudWhite, fontSize: 12),
-                    ),
-                  ],
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Purchase Orders & Proforma Invoices (أوامر الشراء والفواتير المبدئية)',
+                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        'المرحلة الأولى: إدارة وتسجيل أوامر الشراء، الفواتير المبدئية، وحساب الـ CBM والأوزان الإجمالية',
+                        style: TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 10),
                 const BackToDashboardButton(),
                 const SizedBox(width: 10),
                 SmartUploadButton(
                   module: SmartUploadModule.purchaseOrder,
-                  label: 'رفع واستخراج أمر الشراء (PDF / Excel / Word)',
+                  label: '🚀 استخراج الفاتورة والتعبئة الذكي',
                   onDataExtracted: (result) {
                     final fields = result.extractedFields;
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +124,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.emerald,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   icon: const Icon(Icons.add_shopping_cart, size: 18),
                   label: const Text('New Purchase Order', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -1697,6 +1701,69 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     return DateTime.now();
   }
 
+  void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
+    setState(() {
+      final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
+      if (poNum != null && poNum.isNotEmpty) {
+        _piCtrl.text = poNum;
+      }
+      final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
+      if (dateStr != null && dateStr.isNotEmpty) {
+        _selectedOrderDate = _parseFlexDate(dateStr);
+      }
+
+      final rawTerms = ext['payment_terms']?.toString();
+      if (rawTerms != null) {
+        if (rawTerms.contains('LC') || rawTerms.contains('اعتماد') || rawTerms.contains('CREDIT')) {
+          _selectedPaymentTerms = 'Letter of Credit / LC';
+        } else if (rawTerms.contains('SWIFT') || rawTerms.contains('Cash') || rawTerms.contains('سويفت') || rawTerms.contains('T/T')) {
+          _selectedPaymentTerms = 'Cash in Advance / SWIFT';
+        }
+      }
+
+      if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
+        final itemList = ext['items'] as List;
+        _dialogItems = itemList.map((raw) {
+          final i = Map<String, dynamic>.from(raw as Map);
+          final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
+          final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
+          final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
+          final code = i['item_code']?.toString() ?? 'ITEM-001';
+          return POLineItemModel(
+            itemCode: code,
+            descriptionAr: desc,
+            descriptionEn: desc,
+            quantity: qty > 0 ? qty : 100.0,
+            unitPrice: price > 0 ? price : 10.0,
+            cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
+            grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
+            netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
+          );
+        }).toList();
+      }
+
+      if (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
+        final packingList = ext['packing_list_items'] as List;
+        _dialogPackingItems = packingList.map((raw) {
+          final p = Map<String, dynamic>.from(raw as Map);
+          return PackingListItemModel(
+            hsCode: p['hs_code']?.toString() ?? '',
+            itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+            qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
+            qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
+            packageType: p['package_type']?.toString() ?? 'Pallet',
+            lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
+            widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
+            heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
+            grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 646.0,
+            netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 626.0,
+            isStackable: p['is_stackable'] as bool? ?? true,
+          );
+        }).toList();
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1955,6 +2022,21 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
                         widget.po == null ? 'Create New Purchase Order (أمر شراء جديد)' : 'Edit Purchase Order (${widget.po!.poNumber})',
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    SmartUploadButton(
+                      module: SmartUploadModule.purchaseOrder,
+                      compact: true,
+                      label: '🚀 رفع واستخراج المستندات (Invoice + Packing List)',
+                      onDataExtracted: (result) {
+                        _applyExtractedFieldsToState(result.extractedFields);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('تمت تعبئة بيانات أمر الشراء وكشف التعبئة بنجاح!'),
+                            backgroundColor: AppTheme.emerald,
+                          ),
+                        );
+                      },
                     ),
                   ],
                 ),

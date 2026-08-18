@@ -439,51 +439,105 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                               width: double.infinity,
                               height: 42,
                               child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _isExtracting ? AppTheme.cobalt.withOpacity(0.7) : AppTheme.cobalt,
+                                  foregroundColor: Colors.white,
+                                ),
                                 icon: _isExtracting
                                     ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                     : const Icon(Icons.auto_awesome_rounded, size: 18),
-                                label: const Text('استخراج وتحليل البيانات تلقائياً'),
+                                label: Text(_isExtracting ? 'جاري تحليل النص واستخراج البيانات...' : 'استخراج وتحليل البيانات تلقائياً'),
                                 onPressed: _isExtracting ? null : _extractFromRawText,
                               ),
                             ),
                           ] else ...[
                             Expanded(
-                              child: InkWell(
-                                onTap: _pickAndExtractFile,
-                                borderRadius: BorderRadius.circular(12),
-                                child: Container(
-                                  width: double.infinity,
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: AppTheme.cobalt.withOpacity(0.5), width: 1.5),
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.cloud_upload_rounded, color: AppTheme.cobalt, size: 48),
-                                      const SizedBox(height: 12),
-                                      const Text('اضغط لاختيار صورة، كارت عمل، PDF، أو Excel',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        _selectedFileName ?? 'يدعم صيغ (PNG, JPG, PDF, XLSX, DOCX)',
-                                        style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.6)),
+                              child: _isExtracting
+                                  ? Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.cobalt.withOpacity(0.04),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(color: AppTheme.cobalt, width: 2),
                                       ),
-                                    ],
-                                  ),
-                                ),
-                              ),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.all(16),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.cobalt.withOpacity(0.1),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 3),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          const Text(
+                                            '🚀 جاري قراءة واستخراج البيانات بالذكاء الاصطناعي...',
+                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            _selectedFileName != null
+                                                ? 'جاري تحليل المستند: $_selectedFileName\nقد تستغرق العملية بضع ثوانٍ...'
+                                                : 'جاري المعالجة والتحليل...',
+                                            style: const TextStyle(fontSize: 12, color: AppTheme.charcoal, height: 1.4),
+                                            textAlign: TextAlign.center,
+                                          ),
+                                          const SizedBox(height: 16),
+                                          ClipRRect(
+                                            borderRadius: BorderRadius.circular(4),
+                                            child: const SizedBox(
+                                              width: 180,
+                                              height: 4,
+                                              child: LinearProgressIndicator(color: AppTheme.cobalt, backgroundColor: Colors.white),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                  : InkWell(
+                                      onTap: _pickAndExtractFile,
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Container(
+                                        width: double.infinity,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(color: AppTheme.cobalt.withOpacity(0.5), width: 1.5),
+                                        ),
+                                        child: Column(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            const Icon(Icons.cloud_upload_rounded, color: AppTheme.cobalt, size: 48),
+                                            const SizedBox(height: 12),
+                                            const Text('اضغط لاختيار صورة، كارت عمل، PDF، أو Excel',
+                                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                                            const SizedBox(height: 6),
+                                            Text(
+                                              _selectedFileName ?? 'يدعم صيغ (PNG, JPG, PDF, XLSX, DOCX)',
+                                              style: TextStyle(fontSize: 12, color: AppTheme.charcoal.withOpacity(0.6)),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                             ),
                             const SizedBox(height: 12),
                             SizedBox(
                               width: double.infinity,
                               height: 42,
                               child: ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                                icon: const Icon(Icons.file_open_rounded, size: 18),
-                                label: const Text('اختيار ملف واستخراج البيانات'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _isExtracting ? AppTheme.cobalt.withOpacity(0.7) : AppTheme.cobalt,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: _isExtracting
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                                    : const Icon(Icons.file_open_rounded, size: 18),
+                                label: Text(_isExtracting ? 'جاري تحليل المستند واستخراج البيانات...' : 'اختيار ملف واستخراج البيانات'),
                                 onPressed: _isExtracting ? null : _pickAndExtractFile,
                               ),
                             ),
@@ -524,7 +578,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                           const SizedBox(height: 12),
 
                           Expanded(
-                            child: SingleChildScrollView(
+                            child: Stack(
+                              children: [
+                                SingleChildScrollView(
                               child: Column(
                                 children: [
                                   TextField(
@@ -695,12 +751,41 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                   TextField(
                                     controller: _addressCtrl,
                                     maxLines: 2,
-                                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي ومقر المصنع', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
+                                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي ومقر الشركة / المصنع / البنك', prefixIcon: Icon(Icons.location_on_rounded, size: 18)),
                                   ),
                                 ],
                               ),
                             ),
-                          ),
+                            if (_isExtracting)
+                              Positioned.fill(
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.88),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: const Center(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        CircularProgressIndicator(color: AppTheme.cobalt, strokeWidth: 3),
+                                        SizedBox(height: 16),
+                                        Text(
+                                          '⚡ جاري استخراج وتعبئة الحقول بالذكاء الاصطناعي...',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt),
+                                        ),
+                                        SizedBox(height: 6),
+                                        Text(
+                                          'سيتم توجيه البيانات المستخرجة إلى حقول التكويد فور الانتهاء',
+                                          style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
 
                           const SizedBox(height: 14),
                           const Divider(height: 1),

@@ -85,6 +85,34 @@ class SmartUploadResult {
   bool get isPartial => extractionStatus == 'PARTIAL';
   bool get isFailed => extractionStatus == 'FAILED';
   int get confidencePercent => (confidenceScore * 100).round();
+
+  SmartUploadResult copyWith({
+    int? sessionId,
+    String? sessionRef,
+    String? moduleName,
+    String? filename,
+    String? fileType,
+    String? extractionStatus,
+    double? confidenceScore,
+    Map<String, dynamic>? extractedFields,
+    List<String>? missingFields,
+    String? extractionNotes,
+    String? rawTextPreview,
+  }) {
+    return SmartUploadResult(
+      sessionId: sessionId ?? this.sessionId,
+      sessionRef: sessionRef ?? this.sessionRef,
+      moduleName: moduleName ?? this.moduleName,
+      filename: filename ?? this.filename,
+      fileType: fileType ?? this.fileType,
+      extractionStatus: extractionStatus ?? this.extractionStatus,
+      confidenceScore: confidenceScore ?? this.confidenceScore,
+      extractedFields: extractedFields ?? this.extractedFields,
+      missingFields: missingFields ?? this.missingFields,
+      extractionNotes: extractionNotes ?? this.extractionNotes,
+      rawTextPreview: rawTextPreview ?? this.rawTextPreview,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -155,9 +183,9 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         barrierDismissible: false,
         builder: (ctx) => SmartUploadPreviewDialog(
           result: uploadResult,
-          onConfirm: () {
+          onConfirm: (confirmedResult) {
             Navigator.of(ctx).pop();
-            widget.onDataExtracted?.call(uploadResult);
+            widget.onDataExtracted?.call(confirmedResult);
           },
           onCancel: () => Navigator.of(ctx).pop(),
         ),
@@ -276,9 +304,9 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /// Shows extracted fields to the user for review before applying to the form.
-class SmartUploadPreviewDialog extends StatelessWidget {
+class SmartUploadPreviewDialog extends StatefulWidget {
   final SmartUploadResult result;
-  final VoidCallback onConfirm;
+  final ValueChanged<SmartUploadResult> onConfirm;
   final VoidCallback onCancel;
 
   const SmartUploadPreviewDialog({
@@ -289,8 +317,160 @@ class SmartUploadPreviewDialog extends StatelessWidget {
   });
 
   @override
+  State<SmartUploadPreviewDialog> createState() => _SmartUploadPreviewDialogState();
+}
+
+class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
+  late Map<String, dynamic> _currentFields;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentFields = Map<String, dynamic>.from(widget.result.extractedFields);
+  }
+
+  void _showAddCustomFieldModal() {
+    String selectedPreset = 'custom';
+    final keyCtrl = TextEditingController();
+    final valCtrl = TextEditingController();
+
+    final presets = {
+      'acid_number': 'رقم إقرار الشحنة المسبق (ACID)',
+      'bl_number': 'رقم بوليصة الشحن (B/L Number)',
+      'container_number': 'رقم الحاوية (Container Number)',
+      'loading_port': 'ميناء الشحن (Port of Loading)',
+      'discharge_port': 'ميناء التفريغ (Port of Discharge)',
+      'carrier_name': 'اسم الخط الملاحي / الناقل (Carrier)',
+      'lc_number': 'رقم الاعتماد المستندي (LC Number)',
+      'payment_terms': 'شروط السداد والدفع (Payment Terms)',
+      'notes': 'ملاحظات وشروط خاصة (Special Notes)',
+      'custom': '➕ بيان / حقل مخصص آخر (Custom Field)',
+    };
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setModalState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          title: const Row(
+            children: [
+              Icon(Icons.add_box_rounded, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('إضافة بيان / حقل إضافي يدوياً', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: SizedBox(
+            width: 440,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('اختر نوع البيان أو أدخل بياناً مخصصاً:', style: TextStyle(fontSize: 12, color: Colors.grey, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: selectedPreset,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'نوع البيان المطلوب إضافته', isDense: true),
+                  items: presets.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13)))).toList(),
+                  onChanged: (v) {
+                    if (v != null) {
+                      setModalState(() {
+                        selectedPreset = v;
+                        if (v != 'custom') {
+                          keyCtrl.text = v;
+                        } else {
+                          keyCtrl.clear();
+                        }
+                      });
+                    }
+                  },
+                ),
+                if (selectedPreset == 'custom') ...[
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: keyCtrl,
+                    decoration: const InputDecoration(labelText: 'اسم الحقل / البيان الجديد (Field Name) *', hintText: 'مثلاً: vessel_name أو رقم_الشهادة'),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                TextField(
+                  controller: valCtrl,
+                  maxLines: 2,
+                  decoration: const InputDecoration(labelText: 'القيمة / البيان (Field Value) *', hintText: 'أدخل القيمة المراد إضافتها للنموذج...'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+              icon: const Icon(Icons.check, size: 16),
+              label: const Text('إضافة للبيانات'),
+              onPressed: () {
+                final k = keyCtrl.text.trim();
+                final v = valCtrl.text.trim();
+                if (k.isNotEmpty && v.isNotEmpty) {
+                  setState(() {
+                    _currentFields[k] = v;
+                  });
+                  Navigator.pop(ctx);
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showEditFieldModal(String key, dynamic value) {
+    final valCtrl = TextEditingController(text: value?.toString() ?? '');
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        title: Row(
+          children: [
+            const Icon(Icons.edit_note_rounded, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Expanded(child: Text('تعديل قيمة: ${_formatFieldName(key)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold))),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: TextField(
+            controller: valCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              labelText: 'القيمة المحدثة',
+              hintText: 'أدخل القيمة الصحيحة...',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+            icon: const Icon(Icons.save, size: 16),
+            label: const Text('حفظ التعديل'),
+            onPressed: () {
+              setState(() {
+                _currentFields[key] = valCtrl.text.trim();
+              });
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final result = widget.result;
 
     Color statusColor;
     IconData statusIcon;
@@ -312,8 +492,8 @@ class SmartUploadPreviewDialog extends StatelessWidget {
         statusLabel = 'فشل الاستخراج';
     }
 
-    final nonNullFields = result.extractedFields.entries
-        .where((e) => e.value != null && e.value.toString().trim().isNotEmpty && e.value.toString() != '[]')
+    final nonNullFields = _currentFields.entries
+        .where((e) => e.value != null && e.value.toString().trim().isNotEmpty && e.value.toString() != '[]' && e.key != 'hs_code_compliance_warning')
         .toList();
 
     return Dialog(
@@ -384,16 +564,42 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (nonNullFields.isNotEmpty) ...[
-                      Text('الحقول المستخرجة (${nonNullFields.length})',
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'الحقول المستخرجة والبيانات المعتمدة (${nonNullFields.length})',
                           style: theme.textTheme.labelMedium?.copyWith(
-                            color: AppTheme.charcoal.withOpacity(0.6),
-                            fontWeight: FontWeight.w600,
-                          )),
-                      const SizedBox(height: 8),
+                            color: AppTheme.charcoal,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.emerald,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          icon: const Icon(Icons.add, size: 15),
+                          label: const Text('➕ إضافة بيان / حقل إضافي يدوياً', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          onPressed: _showAddCustomFieldModal,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (nonNullFields.isNotEmpty) ...[
                       ...nonNullFields.map((e) => _FieldRow(
+                            fieldKey: e.key,
                             label: _formatFieldName(e.key),
                             value: _formatValue(e.value),
+                            isCustom: !['po_number', 'order_date', 'supplier_name', 'currency', 'total_amount', 'incoterms', 'country_of_origin', 'items', 'packing_list_items'].contains(e.key),
+                            onEdit: () => _showEditFieldModal(e.key, e.value),
+                            onRemove: () {
+                              setState(() {
+                                _currentFields.remove(e.key);
+                              });
+                            },
                           )),
                     ] else
                       Center(
@@ -413,7 +619,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        if (result.extractedFields['supplier_name'] != null)
+                        if (_currentFields['supplier_name'] != null)
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.cobalt,
@@ -422,7 +628,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                             ),
                             icon: const Icon(Icons.auto_awesome, size: 16),
                             label: Text(
-                              '🤖 استدعاء AI Coding لتكويد "${result.extractedFields['supplier_name']}"',
+                              '🤖 استدعاء AI Coding لتكويد "${_currentFields['supplier_name']}"',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             onPressed: () => UniversalEntityExtractorDialog.show(
@@ -430,7 +636,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                               initialTarget: EntityTarget.supplier,
                             ),
                           ),
-                        if (result.extractedFields['importer_name'] != null)
+                        if (_currentFields['importer_name'] != null)
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
                               foregroundColor: AppTheme.emerald,
@@ -439,7 +645,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                             ),
                             icon: const Icon(Icons.domain_add_rounded, size: 16),
                             label: Text(
-                              '🤖 استدعاء AI Coding لتكويد "${result.extractedFields['importer_name']}"',
+                              '🤖 استدعاء AI Coding لتكويد "${_currentFields['importer_name']}"',
                               style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                             ),
                             onPressed: () => UniversalEntityExtractorDialog.show(
@@ -451,7 +657,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                     ),
 
                     // HS Code Compliance & Registration Warning with Smart Nafeza Trigger
-                    if (result.extractedFields['hs_code_compliance_warning'] != null) ...[
+                    if (_currentFields['hs_code_compliance_warning'] != null) ...[
                       const SizedBox(height: 12),
                       Container(
                         padding: const EdgeInsets.all(12),
@@ -470,7 +676,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                                 const SizedBox(width: 10),
                                 Expanded(
                                   child: Text(
-                                    result.extractedFields['hs_code_compliance_warning'].toString(),
+                                    _currentFields['hs_code_compliance_warning'].toString(),
                                     style: TextStyle(
                                       color: Colors.amber.shade900,
                                       fontSize: 12,
@@ -549,7 +755,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   TextButton(
-                    onPressed: onCancel,
+                    onPressed: widget.onCancel,
                     child: const Text('إلغاء'),
                   ),
                   const SizedBox(width: 12),
@@ -557,7 +763,7 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                     style: FilledButton.styleFrom(backgroundColor: AppTheme.cobalt),
                     icon: const Icon(Icons.check_rounded, size: 16),
                     label: const Text('تعبئة النموذج'),
-                    onPressed: nonNullFields.isEmpty ? null : onConfirm,
+                    onPressed: nonNullFields.isEmpty ? null : () => widget.onConfirm(result.copyWith(extractedFields: _currentFields)),
                   ),
                 ],
               ),
@@ -629,314 +835,59 @@ class SmartUploadPreviewDialog extends StatelessWidget {
     if (value is Map) return '{...}';
     return value.toString();
   }
-
-  void _showRegisterSupplierDialog(BuildContext context, Map<String, dynamic> ext) {
-    final suppName = ext['supplier_name']?.toString() ?? '';
-    final country = ext['supplier_country']?.toString() ?? ext['country_of_origin']?.toString() ?? '';
-    final phone = ext['supplier_phone']?.toString() ?? '';
-    final email = ext['supplier_email']?.toString() ?? '';
-    final address = ext['supplier_address']?.toString() ?? '';
-    final taxId = ext['supplier_tax_id']?.toString() ?? '';
-
-    final nameCtrl = TextEditingController(text: suppName);
-    final countryCtrl = TextEditingController(text: country);
-    final phoneCtrl = TextEditingController(text: phone);
-    final emailCtrl = TextEditingController(text: email);
-    final addressCtrl = TextEditingController(text: address);
-    final taxIdCtrl = TextEditingController(text: taxId);
-    bool isSaving = false;
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: const Row(
-            children: [
-              Icon(Icons.person_add_alt_1_rounded, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('تسجيل مورد أجنبي جديد', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 440,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم الشركة الموردة *'),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: countryCtrl,
-                          decoration: const InputDecoration(labelText: 'دولة المنشأ / المقر'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: taxIdCtrl,
-                          decoration: const InputDecoration(labelText: 'الرقم الضريبي / VAT'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: phoneCtrl,
-                          decoration: const InputDecoration(labelText: 'رقم الهاتف'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: emailCtrl,
-                          decoration: const InputDecoration(labelText: 'البريد / الموقع الإلكتروني'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: addressCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي للمورد'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              icon: isSaving
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save_rounded, size: 16),
-              label: const Text('حفظ المورد بالنظام'),
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      setDialogState(() => isSaving = true);
-                      try {
-                        final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 180), receiveTimeout: const Duration(seconds: 180)));
-                        final cty = countryCtrl.text.trim().isNotEmpty ? countryCtrl.text.trim() : 'United Kingdom';
-                        final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'GB';
-                        final exporterId = taxIdCtrl.text.trim().isNotEmpty ? taxIdCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch}';
-                        await dio.post(
-                          '${ApiConstants.baseUrl}/suppliers',
-                          data: {
-                            'company_name': nameCtrl.text.trim(),
-                            'supplier_type': 'Manufacturer',
-                            'registration_type': 'Foreign Exporter',
-                            'foreign_exporter_id': exporterId,
-                            'foreign_exporter_country': cty,
-                            'foreign_exporter_country_code': ctyCode,
-                            'address': addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : 'Exporter Address',
-                            'phone': phoneCtrl.text.trim(),
-                            'email': emailCtrl.text.trim(),
-                          },
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('تم تسجيل المورد "${nameCtrl.text.trim()}" بنجاح!'),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => isSaving = false);
-                        String msg = '$e';
-                        if (e is DioException && e.response?.data != null) {
-                          final data = e.response!.data;
-                          if (data is Map && data['detail'] != null) {
-                            msg = data['detail'].toString();
-                          }
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('فشل حفظ المورد: $msg'), backgroundColor: AppTheme.crimson, duration: const Duration(seconds: 5)),
-                        );
-                      }
-                    },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showRegisterImporterDialog(BuildContext context, Map<String, dynamic> ext) {
-    final impName = ext['importer_name']?.toString() ?? '';
-    final taxId = ext['importer_tax_id']?.toString() ?? '';
-    final phone = ext['importer_phone']?.toString() ?? '';
-    final email = ext['importer_email']?.toString() ?? '';
-    final address = ext['importer_address']?.toString() ?? '';
-
-    final nameCtrl = TextEditingController(text: impName);
-    final taxIdCtrl = TextEditingController(text: taxId);
-    final phoneCtrl = TextEditingController(text: phone);
-    final emailCtrl = TextEditingController(text: email);
-    final addressCtrl = TextEditingController(text: address);
-    bool isSaving = false;
-
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          title: const Row(
-            children: [
-              Icon(Icons.domain_add_rounded, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('تسجيل شركة مستوردة جديدة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          content: SingleChildScrollView(
-            child: SizedBox(
-              width: 440,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم الشركة المستوردة *'),
-                  ),
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: taxIdCtrl,
-                          decoration: const InputDecoration(labelText: 'الرقم الضريبي للمستورد *'),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          controller: phoneCtrl,
-                          decoration: const InputDecoration(labelText: 'رقم الهاتف'),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: emailCtrl,
-                    decoration: const InputDecoration(labelText: 'البريد الإلكتروني للشركة'),
-                  ),
-                  const SizedBox(height: 10),
-                  TextField(
-                    controller: addressCtrl,
-                    maxLines: 2,
-                    decoration: const InputDecoration(labelText: 'العنوان التفصيلي كائن بمصر'),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              icon: isSaving
-                  ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Icon(Icons.save_rounded, size: 16),
-              label: const Text('حفظ الشركة بالنظام'),
-              onPressed: isSaving
-                  ? null
-                  : () async {
-                      setDialogState(() => isSaving = true);
-                      try {
-                        final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 180), receiveTimeout: const Duration(seconds: 180)));
-                        await dio.post(
-                          '${ApiConstants.baseUrl}/import-companies',
-                          data: {
-                            'importer_name': nameCtrl.text.trim(),
-                            'address': addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : 'Cairo, Egypt',
-                            'country': 'Egypt',
-                            'importer_id': 'IMP-${DateTime.now().millisecondsSinceEpoch}',
-                            'importer_id_expiry': '2030-12-31',
-                            'vat_id': taxIdCtrl.text.trim().isNotEmpty ? taxIdCtrl.text.trim() : '000000000',
-                            'vat_id_expiry': '2030-12-31',
-                            'registration_number': '000000',
-                            'registration_expiry': '2030-12-31',
-                            'phone': phoneCtrl.text.trim(),
-                            'email': emailCtrl.text.trim(),
-                          },
-                        );
-                        if (context.mounted) {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('تم تسجيل الشركة المستوردة "${nameCtrl.text.trim()}" بنجاح!'),
-                              backgroundColor: AppTheme.emerald,
-                            ),
-                          );
-                        }
-                      } catch (e) {
-                        setDialogState(() => isSaving = false);
-                        String msg = '$e';
-                        if (e is DioException && e.response?.data != null) {
-                          final data = e.response!.data;
-                          if (data is Map && data['detail'] != null) {
-                            msg = data['detail'].toString();
-                          }
-                        }
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('فشل حفظ الشركة: $msg'), backgroundColor: AppTheme.crimson, duration: const Duration(seconds: 5)),
-                        );
-                      }
-                    },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Helper Widget
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _FieldRow extends StatelessWidget {
+  final String? fieldKey;
   final String label;
   final String value;
+  final bool isCustom;
+  final VoidCallback? onEdit;
+  final VoidCallback? onRemove;
 
-  const _FieldRow({required this.label, required this.value});
+  const _FieldRow({
+    this.fieldKey,
+    required this.label,
+    required this.value,
+    this.isCustom = false,
+    this.onEdit,
+    this.onRemove,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 2.5),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: isCustom ? Colors.blue.shade50.withOpacity(0.5) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: isCustom ? Colors.blue.shade200 : Colors.grey.shade200),
+      ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 190,
-            child: Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.charcoal,
-              ),
+            width: 180,
+            child: Row(
+              children: [
+                if (isCustom)
+                  const Padding(
+                    padding: EdgeInsets.only(left: 4),
+                    child: Icon(Icons.star, size: 12, color: Colors.blue),
+                  ),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: isCustom ? Colors.blue.shade900 : AppTheme.charcoal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 8),
@@ -944,11 +895,32 @@ class _FieldRow extends StatelessWidget {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 12.5,
-                color: AppTheme.charcoal.withOpacity(0.75),
+                fontSize: 12,
+                color: AppTheme.charcoal.withOpacity(0.85),
+                fontWeight: isCustom ? FontWeight.w500 : FontWeight.normal,
               ),
             ),
           ),
+          if (onEdit != null && value != '{...}' && !value.contains('عنصر'))
+            IconButton(
+              icon: const Icon(Icons.edit_outlined, size: 16, color: AppTheme.cobalt),
+              tooltip: 'تعديل البيان',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onEdit,
+            ),
+          if (onRemove != null && isCustom) ...[
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 16, color: AppTheme.crimson),
+              tooltip: 'حذف البيان',
+              visualDensity: VisualDensity.compact,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              onPressed: onRemove,
+            ),
+          ],
         ],
       ),
     );

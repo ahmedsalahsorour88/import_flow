@@ -1,3 +1,11 @@
+import '../widgets/broker_cost_row.dart';
+import '../widgets/blocking_issues_dialog.dart';
+import '../widgets/price_list_form_dialog.dart';
+import '../widgets/broker_price_lists_tab.dart';
+import '../widgets/saved_consultations_tab.dart';
+import '../widgets/nafeza_fee_breakdown_card.dart';
+import '../widgets/consultation_details_dialog.dart';
+import '../widgets/post_save_status_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -17,12 +25,6 @@ import '../../purchase_orders/models/purchase_order_model.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
-import '../widgets/add_checklist_item_dialog.dart';
-import '../widgets/add_custom_broker_expense_row_dialog.dart';
-import '../widgets/consultation_metric_badge.dart';
-import '../widgets/consultation_status_badges.dart';
-import '../widgets/post_save_status_dialog.dart';
-
 import 'package:printing/printing.dart';
 import '../services/customs_consultation_pdf_service.dart';
 import '../services/customs_export_service.dart';
@@ -144,14 +146,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   // Management Tab State
   int _managementSubTabIndex = 0;
   int? _selectedMgmtBrokerId;
-  String _mgmtExpenseSearch = '';
-  String _mgmtExpenseCategory = 'All';
   bool _isSaving = false;
 
   // History Tab Filter State
-  String _searchQuery = '';
-  String _statusFilter = 'All';
-  bool _showInactive = false;
 
   @override
   void initState() {
@@ -740,16 +737,122 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     return result;
   }
 
-  void _addChecklistItem() async {
-    final newItem = await showDialog<CustomsChecklistItemModel>(
+  void _addChecklistItem() {
+    showDialog(
       context: context,
-      builder: (context) => const AddChecklistItemDialog(),
+      builder: (context) {
+        final docController = TextEditingController();
+        final hsController = TextEditingController();
+        final agencyController = TextEditingController();
+        final remarksController = TextEditingController();
+        bool isReq = true;
+        bool isBlock = true;
+        String party = 'Customs Broker';
+        String itemStatus = 'Pending';
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('إضافة بند جديد في قائمة الفحص الجمركي (Customs Checklist)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              content: SizedBox(
+                width: 500,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: docController,
+                        decoration: const InputDecoration(labelText: 'نوع المستند / الموافقة الجمركية *', border: OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: hsController,
+                        decoration: const InputDecoration(labelText: 'بند التعريفة الجمركية المرتبط (HS Code)', border: OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
+                        value: party,
+                        labelText: 'الجهة المسؤولة عن المستند',
+                        items: const [
+                          SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (المستخلص الجمركي)'),
+                          SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter (المورد الخارجي)'),
+                          SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team (فريق الاستيراد)'),
+                          SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة الشحن)'),
+                        ],
+                        onChanged: (v) => setDialogState(() => party = v!),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: agencyController,
+                        decoration: const InputDecoration(labelText: 'الجهة الرقابية / العرض الجمركي (GOEIC, NTRA, Food Safety...)', border: OutlineInputBorder()),
+                      ),
+                      const SizedBox(height: 12),
+                      SearchableDropdownField<String>(
+                        value: itemStatus,
+                        labelText: 'حالة المستند المبدئية',
+                        items: const [
+                          SearchableDropdownItem(value: 'Pending', label: 'Pending (قيد الانتظار)'),
+                          SearchableDropdownItem(value: 'Received', label: 'Received (تم الاستلام)'),
+                          SearchableDropdownItem(value: 'Verified', label: 'Verified (تم التدقيق)'),
+                          SearchableDropdownItem(value: 'Approved', label: 'Approved (معتمد جمركياً)'),
+                          SearchableDropdownItem(value: 'Rejected', label: 'Rejected (مرفوض / يتطلب إجراء)'),
+                        ],
+                        onChanged: (v) => setDialogState(() => itemStatus = v!),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Checkbox(
+                            value: isReq,
+                            onChanged: (v) => setDialogState(() => isReq = v!),
+                          ),
+                          const Text('مستند إجباري (Required)'),
+                          const Spacer(),
+                          Checkbox(
+                            value: isBlock,
+                            onChanged: (v) => setDialogState(() => isBlock = v!),
+                          ),
+                          const Text('يعطل الشحنة (Blocking Shipment)'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: remarksController,
+                        decoration: const InputDecoration(labelText: 'ملاحظات المستخلص / المتطلبات', border: OutlineInputBorder()),
+                        maxLines: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                  onPressed: () {
+                    if (docController.text.trim().isEmpty) return;
+                    setState(() {
+                      _checklist.add(CustomsChecklistItemModel(
+                        documentType: docController.text.trim(),
+                        hsCode: hsController.text.trim().isNotEmpty ? hsController.text.trim() : null,
+                        isRequired: isReq,
+                        isBlockingShipment: isBlock,
+                        responsibleParty: party,
+                        status: itemStatus,
+                        regulatoryAgency: agencyController.text.trim().isNotEmpty ? agencyController.text.trim() : null,
+                        remarks: remarksController.text.trim().isNotEmpty ? remarksController.text.trim() : null,
+                      ));
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: const Text('إضافة البند', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
-    if (newItem != null) {
-      setState(() {
-        _checklist.add(newItem);
-      });
-    }
   }
 
   void _loadConsultationForEdit(CustomsConsultationModel session) {
@@ -840,20 +943,1508 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     });
   }
 
-  void _addCustomBrokerExpenseRow() async {
-    final newItem = await showDialog<CustomsBrokerQuoteItemModel>(
+  void _addCustomBrokerExpenseRow() {
+    final nameCtrl = TextEditingController();
+    final priceCtrl = TextEditingController(text: '0.0');
+    final qtyCtrl = TextEditingController(text: '1.0');
+    String selectedCategory = 'Other Fees (مصاريف أخرى)';
+    String selectedUnit = 'Fixed (مبلغ ثابت)';
+    String selectedCurrency = 'EGP';
+
+    showDialog(
       context: context,
-      builder: (context) => const AddCustomBrokerExpenseRowDialog(),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDlgState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.add_circle, color: AppTheme.cobalt),
+              SizedBox(width: 8),
+              Text('إضافة بند مصروف تخليص / نقل مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            ],
+          ),
+          content: SizedBox(
+            width: 450,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: 'اسم البند / نوع المصروف *', border: OutlineInputBorder()),
+                ),
+                const SizedBox(height: 12),
+                SearchableDropdownField<String>(
+                  value: selectedCategory,
+                  labelText: 'التصنيف',
+                  searchHintText: 'ابحث عن التصنيف...',
+                  items: const [
+                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
+                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
+                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
+                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
+                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                  ],
+                  onChanged: (v) => setDlgState(() => selectedCategory = v ?? selectedCategory),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextFormField(
+                        controller: priceCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'السعر', border: OutlineInputBorder()),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SearchableDropdownField<String>(
+                        value: selectedCurrency,
+                        labelText: 'العملة',
+                        searchHintText: 'ابحث عن العملة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                          SearchableDropdownItem(value: 'USD', label: 'USD'),
+                          SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                        ],
+                        onChanged: (v) => setDlgState(() => selectedCurrency = v ?? 'EGP'),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: TextFormField(
+                        controller: qtyCtrl,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              onPressed: () {
+                final name = nameCtrl.text.trim();
+                if (name.isEmpty) return;
+                final price = double.tryParse(priceCtrl.text.trim()) ?? 0.0;
+                final qty = double.tryParse(qtyCtrl.text.trim()) ?? 1.0;
+                setState(() {
+                  _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
+                    expenseName: name,
+                    category: selectedCategory,
+                    unitType: selectedUnit,
+                    unitPrice: price,
+                    currency: selectedCurrency,
+                    qty: qty,
+                    isApplicable: true,
+                    totalAmount: price * qty,
+                  ));
+                });
+                Navigator.pop(ctx);
+              },
+              child: const Text('إضافة البند للعرض', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      ),
     );
-    if (newItem != null) {
-      setState(() {
-        _brokerQuoteItems.add(newItem);
-        _calculateBrokerQuote();
-      });
+  }
+
+  Future<void> _saveConsultation() async {
+    final validationErrors = <ValidationIssueItem>[];
+
+    final titleToSave = _titleController.text.trim();
+    if (titleToSave.isEmpty) {
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'عنوان / موضوع الاستشارة الجمركية',
+        issueDescription: 'حقل إلزامي لا يمكن تركه فارغاً.',
+        recommendation: 'يرجى كتابة عنوان واضح وموجز لموضوع دراسة الفحص والاستشارة الجمركية.',
+        isBlocking: true,
+      ));
+    }
+
+    if (_selectedBrokerId == null) {
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'المستخلص الجمركي المعني (Customs Broker)',
+        issueDescription: 'لم يتم تحديد المستخلص الجمركي المسؤول عن دراسة الملف.',
+        recommendation: 'يرجى اختيار المستخلص الجمركي من القائمة المنسدلة.',
+        isBlocking: true,
+      ));
+    }
+
+    if (_checklist.isEmpty) {
+      validationErrors.add(ValidationIssueItem(
+        fieldName: 'قائمة الفحص والمستندات الجمركية',
+        issueDescription: 'قائمة فحص المستندات والاشتراطات فارغة تماماً.',
+        recommendation: 'يرجى إضافة مستند أو اشتراط واحد على الأقل في قائمة الفحص.',
+        isBlocking: true,
+      ));
+    }
+
+    if (validationErrors.isNotEmpty) {
+      await showErrorDetailsDialog(
+        context,
+        title: '⚠️ تنبيهات واستيفاء بيانات الاستشارة الجمركية',
+        error: 'يرجى استكمال البيانات الإلزامية التالية لتتمكن من حفظ دراسة الاستشارة بنجاح.',
+        validationIssues: validationErrors,
+      );
+      return;
+    }
+
+    final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
+    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
+
+    // Change Diff Confirmation Dialog for Edits
+    if (_editingConsultationId != null) {
+      final oldConsultation = (ref.read(customsConsultationsProvider).value ?? [])
+          .where((c) => c.consultationId == _editingConsultationId)
+          .firstOrNull;
+
+      if (oldConsultation != null) {
+        final List<FieldChangeItem> changes = [];
+
+        if (FieldChangeItem.isDifferent(oldConsultation.title, titleToSave)) {
+          changes.add(FieldChangeItem(
+            section: 'البيانات العامة للدراسة',
+            fieldName: 'عنوان الاستشارة الجمركية',
+            oldValue: oldConsultation.title,
+            newValue: titleToSave,
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldConsultation.brokerName, _selectedBrokerName)) {
+          changes.add(FieldChangeItem(
+            section: 'المستخلص الجمركي',
+            fieldName: 'المستخلص الجمركي المعني',
+            oldValue: oldConsultation.brokerName,
+            newValue: _selectedBrokerName,
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldConsultation.estimatedDutiesEgp, estimatedDuties)) {
+          changes.add(FieldChangeItem(
+            section: 'التقديرات المالية',
+            fieldName: 'الرسوم الجمركية والضرائب التقديرية',
+            oldValue: '${oldConsultation.estimatedDutiesEgp.toStringAsFixed(2)} EGP',
+            newValue: '${estimatedDuties.toStringAsFixed(2)} EGP',
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldConsultation.importFileId, _selectedImportFileId)) {
+          changes.add(FieldChangeItem(
+            section: 'الربط التشغيلي',
+            fieldName: 'ملف الشحنة المرتبط',
+            oldValue: oldConsultation.importFileCode ?? (oldConsultation.importFileId != null ? 'ID: ${oldConsultation.importFileId}' : null),
+            newValue: _selectedImportFileId != null ? 'ID: $_selectedImportFileId' : null,
+          ));
+        }
+
+        if (FieldChangeItem.isDifferent(oldConsultation.checklistItems.length, _checklist.length)) {
+          changes.add(FieldChangeItem(
+            section: 'قائمة فحص المستندات',
+            fieldName: 'إجمالي عدد المستندات والاشتراطات',
+            oldValue: '${oldConsultation.checklistItems.length} مستند',
+            newValue: '${_checklist.length} مستند',
+          ));
+        }
+
+        if (changes.isNotEmpty) {
+          final confirmed = await showChangeDiffConfirmationDialog(
+            context,
+            title: 'مراجعة وتأكيد تعديلات الاستشارة الجمركية',
+            itemReference: _editingConsultationCode ?? titleToSave,
+            changes: changes,
+          );
+          if (!confirmed) return;
+        }
+      }
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final payload = {
+        'title': titleToSave,
+        'broker_id': _selectedBrokerId,
+        'broker_name': _selectedBrokerName,
+        'broker_contact_person': _brokerContactPerson,
+        if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
+        if (_selectedPoId != null) 'po_id': _selectedPoId,
+        if (_selectedProjectId != null) 'project_id': _selectedProjectId,
+        'estimated_duties_egp': estimatedDuties,
+        'total_broker_fees_egp': totalBrokerFees,
+        if (_brokerPriceListId != null) 'broker_price_list_id': _brokerPriceListId,
+        'notes': _notesController.text.trim(),
+        'checklist_items': _checklist.map((item) => item.toJson()).toList(),
+        'broker_quote_items': _brokerQuoteItems.map((item) => item.toJson()).toList(),
+      };
+
+      if (_editingConsultationId != null) {
+        final updated = await ref
+            .read(customsConsultationsProvider.notifier)
+            .updateConsultation(_editingConsultationId!, payload);
+        if (mounted && updated != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '✅ تم تحديث دراسة الاستشارة الجمركية بنجاح! كود: ${updated.consultationCode}'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+          setState(() {
+            _editingConsultationId = null;
+            _editingConsultationCode = null;
+          });
+          _tabController.animateTo(1);
+          // Show post-save checklist status summary
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) showDialog(context: context, builder: (ctx) => PostSaveStatusDialog(saved: updated));
+          });
+        }
+      } else {
+        final created = await ref
+            .read(customsConsultationsProvider.notifier)
+            .createConsultation(payload);
+        if (mounted && created != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  '✅ تم حفظ دراسة الاستشارة الجمركية بنجاح! كود الدراسة: ${created.consultationCode}'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+          _tabController.animateTo(1);
+          // Show post-save checklist status summary
+          Future.delayed(const Duration(milliseconds: 400), () {
+            if (mounted) showDialog(context: context, builder: (ctx) => PostSaveStatusDialog(saved: created));
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        await showErrorDetailsDialog(
+          context,
+          title: '❌ تعذر حفظ دراسة الاستشارة الجمركية',
+          error: e,
+          onRetry: () async {
+            await _saveConsultation();
+          },
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 
-  Widget ConsultationStatusBadge(status: String status) {
+  /// Shows a post-save status dialog summarising each checklist item's state.
+
+
+  @override
+  Widget build(BuildContext context) {
+    final consultationsState = ref.watch(customsConsultationsProvider);
+    final partnersState = ref.watch(partnersProvider);
+    final partnersList = partnersState.value ?? [];
+    final brokersList = partnersList.where((p) => p.partnerType.contains('Customs') || p.partnerType.contains('Broker')).toList();
+    final projectsList = ref.watch(projectsProvider).value ?? [];
+    final poList = ref.watch(purchaseOrdersProvider).purchaseOrders;
+    final List<CurrencyModel> currenciesList = ref.watch(currenciesProvider).value ?? [];
+
+    // Live Checklist Statistics
+    final totalDocs = _checklist.length;
+    final approvedDocs = _checklist.where((i) => i.status == 'Approved').length;
+    final blockingCount = _checklist.where((i) => i.isBlockingShipment && i.status != 'Approved').length;
+    final liveReadinessPct = totalDocs > 0 ? ((approvedDocs / totalDocs) * 100).toInt() : 0;
+
+    // Live Customs Calculations
+    final calcLines = _calculateCustomsLines();
+    final double totalFobEgp = calcLines.fold(0.0, (s, l) => s + l.fobEgp);
+    final double totalCifEgp = calcLines.fold(0.0, (s, l) => s + l.cifEgp);
+    final double totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+    final double totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+    final double totalTaxesAndDutiesEgp = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
+    final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
+    final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
+    final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
+
+    final tabs = [
+      const VerticalNavTabItem(
+        icon: Icons.gavel_outlined,
+        titleEn: 'Customs Workspace',
+        titleAr: 'مركز الاستشارة والفحص الجمركي',
+      ),
+      VerticalNavTabItem(
+        icon: Icons.history_edu_outlined,
+        titleEn: 'Consultations Log',
+        titleAr: 'سجل الدراسات المحفوظة',
+        badge: (consultationsState.value?.length ?? 0) > 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${consultationsState.value!.length}',
+                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
+      ),
+      const VerticalNavTabItem(
+        icon: Icons.price_change_outlined,
+        titleEn: 'Broker Price Lists & Catalog',
+        titleAr: 'قوائم الأسعار وتكويد المصروفات',
+      ),
+    ];
+
+    return VerticalStageScaffold(
+      stageCode: '',
+      titleEn: 'Customs Broker Consultation & Inspection Workspace',
+      titleAr: 'مركز الاستشارة والفحص الجمركي',
+      headerIcon: Icons.gavel_outlined,
+      headerColor: AppTheme.cobalt,
+      tabs: tabs,
+      selectedIndex: _tabController.index,
+      onTabSelected: (index) {
+        setState(() => _tabController.index = index);
+      },
+      headerActions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.white70),
+          tooltip: 'تحديث البيانات (Refresh)',
+          onPressed: () {
+            ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+            ref.read(importFilesProvider.notifier).fetchImportFiles();
+            ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+            ref.read(customsTariffProvider.notifier).fetchTariffs();
+            ref.read(currenciesProvider.notifier).fetchCurrencies();
+            ref.read(shippingScenariosProvider.notifier).fetchSessions();
+            ref.read(partnersProvider.notifier).fetchPartners();
+            ref.read(projectsProvider.notifier).fetchProjects();
+            ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+            ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+          },
+        ),
+      ],
+      body: IndexedStack(
+        index: _tabController.index,
+        children: [
+          // TAB 1: CUSTOMS CONSULTATION WORKSPACE
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(20),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Live Metrics Bar
+                  Row(
+                    children: [
+                      _buildMetricBadge('جاهزية الفحص الجمركي', '$liveReadinessPct%', Colors.blue),
+                      const SizedBox(width: 12),
+                      _buildMetricBadge('عدد البنود والمستندات', '${_checklist.length}', Colors.grey),
+                      const SizedBox(width: 12),
+                      _buildMetricBadge(
+                        'عوائق التخليص (Blocking)',
+                        '$blockingCount',
+                        blockingCount > 0 ? Colors.red : Colors.green,
+                        onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
+                      ),
+                      const Spacer(),
+                      // 1. Live Refresh
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.charcoal,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () {
+                          ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+                          ref.read(importFilesProvider.notifier).fetchImportFiles();
+                          ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+                          ref.read(customsTariffProvider.notifier).fetchTariffs();
+                          ref.read(currenciesProvider.notifier).fetchCurrencies();
+                          ref.read(shippingScenariosProvider.notifier).fetchSessions();
+                          ref.read(partnersProvider.notifier).fetchPartners();
+                          ref.read(projectsProvider.notifier).fetchProjects();
+                          ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+                          ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+                        },
+                        icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
+                        label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 2. Clear Form & Start New
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.grey.shade800,
+                          side: BorderSide(color: Colors.grey.shade400),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _editingConsultationId = null;
+                            _editingConsultationCode = null;
+                            _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                            _selectedImportFileId = null;
+                            _selectedPoId = null;
+                            _selectedProjectId = null;
+                            _selectedBrokerId = null;
+                            _initializeDefaultChecklist();
+                          });
+                        },
+                        icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
+                        label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 3. Save Draft & Continue Later
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFEFF6FF),
+                          foregroundColor: AppTheme.cobalt,
+                          elevation: 0,
+                          side: const BorderSide(color: AppTheme.cobalt),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        ),
+                        onPressed: _isSaving ? null : _saveConsultation,
+                        icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
+                        label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 8),
+
+                      // 4. Final Save / Update
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _editingConsultationId != null ? Colors.orange.shade700 : AppTheme.emerald,
+                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                        ),
+                        onPressed: _isSaving ? null : _saveConsultation,
+                        icon: _isSaving
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : Icon(_editingConsultationId != null ? Icons.save_as : Icons.save, color: Colors.white),
+                        label: Text(
+                          _editingConsultationId != null ? 'حفظ تعديلات الاستشارة الجمركية' : 'حفظ دراسة الاستشارة الجمركية ✅',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Active Edit Mode Banner
+                  if (_editingConsultationId != null) ...[
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.edit_note_rounded, color: Colors.orange, size: 28),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'وضع التعديل النشط: أنت الآن تقوم بتعديل دراسة الاستشارة الجمركية رقم ($_editingConsultationCode)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.orange.shade900),
+                                ),
+                                const SizedBox(height: 2),
+                                const Text(
+                                  'قم بتعديل بيانات الفحص والمستندات والرسوم ثم اضغط "حفظ التعديلات" لتحديث الدراسة نفسها، أو "حفظ كنسخة جديدة" لإنشاء دراسة منفصلة.',
+                                  style: TextStyle(fontSize: 12, color: Colors.black87),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange.shade700,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.save_as_rounded, size: 16),
+                            label: const Text('حفظ التعديلات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                            onPressed: _isSaving ? null : _saveConsultation,
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: Colors.blue.shade800,
+                              side: BorderSide(color: Colors.blue.shade400),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            label: const Text('حفظ كنسخة جديدة', style: TextStyle(fontSize: 12)),
+                            onPressed: () {
+                              setState(() {
+                                _editingConsultationId = null;
+                                _editingConsultationCode = null;
+                                _titleController.text = '${_titleController.text} (نسخة معدلة)';
+                              });
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('📋 تم تحويل الجلسة إلى دراسة جديدة منفصلة، اضغط "حفظ دراسة الاستشارة الجمركية" للحفظ'), backgroundColor: Colors.blue),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.grey),
+                            tooltip: 'إلغاء التعديل والعودة كدراسة جديدة فارغة',
+                            onPressed: () {
+                              setState(() {
+                                _editingConsultationId = null;
+                                _editingConsultationCode = null;
+                                _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                                _initializeDefaultChecklist();
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Session Setup Header Card
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('بيانات الجلسة والمستخلص الجمركي المعني (Customs Broker)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              if (_editingConsultationCode != null)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(6)),
+                                  child: Text('جاري تعديل الدراسة: $_editingConsultationCode', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
+                                ),
+                            ],
+                          ),
+                          const Divider(),
+                          const SizedBox(height: 10),
+                          Row(
+                            children: [
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  controller: _titleController,
+                                  decoration: const InputDecoration(labelText: 'عنوان الاستشارة / موضوع الدراسة *', border: OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال عنوان الدراسة' : null,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                flex: 2,
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedBrokerId,
+                                  labelText: 'المستخلص الجمركي (Customs Broker) *',
+                                  searchHintText: 'ابحث عن المستخلص الجمركي...',
+                                  items: brokersList
+                                      .map((b) => SearchableDropdownItem<int?>(
+                                            value: b.providerId,
+                                            label: b.partnerName,
+                                            subtitle: b.contactPerson,
+                                          ))
+                                      .toList(),
+                                  onChanged: (val) {
+                                    if (val != null) {
+                                      final b = brokersList.firstWhere((element) => element.providerId == val);
+                                      setState(() {
+                                        _selectedBrokerId = val;
+                                        _selectedBrokerName = b.partnerName;
+                                        _brokerContactPerson = b.contactPerson;
+                                      });
+                                    }
+                                  },
+                                  validator: (v) => v == null ? 'مطلوب تحديد المستخلص' : null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedImportFileId,
+                                  labelText: 'ملف الشحنة الاستيرادية (Import File)',
+                                  searchHintText: 'ابحث عن ملف الشحنة...',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(
+                                      value: null,
+                                      label: '-- بدون ربط بملف شحنة --',
+                                    ),
+                                    ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
+                                          value: f.importFileId,
+                                          label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                          subtitle: '${f.companyName} | المستخلص: ${f.brokerName ?? "غير محدد"}',
+                                        )),
+                                  ],
+                                  onChanged: _onImportFileChanged,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedPoId,
+                                  labelText: 'ربط بأمر الشراء (Purchase Order - اختياري)',
+                                  searchHintText: 'ابحث عن أمر الشراء...',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط (مستقل)'),
+                                    ...poList.map((po) => SearchableDropdownItem<int?>(value: po.poId, label: '${po.poNumber} - ${po.supplierName}')),
+                                  ],
+                                  onChanged: _onPoChanged,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: SearchableDropdownField<int?>(
+                                  value: _selectedProjectId,
+                                  labelText: 'ربط بالمشروع (Project - اختياري)',
+                                  searchHintText: 'ابحث عن المشروع...',
+                                  items: [
+                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط مشروع'),
+                                    ...projectsList.map((pj) => SearchableDropdownItem<int?>(value: pj.projectId, label: '${pj.projectCode} - ${pj.projectName}')),
+                                  ],
+                                  onChanged: (val) => setState(() => _selectedProjectId = val),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: TextFormField(
+                                  controller: _estimatedDutiesController,
+                                  keyboardType: TextInputType.number,
+                                  decoration: const InputDecoration(
+                                    labelText: 'تقدير الرسوم الجمركية والضرائب (EGP)',
+                                    border: OutlineInputBorder(),
+                                    prefixIcon: Icon(Icons.calculate, color: AppTheme.cobalt),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // BROKER CLEARANCE & LOGISTICS QUOTE DETAILS CARD
+                  _buildBrokerQuoteDetailsCard(currenciesList),
+                  const SizedBox(height: 20),
+
+                  // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
+                  Card(
+                    elevation: 3,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.calculate, color: AppTheme.cobalt, size: 22),
+                              const SizedBox(width: 8),
+                              const Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('محرك حساب الرسوم والضرائب الجمركية للشحنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                    Text('يستدعي بنود HS Code والقيم والاشتراطات تلقائياً من ملف الشحنة وأوامر الشراء المربوطة ويحسب الجمارك والـ VAT ورسم التنمية', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  ],
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
+                                onPressed: () => _syncHsRequirementsToChecklist(silent: false),
+                                icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
+                                label: const Text('⚡ مزامنة اشتراطات الـ HS Codes مع قائمة المستندات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
+                                tooltip: _isCustomsCalculatorExpanded ? 'طي محرك الحساب' : 'توسيع محرك الحساب',
+                                onPressed: () => setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
+                              ),
+                            ],
+                          ),
+                          if (_isCustomsCalculatorExpanded) ...[
+                            const Divider(height: 24),
+                            // Inputs Bar: Currency, Exchange Rate, Freight, Insurance
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<String>(
+                                    value: _customsCurrency,
+                                    labelText: 'عملة الفاتورة (Currency)',
+                                    items: (ref.watch(currenciesProvider).value ?? []).isNotEmpty
+                                        ? (ref.watch(currenciesProvider).value ?? [])
+                                            .map((c) => SearchableDropdownItem<String>(
+                                                  value: c.currencyCode,
+                                                  label: '${c.currencyCode} - ${c.currencyName}',
+                                                ))
+                                            .toList()
+                                        : const [
+                                            SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
+                                            SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
+                                            SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
+                                            SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
+                                            SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
+                                          ],
+                                    onChanged: (v) {
+                                      if (v != null) {
+                                        setState(() {
+                                          _customsCurrency = v;
+                                          _updateExchangeRateForCurrency(v);
+                                        });
+                                      }
+                                    },
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: _exchangeRateController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'سعر الصرف الجمركي (Exchange Rate EGP)', border: OutlineInputBorder()),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: _freightEgpController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'النولون البحري/الجوي (Freight EGP)', border: OutlineInputBorder()),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: _insuranceEgpController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'التأمين البحري (Insurance EGP)', border: OutlineInputBorder()),
+                                    onChanged: (_) => setState(() {}),
+                                  ),
+                                ),
+
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // HS Code Line Items Calculation Table
+                            if (calcLines.isEmpty)
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.info_outline, color: AppTheme.cobalt),
+                                    SizedBox(width: 10),
+                                    Text('يرجى اختيار ملف شحنة أو أمر شراء يحتوي على بنود وأسعار وأكواد HS Code لتفعيل محرك الحساب التلقائي.', style: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                              )
+                            else ...[
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                child: DataTable(
+                                  columnSpacing: 14,
+                                  headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                                  headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
+                                  columns: const [
+                                    DataColumn(label: Text('بند التعريفة (HS Code)')),
+                                    DataColumn(label: Text('بيان الصنف والمنشأ')),
+                                    DataColumn(label: Text('الكمية والوحدة')),
+                                    DataColumn(label: Text('القيمة (FOB EGP)')),
+                                    DataColumn(label: Text('القيمة الجمركية (CIF EGP)')),
+                                    DataColumn(label: Text('ضريبة الوارد (الإعفاء)')),
+                                    DataColumn(label: Text('VAT (القيمة المضافة)')),
+                                    DataColumn(label: Text('ض.جدول / تنمية / خدمات')),
+                                    DataColumn(label: Text('إجمالي الضرائب والرسوم')),
+                                    DataColumn(label: Text('الاشتراطات والعروض')),
+                                  ],
+                                  rows: calcLines.map((line) {
+                                    return DataRow(
+                                      cells: [
+                                        DataCell(
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                                            child: Text(line.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                          ),
+                                        ),
+                                        DataCell(
+                                          SizedBox(
+                                            width: 190,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              children: [
+                                                Text(line.description, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w600)),
+                                                if (line.countryOfOrigin != null && line.countryOfOrigin!.isNotEmpty)
+                                                  Container(
+                                                    margin: const EdgeInsets.only(top: 2),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                                                    decoration: BoxDecoration(
+                                                      color: Colors.blue.shade50,
+                                                      borderRadius: BorderRadius.circular(4),
+                                                      border: Border.all(color: Colors.blue.shade200),
+                                                    ),
+                                                    child: Text(
+                                                      'المنشأ: ${line.countryOfOrigin}',
+                                                      style: TextStyle(fontSize: 10, color: Colors.blue.shade900, fontWeight: FontWeight.bold),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                        DataCell(Text('${line.qty.toStringAsFixed(0)} ${line.unit}')),
+                                        DataCell(Text(line.fobEgp.toStringAsFixed(2))),
+                                        DataCell(Text(line.cifEgp.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        DataCell(
+                                          Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              if (line.hasExemption) ...[
+                                                Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${line.baseDutyRate}%',
+                                                      style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey, fontSize: 11),
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      '${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})',
+                                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                                    ),
+                                                  ],
+                                                ),
+                                                Container(
+                                                  margin: const EdgeInsets.only(top: 2),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.green.shade50,
+                                                    borderRadius: BorderRadius.circular(4),
+                                                    border: Border.all(color: Colors.green.shade300),
+                                                  ),
+                                                  child: Text(
+                                                    '✨ إعفاء: ${line.appliedAgreementName ?? "اتفاقية"}',
+                                                    style: TextStyle(fontSize: 9.5, color: Colors.green.shade900, fontWeight: FontWeight.bold),
+                                                  ),
+                                                ),
+                                              ] else ...[
+                                                Text('${line.dutyRate}% (${line.dutyAmountEgp.toStringAsFixed(2)})'),
+                                              ],
+                                            ],
+                                          ),
+                                        ),
+                                        DataCell(Text('${line.vatRate}% (${line.vatAmountEgp.toStringAsFixed(2)})')),
+                                        DataCell(Text('${(line.scheduleTaxAmountEgp + line.developmentFeeAmountEgp + line.customsServiceFeeAmountEgp).toStringAsFixed(2)} EGP')),
+                                        DataCell(Text('${line.totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson))),
+                                        DataCell(
+                                          Row(
+                                            children: [
+                                              if (line.requiresAcid)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.blue.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: const Text('ACID', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue)),
+                                                ),
+                                              if (line.requiresCoo)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: const Text('COO', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green)),
+                                                ),
+                                              if (line.requiresInspection)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 4),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: const Text('GOEIC', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.orange)),
+                                                ),
+                                              if (line.regulatoryAuthority != null)
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.purple.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(line.regulatoryAuthority!, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.purple)),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }).toList(),
+                                ),
+                              ),
+                              const SizedBox(height: 14),
+
+                              // Exemption & Documentary Requirements Alerts for applicable HS Codes
+                              ...calcLines.where((l) => l.hasExemption || l.priorApprovalNote != null || (l.regulatoryAuthority != null && l.regulatoryAuthority!.isNotEmpty)).map((line) {
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 10),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.withOpacity(0.12),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.amber.shade700, width: 1.2),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.warning_amber_rounded, color: Colors.amber.shade900, size: 18),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}):',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
+                                            ),
+                                          ),
+                                          if (line.hasExemption)
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                              decoration: BoxDecoration(
+                                                color: Colors.green.shade100,
+                                                borderRadius: BorderRadius.circular(4),
+                                                border: Border.all(color: Colors.green.shade700),
+                                              ),
+                                              child: Text(
+                                                '✅ إعفاء جمركي مطبق: ${line.appliedAgreementName}',
+                                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:',
+                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
+                                      ),
+                                      if (line.exemptionConditionsNote != null) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '  - الشروط والاتفاقية: ${line.exemptionConditionsNote!}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                        ),
+                                      ],
+                                      if (line.requiredDocument != null) ...[
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '  - المستند الإلزامي من المورد: ${line.requiredDocument!}',
+                                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                                        ),
+                                      ],
+                                      if (line.priorApprovalNote != null && line.priorApprovalNote!.isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '  - شروط وموافقات مسبقة / إفراج جهات: ${line.priorApprovalNote!}',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal, height: 1.3),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                );
+                              }),
+                              const SizedBox(height: 16),
+
+                              // Calculation Financial Summary Matrix
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.charcoal.withOpacity(0.04),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                ),
+                                child: Wrap(
+                                  spacing: 16,
+                                  runSpacing: 12,
+                                  alignment: WrapAlignment.spaceBetween,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    _buildMetricBadge('إجمالي FOB بالجنيه', '${totalFobEgp.toStringAsFixed(2)} EGP', Colors.grey.shade800),
+                                    _buildMetricBadge('إجمالي القيمة الجمركية (CIF Base)', '${totalCifEgp.toStringAsFixed(2)} EGP', AppTheme.cobalt),
+                                    _buildMetricBadge('إجمالي ضريبة الوارد (Customs Duty)', '${totalDutyEgp.toStringAsFixed(2)} EGP', Colors.indigo),
+                                    _buildMetricBadge('إجمالي ضريبة القيمة المضافة (VAT)', '${totalVatEgp.toStringAsFixed(2)} EGP', Colors.teal),
+                                    _buildMetricBadge('إجمالي الرسوم والضرائب الجمركية', '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', AppTheme.crimson),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
+                                      onPressed: () {
+                                        setState(() {
+                                          _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
+                                        });
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(content: Text('✅ تم تحديث وربط التقدير المالي للرسوم الجمركية: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP'), backgroundColor: AppTheme.emerald),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.done_all, color: Colors.white, size: 16),
+                                      label: const Text('اعتماد وربط التقدير المالي للدراسة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    ),
+                              const SizedBox(height: 16),
+
+                              // NAFEZA STATEMENT FEE BREAKDOWN CARD (تفاصيل بنود التحصيل والإقرارات الرسمية)
+                              buildNafezaFeeBreakdownCard(
+                                calcLines: calcLines,
+                                totalDutyEgp: totalDutyEgp,
+                                totalVatEgp: totalVatEgp,
+                                totalServiceFeeEgp: calcLines.fold(0.0, (s, l) => s + l.customsServiceFeeAmountEgp),
+                                totalScheduleTaxEgp: calcLines.fold(0.0, (s, l) => s + l.scheduleTaxAmountEgp),
+                                totalFreightEgp: totalFreightEgp,
+                                totalInsuranceEgp: totalInsuranceEgp,
+                                exchangeRate: exchangeRate,
+                              ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Checklist Table & Controls
+                  Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Text('قائمة فحص واشتراطات المستندات الجمركية (Customs Checklist)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              const Spacer(),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                                onPressed: _addChecklistItem,
+                                icon: const Icon(Icons.add, color: Colors.white),
+                                label: const Text('إضافة بند جديد للفحص', style: TextStyle(color: Colors.white)),
+                              ),
+                            ],
+                          ),
+                          const Divider(),
+                          const SizedBox(height: 10),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _checklist.length,
+                            separatorBuilder: (context, index) => const Divider(height: 1),
+                            itemBuilder: (context, index) {
+                              final item = _checklist[index];
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              if (item.hsCode != null && item.hsCode!.isNotEmpty)
+                                                Container(
+                                                  margin: const EdgeInsets.only(left: 6),
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                                  child: Text(item.hsCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                ),
+                                              Expanded(child: Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                                            ],
+                                          ),
+                                          if (item.regulatoryAgency != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2.0),
+                                              child: Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                            ),
+                                          if (item.remarks != null && item.remarks!.isNotEmpty)
+                                            Padding(
+                                              padding: const EdgeInsets.only(top: 2.0),
+                                              child: Text(item.remarks!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: SearchableDropdownField<String>(
+                                        value: item.responsibleParty,
+                                        labelText: 'الجهة',
+                                        items: const [
+                                          SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
+                                          SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
+                                          SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team'),
+                                          SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder'),
+                                        ],
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setState(() {
+                                              _checklist[index] = item.copyWith(responsibleParty: val);
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      flex: 2,
+                                      child: SearchableDropdownField<String>(
+                                        value: item.status,
+                                        labelText: 'الحالة',
+                                        items: const [
+                                          SearchableDropdownItem(value: 'Pending', label: 'Pending'),
+                                          SearchableDropdownItem(value: 'Received', label: 'Received'),
+                                          SearchableDropdownItem(value: 'Verified', label: 'Verified'),
+                                          SearchableDropdownItem(value: 'Approved', label: 'Approved'),
+                                          SearchableDropdownItem(value: 'Rejected', label: 'Rejected'),
+                                        ],
+                                        onChanged: (val) {
+                                          if (val != null) {
+                                            setState(() {
+                                              _checklist[index] = item.copyWith(status: val);
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    IconButton(
+                                      icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
+                                      tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
+                                      onPressed: () {
+                                        setState(() {
+                                          _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
+                                        });
+                                      },
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete, color: Colors.grey, size: 20),
+                                      onPressed: () {
+                                        setState(() {
+                                          _checklist.removeAt(index);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          SavedConsultationsTab(onEdit: _loadConsultationForEdit, onViewDetails: showConsultationDetailsDialog),
+          // TAB 3: BROKER PRICE LISTS & CATALOG MANAGEMENT
+          const BrokerPriceListsTab(),
+        ],
+      ),
+    );
+  }
+
+
+
+
+
+  Widget _buildBrokerQuoteDetailsCard(List<CurrencyModel> currenciesList) {
+    if (_selectedBrokerId == null) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  '💡 يرجى تحديد المستخلص الجمركي أعلاه لاستدعاء قائمة أسعار التخليص والنقل الخاصة به تلقائياً وتفعيل بنود المصروفات.',
+                  style: TextStyle(fontSize: 13, color: AppTheme.charcoal),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_isLoadingPriceList) {
+      return Card(
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        child: const Padding(
+          padding: EdgeInsets.all(30),
+          child: Center(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(strokeWidth: 2.5),
+                SizedBox(width: 14),
+                Text('جاري جلب قائمة أسعار التخليص والنقل للمستخلص...', style: TextStyle(fontWeight: FontWeight.bold)),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
+    final appliedCount = _brokerQuoteItems.where((i) => i.isApplicable).length;
+
+    // Filter items by category
+    final categories = [
+      'All',
+      'Clearance Fees (أتعاب ومصاريف تخليص)',
+      'Procedures & Approvals (إجراءات وموافقات وفحص)',
+      'Inland Transport (نقل بري وشاحنات)',
+      'Port & Handling (موانئ وتعتيق وتفريغ)',
+      'Other Fees (مصاريف أخرى)',
+    ];
+
+    final filteredItems = _brokerExpenseCategoryFilter == 'All'
+        ? _brokerQuoteItems
+        : _brokerQuoteItems.where((i) => i.category == _brokerExpenseCategoryFilter).toList();
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                const Icon(Icons.request_quote, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص (Customs Broker Quote Details)',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                      ),
+                      if (_brokerPriceListTitle != null)
+                        Text(
+                          '📋 المصدر: $_brokerPriceListTitle (${_brokerQuoteItems.length} بنود مسعرة)',
+                          style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
+                        ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
+                  onPressed: _addCustomBrokerExpenseRow,
+                  icon: const Icon(Icons.add, size: 16),
+                  label: const Text('إضافة بند مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: Icon(_isBrokerQuoteExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
+                  tooltip: _isBrokerQuoteExpanded ? 'طي عرض الأسعار' : 'توسيع عرض الأسعار',
+                  onPressed: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
+                ),
+              ],
+            ),
+            if (_isBrokerQuoteExpanded) ...[
+              const Divider(height: 20),
+
+              // Category Filter Bar & Bulk Actions
+              Row(
+                children: [
+                  const Text('تصفية الفئات: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: categories.map((cat) {
+                          final isSelected = _brokerExpenseCategoryFilter == cat;
+                          final label = cat == 'All' ? 'الكل (${_brokerQuoteItems.length})' : cat.split('(').first.trim();
+                          return Padding(
+                            padding: const EdgeInsets.only(left: 6),
+                            child: ChoiceChip(
+                              label: Text(label, style: TextStyle(fontSize: 10, fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                              selected: isSelected,
+                              selectedColor: AppTheme.cobalt.withOpacity(0.15),
+                              onSelected: (_) => setState(() => _brokerExpenseCategoryFilter = cat),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          final itm = _brokerQuoteItems[i];
+                          final lineTotal = itm.unitPrice * itm.qty;
+                          _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
+                    label: const Text('تطبيق الكل', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                  ),
+                  TextButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                          _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
+                        }
+                      });
+                    },
+                    icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
+                    label: const Text('تعطيل الكل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+
+              // Items List
+              if (filteredItems.isEmpty)
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
+                  child: const Text('لا توجد بنود مصروفات في هذا التصنيف. يمكنك النقر على "إضافة بند مخصص" لإدراج مصروف جديد.'),
+                )
+              else
+                ...filteredItems.map((item) {
+                  final idx = _brokerQuoteItems.indexOf(item);
+                  return buildBrokerCostRow(onUpdate: _updateBrokerQuoteItem, 
+                    index: idx,
+                    item: item,
+                    currenciesList: currenciesList,
+                  );
+                }).toList(),
+
+              const Divider(height: 24),
+
+              // Summary Bar matching Image 4 design
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.account_balance_wallet, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 8),
+                        Text(
+                          '💰 إجمالي عرض أسعار المخلص الجمركي والنقل المطبق ($appliedCount بند مطبق):',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      '${totalBrokerFees.toStringAsFixed(2)} EGP',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.cobalt),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+
+  Widget const BrokerPriceListsTab() {
+    final priceListsAsync = ref.watch(brokerPriceListsProvider);
+    return priceListsAsync.when(
+    return expenseTypesAsync.when(
+    final codeCtrl = TextEditingController();
+
+
+  Widget _buildMetricBadge(String title, String value, Color color, {VoidCallback? onTap}) {
+    final badge = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(title, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.bold)),
+              if (onTap != null) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.open_in_new, size: 12, color: color),
+              ],
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(value, style: TextStyle(fontSize: 16, color: color, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+
+    if (onTap != null) {
+      return InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: badge,
+      );
+    }
+    return badge;
+  }
+
+  /// Interactive Modal to review and correct Blocking Clearance Issues
+
+  Widget _buildStatusBadge(String status) {
     Color bg = Colors.grey;
     if (status == 'Clearance Ready') bg = Colors.green;
     if (status == 'Blocked') bg = Colors.red;
@@ -867,7 +2458,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
   }
 
-  Widget ConsultationDocStatusBadge(status: String status) {
+  Widget _buildDocItemStatusBadge(String status) {
     Color bg = Colors.grey;
     if (status == 'Approved') bg = Colors.green;
     if (status == 'Rejected') bg = Colors.red;

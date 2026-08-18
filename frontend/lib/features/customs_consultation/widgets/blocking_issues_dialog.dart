@@ -1,0 +1,215 @@
+import 'package:flutter/material.dart';
+import '../../../core/theme/app_theme.dart';
+import '../models/customs_consultation_model.dart';
+
+  void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemModel> checklist, Function(List<CustomsChecklistItemModel>) onUpdate) {
+    final blockingItems = checklist.where((i) => i.isBlockingShipment && i.status != 'Approved').toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+                side: const BorderSide(color: AppTheme.crimson, width: 1.5),
+              ),
+              titlePadding: EdgeInsets.zero,
+              title: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: const BoxDecoration(
+                  color: AppTheme.crimson,
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.block, color: Colors.white, size: 24),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'شاشة فحص وتصحيح عوائق التخليص الجمركي (${blockingItems.length} عائق)',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+              content: SizedBox(
+                width: 720,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: const Row(
+                          children: [
+                            Icon(Icons.info_outline, color: AppTheme.crimson, size: 22),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'هذه المستندات والاشتراطات مصنفة كـ (Blocking) ولا يمكن الإفراج عن الشحنة بدون استيفائها أو اعتمادها من المستخلص/الجهة الرقابية.',
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.charcoal,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (blockingItems.isEmpty)
+                        const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text(
+                              '🎉 تم استيفاء واعتماد كافة عوائق التخليص بنجاح!',
+                              style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                            ),
+                          ),
+                        )
+                      else
+                        ...blockingItems.asMap().entries.map((entry) {
+                          final idx = entry.key;
+                          final item = entry.value;
+
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.crimson.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(
+                                        'عائق ${idx + 1}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: AppTheme.crimson,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        item.documentType,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13.5,
+                                          color: AppTheme.charcoal,
+                                        ),
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.orange.shade100,
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        'الحالة: ${item.status}',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Colors.orange.shade900,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'الجهة المعنية / المتطلب: ${item.requiredText} | الجهة المصدرة: ${item.regulatoryAgency ?? "غير محدد"}',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                                ),
+                                if (item.remarks != null && item.remarks!.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'ملاحظات: ${item.remarks}',
+                                    style: const TextStyle(fontSize: 11.5, color: Colors.blueGrey, fontStyle: FontStyle.italic),
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    OutlinedButton.icon(
+                                      style: OutlinedButton.styleFrom(
+                                        foregroundColor: AppTheme.emerald,
+                                        side: const BorderSide(color: AppTheme.emerald),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                      ),
+                                      icon: const Icon(Icons.check_circle_outline, size: 16),
+                                      label: const Text('اعتماد واستيفاء البند الآن (Mark as Approved)', style: TextStyle(fontSize: 11.5)),
+                                      onPressed: () {
+                                        final realIndex = checklist.indexWhere((c) => c.documentType == item.documentType);
+                                          if (realIndex != -1) {
+                                            checklist[realIndex] = checklist[realIndex].copyWith(
+                                              status: 'Approved',
+                                              verifiedDate: DateTime.now().toString().split(' ')[0],
+                                            );
+                                          }
+                                            onUpdate(checklist);
+                                        setModalState(() {
+                                          blockingItems.removeWhere((i) => i.documentType == item.documentType);
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                  icon: const Icon(Icons.check),
+                  label: const Text('تم الانتهاء والعودة للنموذج'),
+                  onPressed: () => Navigator.of(ctx).pop(),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }

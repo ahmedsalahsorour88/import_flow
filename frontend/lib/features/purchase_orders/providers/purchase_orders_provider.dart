@@ -183,8 +183,8 @@ class PurchaseOrdersNotifier extends StateNotifier<PurchaseOrdersState> {
 final purchaseOrdersDioProvider = Provider<Dio>((ref) {
   return Dio(BaseOptions(
     baseUrl: ApiConstants.baseUrl,
-    connectTimeout: const Duration(seconds: 30),
-    receiveTimeout: const Duration(seconds: 30),
+    connectTimeout: const Duration(seconds: 180),
+    receiveTimeout: const Duration(seconds: 180),
   ));
 });
 

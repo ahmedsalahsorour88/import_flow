@@ -165,7 +165,13 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
   }
 
   Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes) async {
-    final dio = Dio();
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 180),
+        receiveTimeout: const Duration(seconds: 180),
+        sendTimeout: const Duration(seconds: 180),
+      ),
+    );
     final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse/${widget.module.apiValue}';
 
     final formData = FormData.fromMap({
@@ -178,7 +184,13 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
   }
 
   Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files) async {
-    final dio = Dio();
+    final dio = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 180),
+        receiveTimeout: const Duration(seconds: 180),
+        sendTimeout: const Duration(seconds: 180),
+      ),
+    );
     final endpoint = '${ApiConstants.baseUrl}/smart-upload/parse-multi/${widget.module.apiValue}';
 
     final multiFiles = files
@@ -659,16 +671,22 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                   : () async {
                       setDialogState(() => isSaving = true);
                       try {
-                        final dio = Dio();
+                        final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 180), receiveTimeout: const Duration(seconds: 180)));
+                        final cty = countryCtrl.text.trim().isNotEmpty ? countryCtrl.text.trim() : 'United Kingdom';
+                        final ctyCode = cty.length >= 2 ? cty.substring(0, 2).toUpperCase() : 'GB';
+                        final exporterId = taxIdCtrl.text.trim().isNotEmpty ? taxIdCtrl.text.trim() : 'EXP-${DateTime.now().millisecondsSinceEpoch}';
                         await dio.post(
                           '${ApiConstants.baseUrl}/suppliers',
                           data: {
                             'company_name': nameCtrl.text.trim(),
-                            'country': countryCtrl.text.trim(),
+                            'supplier_type': 'Manufacturer',
+                            'registration_type': 'Foreign Exporter',
+                            'foreign_exporter_id': exporterId,
+                            'foreign_exporter_country': cty,
+                            'foreign_exporter_country_code': ctyCode,
+                            'address': addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : 'Exporter Address',
                             'phone': phoneCtrl.text.trim(),
                             'email': emailCtrl.text.trim(),
-                            'address': addressCtrl.text.trim(),
-                            'foreign_exporter_id': taxIdCtrl.text.trim(),
                           },
                         );
                         if (context.mounted) {
@@ -779,15 +797,21 @@ class SmartUploadPreviewDialog extends StatelessWidget {
                   : () async {
                       setDialogState(() => isSaving = true);
                       try {
-                        final dio = Dio();
+                        final dio = Dio(BaseOptions(connectTimeout: const Duration(seconds: 180), receiveTimeout: const Duration(seconds: 180)));
                         await dio.post(
                           '${ApiConstants.baseUrl}/import-companies',
                           data: {
-                            'company_name': nameCtrl.text.trim(),
-                            'tax_id': taxIdCtrl.text.trim(),
+                            'importer_name': nameCtrl.text.trim(),
+                            'address': addressCtrl.text.trim().isNotEmpty ? addressCtrl.text.trim() : 'Cairo, Egypt',
+                            'country': 'Egypt',
+                            'importer_id': 'IMP-${DateTime.now().millisecondsSinceEpoch}',
+                            'importer_id_expiry': '2030-12-31',
+                            'vat_id': taxIdCtrl.text.trim().isNotEmpty ? taxIdCtrl.text.trim() : '000000000',
+                            'vat_id_expiry': '2030-12-31',
+                            'registration_number': '000000',
+                            'registration_expiry': '2030-12-31',
                             'phone': phoneCtrl.text.trim(),
-                            'contact_email': emailCtrl.text.trim(),
-                            'address': addressCtrl.text.trim(),
+                            'email': emailCtrl.text.trim(),
                           },
                         );
                         if (context.mounted) {

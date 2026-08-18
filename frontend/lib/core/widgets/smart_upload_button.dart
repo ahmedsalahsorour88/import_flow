@@ -178,6 +178,8 @@ class SmartUploadButton extends StatefulWidget {
 
 class _SmartUploadButtonState extends State<SmartUploadButton> {
   bool _isLoading = false;
+  double _progressPercent = 0.0;
+  String _progressLabel = '';
 
   Future<void> _handleUpload() async {
     // 1 — Pick file(s) (supports selecting Commercial Invoice + Packing List together)
@@ -196,10 +198,14 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _progressPercent = 0.05;
+      _progressLabel = 'جاري تحضير الملف...';
+    });
 
     try {
-      // 2 — Upload & parse (single or multi-file)
+      // 2 — Upload & parse (single or multi-file) with live percentage tracking
       final SmartUploadResult uploadResult;
       if (validFiles.length == 1) {
         uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!);
@@ -207,7 +213,11 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         uploadResult = await _uploadAndParseMulti(validFiles);
       }
 
-      setState(() => _isLoading = false);
+      setState(() {
+        _progressPercent = 1.0;
+        _progressLabel = 'اكتمل بنجاح 100%';
+        _isLoading = false;
+      });
 
       if (!mounted) return;
 
@@ -225,7 +235,11 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         ),
       );
     } catch (e) {
-      setState(() => _isLoading = false);
+      setState(() {
+        _isLoading = false;
+        _progressPercent = 0.0;
+        _progressLabel = '';
+      });
       _showError('فشل استخراج البيانات: ${_friendlyError(e)}');
     }
   }
@@ -245,7 +259,24 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       'save_session': 'true',
     });
 
-    final response = await dio.post(endpoint, data: formData);
+    final response = await dio.post(
+      endpoint,
+      data: formData,
+      onSendProgress: (sent, total) {
+        if (total > 0 && mounted) {
+          final uploadRatio = sent / total;
+          setState(() {
+            // Upload phase is 0% -> 60%, AI parsing phase is 60% -> 95%
+            _progressPercent = 0.05 + (uploadRatio * 0.55);
+            if (_progressPercent < 0.6) {
+              _progressLabel = 'جاري الرفع: ${(_progressPercent * 100).round()}%';
+            } else {
+              _progressLabel = 'جاري التحليل واستخراج البيانات: 75%';
+            }
+          });
+        }
+      },
+    );
     return SmartUploadResult.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -268,7 +299,23 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       'save_session': 'true',
     });
 
-    final response = await dio.post(endpoint, data: formData);
+    final response = await dio.post(
+      endpoint,
+      data: formData,
+      onSendProgress: (sent, total) {
+        if (total > 0 && mounted) {
+          final uploadRatio = sent / total;
+          setState(() {
+            _progressPercent = 0.05 + (uploadRatio * 0.55);
+            if (_progressPercent < 0.6) {
+              _progressLabel = 'جاري رفع ${files.length} ملفات: ${(_progressPercent * 100).round()}%';
+            } else {
+              _progressLabel = 'جاري المعالجة والمطابقة: 80%';
+            }
+          });
+        }
+      },
+    );
     return SmartUploadResult.fromJson(response.data as Map<String, dynamic>);
   }
 
@@ -294,39 +341,115 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
 
   @override
   Widget build(BuildContext context) {
+    final percentInt = (_progressPercent * 100).round().clamp(0, 100);
+
     if (widget.compact) {
       return Tooltip(
-        message: 'رفع ${widget.module.arabicLabel}',
-        child: IconButton(
-          icon: _isLoading
-              ? const SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt),
-                )
-              : const Icon(Icons.upload_file_rounded, color: AppTheme.cobalt),
-          onPressed: _isLoading ? null : _handleUpload,
-        ),
+        message: _isLoading ? _progressLabel : 'رفع ${widget.module.arabicLabel}',
+        child: _isLoading
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppTheme.cobalt, width: 1.2),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(
+                        value: _progressPercent > 0 ? _progressPercent : null,
+                        strokeWidth: 2,
+                        color: AppTheme.cobalt,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '$percentInt%',
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.cobalt,
+                      ),
+                    ),
+                  ],
+                ),
+              )
+            : IconButton(
+                icon: const Icon(Icons.upload_file_rounded, color: AppTheme.cobalt),
+                onPressed: _handleUpload,
+              ),
       );
     }
 
     return OutlinedButton.icon(
       style: OutlinedButton.styleFrom(
-        foregroundColor: AppTheme.cobalt,
-        side: const BorderSide(color: AppTheme.cobalt),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        foregroundColor: _isLoading ? AppTheme.cobalt : AppTheme.cobalt,
+        side: BorderSide(color: AppTheme.cobalt, width: _isLoading ? 1.5 : 1.0),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        backgroundColor: _isLoading ? AppTheme.cobalt.withOpacity(0.06) : null,
       ),
       icon: _isLoading
-          ? const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.cobalt),
+          ? Stack(
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: CircularProgressIndicator(
+                    value: _progressPercent > 0 ? _progressPercent : null,
+                    strokeWidth: 2.5,
+                    backgroundColor: AppTheme.cobalt.withOpacity(0.2),
+                    color: AppTheme.cobalt,
+                  ),
+                ),
+                Text(
+                  '$percentInt%',
+                  style: const TextStyle(
+                    fontSize: 8.5,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.cobalt,
+                  ),
+                ),
+              ],
             )
           : const Icon(Icons.upload_file_rounded, size: 18),
-      label: Text(
-        _isLoading ? 'جاري الاستخراج...' : (widget.label ?? 'رفع وثيقة'),
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _isLoading
+                ? (_progressLabel.isNotEmpty ? _progressLabel : 'جاري الاستخراج $percentInt%')
+                : (widget.label ?? 'رفع وثيقة'),
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: _isLoading ? FontWeight.bold : FontWeight.w600,
+              color: AppTheme.cobalt,
+            ),
+          ),
+          if (_isLoading) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppTheme.cobalt,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$percentInt%',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ],
       ),
       onPressed: _isLoading ? null : _handleUpload,
     );

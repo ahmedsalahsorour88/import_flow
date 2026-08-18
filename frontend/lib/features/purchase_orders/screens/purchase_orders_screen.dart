@@ -1677,20 +1677,34 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     }
   }
 
+  DateTime _parseFlexDate(String? rawStr) {
+    if (rawStr == null || rawStr.trim().isEmpty) return DateTime.now();
+    final s = rawStr.trim();
+    final parsedIso = DateTime.tryParse(s);
+    if (parsedIso != null) return parsedIso;
+
+    final parts = s.split(RegExp(r'[/-]'));
+    if (parts.length == 3) {
+      final p0 = int.tryParse(parts[0]) ?? 1;
+      final p1 = int.tryParse(parts[1]) ?? 1;
+      final p2 = int.tryParse(parts[2]) ?? DateTime.now().year;
+      if (p2 > 1000) {
+        return DateTime(p2, p1, p0);
+      } else if (p0 > 1000) {
+        return DateTime(p0, p1, p2);
+      }
+    }
+    return DateTime.now();
+  }
+
   @override
   void initState() {
     super.initState();
     final po = widget.po;
     final ext = widget.initialExtractedFields;
 
-    _selectedOrderDate = po?.orderDate ?? DateTime.now();
-    if (po == null && ext != null) {
-      final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
-      if (dateStr != null && dateStr.isNotEmpty) {
-        final parsed = DateTime.tryParse(dateStr);
-        if (parsed != null) _selectedOrderDate = parsed;
-      }
-    }
+    _selectedOrderDate = po?.orderDate ??
+        (ext != null ? _parseFlexDate((ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString()) : DateTime.now());
 
     final defaultPiNumber = po?.proformaInvoiceNumber ??
         (ext != null ? (ext['po_number'] ?? ext['proforma_invoice_number'])?.toString() : null) ?? '';
@@ -1716,8 +1730,8 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
     _selectedCurrencyId = po?.currencyId;
     _selectedCountryOfOrigin = po?.countryOfOrigin;
 
-    _dialogItems = po != null && po.items.isNotEmpty
-        ? po.items.map((i) => POLineItemModel(
+    if (po != null && po.items.isNotEmpty) {
+      _dialogItems = po.items.map((i) => POLineItemModel(
             itemCode: i.itemCode,
             descriptionAr: i.descriptionAr,
             descriptionEn: i.descriptionEn,
@@ -1729,18 +1743,39 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
             cbmPerUnit: i.cbmPerUnit,
             grossWeightKg: i.grossWeightKg,
             netWeightKg: i.netWeightKg,
-          )).toList()
-        : [
-            POLineItemModel(
-              descriptionAr: 'بند استيرادي رئيسي 1',
-              quantity: 100,
-              unitPrice: 10,
-              cbmPerUnit: 0.1,
-            )
-          ];
+          )).toList();
+    } else if (ext != null && ext['items'] is List && (ext['items'] as List).isNotEmpty) {
+      final itemList = ext['items'] as List;
+      _dialogItems = itemList.map((raw) {
+        final i = Map<String, dynamic>.from(raw as Map);
+        final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
+        final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
+        final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
+        final code = i['item_code']?.toString() ?? 'ITEM-001';
+        return POLineItemModel(
+          itemCode: code,
+          descriptionAr: desc,
+          descriptionEn: desc,
+          quantity: qty > 0 ? qty : 100.0,
+          unitPrice: price > 0 ? price : 10.0,
+          cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
+          grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
+          netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
+        );
+      }).toList();
+    } else {
+      _dialogItems = [
+        POLineItemModel(
+          descriptionAr: 'بند استيرادي رئيسي 1',
+          quantity: 100,
+          unitPrice: 10,
+          cbmPerUnit: 0.1,
+        )
+      ];
+    }
 
-    _dialogPackingItems = po != null && po.packingListItems.isNotEmpty
-        ? po.packingListItems.map((p) => PackingListItemModel(
+    if (po != null && po.packingListItems.isNotEmpty) {
+      _dialogPackingItems = po.packingListItems.map((p) => PackingListItemModel(
             hsCode: p.hsCode,
             itemCode: p.itemCode,
             qtyPcs: p.qtyPcs,
@@ -1752,8 +1787,43 @@ class _PODialogWidgetState extends ConsumerState<_PODialogWidget> {
             netWeightUnitKg: p.netWeightUnitKg,
             grossWeightUnitKg: p.grossWeightUnitKg,
             isStackable: p.isStackable,
-          )).toList()
-        : [];
+          )).toList();
+    } else if (ext != null && ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
+      final packingList = ext['packing_list_items'] as List;
+      _dialogPackingItems = packingList.map((raw) {
+        final p = Map<String, dynamic>.from(raw as Map);
+        return PackingListItemModel(
+          hsCode: p['hs_code']?.toString() ?? '',
+          itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+          qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
+          qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
+          packageType: p['package_type']?.toString() ?? 'Pallet',
+          lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
+          widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
+          heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
+          grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 646.0,
+          netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 626.0,
+          isStackable: p['is_stackable'] as bool? ?? true,
+        );
+      }).toList();
+    } else {
+      _dialogPackingItems = _dialogItems.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final item = entry.value;
+        return PackingListItemModel(
+          hsCode: item.hsCode ?? '',
+          itemCode: item.itemCode ?? 'ITEM-${(idx + 1).toString().padLeft(3, '0')}',
+          qtyPcs: item.quantity,
+          qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
+          packageType: 'Carton',
+          lengthCm: 50.0,
+          widthCm: 40.0,
+          heightCm: 30.0,
+          netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
+          grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
+        );
+      }).toList();
+    }
   }
 
   @override

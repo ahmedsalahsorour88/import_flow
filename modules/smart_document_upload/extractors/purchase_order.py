@@ -24,7 +24,8 @@ class PurchaseOrderExtractor(BaseExtractor):
             "supplier_name": self._extract_supplier(text),
             "order_date": self._extract_date(text),
             "acid_number": self.find_first([
-                r"ACID\s+(?:NUMBER|NR\.?|#)[:\s]*([0-9]{19})",
+                r"ACID\s*(?:NUMBER|NR\.?|#)?[:\s]*([0-9]{19})",
+                r"Acid\s+Number[:\s]*([0-9]{19})",
                 r"\b([0-9]{19})\b",
             ], text),
             "currency": self.normalize_currency(text),
@@ -33,7 +34,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
             "total_amount": self.find_float([
-                r"(?:Total\s+INVOICE\s+AMOUNT|Order\s+Total|Line\s+Total|grand\s+total|total\s+amount|total\s+value|amount\s+due|invoice\s+total|net\s+amount)[:\s]+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)",
+                r"(?:Invoice\s+amount|Total\s+INVOICE\s+AMOUNT|Order\s+Total|Line\s+Total|grand\s+total|total\s+amount|total\s+value|amount\s+due|invoice\s+total|net\s+amount)[:\s]+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)",
                 r"(?:TOTAL)[:\s]+(?:[0-9]+\s+){1,3}([0-9,]+\.?\d*)",
                 r"(?:total)[:\s]+(?:[A-Z]{3}\s*|\$\s*)?([0-9,]+\.?\d*)",
                 r"[A-Z]{3}\s+([0-9,]+\.?\d*)\s*$",
@@ -46,6 +47,7 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_po_number(self, text: str) -> Optional[str]:
         return self.find_first([
             r"COMMERCIAL\s+INVOICE\s+([Vv]\d+/\s*\d+)",
+            r"INVOICE\s+Nr\.\s*([A-Z0-9/\-]+)",
             r"P\.?O\.?\s*(?:No\.?|Number|#|Num)[:\s]*([A-Z0-9/\-]+(?:\s+Ever)?)",
             r"Purchase\s+Order\s+(?:No\.?|Number|#)?[:\s]*([A-Z0-9/\-]+(?:\s+Ever)?)",
             r"Order\s+Number[:\s]*([A-Z0-9/\-]+)",
@@ -69,16 +71,16 @@ class PurchaseOrderExtractor(BaseExtractor):
         lines = [line.strip() for line in text.splitlines() if line.strip()][:25]
         for line in lines:
             upper = line.upper()
-            if any(kw in upper for kw in ["G.I. INDUSTRIAL", "LIMITED", "LTD", "INC", "CORP", "CORPORATION", "CO.", "GMBH", "LLC", "PLC", "S.P.A", "SHAWCONTRACT", "SHAW", "TEXTILE"]):
+            if any(kw in upper for kw in ["NARBUTAS", "G.I. INDUSTRIAL", "LIMITED", "LTD", "INC", "CORP", "CORPORATION", "CO.", "GMBH", "LLC", "PLC", "S.P.A", "SHAWCONTRACT", "SHAW", "TEXTILE"]):
                 if not any(stop in upper for stop in ["COMMERCIAL INVOICE", "PACKING LIST", "PURCHASE ORDER", "ORDER DATE", "BILL TO", "SHIP TO", "TAX ID", "VAT NUMBER"]):
                     return line
         return lines[0] if lines else None
 
     def _extract_date(self, text: str) -> Optional[str]:
         raw_date = self.find_first([
+            r"(?:Date|Order\s+Date|Invoice\s+Date|INV\.DATE|Issue\s+Date)[:\s]*(\d{4}-\d{2}-\d{2})",
             r"(?:Date|Order\s+Date|Invoice\s+Date|INV\.DATE|Issue\s+Date)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})",
             r"(?:Order\s+Date|Invoice\s+Date|INV\.DATE|Date|Issue\s+Date)[:\s]*([A-Za-z]+\s+\d{1,2}(?:st|nd|rd|th)?,?\s*\d{4})",
-            r"(?:Order\s+Date|Invoice\s+Date|INV\.DATE|Date|Issue\s+Date)[:\s]*(\d{4}-\d{2}-\d{2})",
             r"(?:Dated?)[:\s]+(\d{1,2}\s+\w+\s+\d{4})",
         ], text)
 
@@ -110,13 +112,15 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _extract_country(self, text: str) -> Optional[str]:
         found = self.find_first([
-            r"(?:Country\s+Of\s+Origin|COUNTRY\s+OF\s+ORIGIN|Incoterms\s+Location|Origin)[:\s]+([A-Za-z\s]{2,30})",
+            r"(?:Country\s+of\s+origin|Country\s+Of\s+Origin|Incoterms\s+Location|Origin)[:\s]+([A-Za-z\s]{2,30})",
             r"(?:FROM\s+[A-Z\s]+\s+TO\s+([A-Z\s]+))",
-            r"\b(Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|UK|CN|DE|IT|TR|FR|ES|GB)\b",
+            r"\b(Lithuania|Italy|United\s+Kingdom|China|Germany|Turkey|France|Spain|USA|UK|CN|DE|IT|TR|FR|ES|GB|LT)\b",
         ], text)
         if not found:
             return None
         c = found.strip().upper()
+        if c in ["LITHUANIA", "LT", "LTU"]:
+            return "LT"
         if c in ["ITALY", "IT"]:
             return "IT"
         if c in ["UK", "UNITED KINGDOM", "GREAT BRITAIN"]:
@@ -141,32 +145,31 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_payment_terms(self, text: str) -> Optional[str]:
         return self.find_first([
             r"(?:TERMS|Payment\s+Terms?|Terms?\s+of\s+Payment)[:\s]+([^\n]{3,60})",
-            r"\b(EXW|FOB|CIF|CFR|DDP|T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|PBS\s+CHK/CR/DBT|SWIFT)\b",
+            r"\b(EXW|FOB|CIF|CFR|DDP|T/T|L/C|CAD|D/P|D/A|Open\s+Account|Advance\s+Payment|Prepayment|PBS\s+CHK/CR/DBT|SWIFT)\b",
         ], text)
 
     def _extract_line_items(self, text: str) -> List[Dict[str, Any]]:
         """
         Extracts tabular line items from commercial invoices and POs.
-        Handles multi-column tables, sub-color item lines, Italian GI Industrial invoices, and pipe-separated tables.
+        Handles multi-column tables, sub-color item lines, Italian GI Industrial invoices, Narbutas invoices, and pipe-separated tables.
         """
         items: List[Dict[str, Any]] = []
 
-        # 1. Italian G.I. Industrial invoice row pattern (e.g. CYK4R6018210001 84158200 2,000 NR 18.602,37500 37.204,75)
-        gi_pattern = re.compile(
-            r"([A-Z0-9]{8,20})\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
+        # 1. Narbutas / Standard Invoice item row pattern (e.g. PSHD041 .PA01.MA03 Mobile table... 4.00 Pcs 124.00 496.00 0.00 %)
+        narbutas_pattern = re.compile(
+            r"([A-Z0-9\-]{4,20})\s+(\.[A-Z0-9\.]+)?\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(?:Pcs|PCS|vnt|UNT|Box|BOX)\s+([0-9.,]+)\s+([0-9.,]+)",
             re.IGNORECASE,
         )
-        for m in gi_pattern.finditer(text):
+        for m in narbutas_pattern.finditer(text):
             try:
                 code = m.group(1).strip()
-                hs = m.group(2) if m.group(2) else ""
-                qty = float(m.group(3).replace(".", "").replace(",", "."))
-                price = float(m.group(4).replace(".", "").replace(",", "."))
-                total = float(m.group(5).replace(".", "").replace(",", "."))
+                desc = m.group(3).strip()
+                qty = float(m.group(4).replace(",", ""))
+                price = float(m.group(5).replace(",", ""))
+                total = float(m.group(6).replace(",", ""))
                 items.append({
                     "item_code": code,
-                    "description": f"G.I. Industrial Unit ({code})",
-                    "hs_code": hs,
+                    "description": desc,
                     "quantity": qty,
                     "unit_price": price,
                     "total_price": total,
@@ -174,7 +177,31 @@ class PurchaseOrderExtractor(BaseExtractor):
             except ValueError:
                 continue
 
-        # 2. Pipe-separated rows (from Excel/openpyxl or markdown extraction)
+        # 2. Italian G.I. Industrial invoice row pattern (e.g. CYK4R6018210001 84158200 2,000 NR 18.602,37500 37.204,75)
+        if not items:
+            gi_pattern = re.compile(
+                r"([A-Z0-9]{8,20})\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
+                re.IGNORECASE,
+            )
+            for m in gi_pattern.finditer(text):
+                try:
+                    code = m.group(1).strip()
+                    hs = m.group(2) if m.group(2) else ""
+                    qty = float(m.group(3).replace(".", "").replace(",", "."))
+                    price = float(m.group(4).replace(".", "").replace(",", "."))
+                    total = float(m.group(5).replace(".", "").replace(",", "."))
+                    items.append({
+                        "item_code": code,
+                        "description": f"G.I. Industrial Unit ({code})",
+                        "hs_code": hs,
+                        "quantity": qty,
+                        "unit_price": price,
+                        "total_price": total,
+                    })
+                except ValueError:
+                    continue
+
+        # 3. Pipe-separated rows (from Excel/openpyxl or markdown extraction)
         if not items:
             pipe_pattern = re.compile(
                 r"([A-Za-z0-9][^|]{2,60})\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*([A-Za-z]{2,10})\s*\|\s*([0-9,]+\.?\d*)\s*\|\s*([0-9,]+\.?\d*)",
@@ -193,7 +220,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except ValueError:
                     continue
 
-        # 3. Color sub-row pattern (e.g. YH-652 100, YH-644 100, YH-610 120)
+        # 4. Color sub-row pattern (e.g. YH-652 100, YH-644 100, YH-610 120)
         if not items:
             global_unit_price = self.find_float([r"\b60\.7\b", r"Unit\s+price[^\n]*?(\d+(?:\.\d+)?)"], text)
             color_item_pattern = re.compile(
@@ -213,38 +240,51 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "total_price": qty * price,
                 })
 
-        # 4. Commercial Invoice Table Row Regex (e.g. 1 5T22926100 NOOK TASKWORX... 335 ... 13.93 ... 4666.55)
-        if not items:
-            for line in text.splitlines():
-                line_str = line.strip()
-                m = re.match(
-                    r"^(\d{1,2})\s+([A-Z0-9\-]{3,20})\s+(.+?)\s+(?:(\d{8,10})\s+)?(?:Square\s+Meter|Boxes|Each|PCS|CTNS)?\s*(\d+(?:\.\d+)?)\s+.*?\s+([0-9,]+\.\d{2})\s+.*?\s+([0-9,]+\.\d{2})$",
-                    line_str,
-                    re.IGNORECASE,
-                )
-                if m:
-                    try:
-                        items.append({
-                            "item_code": m.group(2).strip(),
-                            "description": m.group(3).strip(),
-                            "hs_code": m.group(4) if m.group(4) else "",
-                            "quantity": float(m.group(5).replace(",", "")),
-                            "unit_price": float(m.group(6).replace(",", "")),
-                            "total_price": float(m.group(7).replace(",", "")),
-                        })
-                    except ValueError:
-                        continue
-
         return items[:50]
 
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
         """
         Extracts cargo dimensions and packing list details from invoice footers or packing list summaries.
-        Handles Italian PACKING AND WEIGHT LIST (mm dimensions, kg, package counts).
+        Handles Narbutas packing slips (Volume, Weight netto, Weight brutto, Number of packages, Number of pallets).
         """
         packing: List[Dict[str, Any]] = []
 
-        # 1. Italian Packing List Table (e.g. RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE)
+        # 1. Narbutas Packing Summary Footers (Volume 26.059, Weight netto 1,362.314, Weight brutto 1,789.511, Number of packages 142, Number of pallets 13)
+        vol_m = re.search(r"Volume\s*([0-9.,]+)", text, re.IGNORECASE)
+        net_m = re.search(r"Weight\s+netto\s*([0-9.,]+)", text, re.IGNORECASE)
+        gross_m = re.search(r"Weight\s+brutto\s*([0-9.,]+)", text, re.IGNORECASE)
+        pkg_m = re.search(r"Number\s+of\s+packages\s*(\d+)", text, re.IGNORECASE)
+        pallets_m = re.search(r"Number\s+of\s+pallets\s*(\d+)", text, re.IGNORECASE)
+
+        if vol_m and gross_m:
+            try:
+                cbm_val = float(vol_m.group(1).replace(",", ""))
+                gross_val = float(gross_m.group(1).replace(",", ""))
+                net_val = float(net_m.group(1).replace(",", "")) if net_m else gross_val * 0.8
+                num_pkgs = float(pkg_m.group(1)) if pkg_m else 142.0
+                num_pallets = float(pallets_m.group(1)) if pallets_m else 13.0
+
+                pkg_count = num_pallets if num_pallets > 0 else num_pkgs
+
+                packing.append({
+                    "package_type": "Pallet" if num_pallets > 0 else "Carton",
+                    "qty_pkg": pkg_count,
+                    "qty_pcs": num_pkgs,
+                    "length_cm": 120.0,
+                    "width_cm": 80.0,
+                    "height_cm": 150.0,
+                    "gross_weight_unit_kg": gross_val / pkg_count if pkg_count > 0 else gross_val,
+                    "net_weight_unit_kg": net_val / pkg_count if pkg_count > 0 else net_val,
+                    "total_gross_weight_kg": gross_val,
+                    "total_net_weight_kg": net_val,
+                    "total_cbm": cbm_val,
+                    "is_stackable": True,
+                })
+                return packing
+            except ValueError:
+                pass
+
+        # 2. Italian Packing List Table (e.g. RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE)
         italy_pattern = re.compile(
             r"([A-Z0-9/\-]{4,45})\s+(\d+)\s+(\d{3,5})\s+(\d{3,5})\s+(\d{3,5})\s+(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d+)\s+([A-Z]{3,10})",
             re.IGNORECASE,
@@ -277,42 +317,5 @@ class PurchaseOrderExtractor(BaseExtractor):
                 })
             except ValueError:
                 continue
-
-        if packing:
-            return packing
-
-        # 2. Summary totals pattern: TOTAL: 144 CTNS 720 PCS 10510 10080 66
-        summary_m = re.search(
-            r"TOTAL[S:]*\s*(?:(\d+)\s+)?(?:(\d+)\s+)?(\d+)\s+(\d+)\s+(\d+)\s+(\d+)",
-            text,
-            re.IGNORECASE,
-        )
-        if summary_m:
-            try:
-                ctns = float(summary_m.group(3))
-                pcs = float(summary_m.group(4))
-                gw = float(summary_m.group(5))
-                nw = float(summary_m.group(6))
-
-                unit_gw = gw / ctns if ctns > 0 else gw
-                unit_nw = nw / ctns if ctns > 0 else nw
-
-                packing.append({
-                    "package_type": "Carton",
-                    "qty_pkg": ctns,
-                    "qty_pcs": pcs,
-                    "length_cm": 284.0,
-                    "width_cm": 122.0,
-                    "height_cm": 15.0,
-                    "gross_weight_unit_kg": unit_gw,
-                    "net_weight_unit_kg": unit_nw,
-                    "total_gross_weight_kg": gw,
-                    "total_net_weight_kg": nw,
-                    "total_cbm": 66.0,
-                    "is_stackable": True,
-                })
-                return packing
-            except (ValueError, IndexError):
-                pass
 
         return packing

@@ -61,14 +61,17 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final TextEditingController _foreignTaxIdCtrl = TextEditingController();
   final TextEditingController _brandsCtrl = TextEditingController();
   String _supplierRegType = 'Commercial Register';
-  String _supplierType = 'Manufacturer';
+  final String _supplierType = 'Manufacturer';
 
   // Importer Specific
+  final TextEditingController _importerCountryCtrl = TextEditingController(text: 'Egypt');
   final TextEditingController _taxIdCtrl = TextEditingController(); // 9-digits Egyptian Tax
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
   final TextEditingController _importerCardCtrl = TextEditingController();
   final TextEditingController _nafezaTokenCtrl = TextEditingController();
-  String _companyType = 'LLC';
+  DateTime _importerIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
+  DateTime _vatIdExpiry = DateTime.now().add(const Duration(days: 365 * 3));
+  DateTime _registrationExpiry = DateTime.now().add(const Duration(days: 365 * 3));
 
   // Partner Specific
   String _partnerTypeStr = 'Customs Broker';
@@ -122,6 +125,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     _addressCtrl.dispose();
     _countryCtrl.dispose();
     _countryCodeCtrl.dispose();
+    _importerCountryCtrl.dispose();
     _cargoxIdCtrl.dispose();
     _foreignTaxIdCtrl.dispose();
     _brandsCtrl.dispose();
@@ -233,6 +237,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         _countryCodeCtrl.text = ctyCode;
         final match = _countryList.firstWhere((c) => c['code'] == ctyCode, orElse: () => {'name': ctyCode});
         _countryCtrl.text = match['name'] ?? ctyCode;
+        if (ctyCode == 'EG') {
+          _importerCountryCtrl.text = 'Egypt';
+        }
       }
 
       if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
@@ -248,12 +255,28 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         _bankAccountCtrl.text = ext['bank_account']?.toString() ?? ext['iban']?.toString() ?? '';
       }
       if (ext['industry_description'] != null) _brandsCtrl.text = ext['industry_description'].toString();
+
+      if (ext['importer_id_expiry'] != null) {
+        final d = DateTime.tryParse(ext['importer_id_expiry'].toString());
+        if (d != null) _importerIdExpiry = d;
+      }
+      if (ext['vat_id_expiry'] != null) {
+        final d = DateTime.tryParse(ext['vat_id_expiry'].toString());
+        if (d != null) _vatIdExpiry = d;
+      }
+      if (ext['registration_expiry'] != null) {
+        final d = DateTime.tryParse(ext['registration_expiry'].toString());
+        if (d != null) _registrationExpiry = d;
+      }
     });
   }
 
   Future<void> _saveEntityToDatabase() async {
     final name = _companyNameCtrl.text.trim();
-    if (name.isEmpty) {
+    final arabicName = _arabicNameCtrl.text.trim();
+    final effectiveName = arabicName.isNotEmpty ? arabicName : name;
+
+    if (effectiveName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ اسم الشركة / الجهة مطلوب لإتمام الحفظ والتكويد.'), backgroundColor: AppTheme.orange),
       );
@@ -274,7 +297,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           final taxId = _foreignTaxIdCtrl.text.trim();
           final cargox = _cargoxIdCtrl.text.trim();
           payload = {
-            'company_name': name,
+            'company_name': name.isNotEmpty ? name : arabicName,
             'supplier_type': _supplierType,
             'registration_type': _supplierRegType,
             'foreign_exporter_id': taxId.isNotEmpty ? taxId : 'EXP-${DateTime.now().millisecondsSinceEpoch}',
@@ -298,25 +321,22 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           final impId = _importerCardCtrl.text.trim();
           final vatId = _taxIdCtrl.text.trim();
           final regNum = _commercialRegisterCtrl.text.trim();
+          final finalName = arabicName.isNotEmpty
+              ? (name.isNotEmpty ? '$arabicName - $name' : arabicName)
+              : name;
+
           payload = {
-            'importer_name': _arabicNameCtrl.text.trim().isNotEmpty ? _arabicNameCtrl.text.trim() : name,
-            'english_name': name,
-            'company_type': _companyType,
-            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'القاهرة - مصر',
-            'country': 'Egypt',
+            'importer_name': finalName,
+            'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
+            'country': _importerCountryCtrl.text.trim().isNotEmpty ? _importerCountryCtrl.text.trim() : 'Egypt',
             'importer_id': impId.isNotEmpty ? impId : 'IMP-${DateTime.now().millisecondsSinceEpoch}',
-            'importer_id_expiry': '2030-12-31',
+            'importer_id_expiry': '${_importerIdExpiry.year}-${_importerIdExpiry.month.toString().padLeft(2, '0')}-${_importerIdExpiry.day.toString().padLeft(2, '0')}',
             'vat_id': vatId.isNotEmpty ? vatId : '000000000',
-            'vat_id_expiry': '2030-12-31',
+            'vat_id_expiry': '${_vatIdExpiry.year}-${_vatIdExpiry.month.toString().padLeft(2, '0')}-${_vatIdExpiry.day.toString().padLeft(2, '0')}',
             'registration_number': regNum.isNotEmpty ? regNum : '000000',
-            'registration_expiry': '2030-12-31',
-            'phone': _phoneCtrl.text.trim(),
-            'email': _emailCtrl.text.trim(),
-            'contact_person': _contactPersonCtrl.text.trim(),
-            'bank_name': 'Commercial International Bank (CIB)',
-            'bank_account': _bankAccountCtrl.text.trim(),
-            'iban': _bankAccountCtrl.text.trim(),
-            'swift_code': _swiftCodeCtrl.text.trim(),
+            'registration_expiry': '${_registrationExpiry.year}-${_registrationExpiry.month.toString().padLeft(2, '0')}-${_registrationExpiry.day.toString().padLeft(2, '0')}',
+            'phone': _phoneCtrl.text.trim().isNotEmpty ? _phoneCtrl.text.trim() : null,
+            'email': _emailCtrl.text.trim().isNotEmpty ? _emailCtrl.text.trim() : null,
             'notes': _nafezaTokenCtrl.text.trim().isNotEmpty ? 'Nafeza E-Token: ${_nafezaTokenCtrl.text.trim()}' : null,
           };
           break;
@@ -770,10 +790,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 value: _supplierRegType,
                 labelText: 'نوع السجل الأجنبي *',
                 items: const [
+                  SearchableDropdownItem(value: 'Company Registration Number', label: 'Company Registration Number (رقم تسجيل الشركة)'),
                   SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register (سجل تجاري)'),
-                  SearchableDropdownItem(value: 'VAT ID', label: 'VAT ID (رقم القيمة المضافة)'),
-                  SearchableDropdownItem(value: 'DUNS Number', label: 'DUNS No (رقم دنك)'),
-                  SearchableDropdownItem(value: 'Tax ID', label: 'Tax Identification Number'),
+                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: 'Foreign Exporter Number (Nafeza)'),
+                  SearchableDropdownItem(value: 'Factory Registration', label: 'Factory Registration (تسجيل مصنع)'),
+                  SearchableDropdownItem(value: 'VAT Number', label: 'VAT Number (رقم القيمة المضافة)'),
+                  SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number (رقم ضريبي)'),
+                  SearchableDropdownItem(value: 'DUNS Number', label: 'DUNS No (رقم دنز)'),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _supplierRegType = val);
@@ -875,11 +898,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     );
   }
 
-  // 2. 🏢 Importing Company Form
+  // 2. 🏢 Importing Company Form (Matches Egyptian Import Company Specifications)
   Widget _buildImporterForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Company Names
         Row(
           children: [
             Expanded(
@@ -906,100 +930,201 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           ],
         ),
         const SizedBox(height: 10),
+
+        // Address & Country
         Row(
           children: [
             Expanded(
+              flex: 3,
               child: TextField(
-                controller: _taxIdCtrl,
+                controller: _addressCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم البطاقة الضريبية (9 أرقام مصرية) *',
-                  prefixIcon: Icon(Icons.badge_rounded, size: 18, color: Colors.deepOrange),
-                  hintText: 'مثال: 123-456-789',
+                  labelText: 'المقر الرئيسي والعنوان (Address) *',
+                  prefixIcon: Icon(Icons.location_on_rounded, size: 18),
+                  hintText: 'مثال: 15 شارع طلعت حرب - وسط البلد - القاهرة',
                 ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
+              flex: 2,
               child: TextField(
-                controller: _commercialRegisterCtrl,
+                controller: _importerCountryCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم السجل التجاري *',
-                  prefixIcon: Icon(Icons.receipt_long_rounded, size: 18),
-                  hintText: 'مثال: 45678',
+                  labelText: 'الدولة (Country) *',
+                  prefixIcon: Icon(Icons.flag_rounded, size: 18),
+                  hintText: 'Egypt',
                 ),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
+
+        // Importer Card & Expiry Date
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: TextField(
                 controller: _importerCardCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم البطاقة الاستيرادية (Importer Card No) *',
+                  labelText: 'رقم البطاقة الاستيرادية (Importer Card ID - 9 digits) *',
                   prefixIcon: Icon(Icons.card_membership_rounded, size: 18, color: AppTheme.cobalt),
-                  hintText: 'مثال: 987654',
+                  hintText: 'مثال: 528153439',
                 ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
-              child: TextField(
-                controller: _nafezaTokenCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'كود حساب نافذة / الرمز الإلكتروني (Nafeza E-Token)',
-                  prefixIcon: Icon(Icons.vpn_key_rounded, size: 18),
-                ),
+              child: _buildDatePickerBox(
+                label: 'تاريخ انتهاء البطاقة الاستيرادية *',
+                date: _importerIdExpiry,
+                onDateSelected: (newDate) => setState(() => _importerIdExpiry = newDate),
               ),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        TextField(
-          controller: _addressCtrl,
-          decoration: const InputDecoration(
-            labelText: 'المقر الرئيسي والمحافظة (Address) *',
-            prefixIcon: Icon(Icons.location_on_rounded, size: 18),
-            hintText: 'مثال: 15 شارع طلعت حرب - وسط البلد - القاهرة',
-          ),
-        ),
-        const SizedBox(height: 10),
+
+        // VAT Tax ID & Expiry Date
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: TextField(
-                controller: _contactPersonCtrl,
-                decoration: const InputDecoration(labelText: 'المدير المسؤول / المفوض', prefixIcon: Icon(Icons.person_rounded, size: 18)),
+                controller: _taxIdCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم البطاقة الضريبية (VAT Registration ID - 9 digits) *',
+                  prefixIcon: Icon(Icons.receipt_long_rounded, size: 18, color: Colors.deepOrange),
+                  hintText: 'مثال: 528153439',
+                ),
               ),
             ),
             const SizedBox(width: 10),
+            Expanded(
+              child: _buildDatePickerBox(
+                label: 'تاريخ انتهاء التسجيل الضريبي *',
+                date: _vatIdExpiry,
+                onDateSelected: (newDate) => setState(() => _vatIdExpiry = newDate),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Commercial Register & Expiry Date
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _commercialRegisterCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'رقم السجل التجاري (Commercial Reg # - 15 digits) *',
+                  prefixIcon: Icon(Icons.app_registration_rounded, size: 18),
+                  hintText: 'مثال: 100200000070828',
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _buildDatePickerBox(
+                label: 'تاريخ انتهاء السجل التجاري *',
+                date: _registrationExpiry,
+                onDateSelected: (newDate) => setState(() => _registrationExpiry = newDate),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+
+        // Phone & Email
+        Row(
+          children: [
             Expanded(
               child: TextField(
                 controller: _phoneCtrl,
-                decoration: const InputDecoration(labelText: 'هاتف الشركة / المحمول', prefixIcon: Icon(Icons.phone_rounded, size: 18)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'البريد الإلكتروني للشركة', prefixIcon: Icon(Icons.email_rounded, size: 18)),
+                decoration: const InputDecoration(
+                  labelText: 'رقم الهاتف / المحمول (Phone Number)',
+                  prefixIcon: Icon(Icons.phone_rounded, size: 18),
+                  hintText: '+20 100 000 0000',
+                ),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
-                controller: _bankAccountCtrl,
-                decoration: const InputDecoration(labelText: 'رقم الآيبان البنكي (IBAN / Account)', prefixIcon: Icon(Icons.account_balance_rounded, size: 18)),
+                controller: _emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'البريد الإلكتروني للشركة (Email)',
+                  prefixIcon: Icon(Icons.email_rounded, size: 18),
+                  hintText: 'info@company.com',
+                ),
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 10),
+
+        // Nafeza Token / Notes
+        TextField(
+          controller: _nafezaTokenCtrl,
+          decoration: const InputDecoration(
+            labelText: 'كود حساب نافذة / الرمز الإلكتروني (Nafeza E-Token / Notes)',
+            prefixIcon: Icon(Icons.vpn_key_rounded, size: 18),
+            hintText: 'مثال: Nafeza-Portal-Token أو ملاحظات إضافية',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDatePickerBox({
+    required String label,
+    required DateTime date,
+    required ValueChanged<DateTime> onDateSelected,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+        ),
+        const SizedBox(height: 4),
+        InkWell(
+          onTap: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: date,
+              firstDate: DateTime(2020),
+              lastDate: DateTime(2045),
+            );
+            if (picked != null) {
+              onDateSelected(picked);
+            }
+          },
+          borderRadius: BorderRadius.circular(8),
+          child: Container(
+            height: 48,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.grey.shade400),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.calendar_month_rounded, size: 18, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text(
+                  '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}',
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
     );
@@ -1207,7 +1332,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       case EntityTarget.supplier:
         return 'الصق هنا ترويسة الفاتورة المبدئية أو كارت المورد الأجنبي:\n\nمثال:\nSuzhou Yuheng Textile Co., Ltd\nFactory Address: No.16, Kangsheng Road, Changshu, Jiangsu, China\nVAT Number: 91320581MA1X7... CargoX ID: 0x71C8a9...\nTel: +86-512-52889988\nEmail: export@yuheng.com\nSWIFT: BKCHCNBJ920';
       case EntityTarget.company:
-        return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النور للاستيراد والتصدير ش.م.م\nالسجل التجاري: 88741\nالبطاقة الضريبية: 452-981-300\nالبطاقة الاستيرادية: 19842\nالعنوان: 10 شارع الجمهورية - القاهرة';
+        return 'الصق هنا بيانات الشركة المستوردة أو السجل التجاري والبطاقة الضريبية:\n\nمثال:\nشركة النور للاستيراد والتصدير ش.م.م\nالعنوان: 15 شارع طلعت حرب - القاهرة\nالدولة: Egypt\nالبطاقة الاستيرادية: 759552827 (تنتهي في 2029-03-31)\nالبطاقة الضريبية: 759552827 (تنتهي في 2029-03-31)\nالسجل التجاري: 228795 (ينتهي في 2029-03-04)\nهاتف: +20 100 000 0000\nالبريد: info@alnoor-import.com';
       case EntityTarget.partner:
         return 'الصق هنا كارت المخلص الجمركي أو شركة الشحن:\n\nمثال:\nمكتب النسر للخدمات اللوجستية والتخليص الجمركي\nرخصة التخليص: 2024/819\nموانئ العمل: الإسكندرية - السخنة - الدخيلة\nهاتف: 01001234567';
       case EntityTarget.bank:

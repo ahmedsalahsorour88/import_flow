@@ -175,7 +175,47 @@ def create_acid_session_service(
 ) -> AcidRegistrationResponse:
     validate_acid_number(schema.acid_number, allow_pending=True)
     validate_acid_expiry(schema.expiry_date, schema.requested_date)
-    validate_no_duplicate_acid_session(db, schema.import_file_id)
+
+    # Check if an active session already exists for this import file - if so, seamlessly update it (Upsert)
+    if schema.import_file_id:
+        from modules.import_documentation.model import AcidRegistrationSession
+        existing = (
+            db.query(AcidRegistrationSession)
+            .filter(
+                AcidRegistrationSession.import_file_id == schema.import_file_id,
+                AcidRegistrationSession.is_active == True,
+            )
+            .first()
+        )
+        if existing:
+            update_data = schema.model_dump(exclude_unset=True)
+            for k, v in update_data.items():
+                if hasattr(existing, k) and v is not None:
+                    setattr(existing, k, v)
+            if hasattr(existing, "set_updated_info"):
+                existing.set_updated_info()
+            
+            # Compute execution days if dates are present
+            if existing.generated_date and existing.requested_date:
+                existing.execution_days = max(0, (existing.generated_date - existing.requested_date).days)
+
+            db.commit()
+            db.refresh(existing)
+            db_item = existing
+
+            # Sync with import file if applicable
+            if db_item.import_file_id and db_item.acid_number and db_item.acid_number != "PENDING":
+                from modules.import_files.model import ImportFile
+                imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+                if imp:
+                    imp.acid_number = db_item.acid_number
+                    imp.acid_request_date = db_item.requested_date
+                    imp.acid_issue_date = db_item.generated_date or db_item.requested_date
+                    imp.acid_expiry_date = db_item.expiry_date
+                    imp.acid_execution_days = db_item.execution_days
+                    db.commit()
+
+            return enrich_acid_response(db, db_item)
 
     db_item = repo.create_acid_session(db, schema)
 

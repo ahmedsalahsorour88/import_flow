@@ -1,5 +1,6 @@
 import '../widgets/import_file_details_dialog.dart';
 import '../widgets/import_file_form_dialog.dart';
+import '../widgets/freight_rfq_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -1253,6 +1254,18 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                             );
                                           },
                                         ),
+                                      IconButton(
+                                        icon: const Icon(Icons.mark_email_unread_outlined, color: AppTheme.cobalt, size: 18),
+                                        tooltip: 'طلب أسعار نولون الشحن (Freight RFQ)',
+                                        onPressed: () {
+                                          FreightRfqDialog.show(
+                                            context,
+                                            importFileId: file.importFileId,
+                                            importFileCode: file.importFileCode,
+                                            customFileNumber: file.customFileNumber,
+                                          );
+                                        },
+                                      ),
                                       const SizedBox(width: 4),
                                       RowActionsPill(
                                         onView: () => _showImportFileDetailsDialog(context, file),

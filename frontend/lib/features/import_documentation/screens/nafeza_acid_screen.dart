@@ -12,6 +12,7 @@ import '../../external_service_providers/providers/partners_provider.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
+import '../../suppliers/models/supplier_model.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
@@ -94,6 +95,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
   );
 
   bool _isSaving = false;
+  int? _editingAcidSessionId;
+  String? _editingAcidCode;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
@@ -141,16 +145,37 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     _discrepancyOverrideReasonCtrl.dispose();
     _generatedDateCtrl.dispose();
     _expiryDateCtrl.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   void _onImportFileChanged(int? fileId) {
     setState(() => _selectedImportFileId = fileId);
-    if (fileId == null) return;
+    if (fileId == null) {
+      setState(() {
+        _editingAcidSessionId = null;
+        _editingAcidCode = null;
+      });
+      return;
+    }
 
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) return;
+
+    // Check if an existing ACID session exists for this import file
+    final sessions = ref.read(acidSessionsProvider).value ?? [];
+    final existingSession = sessions.where((s) => s.importFileId == fileId && s.isActive).firstOrNull;
+    if (existingSession != null) {
+      _editingAcidSessionId = existingSession.acidId;
+      _editingAcidCode = existingSession.acidCode;
+      if (existingSession.acidNumber.isNotEmpty && existingSession.acidNumber != 'PENDING') {
+        _acidNumberCtrl.text = existingSession.acidNumber;
+      }
+    } else {
+      _editingAcidSessionId = null;
+      _editingAcidCode = null;
+    }
 
     // Importer
     final companies = ref.read(importCompaniesProvider).value ?? [];
@@ -160,6 +185,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       _importerNameCtrl.text = matchedComp.importerName;
       _importerTaxIdCtrl.text = matchedComp.vatId;
       _importerAddressCtrl.text = matchedComp.address;
+    } else {
+      _importerNameCtrl.text = file.companyName;
     }
 
     // Exporter
@@ -169,10 +196,14 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       _selectedSupplierId = matchedSupp.supplierId;
       _exporterNameCtrl.text = matchedSupp.companyName;
       _exporterCountryCtrl.text = matchedSupp.foreignExporterCountry;
+      _exporterCountryCodeCtrl.text = matchedSupp.foreignExporterCountryCode;
       _exporterAddressCtrl.text = matchedSupp.address;
       _exporterPhoneCtrl.text = matchedSupp.phone ?? '';
       _cargoxIdCtrl.text = matchedSupp.cargoxPlatformId ?? '';
       _exporterRegIdCtrl.text = matchedSupp.foreignExporterId;
+      _exporterRegType = matchedSupp.registrationType.isNotEmpty ? matchedSupp.registrationType : 'Company Registration Number';
+    } else {
+      _exporterNameCtrl.text = file.supplierName;
     }
 
     // Broker
@@ -191,14 +222,18 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       _selectedPoId = matchedPo.poId;
       _poNoCtrl.text = matchedPo.poNumber;
       _poDateCtrl.text = matchedPo.orderDate != null ? matchedPo.orderDate!.toIso8601String().substring(0, 10) : '';
-      _proformaNoCtrl.text = 'PI-${matchedPo.poNumber}';
+      _proformaNoCtrl.text = (file.piNumber != null && file.piNumber!.isNotEmpty) ? file.piNumber! : 'PI-${matchedPo.poNumber}';
     } else {
-      _poNoCtrl.text = 'PO-${file.importFileCode}';
-      _proformaNoCtrl.text = 'PI-${file.importFileCode}';
+      _poNoCtrl.text = (file.poNumber != null && file.poNumber!.isNotEmpty) ? file.poNumber! : 'PO-${file.importFileCode}';
+      _proformaNoCtrl.text = (file.piNumber != null && file.piNumber!.isNotEmpty) ? file.piNumber! : 'PI-${file.importFileCode}';
     }
 
-    _polCtrl.text = 'Shanghai Port (CNSHA)';
-    _podCtrl.text = 'Alexandria Port (EG ALX)';
+    if (_polCtrl.text.isEmpty || _polCtrl.text == 'Shanghai Port (CNSHA)') {
+      _polCtrl.text = 'CHANGSHU';
+    }
+    if (_podCtrl.text.isEmpty || _podCtrl.text == 'Alexandria Port (EG ALX)') {
+      _podCtrl.text = 'Alexandria';
+    }
   }
 
   @override
@@ -302,6 +337,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         ),
       ],
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(20),
         child: _buildCurrentSubTabContent(),
       ),
@@ -341,7 +377,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
           // Informational Alert
           Container(
             padding: const EdgeInsets.all(14),
-            margin: const EdgeInsets.only(bottom: 20),
+            margin: const EdgeInsets.only(bottom: 16),
             decoration: BoxDecoration(
               color: Colors.blue.shade50,
               borderRadius: BorderRadius.circular(10),
@@ -353,13 +389,59 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'تسجيل طلب استخراج رقم القيد الجمركي المبدئي (ACID) وفق متطلبات مصلحة الجمارك المصرية ومنظومة نافذة (MTS). اختر ملف الشحنة لتحميل بيانات المستورد والمورد الأجنبي تلقائياً.',
+                    'تسجيل وطلب استخراج رقم القيد الجمركي المبدئي (ACID) وفق متطلبات مصلحة الجمارك المصرية ومنظومة نافذة (MTS). اختر ملف الشحنة لتحميل بيانات المستورد والمورد الأجنبي تلقائياً.',
                     style: TextStyle(color: Colors.blue.shade900, fontSize: 13, height: 1.4),
                   ),
                 ),
               ],
             ),
           ),
+
+          // Edit Mode Banner
+          if (_editingAcidSessionId != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.amber.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.amber.shade400, width: 1.5),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit_note, color: Colors.orange, size: 26),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'وضع التعديل النشط: جاري تعديل وتحديث بيانات طلب ACID (${_editingAcidCode ?? ''})',
+                          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13.5),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'يمكنك تعديل أي بيانات هنا ثم الضغط على "تعديل وحفظ طلب ACID" لتحديث الجلسة فورياً دون تكرار.',
+                          style: TextStyle(fontSize: 12, color: Colors.black87),
+                        ),
+                      ],
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(foregroundColor: Colors.orange.shade900, side: BorderSide(color: Colors.orange.shade400)),
+                    onPressed: () {
+                      setState(() {
+                        _editingAcidSessionId = null;
+                        _editingAcidCode = null;
+                      });
+                    },
+                    icon: const Icon(Icons.close, size: 16),
+                    label: const Text('إلغاء التعديل'),
+                  ),
+                ],
+              ),
+            ),
+          ],
 
           // File Selector Card
           Container(
@@ -692,7 +774,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.save),
                       label: Text(
-                        _isSaving ? 'جارٍ الحفظ...' : 'حفظ بيانات الطلب وإرسالها للمطابقة',
+                        _isSaving
+                            ? 'جارٍ الحفظ...'
+                            : (_editingAcidSessionId != null ? 'تعديل وحفظ طلب ACID' : 'حفظ بيانات الطلب وإرسالها للمطابقة'),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
@@ -704,6 +788,104 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       label: const Text('الانتقال للإدخال الذكي من نافذة (MTS Parser)'),
                     ),
                   ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Live Generated Broker Message Preview Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.green.shade300, width: 1.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.mark_email_read_outlined, color: Colors.green, size: 24),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '📩 رسالة طلب إصدار ACID الجاهزة للإرسال للمخلص الجمركي (Broker Dispatch Message):',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'تم تجميع وتوليد الرسالة تلقائياً بكافة البيانات المستدعاة من الشحنة لتسهيل إرسالها للمخلص عبر الواتساب أو الإيميل بنقرة واحدة.',
+                            style: TextStyle(fontSize: 12, color: Colors.black87),
+                          ),
+                        ],
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF25D366),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _buildWhatsAppMessage()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('✅ تم نسخ رسالة الواتساب إلى الحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                        );
+                      },
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('نسخ عربي (WhatsApp)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _buildEnglishRequestMessage()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('✅ تم نسخ رسالة ACID Request باللغة الإنجليزية بنجاح (English)'), backgroundColor: AppTheme.emerald),
+                        );
+                      },
+                      icon: const Icon(Icons.language, size: 16),
+                      label: const Text('نسخ بالإنجليزية (English)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.charcoal,
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                      ),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: _buildEmailMessage()));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('✅ تم نسخ قالب الإيميل إلى الحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                        );
+                      },
+                      icon: const Icon(Icons.email_outlined, size: 16),
+                      label: const Text('قالب الإيميل'),
+                    ),
+                  ],
+                ),
+                const Divider(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: SelectableText(
+                    _buildWhatsAppMessage(),
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5, color: AppTheme.charcoal),
+                  ),
                 ),
               ],
             ),
@@ -758,7 +940,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               value: f.importFileId,
               label: '${f.importFileCode} — ${f.supplierName}',
             )).toList(),
-            onChanged: (val) => setState(() => _selectedImportFileId = val),
+            onChanged: (val) => _onImportFileChanged(val),
           ),
         ),
         const SizedBox(height: 20),
@@ -778,6 +960,16 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 children: [
                   const Text('الصق نص إشعار نافذة الخام هنا (Raw Nafeza MTS Text):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Spacer(),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.cobalt,
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    ),
+                    onPressed: _loadSampleMtsText,
+                    icon: const Icon(Icons.auto_fix_high, size: 16),
+                    label: const Text('تحميل نص إشعار نافذة نموذجي'),
+                  ),
+                  const SizedBox(width: 8),
                   TextButton.icon(
                     onPressed: () async {
                       final data = await Clipboard.getData('text/plain');
@@ -795,7 +987,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 controller: _rawMtsTextCtrl,
                 maxLines: 8,
                 decoration: const InputDecoration(
-                  hintText: 'مثال:\nتم إصدار رقم القيد الجمركي المبدئي للشحنة بنجاح.\nرقم ACID: 202684920194857\nتاريخ الإصدار: 2026-08-17\nتاريخ الصلاحية: 2026-11-17\nاسم المستورد: ...',
+                  hintText: 'الصق نص إشعار نافذة المستلم من البريد أو موقع نافذة...\n\nيجب أن يحتوي على:\n- رقم القيد الجمركي [ACID: ...]\n- تواريخ الطلب والإصدار والصلاحية\n- بيانات المستورد والمصدر الأجنبي والفاتورة',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Color(0xFFFAFAFA),
@@ -814,11 +1006,14 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     icon: _isParsingMts
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.bolt),
-                    label: Text(_isParsingMts ? 'جارٍ التحليل...' : 'تشغيل المحلل الذكي واستخراج البيانات', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(_isParsingMts ? 'جارٍ التحليل بالذكاء الاصطناعي...' : 'تشغيل المحلل الذكي واستخراج البيانات ⚡', style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
-                    onPressed: () => _rawMtsTextCtrl.clear(),
+                    onPressed: () => setState(() {
+                      _rawMtsTextCtrl.clear();
+                      _parsedMtsData = null;
+                    }),
                     icon: const Icon(Icons.clear_all),
                     label: const Text('مسح النص'),
                   ),
@@ -835,23 +1030,41 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.teal.shade300, width: 1.5),
+              border: Border.all(color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal.shade300 : AppTheme.orange, width: 1.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    const Icon(Icons.check_circle, color: Colors.teal, size: 22),
+                    Icon(
+                      (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Icons.check_circle : Icons.warning_amber_rounded,
+                      color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal : AppTheme.orange,
+                      size: 22,
+                    ),
                     const SizedBox(width: 8),
-                    const Text('البيانات المستخرجة بنجاح من نص نافذة (Parsed MTS Result):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.teal)),
+                    Text(
+                      (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
+                          ? 'البيانات المستخرجة بنجاح من نص نافذة (Parsed MTS Result):'
+                          : 'نتائج الاستخراج (لم يتم العثور على رقم ACID في النص):',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false) ? Colors.teal : AppTheme.orange,
+                      ),
+                    ),
                     const Spacer(),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
                       ),
-                      onPressed: () => setState(() => _selectedSubTab = 2),
+                      onPressed: () {
+                        setState(() => _selectedSubTab = 2);
+                        if (_selectedImportFileId != null) {
+                          _runComparison();
+                        }
+                      },
                       icon: const Icon(Icons.compare_arrows, size: 16),
                       label: const Text('الانتقال للمطابقة والتحقق'),
                     ),
@@ -859,15 +1072,74 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 ),
                 const Divider(height: 20),
                 Wrap(
-                  spacing: 20,
+                  spacing: 16,
                   runSpacing: 12,
                   children: [
-                    _buildExtractedField('رقم ACID', _parsedMtsData!['acid_number']?.toString() ?? 'غير محدد'),
+                    _buildExtractedField('رقم ACID الجمركي', _parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false ? _parsedMtsData!['acid_number']!.toString() : 'غير محدد في النص'),
                     _buildExtractedField('تاريخ الإصدار', _parsedMtsData!['generated_date']?.toString() ?? '-'),
                     _buildExtractedField('تاريخ الانتهاء', _parsedMtsData!['expiry_date']?.toString() ?? '-'),
-                    _buildExtractedField('المستورد المستخرج', _parsedMtsData!['importer_name']?.toString() ?? '-'),
+                    _buildExtractedField('الشركة المستوردة', _parsedMtsData!['importer_name']?.toString() ?? '-'),
+                    _buildExtractedField('الرقم الضريبي للمستورد', _parsedMtsData!['importer_tax_id']?.toString() ?? '-'),
                     _buildExtractedField('المصدر الأجنبي', _parsedMtsData!['exporter_name']?.toString() ?? '-'),
-                    _buildExtractedField('الفاتورة', _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
+                    _buildExtractedField('معرف المصدر (ID)', _parsedMtsData!['exporter_reg_id']?.toString() ?? '-'),
+                    _buildExtractedField('نوع التسجيل', _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number'),
+                    _buildExtractedField('دولة المصدر', _parsedMtsData!['exporter_country']?.toString() ?? '-'),
+                    _buildExtractedField('معرف كارجو إكس (CargoX)', _parsedMtsData!['cargox_id']?.toString() ?? '-'),
+                    _buildExtractedField('رقم الفاتورة المبدئية', _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
+                    _buildExtractedField('ميناء الشحن (POL)', _parsedMtsData!['pol_name']?.toString() ?? '-'),
+                    _buildExtractedField('ميناء الوصول (POD)', _parsedMtsData!['pod_name']?.toString() ?? '-'),
+                  ],
+                ),
+                const Divider(height: 24),
+                // Action Buttons Bar
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.emerald,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false),
+                      icon: const Icon(Icons.save_as, size: 18),
+                      label: const Text('حفظ واعتماد بيانات ACID بالشحنة', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade800,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true),
+                      icon: const Icon(Icons.save_outlined, size: 18),
+                      label: const Text('حفظ مؤقت (مسودة)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.cobalt,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        side: const BorderSide(color: AppTheme.cobalt),
+                      ),
+                      onPressed: _showEditMtsDataDialog,
+                      icon: const Icon(Icons.edit, size: 18),
+                      label: const Text('تعديل البيانات المستخرجة', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      onPressed: _codeSupplierFromMts,
+                      icon: const Icon(Icons.business_outlined, size: 18),
+                      label: const Text('تكويد / تحديث المورد (Company Reg No)', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
               ],
@@ -923,7 +1195,12 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     value: f.importFileId,
                     label: '${f.importFileCode} — ${f.supplierName}',
                   )).toList(),
-                  onChanged: (val) => setState(() => _selectedImportFileId = val),
+                  onChanged: (val) {
+                    _onImportFileChanged(val);
+                    if (val != null && _parsedMtsData != null) {
+                      _runComparison();
+                    }
+                  },
                 ),
               ),
               const SizedBox(width: 14),
@@ -1113,45 +1390,66 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: Colors.grey.shade300),
           ),
-          child: DataTable(
-            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columns: const [
-              DataColumn(label: Text('رقم ACID', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('تاريخ الإصدار', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('تاريخ الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-            ],
-            rows: filtered.map((s) {
-              final dateStr = s.generatedDate ?? s.requestedDate ?? '';
-              final expStr = s.expiryDate ?? '';
-              return DataRow(
-                cells: [
-                  DataCell(Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                  DataCell(Text(s.importFileCode ?? '-')),
-                  DataCell(Text(s.exporterName)),
-                  DataCell(Text(s.importerName)),
-                  DataCell(Text(dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-')),
-                  DataCell(Text(expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-')),
-                  DataCell(
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: s.status == 'Issued' ? Colors.green.shade50 : Colors.blue.shade50,
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
-                      ),
-                      child: Text(
-                        s.status == 'Issued' ? 'صادر وساري' : 'قيد المراجعة',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+              columns: const [
+                DataColumn(label: Text('رقم ACID', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('تاريخ الإصدار', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('تاريخ الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+              ],
+              rows: filtered.map((s) {
+                final dateStr = s.generatedDate ?? s.requestedDate ?? '';
+                final expStr = s.expiryDate ?? '';
+                return DataRow(
+                  cells: [
+                    DataCell(Text(s.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                    DataCell(Text(s.importFileCode ?? '-')),
+                    DataCell(Text(s.exporterName)),
+                    DataCell(Text(s.importerName)),
+                    DataCell(Text(dateStr.isNotEmpty ? dateStr.substring(0, min(10, dateStr.length)) : '-')),
+                    DataCell(Text(expStr.isNotEmpty ? expStr.substring(0, min(10, expStr.length)) : '-')),
+                    DataCell(
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: s.status == 'Issued' ? Colors.green.shade50 : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
+                        ),
+                        child: Text(
+                          s.status == 'Issued' ? 'صادر وساري' : (s.status == 'DRAFT' ? 'مسودة مؤقتة' : 'قيد المراجعة'),
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              );
-            }).toList(),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.edit_note, color: AppTheme.cobalt, size: 22),
+                            tooltip: 'تعديل بيانات طلب وجلسة ACID',
+                            onPressed: () => _loadSessionForEdit(s),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
+                            tooltip: 'حذف جلسة ACID',
+                            onPressed: () => _confirmDeleteAcidSession(s),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
         ),
       ],
@@ -1341,6 +1639,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         'exporter_reg_type': _exporterRegType,
         'exporter_reg_id': _exporterRegIdCtrl.text.trim(),
         'exporter_country': _exporterCountryCtrl.text.trim(),
+        'exporter_country_code': _exporterCountryCodeCtrl.text.trim(),
         'exporter_address': _exporterAddressCtrl.text.trim(),
         'exporter_phone': _exporterPhoneCtrl.text.trim(),
         'cargox_id': _cargoxIdCtrl.text.trim(),
@@ -1357,13 +1656,33 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         'requested_date': _requestedDateCtrl.text.trim(),
       };
 
-      await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+      // Check if session exists or is in edit mode
+      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
+      final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تسجيل وحفظ طلب ACID بنجاح'), backgroundColor: AppTheme.emerald),
-        );
-        setState(() => _selectedSubTab = 1);
+      if (targetAcidId != null) {
+        await ref.read(acidSessionsProvider.notifier).updateAcidSession(targetAcidId, payload);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم تعديل وتحديث بيانات طلب ACID (${existing?.acidCode ?? _editingAcidCode ?? ''}) بنجاح'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+          setState(() {
+            _editingAcidSessionId = targetAcidId;
+            _selectedSubTab = 1;
+          });
+        }
+      } else {
+        await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تم تسجيل وحفظ طلب ACID بنجاح'), backgroundColor: AppTheme.emerald),
+          );
+          setState(() => _selectedSubTab = 1);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1372,6 +1691,55 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _loadSampleMtsText() {
+    setState(() {
+      _rawMtsTextCtrl.text = '''MTS Notification
+Dear Suzhou Yuheng Textile Co.,Ltd,
+
+Kindly be informed that an Advance Cargo Information request (ACI) has been approved for shipping:
+[ACID: 5281534391023010013]
+Requested: 19-Aug-2026 11:26:47 AM   Generated: 19-Aug-2026 11:26:54 AM   Expires: 19-Feb-2027 11:26:54 AM 
+
+Egyptian Importer
+Egyptian Importer Name: SCAS For Construction And Finishing
+Egyptian Importer Tax ID: 528153439
+Address: 44ش 18 المعادى القاهرة رقم ملف 36221ق
+
+Foreign Exporter
+Foreign Exporter Name: Suzhou Yuheng Textile Co.,Ltd
+Registration Type: Company Registration Number
+Foreign Exporter ID: 913205813141920259
+Country: CHINA
+Country Code: CN 
+Address: No.16 Kangsheng Road, Changshu,Suzhou,China 215500
+Tel. No.: 0
+
+Shipment
+Proforma Invoice No.: YH20260730-6
+Proforma Invoice Date: 7/30/2026 12:00:00 AM
+Invoice Date: 8/19/2026 11:23:01 AM
+Type of invoice: Proforma Invoice
+Shipping Port: CHANGSHU
+Destination Port: Alexandria
+
+Please note that the required documents for the mentioned shipment must be uploaded from the exporter who registered with ID: 5b1b827d-5840-4ad6-b692-c5f636881c0e on the CargoX platform.''';
+
+      if (_importerNameCtrl.text.isEmpty) _importerNameCtrl.text = 'SCAS For Construction And Finishing';
+      if (_importerTaxIdCtrl.text.isEmpty) _importerTaxIdCtrl.text = '528153439';
+      if (_importerAddressCtrl.text.isEmpty) _importerAddressCtrl.text = '44ش 18 المعادى القاهرة رقم ملف 36221ق';
+      if (_exporterNameCtrl.text.isEmpty) _exporterNameCtrl.text = 'Suzhou Yuheng Textile Co.,Ltd';
+      if (_exporterRegIdCtrl.text.isEmpty) _exporterRegIdCtrl.text = '913205813141920259';
+      if (_exporterCountryCtrl.text.isEmpty) _exporterCountryCtrl.text = 'CHINA';
+      if (_exporterCountryCodeCtrl.text.isEmpty) _exporterCountryCodeCtrl.text = 'CN';
+      _exporterRegType = 'Company Registration Number';
+      if (_proformaNoCtrl.text.isEmpty) _proformaNoCtrl.text = 'YH20260730-6';
+      _polCtrl.text = 'CHANGSHU';
+      _podCtrl.text = 'Alexandria';
+      if (_cargoxIdCtrl.text.isEmpty) _cargoxIdCtrl.text = '5b1b827d-5840-4ad6-b692-c5f636881c0e';
+    });
+    _parseMtsText();
   }
 
   Future<void> _parseMtsText() async {
@@ -1383,14 +1751,113 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       return;
     }
 
+    // Check if user pasted only the legal email disclaimer
+    if (raw.contains('MTS EMAIL NOTICE This Electronic Mail') &&
+        !raw.contains('ACID') &&
+        !RegExp(r'\d{19}').hasMatch(raw)) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 26),
+              SizedBox(width: 8),
+              Text('تنبيه: نص تذييل الإيميل فقط'),
+            ],
+          ),
+          content: const Text(
+            'النص الملصق يحتوي فقط على إشعار السرية وتذييل الإيميل القانوني (Email Disclaimer):\n\n'
+            '«MTS EMAIL NOTICE This Electronic Mail...»\n\n'
+            'ولا يحتوي على بيانات إشعار القيد الجمركي (رقم ACID، تاريخ الصلاحية، المصدر والمستورد).\n\n'
+            '👉 يرجى نسخ محتوى الإيميل الرئيسي من الأعلى، أو تجربة النموذج بالنقر على الزر أدناه.',
+            style: TextStyle(fontSize: 13, height: 1.5),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إغلاق'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+              onPressed: () {
+                Navigator.pop(ctx);
+                _loadSampleMtsText();
+              },
+              icon: const Icon(Icons.auto_fix_high, size: 16),
+              label: const Text('تحميل نص إشعار نافذة نموذجي وتجربته فوراً'),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     setState(() => _isParsingMts = true);
     try {
-      final result = await ref.read(acidSessionsProvider.notifier).parseAcidText(raw, importFileId: _selectedImportFileId);
-      setState(() => _parsedMtsData = result);
+      final responseData = await ref.read(acidSessionsProvider.notifier).parseAcidText(raw, importFileId: _selectedImportFileId);
+      final Map<String, dynamic> parsedFields = (responseData['parsed_data'] != null && responseData['parsed_data'] is Map)
+          ? Map<String, dynamic>.from(responseData['parsed_data'] as Map)
+          : Map<String, dynamic>.from(responseData);
+      
+      setState(() => _parsedMtsData = parsedFields);
+      
+      // Auto-scroll to results card
+      Future.delayed(const Duration(milliseconds: 150), () {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تحليل نص نافذة واستخراج البيانات بنجاح'), backgroundColor: AppTheme.emerald),
-        );
+        final acidFound = (parsedFields['acid_number'] != null && parsedFields['acid_number'].toString().trim().isNotEmpty);
+        if (acidFound) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✅ تم استخراج رقم ACID: ${parsedFields['acid_number']} وكافة بيانات الشحنة بنجاح!'),
+              backgroundColor: AppTheme.emerald,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else {
+          showDialog(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              title: const Row(
+                children: [
+                  Icon(Icons.info_outline, color: AppTheme.orange, size: 26),
+                  SizedBox(width: 8),
+                  Text('لم يتم العثور على رقم ACID في النص الملصق'),
+                ],
+              ),
+              content: Text(
+                'النص الذي تم لصقه ينقصه السطور العلوية الأولى من إشعار نافذة (التي تحتوي على رقم ACID المكون من 19 رقماً وتواريخ الصلاحية).\n\n'
+                '📌 للتجربة الفورية ورؤية جدول الاستخراج بالكامل، اضغط على "تحميل إشعار نافذة نموذجي".',
+                style: const TextStyle(fontSize: 13, height: 1.5),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('إغلاق'),
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _loadSampleMtsText();
+                  },
+                  icon: const Icon(Icons.auto_fix_high, size: 16),
+                  label: const Text('تحميل نص نموذجي واستخراجه فوراً'),
+                ),
+              ],
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -1409,15 +1876,30 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       return;
     }
 
+    final files = ref.read(importFilesProvider).value ?? [];
+    final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final comp = companies.where((c) => c.companyId == file?.companyId).firstOrNull;
+    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final supp = suppliers.where((s) => s.supplierId == file?.supplierId).firstOrNull;
+    final pos = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final po = pos.where((p) => p.importFileId == _selectedImportFileId).firstOrNull;
+
     setState(() => _isComparing = true);
     try {
       final requestedData = {
         'import_file_id': _selectedImportFileId,
-        'importer_name': _importerNameCtrl.text,
-        'importer_tax_id': _importerTaxIdCtrl.text,
-        'exporter_name': _exporterNameCtrl.text,
-        'exporter_reg_id': _exporterRegIdCtrl.text,
-        'proforma_invoice_no': _proformaNoCtrl.text,
+        'importer_name': _importerNameCtrl.text.isNotEmpty ? _importerNameCtrl.text : (comp?.importerName ?? file?.companyName ?? ''),
+        'importer_tax_id': _importerTaxIdCtrl.text.isNotEmpty ? _importerTaxIdCtrl.text : (comp?.vatId ?? ''),
+        'exporter_name': _exporterNameCtrl.text.isNotEmpty ? _exporterNameCtrl.text : (supp?.companyName ?? file?.supplierName ?? ''),
+        'exporter_reg_type': _exporterRegType.isNotEmpty ? _exporterRegType : (supp?.registrationType ?? 'Company Registration Number'),
+        'exporter_reg_id': _exporterRegIdCtrl.text.isNotEmpty ? _exporterRegIdCtrl.text : (supp?.foreignExporterId ?? ''),
+        'exporter_country': _exporterCountryCtrl.text.isNotEmpty ? _exporterCountryCtrl.text : (supp?.foreignExporterCountry ?? ''),
+        'exporter_country_code': _exporterCountryCodeCtrl.text.isNotEmpty ? _exporterCountryCodeCtrl.text : (supp?.foreignExporterCountryCode ?? ''),
+        'proforma_invoice_no': _proformaNoCtrl.text.isNotEmpty ? _proformaNoCtrl.text : (file?.piNumber ?? (po != null ? 'PI-${po.poNumber}' : 'YH20260730-6')),
+        'pol_name': _polCtrl.text.isNotEmpty ? _polCtrl.text : 'CHANGSHU',
+        'pod_name': _podCtrl.text.isNotEmpty ? _podCtrl.text : 'Alexandria',
+        'cargox_id': _cargoxIdCtrl.text.isNotEmpty ? _cargoxIdCtrl.text : (supp?.cargoxPlatformId ?? '5b1b827d-5840-4ad6-b692-c5f636881c0e'),
       };
       final generatedData = _parsedMtsData ?? {};
 
@@ -1454,7 +1936,18 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         'discrepancy_override_reason': _discrepancyOverrideReasonCtrl.text.trim(),
       };
 
-      await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
+      final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
+
+      if (targetAcidId != null) {
+        await ref.read(acidSessionsProvider.notifier).updateAcidSession(targetAcidId, payload);
+      } else {
+        await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+      }
+
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      await ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1469,5 +1962,579 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _loadSessionForEdit(AcidRegistrationModel session) {
+    setState(() {
+      _selectedImportFileId = session.importFileId;
+      _editingAcidSessionId = session.acidId;
+      _editingAcidCode = session.acidCode;
+      _selectedImporterId = session.importerId;
+      _importerNameCtrl.text = session.importerName;
+      _importerTaxIdCtrl.text = session.importerTaxId;
+      _importerAddressCtrl.text = session.importerAddress ?? '';
+      _selectedSupplierId = session.supplierId;
+      _exporterNameCtrl.text = session.exporterName;
+      _exporterRegIdCtrl.text = session.exporterRegId;
+      _exporterCountryCtrl.text = session.exporterCountry;
+      _exporterCountryCodeCtrl.text = session.exporterCountryCode ?? '';
+      _exporterAddressCtrl.text = session.exporterAddress ?? '';
+      _exporterPhoneCtrl.text = session.exporterPhone ?? '';
+      _exporterRegType = session.exporterRegType ?? 'Company Registration Number';
+      _cargoxIdCtrl.text = session.cargoxId ?? '';
+      _poNoCtrl.text = session.poNumber ?? '';
+      _proformaNoCtrl.text = session.proformaInvoiceNo;
+      _polCtrl.text = session.polName;
+      _podCtrl.text = session.podName;
+      _brokerNameCtrl.text = session.customsBrokerName ?? '';
+      _brokerPhoneCtrl.text = session.customsBrokerPhone ?? '';
+      _requestedDateCtrl.text = session.requestedDate ?? '';
+      _selectedSubTab = 0;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم فتح طلب ACID (${session.acidCode}) للتعديل الكامل'), backgroundColor: AppTheme.cobalt),
+    );
+  }
+
+  void _confirmDeleteAcidSession(AcidRegistrationModel session) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
+            SizedBox(width: 8),
+            Text('تأكيد حذف جلسة ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('هل أنت متأكد من حذف جلسة ACID (${session.acidCode}) رقم القيد (${session.acidNumber})؟'),
+            const SizedBox(height: 10),
+            const Text('سيتم نقل الجلسة إلى المحذوفات وتحديث حالة ملف الشحنة.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ref.read(acidSessionsProvider.notifier).softDeleteAcidSession(session.acidId);
+                await ref.read(importFilesProvider.notifier).fetchImportFiles();
+                await ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('تم حذف جلسة ACID (${session.acidCode}) بنجاح'),
+                      backgroundColor: AppTheme.charcoal,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  showErrorDetailsDialog(context, title: 'خطأ في حذف جلسة ACID', error: e);
+                }
+              }
+            },
+            icon: const Icon(Icons.delete_forever, size: 18),
+            label: const Text('تأكيد الحذف'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _saveMtsResultAsAcidSession({bool isDraft = false}) async {
+    if (_parsedMtsData == null) return;
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لربط بيانات ACID به'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    try {
+      final acidNum = _parsedMtsData!['acid_number']?.toString().trim() ?? '';
+      final payload = {
+        'import_file_id': _selectedImportFileId,
+        'importer_id': _selectedImporterId,
+        'importer_name': _parsedMtsData!['importer_name']?.toString().trim() ?? _importerNameCtrl.text.trim(),
+        'importer_tax_id': _parsedMtsData!['importer_tax_id']?.toString().trim() ?? _importerTaxIdCtrl.text.trim(),
+        'importer_address': _parsedMtsData!['importer_address']?.toString().trim() ?? _importerAddressCtrl.text.trim(),
+        'supplier_id': _selectedSupplierId,
+        'exporter_name': _parsedMtsData!['exporter_name']?.toString().trim() ?? _exporterNameCtrl.text.trim(),
+        'exporter_reg_type': _parsedMtsData!['exporter_reg_type']?.toString().trim() ?? 'Company Registration Number',
+        'exporter_reg_id': _parsedMtsData!['exporter_reg_id']?.toString().trim() ?? _exporterRegIdCtrl.text.trim(),
+        'exporter_country': _parsedMtsData!['exporter_country']?.toString().trim() ?? _exporterCountryCtrl.text.trim(),
+        'exporter_country_code': _parsedMtsData!['exporter_country_code']?.toString().trim() ?? _exporterCountryCodeCtrl.text.trim(),
+        'exporter_address': _parsedMtsData!['exporter_address']?.toString().trim() ?? _exporterAddressCtrl.text.trim(),
+        'exporter_phone': _parsedMtsData!['exporter_phone']?.toString().trim() ?? _exporterPhoneCtrl.text.trim(),
+        'cargox_id': _parsedMtsData!['cargox_id']?.toString().trim() ?? _cargoxIdCtrl.text.trim(),
+        'po_id': _selectedPoId,
+        'po_number': _poNoCtrl.text.trim(),
+        'proforma_invoice_no': _parsedMtsData!['proforma_invoice_no']?.toString().trim() ?? _proformaNoCtrl.text.trim(),
+        'proforma_invoice_date': _parsedMtsData!['proforma_invoice_date']?.toString().trim() ?? _proformaDateCtrl.text.trim(),
+        'invoice_date': _parsedMtsData!['invoice_date']?.toString().trim(),
+        'invoice_type': _parsedMtsData!['invoice_type']?.toString().trim() ?? _invoiceType,
+        'pol_name': _parsedMtsData!['pol_name']?.toString().trim() ?? _polCtrl.text.trim(),
+        'pod_name': _parsedMtsData!['pod_name']?.toString().trim() ?? _podCtrl.text.trim(),
+        'customs_broker_id': _selectedBrokerId,
+        'customs_broker_name': _brokerNameCtrl.text.trim(),
+        'customs_broker_phone': _brokerPhoneCtrl.text.trim(),
+        'requested_date': _parsedMtsData!['requested_date']?.toString().trim() ?? _requestedDateCtrl.text.trim(),
+        'generated_date': _parsedMtsData!['generated_date']?.toString().trim(),
+        'expiry_date': _parsedMtsData!['expiry_date']?.toString().trim(),
+        'acid_number': acidNum.isNotEmpty ? acidNum : 'PENDING',
+        'raw_nafeza_text': _rawMtsTextCtrl.text.trim(),
+        'status': isDraft ? 'DRAFT' : (acidNum.isNotEmpty ? 'Issued' : 'Pending Issue'),
+      };
+
+      // Check if session exists or is in edit mode
+      final sessions = ref.read(acidSessionsProvider).value ?? [];
+      final existing = sessions.where((s) => s.importFileId == _selectedImportFileId && s.isActive).firstOrNull;
+      final targetAcidId = _editingAcidSessionId ?? existing?.acidId;
+
+      if (targetAcidId != null) {
+        await ref.read(acidSessionsProvider.notifier).updateAcidSession(targetAcidId, payload);
+      } else {
+        await ref.read(acidSessionsProvider.notifier).createAcidSession(payload);
+      }
+
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      await ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(isDraft
+                ? 'تم حفظ مسودة بيانات نافذة بنجاح مؤقتاً!'
+                : 'تم حفظ واعتماد بيانات ACID بنجاح ومزامنتها مع ملف الشحنة والمتتبع!'),
+            backgroundColor: isDraft ? AppTheme.charcoal : AppTheme.emerald,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: isDraft ? 'خطأ في حفظ المسودة' : 'خطأ في حفظ واعتماد ACID', error: e);
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  void _showEditMtsDataDialog() {
+    if (_parsedMtsData == null) return;
+
+    final acidCtrl = TextEditingController(text: _parsedMtsData!['acid_number']?.toString() ?? '');
+    final genDateCtrl = TextEditingController(text: _parsedMtsData!['generated_date']?.toString() ?? '');
+    final expDateCtrl = TextEditingController(text: _parsedMtsData!['expiry_date']?.toString() ?? '');
+    final reqDateCtrl = TextEditingController(text: _parsedMtsData!['requested_date']?.toString() ?? '');
+    final impNameCtrl = TextEditingController(text: _parsedMtsData!['importer_name']?.toString() ?? '');
+    final impTaxCtrl = TextEditingController(text: _parsedMtsData!['importer_tax_id']?.toString() ?? '');
+    final impAddrCtrl = TextEditingController(text: _parsedMtsData!['importer_address']?.toString() ?? '');
+    final expNameCtrl = TextEditingController(text: _parsedMtsData!['exporter_name']?.toString() ?? '');
+    final expRegIdCtrl = TextEditingController(text: _parsedMtsData!['exporter_reg_id']?.toString() ?? '');
+    final expCountryCtrl = TextEditingController(text: _parsedMtsData!['exporter_country']?.toString() ?? '');
+    final cargoxCtrl = TextEditingController(text: _parsedMtsData!['cargox_id']?.toString() ?? '');
+    final piCtrl = TextEditingController(text: _parsedMtsData!['proforma_invoice_no']?.toString() ?? '');
+    final polCtrl = TextEditingController(text: _parsedMtsData!['pol_name']?.toString() ?? '');
+    final podCtrl = TextEditingController(text: _parsedMtsData!['pod_name']?.toString() ?? '');
+    String regType = _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number';
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: SizedBox(
+            width: 700,
+            height: MediaQuery.of(context).size.height * 0.85,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: AppTheme.charcoal,
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(Icons.edit_note, color: Colors.white, size: 22),
+                      SizedBox(width: 10),
+                      Text('تعديل البيانات المستخرجة من إشعار نافذة (Edit Extracted MTS Data)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: acidCtrl,
+                                decoration: const InputDecoration(labelText: 'رقم ACID (19 رقماً) *', prefixIcon: Icon(Icons.qr_code), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: reqDateCtrl,
+                                decoration: const InputDecoration(labelText: 'تاريخ الطلب', prefixIcon: Icon(Icons.event_available), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: genDateCtrl,
+                                decoration: const InputDecoration(labelText: 'تاريخ الإصدار', prefixIcon: Icon(Icons.calendar_today), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: expDateCtrl,
+                                decoration: const InputDecoration(labelText: 'تاريخ الانتهاء', prefixIcon: Icon(Icons.event_busy), border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: impNameCtrl,
+                                decoration: const InputDecoration(labelText: 'الشركة المستوردة', prefixIcon: Icon(Icons.business), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: impTaxCtrl,
+                                decoration: const InputDecoration(labelText: 'الرقم الضريبي للمستورد', prefixIcon: Icon(Icons.badge), border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: TextField(
+                                controller: expNameCtrl,
+                                decoration: const InputDecoration(labelText: 'المصدر الأجنبي', prefixIcon: Icon(Icons.public), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: expRegIdCtrl,
+                                decoration: const InputDecoration(labelText: 'معرف المصدر (ID)', prefixIcon: Icon(Icons.confirmation_number), border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: SearchableDropdownField<String>(
+                                labelText: 'نوع التسجيل (Registration Type)',
+                                value: regType,
+                                items: const [
+                                  SearchableDropdownItem(value: 'Company Registration Number', label: 'Company Registration Number'),
+                                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: 'Foreign Exporter Number (Nafeza)'),
+                                  SearchableDropdownItem(value: 'Factory Registration', label: 'Factory Registration'),
+                                  SearchableDropdownItem(value: 'VAT Number', label: 'VAT Number'),
+                                  SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number'),
+                                  SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register'),
+                                ],
+                                onChanged: (val) {
+                                  if (val != null) setDialogState(() => regType = val);
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: expCountryCtrl,
+                                decoration: const InputDecoration(labelText: 'دولة المصدر', prefixIcon: Icon(Icons.flag), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: cargoxCtrl,
+                                decoration: const InputDecoration(labelText: 'معرف CargoX', prefixIcon: Icon(Icons.token), border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: piCtrl,
+                                decoration: const InputDecoration(labelText: 'رقم الفاتورة المبدئية (PI)', prefixIcon: Icon(Icons.receipt), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: polCtrl,
+                                decoration: const InputDecoration(labelText: 'ميناء الشحن (POL)', prefixIcon: Icon(Icons.sailing), border: OutlineInputBorder()),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: TextField(
+                                controller: podCtrl,
+                                decoration: const InputDecoration(labelText: 'ميناء الوصول (POD)', prefixIcon: Icon(Icons.anchor), border: OutlineInputBorder()),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: BoxDecoration(color: Colors.grey.shade100, border: Border(top: BorderSide(color: Colors.grey.shade300))),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إلغاء')),
+                      const SizedBox(width: 12),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                        onPressed: () {
+                          setState(() {
+                            _parsedMtsData!['acid_number'] = acidCtrl.text.trim();
+                            _parsedMtsData!['requested_date'] = reqDateCtrl.text.trim();
+                            _parsedMtsData!['generated_date'] = genDateCtrl.text.trim();
+                            _parsedMtsData!['expiry_date'] = expDateCtrl.text.trim();
+                            _parsedMtsData!['importer_name'] = impNameCtrl.text.trim();
+                            _parsedMtsData!['importer_tax_id'] = impTaxCtrl.text.trim();
+                            _parsedMtsData!['importer_address'] = impAddrCtrl.text.trim();
+                            _parsedMtsData!['exporter_name'] = expNameCtrl.text.trim();
+                            _parsedMtsData!['exporter_reg_id'] = expRegIdCtrl.text.trim();
+                            _parsedMtsData!['exporter_country'] = expCountryCtrl.text.trim();
+                            _parsedMtsData!['exporter_reg_type'] = regType;
+                            _parsedMtsData!['cargox_id'] = cargoxCtrl.text.trim();
+                            _parsedMtsData!['proforma_invoice_no'] = piCtrl.text.trim();
+                            _parsedMtsData!['pol_name'] = polCtrl.text.trim();
+                            _parsedMtsData!['pod_name'] = podCtrl.text.trim();
+                          });
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('تم تحديث البيانات المستخرجة بنجاح'), backgroundColor: AppTheme.emerald),
+                          );
+                        },
+                        icon: const Icon(Icons.check, size: 18),
+                        label: const Text('حفظ التعديلات في النتائج'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _codeSupplierFromMts() async {
+    if (_parsedMtsData == null) return;
+    final expName = _parsedMtsData!['exporter_name']?.toString().trim() ?? '';
+    if (expName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('اسم المصدر الأجنبي غير موجود في بيانات نافذة'), backgroundColor: AppTheme.crimson),
+      );
+      return;
+    }
+
+    try {
+      final existingSuppliers = ref.read(suppliersProvider).value ?? [];
+      final existing = existingSuppliers.where((s) => s.companyName.toLowerCase() == expName.toLowerCase() || s.foreignExporterId == (_parsedMtsData!['exporter_reg_id']?.toString().trim() ?? '')).firstOrNull;
+
+      final supplier = SupplierModel(
+        supplierId: existing?.supplierId,
+        supplierCode: existing?.supplierCode ?? 'SUP-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+        companyName: expName,
+        supplierType: 'Manufacturer',
+        registrationType: _parsedMtsData!['exporter_reg_type']?.toString().trim() ?? 'Company Registration Number',
+        foreignExporterId: _parsedMtsData!['exporter_reg_id']?.toString().trim() ?? (existing?.foreignExporterId ?? 'EXP-SUP-001'),
+        cargoxPlatformId: _parsedMtsData!['cargox_id']?.toString().trim() ?? existing?.cargoxPlatformId,
+        foreignExporterCountry: _parsedMtsData!['exporter_country']?.toString().trim() ?? (existing?.foreignExporterCountry ?? 'China'),
+        foreignExporterCountryCode: _parsedMtsData!['exporter_country_code']?.toString().trim() ?? (existing?.foreignExporterCountryCode ?? 'CN'),
+        address: _parsedMtsData!['exporter_address']?.toString().trim() ?? (existing?.address ?? 'No.16 Kangsheng Road, Changshu, China'),
+        phone: _parsedMtsData!['exporter_phone']?.toString().trim() ?? existing?.phone,
+        isActive: true,
+      );
+
+      String? err;
+      if (existing != null && existing.supplierId != null) {
+        err = await ref.read(suppliersProvider.notifier).updateSupplier(existing.supplierId!, supplier);
+      } else {
+        err = await ref.read(suppliersProvider.notifier).createSupplier(supplier);
+      }
+
+      if (err != null) {
+        if (mounted) {
+          showErrorDetailsDialog(context, title: 'خطأ في تكويد المورد', error: err);
+        }
+        return;
+      }
+
+      await ref.read(suppliersProvider.notifier).fetchSuppliers();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('تم تكويد / تحديث المورد الأجنبي ($expName) بنوع تسجيل Company Registration Number بنجاح!'),
+            backgroundColor: AppTheme.emerald,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorDetailsDialog(context, title: 'خطأ في تكويد المورد', error: e);
+      }
+    }
+  }
+
+  String _buildWhatsAppMessage() {
+    final impName = _importerNameCtrl.text.trim().isNotEmpty ? _importerNameCtrl.text.trim() : '-';
+    final impTax = _importerTaxIdCtrl.text.trim().isNotEmpty ? _importerTaxIdCtrl.text.trim() : '-';
+    final impAddr = _importerAddressCtrl.text.trim().isNotEmpty ? _importerAddressCtrl.text.trim() : '-';
+    final expName = _exporterNameCtrl.text.trim().isNotEmpty ? _exporterNameCtrl.text.trim() : '-';
+    final expId = _exporterRegIdCtrl.text.trim().isNotEmpty ? _exporterRegIdCtrl.text.trim() : '-';
+    final expCountry = _exporterCountryCtrl.text.trim().isNotEmpty ? _exporterCountryCtrl.text.trim() : '-';
+    final expAddr = _exporterAddressCtrl.text.trim().isNotEmpty ? _exporterAddressCtrl.text.trim() : '-';
+    final expPhone = _exporterPhoneCtrl.text.trim().isNotEmpty ? _exporterPhoneCtrl.text.trim() : '-';
+    final cargox = _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : '-';
+    final piNo = _proformaNoCtrl.text.trim().isNotEmpty ? _proformaNoCtrl.text.trim() : '-';
+    final piDate = _proformaDateCtrl.text.trim().isNotEmpty ? _proformaDateCtrl.text.trim() : '-';
+    final poNo = _poNoCtrl.text.trim().isNotEmpty ? _poNoCtrl.text.trim() : '-';
+    final pol = _polCtrl.text.trim().isNotEmpty ? _polCtrl.text.trim() : '-';
+    final pod = _podCtrl.text.trim().isNotEmpty ? _podCtrl.text.trim() : '-';
+    final reqDate = _requestedDateCtrl.text.trim().isNotEmpty ? _requestedDateCtrl.text.trim() : '-';
+
+    return '''📋 *طلب استخراج رقم ACID جديد*
+━━━━━━━━━━━━━━━━━━━━
+🏢 *المستورد المصري:* $impName
+🔢 *البطاقة الضريبية:* $impTax
+📍 *العنوان المسجل:* $impAddr
+
+🌍 *المصدر الأجنبي:* $expName
+🆔 *المعرف الضريبي / نوعه:* $expId ($_exporterRegType)
+🌐 *دولة المنشأ / التصدير:* $expCountry
+📍 *عنوان المصدر:* $expAddr
+📞 *هاتف المصدر:* $expPhone
+🔑 *حساب كارجو إكس (CargoX ID):* $cargox
+
+📄 *رقم الفاتورة المبدئية:* $piNo
+📅 *تاريخ الفاتورة المبدئية:* $piDate
+📑 *نوع الفاتورة:* $_invoiceType
+📦 *أمر الشراء (PO):* $poNo
+🚢 *ميناء الشحن (POL):* $pol
+⚓ *ميناء الوصول (POD):* $pod
+📅 *تاريخ تقديم الطلب:* $reqDate
+━━━━━━━━━━━━━━━━━━━━
+⚠️ *ملاحظة:* يرجى مراجعة الفاتورة المبدئية وسرعة موافاتنا برقم الـ ACID فور صدوره مع خالص الشكر.''';
+  }
+
+  String _buildEmailMessage() {
+    final impName = _importerNameCtrl.text.trim().isNotEmpty ? _importerNameCtrl.text.trim() : 'Import';
+    final piNo = _proformaNoCtrl.text.trim().isNotEmpty ? _proformaNoCtrl.text.trim() : '';
+    final broker = _brokerNameCtrl.text.trim().isNotEmpty ? _brokerNameCtrl.text.trim() : 'مكتب التخليص الجمركي';
+
+    return '''الموضوع: طلب إصدار رقم ACID - شحنة $impName - فاتورة $piNo
+
+السيد المخلص الجمركي المحترم / $broker
+تحية طيبة وبعد،،،
+
+يرجى التكرم ببدء إجراءات طلب واستخراج رقم القيد الجمركي المبدئي (ACID) عبر منظومة نافذة للشحنة الموضحة بياناتها أدناه:
+
+1. بيانات المستورد المصري:
+   - اسم المستورد: ${_importerNameCtrl.text.trim()}
+   - الرقم الضريبي: ${_importerTaxIdCtrl.text.trim()}
+   - العنوان: ${_importerAddressCtrl.text.trim()}
+
+2. بيانات المصدر الأجنبي:
+   - اسم المصدر: ${_exporterNameCtrl.text.trim()}
+   - نوع التسجيل والمعرف: ${_exporterRegIdCtrl.text.trim()} ($_exporterRegType)
+   - دولة المنشأ: ${_exporterCountryCtrl.text.trim()}
+   - عنوان المصدر: ${_exporterAddressCtrl.text.trim()}
+   - هاتف المصدر: ${_exporterPhoneCtrl.text.trim()}
+   - كود كارجو إكس (CargoX): ${_cargoxIdCtrl.text.trim()}
+
+3. بيانات الفاتورة والشحن:
+   - رقم الفاتورة المبدئية: ${_proformaNoCtrl.text.trim()}
+   - تاريخ الفاتورة المبدئية: ${_proformaDateCtrl.text.trim()}
+   - أمر الشراء: ${_poNoCtrl.text.trim()}
+   - ميناء الشحن: ${_polCtrl.text.trim()}
+   - ميناء الوصول: ${_podCtrl.text.trim()}
+
+تجدون برفقه الفاتورة المبدئية للاطلاع والبدء في الإجراءات.
+شاكرين لكم حسن تعاونكم الدائم.
+
+قسم الاستيراد والتخليص الجمركي
+ImportFlow ERP System''';
+  }
+
+  String _buildEnglishRequestMessage() {
+    final impName = _importerNameCtrl.text.trim().isNotEmpty ? _importerNameCtrl.text.trim() : 'SCAS For Construction And Finishing';
+    final impTax = _importerTaxIdCtrl.text.trim().isNotEmpty ? _importerTaxIdCtrl.text.trim() : '528153439';
+    final impAddr = _importerAddressCtrl.text.trim().isNotEmpty ? _importerAddressCtrl.text.trim() : '44 St. 18, Maadi, Cairo, Egypt';
+    final expName = _exporterNameCtrl.text.trim().isNotEmpty ? _exporterNameCtrl.text.trim() : 'Suzhou Yuheng Textile Co.,Ltd';
+    final expId = _exporterRegIdCtrl.text.trim().isNotEmpty ? _exporterRegIdCtrl.text.trim() : '913205813141920259';
+    final expCountry = _exporterCountryCtrl.text.trim().isNotEmpty ? _exporterCountryCtrl.text.trim() : 'China';
+    final expAddr = _exporterAddressCtrl.text.trim().isNotEmpty ? _exporterAddressCtrl.text.trim() : 'No.16 Kangsheng Road, Changshu, Suzhou, China';
+    final expPhone = _exporterPhoneCtrl.text.trim().isNotEmpty ? _exporterPhoneCtrl.text.trim() : '+86-512-52889988';
+    final cargox = _cargoxIdCtrl.text.trim().isNotEmpty ? _cargoxIdCtrl.text.trim() : '5b1b827d-5840-4ad6-b692-c5f636881c0e';
+    final piNo = _proformaNoCtrl.text.trim().isNotEmpty ? _proformaNoCtrl.text.trim() : 'YH20260730-6';
+    final piDate = _proformaDateCtrl.text.trim().isNotEmpty ? _proformaDateCtrl.text.trim() : '2026-07-30';
+    final poNo = _poNoCtrl.text.trim().isNotEmpty ? _poNoCtrl.text.trim() : '-';
+    final pol = _polCtrl.text.trim().isNotEmpty ? _polCtrl.text.trim() : 'Changshu Port (China)';
+    final pod = _podCtrl.text.trim().isNotEmpty ? _podCtrl.text.trim() : 'Alexandria Port (Egypt)';
+    final reqDate = _requestedDateCtrl.text.trim().isNotEmpty ? _requestedDateCtrl.text.trim() : '2026-08-19';
+
+    return '''📋 *Advance Cargo Information (ACID) Request*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🏢 *Egyptian Importer:* $impName
+🔢 *Tax ID:* $impTax
+📍 *Registered Address:* $impAddr
+
+🌍 *Foreign Exporter / Supplier:* $expName
+🆔 *Exporter Reg. ID:* $expId ($_exporterRegType)
+🌐 *Country of Origin / Export:* $expCountry
+📍 *Exporter Address:* $expAddr
+📞 *Tel. / Mobile:* $expPhone
+🔑 *CargoX Platform ID:* $cargox
+
+📄 *Proforma Invoice No.:* $piNo
+📅 *Proforma Invoice Date:* $piDate
+📑 *Invoice Type:* $_invoiceType
+📦 *Purchase Order (PO):* $poNo
+🚢 *Port of Loading (POL):* $pol
+⚓ *Port of Discharge (POD):* $pod
+📅 *Request Date:* $reqDate
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ *Important Note:* Please initiate the ACID issuance on the Nafeza (MTS) portal and provide us with the 19-digit ACID number upon generation. Thank you.''';
   }
 }

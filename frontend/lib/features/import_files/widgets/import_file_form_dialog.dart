@@ -16,6 +16,8 @@ import '../../customs_consultation/providers/customs_consultation_provider.dart'
 import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../projects/models/project_model.dart';
+import '../../transport_locations/providers/transport_locations_provider.dart';
+import '../../transport_locations/models/transport_location_model.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
@@ -37,6 +39,11 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   late TextEditingController _piNoController;
   late TextEditingController _estimatedCostController;
   late TextEditingController _selectedScenarioController;
+  late TextEditingController _pickupAddressController;
+  late TextEditingController _polController;
+  late TextEditingController _podController;
+  late TextEditingController _targetFreeDaysController;
+  late TextEditingController _shippingInstructionsNotesController;
   late TextEditingController _form4Controller;
   late TextEditingController _swiftController;
   late TextEditingController _form46Controller;
@@ -54,8 +61,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   String _priority = 'High';
   String _shipmentCategory = 'New Purchase';
   String _status = 'Open';
+  String _serviceTypePreference = 'Direct';
   DateTime _requiredEta = DateTime.now().add(const Duration(days: 30));
   DateTime _fileOpeningDate = DateTime.now();
+  DateTime _cargoReadyDate = DateTime.now().add(const Duration(days: 7));
   String _estimatedCostCurrency = 'USD';
 
   List<InvoiceItemModel> _invoices = [];
@@ -73,6 +82,12 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     _piNoController = TextEditingController(text: f?.piNumber ?? 'PI-889');
     _estimatedCostController = TextEditingController(text: (f?.estimatedCost != null && f!.estimatedCost > 0) ? f.estimatedCost.toString() : '');
     _selectedScenarioController = TextEditingController(text: f?.selectedScenario ?? '');
+    _pickupAddressController = TextEditingController(text: f?.pickupAddress ?? '');
+    _polController = TextEditingController(text: f?.portOfLoading ?? '');
+    _podController = TextEditingController(text: f?.portOfDischarge ?? 'El Dekheila Port (non TMT)');
+    _targetFreeDaysController = TextEditingController(text: (f?.targetFreeDays ?? 21).toString());
+    _shippingInstructionsNotesController = TextEditingController(text: f?.shippingInstructionsNotes ?? '');
+    _serviceTypePreference = f?.serviceTypePreference ?? 'Direct';
     _form4Controller = TextEditingController(text: f?.form4No ?? '');
     _swiftController = TextEditingController(text: f?.swiftNo ?? '');
     _form46Controller = TextEditingController(text: f?.form46No ?? '');
@@ -81,6 +96,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
     if (f?.fileOpeningDate != null && f!.fileOpeningDate!.isNotEmpty) {
       _fileOpeningDate = DateTime.tryParse(f.fileOpeningDate!) ?? DateTime.now();
+    }
+    if (f?.cargoReadyDate != null && f!.cargoReadyDate!.isNotEmpty) {
+      _cargoReadyDate = DateTime.tryParse(f.cargoReadyDate!) ?? DateTime.now().add(const Duration(days: 7));
     }
     _estimatedCostCurrency = f?.estimatedCostCurrency ?? 'USD';
 
@@ -213,6 +231,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         'required_eta': _requiredEta.toString().substring(0, 10),
         'file_opening_date': _fileOpeningDate.toString().substring(0, 10),
         'selected_scenario': _selectedScenarioController.text.trim().isEmpty ? null : _selectedScenarioController.text.trim(),
+        'pickup_address': _pickupAddressController.text.trim().isEmpty ? null : _pickupAddressController.text.trim(),
+        'port_of_loading': _polController.text.trim().isEmpty ? null : _polController.text.trim(),
+        'port_of_discharge': _podController.text.trim().isEmpty ? 'El Dekheila Port (non TMT)' : _podController.text.trim(),
+        'cargo_ready_date': _cargoReadyDate.toString().substring(0, 10),
+        'target_free_days': int.tryParse(_targetFreeDaysController.text.trim()) ?? 21,
+        'service_type_preference': _serviceTypePreference,
+        'shipping_instructions_notes': _shippingInstructionsNotesController.text.trim().isEmpty ? null : _shippingInstructionsNotesController.text.trim(),
         'form4_no': _form4Controller.text.trim(),
         'swift_no': _swiftController.text.trim(),
         'form46_no': _form46Controller.text.trim(),
@@ -301,6 +326,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
     final partners = ref.watch(partnersProvider).value ?? [];
     final incoterms = ref.watch(incotermsProvider).value ?? [];
     final currencies = ref.watch(currenciesProvider).value ?? [];
+    final locations = ref.watch(transportLocationsProvider).asData?.value ?? [];
     final projects = (ref.watch(projectsProvider).value ?? []).where((p) => _selectedCompanyId == null || p.companyId == _selectedCompanyId).toList();
 
     return AlertDialog(
@@ -377,6 +403,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             setState(() {
                               _selectedSupplierId = val;
                               _supplierName = sup.companyName;
+                              final fullAddr = [sup.address, sup.city, sup.country].where((s) => s.isNotEmpty).join(', ');
+                              _pickupAddressController.text = fullAddr.isNotEmpty ? fullAddr : sup.address;
                             });
                           }
                         },
@@ -569,6 +597,157 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+
+                // Logistics & Freight RFQ Details Container
+                Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF0FDF4),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFF86EFAC)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.local_shipping_outlined, color: AppTheme.emerald, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            '🚚 بيانات النقل وموانئ الشحن لطلب النولون (Logistics & Freight RFQ Details)',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF166534), fontSize: 13),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              value: _polController.text.isNotEmpty ? _polController.text : null,
+                              labelText: 'ميناء الشحن (Port of Loading - POL)',
+                              searchHintText: 'ابحث في موانئ الشحن العالمية...',
+                              items: [
+                                if (_polController.text.isNotEmpty && !locations.any((l) => l.locationName == _polController.text))
+                                  SearchableDropdownItem<String>(value: _polController.text, label: _polController.text),
+                                ...locations.map((loc) => SearchableDropdownItem<String>(
+                                      value: loc.locationName,
+                                      label: '${loc.locationName} (${loc.country}${loc.unLocode.isNotEmpty ? " - ${loc.unLocode}" : ""})',
+                                      subtitle: loc.locationType,
+                                    )),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setState(() => _polController.text = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              value: _podController.text.isNotEmpty ? _podController.text : 'El Dekheila Port (non TMT)',
+                              labelText: 'ميناء الوصول والتفريغ (Port of Discharge - POD)',
+                              searchHintText: 'ابحث في موانئ الوصول المصرية...',
+                              items: [
+                                if (_podController.text.isNotEmpty && !locations.any((l) => l.locationName == _podController.text))
+                                  SearchableDropdownItem<String>(value: _podController.text, label: _podController.text),
+                                ...locations.map((loc) => SearchableDropdownItem<String>(
+                                      value: loc.locationName,
+                                      label: '${loc.locationName} (${loc.country}${loc.unLocode.isNotEmpty ? " - ${loc.unLocode}" : ""})',
+                                      subtitle: loc.locationType,
+                                    )),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setState(() => _podController.text = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: () async {
+                                final d = await showDatePicker(
+                                  context: context,
+                                  initialDate: _cargoReadyDate,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2035),
+                                );
+                                if (d != null) setState(() => _cargoReadyDate = d);
+                              },
+                              child: InputDecorator(
+                                decoration: const InputDecoration(
+                                  labelText: 'تاريخ جاهزية البضاعة (Cargo Ready Date)',
+                                  border: OutlineInputBorder(),
+                                  filled: true,
+                                  fillColor: Colors.white,
+                                ),
+                                child: Text(_cargoReadyDate.toString().substring(0, 10)),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          SizedBox(
+                            width: 130,
+                            child: TextFormField(
+                              controller: _targetFreeDaysController,
+                              keyboardType: TextInputType.number,
+                              decoration: const InputDecoration(
+                                labelText: 'أيام السماح المطلوبة (FT)',
+                                suffixText: 'يوم',
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: SearchableDropdownField<String>(
+                              value: _serviceTypePreference,
+                              labelText: 'تفضيل مسار الخدمة (Service Preference)',
+                              items: const [
+                                SearchableDropdownItem(value: 'Direct', label: 'Direct Service (خدمة وخط مباشر فقط)'),
+                                SearchableDropdownItem(value: 'Transshipment Acceptable', label: 'Transshipment Acceptable (يقبل الترانزيت)'),
+                              ],
+                              onChanged: (v) {
+                                if (v != null) setState(() => _serviceTypePreference = v);
+                              },
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              controller: _pickupAddressController,
+                              decoration: const InputDecoration(
+                                labelText: 'عنوان الاستلام / المصنع (Pickup / Factory Address for EXW)',
+                                hintText: 'عنوان المصنع لتحميل بضاعة الـ EXW...',
+                                border: OutlineInputBorder(),
+                                filled: true,
+                                fillColor: Colors.white,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _shippingInstructionsNotesController,
+                        decoration: const InputDecoration(
+                          labelText: 'تعليمات واشتراطات الشحن الخاصة (Shipping Instructions & Exclusions)',
+                          hintText: 'مثال: Must avoid TMT Terminal, Earliest vessel required...',
+                          border: OutlineInputBorder(),
+                          filled: true,
+                          fillColor: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
 

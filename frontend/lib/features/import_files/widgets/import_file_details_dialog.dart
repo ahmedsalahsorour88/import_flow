@@ -9,6 +9,7 @@ import '../../../core/widgets/container_load_plan_painter.dart';
 import '../models/import_file_model.dart';
 import '../../shipping_scenarios/providers/shipping_scenarios_provider.dart';
 import '../widgets/close_shipment_dialog.dart';
+import '../widgets/freight_rfq_dialog.dart';
 
 
 
@@ -1389,6 +1390,22 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
         ),
       ),
       actions: [
+        ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppTheme.emerald,
+            foregroundColor: Colors.white,
+          ),
+          icon: const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 16),
+          label: const Text('🚀 طلب أسعار نولون الشحن (Freight RFQ)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          onPressed: () {
+            FreightRfqDialog.show(
+              context,
+              importFileId: file.importFileId,
+              importFileCode: file.importFileCode,
+              customFileNumber: file.customFileNumber,
+            );
+          },
+        ),
         if (file.status != 'Closed' && widget.onEditPressed != null)
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),

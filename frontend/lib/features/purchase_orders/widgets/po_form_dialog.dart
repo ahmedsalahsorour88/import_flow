@@ -499,7 +499,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     _selectedSupplierId = po?.supplierId;
     _selectedIncotermId = po?.incotermId;
     _selectedCurrencyId = po?.currencyId;
-    _selectedCountryOfOrigin = po?.countryOfOrigin;
+    _selectedCountryOfOrigin = normalizeCountryName(po?.countryOfOrigin);
 
     if (po != null && po.items.isNotEmpty) {
       _dialogItems = po.items.map((i) => POLineItemModel(

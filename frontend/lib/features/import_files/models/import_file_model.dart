@@ -98,6 +98,13 @@ class ImportFileModel {
   final String? requiredEta;
   final String? fileOpeningDate;
   final String? selectedScenario;
+  final String? pickupAddress;
+  final String? portOfLoading;
+  final String? portOfDischarge;
+  final String? cargoReadyDate;
+  final int? targetFreeDays;
+  final String? serviceTypePreference;
+  final String? shippingInstructionsNotes;
   final String? acidNumber;
   final String? acidRequestDate;
   final String? acidIssueDate;
@@ -150,6 +157,13 @@ class ImportFileModel {
     this.requiredEta,
     this.fileOpeningDate,
     this.selectedScenario,
+    this.pickupAddress,
+    this.portOfLoading,
+    this.portOfDischarge = 'El Dekheila Port (non TMT)',
+    this.cargoReadyDate,
+    this.targetFreeDays = 21,
+    this.serviceTypePreference = 'Direct',
+    this.shippingInstructionsNotes,
     this.acidNumber,
     this.acidRequestDate,
     this.acidIssueDate,
@@ -208,6 +222,13 @@ class ImportFileModel {
       requiredEta: json['required_eta'],
       fileOpeningDate: json['file_opening_date'],
       selectedScenario: json['selected_scenario'],
+      pickupAddress: json['pickup_address'],
+      portOfLoading: json['port_of_loading'],
+      portOfDischarge: json['port_of_discharge'] ?? 'El Dekheila Port (non TMT)',
+      cargoReadyDate: json['cargo_ready_date'],
+      targetFreeDays: json['target_free_days'] as int? ?? 21,
+      serviceTypePreference: json['service_type_preference'] ?? 'Direct',
+      shippingInstructionsNotes: json['shipping_instructions_notes'],
       acidNumber: json['acid_number'],
       acidRequestDate: json['acid_request_date'],
       acidIssueDate: json['acid_issue_date'],
@@ -263,6 +284,13 @@ class ImportFileModel {
       'required_eta': requiredEta,
       'file_opening_date': fileOpeningDate,
       'selected_scenario': selectedScenario,
+      'pickup_address': pickupAddress,
+      'port_of_loading': portOfLoading,
+      'port_of_discharge': portOfDischarge,
+      'cargo_ready_date': cargoReadyDate,
+      'target_free_days': targetFreeDays,
+      'service_type_preference': serviceTypePreference,
+      'shipping_instructions_notes': shippingInstructionsNotes,
       'acid_number': acidNumber,
       'acid_request_date': acidRequestDate,
       'acid_issue_date': acidIssueDate,
@@ -283,6 +311,89 @@ class ImportFileModel {
       'notes': notes,
       'is_active': isActive,
     };
+  }
+}
+
+class FreightRfqDataModel {
+  final int importFileId;
+  final String importFileCode;
+  final String? customFileNumber;
+  final String companyName;
+  final String supplierName;
+  final String incotermCode;
+  final String commodity;
+  final String shipmentMode;
+  final String recommendedContainers;
+  final double totalCbm;
+  final double grossWeightKg;
+  final double netWeightKg;
+  final int totalPackages;
+  final String packagesBreakdown;
+  final String pickupAddress;
+  final String portOfLoading;
+  final String portOfDischarge;
+  final String cargoReadyDate;
+  final int targetFreeDays;
+  final String serviceType;
+  final String specialRequirements;
+  final String emailSubject;
+  final String emailBodyTemplate;
+  final String whatsappTextTemplate;
+
+  FreightRfqDataModel({
+    required this.importFileId,
+    required this.importFileCode,
+    this.customFileNumber,
+    required this.companyName,
+    required this.supplierName,
+    required this.incotermCode,
+    required this.commodity,
+    required this.shipmentMode,
+    required this.recommendedContainers,
+    required this.totalCbm,
+    required this.grossWeightKg,
+    required this.netWeightKg,
+    required this.totalPackages,
+    required this.packagesBreakdown,
+    required this.pickupAddress,
+    required this.portOfLoading,
+    required this.portOfDischarge,
+    required this.cargoReadyDate,
+    required this.targetFreeDays,
+    required this.serviceType,
+    required this.specialRequirements,
+    required this.emailSubject,
+    required this.emailBodyTemplate,
+    required this.whatsappTextTemplate,
+  });
+
+  factory FreightRfqDataModel.fromJson(Map<String, dynamic> json) {
+    return FreightRfqDataModel(
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code'] ?? '',
+      customFileNumber: json['custom_file_number'],
+      companyName: json['company_name'] ?? '',
+      supplierName: json['supplier_name'] ?? '',
+      incotermCode: json['incoterm_code'] ?? 'EXW',
+      commodity: json['commodity'] ?? '',
+      shipmentMode: json['shipment_mode'] ?? 'Sea FCL',
+      recommendedContainers: json['recommended_containers'] ?? '',
+      totalCbm: (json['total_cbm'] as num?)?.toDouble() ?? 0.0,
+      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalPackages: (json['total_packages'] as num?)?.toInt() ?? 0,
+      packagesBreakdown: json['packages_breakdown'] ?? '',
+      pickupAddress: json['pickup_address'] ?? '',
+      portOfLoading: json['port_of_loading'] ?? '',
+      portOfDischarge: json['port_of_discharge'] ?? '',
+      cargoReadyDate: json['cargo_ready_date'] ?? '',
+      targetFreeDays: (json['target_free_days'] as num?)?.toInt() ?? 21,
+      serviceType: json['service_type'] ?? 'Direct',
+      specialRequirements: json['special_requirements'] ?? '',
+      emailSubject: json['email_subject'] ?? '',
+      emailBodyTemplate: json['email_body_template'] ?? '',
+      whatsappTextTemplate: json['whatsapp_text_template'] ?? '',
+    );
   }
 }
 

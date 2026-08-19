@@ -16,6 +16,9 @@ from modules.financial_approval.schemas import (
     ImportBudgetUpdate,
     BudgetPrefillResponse,
     LinkedPOItemSchema,
+    SmartSwiftExtractRequest,
+    SmartSwiftExtractResponse,
+    SmartSwiftReconcileRequest,
 )
 import modules.financial_approval.repository as repo
 from modules.financial_approval.validators import (
@@ -27,7 +30,7 @@ from modules.financial_approval.validators import (
 def create_payment_request_service(
     db: Session, schema: PaymentRequestCreate
 ) -> PaymentRequestSession:
-    """Service to validate and create Payment Request with duplicate prevention."""
+    """Service to validate and create Payment Request with duplicate prevention per payment type."""
     validate_payment_request_inputs(
         db=db,
         requested_amount=schema.requested_amount,
@@ -37,10 +40,15 @@ def create_payment_request_service(
 
     if schema.import_file_id:
         existing = repo.get_all_payment_requests(db, import_file_id=schema.import_file_id)
-        if existing:
+        # Prevent active duplicate of the same payment type for the same import file
+        active_same_type = [
+            p for p in existing
+            if p.is_active and p.payment_type == schema.payment_type and p.status in ("Draft", "Pending Approval", "Approved")
+        ]
+        if active_same_type:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="يوجد بالفعل طلب سداد مالي محفوظ لهذا الملف. يرجى الذهاب لتعديل الطلب الحالي بدلاً من إنشاء طلب جديد.",
+                detail=f"يوجد بالفعل طلب سداد مالي قيد الإجراء من نوع '{schema.payment_type}' محفوظ لهذا الملف ({active_same_type[0].payment_code}). يرجى الذهاب لتعديله أو استخدام نوع سداد آخر.",
             )
 
     return repo.create_payment_request(db, schema)
@@ -132,7 +140,7 @@ def reconcile_swift_service(
 
     # 2. Variance calculation
     variance = round(payload.swift_transferred_amount - db_item.requested_amount, 2)
-    if abs(variance) < 0.001:
+    if abs(variance) < 0.01:
         variance_status = "Matched"
     elif variance < 0:
         variance_status = "Deficit"
@@ -439,3 +447,207 @@ def restore_payment_request_service(db: Session, payment_id: int) -> bool:
 
 def get_all_import_budgets_service(db: Session, include_inactive: bool = False, search: Optional[str] = None, import_file_id: Optional[int] = None, po_id: Optional[int] = None, budget_status: Optional[str] = None) -> List[ImportBudgetApproval]:
     return repo.get_all_import_budgets(db, include_inactive=include_inactive, search=search, import_file_id=import_file_id, po_id=po_id, budget_status=budget_status)
+
+def get_import_budget_by_id_service(db: Session, budget_id: int) -> Optional[ImportBudgetApproval]:
+    return repo.get_import_budget_by_id(db, budget_id)
+
+def update_import_budget_service(db: Session, budget_id: int, schema: ImportBudgetUpdate) -> ImportBudgetApproval:
+    db_item = repo.get_import_budget_by_id(db, budget_id)
+    if not db_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+    return repo.update_import_budget(db, db_item, schema)
+
+def soft_delete_import_budget_service(db: Session, budget_id: int) -> bool:
+    return repo.soft_delete_import_budget(db, budget_id)
+
+def restore_import_budget_service(db: Session, budget_id: int) -> bool:
+    return repo.restore_import_budget(db, budget_id)
+
+
+# --- SMART AI SWIFT MT103 EXTRACTION & RECONCILIATION SERVICES ---
+def smart_extract_swift_service(
+    db: Session, payload: SmartSwiftExtractRequest
+) -> SmartSwiftExtractResponse:
+    """
+    Parses raw SWIFT MT103 text and auto-matches against existing Payment Requests.
+    """
+    from modules.financial_approval.swift_mt103_parser import (
+        parse_swift_mt103_text,
+        match_swift_against_payment_request,
+    )
+
+    parsed = parse_swift_mt103_text(payload.raw_text)
+    if not parsed.get("success"):
+        return SmartSwiftExtractResponse(
+            success=False,
+            parsed_swift={},
+            matched_payment_request=None,
+            candidate_matches=[],
+            error=parsed.get("error", "Failed to parse SWIFT MT103 text"),
+        )
+
+    all_requests = repo.get_all_payment_requests(db, include_inactive=False)
+
+    candidate_matches = []
+    best_match = None
+    highest_score = -1
+
+    for req in all_requests:
+        match_info = match_swift_against_payment_request(parsed, req)
+        candidate_matches.append(match_info)
+
+        if payload.target_payment_id and req.payment_id == payload.target_payment_id:
+            best_match = match_info
+            highest_score = 999
+        elif match_info["confidence_score"] > highest_score:
+            highest_score = match_info["confidence_score"]
+            best_match = match_info
+
+    candidate_matches.sort(key=lambda x: x["confidence_score"], reverse=True)
+
+    return SmartSwiftExtractResponse(
+        success=True,
+        parsed_swift=parsed,
+        matched_payment_request=best_match,
+        candidate_matches=candidate_matches[:10],
+        raw_text=payload.raw_text,
+    )
+
+
+def smart_extract_swift_from_file_service(
+    db: Session,
+    filename: str,
+    content_bytes: bytes,
+    target_payment_id: Optional[int] = None,
+) -> SmartSwiftExtractResponse:
+    """
+    Extracts text from uploaded Word, Excel, PDF, or Image file and auto-matches against payment requests.
+    """
+    from modules.financial_approval.swift_file_extractor import extract_text_from_swift_file
+    from modules.financial_approval.swift_mt103_parser import (
+        parse_swift_mt103_text,
+        match_swift_against_payment_request,
+    )
+
+    raw_text, normalized_text = extract_text_from_swift_file(filename, content_bytes)
+    if not normalized_text.strip() and not raw_text.strip():
+        return SmartSwiftExtractResponse(
+            success=False,
+            parsed_swift={},
+            matched_payment_request=None,
+            candidate_matches=[],
+            raw_text="",
+            detected_filename=filename,
+            error=f"Could not extract readable text from file '{filename}'. Ensure the file is not empty or corrupted.",
+        )
+
+    # Parse normalized text
+    text_to_parse = normalized_text if normalized_text.strip() else raw_text
+    parsed = parse_swift_mt103_text(text_to_parse)
+
+    all_requests = repo.get_all_payment_requests(db, include_inactive=False)
+    candidate_matches = []
+    best_match = None
+    highest_score = -1
+
+    for req in all_requests:
+        match_info = match_swift_against_payment_request(parsed, req)
+        candidate_matches.append(match_info)
+
+        if target_payment_id and req.payment_id == target_payment_id:
+            best_match = match_info
+            highest_score = 999
+        elif match_info["confidence_score"] > highest_score:
+            highest_score = match_info["confidence_score"]
+            best_match = match_info
+
+    candidate_matches.sort(key=lambda x: x["confidence_score"], reverse=True)
+
+    # Detect file type label
+    lower = filename.lower()
+    if lower.endswith('.pdf'):
+        f_type = "PDF Document"
+    elif lower.endswith(('.docx', '.doc')):
+        f_type = "Word Document"
+    elif lower.endswith(('.xlsx', '.xls', '.csv')):
+        f_type = "Excel Spreadsheet"
+    elif lower.endswith(('.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.tif')):
+        f_type = "Image / Scanned Slip (OCR)"
+    else:
+        f_type = "Text File"
+
+    return SmartSwiftExtractResponse(
+        success=parsed.get("success", True),
+        parsed_swift=parsed,
+        matched_payment_request=best_match,
+        candidate_matches=candidate_matches[:10],
+        raw_text=raw_text if raw_text.strip() else normalized_text,
+        detected_filename=filename,
+        detected_file_type=f_type,
+    )
+
+
+def smart_reconcile_swift_service(
+    db: Session, payload: SmartSwiftReconcileRequest
+) -> PaymentRequestSession:
+    """
+    Auto-updates Payment Request with confirmed SWIFT details, performs variance
+    reconciliation, confirms bank info, and marks as Paid.
+    """
+    from modules.import_files.model import ImportFile
+
+    db_item = repo.get_payment_request_by_id(db, payload.payment_id)
+    if not db_item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Payment Request ID {payload.payment_id} not found.",
+        )
+
+    # 1. Update SWIFT fields
+    db_item.swift_reference_no = payload.swift_reference_no
+    db_item.swift_receipt_date = payload.swift_receipt_date
+    db_item.swift_transferred_amount = payload.swift_transferred_amount
+    db_item.swift_transferred_currency = payload.swift_transferred_currency
+
+    # 2. Update / Confirm Bank details if provided
+    if payload.bank_name:
+        db_item.bank_name = payload.bank_name
+    if payload.swift_code:
+        db_item.swift_code = payload.swift_code
+    if payload.iban_account_no:
+        db_item.iban_account_no = payload.iban_account_no
+
+    # 3. Calculate variance & processing days
+    variance = float(payload.swift_transferred_amount) - float(db_item.requested_amount)
+    db_item.swift_variance_amount = round(variance, 2)
+
+    if abs(variance) < 0.01:
+        db_item.swift_variance_status = "Matched"
+    elif variance < 0:
+        db_item.swift_variance_status = "Deficit"
+    else:
+        db_item.swift_variance_status = "Surplus"
+
+    if db_item.request_date and payload.swift_receipt_date:
+        delta = (payload.swift_receipt_date - db_item.request_date).days
+        db_item.swift_processing_days = max(0, delta)
+
+    if payload.swift_reconciliation_notes:
+        db_item.swift_reconciliation_notes = payload.swift_reconciliation_notes
+
+    if payload.auto_execute:
+        db_item.status = "Paid"
+
+    # 4. Sync swift_no to linked Import File
+    if db_item.import_file_id:
+        imp = db.query(ImportFile).filter(ImportFile.import_file_id == db_item.import_file_id).first()
+        if imp:
+            imp.swift_no = payload.swift_reference_no
+
+    db.commit()
+    db.refresh(db_item)
+    return db_item
+

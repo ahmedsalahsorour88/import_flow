@@ -271,3 +271,27 @@ def update_import_budget(
     db.commit()
     db.refresh(db_item)
     return db_item
+
+
+def soft_delete_import_budget(db: Session, budget_id: int) -> bool:
+    item = get_import_budget_by_id(db, budget_id)
+    if not item:
+        return False
+    item.is_active = False
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True
+
+
+def restore_import_budget(db: Session, budget_id: int) -> bool:
+    item = (
+        db.query(ImportBudgetApproval)
+        .filter(ImportBudgetApproval.budget_id == budget_id, ImportBudgetApproval.is_active == False)
+        .first()
+    )
+    if not item:
+        return False
+    item.is_active = True
+    item.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return True

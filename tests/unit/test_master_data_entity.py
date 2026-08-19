@@ -41,3 +41,29 @@ def test_shaw_europe_extraction():
     assert "Blackaddie Road" in extracted["address"]
     assert extracted["country_code"] == "GB"
     assert extracted["postcode"] == "DG4 6DB"
+
+
+def test_egyptian_importer_extraction():
+    raw_text = """
+    شركة النور للاستيراد والتصدير ش.م.م
+    العنوان: 15 شارع طلعت حرب - القاهرة
+    Country: Egypt
+    البطاقة الاستيرادية: 759552827 (تنتهي في 2029-03-31)
+    البطاقة الضريبية: 759552827 (تنتهي في 2029-03-31)
+    السجل التجاري: 228795 (ينتهي في 2029-03-04)
+    الهاتف: +20 100 000 0000
+    Email: info@alnoor-import.com
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {})
+
+    assert "شركة النور للاستيراد" in extracted["arabic_name"]
+    assert extracted["importer_id"] == "759552827"
+    assert extracted["importer_id_expiry"] == "2029-03-31"
+    assert extracted["vat_tax_id"] == "759552827"
+    assert extracted["vat_id_expiry"] == "2029-03-31"
+    assert extracted["commercial_register"] == "228795"
+    assert extracted["registration_expiry"] == "2029-03-04"
+    assert extracted["email"] == "info@alnoor-import.com"
+    assert extracted["country_code"] == "EG"
+

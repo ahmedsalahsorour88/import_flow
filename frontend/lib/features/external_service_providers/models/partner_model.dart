@@ -32,6 +32,8 @@ class PartnerModel {
       .where((e) => e.isNotEmpty)
       .toList();
 
+  int? get partnerId => providerId;
+
   PartnerModel({
     this.providerId,
     required this.partnerCode,

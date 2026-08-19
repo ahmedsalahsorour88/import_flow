@@ -416,26 +416,33 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     }
 
     // ── Consolidate: group all HS Codes by document type ────────────────
-    // One checklist item per document type, listing all related HS Codes inside.
+    // One checklist item per document type, listing unique HS Codes inside.
     final acidHsCodes =
-        calcLines.where((l) => l.requiresAcid).map((l) => l.hsCode).toList();
+        calcLines.where((l) => l.requiresAcid).map((l) => l.hsCode).toSet().toList();
     final cooHsCodes =
-        calcLines.where((l) => l.requiresCoo).map((l) => l.hsCode).toList();
+        calcLines.where((l) => l.requiresCoo).map((l) => l.hsCode).toSet().toList();
     final goeicHsCodes =
-        calcLines.where((l) => l.requiresInspection).map((l) => l.hsCode).toList();
+        calcLines.where((l) => l.requiresInspection).map((l) => l.hsCode).toSet().toList();
 
-    // Group per regulatory authority
-    final Map<String, List<String>> authHsMap = {};
+    // Group unique HS Codes per regulatory authority
+    final Map<String, Set<String>> authHsMap = {};
     for (final line in calcLines) {
       if (line.regulatoryAuthority != null &&
           line.regulatoryAuthority!.trim().isNotEmpty) {
         authHsMap
-            .putIfAbsent(line.regulatoryAuthority!, () => [])
+            .putIfAbsent(line.regulatoryAuthority!, () => <String>{})
             .add(line.hsCode);
       }
     }
 
     int addedCount = 0;
+
+    // Helper to format HS Codes nicely for display
+    String formatHsCodeList(List<String> list) {
+      if (list.isEmpty) return '';
+      if (list.length <= 2) return list.join(' | ');
+      return '${list.take(2).join(" | ")} (+${list.length - 2})';
+    }
 
     // 1. ACID — one consolidated item for the entire shipment
     if (acidHsCodes.isNotEmpty) {
@@ -444,7 +451,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (!hasExisting) {
         _checklist.add(CustomsChecklistItemModel(
           documentType: docName,
-          hsCode: acidHsCodes.join(' | '),
+          hsCode: formatHsCodeList(acidHsCodes),
           isRequired: true,
           isBlockingShipment: true,
           responsibleParty: 'Importer Team',
@@ -465,7 +472,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (!hasExisting) {
         _checklist.add(CustomsChecklistItemModel(
           documentType: docName,
-          hsCode: cooHsCodes.join(' | '),
+          hsCode: formatHsCodeList(cooHsCodes),
           isRequired: true,
           isBlockingShipment: true,
           responsibleParty: 'Supplier / Exporter',
@@ -486,7 +493,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (!hasExisting) {
         _checklist.add(CustomsChecklistItemModel(
           documentType: docName,
-          hsCode: goeicHsCodes.join(' | '),
+          hsCode: formatHsCodeList(goeicHsCodes),
           isRequired: true,
           isBlockingShipment: true,
           responsibleParty: 'Customs Broker',
@@ -502,7 +509,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     // 4. Per regulatory authority — one consolidated item per authority
     for (final entry in authHsMap.entries) {
       final authority = entry.key;
-      final hsList = entry.value;
+      final hsList = entry.value.toList();
       final docName = 'موافقة $authority الفنية المسبقة';
       final hasExisting = _checklist.any((c) => c.documentType == docName);
       if (!hasExisting) {
@@ -513,7 +520,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             .firstOrNull;
         _checklist.add(CustomsChecklistItemModel(
           documentType: docName,
-          hsCode: hsList.join(' | '),
+          hsCode: formatHsCodeList(hsList),
           isRequired: true,
           isBlockingShipment: true,
           responsibleParty: 'Importer Team',
@@ -1136,20 +1143,20 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Live Metrics Bar
-                  Row(
+                  // Live Metrics Bar & Actions (Responsive Wrap)
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       ConsultationMetricBadge(title: 'جاهزية الفحص الجمركي', value: '$liveReadinessPct%', color: Colors.blue),
-                      const SizedBox(width: 12),
                       ConsultationMetricBadge(title: 'عدد البنود والمستندات', value: '${_checklist.length}', color: Colors.grey),
-                      const SizedBox(width: 12),
                       ConsultationMetricBadge(
                         title: 'عوائق التخليص (Blocking)',
                         value: '$blockingCount',
                         color: blockingCount > 0 ? Colors.red : Colors.green,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
                       ),
-                      const Spacer(),
                       // 1. Live Refresh
                       OutlinedButton.icon(
                         style: OutlinedButton.styleFrom(
@@ -1172,7 +1179,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
                         label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 8),
 
                       // 2. Clear Form & Start New
                       OutlinedButton.icon(
@@ -1196,7 +1202,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
                         label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 8),
 
                       // 3. Save Draft & Continue Later
                       ElevatedButton.icon(
@@ -1211,7 +1216,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
                         label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
-                      const SizedBox(width: 8),
 
                       // 4. Final Save / Update
                       ElevatedButton.icon(
@@ -1898,23 +1902,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               final item = _checklist[index];
                               return Padding(
                                 padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Column(
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final isNarrow = constraints.maxWidth < 850;
+                                    if (isNarrow) {
+                                      return Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Row(
+                                          Wrap(
+                                            crossAxisAlignment: WrapCrossAlignment.center,
+                                            spacing: 6,
+                                            runSpacing: 4,
                                             children: [
                                               if (item.hsCode != null && item.hsCode!.isNotEmpty)
                                                 Container(
-                                                  margin: const EdgeInsets.only(left: 6),
                                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                   decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
                                                   child: Text(item.hsCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                 ),
-                                              Expanded(child: Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                                              Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                             ],
                                           ),
                                           if (item.regulatoryAgency != null)
@@ -1927,71 +1933,171 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               padding: const EdgeInsets.only(top: 2.0),
                                               child: Text(item.remarks!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                                             ),
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: SearchableDropdownField<String>(
+                                                  value: item.responsibleParty,
+                                                  labelText: 'الجهة',
+                                                  items: const [
+                                                    SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
+                                                    SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
+                                                    SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team'),
+                                                    SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder'),
+                                                  ],
+                                                  onChanged: (val) {
+                                                    if (val != null) {
+                                                      setState(() {
+                                                        _checklist[index] = item.copyWith(responsibleParty: val);
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: SearchableDropdownField<String>(
+                                                  value: item.status,
+                                                  labelText: 'الحالة',
+                                                  items: const [
+                                                    SearchableDropdownItem(value: 'Pending', label: 'Pending'),
+                                                    SearchableDropdownItem(value: 'Received', label: 'Received'),
+                                                    SearchableDropdownItem(value: 'Verified', label: 'Verified'),
+                                                    SearchableDropdownItem(value: 'Approved', label: 'Approved'),
+                                                    SearchableDropdownItem(value: 'Rejected', label: 'Rejected'),
+                                                  ],
+                                                  onChanged: (val) {
+                                                    if (val != null) {
+                                                      setState(() {
+                                                        _checklist[index] = item.copyWith(status: val);
+                                                      });
+                                                    }
+                                                  },
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              IconButton(
+                                                icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
+                                                tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
+                                                  });
+                                                },
+                                              ),
+                                              IconButton(
+                                                icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                                onPressed: () {
+                                                  setState(() {
+                                                    _checklist.removeAt(index);
+                                                  });
+                                                },
+                                              ),
+                                            ],
+                                          ),
                                         ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: SearchableDropdownField<String>(
-                                        value: item.responsibleParty,
-                                        labelText: 'الجهة',
-                                        items: const [
-                                          SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
-                                          SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
-                                          SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team'),
-                                          SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder'),
-                                        ],
-                                        onChanged: (val) {
-                                          if (val != null) {
+                                      );
+                                    }
+
+                                    return Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Wrap(
+                                                crossAxisAlignment: WrapCrossAlignment.center,
+                                                spacing: 6,
+                                                runSpacing: 4,
+                                                children: [
+                                                  if (item.hsCode != null && item.hsCode!.isNotEmpty)
+                                                    Container(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                      decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(4)),
+                                                      child: Text(item.hsCode!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                    ),
+                                                  Text(item.documentType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                                ],
+                                              ),
+                                              if (item.regulatoryAgency != null)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 2.0),
+                                                  child: Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                                ),
+                                              if (item.remarks != null && item.remarks!.isNotEmpty)
+                                                Padding(
+                                                  padding: const EdgeInsets.only(top: 2.0),
+                                                  child: Text(item.remarks!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        SizedBox(
+                                          width: 190,
+                                          child: SearchableDropdownField<String>(
+                                            value: item.responsibleParty,
+                                            labelText: 'الجهة',
+                                            items: const [
+                                              SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
+                                              SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
+                                              SearchableDropdownItem(value: 'Importer Team', label: 'Importer Team'),
+                                              SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder'),
+                                            ],
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                setState(() {
+                                                  _checklist[index] = item.copyWith(responsibleParty: val);
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        SizedBox(
+                                          width: 160,
+                                          child: SearchableDropdownField<String>(
+                                            value: item.status,
+                                            labelText: 'الحالة',
+                                            items: const [
+                                              SearchableDropdownItem(value: 'Pending', label: 'Pending'),
+                                              SearchableDropdownItem(value: 'Received', label: 'Received'),
+                                              SearchableDropdownItem(value: 'Verified', label: 'Verified'),
+                                              SearchableDropdownItem(value: 'Approved', label: 'Approved'),
+                                              SearchableDropdownItem(value: 'Rejected', label: 'Rejected'),
+                                            ],
+                                            onChanged: (val) {
+                                              if (val != null) {
+                                                setState(() {
+                                                  _checklist[index] = item.copyWith(status: val);
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
+                                          tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
+                                          onPressed: () {
                                             setState(() {
-                                              _checklist[index] = item.copyWith(responsibleParty: val);
+                                              _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
                                             });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      flex: 2,
-                                      child: SearchableDropdownField<String>(
-                                        value: item.status,
-                                        labelText: 'الحالة',
-                                        items: const [
-                                          SearchableDropdownItem(value: 'Pending', label: 'Pending'),
-                                          SearchableDropdownItem(value: 'Received', label: 'Received'),
-                                          SearchableDropdownItem(value: 'Verified', label: 'Verified'),
-                                          SearchableDropdownItem(value: 'Approved', label: 'Approved'),
-                                          SearchableDropdownItem(value: 'Rejected', label: 'Rejected'),
-                                        ],
-                                        onChanged: (val) {
-                                          if (val != null) {
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.delete_outline, color: Colors.grey, size: 20),
+                                          onPressed: () {
                                             setState(() {
-                                              _checklist[index] = item.copyWith(status: val);
+                                              _checklist.removeAt(index);
                                             });
-                                          }
-                                        },
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    IconButton(
-                                      icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
-                                      tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
-                                      onPressed: () {
-                                        setState(() {
-                                          _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
-                                        });
-                                      },
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete, color: Colors.grey, size: 20),
-                                      onPressed: () {
-                                        setState(() {
-                                          _checklist.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ],
+                                          },
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 ),
                               );
                             },

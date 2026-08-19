@@ -35,7 +35,10 @@ class MasterDataEntityExtractor(BaseExtractor):
             "postcode": self._extract_postcode(text),
             "industry_description": self._extract_industry(text),
             "commercial_register": self._extract_commercial_register(text),
+            "registration_expiry": self._extract_registration_expiry(text),
             "importer_id": self._extract_importer_id(text),
+            "importer_id_expiry": self._extract_importer_expiry(text),
+            "vat_id_expiry": self._extract_vat_expiry(text),
             "cargox_id": self._extract_cargox_id(text),
             "license_number": self._extract_broker_license(text),
             "swift_code": self._extract_swift(text),
@@ -43,6 +46,36 @@ class MasterDataEntityExtractor(BaseExtractor):
             "iban": self._extract_iban(text),
         }
         return result
+
+    def _extract_importer_expiry(self, text: str) -> Optional[str]:
+        for line in text.splitlines():
+            if any(kw in line.lower() for kw in ["importer", "import card", "استيرادية"]):
+                m = re.search(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})", line)
+                if m:
+                    return m.group(1)
+        return self.find_first([
+            r"(?:Importer\s+Card\s+Expiry|Import\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الاستيرادية)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+        ], text)
+
+    def _extract_vat_expiry(self, text: str) -> Optional[str]:
+        for line in text.splitlines():
+            if any(kw in line.lower() for kw in ["vat", "tax", "الضريبية", "ضريبية"]):
+                m = re.search(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})", line)
+                if m:
+                    return m.group(1)
+        return self.find_first([
+            r"(?:VAT\s+Expiry|VAT\s+Registration\s+Expiry|Tax\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الضريبية)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+        ], text)
+
+    def _extract_registration_expiry(self, text: str) -> Optional[str]:
+        for line in text.splitlines():
+            if any(kw in line.lower() for kw in ["cr", "commercial", "السجل", "سجل"]):
+                m = re.search(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{1,2}[-/]\d{4})", line)
+                if m:
+                    return m.group(1)
+        return self.find_first([
+            r"(?:CR\s+Expiry|Commercial\s+Reg\s+Expiry|انتهاء\s+السجل\s+التجاري)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+        ], text)
 
     def _extract_cargox_id(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -53,7 +86,7 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_importer_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Importer\s+Card|Import\s+Card|بطاقة\s+استيرادية|كود\s+المستورد)[:\s]*([0-9]{4,15})",
+            r"(?:Importer\s+Card|Import\s+Card|البطاقة\s+الاستيرادية|بطاقة\s+استيرادية|كود\s+المستورد)[:\s]*([0-9]{4,15})",
             r"\b(IMP-[0-9]{4,10})\b",
         ], text)
 
@@ -90,20 +123,20 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_contact_person(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Contact\s+Person|Contact|Owner|Factory\s+owner|Manager|Attn|Attention)[:\s]*([A-Za-z0-9\s.]{3,40})",
+            r"(?:Contact\s+Person|Contact|Owner|Factory\s+owner|Manager|Attn|Attention|المسؤول|المدير)[:\s]*([A-Za-z0-9\s.\u0600-\u06FF]{3,40})",
             r"\b(Factory\s+owner)\b",
         ], text)
 
     def _extract_mobile(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:M|Mob|Mobile|Cell)[:\s]*(\+?[0-9\s\-]{8,20})",
+            r"(?:M|Mob|Mobile|Cell|محمول|موبايل)[:\s]*(\+?[0-9\s\-]{8,20})",
             r"(0086\s*1[3-9]\d{9}|\+86\s*1[3-9]\d{9})",
             r"(\+20\s*1[0-5]\d{8})",
         ], text)
 
     def _extract_phone(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Phone|Tel\.?|Telephone)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
+            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
             r"(\+44\s*1\d{3}\s*\d{5,6})",
             r"(\+39\s*0\d{2,4}\s*\d{5,8})",
             r"(\+86\s*\d{2,4}\s*\d{7,8})",
@@ -112,12 +145,12 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_fax(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Fax)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
+            r"(?:Fax|فاكس)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
         ], text)
 
     def _extract_website(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:W|Web|Website)[:\s]*(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+            r"(?:W|Web|Website|الموقع)[:\s]*(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
             r"\b(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b",
         ], text)
 
@@ -127,14 +160,14 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_tax_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:VAT\s+Number|VAT\s+No\.?|P\.IVA|Tax\s+ID|C\.F\.|Registration\s+No\.?)[:\s]*([A-Za-z0-9]+)",
+            r"(?:VAT\s+Number|VAT\s+No\.?|P\.IVA|Tax\s+ID|C\.F\.|Registration\s+No\.?|البطاقة\s+الضريبية|بطاقة\s+ضريبية|التسجيل\s+الضريبي|الرقم\s+الضريبي)[:\s]*([A-Za-z0-9\-]+)",
             r"VAT\s+Number\s+([0-9]+)",
             r"P\.IVA\s+([A-Za-z0-9]+)",
         ], text)
 
     def _extract_address(self, text: str) -> Optional[str]:
         labeled = self.find_first([
-            r"(?:Factory\s+Address|Address|Location)[:\s]*([^\n]{10,120})",
+            r"(?:Factory\s+Address|Address|Location|العنوان|المقر)[:\s]*([^\n]{10,120})",
         ], text)
         if labeled:
             return labeled.strip()
@@ -144,14 +177,14 @@ class MasterDataEntityExtractor(BaseExtractor):
         addr_lines = []
         for line in lines:
             upper = line.upper()
-            if any(kw in upper for kw in ["ROAD", "STREET", "TOWN", "CITY", "PROVINCE", "KINGDOM", "ITALY", "CHINA", "GERMANY", "DISTRICT", "NO.16", "BLACKADDIE", "VIA G."]):
-                if not any(stop in upper for stop in ["PHONE", "VAT NUMBER", "OWNER", "WEBSITE", "FAX"]):
+            if any(kw in upper for kw in ["ROAD", "STREET", "TOWN", "CITY", "PROVINCE", "KINGDOM", "ITALY", "CHINA", "GERMANY", "DISTRICT", "NO.16", "BLACKADDIE", "VIA G.", "شارع", "القاهرة", "الإسكندرية"]):
+                if not any(stop in upper for stop in ["PHONE", "VAT NUMBER", "OWNER", "WEBSITE", "FAX", "البطاقة"]):
                     addr_lines.append(line)
         return ", ".join(addr_lines) if addr_lines else None
 
     def _extract_country(self, text: str) -> Optional[str]:
         found = self.find_first([
-            r"\b(China|United\s+Kingdom|UK|Italy|Lithuania|Germany|Egypt|USA|Spain|France|Jiangsu|United Kingdom)\b",
+            r"\b(China|United\s+Kingdom|UK|Italy|Lithuania|Germany|Egypt|USA|Spain|France|Jiangsu|United Kingdom|مصر)\b",
         ], text)
         if not found:
             return None
@@ -164,7 +197,7 @@ class MasterDataEntityExtractor(BaseExtractor):
             return "IT"
         if c in ["LITHUANIA", "LT"]:
             return "LT"
-        if c in ["EGYPT", "EG"]:
+        if c in ["EGYPT", "EG", "مصر"]:
             return "EG"
         if c in ["GERMANY", "DE"]:
             return "DE"
@@ -191,7 +224,7 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_commercial_register(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Sijil|Enterprise\s+code)[:\s]*([A-Za-z0-9]+)",
+            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Sijil|Enterprise\s+code|السجل\s+التجاري|سجل\s+تجاري)[:\s]*([A-Za-z0-9]+)",
             r"Enterprise\s+code\s+([0-9]+)",
             r"C\.R\.\s*([0-9]+)",
         ], text)
@@ -204,6 +237,6 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_iban(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:IBAN|Account\s+No\.?|Account)[:\s]*([A-Z0-9\s]{10,34})",
+            r"(?:IBAN|Account\s+No\.?|Account|الآيبان|الحساب)[:\s]*([A-Z0-9\s]{10,34})",
             r"\b(EG\d{27})\b",
         ], text)

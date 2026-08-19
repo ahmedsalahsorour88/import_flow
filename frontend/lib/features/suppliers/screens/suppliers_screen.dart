@@ -12,6 +12,8 @@ import '../../../core/widgets/row_context_menu.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../models/supplier_model.dart';
 import '../providers/suppliers_provider.dart';
+import '../widgets/supplier_details_dialog.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class SuppliersScreen extends ConsumerStatefulWidget {
@@ -400,26 +402,13 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
 
               // Standard 4-Action Row Pill: View, Edit, Print, Delete
               RowActionsPill(
-                onView: () {
-                  if (supplier.supplierId != null) {
-                    RowHistoryDialog.show(
-                      context,
-                      entityType: 'Supplier',
-                      entityId: supplier.supplierId!,
-                      entityTitle: supplier.companyName,
-                    );
-                  }
-                },
+                onView: () => SupplierDetailsDialog.show(
+                  context,
+                  supplier,
+                  onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
+                ),
                 onEdit: () => _showSupplierDialog(context, supplierToEdit: supplier),
-                onPrint: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('طباعة بيانات المورد: ${supplier.companyName} (${supplier.supplierCode})'),
-                      backgroundColor: AppTheme.charcoal,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
+                onPrint: () => MasterDataExportService.printOrSaveSupplierPdf(supplier),
                 onDelete: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -469,6 +458,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     final regTypeOptions = [
       'Factory Registration',
       'Foreign Exporter Number (Nafeza)',
+      'Company Registration Number',
       'VAT Number',
       'Tax Number',
       'Commercial Register',

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/theme/app_theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-
+import '../../../core/constants/api_constants.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../import_files/providers/import_files_provider.dart';
 
 class FreightQuotationsComparisonScreen extends ConsumerStatefulWidget {
   const FreightQuotationsComparisonScreen({super.key});
@@ -25,11 +27,13 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   int? _selectedImportFileId;
   int? _selectedQuotationId;
 
-  // Ideally, use the SearchableDropdownField from core/widgets
-  // For this standalone screen, we'll fetch available import files or allow user input
-  // to pick an import_file_id. We'll simulate the SearchableDropdown functionality
-  // by using a simple Dropdown or text field for now, but in the real app you'd replace
-  // this with SearchableDropdownField.
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
+  }
 
   Future<void> _fetchQuotations(int importFileId) async {
     setState(() {
@@ -39,18 +43,24 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
     });
 
     try {
-      final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8000/api/v1'));
-      // The endpoint might return a list of quotation items or RFQs. Assuming it returns quotations.
-      final res = await dio.get('/freight-quotations', queryParameters: {'import_file_id': importFileId});
+      final dio = ref.read(dioProvider);
+      final res = await dio.get('${ApiConstants.baseUrl}/freight-quotations', queryParameters: {'import_file_id': importFileId});
       
       final data = res.data;
+      List<dynamic> allQuotes = [];
       if (data is List) {
-        _quotations = data.take(4).toList(); // Max 4
-      } else if (data != null && data['quotations'] is List) {
-        _quotations = (data['quotations'] as List).take(4).toList();
-      } else {
-        _quotations = [];
+        for (var rfq in data) {
+          if (rfq['quotations'] is List) {
+            for (var q in rfq['quotations']) {
+              q['rfq_id'] = rfq['rfq_id'];
+              allQuotes.add(q);
+            }
+          } else {
+            allQuotes.add(rfq);
+          }
+        }
       }
+      _quotations = allQuotes.take(4).toList(); // Max 4
       
       // Determine selected if any
       final selected = _quotations.where((q) => q['is_awarded'] == true).toList();
@@ -72,15 +82,35 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Future<void> _selectQuotation(int quotationId) async {
+    final quote = _quotations.where((q) => q['quotation_id'] == quotationId).firstOrNull;
+    final rfqId = quote?['rfq_id'];
+
     setState(() {
       _selectedQuotationId = quotationId;
     });
-    // Call API to mark as awarded
+
+    if (rfqId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم اختيار عرض السعر بنجاح'), backgroundColor: AppTheme.emerald));
+      }
+      return;
+    }
+
     try {
-       // await Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8000/api/v1')).post('/freight-quotations/$quotationId/award');
-       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم اختيار عرض السعر بنجاح')));
+      final dio = ref.read(dioProvider);
+      await dio.post('${ApiConstants.baseUrl}/freight-quotations/$rfqId/award/$quotationId');
+      if (_selectedImportFileId != null) {
+        await _fetchQuotations(_selectedImportFileId!);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تم اختيار واعتماد عرض السعر بنجاح ✅'), backgroundColor: AppTheme.emerald),
+        );
+      }
     } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في اعتماد العرض: $e'), backgroundColor: AppTheme.crimson));
+      }
     }
   }
 
@@ -129,31 +159,42 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Widget _buildImportFileSelector() {
-    // This is a placeholder for SearchableDropdownField
-    return Row(
-      children: [
-        const Text('رقم ملف الاستيراد:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-        const SizedBox(width: 16),
-        SizedBox(
-          width: 200,
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: 'أدخل رقم الملف واضغط Enter',
-              border: OutlineInputBorder(),
-              isDense: true,
-            ),
-            keyboardType: TextInputType.number,
-            onSubmitted: (val) {
-              final id = int.tryParse(val);
-              if (id != null) {
-                _fetchQuotations(id);
-              }
-            },
-          ),
-        ),
-        const SizedBox(width: 16),
-        const Text('(ملاحظة: يجب استخدام SearchableDropdownField<T> كما ورد في القواعد)', style: TextStyle(color: Colors.grey, fontSize: 12)),
-      ],
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    final items = importFiles.map((file) {
+      final code = file.importFileCode;
+      final supplier = file.supplierName.isNotEmpty ? file.supplierName : 'Unknown Supplier';
+      final company = file.companyName.isNotEmpty ? file.companyName : '';
+      final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
+      return SearchableDropdownItem<int>(
+        value: file.importFileId!,
+        label: label,
+      );
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: SearchableDropdownField<int>(
+        labelText: 'اختر ملف الاستيراد لمقارنة عروض الأسعار (Select Import File)',
+        hintText: 'ابحث برقم الملف، اسم المورد الأجنبي، أو الشركة المستوردة...',
+        value: _selectedImportFileId,
+        items: items,
+        onChanged: (fileId) {
+          if (fileId != null) {
+            _fetchQuotations(fileId);
+          } else {
+            setState(() {
+              _selectedImportFileId = null;
+              _quotations = [];
+            });
+          }
+        },
+      ),
     );
   }
 

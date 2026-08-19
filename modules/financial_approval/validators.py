@@ -59,9 +59,26 @@ def validate_status_transition(current_status: str, new_status: str):
     Validates lifecycle status changes for payment requests:
     Draft -> Pending Approval -> Approved -> Paid / Rejected
     """
-    allowed_statuses = {"Draft", "Pending Approval", "Approved", "Paid", "Rejected"}
-    if new_status not in allowed_statuses:
+    if current_status == new_status:
+        return
+
+    allowed_transitions = {
+        "Draft": {"Pending Approval", "Rejected"},
+        "Pending Approval": {"Approved", "Rejected", "Draft"},
+        "Approved": {"Paid", "Rejected"},
+        "Paid": set(),  # Terminal state: cannot be moved back to draft or pending
+        "Rejected": {"Draft"},  # Can be re-opened into Draft
+    }
+
+    if current_status not in allowed_transitions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid payment status '{new_status}'. Allowed: {allowed_statuses}",
+            detail=f"Current status '{current_status}' is invalid.",
+        )
+
+    valid_targets = allowed_transitions[current_status]
+    if new_status not in valid_targets:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot transition payment request status from '{current_status}' to '{new_status}'. Allowed transitions: {sorted(list(valid_targets)) if valid_targets else 'None (Terminal state)'}",
         )

@@ -392,3 +392,38 @@ class ImportBudgetModel {
     };
   }
 }
+
+class SmartSwiftExtractResultModel {
+  final bool success;
+  final Map<String, dynamic> parsedSwift;
+  final Map<String, dynamic>? matchedPaymentRequest;
+  final List<dynamic> candidateMatches;
+  final String? rawText;
+  final String? detectedFilename;
+  final String? detectedFileType;
+  final String? error;
+
+  SmartSwiftExtractResultModel({
+    required this.success,
+    required this.parsedSwift,
+    this.matchedPaymentRequest,
+    this.candidateMatches = const [],
+    this.rawText,
+    this.detectedFilename,
+    this.detectedFileType,
+    this.error,
+  });
+
+  factory SmartSwiftExtractResultModel.fromJson(Map<String, dynamic> json) {
+    return SmartSwiftExtractResultModel(
+      success: json['success'] ?? false,
+      parsedSwift: json['parsed_swift'] != null ? Map<String, dynamic>.from(json['parsed_swift']) : {},
+      matchedPaymentRequest: json['matched_payment_request'] != null ? Map<String, dynamic>.from(json['matched_payment_request']) : null,
+      candidateMatches: json['candidate_matches'] != null ? List<dynamic>.from(json['candidate_matches']) : [],
+      rawText: json['raw_text'],
+      detectedFilename: json['detected_filename'],
+      detectedFileType: json['detected_file_type'],
+      error: json['error'],
+    );
+  }
+}

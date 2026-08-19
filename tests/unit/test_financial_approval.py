@@ -208,7 +208,7 @@ class TestFinancialApprovalBackend:
         with pytest.raises(HTTPException) as exc_info:
             service.create_payment_request_service(db_session, payload2)
         assert exc_info.value.status_code == 400
-        assert "يوجد بالفعل طلب سداد مالي محفوظ" in exc_info.value.detail
+        assert "يوجد بالفعل طلب سداد مالي قيد الإجراء" in exc_info.value.detail
 
     def test_duplicate_budget_approval_prevention(self, db_session):
         from modules.import_companies.model import ImportCompany
@@ -463,3 +463,142 @@ class TestFinancialApprovalBackend:
         assert res_deficit.swift_variance_amount == -50.0
         assert res_deficit.swift_variance_status == "Deficit"
         assert res_deficit.swift_processing_days == 2
+
+    def test_multi_payment_requests_for_same_file_different_types(self, db_session):
+        from modules.import_files.model import ImportFile
+
+        imp = ImportFile(
+            import_file_code="IMP-2026-MULTI-01",
+            custom_file_number="FILE-MULTI-01",
+            company_name="Test Company",
+            supplier_name="Global Supplier A",
+        )
+        db_session.add(imp)
+        db_session.commit()
+        db_session.refresh(imp)
+
+        # 1. Advance Payment
+        pay1 = PaymentRequestCreate(
+            title="30% Advance Payment",
+            import_file_id=imp.import_file_id,
+            supplier_name="Global Supplier A",
+            payment_type="Advance Payment",
+            requested_amount=3000.0,
+            due_date=date(2026, 9, 1),
+        )
+        created1 = service.create_payment_request_service(db_session, pay1)
+        assert created1.payment_id is not None
+
+        # 2. Final Settlement for same file should succeed because it's a different payment_type
+        pay2 = PaymentRequestCreate(
+            title="70% Final Settlement Against B/L",
+            import_file_id=imp.import_file_id,
+            supplier_name="Global Supplier A",
+            payment_type="Against B/L",
+            requested_amount=7000.0,
+            due_date=date(2026, 10, 1),
+        )
+        created2 = service.create_payment_request_service(db_session, pay2)
+        assert created2.payment_id is not None
+        assert created2.payment_id != created1.payment_id
+
+    def test_payment_status_transition_validation(self, db_session):
+        pay = PaymentRequestCreate(
+            title="Status Transition Test",
+            supplier_name="Transition Supplier",
+            requested_amount=1000.0,
+            due_date=date(2026, 9, 1),
+        )
+        created = service.create_payment_request_service(db_session, pay)
+        assert created.status == "Draft"
+
+        # Valid: Draft -> Pending Approval
+        up1 = PaymentRequestUpdate(status="Pending Approval")
+        service.update_payment_request_service(db_session, created.payment_id, up1)
+        db_session.refresh(created)
+        assert created.status == "Pending Approval"
+
+        # Valid: Pending Approval -> Approved
+        up2 = PaymentRequestUpdate(status="Approved")
+        service.update_payment_request_service(db_session, created.payment_id, up2)
+        db_session.refresh(created)
+        assert created.status == "Approved"
+
+        # Valid: Approved -> Paid
+        up3 = PaymentRequestUpdate(status="Paid")
+        service.update_payment_request_service(db_session, created.payment_id, up3)
+        db_session.refresh(created)
+        assert created.status == "Paid"
+
+        # Invalid: Paid -> Draft (Terminal state cannot move backwards)
+        up_invalid = PaymentRequestUpdate(status="Draft")
+        with pytest.raises(HTTPException) as exc_info:
+            service.update_payment_request_service(db_session, created.payment_id, up_invalid)
+        assert exc_info.value.status_code == 400
+        assert "Cannot transition payment request status" in exc_info.value.detail
+
+    def test_smart_reconcile_swift_service_matched_status(self, db_session):
+        from modules.financial_approval.schemas import SmartSwiftReconcileRequest
+
+        pay = PaymentRequestCreate(
+            title="Smart Reconcile Test",
+            supplier_name="Smart Beneficiary Co",
+            requested_amount=5000.0,
+            currency_code="USD",
+            due_date=date(2026, 9, 10),
+            request_date=date(2026, 9, 1),
+        )
+        created = service.create_payment_request_service(db_session, pay)
+
+        smart_req = SmartSwiftReconcileRequest(
+            payment_id=created.payment_id,
+            swift_reference_no="SMART-SWIFT-12345",
+            swift_receipt_date=date(2026, 9, 5),
+            swift_transferred_amount=5000.0,
+            swift_transferred_currency="USD",
+            bank_name="Test Partner Bank",
+            swift_code="TPBKUS33",
+            iban_account_no="US1234567890",
+            auto_execute=True,
+        )
+        reconciled = service.smart_reconcile_swift_service(db_session, smart_req)
+
+        assert reconciled.status == "Paid"
+        assert reconciled.swift_variance_amount == 0.0
+        assert reconciled.swift_variance_status == "Matched"
+        assert reconciled.swift_processing_days == 4
+        assert reconciled.bank_name == "Test Partner Bank"
+        assert reconciled.swift_code == "TPBKUS33"
+
+    def test_import_budget_update_and_soft_delete_restore(self, db_session):
+        payload = ImportBudgetCreate(
+            title="Initial Budget",
+            invoice_amount_egp=1000000.0,
+            freight_cost_egp=100000.0,
+            customs_duties_egp=200000.0,
+            clearance_inland_egp=50000.0,
+        )
+        budget = service.create_import_budget_service(db_session, payload)
+        assert budget.total_budget_egp == 1350000.0
+
+        # Update budget
+        up_payload = ImportBudgetUpdate(
+            title="Updated Budget Title",
+            freight_cost_egp=150000.0,
+        )
+        updated = service.update_import_budget_service(db_session, budget.budget_id, up_payload)
+        assert updated.title == "Updated Budget Title"
+        assert updated.freight_cost_egp == 150000.0
+        assert updated.total_budget_egp == 1400000.0
+
+        # Soft Delete
+        del_success = service.soft_delete_import_budget_service(db_session, budget.budget_id)
+        assert del_success is True
+        assert service.get_import_budget_by_id_service(db_session, budget.budget_id) is None
+
+        # Restore
+        res_success = service.restore_import_budget_service(db_session, budget.budget_id)
+        assert res_success is True
+        restored = service.get_import_budget_by_id_service(db_session, budget.budget_id)
+        assert restored is not None
+        assert restored.is_active is True

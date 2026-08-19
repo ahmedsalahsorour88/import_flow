@@ -16,6 +16,7 @@ from modules.import_files.schemas import (
     OperationalDashboardResponse,
     CloseShipmentSubmit,
     ReopenShipmentSubmit,
+    FreightRfqDataResponse,
 )
 import modules.import_files.service as service
 
@@ -133,6 +134,32 @@ def get_operational_dashboard(
 
 
 @router.get(
+    "/{import_file_id}/freight-rfq",
+    response_model=FreightRfqDataResponse,
+    summary="Generate Freight RFQ data, Email templates, and WhatsApp text for shipment",
+)
+def get_freight_rfq_data(
+    import_file_id: str,
+    recipient_name: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    if import_file_id.isdigit():
+        fid = int(import_file_id)
+        item = service.get_import_file_by_id_service(db, fid)
+        if not item:
+            item = service.get_import_file_by_code_service(db, import_file_id)
+    else:
+        item = service.get_import_file_by_code_service(db, import_file_id)
+
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+    return service.generate_freight_rfq_service(db, item.import_file_id, recipient_name=recipient_name)
+
+
+@router.get(
     "/{import_file_id}",
     response_model=ImportFileResponse,
     summary="Get single import file by ID or custom file number",
@@ -140,6 +167,8 @@ def get_operational_dashboard(
 def get_import_file(import_file_id: str, db: Session = Depends(get_db)):
     if import_file_id.isdigit():
         item = service.get_import_file_by_id_service(db, int(import_file_id))
+        if not item:
+            item = service.get_import_file_by_code_service(db, import_file_id)
     else:
         item = service.get_import_file_by_code_service(db, import_file_id)
 
@@ -200,3 +229,4 @@ def reopen_shipment(
     db: Session = Depends(get_db),
 ):
     return service.reopen_shipment_service(db, import_file_id, payload)
+

@@ -160,10 +160,13 @@ def get_import_file_by_id(db: Session, import_file_id: int) -> Optional[ImportFi
 
 
 def get_import_file_by_code(db: Session, code_or_custom_num: str) -> Optional[ImportFile]:
+    term = (code_or_custom_num or "").strip()
     return db.query(ImportFile).filter(
         or_(
-            ImportFile.import_file_code == code_or_custom_num,
-            ImportFile.custom_file_number == code_or_custom_num,
+            ImportFile.import_file_code == term,
+            ImportFile.custom_file_number == term,
+            ImportFile.custom_file_number.ilike(f"{term}%"),
+            ImportFile.custom_file_number.ilike(f"%{term}%"),
         ),
         ImportFile.is_active == True
     ).first()

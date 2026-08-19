@@ -3,7 +3,7 @@ FastAPI Router for Financial & Management Approval (BP-012 & BP-013)
 """
 
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
 from sqlalchemy.orm import Session
 
 from database.database import get_db
@@ -16,10 +16,76 @@ from modules.financial_approval.schemas import (
     ImportBudgetUpdate,
     ImportBudgetResponse,
     BudgetPrefillResponse,
+    SmartSwiftExtractRequest,
+    SmartSwiftFileExtractRequest,
+    SmartSwiftExtractResponse,
+    SmartSwiftReconcileRequest,
 )
 import modules.financial_approval.service as service
 
 router = APIRouter(prefix="/api/v1/financial-approval", tags=["Financial Approval"])
+
+
+# --- SMART AI SWIFT MT103 EXTRACTION & RECONCILIATION ENDPOINTS ---
+@router.post(
+    "/swift/smart-extract",
+    response_model=SmartSwiftExtractResponse,
+    summary="Smart AI parser for SWIFT MT103 text and automatic matching against payment requests",
+)
+def smart_extract_swift(
+    payload: SmartSwiftExtractRequest, db: Session = Depends(get_db)
+):
+    return service.smart_extract_swift_service(db, payload)
+
+
+@router.post(
+    "/swift/smart-extract-file",
+    response_model=SmartSwiftExtractResponse,
+    summary="Smart Extract SWIFT MT103 from Word, Excel, PDF, or Image file",
+)
+async def smart_extract_swift_from_file(
+    file: UploadFile = File(...),
+    target_payment_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    content_bytes = await file.read()
+    return service.smart_extract_swift_from_file_service(
+        db=db,
+        filename=file.filename or "uploaded_swift_document",
+        content_bytes=content_bytes,
+        target_payment_id=target_payment_id,
+    )
+
+
+@router.post(
+    "/swift/smart-extract-base64",
+    response_model=SmartSwiftExtractResponse,
+    summary="Smart Extract SWIFT MT103 from Base64 encoded file",
+)
+def smart_extract_swift_from_base64(
+    payload: SmartSwiftFileExtractRequest,
+    db: Session = Depends(get_db),
+):
+    import base64
+    content_bytes = base64.b64decode(payload.file_base64)
+    return service.smart_extract_swift_from_file_service(
+        db=db,
+        filename=payload.filename,
+        content_bytes=content_bytes,
+        target_payment_id=payload.target_payment_id,
+    )
+
+
+@router.post(
+    "/swift/smart-reconcile",
+    response_model=PaymentRequestResponse,
+    summary="Automatically reconcile SWIFT details, confirm bank info, and mark payment as Paid",
+)
+def smart_reconcile_swift(
+    payload: SmartSwiftReconcileRequest, db: Session = Depends(get_db)
+):
+    return service.smart_reconcile_swift_service(db, payload)
+
 
 
 # --- CROSS-MODULE PREFILL & AGGREGATOR ENDPOINT ---
@@ -178,3 +244,48 @@ def approve_import_budget(
     db: Session = Depends(get_db),
 ):
     return service.approve_import_budget_service(db, budget_id, approved_by)
+
+
+@router.get(
+    "/import-budgets/{budget_id}", response_model=ImportBudgetResponse
+)
+def get_import_budget(budget_id: int, db: Session = Depends(get_db)):
+    item = service.get_import_budget_by_id_service(db, budget_id)
+    if not item:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+    return item
+
+
+@router.put(
+    "/import-budgets/{budget_id}", response_model=ImportBudgetResponse
+)
+def update_import_budget(
+    budget_id: int,
+    payload: ImportBudgetUpdate,
+    db: Session = Depends(get_db),
+):
+    return service.update_import_budget_service(db, budget_id, payload)
+
+
+@router.delete("/import-budgets/{budget_id}", status_code=status.HTTP_204_NO_CONTENT)
+def soft_delete_import_budget(budget_id: int, db: Session = Depends(get_db)):
+    success = service.soft_delete_import_budget_service(db, budget_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found.",
+        )
+
+
+@router.post("/import-budgets/{budget_id}/restore")
+def restore_import_budget(budget_id: int, db: Session = Depends(get_db)):
+    success = service.restore_import_budget_service(db, budget_id)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Import Budget ID {budget_id} not found or active.",
+        )
+    return {"message": "Import Budget restored successfully"}

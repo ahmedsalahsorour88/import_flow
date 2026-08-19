@@ -188,3 +188,41 @@ class BudgetPrefillResponse(BaseModel):
     estimated_clearance_fees_egp: float = 0.0
     estimated_grand_total_egp: float = 0.0
     exchange_rate: float = 50.0
+
+
+# --- SMART AI SWIFT MT103 EXTRACTOR & RECONCILER SCHEMAS ---
+class SmartSwiftExtractRequest(BaseModel):
+    raw_text: str = Field(..., min_length=1, description="Raw SWIFT MT103 block or bank transfer advice text")
+    target_payment_id: Optional[int] = Field(None, description="Optional target payment request ID to match specifically")
+
+
+class SmartSwiftFileExtractRequest(BaseModel):
+    filename: str
+    file_base64: str
+    target_payment_id: Optional[int] = None
+
+
+class SmartSwiftExtractResponse(BaseModel):
+    success: bool
+    parsed_swift: dict
+    matched_payment_request: Optional[dict] = None
+    candidate_matches: List[dict] = []
+    raw_text: Optional[str] = None
+    detected_filename: Optional[str] = None
+    detected_file_type: Optional[str] = None
+    error: Optional[str] = None
+
+
+class SmartSwiftReconcileRequest(BaseModel):
+    payment_id: int
+    raw_text: Optional[str] = None
+    swift_reference_no: str
+    swift_receipt_date: date
+    swift_transferred_amount: float
+    swift_transferred_currency: str = "USD"
+    bank_name: Optional[str] = None
+    swift_code: Optional[str] = None
+    iban_account_no: Optional[str] = None
+    swift_reconciliation_notes: Optional[str] = None
+    auto_execute: bool = True
+

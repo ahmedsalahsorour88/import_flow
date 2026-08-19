@@ -9,6 +9,8 @@ import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/row_context_menu.dart';
 import '../models/import_company_model.dart';
 import '../providers/import_companies_provider.dart';
+import '../widgets/import_company_details_dialog.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class ImportCompaniesScreen extends ConsumerStatefulWidget {
@@ -322,26 +324,13 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
 
               // Standard 4-Action Row Pill: View, Edit, Print, Delete
               RowActionsPill(
-                onView: () {
-                  if (company.companyId != null) {
-                    RowHistoryDialog.show(
-                      context,
-                      entityType: 'ImportCompany',
-                      entityId: company.companyId!,
-                      entityTitle: company.importerName,
-                    );
-                  }
-                },
+                onView: () => ImportCompanyDetailsDialog.show(
+                  context,
+                  company,
+                  onEdit: () => _showCompanyDialog(context, company),
+                ),
                 onEdit: () => _showCompanyDialog(context, company),
-                onPrint: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('طباعة بيانات الشركة: ${company.importerName}'),
-                      backgroundColor: AppTheme.charcoal,
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
+                onPrint: () => MasterDataExportService.printOrSaveImporterPdf(company),
                 onDelete: () async {
                   final confirm = await showDialog<bool>(
                     context: context,
@@ -518,10 +507,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                     Expanded(
                                       child: CustomTextField(
                                         controller: impIdCtrl,
-                                        label: 'Importer Card ID',
+                                        label: 'Importer Card ID (9 digits)',
                                         icon: Icons.badge,
                                         isRequired: true,
-                                        hint: 'IMP-100200',
+                                        hint: 'e.g. 528153439',
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -563,10 +552,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                     Expanded(
                                       child: CustomTextField(
                                         controller: vatIdCtrl,
-                                        label: 'VAT Registration ID',
+                                        label: 'VAT Registration ID (9 digits)',
                                         icon: Icons.receipt_long,
                                         isRequired: true,
-                                        hint: 'VAT-998877',
+                                        hint: 'e.g. 528153439',
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -608,10 +597,10 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                                     Expanded(
                                       child: CustomTextField(
                                         controller: regNumCtrl,
-                                        label: 'Commercial Reg #',
+                                        label: 'Commercial Reg # (15 digits)',
                                         icon: Icons.app_registration,
                                         isRequired: true,
-                                        hint: 'REG-554433',
+                                        hint: 'e.g. 100200000070828',
                                       ),
                                     ),
                                     const SizedBox(width: 16),

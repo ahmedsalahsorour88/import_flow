@@ -8,6 +8,7 @@ import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 
@@ -279,6 +280,97 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     });
   }
 
+  void _applySmartExtractedFreightQuotes(Map<String, dynamic> fields) {
+    final crd = _cargoReadyDate;
+    final List<dynamic> options = (fields['rate_options'] is List && (fields['rate_options'] as List).isNotEmpty)
+        ? fields['rate_options'] as List
+        : [fields];
+
+    final List<ShippingScenarioItemModel> newItems = [];
+    final partners = ref.read(partnersProvider).value ?? [];
+
+    for (int i = 0; i < options.length; i++) {
+      final opt = Map<String, dynamic>.from(options[i] as Map);
+      final rawCarrier = opt['carrier_name']?.toString() ?? fields['carrier_name']?.toString() ?? 'Shipping Line';
+      final rawPol = opt['origin_port']?.toString() ?? fields['origin_port']?.toString() ?? 'Shanghai Port (ميناء شانغهاي)';
+      final rawPod = opt['destination_port']?.toString() ?? fields['destination_port']?.toString() ?? 'El Dekheila Port (ميناء الدخيلة)';
+      final cntrType = opt['container_type']?.toString() ?? fields['container_type']?.toString() ?? '40HQ';
+      final rate = (opt['ocean_freight'] as num?)?.toDouble() ?? (opt['freight_rate'] as num?)?.toDouble() ?? (fields['freight_rate'] as num?)?.toDouble() ?? 5000.0;
+      final localCharges = (opt['local_charges'] as num?)?.toDouble() ?? (opt['exw_charges'] as num?)?.toDouble() ?? (fields['local_charges'] as num?)?.toDouble();
+      final cancelFee = (opt['cancel_fee'] as num?)?.toDouble() ?? (fields['cancel_fee'] as num?)?.toDouble();
+      final freeDays = (opt['free_time_days'] as num?)?.toInt() ?? (fields['free_days_demurrage'] as num?)?.toInt() ?? 21;
+      final transitDays = (opt['transit_days'] as num?)?.toInt() ?? (fields['transit_days'] as num?)?.toInt() ?? 28;
+      final isDirect = opt['is_direct'] as bool? ?? fields['is_direct'] as bool? ?? true;
+      final notes = opt['notes']?.toString() ?? fields['notes']?.toString();
+      final curr = opt['currency']?.toString() ?? fields['currency']?.toString() ?? 'USD';
+
+      // Match partner in DB if possible
+      final matchedPartner = partners.where((p) =>
+        p.partnerName.toLowerCase().contains(rawCarrier.toLowerCase()) ||
+        rawCarrier.toLowerCase().contains(p.partnerName.toLowerCase()) ||
+        (p.scacCode != null && rawCarrier.toLowerCase().contains(p.scacCode!.toLowerCase()))
+      ).firstOrNull;
+
+      final sDate = crd.add(const Duration(days: 2));
+      final arrDate = sDate.add(Duration(days: transitDays));
+
+      final is40 = cntrType.contains('40');
+      final is20 = cntrType.contains('20');
+
+      newItems.add(ShippingScenarioItemModel(
+        providerId: matchedPartner?.providerId,
+        providerName: matchedPartner?.partnerName ?? rawCarrier,
+        vesselName: isDirect ? 'Direct Line Service' : 'Transshipment Service',
+        polName: rawPol,
+        podName: rawPod,
+        sailingDate: sDate.toString().substring(0, 10),
+        estimatedArrivalDate: arrDate.toString().substring(0, 10),
+        expectedLineDelayDays: isDirect ? 2 : 5,
+        isRecommended: i == 0,
+        riskLevel: isDirect ? 'Low' : 'Medium',
+        quotationCurrency: curr,
+        freeTimeDays: freeDays,
+        container40ftApplicable: is40,
+        container40ftPrice: is40 ? rate : 0.0,
+        container40ftQty: is40 ? 1 : 0,
+        container40ftCurrency: curr,
+        container20ftApplicable: is20,
+        container20ftPrice: is20 ? rate : 0.0,
+        container20ftQty: is20 ? 1 : 0,
+        container20ftCurrency: curr,
+        bookingCancellationApplicable: cancelFee != null && cancelFee > 0,
+        bookingCancellationPrice: cancelFee ?? 0.0,
+        bookingCancellationCurrency: curr,
+        othersFeeApplicable: localCharges != null && localCharges > 0,
+        othersFeePrice: localCharges ?? 0.0,
+        othersFeeCurrency: curr,
+        notes: [
+          if (!isDirect) 'رحلة غير مباشرة (Transshipment)',
+          if (notes != null && notes.isNotEmpty) notes,
+          if (localCharges != null && localCharges > 0) 'مصاريف محلية / EXW: \$$localCharges',
+        ].join(' — '),
+      ));
+    }
+
+    setState(() {
+      _editFormVersion++;
+      _evalItems.clear();
+      _evalItems.addAll(newItems);
+      _expandedQuotes.clear();
+      for (int i = 0; i < newItems.length; i++) {
+        _expandedQuotes[i] = true;
+      }
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('🚀 تم استخراج وإضافة ${newItems.length} عروض أسعار للمفاضلة في السيناريو بنجاح!'),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(shippingScenariosProvider);
@@ -334,6 +426,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       selectedIndex: _tabController.index,
       onTabSelected: (index) => setState(() => _tabController.index = index),
       headerActions: [
+        SmartUploadButton(
+          module: SmartUploadModule.freightQuotation,
+          label: '🚀 استخراج عروض أسعار النولون',
+          onDataExtracted: (result) {
+            _applySmartExtractedFreightQuotes(result.extractedFields);
+          },
+        ),
+        const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
           tooltip: 'Live Refresh (تحديث حي)',

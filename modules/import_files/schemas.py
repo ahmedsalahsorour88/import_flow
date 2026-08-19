@@ -47,6 +47,16 @@ class ImportFileBase(BaseModel):
     required_eta: Optional[date] = None
     file_opening_date: Optional[date] = Field(default_factory=date.today, description="تاريخ فتح الملف")
     selected_scenario: Optional[str] = Field(None, description="e.g. MSC Option")
+    
+    # Logistics & Freight RFQ Fields
+    pickup_address: Optional[str] = Field(None, description="Pickup address for EXW shipment")
+    port_of_loading: Optional[str] = Field(None, description="POL e.g. London Gateway, Shanghai Port, Jeddah")
+    port_of_discharge: Optional[str] = Field("El Dekheila Port (non TMT)", description="POD e.g. El Dekheila Port")
+    cargo_ready_date: Optional[date] = Field(None, description="Expected cargo ready date")
+    target_free_days: Optional[int] = Field(21, description="Required demurrage/detention free time in days")
+    service_type_preference: Optional[str] = Field("Direct", description="Direct, Transshipment, Any")
+    shipping_instructions_notes: Optional[str] = Field(None, description="Special shipping instructions")
+
     acid_number: Optional[str] = Field(None, description="19-digit Nafeza ACID Number")
     acid_request_date: Optional[date] = None
     acid_issue_date: Optional[date] = None
@@ -104,6 +114,16 @@ class ImportFileUpdate(BaseModel):
     required_eta: Optional[date] = None
     file_opening_date: Optional[date] = None
     selected_scenario: Optional[str] = None
+    
+    # Logistics & Freight RFQ Fields
+    pickup_address: Optional[str] = None
+    port_of_loading: Optional[str] = None
+    port_of_discharge: Optional[str] = None
+    cargo_ready_date: Optional[date] = None
+    target_free_days: Optional[int] = None
+    service_type_preference: Optional[str] = None
+    shipping_instructions_notes: Optional[str] = None
+
     acid_number: Optional[str] = None
     acid_request_date: Optional[date] = None
     acid_issue_date: Optional[date] = None
@@ -122,6 +142,33 @@ class ImportFileUpdate(BaseModel):
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
+
+
+class FreightRfqDataResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    custom_file_number: Optional[str] = None
+    company_name: str
+    supplier_name: str
+    incoterm_code: str
+    commodity: str
+    shipment_mode: str
+    recommended_containers: str
+    total_cbm: float
+    gross_weight_kg: float
+    net_weight_kg: float
+    total_packages: int
+    packages_breakdown: str
+    pickup_address: str
+    port_of_loading: str
+    port_of_discharge: str
+    cargo_ready_date: str
+    target_free_days: int
+    service_type: str
+    special_requirements: str
+    email_subject: str
+    email_body_template: str
+    whatsapp_text_template: str
 
 
 class ImportFileResponse(ImportFileBase):

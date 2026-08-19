@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -14,6 +17,8 @@ import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
 import '../services/financial_export_service.dart';
+import '../widgets/saved_budgets_registry_tab.dart';
+import 'swift_reconciliation_screen.dart';
 
 class FinancialApprovalScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -76,6 +81,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   int? _editingPaymentId;
   String? _editingPaymentCode;
 
+  // Edit Mode for Tab 2 (Import Budgets)
+  int? _editingBudgetId;
+  String? _editingBudgetCode;
+
   double _getExchangeRateForCurrency(String currencyCode) {
     if (currencyCode.toUpperCase() == 'EGP') return 1.0;
     final currencies = ref.read(currenciesProvider).value ?? [];
@@ -92,7 +101,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialIndex);
+    _tabController = TabController(length: 5, vsync: this, initialIndex: widget.initialIndex);
     Future.microtask(() {
       ref.read(currenciesProvider.notifier).fetchCurrencies();
       ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -152,7 +161,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     // Check for existing Payment Request duplicate
     final existingList = ref.read(paymentRequestsProvider).value ?? [];
-    final existing = existingList.where((p) => p.importFileId == fileId && p.isActive).firstOrNull;
+    final existing = existingList.where((p) => p.importFileId == fileId && p.isActive && p.paymentId != _editingPaymentId).firstOrNull;
     if (existing != null) {
       if (mounted) {
         showDialog(
@@ -300,7 +309,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
     // Check for existing Budget Approval duplicate
     final existingList = ref.read(importBudgetsProvider).value ?? [];
-    final existing = existingList.where((b) => b.importFileId == fileId && b.isActive).firstOrNull;
+    final existing = existingList.where((b) => b.importFileId == fileId && b.isActive && b.budgetId != _editingBudgetId).firstOrNull;
     if (existing != null) {
       if (mounted) {
         showDialog(
@@ -513,6 +522,33 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     );
   }
 
+  void _loadBudgetForEdit(ImportBudgetModel b) {
+    setState(() {
+      _editingBudgetId = b.budgetId;
+      _editingBudgetCode = b.budgetCode;
+      _bgtTitleController.text = b.title;
+      _bgtSelectedImportFileId = b.importFileId;
+      _invoiceForeignController.text = b.invoiceAmountForeign.toStringAsFixed(2);
+      _bgtInvoiceCurrency = b.invoiceCurrency;
+      _invoiceEgpController.text = b.invoiceAmountEgp.toStringAsFixed(2);
+      _freightForeignController.text = b.freightCostForeign.toStringAsFixed(2);
+      _bgtFreightCurrency = b.freightCurrency;
+      _freightEgpController.text = b.freightCostEgp.toStringAsFixed(2);
+      _customsEgpController.text = b.customsDutiesEgp.toStringAsFixed(2);
+      _clearanceEgpController.text = b.clearanceInlandEgp.toStringAsFixed(2);
+      _bgtExchangeRateController.text = b.exchangeRate.toStringAsFixed(2);
+      _bgtNotesController.text = b.notes ?? '';
+      _lastSavedBudget = b;
+    });
+    _tabController.animateTo(1);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✏️ تم استدعاء وتحميل بيانات الميزانية (${b.budgetCode}) للنموذج للتعديل'),
+        backgroundColor: AppTheme.cobalt,
+      ),
+    );
+  }
+
   Future<void> _confirmDeletePaymentRequest(PaymentRequestModel p) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -555,6 +591,183 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     }
   }
 
+  void _applySwiftParsedData(Map<String, dynamic> p, {String? fileName}) {
+    setState(() {
+      if (p['amount'] != null && (p['amount'] as num) > 0) {
+        _amountController.text = (p['amount'] as num).toString();
+      }
+      if (p['currency'] != null && (p['currency'] as String).isNotEmpty) {
+        _currencyCode = (p['currency'] as String).toUpperCase();
+        _exchangeRateController.text = _getExchangeRateForCurrency(_currencyCode).toStringAsFixed(2);
+      }
+      if (p['beneficiary_name'] != null && (p['beneficiary_name'] as String).isNotEmpty) {
+        _supplierNameController.text = p['beneficiary_name'];
+      }
+      if (p['beneficiary_bank_swift'] != null) {
+        _swiftCodeController.text = p['beneficiary_bank_swift'];
+      }
+      if (p['beneficiary_account_or_iban'] != null) {
+        _ibanController.text = p['beneficiary_account_or_iban'];
+      }
+      if (_payTitleController.text.trim().isEmpty && p['beneficiary_name'] != null) {
+        final refNo = p['transaction_reference'] ?? '';
+        _payTitleController.text = 'سداد تحويل سويفت: ${p['beneficiary_name']} ($refNo)';
+      }
+      final notesParts = <String>[];
+      if (p['transaction_reference'] != null) notesParts.add('SWIFT Ref: ${p['transaction_reference']}');
+      if (p['pi_number'] != null) notesParts.add('PI: ${p['pi_number']}');
+      if (p['ordering_customer_name'] != null) notesParts.add('الآمر بالتحويل: ${p['ordering_customer_name']}');
+      if (notesParts.isNotEmpty) {
+        _payNotesController.text = notesParts.join(' | ');
+      }
+    });
+
+    if (mounted) {
+      final msg = fileName != null
+          ? '📄 تم استخراج بيانات السويفت بنجاح من مستند "$fileName" وتعبئة النموذج ⚡'
+          : '⚡ تم استخراج بيانات السويفت البنكي وتعبئة حقول طلب السداد بنجاح!';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: AppTheme.emerald),
+      );
+    }
+  }
+
+  Future<void> _autoFillFromSwiftText(String text) async {
+    try {
+      final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(rawText: text);
+      if (res['success'] == true && res['parsed_swift'] != null) {
+        _applySwiftParsedData(res['parsed_swift'] as Map<String, dynamic>);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ تعذر استخراج البيانات: ${res['error']}'), backgroundColor: AppTheme.crimson),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ خطأ أثناء الاستخراج: $e'), backgroundColor: AppTheme.crimson),
+        );
+      }
+    }
+  }
+
+  Future<void> _autoFillFromSwiftFile() async {
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'docx', 'doc', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png', 'webp', 'bmp', 'txt'],
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+      final file = result.files.first;
+      if (file.bytes == null) return;
+
+      final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwiftFromFile(
+        fileBytes: file.bytes!,
+        filename: file.name,
+      );
+      if (res['success'] == true && res['parsed_swift'] != null) {
+        _applySwiftParsedData(res['parsed_swift'] as Map<String, dynamic>, fileName: file.name);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('❌ تعذر استخراج البيانات من الملف: ${res['error']}'), backgroundColor: AppTheme.crimson),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('❌ خطأ أثناء استخراج الملف: $e'), backgroundColor: AppTheme.crimson),
+        );
+      }
+    }
+  }
+
+  void _showSwiftPasteModal() {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Colors.purple),
+            SizedBox(width: 8),
+            Text('استخراج ذكي لبيانات السويفت (MT103 / مستند / صورة)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 560,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('الصق نص رسالة السويفت (MT103) أو قم برفع ملف مستند (Word / Excel / PDF / صورة):', style: TextStyle(fontSize: 12)),
+              const SizedBox(height: 8),
+              TextField(
+                controller: textCtrl,
+                maxLines: 5,
+                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                decoration: const InputDecoration(
+                  hintText: 'مثال: :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE...',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton.icon(
+                    icon: const Icon(Icons.description, size: 14),
+                    label: const Text('نموذج تجريبي 📄', style: TextStyle(fontSize: 11)),
+                    onPressed: () => textCtrl.text = kSampleSwiftMT103,
+                  ),
+                  Row(
+                    children: [
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.upload_file, size: 14, color: AppTheme.cobalt),
+                        label: const Text('رفع ملف مستند 📁', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          _autoFillFromSwiftFile();
+                        },
+                      ),
+                      const SizedBox(width: 6),
+                      OutlinedButton.icon(
+                        icon: const Icon(Icons.paste, size: 14),
+                        label: const Text('لصق', style: TextStyle(fontSize: 11)),
+                        onPressed: () async {
+                          final d = await Clipboard.getData(Clipboard.kTextPlain);
+                          if (d != null && d.text != null) textCtrl.text = d.text!;
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade700),
+            icon: const Icon(Icons.bolt, color: Colors.white, size: 16),
+            label: const Text('استخراج وتعبئة النموذج ⚡', style: TextStyle(color: Colors.white)),
+            onPressed: () {
+              Navigator.pop(ctx);
+              if (textCtrl.text.trim().isNotEmpty) {
+                _autoFillFromSwiftText(textCtrl.text.trim());
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _saveImportBudget() async {
     if (!_budgetFormKey.currentState!.validate()) return;
 
@@ -583,13 +796,28 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         'notes': _bgtNotesController.text.trim(),
       };
 
-      final created = await ref.read(importBudgetsProvider.notifier).createImportBudget(payload);
-      if (mounted && created != null) {
-        setState(() => _lastSavedBudget = created);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('✅ تم اعتماد وحفظ الميزانية الاستيرادية (${created.budgetCode})'), backgroundColor: AppTheme.emerald),
-        );
-        _showBudgetDetailsDialog(created);
+      if (_editingBudgetId != null) {
+        final updated = await ref.read(importBudgetsProvider.notifier).updateImportBudget(_editingBudgetId!, payload);
+        if (mounted && updated != null) {
+          setState(() {
+            _lastSavedBudget = updated;
+            _editingBudgetId = null;
+            _editingBudgetCode = null;
+          });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ تم تعديل الميزانية الاستيرادية (${updated.budgetCode}) بنجاح'), backgroundColor: AppTheme.emerald),
+          );
+          _showBudgetDetailsDialog(updated);
+        }
+      } else {
+        final created = await ref.read(importBudgetsProvider.notifier).createImportBudget(payload);
+        if (mounted && created != null) {
+          setState(() => _lastSavedBudget = created);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('✅ تم اعتماد وحفظ الميزانية الاستيرادية (${created.budgetCode})'), backgroundColor: AppTheme.emerald),
+          );
+          _showBudgetDetailsDialog(created);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -621,7 +849,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             ],
           ),
           content: SizedBox(
-            width: 600,
+            width: 650,
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -655,6 +883,122 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ── EXPORT & SHARING ACTION TOOLBAR ────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
+                            SizedBox(width: 6),
+                            Text('خيارات التصدير، الطباعة والمشاركة المباشرة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            // 1. Print / Save PDF
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.print, color: Colors.white, size: 16),
+                              label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                FinancialExportService.printPaymentRequestPdf(payment: pay);
+                              },
+                            ),
+                            // 2. Export Excel
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.green),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.table_chart, color: Colors.green, size: 16),
+                              label: const Text('تصدير EXCEL', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () async {
+                                final path = await FinancialExportService.exportSinglePaymentRequestToExcel(
+                                  context: context,
+                                  payment: pay,
+                                );
+                                if (path != null && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('✅ تم حفظ ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              },
+                            ),
+                            // 3. WhatsApp Sharing
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.chat, color: Colors.white, size: 16),
+                              label: const Text('إرسال واتساب', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                _showWhatsAppShareDialog(pay);
+                              },
+                            ),
+                            // 4. Email Sharing
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.orange,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.email_outlined, color: Colors.white, size: 16),
+                              label: const Text('إرسال بالإيميل', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                _showEmailShareDialog(pay);
+                              },
+                            ),
+                            // 5. Copy Summary
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey.shade600),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.copy, color: AppTheme.charcoal, size: 16),
+                              label: const Text('نسخ الملخص', style: TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                final text = FinancialExportService.generatePaymentWhatsAppText(pay);
+                                Clipboard.setData(ClipboardData(text: text));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('📋 تم نسخ بيانات طلب السداد للحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                                );
+                              },
+                            ),
+                            // 6. SWIFT Smart Reconcile & Auto Match
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.purple.shade700,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.auto_awesome, color: Colors.white, size: 16),
+                              label: const Text('⚡ استخراج ومطابقة السويفت', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                Navigator.pop(ctx);
+                                setState(() => _tabController.index = 3);
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+
                   if (pay.status == 'Approved') ...[
                     const Divider(),
                     TextField(
@@ -696,6 +1040,169 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     );
   }
 
+  void _showWhatsAppShareDialog(PaymentRequestModel pay) {
+    final text = FinancialExportService.generatePaymentWhatsAppText(pay);
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.chat, color: Color(0xFF25D366)),
+            SizedBox(width: 8),
+            Text('إرسال تفاصيل السداد عبر واتساب (WhatsApp)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 550,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم الواتساب مع كود الدولة (اختياري - مثال: 201001234567)',
+                    hintText: 'اتركه فارغاً لاختيار جهة الاتصال في واتساب مباشرة',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone_android),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('معاينة نص الرسالة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFEAE2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFD1D7DB)),
+                  ),
+                  child: SelectableText(
+                    text,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black87, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('نسخ النص'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('📋 تم نسخ نص الواتساب للحافظة'), backgroundColor: AppTheme.emerald),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+            icon: const Icon(Icons.open_in_new, color: Colors.white, size: 16),
+            label: const Text('فتح في واتساب 🚀', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final phone = phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+              final encoded = Uri.encodeComponent(text);
+              final url = phone.isNotEmpty ? 'https://wa.me/$phone?text=$encoded' : 'https://wa.me/?text=$encoded';
+              FinancialExportService.launchUrlNative(url);
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showEmailShareDialog(PaymentRequestModel pay) {
+    final subject = FinancialExportService.generatePaymentEmailSubject(pay);
+    final body = FinancialExportService.generatePaymentEmailBody(pay);
+    final toController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.email, color: AppTheme.orange),
+            SizedBox(width: 8),
+            Text('إرسال طلب السداد عبر البريد الإلكتروني (Email)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: toController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'البريد الإلكتروني للمستلم (To Email)',
+                    hintText: 'accounting@company.com',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.alternate_email),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      const Divider(height: 12),
+                      SelectableText(
+                        body,
+                        style: const TextStyle(fontSize: 11, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('نسخ الإيميل'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: 'Subject: $subject\n\n$body'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('📋 تم نسخ موضوع ونص الإيميل للحافظة'), backgroundColor: AppTheme.emerald),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+            icon: const Icon(Icons.send, color: Colors.white, size: 16),
+            label: const Text('فتح برنامج البريد 📧', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final to = toController.text.trim();
+              final encodedSubject = Uri.encodeComponent(subject);
+              final encodedBody = Uri.encodeComponent(body);
+              final url = 'mailto:$to?subject=$encodedSubject&body=$encodedBody';
+              FinancialExportService.launchUrlNative(url);
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showBudgetDetailsDialog(ImportBudgetModel bgt) {
     showDialog(
       context: context,
@@ -721,38 +1228,108 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   _buildConsolidatedBudgetSummary(bgt: bgt, prefill: _bgtPrefillData),
                   
                   const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.table_chart, color: Colors.green),
-                        label: const Text('تصدير EXCEL'),
-                        onPressed: () async {
-                          final path = await FinancialExportService.exportBudgetToExcel(
-                            context: context,
-                            budget: bgt,
-                            prefill: _bgtPrefillData,
-                          );
-                          if (path != null && mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('✅ تم تصدير ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
-                            );
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 10),
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                        icon: const Icon(Icons.print, color: Colors.white),
-                        label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white)),
-                        onPressed: () {
-                          FinancialExportService.printOrSaveBudgetPdf(
-                            budget: bgt,
-                            prefill: _bgtPrefillData,
-                          );
-                        },
-                      ),
-                    ],
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.share_outlined, size: 16, color: AppTheme.cobalt),
+                            SizedBox(width: 6),
+                            Text('خيارات التصدير، الطباعة والمشاركة المباشرة:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            // 1. Print / Save PDF
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.cobalt,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.print, color: Colors.white, size: 16),
+                              label: const Text('طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                FinancialExportService.printOrSaveBudgetPdf(
+                                  budget: bgt,
+                                  prefill: _bgtPrefillData,
+                                );
+                              },
+                            ),
+                            // 2. Export Excel
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.green),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.table_chart, color: Colors.green, size: 16),
+                              label: const Text('تصدير EXCEL', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () async {
+                                final path = await FinancialExportService.exportBudgetToExcel(
+                                  context: context,
+                                  budget: bgt,
+                                  prefill: _bgtPrefillData,
+                                );
+                                if (path != null && mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('✅ تم تصدير ملف Excel بنجاح: $path'), backgroundColor: Colors.green),
+                                  );
+                                }
+                              },
+                            ),
+                            // 3. WhatsApp Sharing
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF25D366),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.chat, color: Colors.white, size: 16),
+                              label: const Text('إرسال واتساب', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                _showBudgetWhatsAppShareDialog(bgt);
+                              },
+                            ),
+                            // 4. Email Sharing
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.orange,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.email_outlined, color: Colors.white, size: 16),
+                              label: const Text('إرسال بالإيميل', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                _showBudgetEmailShareDialog(bgt);
+                              },
+                            ),
+                            // 5. Copy Summary
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(
+                                side: BorderSide(color: Colors.grey.shade600),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                              icon: const Icon(Icons.copy, color: AppTheme.charcoal, size: 16),
+                              label: const Text('نسخ الملخص', style: TextStyle(color: AppTheme.charcoal, fontSize: 11, fontWeight: FontWeight.bold)),
+                              onPressed: () {
+                                final text = FinancialExportService.generateBudgetWhatsAppText(bgt, _bgtPrefillData);
+                                Clipboard.setData(ClipboardData(text: text));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('📋 تم نسخ تقرير الميزانية للحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -777,6 +1354,169 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     );
   }
 
+  void _showBudgetWhatsAppShareDialog(ImportBudgetModel bgt) {
+    final text = FinancialExportService.generateBudgetWhatsAppText(bgt, _bgtPrefillData);
+    final phoneController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.chat, color: Color(0xFF25D366)),
+            SizedBox(width: 8),
+            Text('إرسال اعتماد الميزانية عبر واتساب (WhatsApp)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 550,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'رقم الواتساب مع كود الدولة (اختياري - مثال: 201001234567)',
+                    hintText: 'اتركه فارغاً لاختيار جهة الاتصال في واتساب مباشرة',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.phone_android),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('معاينة نص الرسالة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                const SizedBox(height: 6),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFEAE2),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFD1D7DB)),
+                  ),
+                  child: SelectableText(
+                    text,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 11, color: Colors.black87, height: 1.4),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('نسخ النص'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: text));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('📋 تم نسخ نص الميزانية للحافظة'), backgroundColor: AppTheme.emerald),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
+            icon: const Icon(Icons.open_in_new, color: Colors.white, size: 16),
+            label: const Text('فتح في واتساب 🚀', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final phone = phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+              final encoded = Uri.encodeComponent(text);
+              final url = phone.isNotEmpty ? 'https://wa.me/$phone?text=$encoded' : 'https://wa.me/?text=$encoded';
+              FinancialExportService.launchUrlNative(url);
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBudgetEmailShareDialog(ImportBudgetModel bgt) {
+    final subject = FinancialExportService.generateBudgetEmailSubject(bgt);
+    final body = FinancialExportService.generateBudgetEmailBody(bgt, _bgtPrefillData);
+    final toController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.email, color: AppTheme.orange),
+            SizedBox(width: 8),
+            Text('إرسال تقرير الميزانية بالبريد الإلكتروني (Email)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          ],
+        ),
+        content: SizedBox(
+          width: 600,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextField(
+                  controller: toController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'البريد الإلكتروني للمستلم (To Email)',
+                    hintText: 'cfo@company.com',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.alternate_email),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      const Divider(height: 12),
+                      SelectableText(
+                        body,
+                        style: const TextStyle(fontSize: 11, height: 1.4),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.copy, size: 16),
+            label: const Text('نسخ الإيميل'),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: 'Subject: $subject\n\n$body'));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('📋 تم نسخ موضوع ونص تقرير الميزانية للحافظة'), backgroundColor: AppTheme.emerald),
+              );
+            },
+          ),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+            icon: const Icon(Icons.send, color: Colors.white, size: 16),
+            label: const Text('فتح برنامج البريد 📧', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () {
+              final to = toController.text.trim();
+              final encodedSubject = Uri.encodeComponent(subject);
+              final encodedBody = Uri.encodeComponent(body);
+              final url = 'mailto:$to?subject=$encodedSubject&body=$encodedBody';
+              FinancialExportService.launchUrlNative(url);
+              Navigator.pop(ctx);
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final suppliersState = ref.watch(suppliersProvider);
@@ -798,10 +1538,28 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
         titleAr: 'اعتماد الميزانية الاستيرادية',
       ),
       VerticalNavTabItem(
+        icon: Icons.account_balance_wallet_outlined,
+        titleEn: 'Saved Budgets Registry',
+        titleAr: 'سجل الميزانيات المعتمدة',
+        badge: (budgetsState.value?.length ?? 0) > 0
+            ? Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppTheme.emerald.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${budgetsState.value?.length ?? 0}',
+                  style: const TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+              )
+            : null,
+      ),
+      VerticalNavTabItem(
         icon: Icons.history_edu_outlined,
-        titleEn: 'Financial History Registry',
-        titleAr: 'سجل العمليات والتسويات',
-        badge: totalRecords > 0
+        titleEn: 'Payment Requests Registry',
+        titleAr: 'سجل طلبات السداد والتحويلات',
+        badge: (paymentsState.value?.length ?? 0) > 0
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -809,11 +1567,16 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '$totalRecords',
+                  '${paymentsState.value?.length ?? 0}',
                   style: const TextStyle(color: AppTheme.orange, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               )
             : null,
+      ),
+      const VerticalNavTabItem(
+        icon: Icons.auto_awesome,
+        titleEn: 'SWIFT MT103 Parser & Reconciliation',
+        titleAr: '⚡ استخراج ومطابقة السويفت (MT103)',
       ),
     ];
 
@@ -910,7 +1673,67 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             ],
                           ),
                           const Divider(),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 6),
+
+                          // Smart AI SWIFT MT103 Quick Fill Bar
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 14),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [Colors.purple.shade50, Colors.blue.shade50],
+                                begin: Alignment.centerRight,
+                                end: Alignment.centerLeft,
+                              ),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.purple.shade200),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.auto_awesome, color: Colors.purple, size: 20),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '⚡ استخراج وتعبئة فورية من نص السويفت / إشعار التحويل البنكي (SWIFT MT103 Parser)',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
+                                      ),
+                                      Text(
+                                        'الصق نص رسالة السويفت أو الإشعار لتعبئة حقول المورد والمبلغ والعملة ورقم الحساب/IBAN تلقائياً',
+                                        style: TextStyle(fontSize: 10, color: Colors.black54),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                TextButton.icon(
+                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                                  icon: const Icon(Icons.description, size: 14),
+                                  label: const Text('نموذج تجريبي 📄', style: TextStyle(fontSize: 11)),
+                                  onPressed: () => _autoFillFromSwiftText(kSampleSwiftMT103),
+                                ),
+                                const SizedBox(width: 6),
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.purple.shade700,
+                                    visualDensity: VisualDensity.compact,
+                                  ),
+                                  icon: const Icon(Icons.paste, color: Colors.white, size: 14),
+                                  label: const Text('لصق واستخراج ⚡', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                  onPressed: () async {
+                                    final data = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (data != null && data.text != null && data.text!.isNotEmpty) {
+                                      _autoFillFromSwiftText(data.text!);
+                                    } else {
+                                      _showSwiftPasteModal();
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           Row(
                             children: [
                               Expanded(
@@ -1193,22 +2016,51 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                             decoration: const InputDecoration(labelText: 'ملاحظات طلب السداد الإدارية', border: OutlineInputBorder()),
                           ),
                           const SizedBox(height: 20),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: _editingPaymentId != null ? AppTheme.emerald : AppTheme.cobalt,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (_editingPaymentId != null)
+                                OutlinedButton.icon(
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: Colors.grey.shade800,
+                                    side: BorderSide(color: Colors.grey.shade400),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                  ),
+                                  onPressed: () {
+                                    setState(() {
+                                      _editingPaymentId = null;
+                                      _editingPaymentCode = null;
+                                      _paySelectedImportFileId = null;
+                                      _payPrefillData = null;
+                                      _payTitleController.clear();
+                                      _supplierNameController.clear();
+                                      _amountController.clear();
+                                      _bankNameController.clear();
+                                      _swiftCodeController.clear();
+                                      _ibanController.clear();
+                                      _payNotesController.clear();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.close, size: 16, color: Colors.grey),
+                                  label: const Text('إلغاء التعديل وبدء طلب جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                              ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: _editingPaymentId != null ? AppTheme.emerald : AppTheme.cobalt,
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                ),
+                                onPressed: _isSavingPayment ? null : _savePaymentRequest,
+                                icon: _isSavingPayment
+                                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                    : Icon(_editingPaymentId != null ? Icons.save : Icons.send, color: Colors.white),
+                                label: Text(
+                                  _editingPaymentId != null ? 'حفظ تعديلات طلب السداد' : 'إصدار طلب السداد للإدارة المالية',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
                               ),
-                              onPressed: _isSavingPayment ? null : _savePaymentRequest,
-                              icon: _isSavingPayment
-                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                  : Icon(_editingPaymentId != null ? Icons.save : Icons.send, color: Colors.white),
-                              label: Text(
-                                _editingPaymentId != null ? 'حفظ تعديلات طلب السداد' : 'إصدار طلب السداد للإدارة المالية',
-                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                              ),
-                            ),
+                            ],
                           ),
                         ],
                       ),
@@ -1371,6 +2223,8 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     ),
                                     onPressed: () {
                                       setState(() {
+                                        _editingBudgetId = null;
+                                        _editingBudgetCode = null;
                                         _bgtSelectedImportFileId = null;
                                         _bgtPrefillData = null;
                                         _bgtNotesController.clear();
@@ -1392,7 +2246,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     ),
                                     onPressed: _isSavingBudget ? null : _saveImportBudget,
                                     icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
-                                    label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    label: Text(
+                                      _editingBudgetId != null ? 'حفظ تعديلات الميزانية 💾' : 'حفظ مؤقت ومتابعة لاحقة 💾',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                   const SizedBox(width: 8),
 
@@ -1401,7 +2258,10 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13)),
                                     onPressed: _isSavingBudget ? null : _saveImportBudget,
                                     icon: _isSavingBudget ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.verified, color: Colors.white),
-                                    label: const Text('التصديق واعتماد الميزانية ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                    label: Text(
+                                      _editingBudgetId != null ? 'حفظ واعتماد التعديلات ✅' : 'التصديق واعتماد الميزانية ✅',
+                                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                    ),
                                   ),
                                 ],
                               ),
@@ -1451,7 +2311,13 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
             ),
           ),
 
-          // ── TAB 3: FINANCIAL HISTORY REGISTRY (سجل العمليات المالي) ──────────────────────────────
+          // ── TAB 3: SAVED BUDGETS REGISTRY (سجل الميزانيات الاستيرادية المعتمدة) ───
+          SavedBudgetsRegistryTab(
+            onEditBudget: _loadBudgetForEdit,
+            onSwitchToForm: () => setState(() => _tabController.index = 1),
+          ),
+
+          // ── TAB 4: PAYMENT REQUESTS REGISTRY (سجل طلبات السداد والتحويلات) ─────────
           Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
@@ -1726,6 +2592,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               ],
             ),
           ),
+
+          // ── TAB 4: SWIFT MT103 PARSER & RECONCILIATION ───────────────────────
+          const SwiftReconciliationScreen(isEmbedded: true),
         ],
       ),
     );

@@ -540,4 +540,249 @@ class FinancialExportService {
     }
     return null;
   }
+
+  /// Exports full Import Budgets List to UTF-8 BOM CSV / Excel
+  static Future<String?> exportBudgetsListToExcel({
+    required BuildContext context,
+    required List<ImportBudgetModel> list,
+  }) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+
+    buffer.writeln('ImportFlow ERP — سجل اعتمادات الميزانية الاستيرادية');
+    buffer.writeln('كود الميزانية,ملف الشحنة,عنوان الميزانية,فاتورة البضاعة (أجنبي),عملة الفاتورة,فاتورة البضاعة (EGP),تكلفة النولون (أجنبي),عملة النولون,تكلفة النولون (EGP),الضرائب والجمارك (EGP),أتعاب التخليص والنقل (EGP),سعر الصرف,إجمالي الميزانية الكلية (EGP),الحالة,المعتمد من,تاريخ الاعتماد');
+
+    for (final b in list) {
+      buffer.writeln(
+        '${b.budgetCode},'
+        '${b.importFileCode ?? (b.importFileId != null ? "IMP-${b.importFileId}" : "-")},'
+        '"${b.title.replaceAll('"', '""')}",'
+        '${b.invoiceAmountForeign},'
+        '${b.invoiceCurrency},'
+        '${b.invoiceAmountEgp},'
+        '${b.freightCostForeign},'
+        '${b.freightCurrency},'
+        '${b.freightCostEgp},'
+        '${b.customsDutiesEgp},'
+        '${b.clearanceInlandEgp},'
+        '${b.exchangeRate},'
+        '${b.totalBudgetEgp},'
+        '${b.budgetStatus},'
+        '"${(b.approvedBy ?? "-").replaceAll('"', '""')}",'
+        '${b.createdAt}',
+      );
+    }
+
+    final filename = 'Import_Budgets_Registry_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ سجل الميزانيات الاستيرادية بصيغة Excel / CSV',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
+      await file.writeAsString(buffer.toString(), encoding: utf8);
+      return file.path;
+    }
+    return null;
+  }
+
+  /// Exports a Single Payment Request (BP-012) to UTF-8 BOM CSV / Excel
+  static Future<String?> exportSinglePaymentRequestToExcel({
+    required BuildContext context,
+    required PaymentRequestModel payment,
+  }) async {
+    final buffer = StringBuffer();
+    buffer.write('\uFEFF');
+
+    buffer.writeln('ImportFlow ERP — إذن وطلب سداد مالي للمورد الأجنبي');
+    buffer.writeln('كود الطلب,${payment.paymentCode}');
+    buffer.writeln('عنوان الطلب,"${payment.title.replaceAll('"', '""')}"');
+    buffer.writeln('ملف الشحنة,${payment.importFileCode ?? (payment.importFileId != null ? "IMP-${payment.importFileId}" : "-")}');
+    buffer.writeln('المورد المستفيد,"${(payment.beneficiaryName ?? payment.supplierName).replaceAll('"', '""')}"');
+    buffer.writeln('طريقة السداد,${payment.paymentType}');
+    buffer.writeln('تاريخ تقديم الطلب,${payment.requestDate}');
+    buffer.writeln('تاريخ الاستحقاق,${payment.dueDate}');
+    buffer.writeln('حالة الطلب,${payment.status}');
+    buffer.writeln('');
+
+    buffer.writeln('--- التفاصيل المالية ---');
+    buffer.writeln('المبلغ بالعملة الأجنبية,العملة,سعر الصرف,المعادل بالجنيه المصري (EGP)');
+    buffer.writeln('${payment.requestedAmount},${payment.currencyCode},${payment.exchangeRate},${payment.requestedAmountEgp}');
+    buffer.writeln('');
+
+    buffer.writeln('--- بيانات البنك المستفيد (Beneficiary Bank Details) ---');
+    buffer.writeln('اسم البنك,"${(payment.bankName ?? "-").replaceAll('"', '""')}"');
+    buffer.writeln('كود السويفت (SWIFT),${payment.swiftCode ?? "-"}');
+    buffer.writeln('رقم الحساب / IBAN,${payment.ibanAccountNo ?? "-"}');
+    if (payment.swiftReferenceNo != null && payment.swiftReferenceNo!.isNotEmpty) {
+      buffer.writeln('رقم السويفت المنفذ,${payment.swiftReferenceNo}');
+    }
+
+    final filename = 'Payment_Request_${payment.paymentCode}_${DateTime.now().millisecondsSinceEpoch}.csv';
+    final savePath = await FilePicker.saveFile(
+      dialogTitle: 'حفظ إذن طلب السداد بصيغة Excel / CSV',
+      fileName: filename,
+      type: FileType.custom,
+      allowedExtensions: ['csv', 'xlsx'],
+    );
+
+    if (savePath != null && savePath.isNotEmpty) {
+      final file = File(savePath.endsWith('.csv') || savePath.endsWith('.xlsx') ? savePath : '$savePath.csv');
+      await file.writeAsString(buffer.toString(), encoding: utf8);
+      return file.path;
+    }
+    return null;
+  }
+
+  static String generatePaymentWhatsAppText(PaymentRequestModel pay) {
+    return '''
+*ImportFlow ERP — إذن وطلب سداد مالي*
+📄 *كود الطلب:* ${pay.paymentCode}
+🏢 *المورد المستفيد:* ${pay.beneficiaryName ?? pay.supplierName}
+📁 *ملف الشحنة:* ${pay.importFileCode ?? (pay.importFileId != null ? "IMP-${pay.importFileId}" : "-")}
+📅 *تاريخ الاستحقاق:* ${pay.dueDate}
+💵 *المبلغ المطلوب:* ${pay.requestedAmount} ${pay.currencyCode}
+💱 *سعر الصرف:* ${pay.exchangeRate} EGP
+🇪🇬 *المعادل بالجنيه:* ${pay.requestedAmountEgp.toStringAsFixed(2)} EGP
+
+*🏦 بيانات التحويل البنكي (Bank Details):*
+• *اسم البنك:* ${pay.bankName ?? "-"}
+• *كود السويفت:* ${pay.swiftCode ?? "-"}
+• *رقم الحساب / IBAN:* ${pay.ibanAccountNo ?? "-"}
+${pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty ? "• *رقم السويفت:* ${pay.swiftReferenceNo}\n" : ""}
+_تم الإنشاء عبر ImportFlow ERP_
+'''.trim();
+  }
+
+  static String generatePaymentEmailSubject(PaymentRequestModel pay) {
+    return 'إذن وطلب سداد مالي [${pay.paymentCode}] - ${pay.beneficiaryName ?? pay.supplierName}';
+  }
+
+  static String generatePaymentEmailBody(PaymentRequestModel pay) {
+    return '''
+السادة الإدارة المالية / المحترمين،
+
+تحية طيبة وبعد،،،
+
+نرجو التكرم بالموافقة وتنفيذ التحويل المالي التالي وفقاً لبيانات الشحنة المعتمدة:
+
+- كود طلب السداد: ${pay.paymentCode}
+- موضوع الطلب: ${pay.title}
+- ملف الشحنة: ${pay.importFileCode ?? (pay.importFileId != null ? "IMP-${pay.importFileId}" : "-")}
+- المورد المستفيد: ${pay.beneficiaryName ?? pay.supplierName}
+- طريقة السداد: ${pay.paymentType}
+- تاريخ الاستحقاق: ${pay.dueDate}
+
+المبالغ المالية:
+- المبلغ بالعملة الأجنبية: ${pay.requestedAmount} ${pay.currencyCode}
+- سعر الصرف التقديري: ${pay.exchangeRate} EGP
+- المعادل بالجنيه المصري: ${pay.requestedAmountEgp.toStringAsFixed(2)} EGP
+
+بيانات البنك المستفيد (Beneficiary Bank Details):
+- اسم البنك: ${pay.bankName ?? "-"}
+- كود السويفت (SWIFT): ${pay.swiftCode ?? "-"}
+- رقم الحساب / IBAN: ${pay.ibanAccountNo ?? "-"}
+
+شاكرين حسن تعاونكم،،،
+فريق العمليات والاستيراد
+ImportFlow ERP
+'''.trim();
+  }
+
+  static String generateBudgetWhatsAppText(ImportBudgetModel bgt, [BudgetPrefillModel? prefill]) {
+    final invForeign = bgt.invoiceAmountForeign > 0 ? bgt.invoiceAmountForeign : (prefill?.totalInvoiceAmount ?? 0.0);
+    final invCurr = bgt.invoiceCurrency.isNotEmpty ? bgt.invoiceCurrency : (prefill?.invoiceCurrency ?? 'USD');
+    final freightForeign = bgt.freightCostForeign > 0 ? bgt.freightCostForeign : (prefill?.estimatedFreightCost ?? 0.0);
+    final freightCurr = bgt.freightCurrency.isNotEmpty ? bgt.freightCurrency : (prefill?.freightCurrency ?? 'USD');
+    final rate = bgt.exchangeRate > 0 ? bgt.exchangeRate : 50.0;
+
+    final invEgp = bgt.invoiceAmountEgp > 0 ? bgt.invoiceAmountEgp : (invForeign * rate);
+    final freightEgp = bgt.freightCostEgp > 0 ? bgt.freightCostEgp : (freightForeign * rate);
+    final customsEgp = bgt.customsDutiesEgp > 0 ? bgt.customsDutiesEgp : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
+    final clearanceEgp = bgt.clearanceInlandEgp > 0 ? bgt.clearanceInlandEgp : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
+    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+
+    return '''
+*ImportFlow ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة*
+📊 *كود الميزانية:* ${bgt.budgetCode}
+📁 *ملف الشحنة:* ${bgt.importFileCode ?? (prefill?.importFileCode ?? "-")}
+🏢 *المورد الأجنبي:* ${prefill?.supplierName ?? "-"}
+💼 *الشرط التجاري:* ${prefill?.incoterm ?? "FOB"}
+💱 *سعر الصرف التقديري:* $rate EGP
+
+*💵 بنود التكلفة بالعملة الأجنبية:*
+• الفاتورة FOB: ${invForeign.toStringAsFixed(2)} $invCurr (${invEgp.toStringAsFixed(2)} EGP)
+• نولون الشحن: ${freightForeign.toStringAsFixed(2)} $freightCurr (${freightEgp.toStringAsFixed(2)} EGP)
+
+*🇪🇬 بنود التكلفة بالعملة المحلية:*
+• الجمارك و VAT (نافذة): ${customsEgp.toStringAsFixed(2)} EGP
+• التخليص والنقل الداخلي: ${clearanceEgp.toStringAsFixed(2)} EGP
+
+*🏆 إجمالي الميزانية المعتمدة الشاملة:*
+${grandTotalEgp.toStringAsFixed(2)} EGP
+
+_تم الإنشاء عبر ImportFlow ERP_
+'''.trim();
+  }
+
+  static String generateBudgetEmailSubject(ImportBudgetModel bgt) {
+    return 'اعتماد الميزانية الاستيرادية الشاملة [${bgt.budgetCode}] - ${bgt.title}';
+  }
+
+  static String generateBudgetEmailBody(ImportBudgetModel bgt, BudgetPrefillModel? prefill) {
+    final invForeign = bgt.invoiceAmountForeign > 0 ? bgt.invoiceAmountForeign : (prefill?.totalInvoiceAmount ?? 0.0);
+    final invCurr = bgt.invoiceCurrency.isNotEmpty ? bgt.invoiceCurrency : (prefill?.invoiceCurrency ?? 'USD');
+    final freightForeign = bgt.freightCostForeign > 0 ? bgt.freightCostForeign : (prefill?.estimatedFreightCost ?? 0.0);
+    final freightCurr = bgt.freightCurrency.isNotEmpty ? bgt.freightCurrency : (prefill?.freightCurrency ?? 'USD');
+    final rate = bgt.exchangeRate > 0 ? bgt.exchangeRate : 50.0;
+
+    final invEgp = bgt.invoiceAmountEgp > 0 ? bgt.invoiceAmountEgp : (invForeign * rate);
+    final freightEgp = bgt.freightCostEgp > 0 ? bgt.freightCostEgp : (freightForeign * rate);
+    final customsEgp = bgt.customsDutiesEgp > 0 ? bgt.customsDutiesEgp : (prefill?.estimatedCustomsDutiesEgp ?? 0.0);
+    final clearanceEgp = bgt.clearanceInlandEgp > 0 ? bgt.clearanceInlandEgp : (prefill?.estimatedClearanceFeesEgp ?? 0.0);
+    final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
+
+    return '''
+السادة الإدارة العليا والمالية / المحترمين،
+
+تحية طيبة وبعد،،،
+
+نرفع لسيادتكم بيان تقرير اعتماد الميزانية التقديرية الشاملة لملف الشحنة الاستيرادية:
+
+بيانات الشحنة والميزانية:
+- كود الميزانية: ${bgt.budgetCode}
+- موضوع الميزانية: ${bgt.title}
+- كود ملف الشحنة: ${bgt.importFileCode ?? (prefill?.importFileCode ?? "-")}
+- المورد الأجنبي: ${prefill?.supplierName ?? "-"}
+- الشرط التجاري (Incoterms): ${prefill?.incoterm ?? "FOB"}
+- سعر الصرف التقديري: $rate EGP
+
+أولاً: مخصصات العملة الأجنبية:
+- قيمة الفاتورة التجارية (FOB): ${invForeign.toStringAsFixed(2)} $invCurr (المعادل: ${invEgp.toStringAsFixed(2)} EGP)
+- تكلفة النولون والشحن البحري/الجوي: ${freightForeign.toStringAsFixed(2)} $freightCurr (المعادل: ${freightEgp.toStringAsFixed(2)} EGP)
+
+ثانياً: مخصصات العملة المحلية (الجنيه المصري):
+- الرسوم الجمركية والضرائب و VAT: ${customsEgp.toStringAsFixed(2)} EGP
+- أتعاب التخليص الجمركي والنقل والموانئ: ${clearanceEgp.toStringAsFixed(2)} EGP
+
+الإجمالي الكلي للميزانية المعتمدة: ${grandTotalEgp.toStringAsFixed(2)} EGP
+
+شاكرين حسن تعاونكم،،،
+فريق العمليات وإدارة الاستيراد
+ImportFlow ERP
+'''.trim();
+  }
+
+  static Future<void> launchUrlNative(String url) async {
+    try {
+      if (Platform.isWindows) {
+        await Process.run('cmd', ['/c', 'start', '', url.replaceAll('&', '^&')], runInShell: true);
+      }
+    } catch (e) {
+      debugPrint('Error launching native URL: $e');
+    }
+  }
 }

@@ -62,6 +62,15 @@ class ImportFile(Base):
     file_opening_date = Column(Date, nullable=True, default=date.today) # تاريخ فتح الملف
     selected_scenario = Column(String(100), nullable=True) # e.g. MSC Option
 
+    # Logistics & Freight RFQ Details
+    pickup_address = Column(Text, nullable=True) # Factory / Pickup address for EXW
+    port_of_loading = Column(String(100), nullable=True) # POL e.g. Shanghai Port, London Gateway, Jeddah
+    port_of_discharge = Column(String(100), nullable=True, default="El Dekheila Port (non TMT)") # POD e.g. El Dekheila Port
+    cargo_ready_date = Column(Date, nullable=True) # Expected ready date for shipment
+    target_free_days = Column(Integer, nullable=True, default=21) # Free time required (e.g. 21 days)
+    service_type_preference = Column(String(50), nullable=True, default="Direct") # Direct, Transshipment, Any
+    shipping_instructions_notes = Column(Text, nullable=True) # Special requirements e.g. Avoid TMT terminal, 21 days FT
+
     # Banking & Customs Document Links
     acid_number = Column(String(50), nullable=True) # e.g. 1987654321098765432
     acid_request_date = Column(Date, nullable=True)

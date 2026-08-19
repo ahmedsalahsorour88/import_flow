@@ -9,7 +9,9 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
+import '../widgets/partner_details_dialog.dart';
 import '../widgets/partner_statement_of_account_dialog.dart';
+import '../../../core/services/master_data_export_service.dart';
 import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
@@ -454,27 +456,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                 ),
                                               ),
                                               RowActionsPill(
-                                                onView: () {
-                                                  if (partner.providerId != null) {
-                                                    RowHistoryDialog.show(
-                                                      context,
-                                                      entityType: 'ExternalServiceProvider',
-                                                      entityId: partner.providerId!,
-                                                      entityTitle: partner.partnerName,
-                                                    );
-                                                  }
-                                                },
-                                                onEdit: () => _showPartnerDialog(context, partner),
-                                                onPrint: () {
-                                                  ScaffoldMessenger.of(context).showSnackBar(
-                                                    SnackBar(
-                                                      content: Text('طباعة بيانات الشريك: ${partner.partnerName} (${partner.partnerCode})'),
-                                                      backgroundColor: AppTheme.charcoal,
-                                                      duration: const Duration(seconds: 2),
-                                                    ),
-                                                  );
-                                                },
-                                                onDelete: () async {
+                                                 onView: () => PartnerDetailsDialog.show(
+                                                   context,
+                                                   partner,
+                                                   onEdit: () => _showPartnerDialog(context, partner),
+                                                 ),
+                                                 onEdit: () => _showPartnerDialog(context, partner),
+                                                 onPrint: () => MasterDataExportService.printOrSavePartnerPdf(partner),
+                                                 onDelete: () async {
                                                   final confirm = await showDialog<bool>(
                                                     context: context,
                                                     builder: (ctx) => AlertDialog(

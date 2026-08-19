@@ -263,6 +263,126 @@ class TestFreightQuotationExtractor:
         result = self.extractor.extract(self.SAMPLE_QUOTE_TEXT, {})
         assert result["container_type"] == "40HC"
 
+    def test_real_world_example_1_whl_multi_container(self):
+        example_1_text = """
+        Dear  Ahmed ,
+        Please kindly find the estimated cost as below:
+        Local charges: Approx. USD 820/20GP
+        Ocean freight:
+        •	WHL: USD 5800/20GP  ETD:8.28 
+        o	Route: Shanghai – El Dekheila 
+        o	Service: Direct 
+        o	Transit time: 29 days 
+        o	Free time: 21 days
+        Local charges: Approx. USD 880/40HQ
+        Ocean freight:
+        •	WHL: USD 6,700/40HQ  ETD:8.28 
+        o	Route: Shanghai – El Dekheila 
+        o	Service: Direct 
+        o	Transit time: 29 days 
+        o	Free time: 21 days
+        """
+        result = self.extractor.extract(example_1_text, {})
+        assert "Wan Hai" in result["carrier_name"] or "WHL" in result["carrier_name"]
+        assert "Shanghai" in result["origin_port"]
+        assert "Dekheila" in result["destination_port"]
+        assert result["free_days_demurrage"] == 21
+        assert result["transit_days"] == 29
+        assert result["is_direct"] is True
+        assert len(result["rate_options"]) >= 2
+
+        # Check 20GP option
+        opt20 = next(o for o in result["rate_options"] if o["container_type"] == "20GP")
+        assert opt20["ocean_freight"] == 5800.0
+        assert opt20["local_charges"] == 820.0
+        assert opt20["total_estimated_cost"] == 6620.0
+        assert opt20["free_time_days"] == 21
+
+        # Check 40HQ option
+        opt40 = next(o for o in result["rate_options"] if o["container_type"] == "40HQ")
+        assert opt40["ocean_freight"] == 6700.0
+        assert opt40["local_charges"] == 880.0
+        assert opt40["total_estimated_cost"] == 7580.0
+        assert opt40["free_time_days"] == 21
+
+    def test_real_world_example_2_surcharges_and_exw(self):
+        example_2_text = """
+        Dear Ahmed, 
+
+        Please find below our best rate based on your below request : 
+
+        O/F rate: USD 6195/20’DC (INCL OWS ) 
+                          USD 7560/40’HQ
+        21 days FT
+        1st vessel : 1-SEP
+        TT: direct, about 28 days
+        cancel fee: $100/cntr
+
+        Ex-work charges : USD 630\\20’DC
+                                         USD 770\\40’DC
+
+        Thanks with my best regards.
+        """
+        result = self.extractor.extract(example_2_text, {})
+        assert result["free_days_demurrage"] == 21
+        assert result["transit_days"] == 28
+        assert result["is_direct"] is True
+        assert result["cancel_fee"] == 100.0
+        assert len(result["rate_options"]) >= 2
+
+        opt20 = next(o for o in result["rate_options"] if o["container_type"] == "20GP")
+        assert opt20["ocean_freight"] == 6195.0
+        assert opt20["local_charges"] == 630.0
+        assert opt20["total_estimated_cost"] == 6825.0
+        assert "OWS" in (opt20["notes"] or "")
+
+        opt40 = next(o for o in result["rate_options"] if o["container_type"] == "40HQ")
+        assert opt40["ocean_freight"] == 7560.0
+        assert opt40["local_charges"] == 770.0
+        assert opt40["total_estimated_cost"] == 8330.0
+
+    def test_real_world_example_3_multi_carrier_whl_and_yml(self):
+        example_3_text = """
+        Dear Ahmed,
+        Good day,
+
+        Kindly check the rates below :
+
+        EXW SHANGHAI-DEK
+        O/F: USD8280/40HQ BY WHL
+        Included EXW FEE
+        Included TRUCK: USD440/40HQ+LOCAL: USD390/40HQ+CUSTOMS:USD 50/BILL(BASE EXPORT LICENSE
+        Free time has 21days
+        ETD:28/AUG
+        T/T: About 27 day, DIRECT
+         
+
+
+        EXW SHANGHAI-DEK
+        O/F: USD6180/40HQ BY YML
+        EXW FEE:(
+        TRUCK: USD440/40HQ+LOCAL: USD390/40HQ+CUSTOMS:USD 50/BILL(BASE EXPORT LICENSE
+        Free time has 21days
+        ETD:27/AUG
+        T/T: About 48 day, INDIRECT
+        """
+        result = self.extractor.extract(example_3_text, {})
+        assert result["incoterm"] == "EXW"
+        assert len(result["rate_options"]) >= 2
+
+        whl_opt = next(o for o in result["rate_options"] if "WHL" in o["carrier_name"])
+        assert whl_opt["ocean_freight"] == 8280.0
+        assert whl_opt["transit_days"] == 27
+        assert whl_opt["is_direct"] is True
+        assert whl_opt["free_time_days"] == 21
+
+        yml_opt = next(o for o in result["rate_options"] if "YML" in o["carrier_name"])
+        assert yml_opt["ocean_freight"] == 6180.0
+        assert yml_opt["transit_days"] == 48
+        assert yml_opt["is_direct"] is False
+        assert yml_opt["free_time_days"] == 21
+
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Freight Booking Extractor Tests

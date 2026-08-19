@@ -280,3 +280,221 @@ def get_import_file_by_code_service(db: Session, import_file_code: str):
 
 def soft_delete_import_file_service(db: Session, import_file_id: int):
     return repo.soft_delete_import_file(db, import_file_id)
+
+
+def generate_freight_rfq_service(
+    db: Session,
+    import_file_id: int,
+    recipient_name: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Generates structured Freight RFQ data, Email templates, and WhatsApp text
+    based on the Import File, linked Purchase Orders, Packing Lists, and Supplier Address.
+    """
+    import_file = repo.get_import_file_by_id(db, import_file_id)
+    if not import_file:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    # 1. Fetch linked POs and collect details
+    from modules.purchase_orders.model import PurchaseOrder
+    po_ids_list = import_file.po_ids or []
+    linked_pos: List[PurchaseOrder] = db.query(PurchaseOrder).filter(
+        (PurchaseOrder.import_file_id == import_file_id) |
+        (PurchaseOrder.po_id.in_(po_ids_list) if po_ids_list else False) |
+        (PurchaseOrder.po_number == (import_file.po_number or "---"))
+    ).all()
+
+    # 2. Extract Commodity & Descriptions
+    commodities = set()
+    total_cbm = 0.0
+    gross_weight = 0.0
+    net_weight = 0.0
+    total_packages = 0
+    package_breakdowns = []
+    earliest_ready_date = None
+
+    for po in linked_pos:
+        if po.total_cbm:
+            total_cbm += float(po.total_cbm)
+        if po.total_gross_weight_kg:
+            gross_weight += float(po.total_gross_weight_kg)
+        if po.total_net_weight_kg:
+            net_weight += float(po.total_net_weight_kg)
+        if po.total_packages_count:
+            total_packages += int(po.total_packages_count)
+
+        for line in getattr(po, 'line_items', []):
+            desc = line.description_en or line.description_ar
+            if desc:
+                commodities.add(desc.strip())
+
+        for pl_item in getattr(po, 'packing_list_items', []):
+            qty = int(pl_item.qty_pkg) if pl_item.qty_pkg else 1
+            l_val = float(pl_item.length_cm or 0)
+            w_val = float(pl_item.width_cm or 0)
+            h_val = float(pl_item.height_cm or 0)
+            dims = f"{qty} {pl_item.package_type or 'pkg'} @ {l_val:g} x {w_val:g} x {h_val:g} cm"
+            package_breakdowns.append(dims)
+
+    # Fallback to packing_lists_data from ImportFile if PO aggregates were 0
+    if total_cbm == 0.0 and import_file.packing_lists_data:
+        for p in import_file.packing_lists_data:
+            total_cbm += float(p.get("cbm", 0.0))
+            gross_weight += float(p.get("gross_weight_kg", 0.0))
+            total_packages += int(p.get("total_packages", 0))
+
+    commodity_str = " | ".join(sorted(commodities)) if commodities else (import_file.notes or "General Imported Cargo")
+    
+    # 3. Calculate Recommended Containers
+    if total_cbm >= 60:
+        recommended_containers = "1 CTNR * 40HC + 1 CTNR * 20GP"
+    elif total_cbm >= 30:
+        recommended_containers = "1 CTNR * 40HC (40' High Cube)"
+    elif total_cbm >= 15:
+        recommended_containers = "1 CTNR * 20GP (20' General Purpose)"
+    elif total_cbm > 0:
+        recommended_containers = f"LCL ({total_cbm:.2f} CBM) / 20GP"
+    else:
+        recommended_containers = "40'HC / 20'GP"
+
+    # 4. Logistics Details
+    supplier = import_file.supplier
+    supplier_address_parts = []
+    if supplier:
+        if getattr(supplier, 'address', None):
+            supplier_address_parts.append(supplier.address)
+        if getattr(supplier, 'city', None):
+            supplier_address_parts.append(supplier.city)
+        if getattr(supplier, 'country', None):
+            supplier_address_parts.append(supplier.country)
+
+    default_pickup_addr = ", ".join(supplier_address_parts) if supplier_address_parts else (import_file.pickup_address or "Supplier Factory Address")
+    pickup_address = import_file.pickup_address or default_pickup_addr
+    
+    origin_country = supplier.country if supplier and getattr(supplier, 'country', None) else "Origin Port"
+    default_pol = "London Gateway" if "UK" in origin_country or "United Kingdom" in origin_country else ("Shanghai Port" if "China" in origin_country or "CN" in origin_country else ("Jeddah Port" if "Saudi" in origin_country else "Port of Loading"))
+    
+    pol = import_file.port_of_loading or default_pol
+    pod = import_file.port_of_discharge or "El Dekheila Port, Egypt (non TMT)"
+    incoterm = import_file.incoterm_code or "EXW"
+    free_days = import_file.target_free_days or 21
+    service_type = import_file.service_type_preference or "Direct"
+    
+    ready_date_str = import_file.cargo_ready_date.strftime("%d %B %Y") if import_file.cargo_ready_date else "End of Current Month"
+    recipient = recipient_name.strip() if recipient_name and recipient_name.strip() else "Shipping Line / Forwarder"
+
+    packages_str = f"{total_packages} Packages" if total_packages > 0 else "As per Packing List"
+    if package_breakdowns:
+        packages_str += "\n" + "\n".join(f"  • {pb}" for pb in package_breakdowns[:10])
+
+    special_reqs = import_file.shipping_instructions_notes or f"Must be {free_days} days free time at destination (DET/DEM), direct line preferred, delivery port El Dekheila (avoid TMT terminal)."
+
+    # 5. Generate Email Body Template
+    if incoterm.upper() == "EXW":
+        email_body = f"""Dear {recipient},
+
+Good day.
+Could you please provide your best EXW (Ex Works) all-in freight quotation for the below shipment:
+
+• Incoterm: EXW (Ex Works)
+• Commodity: "{commodity_str}"
+• Volume / Mode: {recommended_containers} (Total CBM: {total_cbm:.2f} m³)
+• Gross Weight: {gross_weight:,.1f} kg | Net Weight: {net_weight:,.1f} kg
+• Number of Packages: {packages_str}
+
+• Pickup Address:
+  {import_file.supplier_name}
+  {pickup_address}
+
+• Port of Loading (Preferred): {pol}
+• Port of Discharge: {pod}
+• Service: {service_type}
+• Cargo Ready Date: {ready_date_str}
+• Required Free Time: Must be {free_days} days free time at destination (DET/DEM)
+
+Kindly include:
+1. EXW All-in Rate (Trucking + Local Port Fees + Export Customs Clearance + Ocean Freight)
+2. OTHC / DTHC for {pod}
+3. Transit Time (T/T in days)
+4. Earliest Vessel Schedule & ETD Date
+5. Free time at destination (DET/DEM) - Must be {free_days} days free time.
+
+We look forward to receiving your quotation ASAP.
+Best regards,
+{import_file.company_name} - Logistics & Import Dept.
+"""
+    else:
+        email_body = f"""Dear {recipient},
+
+Good day.
+Kindly share your best {incoterm} freight rates for {recommended_containers} based on the shipment details below:
+
+• Incoterm: {incoterm}
+• Commodity: "{commodity_str}"
+• POL (Port of Loading): {pol}
+• POD (Port of Discharge): {pod}
+• Total Volume: {total_cbm:.2f} m³ | Total Gross Weight: {gross_weight:,.1f} kg
+• Cargo Ready Date: {ready_date_str}
+• Required Free Time: {free_days} days free time (FT) at destination
+• Service: {service_type}
+
+Special Instructions:
+{special_reqs}
+
+Thanks to share the competitive rates and earliest vessel schedule ASAP.
+Best regards,
+{import_file.company_name} - Logistics & Import Dept.
+"""
+
+    # 6. Generate WhatsApp Text Template
+    whatsapp_text = f"""🚢 *طلب أسعار نولون شحن / Freight RFQ*
+━━━━━━━━━━━━━━━━━━
+🏢 *الشركة المستوردة:* {import_file.company_name}
+📦 *البضاعة:* {commodity_str}
+📊 *الحجم والوزن:* {recommended_containers} | {total_cbm:.2f} CBM | {gross_weight:,.1f} KG
+🌐 *شرط الشحن (Incoterm):* {incoterm}
+📍 *ميناء الشحن (POL):* {pol}
+🏁 *ميناء الوصول (POD):* {pod}
+📅 *تاريخ الجاهزية (Ready Date):* {ready_date_str}
+⏳ *فترة السماح المطلوبة:* {free_days} Days Free Time
+⚡ *الخدمة المطلوبة:* {service_type} Direct Line
+
+{"📍 *عنوان الاستلام (Pickup Address):*\n" + pickup_address + "\n" if incoterm.upper() == 'EXW' else ""}
+📝 *ملاحظات واشتراطات:*
+{special_reqs}
+━━━━━━━━━━━━━━━━━━
+برجاء إرسال أفضل عرض سعر متاح وجدول أقرب مركب شاكرين تعاونكم."""
+
+    file_title = import_file.custom_file_number or import_file.import_file_code
+    email_subject = f"Freight Rate Inquiry - {file_title} | {import_file.supplier_name} | {import_file.company_name} | {incoterm} | {recommended_containers}"
+
+    return {
+        "import_file_id": import_file.import_file_id,
+        "import_file_code": import_file.import_file_code,
+        "custom_file_number": import_file.custom_file_number,
+        "company_name": import_file.company_name,
+        "supplier_name": import_file.supplier_name,
+        "incoterm_code": incoterm,
+        "commodity": commodity_str,
+        "shipment_mode": import_file.shipment_mode,
+        "recommended_containers": recommended_containers,
+        "total_cbm": round(total_cbm, 3),
+        "gross_weight_kg": round(gross_weight, 2),
+        "net_weight_kg": round(net_weight, 2),
+        "total_packages": total_packages,
+        "packages_breakdown": packages_str,
+        "pickup_address": pickup_address,
+        "port_of_loading": pol,
+        "port_of_discharge": pod,
+        "cargo_ready_date": ready_date_str,
+        "target_free_days": free_days,
+        "service_type": service_type,
+        "special_requirements": special_reqs,
+        "email_subject": email_subject,
+        "email_body_template": email_body,
+        "whatsapp_text_template": whatsapp_text,
+    }
+

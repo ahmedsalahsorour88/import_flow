@@ -1,3 +1,4 @@
+import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
@@ -131,9 +132,94 @@ class PaymentRequestsNotifier extends StateNotifier<AsyncValue<List<PaymentReque
     }
   }
 
+  Future<Map<String, dynamic>> smartExtractSwift({
+    required String rawText,
+    int? targetPaymentId,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/smart-extract',
+        data: {
+          'raw_text': rawText,
+          if (targetPaymentId != null) 'target_payment_id': targetPaymentId,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> smartExtractSwiftFromFile({
+    required Uint8List fileBytes,
+    required String filename,
+    int? targetPaymentId,
+  }) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(fileBytes, filename: filename),
+        if (targetPaymentId != null) 'target_payment_id': targetPaymentId,
+      });
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/smart-extract-file',
+        data: formData,
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<PaymentRequestModel?> smartReconcileSwift({
+    required int paymentId,
+    String? rawText,
+    required String swiftReferenceNo,
+    required String swiftReceiptDate,
+    required double swiftTransferredAmount,
+    String swiftTransferredCurrency = 'USD',
+    String? bankName,
+    String? swiftCode,
+    String? ibanAccountNo,
+    String? swiftReconciliationNotes,
+    bool autoExecute = true,
+  }) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/financial-approval/swift/smart-reconcile',
+        data: {
+          'payment_id': paymentId,
+          if (rawText != null) 'raw_text': rawText,
+          'swift_reference_no': swiftReferenceNo,
+          'swift_receipt_date': swiftReceiptDate,
+          'swift_transferred_amount': swiftTransferredAmount,
+          'swift_transferred_currency': swiftTransferredCurrency,
+          if (bankName != null) 'bank_name': bankName,
+          if (swiftCode != null) 'swift_code': swiftCode,
+          if (ibanAccountNo != null) 'iban_account_no': ibanAccountNo,
+          if (swiftReconciliationNotes != null) 'swift_reconciliation_notes': swiftReconciliationNotes,
+          'auto_execute': autoExecute,
+        },
+      );
+      final reconciled = PaymentRequestModel.fromJson(response.data);
+      await fetchPaymentRequests();
+      return reconciled;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> softDeletePaymentRequest(int paymentId) async {
     try {
       await _dio.delete('${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId');
+      await fetchPaymentRequests();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> restorePaymentRequest(int paymentId) async {
+    try {
+      await _dio.post('${ApiConstants.baseUrl}/financial-approval/payment-requests/$paymentId/restore');
       await fetchPaymentRequests();
     } catch (e) {
       rethrow;
@@ -195,6 +281,38 @@ class ImportBudgetsNotifier extends StateNotifier<AsyncValue<List<ImportBudgetMo
       final created = ImportBudgetModel.fromJson(response.data);
       await fetchImportBudgets();
       return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ImportBudgetModel?> updateImportBudget(int budgetId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId',
+        data: payload,
+      );
+      final updated = ImportBudgetModel.fromJson(response.data);
+      await fetchImportBudgets();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> softDeleteImportBudget(int budgetId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId');
+      await fetchImportBudgets();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> restoreImportBudget(int budgetId) async {
+    try {
+      await _dio.post('${ApiConstants.baseUrl}/financial-approval/import-budgets/$budgetId/restore');
+      await fetchImportBudgets();
     } catch (e) {
       rethrow;
     }

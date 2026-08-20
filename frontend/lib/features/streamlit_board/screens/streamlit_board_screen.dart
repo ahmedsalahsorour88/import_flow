@@ -361,7 +361,7 @@ class _StreamlitBoardScreenState extends ConsumerState<StreamlitBoardScreen> {
                       ],
                     ),
                     const SizedBox(height: 10),
-                    _buildFeatureBullet('مزامنة حية ومباشرة مع قاعدة بيانات SQLite (importflow.db).'),
+                    _buildFeatureBullet('مزامنة حية ومباشرة مع قاعدة بيانات SQLite (sorour_logistics.db).'),
                     _buildFeatureBullet('إمكانية تواجد نفس ملف الشحنة في أكثر من مرحلة بالتوازي (Multi-Stage Concurrent Tracking).'),
                     _buildFeatureBullet('تحديث العدادات الرقمية لحظياً بمجرد حفظ أو نقل الشحنة من خطوة إلى أخرى.'),
                     _buildFeatureBullet('واجهة تفاعلية كاملة لتنفيذ مهام كل خطوة (مفاضلة النولون، سداد الرسوم، الـ ACID، إقرار 46، ونموذج 4).'),

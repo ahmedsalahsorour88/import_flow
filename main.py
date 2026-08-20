@@ -35,6 +35,7 @@ from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.shipping_scenarios.model import ShippingEvaluationSession, ShippingScenarioItem
 from modules.customs_consultation.model import CustomsConsultationSession, CustomsChecklistItem
 from modules.freight_quotations.model import FreightRFQRequest, FreightQuotationItem
+from modules.customs_clearance_quotations.model import CustomsClearanceRFQ, CustomsClearanceQuotationItem, ClearanceServicePriceListItem
 from modules.financial_approval.model import PaymentRequestSession, ImportBudgetApproval
 from modules.import_documentation.model import (
     AcidRegistrationSession,
@@ -56,6 +57,7 @@ from modules.smart_tasks.model import SmartTask
 from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
 from modules.smart_document_upload.model import UploadSession
+from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
 
 
 # ==================================================
@@ -77,6 +79,7 @@ from modules.cbm_calculator.router import router as cbm_calculator_router
 from modules.shipping_scenarios.router import router as shipping_scenarios_router
 from modules.customs_consultation.router import router as customs_consultation_router
 from modules.freight_quotations.router import router as freight_quotations_router
+from modules.customs_clearance_quotations.router import router as customs_clearance_quotations_router
 from modules.financial_approval.router import router as financial_approval_router
 from modules.import_documentation.router import router as import_documentation_router
 from modules.import_files.router import router as import_files_router
@@ -95,6 +98,7 @@ from modules.import_requirements.router import router as import_requirements_rou
 from modules.demurrage_detention.router import router as demurrage_detention_router
 from modules.lifecycle_board.router import router as lifecycle_board_router
 from modules.smart_document_upload.router import router as smart_document_upload_router
+from modules.docs_customs_approval.router import router as docs_customs_approval_router
 
 
 # ==================================================
@@ -145,6 +149,22 @@ async def add_pna_and_security_headers(request: Request, call_next):
     return response
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    from fastapi.responses import JSONResponse
+    origin = request.headers.get("origin") or "*"
+    headers = {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Private-Network": "true",
+    }
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Internal Server Error: {str(exc)}"},
+        headers=headers,
+    )
+
+
 
 # ==================================================
 # Include Routers
@@ -166,6 +186,7 @@ app.include_router(container_loader_router)
 app.include_router(shipping_scenarios_router)
 app.include_router(customs_consultation_router)
 app.include_router(freight_quotations_router)
+app.include_router(customs_clearance_quotations_router)
 app.include_router(financial_approval_router)
 app.include_router(import_documentation_router)
 app.include_router(import_files_router)
@@ -183,6 +204,7 @@ app.include_router(import_requirements_router)
 app.include_router(demurrage_detention_router)
 app.include_router(lifecycle_board_router)
 app.include_router(smart_document_upload_router)
+app.include_router(docs_customs_approval_router)
 
 
 # ==================================================

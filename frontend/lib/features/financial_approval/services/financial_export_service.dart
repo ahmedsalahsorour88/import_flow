@@ -53,7 +53,7 @@ class FinancialExportService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            'ImportFlow ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة',
+                            'Sorour Logistics ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة',
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
@@ -270,7 +270,7 @@ class FinancialExportService {
     // UTF-8 BOM for Excel Arabic compatibility
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — بيان تقرير اعتماد الميزانية الاستيرادية الشاملة');
+    buffer.writeln('Sorour Logistics ERP — بيان تقرير اعتماد الميزانية الاستيرادية الشاملة');
     buffer.writeln('كود الميزانية,${budget.budgetCode}');
     buffer.writeln('عنوان الميزانية,${budget.title}');
     buffer.writeln('كود ملف الشحنة,${budget.importFileCode ?? (prefill?.importFileCode ?? "-")}');
@@ -344,7 +344,7 @@ class FinancialExportService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            'ImportFlow ERP — إذن وطلب سداد مالي للمورد الأجنبي',
+                            'Sorour Logistics ERP — إذن وطلب سداد مالي للمورد الأجنبي',
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
@@ -501,7 +501,7 @@ class FinancialExportService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — سجل العمليات المالي وطلبات السداد');
+    buffer.writeln('Sorour Logistics ERP — سجل العمليات المالي وطلبات السداد');
     buffer.writeln('كود الطلب,ملف الشحنة,عنوان الطلب,المورد المستفيد,البنك,السويفت,الحساب/IBAN,طريقة السداد,المبلغ المطلوب,العملة,سعر الصرف,المعادل EGP,تاريخ الطلب,تاريخ الاستحقاق,الحالة,رقم إشعار السويفت');
 
     for (final p in list) {
@@ -549,7 +549,7 @@ class FinancialExportService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — سجل اعتمادات الميزانية الاستيرادية');
+    buffer.writeln('Sorour Logistics ERP — سجل اعتمادات الميزانية الاستيرادية');
     buffer.writeln('كود الميزانية,ملف الشحنة,عنوان الميزانية,فاتورة البضاعة (أجنبي),عملة الفاتورة,فاتورة البضاعة (EGP),تكلفة النولون (أجنبي),عملة النولون,تكلفة النولون (EGP),الضرائب والجمارك (EGP),أتعاب التخليص والنقل (EGP),سعر الصرف,إجمالي الميزانية الكلية (EGP),الحالة,المعتمد من,تاريخ الاعتماد');
 
     for (final b in list) {
@@ -597,7 +597,7 @@ class FinancialExportService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — إذن وطلب سداد مالي للمورد الأجنبي');
+    buffer.writeln('Sorour Logistics ERP — إذن وطلب سداد مالي للمورد الأجنبي');
     buffer.writeln('كود الطلب,${payment.paymentCode}');
     buffer.writeln('عنوان الطلب,"${payment.title.replaceAll('"', '""')}"');
     buffer.writeln('ملف الشحنة,${payment.importFileCode ?? (payment.importFileId != null ? "IMP-${payment.importFileId}" : "-")}');
@@ -639,7 +639,7 @@ class FinancialExportService {
 
   static String generatePaymentWhatsAppText(PaymentRequestModel pay) {
     return '''
-*ImportFlow ERP — إذن وطلب سداد مالي*
+*Sorour Logistics ERP — إذن وطلب سداد مالي*
 📄 *كود الطلب:* ${pay.paymentCode}
 🏢 *المورد المستفيد:* ${pay.beneficiaryName ?? pay.supplierName}
 📁 *ملف الشحنة:* ${pay.importFileCode ?? (pay.importFileId != null ? "IMP-${pay.importFileId}" : "-")}
@@ -653,7 +653,7 @@ class FinancialExportService {
 • *كود السويفت:* ${pay.swiftCode ?? "-"}
 • *رقم الحساب / IBAN:* ${pay.ibanAccountNo ?? "-"}
 ${pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty ? "• *رقم السويفت:* ${pay.swiftReferenceNo}\n" : ""}
-_تم الإنشاء عبر ImportFlow ERP_
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
@@ -688,7 +688,7 @@ _تم الإنشاء عبر ImportFlow ERP_
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات والاستيراد
-ImportFlow ERP
+Sorour Logistics ERP
 '''.trim();
   }
 
@@ -706,7 +706,7 @@ ImportFlow ERP
     final grandTotalEgp = invEgp + freightEgp + customsEgp + clearanceEgp;
 
     return '''
-*ImportFlow ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة*
+*Sorour Logistics ERP — تقرير اعتماد الميزانية الاستيرادية الشاملة*
 📊 *كود الميزانية:* ${bgt.budgetCode}
 📁 *ملف الشحنة:* ${bgt.importFileCode ?? (prefill?.importFileCode ?? "-")}
 🏢 *المورد الأجنبي:* ${prefill?.supplierName ?? "-"}
@@ -724,7 +724,7 @@ ImportFlow ERP
 *🏆 إجمالي الميزانية المعتمدة الشاملة:*
 ${grandTotalEgp.toStringAsFixed(2)} EGP
 
-_تم الإنشاء عبر ImportFlow ERP_
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
@@ -772,7 +772,7 @@ _تم الإنشاء عبر ImportFlow ERP_
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
-ImportFlow ERP
+Sorour Logistics ERP
 '''.trim();
   }
 

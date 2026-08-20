@@ -630,6 +630,15 @@ class COOComparisonRequest(BaseModel):
     draft_fields: Optional[Dict[str, Any]] = None
 
 
+class COODraftTemplateResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    certificate_type: str
+    template_data: Dict[str, Any]
+    preview_markdown: str
+    exemption_notes: Optional[str] = None
+
+
 # --- PHASE 6: INSPECTION CERTIFICATE SCHEMAS ---
 class InspectionCertificateReviewBase(BaseModel):
     import_file_id: int
@@ -695,6 +704,50 @@ class InspectionComparisonRequest(BaseModel):
     inspection_agency: str = "SGS"
     raw_text: Optional[str] = None
     draft_fields: Optional[Dict[str, Any]] = None
+
+
+class InspectionDraftTemplateResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    inspection_agency: str
+    inspection_type: str
+    template_data: Dict[str, Any]
+    preview_markdown: str
+    applicable_standards: List[str] = []
+
+
+class DocumentExtractRequest(BaseModel):
+    document_type: str  # 'CHINA_COO', 'EUR1', 'INSPECTION_VOC', 'DRAFT_BL', 'COMMERCIAL_INVOICE'
+    raw_text: Optional[str] = None
+    import_file_id: Optional[int] = None
+
+
+class DocumentExtractResponse(BaseModel):
+    document_type: str
+    extracted_data: Dict[str, Any]
+    warnings: List[str] = []
+    is_draft_detected: bool = False
+
+
+class ThreeWayCrossMatchRequest(BaseModel):
+    import_file_id: int
+    coo_data: Optional[Dict[str, Any]] = None
+    inspection_data: Optional[Dict[str, Any]] = None
+    bl_data: Optional[Dict[str, Any]] = None
+    invoice_data: Optional[Dict[str, Any]] = None
+    packing_list_data: Optional[Dict[str, Any]] = None
+
+
+class ThreeWayCrossMatchResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    overall_status: str  # 'FULLY_MATCHED', 'ACCEPTED_WITH_WARNINGS', 'DISCREPANCY_DETECTED'
+    match_score: float
+    is_safe_for_customs: bool
+    matrix: List[Dict[str, Any]]
+    critical_discrepancies: List[str]
+    warning_discrepancies: List[str]
+    compliance_summary_ar: str
 
 
 # --- PHASE 6: ACID & IMPORTER LEGAL DOCS EXPIRY & ETA + 30 DAYS SAFETY MARGIN SCHEMAS ---

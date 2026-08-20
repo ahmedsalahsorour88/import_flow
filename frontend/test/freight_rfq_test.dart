@@ -74,11 +74,9 @@ void main() {
           ),
         ),
       );
-      await tester.pump();
-
       expect(find.byType(FreightRfqDialog), findsOneWidget);
       expect(find.textContaining('6701068101'), findsOneWidget);
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 100));
     });
   });
 }

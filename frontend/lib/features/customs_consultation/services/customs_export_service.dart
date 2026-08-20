@@ -122,7 +122,7 @@ class CustomsExportService {
     buffer.write('\uFEFF');
 
     // 1. Header Information
-    buffer.writeln('ImportFlow ERP — تقرير دراسة الاستشارة الجمركية وبيان نافذة الرسمي');
+    buffer.writeln('Sorour Logistics ERP — تقرير دراسة الاستشارة الجمركية وبيان نافذة الرسمي');
     buffer.writeln('عنوان الدراسة:,"$title"');
     buffer.writeln('ملف الشحنة:,"${importFileCode ?? 'غير محدد'}"');
     buffer.writeln('المستخلص الجمركي:,"$brokerName"');

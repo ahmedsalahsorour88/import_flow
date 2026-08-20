@@ -143,6 +143,196 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
 
 
+  Future<void> _generateOfficialDraft() async {
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لتوليد درافت شهادة الفحص'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await ref.read(inspectionReviewsProvider.notifier).fetchInspectionDraftTemplate(
+            _selectedImportFileId!,
+            agency: _inspAgency,
+            certType: _inspType,
+          );
+
+      if (!mounted) return;
+
+      final preview = res['preview_markdown']?.toString() ?? '';
+      final template = res['template_data'] as Map<String, dynamic>? ?? {};
+      final standards = res['applicable_standards'] as List<dynamic>? ?? [];
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.fact_check, color: AppTheme.cobalt),
+                  const SizedBox(width: 8),
+                  Text('درافت شهادة الفحص الرسمية: $_inspAgency ($_inspType)',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 750,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.only(bottom: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade400),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.timer_outlined, color: Colors.amber),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '⚠️ تنبيه فحص الشحنة: ${template['confirmation_deadline'] ?? 'يجب تأكيد الدرافت خلال 48 ساعة'}',
+                            style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SelectableText(
+                      preview,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء وإغلاق ✕', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              icon: const Icon(Icons.check, color: Colors.white),
+              label: const Text('اعتماد وتعبئة الحقول تلقائياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  if (template['coc_number'] != null) _certNumberCtrl.text = template['coc_number'].toString();
+                  if (template['regulatory_authority'] != null) _authorityCtrl.text = template['regulatory_authority'].toString();
+                  if (template['exporter_name_and_address'] != null) _exporterCtrl.text = template['exporter_name_and_address'].toString();
+                  if (template['importer_name_and_address'] != null) _importerCtrl.text = template['importer_name_and_address'].toString();
+                  if (standards.isNotEmpty) _specCtrl.text = standards.join('\n');
+                  _rawTextCtrl.text = preview;
+                  _activeStep = 1;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✔ تم ملء بيانات درافت شهادة الفحص بنجاح'), backgroundColor: Colors.green),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء توليد درافت الفحص: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _extractFromOcrText() async {
+    final rawText = _rawTextCtrl.text.trim();
+    if (rawText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى لصق نص شهادة الفحص أو رفع الملف أولاً'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await ref.read(inspectionReviewsProvider.notifier).extractCertificate(
+            'INSPECTION_VOC',
+            rawText,
+            importFileId: _selectedImportFileId,
+          );
+
+      final extracted = res['extracted_data'] as Map<String, dynamic>? ?? {};
+      final isDraft = res['is_draft_detected'] as bool? ?? false;
+      final warnings = res['warnings'] as List<dynamic>? ?? [];
+
+      setState(() {
+        if (extracted['coc_number'] != null && extracted['coc_number'].toString().isNotEmpty) {
+          _certNumberCtrl.text = extracted['coc_number'].toString();
+        }
+        if (extracted['exporter_name'] != null && extracted['exporter_name'].toString().isNotEmpty) {
+          _exporterCtrl.text = extracted['exporter_name'].toString();
+        }
+        if (extracted['importer_name'] != null && extracted['importer_name'].toString().isNotEmpty) {
+          _importerCtrl.text = extracted['importer_name'].toString();
+        }
+        if (extracted['inspection_agency'] != null && extracted['inspection_agency'].toString().isNotEmpty) {
+          _inspAgency = extracted['inspection_agency'].toString();
+        }
+        if (extracted['testing_standards'] != null && (extracted['testing_standards'] as List).isNotEmpty) {
+          _specCtrl.text = (extracted['testing_standards'] as List).join(' + ');
+        }
+      });
+
+      if (mounted) {
+        if (isDraft) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('⚠️ تم اكتشاف مسودة (DRAFT) - يرجى تأكيد الفحص خلال مهلة الـ 48 ساعة لتفادي رفض الإفراج.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✔ تم استخراج ومطابقة بيانات شهادة الفحص والمطابقة بنجاح'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء الاستخراج: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
@@ -257,7 +447,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                  icon: const Icon(Icons.bolt, color: Colors.white),
+                  label: const Text('⚡ توليد درافت الفحص', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: _generateOfficialDraft,
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: () => setState(() => _activeStep = 1),
@@ -381,12 +578,23 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   ],
               ],
             ),
-            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('النص الخام لدرافت شهادة الفحص (Raw Text / OCR Dump):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                  label: const Text('⚡ استخراج ومطابقة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  onPressed: _isLoading ? null : _extractFromOcrText,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _rawTextCtrl,
-              maxLines: 3,
+              maxLines: 4,
               decoration: const InputDecoration(
-                labelText: 'النص الخام لدرافت شهادة الفحص (Raw Text / OCR Dump)',
+                hintText: 'الصق النص الكامل لشهادة الفحص هنا (مثل نصوص Cotecna أو TÜV أو SGS)...',
                 border: OutlineInputBorder(),
               ),
             ),

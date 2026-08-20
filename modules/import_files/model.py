@@ -95,6 +95,15 @@ class ImportFile(Base):
     progress_percent = Column(Float, nullable=False, default=10.0) # 0 to 100
     next_action = Column(String(255), nullable=False, default="Review Proforma Invoice & Packing List")
     
+    # Dynamic Lifecycle Controls (Start from any stage, Hold/Pause, and Skipped stages)
+    initial_starting_stage = Column(String(100), default="Phase 1 - Planning & Feasibility", nullable=True)
+    initial_starting_step = Column(String(50), default="STEP_01", nullable=True)
+    paused_at_stage = Column(String(100), nullable=True)
+    paused_at_step = Column(String(50), nullable=True)
+    hold_reason = Column(Text, nullable=True)
+    hold_date = Column(DateTime, nullable=True)
+    skipped_stages = Column(JSON, default=list, nullable=True) # e.g. ["STEP_01", "STEP_06"]
+
     status = Column(String(50), nullable=False, default="Open") # Open, In Progress, On Hold, Closed, Archived
     owner = Column(String(100), nullable=False, default="Kamal") # Operational owner e.g. Kamal
     notes = Column(Text, nullable=True)

@@ -202,8 +202,9 @@ class TestCargoShippingModule(unittest.TestCase):
         self.assertEqual(ctx4.exception.status_code, 400)
 
     def test_container_tracking_sla_and_auto_status(self):
+        today_str = datetime.now().strftime("%Y-%m-%d")
         # 1. Only assignment
-        res1 = calculate_container_sla_and_status({"container_assignment_date": "2026-08-18"})
+        res1 = calculate_container_sla_and_status({"container_assignment_date": today_str})
         self.assertEqual(res1["tracking_status"], "ASSIGNED")
         self.assertFalse(res1["is_sla_breached"])
 

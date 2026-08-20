@@ -16,6 +16,7 @@ from modules.smart_document_upload.extractors.purchase_order import PurchaseOrde
 from modules.smart_document_upload.extractors.import_file import ImportFileExtractor
 from modules.smart_document_upload.extractors.cargo_shipping import CargoShippingExtractor
 from modules.smart_document_upload.extractors.customs_clearance import CustomsClearanceExtractor
+from modules.smart_document_upload.extractors.customs_broker_quotation import CustomsBrokerQuotationExtractor
 from modules.smart_document_upload.extractors.freight_quotation import FreightQuotationExtractor
 from modules.smart_document_upload.extractors.freight_booking import FreightBookingExtractor
 from modules.smart_document_upload.extractors.other_extractors import (
@@ -41,6 +42,8 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "import-file": ImportFileExtractor(),
     "cargo-shipping": CargoShippingExtractor(),
     "customs-clearance": CustomsClearanceExtractor(),
+    "clearance-quotation": CustomsBrokerQuotationExtractor(),
+    "customs-broker-quotation": CustomsBrokerQuotationExtractor(),
     "freight-quotation": FreightQuotationExtractor(),
     "freight-booking": FreightBookingExtractor(),
     "coo-certificate": COOCertificateExtractor(),

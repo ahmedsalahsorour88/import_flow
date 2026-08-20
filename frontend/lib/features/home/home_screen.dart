@@ -258,7 +258,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: AppTheme.cobalt,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
+                child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 16),
               ),
               const SizedBox(width: 6),
               const Expanded(
@@ -266,12 +266,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'ImportFlow ERP',
+                      'Sorour Logistics',
                       style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
                     ),
                     Text(
-                      'إدارة الاستيراد والتخليص',
-                      style: TextStyle(color: Colors.white54, fontSize: 8.5),
+                      'سرور للخدمات اللوجستية',
+                      style: TextStyle(color: Colors.white70, fontSize: 8.5),
                     ),
                   ],
                 ),

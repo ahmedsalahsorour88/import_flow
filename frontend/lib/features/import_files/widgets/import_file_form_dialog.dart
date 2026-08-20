@@ -17,7 +17,6 @@ import '../../customs_consultation/models/customs_consultation_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
 import '../../projects/models/project_model.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
-import '../../transport_locations/models/transport_location_model.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../models/import_file_model.dart';
 import '../providers/import_files_provider.dart';
@@ -62,6 +61,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   String _shipmentCategory = 'New Purchase';
   String _status = 'Open';
   String _serviceTypePreference = 'Direct';
+  String _initialStartingStep = 'STEP_01';
   DateTime _requiredEta = DateTime.now().add(const Duration(days: 30));
   DateTime _fileOpeningDate = DateTime.now();
   DateTime _cargoReadyDate = DateTime.now().add(const Duration(days: 7));
@@ -77,6 +77,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
   void initState() {
     super.initState();
     final f = widget.fileToEdit;
+    _initialStartingStep = f?.initialStartingStep ?? 'STEP_01';
     _customFileIdController = TextEditingController(text: f?.customFileNumber ?? '6701068100');
     _poNoController = TextEditingController(text: f?.poNumber ?? 'PO-1001');
     _piNoController = TextEditingController(text: f?.piNumber ?? 'PI-889');
@@ -243,6 +244,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
         'form46_no': _form46Controller.text.trim(),
         'estimated_cost': double.tryParse(_estimatedCostController.text.trim()) ?? 0.0,
         'estimated_cost_currency': _estimatedCostCurrency,
+        'initial_starting_step': _initialStartingStep,
         'status': _status,
         'owner': _ownerController.text.trim(),
         'notes': _notesController.text.trim(),
@@ -331,10 +333,20 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
     return AlertDialog(
       title: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          const Icon(Icons.folder, color: AppTheme.cobalt),
-          const SizedBox(width: 8),
-          Text(widget.fileToEdit == null ? 'إضافة ملف استيراد شحنة جديد (New Import File)' : 'تعديل ملف الاستيراد: ${widget.fileToEdit!.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Row(
+            children: [
+              const Icon(Icons.folder, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text(widget.fileToEdit == null ? 'إضافة ملف استيراد شحنة جديد (New Import File)' : 'تعديل ملف الاستيراد: ${widget.fileToEdit!.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.grey),
+            tooltip: 'إغلاق النافذة',
+            onPressed: () => Navigator.of(context).pop(),
+          ),
         ],
       ),
       content: SizedBox(
@@ -403,7 +415,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             setState(() {
                               _selectedSupplierId = val;
                               _supplierName = sup.companyName;
-                              final fullAddr = [sup.address, sup.city, sup.country].where((s) => s.isNotEmpty).join(', ');
+                              final fullAddr = [sup.address, sup.foreignExporterCountry].where((s) => s.isNotEmpty).join(', ');
                               _pickupAddressController.text = fullAddr.isNotEmpty ? fullAddr : sup.address;
                             });
                           }
@@ -597,6 +609,47 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 12),
+
+                // Dynamic Lifecycle Starting Step Selector
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: const Color(0xFFA5B4FC)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.play_circle_outline_rounded, color: Color(0xFF4F46E5), size: 22),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: SearchableDropdownField<String>(
+                          value: _initialStartingStep,
+                          labelText: 'نقطة ومرحلة بدء الشحنة في مسار العمل (Starting Phase / Step) *',
+                          searchHintText: 'ابحث عن مرحلة البداية...',
+                          items: const [
+                            SearchableDropdownItem(value: 'STEP_01', label: 'المرحلة 1: التخطيط ودراسات النولون والجمرك (Pre-Planning)'),
+                            SearchableDropdownItem(value: 'STEP_04', label: 'المرحلة 2: بداية الشحنة واعتماد الميزانية (Finance Approvals)'),
+                            SearchableDropdownItem(value: 'STEP_05', label: 'المرحلة 2: إصدار ومتابعة ACID المبدئي (ACID Operations)'),
+                            SearchableDropdownItem(value: 'STEP_06', label: 'المرحلة 3: حجز النولون وتأكيد الخط الملاحي (Freight Booking)'),
+                            SearchableDropdownItem(value: 'STEP_08', label: 'المرحلة 3: تدقيق مسودات الشحن والبوليصة (Draft Docs Review)'),
+                            SearchableDropdownItem(value: 'STEP_10', label: 'المرحلة 4: رفع وتوثيق CargoX الرقمي (CargoX Upload)'),
+                            SearchableDropdownItem(value: 'STEP_12', label: 'المرحلة 4: استخراج نموذج 4 البنكي (Bank Form 4)'),
+                            SearchableDropdownItem(value: 'STEP_13', label: 'المرحلة 5: قيد إقرار 46 والتخليص الجمركي (Customs Declaration 46)'),
+                            SearchableDropdownItem(value: 'STEP_14', label: 'المرحلة 5: متابعة الكشف والتثمين والمعاينة (Clearance Follow-up)'),
+                            SearchableDropdownItem(value: 'STEP_17', label: 'المرحلة 5: الحساب والسداد الجمركي النهائي (Customs Duty Payment)'),
+                            SearchableDropdownItem(value: 'STEP_19', label: 'المرحلة 6: الاستلام المخزني وإذن الإضافة (Warehouse GRN)'),
+                            SearchableDropdownItem(value: 'STEP_20', label: 'المرحلة 6: تسوية التكلفة الاستيرادية الشاملة (Landed Cost Settlement)'),
+                          ],
+                          onChanged: (v) {
+                            if (v != null) setState(() => _initialStartingStep = v);
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
 
@@ -960,7 +1013,15 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AppTheme.crimson,
+            side: BorderSide(color: Colors.red.shade300),
+          ),
+          onPressed: () => Navigator.pop(context),
+          icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
+          label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12)),
           onPressed: _isSaving ? null : _submit,

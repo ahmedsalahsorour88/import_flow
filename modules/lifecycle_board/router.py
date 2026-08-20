@@ -11,6 +11,7 @@ from modules.lifecycle_board.schemas import (
     LifecycleBoardSummaryResponse,
     StageActivityResponse,
     StepAdvancePayload,
+    SkipStepPayload,
     MultiStageSetPayload,
 )
 import modules.lifecycle_board.service as service
@@ -46,9 +47,19 @@ def advance_step(payload: StepAdvancePayload, db: Session = Depends(get_db)):
 
 
 @router.post(
+    "/stages/skip",
+    status_code=status.HTTP_200_OK,
+    summary="Skip an operational step and activate next step(s) without disrupting workflow",
+)
+def skip_step(payload: SkipStepPayload, db: Session = Depends(get_db)):
+    return service.skip_step_service(db, payload)
+
+
+@router.post(
     "/stages/set-active",
     status_code=status.HTTP_200_OK,
     summary="Set concurrent active stages for a shipment",
 )
 def set_multi_active_stages(payload: MultiStageSetPayload, db: Session = Depends(get_db)):
     return service.set_multi_active_stages_service(db, payload)
+

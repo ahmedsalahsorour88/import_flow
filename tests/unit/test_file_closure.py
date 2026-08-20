@@ -1,3 +1,4 @@
+import main
 import unittest
 from datetime import datetime, date
 from sqlalchemy import create_engine
@@ -138,6 +139,27 @@ class TestFileClosureModule(unittest.TestCase):
         self.assertIsNotNone(restored)
         self.assertEqual(restored.closure_id, c_id)
         self.assertTrue(restored.is_active)
+
+    def test_close_import_file_with_skipped_stages_allowed(self):
+        # Set warehouse_received as skipped on import file
+        imp_file = self.db.query(ImportFile).filter(ImportFile.import_file_id == self.import_file_id).first()
+        imp_file.skipped_stages = ["STEP_19", "warehouse_received"]
+        self.db.commit()
+
+        # Try closing with warehouse_received=False (because it was skipped/exempt)
+        schema = FileClosureCreate(
+            import_file_id=self.import_file_id,
+            closure_checklist=ClosureChecklistSchema(
+                docs_verified=True,
+                customs_cleared=True,
+                warehouse_received=False, # Skipped legally
+                landed_cost_settled=True,
+                tasks_closed=True,
+            ),
+        )
+        record = close_import_file_service(self.db, schema)
+        self.assertIsNotNone(record.closure_id)
+        self.assertEqual(record.status, "Closed")
 
 if __name__ == "__main__":
     unittest.main()

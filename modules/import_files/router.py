@@ -17,6 +17,8 @@ from modules.import_files.schemas import (
     CloseShipmentSubmit,
     ReopenShipmentSubmit,
     FreightRfqDataResponse,
+    HoldShipmentPayload,
+    ResumeShipmentPayload,
 )
 import modules.import_files.service as service
 
@@ -229,4 +231,40 @@ def reopen_shipment(
     db: Session = Depends(get_db),
 ):
     return service.reopen_shipment_service(db, import_file_id, payload)
+
+
+@router.post(
+    "/{import_file_id}/hold",
+    response_model=ImportFileResponse,
+    summary="Place import file / shipment on hold at current stage",
+)
+def hold_shipment(
+    import_file_id: int,
+    payload: schemas.HoldShipmentPayload,
+    db: Session = Depends(get_db),
+):
+    return service.hold_import_file_service(
+        db,
+        import_file_id=import_file_id,
+        hold_reason=payload.hold_reason,
+        hold_notes=payload.hold_notes,
+    )
+
+
+@router.post(
+    "/{import_file_id}/resume",
+    response_model=ImportFileResponse,
+    summary="Resume import file / shipment from on hold state",
+)
+def resume_shipment(
+    import_file_id: int,
+    payload: schemas.ResumeShipmentPayload,
+    db: Session = Depends(get_db),
+):
+    return service.resume_import_file_service(
+        db,
+        import_file_id=import_file_id,
+        resume_notes=payload.resume_notes,
+    )
+
 

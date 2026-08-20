@@ -48,7 +48,7 @@ class MasterDataExportService {
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            'ImportFlow ERP — بطاقة بيانات الشركة المستوردة',
+                            'Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة',
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
@@ -169,7 +169,7 @@ class MasterDataExportService {
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('ImportFlow ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
                 ),
               ],
@@ -189,7 +189,7 @@ class MasterDataExportService {
     final buffer = StringBuffer();
     buffer.write('\uFEFF'); // UTF-8 BOM
 
-    buffer.writeln('ImportFlow ERP — بطاقة بيانات الشركة المستوردة');
+    buffer.writeln('Sorour Logistics ERP — بطاقة بيانات الشركة المستوردة');
     buffer.writeln('اسم الشركة المستوردة,"${company.importerName.replaceAll('"', '""')}"');
     buffer.writeln('حالة السجل,${company.isActive ? "نشط" : "غير نشط"}');
     buffer.writeln('الدولة,${company.country}');
@@ -227,7 +227,7 @@ class MasterDataExportService {
 
   static String generateImporterWhatsAppText(ImportCompanyModel comp) {
     return '''
-*ImportFlow ERP — بطاقة الشركة المستوردة*
+*Sorour Logistics ERP — بطاقة الشركة المستوردة*
 🏢 *اسم الشركة:* ${comp.importerName}
 📍 *العنوان:* ${comp.address}
 🇪🇬 *الدولة:* ${comp.country.isNotEmpty ? comp.country : "مصر"}
@@ -240,7 +240,7 @@ class MasterDataExportService {
 • *السجل التجاري:* ${comp.registrationNumber} (انتهاء: ${comp.registrationExpiry.toIso8601String().split('T')[0]})
 • *الحالة:* ${comp.isActive ? "✅ نشط" : "❌ غير نشط"}
 ${comp.notes != null && comp.notes!.isNotEmpty ? "📝 *ملاحظات:* ${comp.notes}\n" : ""}
-_تم الإنشاء عبر ImportFlow ERP_
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
@@ -268,7 +268,7 @@ _تم الإنشاء عبر ImportFlow ERP_
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
-ImportFlow ERP
+Sorour Logistics ERP
 '''.trim();
   }
 
@@ -305,7 +305,7 @@ ImportFlow ERP
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            'ImportFlow ERP — بطاقة تعريف المورد الأجنبي',
+                            'Sorour Logistics ERP — بطاقة تعريف المورد الأجنبي',
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
@@ -439,7 +439,7 @@ ImportFlow ERP
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('ImportFlow ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
                 ),
               ],
@@ -459,7 +459,7 @@ ImportFlow ERP
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — بطاقة تعريف وبيانات المورد الأجنبي');
+    buffer.writeln('Sorour Logistics ERP — بطاقة تعريف وبيانات المورد الأجنبي');
     buffer.writeln('كود المورد,${supplier.supplierCode}');
     buffer.writeln('اسم المورد الأجنبي,"${supplier.companyName.replaceAll('"', '""')}"');
     buffer.writeln('دولة المصدر,${supplier.foreignExporterCountry}');
@@ -507,7 +507,7 @@ ImportFlow ERP
 
   static String generateSupplierWhatsAppText(SupplierModel sup) {
     return '''
-*ImportFlow ERP — بطاقة المورد الأجنبي*
+*Sorour Logistics ERP — بطاقة المورد الأجنبي*
 🏢 *كود المورد:* ${sup.supplierCode}
 🌐 *اسم الشركة:* ${sup.companyName}
 🌍 *الدولة:* ${sup.foreignExporterCountry} (${sup.foreignExporterCountryCode.toUpperCase()})
@@ -523,7 +523,7 @@ ${sup.cargoxPlatformId != null && sup.cargoxPlatformId!.isNotEmpty ? "📦 *Carg
 • *الهاتف:* ${sup.phone ?? sup.mobile ?? "-"}
 • *الإيميل:* ${sup.email ?? "-"}
 ${sup.brands != null && sup.brands!.isNotEmpty ? "🏷️ *البراندات:* ${sup.brands}\n" : ""}
-_تم الإنشاء عبر ImportFlow ERP_
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
@@ -559,7 +559,7 @@ _تم الإنشاء عبر ImportFlow ERP_
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
-ImportFlow ERP
+Sorour Logistics ERP
 '''.trim();
   }
 
@@ -596,7 +596,7 @@ ImportFlow ERP
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
                           pw.Text(
-                            'ImportFlow ERP — بطاقة الشريك ومقدم الخدمات اللوجستية',
+                            'Sorour Logistics ERP — بطاقة الشريك ومقدم الخدمات اللوجستية',
                             style: pw.TextStyle(color: PdfColors.white, fontSize: 13, fontWeight: pw.FontWeight.bold),
                           ),
                           pw.Text(
@@ -731,7 +731,7 @@ ImportFlow ERP
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
                     pw.Text('تاريخ الطباعة: ${DateTime.now().toString().substring(0, 19)}', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
-                    pw.Text('ImportFlow ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+                    pw.Text('Sorour Logistics ERP Enterprise System', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
                   ],
                 ),
               ],
@@ -751,7 +751,7 @@ ImportFlow ERP
     final buffer = StringBuffer();
     buffer.write('\uFEFF');
 
-    buffer.writeln('ImportFlow ERP — بطاقة بيانات الشريك ومقدم الخدمات');
+    buffer.writeln('Sorour Logistics ERP — بطاقة بيانات الشريك ومقدم الخدمات');
     buffer.writeln('كود الشريك,${partner.partnerCode}');
     buffer.writeln('اسم الشريك / البنك,"${partner.partnerName.replaceAll('"', '""')}"');
     buffer.writeln('تصنيف الخدمات,"${partner.partnerType.replaceAll('"', '""')}"');
@@ -789,7 +789,7 @@ ImportFlow ERP
 
   static String generatePartnerWhatsAppText(PartnerModel p) {
     return '''
-*ImportFlow ERP — بطاقة الشريك ومقدم الخدمات*
+*Sorour Logistics ERP — بطاقة الشريك ومقدم الخدمات*
 🤝 *كود الشريك:* ${p.partnerCode}
 🏢 *اسم الشريك:* ${p.partnerName}
 📋 *التصنيف:* ${p.partnerType}
@@ -801,7 +801,7 @@ ${p.swiftCode != null && p.swiftCode!.isNotEmpty ? "🏦 *SWIFT:* ${p.swiftCode}
 • *الإيميل:* ${p.email ?? "-"}
 • *نوع السداد:* ${p.paymentType} (الحد: ${p.creditLimit} EGP)
 • *الحالة:* ${p.isActive ? "✅ نشط" : "❌ غير نشط"}
-_تم الإنشاء عبر ImportFlow ERP_
+_تم الإنشاء عبر Sorour Logistics ERP_
 '''.trim();
   }
 
@@ -836,7 +836,7 @@ _تم الإنشاء عبر ImportFlow ERP_
 
 شاكرين حسن تعاونكم،،،
 فريق العمليات وإدارة الاستيراد
-ImportFlow ERP
+Sorour Logistics ERP
 '''.trim();
   }
 }

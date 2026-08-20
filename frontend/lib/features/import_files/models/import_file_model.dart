@@ -124,6 +124,13 @@ class ImportFileModel {
   final String currentStage;
   final double progressPercent;
   final String nextAction;
+  final String? initialStartingStage;
+  final String? initialStartingStep;
+  final String? pausedAtStage;
+  final String? pausedAtStep;
+  final String? holdReason;
+  final String? holdDate;
+  final List<String> skippedStages;
   final String status;
   final String owner;
   final String? notes;
@@ -183,6 +190,13 @@ class ImportFileModel {
     required this.currentStage,
     this.progressPercent = 10.0,
     required this.nextAction,
+    this.initialStartingStage = 'Phase 1 - Planning & Feasibility',
+    this.initialStartingStep = 'STEP_01',
+    this.pausedAtStage,
+    this.pausedAtStep,
+    this.holdReason,
+    this.holdDate,
+    this.skippedStages = const [],
     this.status = 'Open',
     this.owner = 'Kamal',
     this.notes,
@@ -197,6 +211,7 @@ class ImportFileModel {
     var rawInvoices = json['invoices_data'] as List<dynamic>? ?? [];
     var rawPacking = json['packing_lists_data'] as List<dynamic>? ?? [];
     var rawProjects = json['project_ids'] as List<dynamic>? ?? [];
+    var rawSkipped = json['skipped_stages'] as List<dynamic>? ?? [];
 
     return ImportFileModel(
       importFileId: json['import_file_id'],
@@ -248,6 +263,13 @@ class ImportFileModel {
       currentStage: json['current_stage'] ?? '',
       progressPercent: (json['progress_percent'] as num?)?.toDouble() ?? 0.0,
       nextAction: json['next_action'] ?? '',
+      initialStartingStage: json['initial_starting_stage'],
+      initialStartingStep: json['initial_starting_step'],
+      pausedAtStage: json['paused_at_stage'],
+      pausedAtStep: json['paused_at_step'],
+      holdReason: json['hold_reason'],
+      holdDate: json['hold_date'],
+      skippedStages: rawSkipped.map((s) => s.toString()).toList(),
       status: json['status'] ?? 'Open',
       owner: json['owner'] ?? 'Kamal',
       notes: json['notes'],
@@ -306,6 +328,13 @@ class ImportFileModel {
       'form46_no': form46No,
       'estimated_cost': estimatedCost,
       'estimated_cost_currency': estimatedCostCurrency,
+      if (initialStartingStage != null) 'initial_starting_stage': initialStartingStage,
+      if (initialStartingStep != null) 'initial_starting_step': initialStartingStep,
+      if (pausedAtStage != null) 'paused_at_stage': pausedAtStage,
+      if (pausedAtStep != null) 'paused_at_step': pausedAtStep,
+      if (holdReason != null) 'hold_reason': holdReason,
+      if (holdDate != null) 'hold_date': holdDate,
+      'skipped_stages': skippedStages,
       'status': status,
       'owner': owner,
       'notes': notes,

@@ -85,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 16),
                     const Text(
-                      'ImportFlow ERP',
+                      'Sorour Logistics',
                       style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
@@ -95,7 +95,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'منظومة إدارة الاستيراد والتخليص الجمركي الذكية',
+                      'منظومة سرور لإدارة سلاسل الإمداد والاستيراد والتخليص الجمركي',
                       style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                     ),
                     const SizedBox(height: 28),

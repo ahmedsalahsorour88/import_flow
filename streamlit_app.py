@@ -20,7 +20,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "importflow.db")
+DB_PATH = os.path.join(os.path.dirname(__file__), "sorour_logistics.db")
 
 # Custom CSS for the 5-Column Shipment Lifecycle Board (Matching the visual screenshot)
 st.markdown("""

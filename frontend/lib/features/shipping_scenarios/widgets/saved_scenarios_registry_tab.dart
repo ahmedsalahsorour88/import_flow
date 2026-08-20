@@ -646,7 +646,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
   void _showPrintReportDialog(BuildContext context, ShippingEvaluationModel sess) {
     final buffer = StringBuffer();
     buffer.writeln('=====================================================');
-    buffer.writeln('ImportFlow ERP - Shipping Scenario & Quote Report (${sess.sessionCode})');
+    buffer.writeln('Sorour Logistics ERP - Shipping Scenario & Quote Report (${sess.sessionCode})');
     buffer.writeln('Study Title: ${sess.title ?? "N/A"}');
     buffer.writeln('Cargo Ready Date: ${sess.cargoReadyDate} | Pick-up: ${sess.pickUpAddress ?? "N/A"}');
     buffer.writeln('Linked Import File: ${sess.importFileCode ?? "N/A"} | PO: ${sess.poNumber ?? "N/A"}');

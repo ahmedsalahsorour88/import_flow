@@ -8,6 +8,7 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
 import '../widgets/coo_review_tab.dart';
+import '../widgets/customs_document_approval_tab.dart';
 import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
@@ -82,6 +83,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
 
     final tabs = [
       const VerticalNavTabItem(
+        icon: Icons.verified_user,
+        titleEn: 'Docs Customs Approval Hub',
+        titleAr: 'مركز اعتماد المستندات الجمركية',
+      ),
+      const VerticalNavTabItem(
         icon: Icons.fact_check_outlined,
         titleEn: 'PO & Packing Reconciliation',
         titleAr: 'مطابقة الفاتورة وقائمة التعبئة',
@@ -102,7 +108,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleAr: 'مسودة شهادة المنشأ و EUR.1',
       ),
       const VerticalNavTabItem(
-        icon: Icons.verified_user_outlined,
+        icon: Icons.security_outlined,
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
       ),
@@ -136,7 +142,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
-        if (index == 5) {
+        if (index == 6) {
           ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
         }
       },
@@ -147,7 +153,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onPressed: _refreshData,
         ),
       ],
-      body: _selectedSubTab == 5
+      body: _selectedSubTab == 6
           ? SingleChildScrollView(padding: const EdgeInsets.all(20), child: _buildCentralDocsArchiveView())
           : _buildCurrentSubTabContent(),
     );
@@ -156,10 +162,12 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   Widget _buildCurrentSubTabContent() {
     switch (_selectedSubTab) {
       case 0:
-        return POReconciliationTab(initialImportFileId: _selectedImportFileId);
+        return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
       case 1:
-        return DraftBLReviewTab(initialImportFileId: _selectedImportFileId);
+        return POReconciliationTab(initialImportFileId: _selectedImportFileId);
       case 2:
+        return DraftBLReviewTab(initialImportFileId: _selectedImportFileId);
+      case 3:
         return InvoiceBLMatcherTab(
           selectedImportFileId: _selectedImportFileId,
           onImportFileChanged: (newId) {
@@ -168,12 +176,12 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
             });
           },
         );
-      case 3:
-        return COOReviewTab(initialImportFileId: _selectedImportFileId);
       case 4:
+        return COOReviewTab(initialImportFileId: _selectedImportFileId);
+      case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       default:
-        return POReconciliationTab(initialImportFileId: _selectedImportFileId);
+        return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
     }
   }
 

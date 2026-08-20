@@ -364,7 +364,7 @@ class DraftBLExportService {
                       pw.Column(
                         crossAxisAlignment: pw.CrossAxisAlignment.start,
                         children: [
-                          pw.Text('ImportFlow ERP Draft B/L Certification Engine', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                          pw.Text('Sorour Logistics ERP Draft B/L Certification Engine', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                           pw.Text('Generated: ${DateTime.now().toIso8601String().substring(0, 19)}', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                         ],
                       ),
@@ -448,7 +448,7 @@ class DraftBLExportService {
     final rawLine = (draftData['shipping_line'] ?? systemData['shipping_line'] ?? '').toString().trim();
     final shippingLine = rawLine.isNotEmpty ? rawLine : 'OCEAN CARRIER / FREIGHT LINE';
 
-    buffer.writeln('ImportFlow ERP — مسودة بوليصة الشحن البحرية (Draft Bill of Lading)');
+    buffer.writeln('Sorour Logistics ERP — مسودة بوليصة الشحن البحرية (Draft Bill of Lading)');
     buffer.writeln('رقم المسودة (B/L No.),$blNo');
     buffer.writeln('رقم الحجز (Booking Ref.),$bkgNo');
     buffer.writeln('الخط الملاحي (Shipping Line),$shippingLine');

@@ -774,6 +774,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         );
                       },
                     ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                      tooltip: 'إغلاق النافذة',
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
                   ],
                 ),
               ),

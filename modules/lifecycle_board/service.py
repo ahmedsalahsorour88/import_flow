@@ -219,6 +219,111 @@ def set_multi_active_stages_service(db: Session, payload: MultiStageSetPayload) 
     }
 
 
+def skip_step_service(db: Session, payload: "SkipStepPayload") -> Dict[str, Any]:
+    validators.validate_step_code(payload.current_step_code)
+    if payload.next_step_codes:
+        validators.validate_multi_step_codes(payload.next_step_codes)
+
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    # Mark current step as Skipped
+    repo.save_or_update_activity(
+        db,
+        import_file_code=payload.import_file_code,
+        step_code=payload.current_step_code,
+        status="Skipped",
+        completed_at=now_str,
+        notes=f"تم تخطي المرحلة: {payload.skip_reason}",
+    )
+
+    # Activate next step(s)
+    for next_code in payload.next_step_codes:
+        repo.save_or_update_activity(
+            db,
+            import_file_code=payload.import_file_code,
+            step_code=next_code,
+            status="In-Progress",
+            started_at=now_str,
+            notes=f"تم التفعيل بعد تخطي {payload.current_step_code}",
+        )
+
+    # Update ImportFile record's skipped_stages and current_stage if found
+    file_rec = db.query(ImportFile).filter(ImportFile.import_file_code == payload.import_file_code).first()
+    if file_rec:
+        current_skipped = list(file_rec.skipped_stages or [])
+        if payload.current_step_code not in current_skipped:
+            current_skipped.append(payload.current_step_code)
+            file_rec.skipped_stages = current_skipped
+
+        if payload.next_step_codes:
+            first_next = payload.next_step_codes[0]
+            names = STEP_NAME_MAP.get(first_next, (first_next, first_next))
+            phase_id = STEP_TO_PHASE_MAP.get(first_next, 1)
+            file_rec.current_module = f"{first_next} {names[0]}"
+            file_rec.current_stage = f"Phase {phase_id}"
+            file_rec.next_action = f"Execute {names[0]} ({names[1]})"
+
+        db.commit()
+
+    return {
+        "message": f"تم تخطي الخطوة {payload.current_step_code} وتفعيل الخطوات اللاحقة بنجاح.",
+        "skipped_step": payload.current_step_code,
+        "activated_steps": payload.next_step_codes,
+        "skip_reason": payload.skip_reason,
+    }
+
+
+def initialize_file_lifecycle_service(db: Session, import_file_code: str, starting_step: str = "STEP_01") -> None:
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    step_num = int(starting_step.replace("STEP_", "")) if starting_step.startswith("STEP_") else 1
+
+    # Mark prior steps as Pre-Completed / Skipped
+    for i in range(1, step_num):
+        prior_code = f"STEP_{str(i).zfill(2)}"
+        repo.save_or_update_activity(
+            db,
+            import_file_code=import_file_code,
+            step_code=prior_code,
+            status="Completed",
+            completed_at=now_str,
+            notes="تم تجاوزها واكتمالها لبدء الشحنة مباشرة من مرحلة لاحقة",
+        )
+
+    # Activate starting step
+    repo.save_or_update_activity(
+        db,
+        import_file_code=import_file_code,
+        step_code=starting_step,
+        status="In-Progress",
+        started_at=now_str,
+        notes=f"نقطة البداية المحددة للشحنة: {starting_step}",
+    )
+
+
+def hold_shipment_activities_service(db: Session, import_file_code: str, hold_reason: str) -> None:
+    activities = db.query(repo.ShipmentStageActivity).filter(
+        repo.ShipmentStageActivity.import_file_code == import_file_code,
+        repo.ShipmentStageActivity.status == "In-Progress",
+    ).all()
+
+    for act in activities:
+        act.status = "On-Hold"
+        act.notes = f"معلقة مؤقتاً: {hold_reason}"
+    db.commit()
+
+
+def resume_shipment_activities_service(db: Session, import_file_code: str, resume_notes: Optional[str] = None) -> None:
+    activities = db.query(repo.ShipmentStageActivity).filter(
+        repo.ShipmentStageActivity.import_file_code == import_file_code,
+        repo.ShipmentStageActivity.status == "On-Hold",
+    ).all()
+
+    for act in activities:
+        act.status = "In-Progress"
+        act.notes = f"تم الاستئناف: {resume_notes or 'استئناف تشغيل الشحنة'}"
+    db.commit()
+
+
 def _ensure_initial_stages(db: Session):
     # If no stage activities exist for open import files, seed default stages
     count = db.query(repo.ShipmentStageActivity).count()
@@ -226,7 +331,7 @@ def _ensure_initial_stages(db: Session):
         files = db.query(ImportFile).filter(ImportFile.is_active == True).limit(5).all()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         for i, f in enumerate(files):
-            step_code = f"STEP_{str((i % 6) + 1).zfill(2)}"
+            step_code = getattr(f, 'initial_starting_step', None) or f"STEP_{str((i % 6) + 1).zfill(2)}"
             repo.save_or_update_activity(
                 db,
                 import_file_code=f.import_file_code,
@@ -236,5 +341,7 @@ def _ensure_initial_stages(db: Session):
                 notes="تهيئة أولية لنشاط الشحنة",
             )
 
+
 def get_all_activities_service(db: Session, import_file_code: str):
     return repo.get_all_activities(db, import_file_code=import_file_code)
+

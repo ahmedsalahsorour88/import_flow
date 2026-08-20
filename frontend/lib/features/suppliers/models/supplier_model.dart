@@ -26,6 +26,8 @@ class SupplierModel {
   final String? notes;
   final bool isActive;
 
+  String get country => foreignExporterCountry;
+
   SupplierModel({
     this.supplierId,
     required this.supplierCode,

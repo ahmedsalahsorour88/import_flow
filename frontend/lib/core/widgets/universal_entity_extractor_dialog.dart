@@ -37,6 +37,7 @@ class UniversalEntityExtractorDialog extends StatefulWidget {
 }
 
 class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtractorDialog> {
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late EntityTarget _selectedTarget;
   int _inputModeTab = 0; // 0: Raw Text, 1: File/Image
   bool _isExtracting = false;
@@ -64,6 +65,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   final String _supplierType = 'Manufacturer';
 
   // Importer Specific
+  String _importerCountry = 'Egypt';
   final TextEditingController _importerCountryCtrl = TextEditingController(text: 'Egypt');
   final TextEditingController _taxIdCtrl = TextEditingController(); // 9-digits Egyptian Tax
   final TextEditingController _commercialRegisterCtrl = TextEditingController();
@@ -276,6 +278,10 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     final arabicName = _arabicNameCtrl.text.trim();
     final effectiveName = arabicName.isNotEmpty ? arabicName : name;
 
+    if (_formKey.currentState != null && !_formKey.currentState!.validate()) {
+      return;
+    }
+
     if (effectiveName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('⚠️ اسم الشركة / الجهة مطلوب لإتمام الحفظ والتكويد.'), backgroundColor: AppTheme.orange),
@@ -328,7 +334,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           payload = {
             'importer_name': finalName,
             'address': _addressCtrl.text.trim().isNotEmpty ? _addressCtrl.text.trim() : 'Cairo, Egypt',
-            'country': _importerCountryCtrl.text.trim().isNotEmpty ? _importerCountryCtrl.text.trim() : 'Egypt',
+            'country': _importerCountry.isNotEmpty ? _importerCountry : (_importerCountryCtrl.text.trim().isNotEmpty ? _importerCountryCtrl.text.trim() : 'Egypt'),
             'importer_id': impId.isNotEmpty ? impId : 'IMP-${DateTime.now().millisecondsSinceEpoch}',
             'importer_id_expiry': '${_importerIdExpiry.year}-${_importerIdExpiry.month.toString().padLeft(2, '0')}-${_importerIdExpiry.day.toString().padLeft(2, '0')}',
             'vat_id': vatId.isNotEmpty ? vatId : '000000000',
@@ -395,8 +401,15 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     } catch (e) {
       if (mounted) {
         setState(() => _isSaving = false);
+        String errMsg = 'خطأ أثناء الحفظ في قاعدة البيانات';
+        if (e is DioException) {
+          final detail = e.response?.data is Map ? e.response?.data['detail'] : null;
+          errMsg = detail != null ? detail.toString() : (e.message ?? errMsg);
+        } else {
+          errMsg = '$e';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الحفظ في قاعدة البيانات: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text('❌ $errMsg'), backgroundColor: AppTheme.crimson),
         );
       }
     }
@@ -666,8 +679,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
 
                           // Scrollable Form Fields
                           Expanded(
-                            child: SingleChildScrollView(
-                              child: _buildDedicatedFormForTarget(_selectedTarget),
+                            child: Form(
+                              key: _formKey,
+                              child: SingleChildScrollView(
+                                child: _buildDedicatedFormForTarget(_selectedTarget),
+                              ),
                             ),
                           ),
 
@@ -755,13 +771,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
+        TextFormField(
           controller: _companyNameCtrl,
           decoration: const InputDecoration(
             labelText: 'اسم المورد الأجنبي بالإنجليزية (Company English Name) *',
             prefixIcon: Icon(Icons.business_rounded, size: 18),
             hintText: 'e.g. Suzhou Yuheng Textile Co., Ltd',
           ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم المورد الأجنبي مطلوب' : null,
         ),
         const SizedBox(height: 10),
         Row(
@@ -907,13 +924,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         Row(
           children: [
             Expanded(
-              child: TextField(
+              child: TextFormField(
                 controller: _arabicNameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'اسم الشركة المستوردة بالعربي *',
                   prefixIcon: Icon(Icons.domain_rounded, size: 18),
                   hintText: 'مثال: شركة النور للاستيراد والتصدير',
                 ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الشركة بالعربي مطلوب' : null,
               ),
             ),
             const SizedBox(width: 10),
@@ -948,13 +966,22 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             const SizedBox(width: 10),
             Expanded(
               flex: 2,
-              child: TextField(
-                controller: _importerCountryCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'الدولة (Country) *',
-                  prefixIcon: Icon(Icons.flag_rounded, size: 18),
-                  hintText: 'Egypt',
-                ),
+              child: SearchableDropdownField<String>(
+                value: _importerCountry,
+                labelText: 'الدولة (Country) *',
+                searchHintText: 'ابحث عن الدولة...',
+                items: _countryList.map((c) => SearchableDropdownItem<String>(
+                  value: c['name'] ?? 'Egypt',
+                  label: c['name'] ?? 'Egypt',
+                )).toList(),
+                onChanged: (val) {
+                  if (val != null) {
+                    setState(() {
+                      _importerCountry = val;
+                      _importerCountryCtrl.text = val;
+                    });
+                  }
+                },
               ),
             ),
           ],
@@ -1158,13 +1185,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             const SizedBox(width: 10),
             Expanded(
               flex: 3,
-              child: TextField(
+              child: TextFormField(
                 controller: _companyNameCtrl,
                 decoration: const InputDecoration(
                   labelText: 'الاسم التجاري للشريك / المكتب *',
                   prefixIcon: Icon(Icons.handshake_rounded, size: 18),
                   hintText: 'مثال: مكتب النسر للتخليص الجمركي',
                 ),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الشريك مطلوب' : null,
               ),
             ),
           ],
@@ -1250,13 +1278,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
+        TextFormField(
           controller: _companyNameCtrl,
           decoration: const InputDecoration(
             labelText: 'اسم البنك والمؤسسة المصرفية *',
             prefixIcon: Icon(Icons.account_balance_rounded, size: 18),
             hintText: 'مثال: البنك التجاري الدولي (CIB) أو Banque Misr',
           ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم البنك مطلوب' : null,
         ),
         const SizedBox(height: 10),
         Row(

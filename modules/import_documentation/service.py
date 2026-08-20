@@ -26,6 +26,12 @@ from modules.import_documentation.schemas import (
     POReconciliationSessionCreate,
     POReconciliationSessionUpdate,
     POReconciliationSessionResponse,
+    COODraftTemplateResponse,
+    InspectionDraftTemplateResponse,
+    DocumentExtractRequest,
+    DocumentExtractResponse,
+    ThreeWayCrossMatchRequest,
+    ThreeWayCrossMatchResponse,
 )
 
 from modules.import_documentation.validators import (
@@ -42,6 +48,13 @@ from modules.import_documentation.nafeza_acid_parser import (
     compare_acid_data,
     generate_whatsapp_request_text,
     generate_email_request_template,
+)
+from modules.import_documentation.ai_document_parser import (
+    extract_coo_china_ccpit_text,
+    extract_eur1_certificate_text,
+    extract_inspection_voc_certificate_text,
+    _heuristic_multi_carrier_extractor as extract_draft_bl_data,
+    extract_commercial_invoice_data,
 )
 
 
@@ -1764,6 +1777,433 @@ def create_inspection_review_service(db: Session, schema: InspectionCertificateR
 
 def update_inspection_review_service(db: Session, review_id: int, schema: InspectionCertificateReviewUpdate) -> InspectionCertificateReviewSession:
     return repo.update_inspection_review(db, review_id, schema)
+
+
+# --- SPECIALIZED CERTIFICATE DRAFT GENERATORS, EXTRACTION & CROSS-MATCHING ---
+
+def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_type: str = "EUR.1") -> COODraftTemplateResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    reconciliation = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id,
+        POPackingReconciliationSession.is_active == True
+    ).first()
+    booking = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == import_file_id,
+        ShipmentBooking.is_active == True
+    ).first()
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+
+    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
+    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
+    inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
+    gross_wt = float(getattr(reconciliation, 'total_gross_weight_kg', None) or getattr(booking, 'gross_weight', None) or getattr(imp_file, 'total_weight', None) or 1774.514)
+    pkgs = int(getattr(reconciliation, 'total_packages', None) or getattr(booking, 'packages_count', None) or getattr(imp_file, 'total_packages', None) or 141)
+
+    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB NARBUTAS INTERNATIONAL"
+    exporter_addr = (supplier.address if supplier else None) or "EITMINIU G. 3, LT012113, VILNIUS, LITHUANIA"
+    exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or "LT300591314"
+
+    importer_name = (company.importer_name if company else imp_file.company_name) or "ARCHI BRANDS FOR CORPET AND FLOOR TRADING"
+    importer_addr = (company.address if company else None) or "STREET 18, BUILDING 44, THIRD FLOOR, CAIRO 11728, EGYPT"
+
+    origin_country = (supplier.foreign_exporter_country if supplier else None) or "Lithuania"
+    dest_country = "EGYPT"
+    pol = (booking.pol_port_name if booking else None) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI / VILNIUS"
+    pod = (booking.pod_port_name if booking else None) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
+
+    is_china = "CHINA" in cert_type.upper() or "CCPIT" in cert_type.upper() or "CHINA" in str(origin_country).upper()
+
+    if is_china:
+        cert_name = "China Certificate of Origin (CCPIT)"
+        template = {
+            "certificate_type": cert_name,
+            "certificate_number": f"26C{import_file_id:06d}/00001",
+            "box_1_exporter": f"{exporter_name}\n{exporter_addr}",
+            "box_2_consignee": f"{importer_name}\n{importer_addr}",
+            "box_3_means_of_transport": f"FROM {pol} TO {pod} BY SEA",
+            "box_4_country_of_destination": dest_country,
+            "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
+            "box_6_marks_and_numbers": "Acoustic Panel / Office Furniture",
+            "box_7_description_and_acid": f"COMMERCIAL CARGO ACID:{acid_no}",
+            "box_8_hs_code": "560229",
+            "box_9_quantity_and_weight": f"{pkgs} SHEETS / PACKAGES\nG.WEIGHT {gross_wt:,.2f} KGS G.W.",
+            "box_10_invoice_number_and_date": f"{invoice_no}\n{inv_date}",
+            "box_11_declaration_by_exporter": f"SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
+            "box_12_certification": f"CCPIT SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
+            "verification_url": "http://check.ecoccpit.net/",
+        }
+        markdown = f"""# CERTIFICATE OF ORIGIN (PEOPLE'S REPUBLIC OF CHINA)
+**Certificate No:** {template['certificate_number']}
+**1. Exporter:** {exporter_name}, {exporter_addr}
+**2. Consignee:** {importer_name}, {importer_addr}
+**3. Transport:** {template['box_3_means_of_transport']}
+**4. Destination:** {dest_country}
+**5. Certifying Authority:** {template['box_5_certifying_authority']}
+**7. Description & ACID:** {template['box_7_description_and_acid']}
+**8. H.S. Code:** {template['box_8_hs_code']}
+**9. Quantity & Gross Weight:** {template['box_9_quantity_and_weight']}
+**10. Invoice No & Date:** {template['box_10_invoice_number_and_date']}
+**Official Verification URL:** {template['verification_url']}"""
+        exemption = "المنشأ صيني: تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%."
+    else:
+        # EUR.1
+        cert_name = "EUR.1 Movement Certificate"
+        template = {
+            "certificate_type": cert_name,
+            "certificate_number": f"No A {100000 + import_file_id:06d}",
+            "box_1_exporter": f"{exporter_reg}, {exporter_name}\n{exporter_addr}",
+            "box_2_preferential_trade": "EU and EGYPT",
+            "box_3_consignee": f"{importer_name}\n{importer_addr}",
+            "box_4_country_origin": "EU",
+            "box_5_country_destination": dest_country,
+            "box_6_transport_details": f"BY SEA FROM {pol} TO {pod}",
+            "box_7_remarks": "REVISED RULES",
+            "box_8_description_packages": f"OFFICE FURNITURE {pkgs} PACKAGES HS9401; HS9403",
+            "box_9_gross_mass": f"{gross_wt:,.3f} KG",
+            "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {invoice_no}",
+            "box_11_customs_endorsement": f"Customs Office EU - {date.today()}",
+            "box_12_declaration_by_exporter": f"{exporter_name} - {date.today()}",
+            "is_revised_rules_compliant": True,
+        }
+        markdown = f"""# MOVEMENT CERTIFICATE (EUR.1)
+**Certificate No:** {template['certificate_number']}
+**1. Exporter:** {template['box_1_exporter']}
+**2. Preferential Trade Between:** EU and EGYPT
+**3. Consignee:** {template['box_3_consignee']}
+**4. Country of Origin:** EU
+**5. Country of Destination:** EGYPT
+**7. Remarks:** **REVISED RULES** *(إلزامي للإعفاء التفضيلى الكامل)*
+**8. Description of Goods:** {template['box_8_description_packages']}
+**9. Gross Mass:** {template['box_9_gross_mass']}
+**10. Invoices & ACID:** {template['box_10_invoices_and_acid']}
+**11. Customs Endorsement:** {template['box_11_customs_endorsement']}"""
+        exemption = "مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
+
+    return COODraftTemplateResponse(
+        import_file_id=import_file_id,
+        import_file_code=imp_file.import_file_code or f"IMP-{import_file_id:04d}",
+        certificate_type=cert_name,
+        template_data=template,
+        preview_markdown=markdown,
+        exemption_notes=exemption,
+    )
+
+
+def generate_inspection_draft_template_service(
+    db: Session,
+    import_file_id: int,
+    agency: str = "COTECNA",
+    cert_type: str = "COC (Certificate of Conformity)"
+) -> InspectionDraftTemplateResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    reconciliation = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id,
+        POPackingReconciliationSession.is_active == True
+    ).first()
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+
+    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271015010011"
+    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
+    inv_amount = float(getattr(reconciliation, 'total_invoice_amount', None) or getattr(imp_file, 'estimated_cost', None) or getattr(imp_file, 'fob_amount', None) or 15375.50)
+    inv_currency = getattr(reconciliation, 'currency', None) or getattr(imp_file, 'estimated_cost_currency', None) or getattr(imp_file, 'currency', None) or "EUR"
+    incoterm_val = getattr(imp_file, 'incoterm_code', None) or getattr(imp_file, 'incoterm', None) or "EXW"
+
+    importer_name = (company.importer_name if company else imp_file.company_name) or "Archi brands for corpet and floor trading"
+    importer_addr = (company.address if company else None) or "Maadi, Street 18, Building 44, Third Floor, Cairo 11728 - Egypt"
+
+    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB Narbutas International"
+    exporter_addr = (supplier.address if supplier else None) or "Eitminų g. 3, 12113, Vilnius - Lithuania"
+
+    applicable_standards = [
+        "ES 4029-1 / 2024 (Furniture Tables: Determination of Stability & Safety)",
+        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
+        "ES 495-1/2005 + ES 495-2/2015 + ES 495-3/2005 (Office Work Chairs: Dimensions & Safety)",
+        "ES 5309-1/2017 + ES 5310/2017 (Upright Chairs and Stools: Strength & Durability)",
+        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
+    ]
+
+    template = {
+        "inspection_agency": agency,
+        "inspection_type": cert_type,
+        "coc_number": f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
+        "is_draft": True,
+        "confirmation_deadline": "PLEASE CONFIRM THIS DRAFT WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE AS IT IS",
+        "importer_name_and_address": f"{importer_name}\n{importer_addr}",
+        "exporter_name_and_address": f"{exporter_name}\n{exporter_addr}",
+        "producer_name_and_address": f"{exporter_name}\n{exporter_addr}",
+        "country_of_origin": supplier.foreign_exporter_country if supplier else "Lithuania",
+        "acid_number": acid_no,
+        "commercial_invoices": [
+            {
+                "invoice_number": invoice_no,
+                "invoice_date": str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today()),
+                "amount": inv_amount,
+                "currency": inv_currency,
+                "incoterm": incoterm_val,
+            }
+        ],
+        "total_value": f"{inv_amount:,.2f} {inv_currency}",
+        "place_of_inspection": supplier.foreign_exporter_country if supplier else "Lithuania",
+        "date_of_inspection": str(date.today()),
+        "port_of_entry": getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "Alexandria",
+        "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
+        "applicable_standards": applicable_standards,
+    }
+
+    markdown = f"""# {agency.upper()} - CERTIFICATE OF CONFORMITY (COC / VoC)
+**Arabic Republic of Egypt - Inspection Program**
+⚠️ **DRAFT NOTICE:** *{template['confirmation_deadline']}*
+
+**CoC No:** {template['coc_number']} | **Date:** {template['date_of_inspection']}
+**Importer:** {importer_name} ({importer_addr})
+**Exporter & Producer:** {exporter_name} ({exporter_addr})
+**ACID Number:** **{acid_no}**
+**Value:** {template['total_value']} ({incoterm_val})
+**Point of Entry:** {template['port_of_entry']}
+**Inspection Place:** {template['place_of_inspection']}
+
+### 📋 Egyptian Mandatory Standards Tested:
+""" + "\n".join([f"- {s}" for s in applicable_standards])
+
+    return InspectionDraftTemplateResponse(
+        import_file_id=import_file_id,
+        import_file_code=imp_file.import_file_code or f"IMP-{import_file_id:04d}",
+        inspection_agency=agency,
+        inspection_type=cert_type,
+        template_data=template,
+        preview_markdown=markdown,
+        applicable_standards=applicable_standards,
+    )
+
+
+def extract_document_service(request: DocumentExtractRequest) -> DocumentExtractResponse:
+    raw_text = request.raw_text or ""
+    doc_type = request.document_type.upper()
+    warnings = []
+    is_draft = False
+
+    if "CHINA" in doc_type or "CCPIT" in doc_type:
+        data = extract_coo_china_ccpit_text(raw_text)
+    elif "EUR" in doc_type or "EUR1" in doc_type:
+        data = extract_eur1_certificate_text(raw_text)
+        if not data.get("is_revised_rules"):
+            warnings.append("تنبيه: عبارة 'REVISED RULES' غير واضحة في خانة الملاحظات 7 - قد لا يُقبل الإعفاء التفضيلى.")
+    elif "INSP" in doc_type or "VOC" in doc_type or "COC" in doc_type:
+        data = extract_inspection_voc_certificate_text(raw_text)
+        is_draft = data.get("is_draft", False)
+        if is_draft:
+            warnings.append("تحذير: الشهادة الحالية تحمل صفة مسودة (DRAFT) - يجب تأكيدها خلال 48 ساعة وإصدار النسخة الرسمية.")
+    elif "BL" in doc_type:
+        data = extract_draft_bl_data(raw_text)
+    elif "INV" in doc_type or "INVOICE" in doc_type:
+        data = extract_commercial_invoice_data(raw_text)
+    else:
+        # Generic heuristic extraction
+        acid_m = re.search(r'\b([0-9]{19})\b', raw_text)
+        data = {
+            "raw_text_length": len(raw_text),
+            "acid_number": acid_m.group(1) if acid_m else "",
+        }
+
+    return DocumentExtractResponse(
+        document_type=request.document_type,
+        extracted_data=data,
+        warnings=warnings,
+        is_draft_detected=is_draft,
+    )
+
+
+def cross_match_certificates_service(db: Session, request: ThreeWayCrossMatchRequest) -> ThreeWayCrossMatchResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == request.import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+
+    sys_acid = (acid_session.acid_number if acid_session else None) or imp_file.acid_number
+    sys_importer = (company.importer_name if company else imp_file.company_name) or ""
+    sys_supplier = (supplier.company_name if supplier else imp_file.supplier_name) or ""
+
+    coo = request.coo_data or {}
+    insp = request.inspection_data or {}
+    bl = request.bl_data or {}
+    inv = request.invoice_data or {}
+    pkg = request.packing_list_data or {}
+
+    matrix = []
+    critical_discrepancies = []
+    warning_discrepancies = []
+
+    # 1. ACID Number Cross-Check
+    coo_acid = coo.get("acid_number") or ""
+    insp_acid = insp.get("acid_number") or ""
+    bl_acid = bl.get("acid_number") or ""
+    inv_acid = inv.get("acid_number") or ""
+
+    acids_present = [a for a in [sys_acid, coo_acid, insp_acid, bl_acid, inv_acid] if a]
+    acid_match = True
+    if acids_present:
+        first_acid = acids_present[0]
+        for a in acids_present:
+            if a != first_acid:
+                acid_match = False
+                break
+
+    if acid_match and acids_present:
+        matrix.append({
+            "check_item": "رقم القيد الجمركي المسبق (ACID Number 19-digits)",
+            "status": "MATCH",
+            "severity": "NONE",
+            "system_value": sys_acid,
+            "compared_values": {"coo": coo_acid, "inspection": insp_acid, "bl": bl_acid, "invoice": inv_acid},
+            "details": f"مطابقة تامة لرقم الـ ACID ({first_acid}) عبر كافة المستندات.",
+        })
+    else:
+        critical_discrepancies.append("اختلاف أو غياب في رقم الـ ACID بين المستندات الجمركية!")
+        matrix.append({
+            "check_item": "رقم القيد الجمركي المسبق (ACID Number 19-digits)",
+            "status": "MISMATCH_CRITICAL",
+            "severity": "BLOCKING",
+            "system_value": sys_acid,
+            "compared_values": {"coo": coo_acid, "inspection": insp_acid, "bl": bl_acid, "invoice": inv_acid},
+            "details": "عدم تطابق رقم الـ ACID يمنع الإفراج الجمركي على منظومة نافذة.",
+        })
+
+    # 2. Importer / Consignee Cross-Check
+    coo_imp = coo.get("importer_name") or ""
+    insp_imp = insp.get("importer_name") or ""
+    bl_imp = bl.get("consignee") or bl.get("importer_name") or ""
+    m1, r1 = _fuzzy_match(sys_importer, coo_imp)
+    m2, r2 = _fuzzy_match(sys_importer, insp_imp)
+    m3, r3 = _fuzzy_match(sys_importer, bl_imp)
+    imp_matched = (m1 or not coo_imp) and (m2 or not insp_imp) and (m3 or not bl_imp)
+
+    matrix.append({
+        "check_item": "اسم الشركة المستوردة (Importer / Consignee)",
+        "status": "MATCH" if imp_matched else "MISMATCH_CRITICAL",
+        "severity": "NONE" if imp_matched else "BLOCKING",
+        "system_value": sys_importer,
+        "compared_values": {"coo": coo_imp, "inspection": insp_imp, "bl": bl_imp},
+        "details": "مطابقة اسم المستورد المصري" if imp_matched else "تطابق اسم المستورد مع السجل التجاري والبطاقة الاستيرادية مطلوب.",
+    })
+    if not imp_matched:
+        critical_discrepancies.append("اختلاف اسم المستورد بين مسودة البوليصة والشهادات.")
+
+    # 3. Exporter / Supplier Cross-Check
+    coo_exp = coo.get("exporter_name") or ""
+    insp_exp = insp.get("exporter_name") or ""
+    bl_exp = bl.get("shipper") or bl.get("exporter_name") or ""
+    e1, _ = _fuzzy_match(sys_supplier, coo_exp)
+    e2, _ = _fuzzy_match(sys_supplier, insp_exp)
+    e3, _ = _fuzzy_match(sys_supplier, bl_exp)
+    exp_matched = (e1 or not coo_exp) and (e2 or not insp_exp) and (e3 or not bl_exp)
+
+    matrix.append({
+        "check_item": "المورد / المصدر الأجنبي (Exporter / Shipper)",
+        "status": "MATCH" if exp_matched else "MISMATCH_CRITICAL",
+        "severity": "NONE" if exp_matched else "BLOCKING",
+        "system_value": sys_supplier,
+        "compared_values": {"coo": coo_exp, "inspection": insp_exp, "bl": bl_exp},
+        "details": "مطابقة تامة لبيانات المصنع والمورد الأجنبي" if exp_matched else "اختلاف في اسم أو عنوان المصدر الأجنبي.",
+    })
+    if not exp_matched:
+        critical_discrepancies.append("اختلاف في بيانات المورد الأجنبي.")
+
+    # 4. Gross Weight Cross-Check
+    coo_wt = float(coo.get("gross_weight_kg") or 0.0)
+    bl_wt = float(bl.get("total_gross_weight") or bl.get("gross_weight_kg") or 0.0)
+    pkg_wt = float(pkg.get("total_gross_weight_kg") or 0.0)
+    wts = [w for w in [coo_wt, bl_wt, pkg_wt] if w > 0]
+    wt_matched = True
+    if len(wts) >= 2:
+        max_w = max(wts)
+        min_w = min(wts)
+        diff_pct = abs(max_w - min_w) / max_w * 100
+        if diff_pct > 0.5:
+            wt_matched = False
+            warning_discrepancies.append(f"فرق في الوزن القائم بين المستندات بنسبة ({diff_pct:.2f}%).")
+
+    sys_weight_val = getattr(imp_file, 'total_weight', None) or (pkg.get('total_gross_weight_kg') if pkg else None) or coo_wt or bl_wt or 0.0
+
+    matrix.append({
+        "check_item": "الوزن القائم الإجمالي (Total Gross Weight KG)",
+        "status": "MATCH" if wt_matched else "MISMATCH_MINOR",
+        "severity": "NONE" if wt_matched else "WARNING",
+        "system_value": f"{sys_weight_val} KG",
+        "compared_values": {"coo_weight": coo_wt, "bl_weight": bl_wt, "packing_weight": pkg_wt},
+        "details": "الوزن متطابق ضمن نسبة السماح 0.5%" if wt_matched else "يرجى توحيد الوزن القائم في البوليصة وقائمة التعبئة لتفادي غرامات الجمارك.",
+    })
+
+    # 5. EUR.1 Revised Rules Exemption Check
+    if "EUR" in str(coo.get("certificate_type", "")).upper():
+        revised = coo.get("is_revised_rules", False) or "REVISED RULES" in str(coo.get("remarks", "")).upper()
+        matrix.append({
+            "check_item": "شرط القواعد المعدلة لليورو 1 (EUR.1 Box 7 REVISED RULES)",
+            "status": "MATCH" if revised else "MISMATCH_CRITICAL",
+            "severity": "NONE" if revised else "BLOCKING",
+            "system_value": "REVISED RULES (إلزامي للإعفاء)",
+            "compared_values": {"coo_remarks": coo.get("remarks", "")},
+            "details": "مستوفٍ لقواعد المنشأ المعدلة وتطبيق ضريبة وارد 0%" if revised else "تحذير: غياب عبارة REVISED RULES قد يؤدي لرفض الإعفاء الجمركي.",
+        })
+        if not revised:
+            critical_discrepancies.append("غياب عبارة REVISED RULES في الخانة 7 بشهادة EUR.1.")
+
+    # 6. Inspection Draft Warning Check
+    if insp.get("is_draft"):
+        matrix.append({
+            "check_item": "حالة شهادة الفحص (Inspection Cert Draft Status)",
+            "status": "MISMATCH_MINOR",
+            "severity": "WARNING",
+            "system_value": "Original Final Certificate Required",
+            "compared_values": {"status": "DRAFT", "warning": insp.get("draft_warning")},
+            "details": "الشهادة مسودة DRAFT وتحتاج إلى تأكيد لإصدار النسخة النهائية المرقمة والموقعة.",
+        })
+        warning_discrepancies.append("شهادة الفحص والتفتيش الحالية مسودة وتحتاج إلى اعتماد نهائي.")
+
+    is_safe = len(critical_discrepancies) == 0
+    total_checks = len(matrix)
+    passed_checks = len([m for m in matrix if m["status"] == "MATCH"])
+    score = round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 100.0
+
+    overall = "FULLY_MATCHED" if (is_safe and not warning_discrepancies) else ("ACCEPTED_WITH_WARNINGS" if is_safe else "DISCREPANCY_DETECTED")
+
+    summary_ar = (
+        f"اكتمل الفحص المتقاطع للمستندات بنسبة مطابقة {score}%. "
+        + ("الشحنة مستوفية وجاهزة للربط والاعتماد الجمركي." if is_safe else f"يوجد {len(critical_discrepancies)} أخطاء حرجة تتطلب التصحيح الفوري قبل الشحن والإفراج.")
+    )
+
+    return ThreeWayCrossMatchResponse(
+        import_file_id=request.import_file_id,
+        import_file_code=imp_file.import_file_code or f"IMP-{request.import_file_id:04d}",
+        overall_status=overall,
+        match_score=score,
+        is_safe_for_customs=is_safe,
+        matrix=matrix,
+        critical_discrepancies=critical_discrepancies,
+        warning_discrepancies=warning_discrepancies,
+        compliance_summary_ar=summary_ar,
+    )
 
 
 # --- 5. ACID & IMPORTER LEGAL DOCS EXPIRY & ETA + 30 DAYS SAFETY MARGIN ENGINE ---

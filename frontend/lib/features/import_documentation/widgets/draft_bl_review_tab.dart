@@ -276,19 +276,21 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     try {
       final payload = {
         'import_file_id': _selectedImportFileId,
-        'draft_bl_number': _draftBlNumberCtrl.text.trim().isNotEmpty ? _draftBlNumberCtrl.text.trim() : 'DRAFT-BL',
-        'shipping_line': _shippingLineCtrl.text.trim(),
-        'vessel_name': _vesselNameCtrl.text.trim(),
-        'voyage_number': _voyageCtrl.text.trim(),
-        'booking_no': _bookingNoCtrl.text.trim(),
-        'freight_terms': _freightTermsCtrl.text.trim(),
-        'place_of_delivery': _placeOfDeliveryCtrl.text.trim(),
-        'importer_tax_id': _comparisonResult?.systemData['importer_tax_id'] ?? 'TAX-ID',
-        'shipper_reg_id': _comparisonResult?.systemData['shipper_reg_id'] ?? 'REG-ID',
-        'measurement_cbm': double.tryParse(_cbmCtrl.text) ?? 0.0,
-        'net_weight_kg': double.tryParse(_netWeightCtrl.text) ?? 0.0,
-        'packages_count': int.tryParse(_packagesCountCtrl.text) ?? 0,
-        'container_summary': _containerNoCtrl.text.trim(),
+        'draft_bl_number': _draftBlNumberCtrl.text.trim().isNotEmpty
+            ? _draftBlNumberCtrl.text.trim()
+            : (_comparisonResult?.draftData['draft_bl_number']?.toString() ?? 'DRAFT-BL-${DateTime.now().millisecondsSinceEpoch}'),
+        'shipping_line': _shippingLineCtrl.text.trim().isNotEmpty ? _shippingLineCtrl.text.trim() : (_comparisonResult?.draftData['shipping_line']?.toString() ?? ''),
+        'vessel_name': _vesselNameCtrl.text.trim().isNotEmpty ? _vesselNameCtrl.text.trim() : (_comparisonResult?.draftData['vessel_name']?.toString() ?? ''),
+        'voyage_number': _voyageCtrl.text.trim().isNotEmpty ? _voyageCtrl.text.trim() : (_comparisonResult?.draftData['voyage_number']?.toString() ?? ''),
+        'booking_no': _bookingNoCtrl.text.trim().isNotEmpty ? _bookingNoCtrl.text.trim() : (_comparisonResult?.draftData['booking_no']?.toString() ?? ''),
+        'freight_terms': _freightTermsCtrl.text.trim().isNotEmpty ? _freightTermsCtrl.text.trim() : (_comparisonResult?.draftData['freight_terms']?.toString() ?? 'Prepaid'),
+        'place_of_delivery': _placeOfDeliveryCtrl.text.trim().isNotEmpty ? _placeOfDeliveryCtrl.text.trim() : (_comparisonResult?.draftData['place_of_delivery']?.toString() ?? ''),
+        'importer_tax_id': _comparisonResult?.systemData['importer_tax_id']?.toString() ?? '',
+        'shipper_reg_id': _comparisonResult?.systemData['shipper_reg_id']?.toString() ?? '',
+        'measurement_cbm': double.tryParse(_cbmCtrl.text) ?? ((_comparisonResult?.draftData['cbm'] as num?)?.toDouble() ?? 0.0),
+        'net_weight_kg': double.tryParse(_netWeightCtrl.text) ?? ((_comparisonResult?.draftData['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0),
+        'packages_count': int.tryParse(_packagesCountCtrl.text) ?? ((_comparisonResult?.draftData['qty_pkg'] as num?)?.toInt() ?? 0),
+        'container_summary': _containerNoCtrl.text.trim().isNotEmpty ? _containerNoCtrl.text.trim() : (_comparisonResult?.draftData['container_summary']?.toString() ?? ''),
         'stage': _comparisonResult!.stage,
         'system_snapshot_data': _comparisonResult!.systemData,
         'draft_input_data': _comparisonResult!.draftData,
@@ -663,8 +665,32 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                                 ))
                             .toList(),
                         onChanged: (v) {
-                          if (v != null) {
-                            setState(() => _selectedImportFileId = v);
+                          if (v != null && v != _selectedImportFileId) {
+                            setState(() {
+                              _selectedImportFileId = v;
+                              _rawTextCtrl.clear();
+                              _draftBlNumberCtrl.clear();
+                              _bookingNoCtrl.clear();
+                              _shipperCtrl.clear();
+                              _consigneeCtrl.clear();
+                              _notifyPartyCtrl.clear();
+                              _shippingLineCtrl.clear();
+                              _vesselNameCtrl.clear();
+                              _voyageCtrl.clear();
+                              _polCtrl.clear();
+                              _podCtrl.clear();
+                              _freightTermsCtrl.clear();
+                              _placeOfDeliveryCtrl.clear();
+                              _goodsDescCtrl.clear();
+                              _grossWeightCtrl.clear();
+                              _netWeightCtrl.clear();
+                              _cbmCtrl.clear();
+                              _packagesCountCtrl.clear();
+                              _containerNoCtrl.clear();
+                              _sealNoCtrl.clear();
+                              _comparisonResult = null;
+                              _activeSession = null;
+                            });
                             _runComparison(silent: false);
                           }
                         },

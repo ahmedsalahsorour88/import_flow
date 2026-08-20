@@ -1,7 +1,4 @@
-"""
-Service Layer for Import Files Master & Tracking Module
-"""
-
+from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
@@ -17,12 +14,125 @@ import modules.import_files.repository as repo
 import modules.import_files.validators as validators
 
 
+STEP_INITIAL_CONFIG = {
+    "STEP_01": {
+        "module": "BP-001 Receive Purchase Order & Planning",
+        "stage": "Phase 1: Import Planning & Feasibility",
+        "progress": 15.0,
+        "next_action": "Evaluate Shipping Scenarios (BP-007) & Request Freight Quotations (BP-008)",
+    },
+    "STEP_02": {
+        "module": "BP-002 Customs Studies & Tariff Review",
+        "stage": "Phase 1 - Planning & Feasibility",
+        "progress": 15.0,
+        "next_action": "Review Import Regulatory Requirements",
+    },
+    "STEP_03": {
+        "module": "BP-003 Import Regulatory Requirements",
+        "stage": "Phase 1 - Planning & Feasibility",
+        "progress": 20.0,
+        "next_action": "Prepare Financial Approval Request",
+    },
+    "STEP_04": {
+        "module": "BP-004 Finance Approvals & Budget",
+        "stage": "Phase 2 - Shipment Initiation",
+        "progress": 25.0,
+        "next_action": "Issue Advance Payment & Request ACID",
+    },
+    "STEP_05": {
+        "module": "BP-005 ACID Operations",
+        "stage": "Phase 2 - Shipment Initiation",
+        "progress": 30.0,
+        "next_action": "Confirm ACID & Proceed to Freight Booking",
+    },
+    "STEP_06": {
+        "module": "BP-006 Freight Booking",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 40.0,
+        "next_action": "Confirm Shipping Line Booking & Review Draft BL",
+    },
+    "STEP_07": {
+        "module": "BP-007 Freight Allocations",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 45.0,
+        "next_action": "Audit Draft BL & Commercial Invoices",
+    },
+    "STEP_08": {
+        "module": "BP-008 Draft Docs Review",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 50.0,
+        "next_action": "Obtain Customs Approval on Draft Documents",
+    },
+    "STEP_09": {
+        "module": "BP-009 Docs Customs Approval",
+        "stage": "Phase 3 - Booking & Doc Prep",
+        "progress": 55.0,
+        "next_action": "Upload Digital Documents to CargoX",
+    },
+    "STEP_10": {
+        "module": "BP-010 CargoX Follow-up / Upload",
+        "stage": "Phase 4 - Digital & Banking",
+        "progress": 60.0,
+        "next_action": "Collect Original Documents & Process Form 4",
+    },
+    "STEP_11": {
+        "module": "BP-011 Originals Collection",
+        "stage": "Phase 4 - Digital & Banking",
+        "progress": 65.0,
+        "next_action": "Submit Documents to Bank for Form 4",
+    },
+    "STEP_12": {
+        "module": "BP-012 Bank Form 4",
+        "stage": "Phase 4 - Digital & Banking",
+        "progress": 70.0,
+        "next_action": "Register Customs Declaration 46 K.M.",
+    },
+    "STEP_13": {
+        "module": "BP-013 Customs Declaration 46",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 75.0,
+        "next_action": "Customs Valuation, Inspection & Sampling",
+    },
+    "STEP_14": {
+        "module": "BP-014 Clearance Follow-up",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 80.0,
+        "next_action": "Inspect Cargo & Settle Customs Taxes",
+    },
+    "STEP_17": {
+        "module": "BP-017 Final Customs Calculation",
+        "stage": "Phase 5 - Port Operations & Clearance",
+        "progress": 85.0,
+        "next_action": "Pay Customs Duties & Release Cargo from Port",
+    },
+    "STEP_19": {
+        "module": "BP-019 Warehouse Receiving GRN",
+        "stage": "Phase 6 - Inbound & Final Closure",
+        "progress": 90.0,
+        "next_action": "Inspect Received Goods & Settle Landed Cost",
+    },
+    "STEP_20": {
+        "module": "BP-020 Landed Cost Settlement",
+        "stage": "Phase 6 - Inbound & Final Closure",
+        "progress": 95.0,
+        "next_action": "Audit Landed Cost Breakdown & Issue Closure Certificate",
+    },
+    "STEP_21": {
+        "module": "BP-021 Import File Final Closure",
+        "stage": "Phase 6 - Inbound & Final Closure",
+        "progress": 100.0,
+        "next_action": "Archive Import File",
+    },
+}
+
+
 def compute_file_formulas(
     form46_no: Optional[str] = None,
     form4_no: Optional[str] = None,
     swift_no: Optional[str] = None,
     selected_scenario: Optional[str] = None,
     status_str: str = "Open",
+    initial_step: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Computes Formula values for Current Module, Current Stage, Progress %, and Next Action.
@@ -59,12 +169,23 @@ def compute_file_formulas(
             "next_action": "Create Payment Request (BP-012) & Issue Form 4",
         }
 
+    # If starting from a specific custom step (e.g. STEP_13 or STEP_06)
+    if initial_step and initial_step in STEP_INITIAL_CONFIG and initial_step != "STEP_01":
+        cfg = STEP_INITIAL_CONFIG[initial_step]
+        return {
+            "current_module": cfg["module"],
+            "current_stage": cfg["stage"],
+            "progress_percent": cfg["progress"],
+            "next_action": cfg["next_action"],
+        }
+
     return {
         "current_module": "BP-001 Receive Purchase Order & Planning",
         "current_stage": "Phase 1: Import Planning & Feasibility",
         "progress_percent": 15.0,
         "next_action": "Evaluate Shipping Scenarios (BP-007) & Request Freight Quotations (BP-008)",
     }
+
 
 
 def create_import_file_service(db: Session, payload: ImportFileCreate) -> ImportFile:
@@ -91,6 +212,7 @@ def create_import_file_service(db: Session, payload: ImportFileCreate) -> Import
         swift_no=payload.swift_no,
         selected_scenario=payload.selected_scenario,
         status_str=payload.status,
+        initial_step=payload.initial_starting_step,
     )
 
     data_dict = payload.model_dump()
@@ -99,6 +221,14 @@ def create_import_file_service(db: Session, payload: ImportFileCreate) -> Import
     data_dict.update(formulas)
 
     created_file = repo.create_import_file(db, data_dict)
+
+    # 6. Seed initial stage activities in Lifecycle Board
+    try:
+        from modules.lifecycle_board.service import initialize_file_lifecycle_service
+        initialize_file_lifecycle_service(db, file_code, payload.initial_starting_step or "STEP_01")
+    except Exception:
+        pass
+
     try:
         from modules.smart_tasks.service import auto_generate_system_tasks_for_file
         auto_generate_system_tasks_for_file(db, created_file)
@@ -497,4 +627,79 @@ Best regards,
         "email_body_template": email_body,
         "whatsapp_text_template": whatsapp_text,
     }
+
+
+def hold_import_file_service(
+    db: Session,
+    import_file_id: int,
+    hold_reason: str,
+    hold_notes: Optional[str] = None,
+) -> ImportFile:
+    existing = repo.get_import_file_by_id(db, import_file_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    if not hold_reason or not hold_reason.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="يلزم إدخال سبب إيقاف وتعليق الشحنة.",
+        )
+
+    now_dt = datetime.now()
+    update_dict = {
+        "status": "On Hold",
+        "paused_at_stage": existing.current_stage,
+        "paused_at_step": existing.current_module,
+        "hold_reason": hold_reason.strip(),
+        "hold_date": now_dt,
+        "notes": f"تم التعليق: {hold_reason.strip()}" + (f" | {hold_notes}" if hold_notes else ""),
+    }
+
+    # Update lifecycle board activities
+    try:
+        from modules.lifecycle_board.service import hold_shipment_activities_service
+        hold_shipment_activities_service(db, existing.import_file_code, hold_reason.strip())
+    except Exception:
+        pass
+
+    return repo.update_import_file(db, import_file_id, update_dict)
+
+
+def resume_import_file_service(
+    db: Session,
+    import_file_id: int,
+    resume_notes: Optional[str] = None,
+) -> ImportFile:
+    existing = repo.get_import_file_by_id(db, import_file_id)
+    if not existing:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"ملف الاستيراد '{import_file_id}' غير موجود.",
+        )
+
+    if existing.status != "On Hold":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="الشحنة ليست في حالة تعليق (On Hold) لاستئنافها.",
+        )
+
+    update_dict = {
+        "status": "In Progress",
+        "hold_reason": None,
+        "hold_date": None,
+        "notes": f"تم استئناف العمل: {resume_notes or 'استئناف تشغيل الشحنة'}",
+    }
+
+    # Resume lifecycle board activities
+    try:
+        from modules.lifecycle_board.service import resume_shipment_activities_service
+        resume_shipment_activities_service(db, existing.import_file_code, resume_notes)
+    except Exception:
+        pass
+
+    return repo.update_import_file(db, import_file_id, update_dict)
+
 

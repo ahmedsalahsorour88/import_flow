@@ -21,6 +21,8 @@ SUPPORTED_MODULES = {
     "customs-clearance",
     "freight-quotation",
     "freight-booking",
+    "clearance-quotation",
+    "customs-broker-quotation",
     "customs-consultation",
     "warehouse-receiving",
     "demurrage",

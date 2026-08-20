@@ -160,7 +160,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text(
-                      'ImportFlow ERP — Dynamic Report',
+                      'Sorour Logistics ERP — Dynamic Report',
                       style: pw.TextStyle(
                         fontSize: 18,
                         fontWeight: pw.FontWeight.bold,
@@ -226,7 +226,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
           pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('ImportFlow ERP — Confidential', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
+              pw.Text('Sorour Logistics ERP — Confidential', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
               pw.Text('Total: ${files.length} records', style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600)),
             ],
           ),
@@ -236,7 +236,7 @@ class _DynamicReportBuilderScreenState extends ConsumerState<DynamicReportBuilde
 
     await Printing.layoutPdf(
       onLayout: (format) async => doc.save(),
-      name: 'ImportFlow_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
+      name: 'Sorour_Logistics_Report_${DateTime.now().millisecondsSinceEpoch}.pdf',
     );
   }
 

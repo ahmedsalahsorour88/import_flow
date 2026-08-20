@@ -11,7 +11,7 @@ def migrate_db():
     Base.metadata.create_all(bind=engine)
 
     # 2. Migration for columns
-    db_path = 'importflow.db'
+    db_path = 'sorour_logistics.db'
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
@@ -176,6 +176,24 @@ def migrate_db():
                 print("Added column 'customs_released_at' to import_files table.")
             except Exception as e:
                 print(f"Error adding column customs_released_at: {e}")
+
+        # Flexible Stage Navigation & Hold/Skip Lifecycle columns
+        flexible_lifecycle_cols = [
+            ("initial_starting_stage", "VARCHAR(100)"),
+            ("initial_starting_step", "VARCHAR(100)"),
+            ("paused_at_stage", "VARCHAR(100)"),
+            ("paused_at_step", "VARCHAR(100)"),
+            ("hold_reason", "TEXT"),
+            ("hold_date", "DATETIME"),
+            ("skipped_stages", "TEXT"),
+        ]
+        for col_name, col_type in flexible_lifecycle_cols:
+            if col_name not in imp_cols:
+                try:
+                    cursor.execute(f"ALTER TABLE import_files ADD COLUMN {col_name} {col_type};")
+                    print(f"Added column '{col_name}' ({col_type}) to import_files table.")
+                except Exception as e:
+                    print(f"Error adding column {col_name} to import_files: {e}")
 
 
     # Universal import_file_id migration for all operational tables

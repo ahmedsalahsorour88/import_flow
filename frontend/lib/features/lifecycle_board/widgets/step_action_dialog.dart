@@ -120,7 +120,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
   @override
   void dispose() {
-    _notesController.disposenatural();
+    _notesController.dispose();
     _param1Controller.dispose();
     _param2Controller.dispose();
     _param3Controller.dispose();
@@ -172,13 +172,203 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
     }
   }
 
+  Future<void> _handleSkipStep() async {
+    final reasonController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
+            SizedBox(width: 8),
+            Text('تخطي هذه المرحلة (Skip Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 450,
+          child: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'هل أنت متأكد من تخطي الخطوة (${widget.shipment.stepNameAr}) للشحنة ${widget.shipment.importFileCode}؟',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: reasonController,
+                  decoration: const InputDecoration(
+                    labelText: 'سبب التخطي (Skip Reason) *',
+                    hintText: 'مثال: شحنة CIF - نولون مسدد، أو إعفاء من الـ ACID...',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يلزم إدخال سبب التخطي' : null,
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
+            onPressed: () {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(ctx, true);
+              }
+            },
+            icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
+            label: const Text('تأكيد التخطي والترحيل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      setState(() => _isSaving = true);
+      final notifier = ref.read(lifecycleBoardActionProvider.notifier);
+      final success = await notifier.skipStep(
+        importFileCode: widget.shipment.importFileCode,
+        currentStepCode: widget.shipment.stepCode,
+        skipReason: reasonController.text.trim(),
+        nextStepCodes: _selectedNextSteps,
+      );
+      if (mounted) {
+        setState(() => _isSaving = false);
+        if (success) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AppTheme.orange,
+              content: Text(
+                '⏭️ تم تخطي الخطوة بنجاح وتفعيل المراحل التالية (${_selectedNextSteps.join(', ')}) للشحنة ${widget.shipment.importFileCode}.',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _handleHoldOrResume() async {
+    final isOnHold = widget.shipment.status == 'On-Hold';
+    if (isOnHold) {
+      setState(() => _isSaving = true);
+      final notifier = ref.read(lifecycleBoardActionProvider.notifier);
+      final success = await notifier.setMultiActiveStages(
+        importFileCode: widget.shipment.importFileCode,
+        activeStepCodes: [widget.shipment.stepCode],
+        notes: 'تم استئناف العمل على الشحنة من نفس المرحلة',
+      );
+      if (mounted) {
+        setState(() => _isSaving = false);
+        if (success) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              backgroundColor: AppTheme.emerald,
+              content: Text('▶️ تم استئناف الشحنة ومواصلة دورة العمل بنجاح.'),
+            ),
+          );
+        }
+      }
+    } else {
+      final reasonController = TextEditingController();
+      final formKey = GlobalKey<FormState>();
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
+              SizedBox(width: 8),
+              Text('إيقاف مؤقت / تعليق الشحنة (Put on Hold)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            ],
+          ),
+          content: SizedBox(
+            width: 450,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'سيتم تعليق الشحنة ${widget.shipment.importFileCode} مؤقتاً عند هذه الخطوة (${widget.shipment.stepNameAr}).',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: reasonController,
+                    decoration: const InputDecoration(
+                      labelText: 'سبب الإيقاف المؤقت (Hold Reason) *',
+                      hintText: 'مثال: في انتظار موافقة البنك، أو مراجعة مع المورد...',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'يلزم إدخال سبب الإيقاف' : null,
+                    maxLines: 2,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
+              onPressed: () {
+                if (formKey.currentState!.validate()) {
+                  Navigator.pop(ctx, true);
+                }
+              },
+              icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
+              label: const Text('تأكيد الإيقاف المؤقت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true && mounted) {
+        setState(() => _isSaving = true);
+        final notifier = ref.read(lifecycleBoardActionProvider.notifier);
+        final success = await notifier.advanceStep(
+          importFileCode: widget.shipment.importFileCode,
+          currentStepCode: widget.shipment.stepCode,
+          nextStepCodes: [widget.shipment.stepCode],
+          notes: 'On-Hold: ${reasonController.text.trim()}',
+        );
+        if (mounted) {
+          setState(() => _isSaving = false);
+          if (success) {
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                backgroundColor: AppTheme.crimson,
+                content: Text('⏸️ تم تعليق الشحنة مؤقتاً بنجاح.'),
+              ),
+            );
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isOnHold = widget.shipment.status == 'On-Hold';
+
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Container(
-        width: 750,
-        constraints: const BoxConstraints(maxHeight: 700),
+        width: 780,
+        constraints: const BoxConstraints(maxHeight: 720),
         padding: const EdgeInsets.all(24),
         child: Form(
           key: _formKey,
@@ -211,11 +401,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
-                                color: AppTheme.cobalt,
+                                color: isOnHold ? AppTheme.crimson : AppTheme.cobalt,
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                widget.shipment.stepCode,
+                                isOnHold ? '${widget.shipment.stepCode} (On-Hold)' : widget.shipment.stepCode,
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -366,33 +556,57 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
               const Divider(height: 24),
 
-              // Action Buttons
+              // Action Buttons with Skip and Hold/Resume
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  TextButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.cancel_outlined, size: 16),
-                    label: const Text('إلغاء'),
-                  ),
                   Row(
                     children: [
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.emerald,
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                      TextButton.icon(
+                        onPressed: () => Navigator.of(context).pop(),
+                        icon: const Icon(Icons.cancel_outlined, size: 16),
+                        label: const Text('إغلاق'),
+                      ),
+                      const SizedBox(width: 8),
+                      // Skip Step Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.orange,
+                          side: const BorderSide(color: AppTheme.orange),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
-                        onPressed: _isSaving ? null : _handleSaveAndAdvance,
-                        icon: _isSaving
-                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                            : const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
-                        label: Text(
-                          _isSaving ? 'جاري الحفظ والترحيل...' : 'اكتمال الخطوة وترحيل الشحنة للمراحل التالية',
-                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                        onPressed: _isSaving ? null : _handleSkipStep,
+                        icon: const Icon(Icons.fast_forward_rounded, size: 16),
+                        label: const Text('تخطي المرحلة (Skip Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                      ),
+                      const SizedBox(width: 8),
+                      // Hold / Resume Button
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: isOnHold ? AppTheme.emerald : AppTheme.crimson,
+                          side: BorderSide(color: isOnHold ? AppTheme.emerald : AppTheme.crimson),
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
+                        onPressed: _isSaving ? null : _handleHoldOrResume,
+                        icon: Icon(isOnHold ? Icons.play_arrow_rounded : Icons.pause_circle_outline_rounded, size: 16),
+                        label: Text(isOnHold ? 'استئناف الشحنة (Resume)' : 'إيقاف مؤقت (Hold)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
+                  ),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.emerald,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    onPressed: _isSaving ? null : _handleSaveAndAdvance,
+                    icon: _isSaving
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
+                    label: Text(
+                      _isSaving ? 'جاري الحفظ والترحيل...' : 'اكتمال الخطوة وترحيل الشحنة',
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
+                    ),
                   ),
                 ],
               ),
@@ -494,11 +708,5 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
       default:
         return 'بيانات إضافية';
     }
-  }
-}
-
-extension TextEditingControllerDispose on TextEditingController {
-  void disposenatural() {
-    // helper
   }
 }

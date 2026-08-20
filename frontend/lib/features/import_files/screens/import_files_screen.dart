@@ -401,7 +401,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             onPressed: () {
                               final buffer = StringBuffer();
                               buffer.writeln('=====================================================');
-                              buffer.writeln('ImportFlow ERP - Master Import Report (تقرير ملخص ملفات الاستيراد)');
+                              buffer.writeln('Sorour Logistics ERP - Master Import Report (تقرير ملخص ملفات الاستيراد)');
                               buffer.writeln('Date: ${DateTime.now().toString().substring(0, 10)}');
                               buffer.writeln('Total Import Files: $totalFiles | Open: $openFiles | In Progress: $inProgressFiles | Total Cost: \$$totalCost');
                               buffer.writeln('=====================================================\n');

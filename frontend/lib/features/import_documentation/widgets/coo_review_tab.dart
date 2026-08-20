@@ -139,6 +139,195 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
 
 
+  Future<void> _generateOfficialDraft() async {
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لتوليد المسودة'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final res = await ref.read(cooReviewsProvider.notifier).fetchCooDraftTemplate(
+            _selectedImportFileId!,
+            certType: _certType,
+          );
+
+      if (!mounted) return;
+
+      final preview = res['preview_markdown']?.toString() ?? '';
+      final template = res['template_data'] as Map<String, dynamic>? ?? {};
+      final exemption = res['exemption_notes']?.toString() ?? '';
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.verified, color: AppTheme.cobalt),
+                  const SizedBox(width: 8),
+                  Text('مسودة شهادة المنشأ الرسمية: ${res['certificate_type'] ?? _certType}',
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                ],
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.grey),
+                onPressed: () => Navigator.pop(ctx),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 700,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (exemption.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.stars, color: Colors.green),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              exemption,
+                              style: TextStyle(fontSize: 13, color: Colors.green.shade900, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade300),
+                    ),
+                    child: SelectableText(
+                      preview,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('إلغاء وإغلاق ✕', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+              icon: const Icon(Icons.check, color: Colors.white),
+              label: const Text('اعتماد وتعبئة الحقول تلقائياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              onPressed: () {
+                Navigator.pop(ctx);
+                setState(() {
+                  if (template['certificate_number'] != null) _certNumberCtrl.text = template['certificate_number'].toString();
+                  if (template['country_of_origin'] != null) _originCountryCtrl.text = template['country_of_origin'].toString();
+                  if (template['destination_country'] != null) _destCountryCtrl.text = template['destination_country'].toString();
+                  if (template['box_1_exporter'] != null) _exporterCtrl.text = template['box_1_exporter'].toString();
+                  if (template['box_2_consignee'] != null) _importerCtrl.text = template['box_2_consignee'].toString();
+                  _rawTextCtrl.text = preview;
+                  _activeStep = 1;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('✔ تم ملء بيانات المسودة الرسمية بنجاح'), backgroundColor: Colors.green),
+                );
+              },
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء توليد المسودة: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _extractFromOcrText() async {
+    final rawText = _rawTextCtrl.text.trim();
+    if (rawText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى لصق نص الشهادة أو رفع الملف أولاً'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final docTypeKey = _certType.contains('China') ? 'CHINA_COO' : 'EUR1';
+      final res = await ref.read(cooReviewsProvider.notifier).extractCertificate(
+            docTypeKey,
+            rawText,
+            importFileId: _selectedImportFileId,
+          );
+
+      final extracted = res['extracted_data'] as Map<String, dynamic>? ?? {};
+      final warnings = res['warnings'] as List<dynamic>? ?? [];
+
+      setState(() {
+        if (extracted['certificate_number'] != null && extracted['certificate_number'].toString().isNotEmpty) {
+          _certNumberCtrl.text = extracted['certificate_number'].toString();
+        }
+        if (extracted['country_of_origin'] != null && extracted['country_of_origin'].toString().isNotEmpty) {
+          _originCountryCtrl.text = extracted['country_of_origin'].toString();
+        }
+        if (extracted['destination_country'] != null && extracted['destination_country'].toString().isNotEmpty) {
+          _destCountryCtrl.text = extracted['destination_country'].toString();
+        }
+        if (extracted['exporter_name'] != null && extracted['exporter_name'].toString().isNotEmpty) {
+          _exporterCtrl.text = extracted['exporter_name'].toString();
+        }
+        if (extracted['importer_name'] != null && extracted['importer_name'].toString().isNotEmpty) {
+          _importerCtrl.text = extracted['importer_name'].toString();
+        }
+        if (extracted['invoice_number'] != null && extracted['invoice_number'].toString().isNotEmpty) {
+          _invoiceNoCtrl.text = extracted['invoice_number'].toString();
+        }
+      });
+
+      if (mounted) {
+        if (warnings.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(warnings.join('\n')), backgroundColor: Colors.orange, duration: const Duration(seconds: 4)),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('✔ تم استخراج ومطابقة بيانات الشهادة بالذكاء الاصطناعي بنجاح'), backgroundColor: Colors.green),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء الاستخراج: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
@@ -220,13 +409,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  flex: 2,
+                  flex: 3,
                   child: SearchableDropdownField<String>(
                     value: _certType,
                     labelText: 'نوع شهادة المنشأ *',
                     searchHintText: 'اختر نوع الشهادة...',
                     items: const [
-                      SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية)'),
+                      SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)'),
+                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT / China-Egypt)'),
                       SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin (شهادة منشأ عادية)'),
                       SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / Generalized System of Preferences'),
                       SearchableDropdownItem(value: 'Agadir Agreement', label: 'شهادة اتفاقية أغادير'),
@@ -237,7 +427,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ),
                 const SizedBox(width: 16),
                 ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                  icon: const Icon(Icons.bolt, color: Colors.white),
+                  label: const Text('⚡ توليد درافت رسمي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  onPressed: _generateOfficialDraft,
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                   icon: const Icon(Icons.arrow_forward, color: Colors.white),
                   label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: () => setState(() => _activeStep = 1),
@@ -367,12 +564,23 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   ],
               ],
             ),
-            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('النص الخام لدرافت شهادة المنشأ (Raw Text / OCR):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
+                  label: const Text('⚡ استخراج وتعبئة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  onPressed: _isLoading ? null : _extractFromOcrText,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
             TextFormField(
               controller: _rawTextCtrl,
-              maxLines: 3,
+              maxLines: 4,
               decoration: const InputDecoration(
-                labelText: 'النص الخام لدرافت شهادة المنشأ (Raw Text / OCR)',
+                hintText: 'الصق النص الكامل للشهادة هنا (مثل نصوص CCPIT أو EUR.1)...',
                 border: OutlineInputBorder(),
               ),
             ),

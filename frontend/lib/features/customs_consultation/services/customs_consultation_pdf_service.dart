@@ -66,7 +66,7 @@ class CustomsConsultationPdfService {
                       ),
                       pw.SizedBox(height: 2),
                       pw.Text(
-                        'ImportFlow ERP — Customs Duty & Nafeza Statement Calculation Engine',
+                        'Sorour Logistics ERP — Customs Duty & Nafeza Statement Calculation Engine',
                         style: const pw.TextStyle(color: PdfColors.grey300, fontSize: 8),
                       ),
                     ],

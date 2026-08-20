@@ -2,6 +2,7 @@
 Unit Tests for Import Files Master & Tracking Module (ملفات الشحنات الاستيرادية)
 """
 
+import main
 import pytest
 from datetime import date
 from sqlalchemy import create_engine
@@ -219,3 +220,49 @@ class TestImportFilesBackend:
             service.create_import_file_service(db_session, payload)
         assert exc_info.value.status_code == 400
         assert "يجب أن تكون جميع الفواتير المربوطة بملف الشحنة بنفس العملة الموحدة" in exc_info.value.detail
+
+    def test_create_import_file_starting_from_clearance_stage(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068177",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            initial_starting_step="STEP_13",
+            initial_starting_stage="Phase 5 - Port Operations & Clearance",
+        )
+        created = service.create_import_file_service(db_session, payload)
+        assert created.initial_starting_step == "STEP_13"
+        assert created.current_stage == "Phase 5 - Port Operations & Clearance"
+        assert created.progress_percent == 75.0
+        assert "BP-013" in created.current_module
+
+    def test_hold_and_resume_import_file(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068188",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+            initial_starting_step="STEP_06",
+        )
+        created = service.create_import_file_service(db_session, payload)
+
+        # Hold shipment
+        held = service.hold_import_file_service(
+            db_session,
+            created.import_file_id,
+            hold_reason="إيقاف مؤقت لحين مراجعة اعتماد البنك المركزي",
+            hold_notes="مطلوب موافقة مدير الاستيراد",
+        )
+        assert held.status == "On Hold"
+        assert held.hold_reason == "إيقاف مؤقت لحين مراجعة اعتماد البنك المركزي"
+        assert held.paused_at_stage == "Phase 3 - Booking & Doc Prep"
+
+        # Resume shipment
+        resumed = service.resume_import_file_service(
+            db_session,
+            created.import_file_id,
+            resume_notes="تم استلام موافقة البنك واستئناف العمل",
+        )
+        assert resumed.status == "In Progress"
+        assert resumed.hold_reason is None
+

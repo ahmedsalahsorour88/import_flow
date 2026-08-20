@@ -12,13 +12,16 @@ class StandardFormActionBar extends StatelessWidget {
   final VoidCallback? onResetForm;
   final VoidCallback? onRefresh;
   final VoidCallback? onSubmit;
+  final VoidCallback? onClose;
   final String submitLabel;
   final String saveDraftLabel;
   final String resetFormLabel;
   final String refreshLabel;
+  final String closeLabel;
   final bool isSaving;
   final bool isSubmitting;
   final bool isEditing;
+  final bool showCloseButton;
   final Widget? leadingWidget;
   final List<Widget>? extraActions;
 
@@ -28,13 +31,16 @@ class StandardFormActionBar extends StatelessWidget {
     this.onResetForm,
     this.onRefresh,
     this.onSubmit,
+    this.onClose,
     this.submitLabel = 'حفظ وتأكيد السجل',
     this.saveDraftLabel = 'حفظ مؤقت ومتابعة لاحقة 💾',
     this.resetFormLabel = 'تفريغ وبدء تسجيل جديد 🔄',
     this.refreshLabel = 'إعادة تحميل حية 🔄',
+    this.closeLabel = 'إغلاق وتراجع ✕',
     this.isSaving = false,
     this.isSubmitting = false,
     this.isEditing = false,
+    this.showCloseButton = true,
     this.leadingWidget,
     this.extraActions,
   });
@@ -91,6 +97,25 @@ class StandardFormActionBar extends StatelessWidget {
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 0. Close / Cancel Button
+              if (showCloseButton || onClose != null) ...[
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.crimson,
+                    side: BorderSide(color: Colors.red.shade300),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  ),
+                  onPressed: onClose ?? () {
+                    if (Navigator.canPop(context)) {
+                      Navigator.of(context).pop();
+                    }
+                  },
+                  icon: const Icon(Icons.close, size: 18, color: AppTheme.crimson),
+                  label: Text(closeLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+                const SizedBox(width: 8),
+              ],
+
               // 1. Reset / Clear Form
               if (onResetForm != null) ...[
                 OutlinedButton.icon(

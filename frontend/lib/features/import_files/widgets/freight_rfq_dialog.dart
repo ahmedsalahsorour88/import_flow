@@ -623,9 +623,15 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             ),
           ],
           const Spacer(),
-          TextButton(
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.crimson,
+              side: BorderSide(color: Colors.red.shade300),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            ),
             onPressed: () => Navigator.of(context).pop(),
-            child: const Text('إغلاق'),
+            icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
+            label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),

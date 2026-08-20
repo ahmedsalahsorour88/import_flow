@@ -820,6 +820,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   ) async {
     setState(() => _isSavingSession = true);
     try {
+      final filesList = ref.read(importFilesProvider).value ?? [];
+      final currentFile = filesList.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      final dynamicShipper = _extractedReconciliationData?['extracted_invoice_data']?['shipper']?.toString().trim() ??
+          _extractedReconciliationData?['extracted_packing_data']?['shipper']?.toString().trim() ??
+          currentFile?.supplierName ??
+          'Foreign Exporter';
+
       final sessionModel = POReconciliationSessionModel(
         importFileId: _selectedImportFileId!,
         finalInvoiceNumber: _finalInvNumberCtrl.text.trim(),
@@ -827,7 +834,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         acidNumber: _extractedReconciliationData?['extracted_packing_data']?['acid_number'] ??
             _extractedReconciliationData?['extracted_invoice_data']?['acid_number'] ??
             '2001830441013710010',
-        shipperName: 'G.I. INDUSTRIAL HOLDING SPA',
+        shipperName: dynamicShipper.isNotEmpty ? dynamicShipper : 'Foreign Exporter',
         totalInvoiceAmount: totalAmount,
         currency: _extractedReconciliationData?['extracted_invoice_data']?['currency'] ?? 'EUR',
         totalPackages: totalPackages,
@@ -940,6 +947,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       await ref.read(poReconciliationProvider).submitPOFinalReconciliation(payload);
 
       ref.invalidate(importFilesProvider);
+      ref.invalidate(purchaseOrdersProvider);
 
       // Also auto-save/update session in background
       await _saveReconciliationSession();
@@ -2238,7 +2246,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   void _showPrintReportDialog(BuildContext context, POReconciliationSessionModel sess) {
     final buffer = StringBuffer();
     buffer.writeln('================================================================');
-    buffer.writeln('ImportFlow ERP - PO & Packing Final Reconciliation Report');
+    buffer.writeln('Sorour Logistics ERP - PO & Packing Final Reconciliation Report');
     buffer.writeln('Session Code: ${sess.sessionCode}');
     buffer.writeln('Import File: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} | Importer: ${sess.importerName ?? "N/A"}');
     buffer.writeln('Shipper: ${sess.shipperName ?? "N/A"} | ACID: ${sess.acidNumber ?? "N/A"}');

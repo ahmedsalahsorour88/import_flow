@@ -510,6 +510,34 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     }
   }
 
+  Future<Map<String, dynamic>> fetchCooDraftTemplate(int importFileId, {String certType = 'EUR.1'}) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/coo/draft-template/$importFileId',
+        queryParameters: {'cert_type': certType},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> extractCertificate(String docType, String rawText, {int? importFileId}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/extract-certificate',
+        data: {
+          'document_type': docType,
+          'raw_text': rawText,
+          if (importFileId != null) 'import_file_id': importFileId,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<CertificateOfOriginReviewModel> saveCOOReview(Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(
@@ -553,6 +581,34 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
       state = AsyncValue.data(reviews);
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchInspectionDraftTemplate(int importFileId, {String agency = 'COTECNA', String certType = 'COC (Certificate of Conformity)'}) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/import-documentation/inspection/draft-template/$importFileId',
+        queryParameters: {'agency': agency, 'cert_type': certType},
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<Map<String, dynamic>> extractCertificate(String docType, String rawText, {int? importFileId}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-documentation/extract-certificate',
+        data: {
+          'document_type': docType,
+          'raw_text': rawText,
+          if (importFileId != null) 'import_file_id': importFileId,
+        },
+      );
+      return response.data as Map<String, dynamic>;
+    } catch (e) {
+      rethrow;
     }
   }
 

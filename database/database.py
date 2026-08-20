@@ -3,7 +3,7 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 
 # SQLite Database
-DATABASE_URL = "sqlite:///./importflow.db"
+DATABASE_URL = "sqlite:///./sorour_logistics.db"
 
 
 # Create Engine

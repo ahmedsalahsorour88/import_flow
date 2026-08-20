@@ -83,7 +83,7 @@ class CustomsPdfService {
                         ),
                       ),
                       pw.Text(
-                        'ImportFlow ERP — Customs Duty Calculation Engine (Nafeza Format)',
+                        'Sorour Logistics ERP — Customs Duty Calculation Engine (Nafeza Format)',
                         style: const pw.TextStyle(
                           color: PdfColors.grey300,
                           fontSize: 9,
@@ -232,7 +232,7 @@ class CustomsPdfService {
                   crossAxisAlignment: pw.CrossAxisAlignment.start,
                   children: [
                     pw.Text('ملاحظات وإخلاء مسؤولية:', style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
-                    pw.Text('هذا البيان التقديري تم استخراجه آلياً بواسطة محرك الحسابات الجمركية لشركة ImportFlow ERP.',
+                    pw.Text('هذا البيان التقديري تم استخراجه آلياً بواسطة محرك الحسابات الجمركية لشركة Sorour Logistics ERP.',
                         style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                     pw.Text('تُطبق القواعد والأسعار المعتمدة بجدول التعريفة الجمركية المصرية ومعطيات منصة نافذة.',
                         style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),

@@ -2494,7 +2494,7 @@ Please note that the required documents for the mentioned shipment must be uploa
 شاكرين لكم حسن تعاونكم الدائم.
 
 قسم الاستيراد والتخليص الجمركي
-ImportFlow ERP System''';
+Sorour Logistics ERP System''';
   }
 
   String _buildEnglishRequestMessage() {

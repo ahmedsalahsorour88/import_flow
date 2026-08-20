@@ -428,7 +428,7 @@ Future<void> showErrorDetailsDialog(
                           label: const Text('نسخ تقرير الفحص', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
                           onPressed: () {
                             final report = '''
-=== تقرير فحص ومعالجة أخطاء ImportFlow ERP ===
+=== تقرير فحص ومعالجة أخطاء Sorour Logistics ERP ===
 التاريخ والوقت: ${DateTime.now().toIso8601String()}
 العنوان: $title
 الملخص: ${parsed.summary}

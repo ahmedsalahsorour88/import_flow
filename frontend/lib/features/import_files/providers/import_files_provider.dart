@@ -232,4 +232,38 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
       rethrow;
     }
   }
+
+  Future<ImportFileModel?> holdShipment(int importFileId, String holdReason, {String? holdNotes}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/hold',
+        data: {
+          'hold_reason': holdReason,
+          if (holdNotes != null) 'hold_notes': holdNotes,
+        },
+      );
+      final held = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return held;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<ImportFileModel?> resumeShipment(int importFileId, {String? resumeNotes}) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/import-files/$importFileId/resume',
+        data: {
+          if (resumeNotes != null) 'resume_notes': resumeNotes,
+        },
+      );
+      final resumed = ImportFileModel.fromJson(response.data);
+      await fetchImportFiles();
+      return resumed;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+

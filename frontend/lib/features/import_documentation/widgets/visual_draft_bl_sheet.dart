@@ -549,7 +549,7 @@ class VisualDraftBLSheet extends StatelessWidget {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text('ImportFlow ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
+                                const Text('Sorour Logistics ERP Draft B/L Certification Engine', style: TextStyle(fontSize: 9.5, color: Colors.grey)),
                                 Text('Generated: ${DateTime.now().toLocal().toString().substring(0, 19)}', style: const TextStyle(fontSize: 9.5, color: Colors.grey)),
                               ],
                             ),

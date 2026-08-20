@@ -120,7 +120,7 @@ class ImportFlowApp extends ConsumerWidget {
       key: ValueKey(reloadKey),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ImportFlow ERP',
+        title: 'Sorour Logistics ERP',
         theme: AppTheme.lightTheme,
         scrollBehavior: AppCustomScrollBehavior(),
         home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),

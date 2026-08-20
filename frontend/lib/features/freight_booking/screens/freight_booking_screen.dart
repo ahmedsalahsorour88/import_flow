@@ -110,14 +110,14 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
           },
         ),
       ],
-      body: SingleChildScrollView(
+      body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Data Actions Toolbar
             MasterDataToolbarWidget(
-              moduleEndpoint: 'freight-bookings',
+              moduleEndpoint: 'freight-booking',
               title: 'Freight_Bookings',
               onRefreshNeeded: () => ref.read(freightBookingProvider.notifier).fetchBookings(),
             ),
@@ -1453,12 +1453,22 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       length: 2,
       child: AlertDialog(
         title: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Icon(Icons.directions_boat, color: AppTheme.cobalt),
-            const SizedBox(width: 8),
-            Text(
-              widget.bookingToEdit == null ? 'إنشاء حجز شحن ملاحي (New Carrier Booking)' : 'تعديل حجز الشحن: ${widget.bookingToEdit!.bookingCode}',
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            Row(
+              children: [
+                const Icon(Icons.directions_boat, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text(
+                  widget.bookingToEdit == null ? 'إنشاء حجز شحن ملاحي (New Carrier Booking)' : 'تعديل حجز الشحن: ${widget.bookingToEdit!.bookingCode}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.grey),
+              tooltip: 'إغلاق النافذة',
+              onPressed: () => Navigator.of(context).pop(),
             ),
           ],
         ),
@@ -2248,6 +2258,16 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           ),
         ),
         actions: [
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.crimson,
+              side: BorderSide(color: Colors.red.shade300),
+            ),
+            onPressed: () => Navigator.of(context).pop(),
+            icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
+            label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 6),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
               foregroundColor: AppTheme.charcoal,

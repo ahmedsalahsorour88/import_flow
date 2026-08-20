@@ -46,6 +46,32 @@ class LifecycleBoardNotifier extends StateNotifier<AsyncValue<void>> {
     }
   }
 
+  Future<bool> skipStep({
+    required String importFileCode,
+    required String currentStepCode,
+    required String skipReason,
+    List<String> nextStepCodes = const [],
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      await _dio.post(
+        '${ApiConstants.baseUrl}/lifecycle-board/stages/skip',
+        data: {
+          'import_file_code': importFileCode,
+          'current_step_code': currentStepCode,
+          'skip_reason': skipReason,
+          'next_step_codes': nextStepCodes,
+        },
+      );
+      state = const AsyncValue.data(null);
+      ref.invalidate(lifecycleBoardSummaryProvider);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
   Future<bool> setMultiActiveStages({
     required String importFileCode,
     required List<String> activeStepCodes,
@@ -75,3 +101,4 @@ final lifecycleBoardActionProvider =
     StateNotifierProvider<LifecycleBoardNotifier, AsyncValue<void>>((ref) {
   return LifecycleBoardNotifier(ref, ref.read(dioProvider));
 });
+

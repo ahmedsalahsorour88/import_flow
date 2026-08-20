@@ -610,12 +610,22 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                         borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                       ),
                       child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
-                          const SizedBox(width: 12),
-                          Text(
-                            isEditing ? 'Edit External Partner & Bank' : 'Add External Partner & Bank',
-                            style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                          Row(
+                            children: [
+                              Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
+                              const SizedBox(width: 12),
+                              Text(
+                                isEditing ? 'Edit External Partner & Bank' : 'Add External Partner & Bank',
+                                style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white70),
+                            tooltip: 'إغلاق النافذة',
+                            onPressed: () => Navigator.pop(dialogCtx),
                           ),
                         ],
                       ),
@@ -918,9 +928,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          OutlinedButton(
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.crimson,
+                              side: BorderSide(color: Colors.red.shade300),
+                            ),
                             onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
-                            child: const Text('Cancel'),
+                            icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
+                            label: const Text('إلغاء وإغلاق ✕', style: TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(

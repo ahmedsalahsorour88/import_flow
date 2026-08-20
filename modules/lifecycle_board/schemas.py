@@ -52,6 +52,13 @@ class StepAdvancePayload(BaseModel):
     action_data: Optional[Dict[str, Any]] = None
 
 
+class SkipStepPayload(BaseModel):
+    import_file_code: str
+    current_step_code: str
+    skip_reason: str = Field(..., min_length=2, description="Reason for skipping the operational step")
+    next_step_codes: List[str] = Field(default_factory=list, description="Next operational step codes to activate")
+
+
 class MultiStageSetPayload(BaseModel):
     import_file_code: str
     active_step_codes: List[str]

@@ -1661,3 +1661,420 @@ def _call_openai_api(raw_text: str, api_key: str) -> Optional[dict]:
         logger.warning(f"OpenAI API document extraction failed: {e}. Falling back.")
         return None
 
+
+# ==============================================================================
+# SPECIALIZED PARSERS FOR THE 3 CORE CERTIFICATES (CHINA COO, EUR.1, VoC INSPECTION)
+# ==============================================================================
+
+def extract_coo_china_ccpit_text(raw_text: str) -> Dict[str, Any]:
+    """
+    Extracts structured fields from China Council for the Promotion of International Trade (CCPIT)
+    Official Certificate of Origin document text / OCR.
+    """
+    if not raw_text:
+        return {}
+
+    text = raw_text.replace('\r', '\n')
+
+    # Certificate Number
+    cert_no_m = re.search(r'Certificate\s*No\.?\s*[:\s]*([0-9A-Z/_-]{8,35})', text, re.IGNORECASE)
+    if not cert_no_m:
+        cert_no_m = re.search(r'Serial\s*No\.?\s*\n?\s*([0-9A-Z/_-]{8,35})', text, re.IGNORECASE)
+    cert_no = cert_no_m.group(1).strip() if cert_no_m else "DRAFT-CCPIT-COO"
+
+    # Exporter (Box 1)
+    exporter = ""
+    exp_m = re.search(r'1\.\s*Exporter\s*([^\n\r]+(?:\n[^\n\r]+){1,4})', text, re.IGNORECASE)
+    if exp_m:
+        exporter = exp_m.group(1).strip()
+    else:
+        exp_m2 = re.search(r'([A-Z0-9\s,\.\-&]+(?:IMP&EXP|CO\.,\s*LTD|COMPANY|CORP|MANUFACTURING)[^\n]*)', text)
+        if exp_m2:
+            exporter = exp_m2.group(1).strip()
+
+    # Consignee (Box 2)
+    consignee = ""
+    cons_m = re.search(r'2\.\s*Consignee\s*([^\n\r]+(?:\n[^\n\r]+){1,4})', text, re.IGNORECASE)
+    if cons_m:
+        consignee = cons_m.group(1).strip()
+    else:
+        cons_m2 = re.search(r'(?:CONSIGNEE|IMPORTER)[:\s]*([^\n]+(?:\n[^\n]+){1,3})', text, re.IGNORECASE)
+        if cons_m2:
+            consignee = cons_m2.group(1).strip()
+
+    # Transport Details (Box 3)
+    transport = ""
+    trans_m = re.search(r'3\.\s*Means\s*of\s*transport[^\n]*\s*([^\n\r]+(?:\n[^\n\r]+){1,2})', text, re.IGNORECASE)
+    if trans_m:
+        transport = trans_m.group(1).strip()
+
+    # ACID Number (19 digits)
+    acid = ""
+    acid_m = re.search(r'ACID[:\s\-_]*([0-9]{19})', text, re.IGNORECASE)
+    if not acid_m:
+        acid_m = re.search(r'\b([0-9]{19})\b', text)
+    if acid_m:
+        acid = acid_m.group(1).strip()
+
+    # HS Code
+    hs_code = ""
+    hs_m = re.search(r'8\.\s*H\.?S\.?\s*Code\s*[:\s]*([0-9]{4,10}(?:\.[0-9]{2,6})?)', text, re.IGNORECASE)
+    if not hs_m:
+        hs_m = re.search(r'\b(5602\d{2}|9401\d{2}|9403\d{2}|\d{6,10})\b', text)
+    if hs_m:
+        hs_code = hs_m.group(1).strip()
+
+    # Quantity / Packages
+    quantity = ""
+    qty_m = re.search(r'9\.\s*Quantity[^\n]*\s*([^\n\r]+(?:\n[^\n\r]+){1,2})', text, re.IGNORECASE)
+    if qty_m:
+        quantity = qty_m.group(1).strip()
+    else:
+        qty_m2 = re.search(r'(\d+\s*(?:SHEETS|PIECES|PCS|PKGS|PACKAGES|CARTONS))', text, re.IGNORECASE)
+        if qty_m2:
+            quantity = qty_m2.group(1).strip()
+
+    # Gross Weight (kg)
+    gross_weight = 0.0
+    gw_m = re.search(r'(?:G\.?\s*WEIGHT|GROSS\s*WEIGHT)[:\s]*([\d\.,]+)\s*(?:KGS|KG)', text, re.IGNORECASE)
+    if not gw_m:
+        gw_m = re.search(r'([\d\.,]+)\s*(?:KGS|KG)\s*G\.?W\.?', text, re.IGNORECASE)
+    if gw_m:
+        try:
+            gw_str = gw_m.group(1).replace(',', '').strip()
+            gross_weight = float(gw_str)
+        except Exception:
+            pass
+
+    # Invoice Number & Date (Box 10)
+    invoice_no = ""
+    invoice_date = ""
+    inv_m = re.search(r'10\.\s*Number\s*and\s*date\s*of\s*invoices?\s*([^\n\r]+(?:\n[^\n\r]+){1,2})', text, re.IGNORECASE)
+    if inv_m:
+        inv_lines = [l.strip() for l in inv_m.group(1).strip().split('\n') if l.strip()]
+        if len(inv_lines) >= 1:
+            parts = [p.strip() for p in re.split(r'[\s,]+', inv_lines[0]) if p.strip()]
+            invoice_no = parts[0] if parts else inv_lines[0]
+            if len(parts) > 1:
+                invoice_date = " ".join(parts[1:])
+        if len(inv_lines) >= 2 and not invoice_date:
+            invoice_date = inv_lines[1].strip()
+    else:
+        inv_no_m = re.search(r'(?:INVOICE\s*NO\.?|INV\s*NO\.?)[:\s]*([0-9A-Za-z\-_]+)', text, re.IGNORECASE)
+        if inv_no_m:
+            invoice_no = inv_no_m.group(1).strip()
+
+    # Certifying Authority & Verification URL
+    authority = "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)"
+    verify_url = "http://check.ecoccpit.net/"
+    url_m = re.search(r'(?:VERIFY\s*URL|HTTP[:/]+[^\s]+ecoccpit\.net[^\s]*)', text, re.IGNORECASE)
+    if url_m:
+        verify_url = url_m.group(0).replace('VERIFY URL:', '').strip()
+
+    # Issue Date (Box 11/12)
+    issue_date = ""
+    date_m = re.search(r'(?:JUL|AUG|SEP|OCT|NOV|DEC|JAN|FEB|MAR|APR|MAY|JUN)[\.\s]*\d{1,2}[\s,]*\d{4}', text, re.IGNORECASE)
+    if date_m:
+        issue_date = date_m.group(0).strip()
+
+    return {
+        "certificate_type": "China Certificate of Origin (CCPIT)",
+        "certificate_number": cert_no,
+        "exporter_name": exporter,
+        "importer_name": consignee,
+        "country_of_origin": "China",
+        "destination_country": "Egypt",
+        "means_of_transport": transport,
+        "acid_number": acid,
+        "hs_code": hs_code,
+        "quantity_description": quantity,
+        "gross_weight_kg": gross_weight,
+        "invoice_number": invoice_no,
+        "invoice_date": invoice_date,
+        "certifying_authority": authority,
+        "verification_url": verify_url,
+        "issue_date": issue_date,
+        "is_official_ccpit": bool("CCPIT" in text.upper() or "ECOCCPIT" in text.upper()),
+    }
+
+
+def extract_eur1_certificate_text(raw_text: str) -> Dict[str, Any]:
+    """
+    Extracts structured fields from European Movement Certificate (EUR.1)
+    for Egypt-EU Free Trade Agreement / Preferential Origin.
+    """
+    if not raw_text:
+        return {}
+
+    text = raw_text.replace('\r', '\n')
+
+    # Certificate Number (Top Right Box)
+    cert_no_m = re.search(r'EUR\.?1\s+No\s*([A-Z0-9\s]{6,20})', text, re.IGNORECASE)
+    if not cert_no_m:
+        cert_no_m = re.search(r'No\s*A\s*([0-9\s]{5,15})', text, re.IGNORECASE)
+    cert_no = cert_no_m.group(0).strip() if cert_no_m else "DRAFT-EUR1-001"
+
+    # Exporter (Box 1)
+    exporter = ""
+    exp_m = re.search(r'1\.\s*Exporter[^\n]*\s*([^\n\r]+(?:\n[^\n\r]+){1,4})', text, re.IGNORECASE)
+    if exp_m:
+        exporter = exp_m.group(1).strip()
+    else:
+        exp_m2 = re.search(r'(?:LT\d+|UAB\s+[A-Z\s]+|NARBUTAS[^\n]+)', text, re.IGNORECASE)
+        if exp_m2:
+            exporter = exp_m2.group(0).strip()
+
+    # Consignee (Box 3)
+    consignee = ""
+    cons_m = re.search(r'3\.\s*Consignee[^\n]*\s*([^\n\r]+(?:\n[^\n\r]+){1,4})', text, re.IGNORECASE)
+    if cons_m:
+        consignee = cons_m.group(1).strip()
+
+    # Preferential Trade Between (Box 2)
+    trade_between = "EU and EGYPT"
+    if "EU" in text and "EGYPT" in text:
+        trade_between = "EU and EGYPT"
+
+    # Country of Origin (Box 4) & Destination (Box 5)
+    origin_country = "EU"
+    orig_m = re.search(r'4\.\s*Country[^\n]*originating\s*([A-Za-z\s]+)', text, re.IGNORECASE)
+    if orig_m:
+        origin_country = orig_m.group(1).strip()
+
+    dest_country = "EGYPT"
+
+    # Remarks (Box 7) - CRITICAL CHECK FOR "REVISED RULES"
+    remarks = ""
+    rem_m = re.search(r'7\.\s*Remarks\s*([^\n\r]+(?:\n[^\n\r]+){1,2})', text, re.IGNORECASE)
+    if rem_m:
+        remarks = rem_m.group(1).strip()
+    is_revised_rules = bool("REVISED RULES" in text.upper() or "REVISED" in remarks.upper())
+    if is_revised_rules and not remarks:
+        remarks = "REVISED RULES"
+
+    # Goods Description & Packages (Box 8)
+    goods_desc = ""
+    packages_count = 0
+    desc_m = re.search(r'8\.\s*Item\s*number[^\n]*\s*([^\n\r]+(?:\n[^\n\r]+){1,3})', text, re.IGNORECASE)
+    if desc_m:
+        goods_desc = desc_m.group(1).strip()
+    pkg_m = re.search(r'(\d+)\s*(?:PACKAGES|PKGS|CARTONS|BOXES|SHEETS|PCS)', text, re.IGNORECASE)
+    if pkg_m:
+        packages_count = int(pkg_m.group(1))
+
+    # HS Codes
+    hs_codes = re.findall(r'HS\s*([0-9]{4,6})', text, re.IGNORECASE)
+    if not hs_codes:
+        hs_codes = re.findall(r'\b(9401|9403|5602|8471|\d{4})\b', text)
+    hs_codes = list(dict.fromkeys(hs_codes))  # unique
+
+    # Gross Mass (kg) (Box 9)
+    gross_mass = 0.0
+    mass_m = re.search(r'9\.\s*Gross\s*mass[^\n:]*[:\s]+([\d\.,]+)', text, re.IGNORECASE)
+    if not mass_m:
+        mass_m = re.search(r'([\d]+[,\.][\d]+)\s*KG', text, re.IGNORECASE)
+    if mass_m:
+        try:
+            m_str = mass_m.group(1).replace(',', '.')
+            gross_mass = float(m_str)
+        except Exception:
+            pass
+
+    # ACID Number (Box 10 or anywhere)
+    acid = ""
+    acid_m = re.search(r'ACID[:\s\-_]*([0-9]{19})', text, re.IGNORECASE)
+    if not acid_m:
+        acid_m = re.search(r'\b([0-9]{19})\b', text)
+    if acid_m:
+        acid = acid_m.group(1).strip()
+
+    # Customs Endorsement (Box 11)
+    endorsement_date = ""
+    customs_office = ""
+    end_date_m = re.search(r'(\d{4}[\.-]\d{2}[\.-]\d{2})', text)
+    if end_date_m:
+        endorsement_date = end_date_m.group(1)
+    end_off_m = re.search(r'(?:Vilniaus|Customs\s*office|Muitin[^\s]+|LT-VM[^\s]*)', text, re.IGNORECASE)
+    if end_off_m:
+        customs_office = end_off_m.group(0).strip()
+
+    # Exemption Eligibility: True if Origin is EU, Destination is Egypt, and Box 7 has REVISED RULES
+    duty_exemption_eligible = bool(("EU" in origin_country.upper() or "LITHUANIA" in text.upper() or "GERMANY" in text.upper() or "ITALY" in text.upper()) and is_revised_rules)
+
+    return {
+        "certificate_type": "EUR.1 Movement Certificate",
+        "certificate_number": cert_no,
+        "exporter_name": exporter,
+        "importer_name": consignee,
+        "preferential_trade_between": trade_between,
+        "country_of_origin": origin_country,
+        "destination_country": dest_country,
+        "remarks": remarks,
+        "is_revised_rules": is_revised_rules,
+        "goods_description": goods_desc,
+        "packages_count": packages_count,
+        "hs_codes": hs_codes,
+        "gross_weight_kg": gross_mass,
+        "acid_number": acid,
+        "endorsement_date": endorsement_date,
+        "customs_office": customs_office,
+        "is_preferential_exemption_eligible": duty_exemption_eligible,
+        "import_duty_rate_expected": "0% (Full Exemption under EU-Egypt FTA)",
+    }
+
+
+def extract_inspection_voc_certificate_text(raw_text: str) -> Dict[str, Any]:
+    """
+    Extracts structured fields from Certificate of Conformity / Verification of Conformity (VoC / COI)
+    such as COTECNA, TÜV Rheinland, SGS, or Intertek inspection reports.
+    """
+    if not raw_text:
+        return {}
+
+    text = raw_text.replace('\r', '\n')
+
+    # Inspection Agency Detection
+    agency = "COTECNA"
+    if "TÜV" in text.upper() or "TUV" in text.upper() or "RHEINLAND" in text.upper():
+        agency = "TÜV Rheinland"
+    elif "SGS" in text.upper():
+        agency = "SGS"
+    elif "INTERTEK" in text.upper():
+        agency = "Intertek"
+    elif "BUREAU VERITAS" in text.upper():
+        agency = "Bureau Veritas"
+    elif "COTECNA" in text.upper():
+        agency = "COTECNA"
+
+    # CoC / Certificate Number
+    cert_no = ""
+    cert_no_m = re.search(r'CoC\s*No\.?\s*[:\s]*([0-9A-Za-z\-_]+)', text, re.IGNORECASE)
+    if cert_no_m:
+        cert_no = cert_no_m.group(1).strip()
+    else:
+        cert_no_m2 = re.search(r'([A-Z]{3}-\d{6})', text)
+        if cert_no_m2:
+            cert_no = cert_no_m2.group(1).strip()
+        else:
+            cert_no = "DRAFT-COC-001"
+
+    # Draft Warning Check
+    is_draft = bool("DRAFT" in text.upper() or "CONFIRM THIS DRAFT" in text.upper())
+    draft_warning = "تحذير: الشهادة الحالية مسودة (DRAFT) ويجب اعتمادها وإصدار النسخة النهائية المرقمة." if is_draft else None
+
+    # Importer
+    importer = ""
+    imp_m = re.search(r'Importer\s*(?:name\s*and\s*address|المستورد)?[:\s]*([^\n]+(?:\n[^\n]+){1,3})', text, re.IGNORECASE)
+    if imp_m:
+        importer = imp_m.group(1).strip()
+
+    # Exporter & Producer
+    exporter = ""
+    exp_m = re.search(r'Exporter\s*(?:name\s*and\s*address|المصدر)?[:\s]*([^\n]+(?:\n[^\n]+){1,3})', text, re.IGNORECASE)
+    if exp_m:
+        exporter = exp_m.group(1).strip()
+
+    producer = exporter
+    prod_m = re.search(r'Producer\s*(?:name\s*and\s*address|المنتج)?[:\s]*([^\n]+(?:\n[^\n]+){1,3})', text, re.IGNORECASE)
+    if prod_m:
+        producer = prod_m.group(1).strip()
+
+    # ACID Number
+    acid = ""
+    acid_m = re.search(r'(?:ACI\s*CODE|ACID\s*Number|ACID)[:\s\-_]*([0-9]{19})', text, re.IGNORECASE)
+    if not acid_m:
+        acid_m = re.search(r'\b([0-9]{19})\b', text)
+    if acid_m:
+        acid = acid_m.group(1).strip()
+
+    # Invoices (supports multiple invoices)
+    invoices = []
+    # Pattern 1: Table formatted invoices (e.g. 2,574.00 USD IT-DN26-003201 18/05/2026)
+    inv_table_matches = re.findall(
+        r'([\d\.,]+)\s*(USD|EUR|GBP|EGP)\s+([A-Za-z0-9\-_]+)\s+(\d{1,2}[/-]\d{1,2}[/-]\d{4})',
+        text,
+        re.IGNORECASE
+    )
+    for amt, curr, num, dt in inv_table_matches:
+        try:
+            val = float(amt.replace(',', ''))
+        except Exception:
+            val = 0.0
+        invoices.append({
+            "invoice_number": num.strip(),
+            "invoice_date": dt.strip(),
+            "amount": val,
+            "currency": curr.upper(),
+        })
+
+    # Pattern 2: Single invoice (e.g. Commercial Invoice No.: IN053328 Dated:07-08-2026 Value: 15,375.50 EUR EXW)
+    if not invoices:
+        single_inv_m = re.search(r'Commercial\s*Invoice\s*No\.?\s*[:\s]*([A-Za-z0-9\-_]+)', text, re.IGNORECASE)
+        date_m = re.search(r'Dated\s*[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})', text, re.IGNORECASE)
+        val_m = re.search(r'Value\s*[:\s]*([\d\.,]+)\s*(EUR|USD|GBP|EGP)', text, re.IGNORECASE)
+        if single_inv_m:
+            inv_num = single_inv_m.group(1).strip()
+            inv_dt = date_m.group(1).strip() if date_m else ""
+            inv_val = float(val_m.group(1).replace(',', '')) if val_m else 0.0
+            inv_curr = val_m.group(2).upper() if val_m else "EUR"
+            invoices.append({
+                "invoice_number": inv_num,
+                "invoice_date": inv_dt,
+                "amount": inv_val,
+                "currency": inv_curr,
+            })
+
+    total_amount = sum(inv["amount"] for inv in invoices)
+    primary_currency = invoices[0]["currency"] if invoices else "USD"
+
+    # Inspection Date & Place
+    insp_date = ""
+    insp_place = ""
+    insp_dt_m = re.search(r'(?:Date\s*of\s*Inspection|الفحص\s*تاريخ)[:\s]*(\d{1,2}[/-]\d{1,2}[/-]\d{4})', text, re.IGNORECASE)
+    if insp_dt_m:
+        insp_date = insp_dt_m.group(1).strip()
+    insp_pl_m = re.search(r'(?:Place\s*of\s*Inspection|الفحص\s*مكان)[:\s]*([^\n]+)', text, re.IGNORECASE)
+    if insp_pl_m:
+        insp_place = insp_pl_m.group(1).strip()
+
+    # Point of Entry / Port
+    port_entry = "Alexandria"
+    port_m = re.search(r'(?:Point\s*of\s*Entry|نقطة\s*الدخول)[:\s]*([^\n]+)', text, re.IGNORECASE)
+    if port_m:
+        port_entry = port_m.group(1).strip()
+
+    # Standards Tested (ES / EN)
+    standards = []
+    es_standards = re.findall(r'(ES\s*[\d\.\-]+(?:/\s*\d{4})?)', text, re.IGNORECASE)
+    en_standards = re.findall(r'(EN\s*[\d\.\-]+(?::\s*\d{4})?)', text, re.IGNORECASE)
+    iso_standards = re.findall(r'(ISO(?:/IEC)?\s*[\d\.\-]+)', text, re.IGNORECASE)
+    standards.extend(es_standards)
+    standards.extend(en_standards)
+    standards.extend(iso_standards)
+    standards = list(dict.fromkeys(standards))
+
+    # Items count estimation
+    item_rows = re.findall(r'\n\s*(\d+)\s+(\d+)\s+(?:pieces|pcs|Italy|Lithuania|Acoustic|Table|Chair)', text, re.IGNORECASE)
+    items_count = len(item_rows) if item_rows else (len(standards) if standards else 1)
+
+    return {
+        "inspection_type": "COC (Certificate of Conformity)",
+        "inspection_agency": agency,
+        "certificate_number": cert_no,
+        "is_draft": is_draft,
+        "draft_warning": draft_warning,
+        "importer_name": importer,
+        "exporter_name": exporter,
+        "producer_name": producer,
+        "acid_number": acid,
+        "inspection_date": insp_date,
+        "inspection_place": insp_place,
+        "point_of_entry": port_entry,
+        "invoices": invoices,
+        "total_invoice_amount": total_amount,
+        "currency": primary_currency,
+        "standards_tested": standards,
+        "items_count": items_count,
+        "regulatory_authority": "GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)",
+    }
+

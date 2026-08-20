@@ -33,10 +33,16 @@ from modules.import_documentation.schemas import (
     CertificateOfOriginReviewUpdate,
     CertificateOfOriginReviewResponse,
     COOComparisonRequest,
+    COODraftTemplateResponse,
     InspectionCertificateReviewCreate,
     InspectionCertificateReviewUpdate,
     InspectionCertificateReviewResponse,
     InspectionComparisonRequest,
+    InspectionDraftTemplateResponse,
+    DocumentExtractRequest,
+    DocumentExtractResponse,
+    ThreeWayCrossMatchRequest,
+    ThreeWayCrossMatchResponse,
     LegalDocsExpiryComplianceResponse,
     InvoiceBLExtractAndMatchRequest,
     InvoiceBLExtractAndMatchResponse,
@@ -594,6 +600,23 @@ def update_coo_review(
     return service.update_coo_review_service(db, review_id, payload)
 
 
+@router.get(
+    "/coo/draft-template/{import_file_id}",
+    response_model=COODraftTemplateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_coo_draft_template(
+    import_file_id: int,
+    cert_type: str = "EUR.1",
+    db: Session = Depends(get_db),
+):
+    """
+    Generates a pre-filled, official draft template for China CCPIT COO or EUR.1 Movement Certificate
+    from Import File, Final Invoice, Packing List, and B/L snapshots.
+    """
+    return service.generate_coo_draft_template_service(db, import_file_id, cert_type)
+
+
 # --- 4. INSPECTION CERTIFICATE ENDPOINTS ---
 @router.post("/inspection/compare", status_code=status.HTTP_200_OK)
 def compare_inspection(
@@ -635,6 +658,78 @@ def update_inspection_review(
     review_id: int, payload: InspectionCertificateReviewUpdate, db: Session = Depends(get_db)
 ):
     return service.update_inspection_review_service(db, review_id, payload)
+
+
+@router.get(
+    "/inspection/draft-template/{import_file_id}",
+    response_model=InspectionDraftTemplateResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_inspection_draft_template(
+    import_file_id: int,
+    agency: str = "COTECNA",
+    cert_type: str = "COC (Certificate of Conformity)",
+    db: Session = Depends(get_db),
+):
+    """
+    Generates a pre-filled, official draft template for COTECNA / TÜV Rheinland / SGS VoC
+    with Egyptian standard specifications and multi-invoice item breakdown.
+    """
+    return service.generate_inspection_draft_template_service(db, import_file_id, agency, cert_type)
+
+
+# --- 4.1 DOCUMENT EXTRACTION & 3-WAY RECONCILIATION ENDPOINTS ---
+@router.post(
+    "/extract-certificate",
+    response_model=DocumentExtractResponse,
+    status_code=status.HTTP_200_OK,
+)
+def extract_certificate_data(
+    payload: DocumentExtractRequest,
+):
+    """
+    Intelligently extracts fields from China COO, EUR.1, VoC Inspection, Draft B/L, or Invoice.
+    """
+    return service.extract_document_service(payload)
+
+
+@router.post(
+    "/extract-certificate-file",
+    response_model=DocumentExtractResponse,
+    status_code=status.HTTP_200_OK,
+)
+async def extract_certificate_file(
+    document_type: str = Form(...),
+    file: UploadFile = File(...),
+    import_file_id: Optional[int] = Form(None),
+):
+    """
+    Uploads a certificate file (PDF, Word, TXT) and parses its fields automatically.
+    """
+    content = await file.read()
+    raw_text = service.extract_text_from_uploaded_file(file.filename, content)
+    req = DocumentExtractRequest(
+        document_type=document_type,
+        raw_text=raw_text,
+        import_file_id=import_file_id,
+    )
+    return service.extract_document_service(req)
+
+
+@router.post(
+    "/cross-match-certificates",
+    response_model=ThreeWayCrossMatchResponse,
+    status_code=status.HTTP_200_OK,
+)
+def cross_match_certificates(
+    payload: ThreeWayCrossMatchRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Executes deep cross-document reconciliation between COO/EUR.1, Inspection VoC,
+    Final Commercial Invoice, Packing List, and Draft B/L.
+    """
+    return service.cross_match_certificates_service(db, payload)
 
 
 # --- 5. LEGAL DOCUMENTS & ACID EXPIRY COMPLIANCE (+30 DAYS SAFETY MARGIN) ---

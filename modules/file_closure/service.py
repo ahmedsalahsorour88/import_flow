@@ -24,7 +24,7 @@ def close_import_file_service(db: Session, schema: FileClosureCreate) -> ImportF
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
     checklist_dict = schema.closure_checklist.model_dump()
-    validate_closure_checklist(checklist_dict)
+    validate_closure_checklist(checklist_dict, getattr(imp_file, 'skipped_stages', None))
 
     code = generate_closure_code(db)
     record = create_closure(db, schema, code)

@@ -72,6 +72,15 @@ class ImportFileBase(BaseModel):
     form46_no: Optional[str] = None
     estimated_cost: float = Field(0.0, ge=0.0, description="Estimated Landed/Import Cost")
     estimated_cost_currency: str = Field("USD", description="عملة التكلفة التقديرية")
+    # Dynamic Lifecycle Controls
+    initial_starting_stage: Optional[str] = Field("Phase 1 - Planning & Feasibility", description="Starting Phase name")
+    initial_starting_step: Optional[str] = Field("STEP_01", description="Starting Step code e.g. STEP_01, STEP_06, STEP_13")
+    paused_at_stage: Optional[str] = None
+    paused_at_step: Optional[str] = None
+    hold_reason: Optional[str] = None
+    hold_date: Optional[datetime] = None
+    skipped_stages: Optional[List[str]] = Field(default_factory=list, description="List of skipped step codes")
+
     status: str = Field("Open", description="Open, In Progress, On Hold, Closed, Archived")
     owner: str = Field("Kamal", description="Operational Owner")
     notes: Optional[str] = None
@@ -86,6 +95,15 @@ class CloseShipmentSubmit(BaseModel):
 
 class ReopenShipmentSubmit(BaseModel):
     reopen_reason: str = Field(..., min_length=3, description="Reason for reopening closed shipment")
+
+
+class HoldShipmentPayload(BaseModel):
+    hold_reason: str = Field(..., min_length=3, description="Reason for placing shipment on hold")
+    hold_notes: Optional[str] = None
+
+
+class ResumeShipmentPayload(BaseModel):
+    resume_notes: Optional[str] = None
 
 
 class ImportFileCreate(ImportFileBase):
@@ -139,6 +157,13 @@ class ImportFileUpdate(BaseModel):
     form46_no: Optional[str] = None
     estimated_cost: Optional[float] = None
     estimated_cost_currency: Optional[str] = None
+    initial_starting_stage: Optional[str] = None
+    initial_starting_step: Optional[str] = None
+    paused_at_stage: Optional[str] = None
+    paused_at_step: Optional[str] = None
+    hold_reason: Optional[str] = None
+    hold_date: Optional[datetime] = None
+    skipped_stages: Optional[List[str]] = None
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None

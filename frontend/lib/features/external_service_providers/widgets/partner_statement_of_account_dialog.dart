@@ -380,7 +380,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text(
-                    'ImportFlow ERP — وحدة محاسبة الموردين ومقدمي الخدمات متعددة العملات',
+                    'Sorour Logistics ERP — وحدة محاسبة الموردين ومقدمي الخدمات متعددة العملات',
                     style: TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                   ElevatedButton(

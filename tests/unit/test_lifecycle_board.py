@@ -2,6 +2,7 @@
 Unit Tests for Shipment Stage Activity & 6-Phase Lifecycle Board
 """
 
+import main
 import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -13,7 +14,7 @@ from modules.import_files.model import ImportFile
 from modules.lifecycle_board.model import ShipmentStageActivity
 import modules.lifecycle_board.service as service
 import modules.lifecycle_board.repository as repo
-from modules.lifecycle_board.schemas import StepAdvancePayload, MultiStageSetPayload
+from modules.lifecycle_board.schemas import StepAdvancePayload, SkipStepPayload, MultiStageSetPayload
 
 
 @pytest.fixture
@@ -91,3 +92,74 @@ def test_advance_step_service(db_session):
 
     step4 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_04")
     assert step4.status == "In-Progress"
+
+
+def test_skip_step_service(db_session):
+    # Set step 6 (Freight booking)
+    repo.save_or_update_activity(
+        db_session,
+        import_file_code="IMP-2026-0001",
+        step_code="STEP_06",
+        status="In-Progress",
+    )
+
+    # Skip step 6 because terms are CIF (freight handled by supplier) and advance to STEP_08 (Draft Docs Review)
+    skip_payload = SkipStepPayload(
+        import_file_code="IMP-2026-0001",
+        current_step_code="STEP_06",
+        skip_reason="شحنة بنظام CIF - النولون مسدد ومحجوز من المورد الأجنبي",
+        next_step_codes=["STEP_08"],
+    )
+    res = service.skip_step_service(db_session, skip_payload)
+    assert res["skipped_step"] == "STEP_06"
+    assert res["activated_steps"] == ["STEP_08"]
+
+    step6 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_06")
+    assert step6.status == "Skipped"
+    assert "CIF" in step6.notes
+
+    step8 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_08")
+    assert step8.status == "In-Progress"
+
+    # Check that ImportFile has STEP_06 in skipped_stages
+    file1 = db_session.query(ImportFile).filter(ImportFile.import_file_code == "IMP-2026-0001").first()
+    assert "STEP_06" in file1.skipped_stages
+
+
+def test_initialize_file_lifecycle_service_from_custom_step(db_session):
+    # Initialize a new shipment file starting from STEP_13 (Customs Clearance Declaration 46)
+    service.initialize_file_lifecycle_service(db_session, "IMP-2026-0001", starting_step="STEP_13")
+
+    # Verify that prior steps 1..12 are marked Completed
+    for i in range(1, 13):
+        code = f"STEP_{str(i).zfill(2)}"
+        act = repo.get_activity(db_session, "IMP-2026-0001", code)
+        assert act is not None
+        assert act.status == "Completed"
+
+    # Verify that STEP_13 is In-Progress
+    step13 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_13")
+    assert step13 is not None
+    assert step13.status == "In-Progress"
+
+
+def test_hold_and_resume_activities(db_session):
+    # Set step 13 In-Progress
+    repo.save_or_update_activity(
+        db_session,
+        import_file_code="IMP-2026-0001",
+        step_code="STEP_13",
+        status="In-Progress",
+    )
+
+    # Hold shipment
+    service.hold_shipment_activities_service(db_session, "IMP-2026-0001", "في انتظار موافقة هيئة الرقابة على الصادرات والواردات")
+    step13 = repo.get_activity(db_session, "IMP-2026-0001", "STEP_13")
+    assert step13.status == "On-Hold"
+    assert "في انتظار موافقة" in step13.notes
+
+    # Resume shipment
+    service.resume_shipment_activities_service(db_session, "IMP-2026-0001", "تم صدور الموافقة الرقابية")
+    step13_resumed = repo.get_activity(db_session, "IMP-2026-0001", "STEP_13")
+    assert step13_resumed.status == "In-Progress"
+    assert "تم صدور الموافقة" in step13_resumed.notes

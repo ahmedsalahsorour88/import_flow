@@ -1786,37 +1786,6 @@ def update_inspection_review_service(db: Session, review_id: int, schema: Inspec
 
 # --- SPECIALIZED CERTIFICATE DRAFT GENERATORS, EXTRACTION & CROSS-MATCHING ---
 
-def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_type: str = "EUR.1") -> COODraftTemplateResponse:
-    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
-    if not imp_file:
-        raise HTTPException(status_code=404, detail="Import File not found")
-
-    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
-    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
-    reconciliation = db.query(POPackingReconciliationSession).filter(
-        POPackingReconciliationSession.import_file_id == import_file_id,
-        POPackingReconciliationSession.is_active == True
-    ).first()
-    booking = db.query(ShipmentBooking).filter(
-        ShipmentBooking.import_file_id == import_file_id,
-        ShipmentBooking.is_active == True
-    ).first()
-    acid_session = db.query(AcidRegistrationSession).filter(
-        AcidRegistrationSession.import_file_id == import_file_id,
-        AcidRegistrationSession.is_active == True
-    ).first()
-
-    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
-    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
-    inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
-    gross_wt = float(getattr(reconciliation, 'total_gross_weight_kg', None) or getattr(booking, 'gross_weight', None) or getattr(imp_file, 'total_weight', None) or 1774.514)
-    pkgs = int(getattr(reconciliation, 'total_packages', None) or getattr(booking, 'packages_count', None) or getattr(imp_file, 'total_packages', None) or 141)
-
-    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB NARBUTAS INTERNATIONAL"
-    exporter_addr = (supplier.address if supplier else None) or "EITMINIU G. 3, LT012113, VILNIUS, LITHUANIA"
-    exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or "LT300591314"
-
-    importer_name = (company.importer_name if company else imp_file.company_name) or "ARCHI BRANDS FOR CORPET AND FLOOR TRADING"
 def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, supplier: Optional[Supplier] = None):
     from modules.purchase_orders.model import PurchaseOrder, POLineItem, PackingListItem
     from modules.customs_tariff.model import CustomsTariff

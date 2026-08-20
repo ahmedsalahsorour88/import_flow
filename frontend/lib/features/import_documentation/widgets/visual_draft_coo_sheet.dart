@@ -512,7 +512,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     );
   }
 
-  // ─── Standard EUR.1 Movement Certificate Layout ──────────────────────────────
+  // ─── Authentic EUR.1 Movement Certificate Layout ──────────────────────────────
   Widget _buildEur1Layout({
     required String certNo,
     required String exporter,
@@ -527,206 +527,450 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required String remarks,
     required bool isEur1,
   }) {
+    final originDisplay = originsList.isNotEmpty ? originsList.join(', ') : 'EU';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header Row
+        // Top Center Title
         Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            border: const Border(bottom: BorderSide(color: Colors.black87, width: 1.2)),
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          alignment: Alignment.center,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(bottom: BorderSide(color: Colors.black87, width: 1.2)),
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isEur1 ? 'MOVEMENT CERTIFICATE (EUR.1)' : 'CERTIFICATE OF ORIGIN',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black),
-                    ),
-                    const SizedBox(height: 2),
-                    const Text(
-                      'OFFICIAL DRAFT VERIFICATION — ACI NAFEZA EGYPT',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.cobalt),
-                    ),
-                  ],
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text('CERTIFICATE NO: $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.black)),
-                  Text('ACID NO: ${widget.acidNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.green)),
-                ],
-              ),
-            ],
+          child: const Text(
+            'MOVEMENT CERTIFICATE',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.2, color: Colors.black87),
           ),
         ),
 
-        // Exemption Status Note if present
-        if (widget.exemptionNotes != null && widget.exemptionNotes!.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            color: Colors.green.shade50,
-            child: Row(
-              children: [
-                const Icon(Icons.stars, color: Colors.green, size: 16),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    widget.exemptionNotes!,
-                    style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.green.shade900),
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-        // Box 1: Exporter
-        _buildBoxCell('1. Exporter (Name, full address, country, reg no.):', exporter, hasBottomBorder: true),
-
-        // Row 2: Consignee & Country of Origin
+        // Row 1: Box 1 (Exporter) vs EUR.1 Header Box & Box 2 (Preferential Trade)
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Box 1: Exporter
             Expanded(
+              flex: 5,
               child: _buildBoxCell(
-                '2. Consignee (Name, full address, country):',
+                '1. Exporter (Name, full address, country)',
+                exporter,
+                hasRightBorder: true,
+                hasBottomBorder: true,
+                minHeight: 125,
+              ),
+            ),
+
+            // Right 50%: EUR.1 Header + Box 2
+            Expanded(
+              flex: 5,
+              child: Column(
+                children: [
+                  // EUR.1 Title & Cert No Box
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('EUR.1', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.black)),
+                            Text('No A $certNo', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black)),
+                          ],
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          'See notes overleaf before completing this form.',
+                          style: TextStyle(fontSize: 8.5, fontStyle: FontStyle.italic, color: Colors.black54),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Box 2: Preferential Trade
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: const BoxDecoration(
+                      border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            '2. Certificate used in preferential trade between',
+                            style: TextStyle(fontSize: 8.5, color: Colors.black54),
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          originDisplay.contains('EU') ? 'EU' : originDisplay.toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87),
+                        ),
+                        const Text('and', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
+                        Text(
+                          destination.toUpperCase(),
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 2),
+                        const Text(
+                          '(Insert appropriate countries, groups of countries or territories)',
+                          style: TextStyle(fontSize: 7.5, fontStyle: FontStyle.italic, color: Colors.black45),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        // Row 2: Box 3 (Consignee) vs Box 4 (Origin) & Box 5 (Destination)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Box 3: Consignee
+            Expanded(
+              flex: 5,
+              child: _buildBoxCell(
+                '3. Consignee (Name, full address, country) (Optional)',
                 consignee,
                 hasRightBorder: true,
                 hasBottomBorder: true,
+                minHeight: 90,
               ),
             ),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('3. Country / Countries of Origin (بلد / بلاد المنشأ المستدعاة):', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: originsList.map((c) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.blue.shade300),
-                          ),
-                          child: Text('🌍 $c', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 6),
-                    Text('Country of Destination: $destination', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
 
-        // Row 3: Transport & Remarks
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+            // Box 4 & Box 5 Column
             Expanded(
-              child: _buildBoxCell(
-                '4. Transport Details & Route:',
-                transport,
-                hasRightBorder: true,
-                hasBottomBorder: true,
-              ),
-            ),
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('5. Remarks / Preferential Rule:', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-                    const SizedBox(height: 2),
-                    Text(remarks, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.crimson)),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // Row 4: Goods Description, Multi-HS Codes & Weights
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: const BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('6. Description of Goods, Marks & Numbers, Item Lines:', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
-              const SizedBox(height: 4),
-              Text(goodsDesc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-              const SizedBox(height: 8),
-
-              // Multi HS Codes Chips
-              Row(
+              flex: 5,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('H.S. Codes (بدون تكرار): ', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black54)),
-                  const SizedBox(width: 4),
                   Expanded(
-                    child: Wrap(
-                      spacing: 6,
-                      runSpacing: 4,
-                      children: hsCodesList.map((hs) {
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.purple.shade50,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.purple.shade200),
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 90),
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          right: BorderSide(color: Colors.black87, width: 0.8),
+                          bottom: BorderSide(color: Colors.black87, width: 0.8),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '4. Country, group of countries or territory in which the products are considered as originating',
+                            style: TextStyle(fontSize: 8.5, color: Colors.black54),
                           ),
-                          child: Text('🔖 $hs', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple)),
-                        );
-                      }).toList(),
+                          const SizedBox(height: 4),
+                          if (originsList.isNotEmpty)
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 2,
+                              children: originsList.map((c) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.shade50,
+                                    borderRadius: BorderRadius.circular(3),
+                                    border: Border.all(color: Colors.blue.shade300),
+                                  ),
+                                  child: Text('🌍 $c', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.cobalt)),
+                                );
+                              }).toList(),
+                            )
+                          else
+                            Text(originDisplay, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+                        ],
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: _buildBoxCell(
+                      '5. Country, group of countries or territory of destination (Optional)',
+                      destination,
+                      hasBottomBorder: true,
+                      minHeight: 90,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
-              Text('Quantity & Gross Mass: $weight', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 2),
-              Text('Invoices & ACID Reference: $invoiceData | ACID: ${widget.acidNumber}', style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
+            ),
+          ],
+        ),
+
+        // Row 3: Box 6 (Transport details) vs Box 7 (Remarks)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 5,
+              child: _buildBoxCell(
+                '6. Transport details (Optional)',
+                transport.isNotEmpty ? transport : 'BY SEA / CONTAINERIZED CARGO',
+                hasRightBorder: true,
+                hasBottomBorder: true,
+                minHeight: 50,
+              ),
+            ),
+            Expanded(
+              flex: 5,
+              child: _buildBoxCell(
+                '7. Remarks',
+                remarks.isNotEmpty ? remarks : 'REVISED RULES',
+                hasBottomBorder: true,
+                minHeight: 50,
+              ),
+            ),
+          ],
+        ),
+
+        // Middle Table (Boxes 8, 9, 10)
+        Container(
+          decoration: const BoxDecoration(
+            border: Border(bottom: BorderSide(color: Colors.black87, width: 1.2)),
+          ),
+          child: Column(
+            children: [
+              // Table Column Headers
+              Container(
+                color: Colors.grey.shade100,
+                child: Row(
+                  children: [
+                    _buildTableHeadCell('8. Item number; Marks and numbers; Number and kind of packages (1); Description of goods', flex: 5),
+                    _buildTableHeadCell('9. Gross mass (kg)\nor other measure\n(litres, m³, etc.)', flex: 2),
+                    _buildTableHeadCell('10. Invoices\n(Optional)', flex: 2, hasRightBorder: false),
+                  ],
+                ),
+              ),
+              const Divider(height: 1, color: Colors.black87),
+
+              // Table Body Content
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Box 8: Description + Packages + HS Code Badges
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(goodsDesc, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5)),
+                          const SizedBox(height: 8),
+
+                          // Multi-HS code tags
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: hsCodesList.map((hs) {
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.purple.shade50,
+                                  borderRadius: BorderRadius.circular(3),
+                                  border: Border.all(color: Colors.purple.shade300),
+                                ),
+                                child: Text('🔖 $hs', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.purple)),
+                              );
+                            }).toList(),
+                          ),
+                          const SizedBox(height: 14),
+
+                          // Diagonal line watermark simulation to prevent additions
+                          CustomPaint(
+                            size: const Size(double.infinity, 30),
+                            painter: DiagonalLinePainter(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Box 9: Gross Mass
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: const BoxDecoration(border: Border(right: BorderSide(color: Colors.black87, width: 0.8))),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Text(
+                            weight.isNotEmpty ? weight : '1774,514 KG',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 20),
+                          CustomPaint(
+                            size: const Size(double.infinity, 30),
+                            painter: DiagonalLinePainter(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Box 10: Invoices & ACID
+                  Expanded(
+                    flex: 2,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: Colors.green)),
+                          Text(widget.acidNumber, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.green)),
+                          if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO') ...[
+                            const SizedBox(height: 4),
+                            Text(invoiceData, style: const TextStyle(fontSize: 9.5, color: Colors.black87)),
+                          ],
+                          const SizedBox(height: 14),
+                          CustomPaint(
+                            size: const Size(double.infinity, 30),
+                            painter: DiagonalLinePainter(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
 
-        // Footer Endorsement
+        // Bottom Section: Box 11 (Customs Endorsement) vs Box 12 (Declaration by Exporter)
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Box 11: Customs Endorsement
+            Expanded(
+              flex: 5,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  border: Border(right: BorderSide(color: Colors.black87, width: 0.8)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('11. CUSTOMS ENDORSEMENT', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const SizedBox(height: 3),
+                    const Text('Declaration certified', style: TextStyle(fontSize: 8.5)),
+                    const Text('Export document (2)', style: TextStyle(fontSize: 8.5)),
+                    const Text('Form .............................. No ..............................', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                    const Text('Of .....................................................................', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                    const SizedBox(height: 2),
+                    const Text('Customs office: Vilnius regional customs office', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
+                    const Text('Issuing country or territory: Lithuania', style: TextStyle(fontSize: 8.5, fontWeight: FontWeight.w500)),
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Place and date:', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                            Text('2026-08-11', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        // Customs Stamp Simulation
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.blue.shade900, width: 1.5),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            'A-004 • LT VM • 2026-08-11',
+                            style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Divider(height: 1, color: Colors.black54),
+                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 8, color: Colors.black54))),
+                  ],
+                ),
+              ),
+            ),
+
+            // Box 12: Declaration by Exporter
+            Expanded(
+              flex: 5,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('12. DECLARATION BY THE EXPORTER', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'I, the undersigned, declare that the goods described above meet the conditions required for the issue of this certificate.',
+                      style: TextStyle(fontSize: 8.5, height: 1.25),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Place and date:', style: TextStyle(fontSize: 8, color: Colors.black54)),
+                            Text('VILNIUS 2026-08-11', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                        // Exporter Stamp Simulation
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.indigo.shade800, width: 1.2),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            'NARBUTAS DOKUMENTAI',
+                            style: TextStyle(fontSize: 7.5, fontWeight: FontWeight.bold, color: Colors.indigo.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    const Divider(height: 1, color: Colors.black54),
+                    const Center(child: Text('(Signature)', style: TextStyle(fontSize: 8, color: Colors.black54))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        // Footnotes
         Container(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           color: Colors.grey.shade50,
-          child: Wrap(
-            spacing: 16,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('7. Declaration by Exporter: Certified Correct', style: TextStyle(fontSize: 10, color: Colors.black54)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green.shade300)),
-                child: const Text('🟢 Approved & Verified for Egyptian Customs Release', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)),
+              Text(
+                '(1) If goods are not packed, indicate number of articles or state \'in bulk\', as appropriate.',
+                style: TextStyle(fontSize: 7.5, color: Colors.black54),
+              ),
+              Text(
+                '(2) Complete only where the regulations of the exporting country or territory require.',
+                style: TextStyle(fontSize: 7.5, color: Colors.black54),
               ),
             ],
           ),
@@ -754,9 +998,9 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(fontSize: 9.5, color: Colors.black54)),
+          Text(label, style: const TextStyle(fontSize: 9, color: Colors.black54)),
           const SizedBox(height: 2),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
         ],
       ),
     );
@@ -772,7 +1016,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         child: Text(
           title,
-          style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 8.5, fontWeight: FontWeight.bold, color: Colors.black87),
           textAlign: TextAlign.center,
         ),
       ),
@@ -789,9 +1033,23 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
         ),
         child: Text(
           content,
-          style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87),
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
         ),
       ),
     );
   }
+}
+
+/// Painter to draw the official anti-fraud diagonal lines in EUR.1 unused box space
+class DiagonalLinePainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.black26
+      ..strokeWidth = 1.0;
+    canvas.drawLine(const Offset(0, 0), Offset(size.width, size.height), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

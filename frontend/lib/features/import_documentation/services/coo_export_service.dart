@@ -339,131 +339,256 @@ class CooExportService {
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.stretch,
       children: [
-        // Header Top Banner
+        // Top Center Title
         pw.Container(
-          padding: const pw.EdgeInsets.all(8),
-          decoration: const pw.BoxDecoration(
-            color: PdfColors.grey200,
-            border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 1)),
-          ),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    isEur1 ? 'MOVEMENT CERTIFICATE (EUR.1)' : 'CERTIFICATE OF ORIGIN',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13),
-                  ),
-                  pw.Text(
-                    'OFFICIAL DRAFT VERIFICATION — ACI NAFEZA EGYPT',
-                    style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5, color: PdfColors.blue900),
-                  ),
-                ],
-              ),
-              pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.end,
-                children: [
-                  pw.Text('CERTIFICATE NO: $certNo', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
-                  pw.Text('ACID NO: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5, color: PdfColors.green900)),
-                ],
-              ),
-            ],
+          padding: const pw.EdgeInsets.symmetric(vertical: 4),
+          alignment: pw.Alignment.center,
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 1))),
+          child: pw.Text(
+            'MOVEMENT CERTIFICATE',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11, letterSpacing: 1.2),
           ),
         ),
 
-        // Exemption Banner if any
-        if (exemptionNotes != null && exemptionNotes.isNotEmpty)
-          pw.Container(
-            padding: const pw.EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: const pw.BoxDecoration(
-              color: PdfColors.green50,
-              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.green900, width: 0.8)),
-            ),
-            child: pw.Text(
-              'STATUS: $exemptionNotes',
-              style: pw.TextStyle(fontSize: 8.5, fontWeight: pw.FontWeight.bold, color: PdfColors.green900),
-            ),
-          ),
-
-        // Box 1: Exporter
-        _buildPdfBoxCell('1. Exporter (Name, full address, country, reg no.):', exporter, hasBottomBorder: true),
-
-        // Row 2: Preferential Trade & Consignee
+        // Row 1: Box 1 (Exporter) vs EUR.1 Header & Box 2 (Preferential Trade)
         pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
           children: [
             pw.Expanded(
-              child: _buildPdfBoxCell('2. Consignee (Name, full address, country):', consignee, minHeight: 65, hasRightBorder: true, hasBottomBorder: true),
+              flex: 5,
+              child: _buildPdfBoxCell('1. Exporter (Name, full address, country)', exporter, minHeight: 90, hasRightBorder: true, hasBottomBorder: true),
             ),
             pw.Expanded(
-              child: pw.Container(
-                padding: const pw.EdgeInsets.all(6),
-                height: 65,
-                decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-                child: pw.Column(
-                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+              flex: 5,
+              child: pw.Column(
+                children: [
+                  // EUR.1 Header Box
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(6),
+                    decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Row(
+                          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                          children: [
+                            pw.Text('EUR.1', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 13)),
+                            pw.Text('No A $certNo', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 11)),
+                          ],
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text('See notes overleaf before completing this form.', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
+                      ],
+                    ),
+                  ),
+
+                  // Box 2: Preferential Trade
+                  pw.Container(
+                    padding: const pw.EdgeInsets.all(6),
+                    decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.center,
+                      children: [
+                        pw.Align(
+                          alignment: pw.Alignment.centerLeft,
+                          child: pw.Text('2. Certificate used in preferential trade between', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
+                        ),
+                        pw.SizedBox(height: 2),
+                        pw.Text(origin.contains('EU') ? 'EU' : origin.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                        pw.Text('and', style: const pw.TextStyle(fontSize: 7.5)),
+                        pw.Text(destination.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                        pw.Text('(Insert appropriate countries, groups of countries or territories)', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        // Row 2: Box 3 (Consignee) vs Box 4 (Origin) & Box 5 (Destination)
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              flex: 5,
+              child: _buildPdfBoxCell('3. Consignee (Name, full address, country) (Optional)', consignee, minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
+            ),
+            pw.Expanded(
+              flex: 5,
+              child: pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: _buildPdfBoxCell('4. Country of Origin', origin, minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
+                  ),
+                  pw.Expanded(
+                    child: _buildPdfBoxCell('5. Country of Destination', destination, minHeight: 70, hasBottomBorder: true),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+
+        // Row 3: Box 6 (Transport) vs Box 7 (Remarks)
+        pw.Row(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Expanded(
+              flex: 5,
+              child: _buildPdfBoxCell('6. Transport details (Optional)', transport.isNotEmpty ? transport : 'BY SEA / CONTAINERIZED CARGO', minHeight: 40, hasRightBorder: true, hasBottomBorder: true),
+            ),
+            pw.Expanded(
+              flex: 5,
+              child: _buildPdfBoxCell('7. Remarks', remarks.isNotEmpty ? remarks : 'REVISED RULES', minHeight: 40, hasBottomBorder: true),
+            ),
+          ],
+        ),
+
+        // Middle Table (Boxes 8, 9, 10)
+        pw.Container(
+          decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 1))),
+          child: pw.Column(
+            children: [
+              pw.Container(
+                color: PdfColors.grey200,
+                child: pw.Row(
                   children: [
-                    pw.Text('3. Country / Countries of Origin:', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
-                    pw.SizedBox(height: 2),
-                    pw.Text(origin, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10, color: PdfColors.blue900)),
-                    pw.SizedBox(height: 4),
-                    pw.Text('Country of Destination: $destination', style: const pw.TextStyle(fontSize: 8.5)),
+                    _buildPdfTableHeadCell('8. Item number; Marks and numbers; Number and kind of packages (1); Description of goods', flex: 5),
+                    _buildPdfTableHeadCell('9. Gross mass (kg)\nor other measure', flex: 2),
+                    _buildPdfTableHeadCell('10. Invoices\n(Optional)', flex: 2, hasRightBorder: false),
                   ],
                 ),
               ),
-            ),
-          ],
-        ),
+              pw.Divider(height: 1, color: PdfColors.black),
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  // Box 8
+                  pw.Expanded(
+                    flex: 5,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(goodsDesc, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                          pw.SizedBox(height: 4),
+                          pw.Text('HS CODES: $hsCodes', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8, color: PdfColors.purple900)),
+                          pw.SizedBox(height: 10),
+                          pw.Text('----------------------------------------------------', style: const pw.TextStyle(color: PdfColors.grey500, fontSize: 6)),
+                        ],
+                      ),
+                    ),
+                  ),
 
-        // Row 3: Transport & Remarks
-        pw.Row(
-          children: [
-            pw.Expanded(
-              child: _buildPdfBoxCell('4. Transport Details & Route:', transport, minHeight: 45, hasRightBorder: true, hasBottomBorder: true),
-            ),
-            pw.Expanded(
-              child: _buildPdfBoxCell('5. Remarks / Preferential Rule:', remarks, minHeight: 45, hasBottomBorder: true),
-            ),
-          ],
-        ),
+                  // Box 9: Gross Mass
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.center,
+                        children: [
+                          pw.Text(weight.isNotEmpty ? weight : '1774,514 KG', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                        ],
+                      ),
+                    ),
+                  ),
 
-        // Row 4: Goods Description & HS Codes Table
-        pw.Expanded(
-          child: pw.Container(
-            padding: const pw.EdgeInsets.all(8),
-            decoration: const pw.BoxDecoration(border: pw.Border(bottom: pw.BorderSide(color: PdfColors.black, width: 0.8))),
-            child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Text('6. Description of Goods, Marks & Numbers, H.S. Tariff Codes:', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
-                pw.SizedBox(height: 4),
-                pw.Text(goodsDesc, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9.5)),
-                pw.SizedBox(height: 6),
-                pw.Container(
-                  padding: const pw.EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: const pw.BoxDecoration(color: PdfColors.grey100, borderRadius: pw.BorderRadius.all(pw.Radius.circular(4))),
-                  child: pw.Text('H.S. Codes: $hsCodes', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 9)),
-                ),
-                pw.SizedBox(height: 6),
-                pw.Text('Quantity & Gross Mass: $weight', style: const pw.TextStyle(fontSize: 9)),
-                pw.Text('Invoice & ACID Verification: $invoiceData | ACID: $acidNumber', style: const pw.TextStyle(fontSize: 8.5, color: PdfColors.grey800)),
-              ],
-            ),
-          ),
-        ),
-
-        // Footer Endorsement
-        pw.Container(
-          padding: const pw.EdgeInsets.all(6),
-          color: PdfColors.grey100,
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              pw.Text('7. Declaration by Exporter: Certified Correct', style: const pw.TextStyle(fontSize: 8)),
-              pw.Text('8. Customs / Chamber Endorsement: Approved', style: const pw.TextStyle(fontSize: 8)),
+                  // Box 10: Invoices & ACID
+                  pw.Expanded(
+                    flex: 2,
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.all(6),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text('ACID: $acidNumber', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7.5, color: PdfColors.green900)),
+                          if (invoiceData.isNotEmpty && invoiceData != 'INVOICE INFO')
+                            pw.Text(invoiceData, style: const pw.TextStyle(fontSize: 7.5)),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
+        ),
+
+        // Bottom Section: Box 11 (Customs Endorsement) vs Box 12 (Declaration by Exporter)
+        pw.Expanded(
+          child: pw.Row(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              // Box 11: Customs Endorsement
+              pw.Expanded(
+                flex: 5,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(6),
+                  decoration: const pw.BoxDecoration(border: pw.Border(right: pw.BorderSide(color: PdfColors.black, width: 0.8))),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('11. CUSTOMS ENDORSEMENT', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 2),
+                      pw.Text('Declaration certified | Export document (2)', style: const pw.TextStyle(fontSize: 6.5)),
+                      pw.Text('Customs office: Vilnius regional customs office', style: const pw.TextStyle(fontSize: 6.5)),
+                      pw.Text('Issuing country: Lithuania', style: const pw.TextStyle(fontSize: 6.5)),
+                      pw.Spacer(),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Date: 2026-08-11', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7)),
+                          pw.Text('Stamp: A-004 • LT VM', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7, color: PdfColors.blue900)),
+                        ],
+                      ),
+                      pw.Divider(height: 1, color: PdfColors.black),
+                      pw.Center(child: pw.Text('(Signature)', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700))),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Box 12: Declaration by Exporter
+              pw.Expanded(
+                flex: 5,
+                child: pw.Container(
+                  padding: const pw.EdgeInsets.all(6),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text('12. DECLARATION BY THE EXPORTER', style: pw.TextStyle(fontSize: 7.5, fontWeight: pw.FontWeight.bold)),
+                      pw.SizedBox(height: 2),
+                      pw.Text('I, the undersigned, declare that the goods described above meet the conditions required for the issue of this certificate.', style: const pw.TextStyle(fontSize: 6.5, height: 1.15)),
+                      pw.Spacer(),
+                      pw.Row(
+                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                        children: [
+                          pw.Text('Place/Date: VILNIUS 2026-08-11', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7)),
+                          pw.Text('NARBUTAS DOKUMENTAI', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 7, color: PdfColors.indigo900)),
+                        ],
+                      ),
+                      pw.Divider(height: 1, color: PdfColors.black),
+                      pw.Center(child: pw.Text('(Signature)', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700))),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Footnotes
+        pw.Container(
+          padding: const pw.EdgeInsets.all(2),
+          color: PdfColors.grey100,
+          child: pw.Text('(1) If goods not packed, state in bulk. (2) Complete only where regulations require.', style: const pw.TextStyle(fontSize: 5.5, color: PdfColors.grey700)),
         ),
       ],
     );

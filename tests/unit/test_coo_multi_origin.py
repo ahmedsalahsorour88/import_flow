@@ -142,3 +142,88 @@ def test_multi_origin_and_multi_hs_code_extraction(db_session):
     db_session.delete(po)
     db_session.delete(imp_file)
     db_session.commit()
+
+
+def test_eur1_movement_certificate_full_extraction():
+    from modules.smart_document_upload.extractors.other_extractors import COOCertificateExtractor
+
+    sample_eur1_ocr = """MOVEMENT CERTIFICATE
+1. Exporter (Name, full address, country)
+LT300591314, UAB NARBUTAS INTERNATIONAL
+EITMINIU G. 3, LT012113, VILNIUS, LITHUANIA
+EUR.1 No A 084188
+See notes overleaf before completing this form.
+2. Certificate used in preferential trade between
+EU
+and
+EGYPT
+(Insert appropriate countries, groups of countries or territories)
+3. Consignee (Name, full address, country) (Optional)
+ARCHI BRANDS FOR CORPET AND FLOOR
+TRADING
+STREET 18, BUILDING 44, THIRD FLOOR
+CAIRO 11728
+EGYPT
+4. Country, group of countries
+or territory in which the
+products are considered as
+originating
+EU
+5. Country, group of
+countries or territory
+of destination
+EGYPT
+6. Transport details (Optional)
+7. Remarks
+REVISED RULES
+8. Item number; Marks and numbers; Number and kind of packages(1); Description of goods
+OFFICE FURNITURE 141 PACKAGES HS9401; HS9403
+9. Gross mass (kg)
+or other measure
+(litres, m3, etc.)
+1774,514KG
+10. Invoices
+(Optional)
+ACID
+75955282710
+20210010
+11. CUSTOMS ENDORSEMENT
+Declaration certified
+Export document(2)
+Form No.
+Of
+Customs office Vilnius regional customs office
+Issuing country or territory Lithuania
+Place and date 2026-08-11
+(Signature)
+Stamp
+2026-08-11
+A-004
+LT VM 0000 LT
+12. DECLARATION BY THE EXPORTER
+I, the undersigned, declare that the
+goods described above meet the
+conditions required for the issue
+of this certificate.
+Place and date VILNIUS 2026-08-11
+UAB Narbutas International Dokumentai Vilnius
+(Signature)
+(1) If goods are not packed, indicate number of articles or state 'in bulk', as appropriate.
+(2) Complete only where the regulations of the exporting country or territory require.
+2026 UAB LODVILA 00141-A1
+"""
+
+    extractor = COOCertificateExtractor()
+    result = extractor.extract(sample_eur1_ocr, {})
+
+    assert "084188" in result["certificate_number"]
+    assert "UAB NARBUTAS" in result["exporter_name"]
+    assert "ARCHI BRANDS" in result["consignee_name"]
+    assert "European Union" in result["origin_country"] or "EU" in result["origin_country"]
+    assert result["destination_country"] == "EGYPT"
+    assert result["remarks"] == "REVISED RULES"
+    assert "9401" in result["hs_code"] and "9403" in result["hs_code"]
+    assert result["acid_number"] == "7595528271020210010"
+    assert "1774" in result["gross_weight"]
+    assert "OFFICE FURNITURE" in result["product_description"]
+    assert "2026-08-11" in result["issue_date"]

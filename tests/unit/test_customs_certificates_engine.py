@@ -254,6 +254,79 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertEqual(res.match_score, 100.0)
         self.assertEqual(len(res.critical_discrepancies), 0)
 
+    def test_get_central_archive_service(self):
+        # Create a PO Packing Reconciliation Session
+        reconciliation = doc_models.POPackingReconciliationSession(
+            session_code="REC-SESS-0042",
+            import_file_id=self.file.import_file_id,
+            final_invoice_number="IN053328",
+            final_packing_list_number="PL-IN053328",
+            total_invoice_amount=15375.50,
+            currency="EUR",
+            total_packages=141,
+            total_gross_weight_kg=1774.514,
+            total_net_weight_kg=1500.0,
+            total_cbm=12.5,
+            is_safe_for_certification=True,
+            is_active=True,
+        )
+        self.db.add(reconciliation)
+
+        # Create a Draft B/L Review Session
+        bl_review = doc_models.DraftBLReviewSession(
+            bl_review_code="BL-REV-0042",
+            import_file_id=self.file.import_file_id,
+            draft_bl_number="MEDURE910647",
+            shipping_line="MSC",
+            vessel_name="MSC LEANNE",
+            voyage_number="2634W",
+            status="APPROVED",
+            is_active=True,
+        )
+        self.db.add(bl_review)
+
+        # Create a COO Review Session
+        coo_review = doc_models.CertificateOfOriginReviewSession(
+            coo_review_code="COO-REV-0042",
+            import_file_id=self.file.import_file_id,
+            certificate_type="EUR.1",
+            certificate_number="A-084188",
+            exporter_name=self.supplier.company_name,
+            importer_name=self.company.importer_name,
+            country_of_origin="Lithuania",
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(coo_review)
+
+        # Create an Inspection Review Session
+        insp_review = doc_models.InspectionCertificateReviewSession(
+            inspection_review_code="INSP-REV-0042",
+            import_file_id=self.file.import_file_id,
+            inspection_agency="COTECNA",
+            certificate_number="COTECNA-EG-9901",
+            status="Approved",
+            is_active=True,
+        )
+        self.db.add(insp_review)
+        self.db.commit()
+
+        archive = service.get_central_archive_service(self.db, self.file.import_file_id)
+        self.assertEqual(archive.import_file_id, self.file.import_file_id)
+        self.assertTrue(archive.final_invoice.is_available)
+        self.assertEqual(archive.final_invoice.document_reference, "IN053328")
+        self.assertTrue(archive.final_packing_list.is_available)
+        self.assertEqual(archive.final_packing_list.document_reference, "PL-IN053328")
+        self.assertTrue(archive.draft_bl.is_available)
+        self.assertEqual(archive.draft_bl.document_reference, "MEDURE910647")
+        self.assertTrue(archive.certificate_of_origin.is_available)
+        self.assertEqual(archive.certificate_of_origin.document_reference, "A-084188")
+        self.assertTrue(archive.inspection_certificate.is_available)
+        self.assertEqual(archive.inspection_certificate.document_reference, "COTECNA-EG-9901")
+        self.assertEqual(archive.readiness_status, "READY_FOR_RELEASE")
+        self.assertEqual(archive.readiness_score, 100.0)
+        self.assertIn("Subject: URGENT", archive.supplier_email_rectification_text)
+
 
 if __name__ == "__main__":
     unittest.main()

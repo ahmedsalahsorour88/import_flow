@@ -43,6 +43,7 @@ from modules.import_documentation.schemas import (
     DocumentExtractResponse,
     ThreeWayCrossMatchRequest,
     ThreeWayCrossMatchResponse,
+    CentralArchiveResponse,
     LegalDocsExpiryComplianceResponse,
     InvoiceBLExtractAndMatchRequest,
     InvoiceBLExtractAndMatchResponse,
@@ -814,5 +815,24 @@ def certify_and_sync_invoice_bl(
     Certifies reconciled invoice and B/L parameters and synchronizes them with the Import File and Downstream Records.
     """
     return service.sync_certified_invoice_bl_to_file_service(db, payload)
+
+
+# --- 7. CENTRAL SHIPMENT DOCUMENTS ARCHIVE & DISCREPANCIES SUMMARY ---
+@router.get(
+    "/central-archive/{import_file_id}",
+    response_model=CentralArchiveResponse,
+    status_code=status.HTTP_200_OK,
+)
+def get_central_archive(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieves the comprehensive central archive for an Import File:
+    approved final invoice, approved final packing list, draft B/L, draft COO/EUR.1,
+    draft VoC inspection certificate, all open discrepancies & explicit rectifications,
+    and ready-to-send supplier email/WhatsApp notice.
+    """
+    return service.get_central_archive_service(db, import_file_id)
 
 

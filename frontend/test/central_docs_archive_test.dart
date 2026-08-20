@@ -1,0 +1,169 @@
+import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
+import 'package:frontend/features/import_documentation/screens/central_docs_archive_screen.dart';
+import 'package:frontend/features/import_files/models/import_file_model.dart';
+import 'package:frontend/features/import_files/providers/import_files_provider.dart';
+
+class _MockImportFilesNotifier extends ImportFilesNotifier {
+  final List<ImportFileModel> initialFiles;
+  _MockImportFilesNotifier(this.initialFiles) : super(Dio()) {
+    state = AsyncValue.data(initialFiles);
+  }
+
+  @override
+  Future<void> fetchImportFiles({
+    bool includeInactive = false,
+    String? search,
+    int? companyId,
+    int? supplierId,
+    String? status,
+    String? owner,
+  }) async {
+    state = AsyncValue.data(initialFiles);
+  }
+}
+
+void main() {
+  testWidgets('CentralDocsArchiveScreen renders empty placeholder when no file selected',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([])),
+        ],
+        child: const MaterialApp(
+          home: CentralDocsArchiveScreen(),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    expect(find.text('الأرشيف المركزي لمستندات وتعديلات الشحنة (Central Archive & Rectifications)'),
+        findsOneWidget);
+    expect(find.text('يرجى اختيار ملف شحنة من القائمة أعلاه'), findsOneWidget);
+  });
+
+  testWidgets('CentralDocsArchiveScreen renders full archive with mock data',
+      (WidgetTester tester) async {
+    final mockImportFile = ImportFileModel(
+      importFileId: 42,
+      importFileCode: 'IMP-2026-0042',
+      customFileNumber: 'CUST-8812',
+      companyId: 1,
+      companyName: 'Archi brands for corpet and floor trading',
+      supplierId: 1,
+      supplierName: 'UAB Narbutas International',
+      acidNumber: '7595528271020210010',
+      portOfLoading: 'Klaipeda',
+      portOfDischarge: 'Alexandria',
+      estimatedCostCurrency: 'EUR',
+      estimatedCost: 15375.50,
+      currentModule: 'Import Documentation',
+      currentStage: 'Draft Documents Review',
+      nextAction: 'Review Drafts',
+      status: 'In Progress',
+      createdAt: '2026-08-20T10:00:00',
+      updatedAt: '2026-08-20T12:00:00',
+    );
+
+    final mockArchiveData = <String, dynamic>{
+      'import_file_id': 42,
+      'import_file_code': 'IMP-2026-0042',
+      'custom_file_number': 'CUST-8812',
+      'importer_name': 'Archi brands for corpet and floor trading',
+      'supplier_name': 'UAB Narbutas International',
+      'acid_number': '7595528271020210010',
+      'port_of_loading': 'Klaipeda',
+      'port_of_discharge': 'Alexandria',
+      'total_packages': 141,
+      'total_gross_weight_kg': 1774.514,
+      'currency': 'EUR',
+      'fob_or_cif_amount': 15375.50,
+      'readiness_status': 'READY_FOR_RELEASE',
+      'readiness_score': 100.0,
+      'final_invoice': {
+        'document_type': 'FINAL_COMMERCIAL_INVOICE',
+        'title_ar': 'الفاتورة التجارية النهائية المعتمدة',
+        'is_available': true,
+        'status': 'APPROVED',
+        'document_reference': 'IN053328',
+        'details': {'total_amount': 15375.50, 'currency': 'EUR'},
+        'discrepancies': [],
+      },
+      'final_packing_list': {
+        'document_type': 'FINAL_PACKING_LIST',
+        'title_ar': 'قائمة التعبئة النهائية المعتمدة',
+        'is_available': true,
+        'status': 'APPROVED',
+        'document_reference': 'PL-IN053328',
+        'details': {'total_packages': 141, 'total_gross_weight_kg': 1774.514},
+        'discrepancies': [],
+      },
+      'draft_bl': {
+        'document_type': 'DRAFT_BL',
+        'title_ar': 'مسودة بوليصة الشحن البحرية (Draft Bill of Lading)',
+        'is_available': true,
+        'status': 'APPROVED',
+        'document_reference': 'MEDURE910647',
+        'details': {'shipping_line': 'MSC', 'vessel_name': 'MSC LEANNE'},
+        'discrepancies': [],
+      },
+      'certificate_of_origin': {
+        'document_type': 'CERTIFICATE_OF_ORIGIN',
+        'title_ar': 'درافت شهادة المنشأ / يورو 1 (Draft Certificate of Origin / EUR.1)',
+        'is_available': true,
+        'status': 'APPROVED',
+        'document_reference': 'A-084188',
+        'details': {'country_of_origin': 'Lithuania', 'certificate_type': 'EUR.1'},
+        'discrepancies': [],
+      },
+      'inspection_certificate': {
+        'document_type': 'INSPECTION_CERTIFICATE',
+        'title_ar': 'درافت شهادة الفحص والمطابقة النوعية (Draft Inspection / VoC / COC)',
+        'is_available': true,
+        'status': 'APPROVED',
+        'document_reference': 'COTECNA-EG-9901',
+        'details': {'inspection_agency': 'COTECNA'},
+        'discrepancies': [],
+      },
+      'total_critical_discrepancies': 0,
+      'total_warning_discrepancies': 0,
+      'all_rectifications_checklist': [],
+      'supplier_email_rectification_text': 'Subject: URGENT Notice\nDear Supplier...',
+      'supplier_whatsapp_rectification_text': '*إشعار تعديلات المستندات*',
+    };
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockImportFile])),
+          centralArchiveProvider(42).overrideWith((ref) => Future.value(mockArchiveData)),
+        ],
+        child: const MaterialApp(
+          home: CentralDocsArchiveScreen(initialImportFileId: 42),
+        ),
+      ),
+    );
+
+    await tester.pumpAndSettle();
+
+    // Verify Header information
+    expect(find.text('كود الملف: IMP-2026-0042'), findsOneWidget);
+    expect(find.text('رقم الملف الجمركي: CUST-8812'), findsOneWidget);
+    expect(find.text('7595528271020210010'), findsOneWidget);
+
+    // Verify Action buttons
+    expect(find.text('📋 نسخ إيميل التعديلات للمورد'), findsOneWidget);
+    expect(find.text('📱 نسخ رسالة واتساب'), findsOneWidget);
+
+    // Verify Success message for zero discrepancies
+    expect(
+        find.text(
+            '✔ مبروك! لا توجد أي فروق أو تعديلات مطلوبة. كافة المسودات مطابقة تماماً وجاهزة لرفعها على نافذة وكارجو إكس.'),
+        findsOneWidget);
+  });
+}

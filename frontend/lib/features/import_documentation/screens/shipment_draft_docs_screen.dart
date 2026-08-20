@@ -7,6 +7,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
+import 'central_docs_archive_screen.dart';
 import '../widgets/coo_review_tab.dart';
 import '../widgets/customs_document_approval_tab.dart';
 import '../widgets/draft_bl_review_tab.dart';
@@ -30,18 +31,20 @@ class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
 
 class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScreen> {
   // Active Vertical Sub-Tab:
-  // 0: 📦 مطابقة الفاتورة والباكينج (PO & Packing Reconciliation)
-  // 1: 📄 مسودة بوليصة الشحن (Draft B/L Review & Dual Approval)
-  // 2: ⚡ الاستخراج ومطابقة الفاتورة والبوليصة (Smart Invoice vs. B/L Reconciliation)
-  // 3: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
-  // 4: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
-  // 5: 📁 السجل المركزي وتظهير CargoX (Central Docs & CargoX Archive)
+  // 0: 🛡️ مركز اعتماد المستندات الجمركية (Docs Customs Approval Hub)
+  // 1: 📦 مطابقة الفاتورة والباكينج (PO & Packing Reconciliation)
+  // 2: 📄 مسودة بوليصة الشحن (Draft B/L Review & Dual Approval)
+  // 3: ⚡ الاستخراج ومطابقة الفاتورة والبوليصة (Smart Invoice vs. B/L Reconciliation)
+  // 4: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
+  // 5: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
+  // 6: 🏛️ الأرشيف المركزي وملخص التعديلات (Central Archive & Rectifications Hub)
+  // 7: 📁 السجل المركزي وتظهير CargoX (CargoX Archive)
   int _selectedSubTab = 0;
 
   // Selected Import File
   int? _selectedImportFileId;
 
-  // State for Central Archive (Tab 5)
+  // State for Central Archive (Tab 7)
   final _docFormKey = GlobalKey<FormState>();
   final TextEditingController _docNameCtrl = TextEditingController(text: 'Commercial Invoice');
   final TextEditingController _docNumberCtrl = TextEditingController();
@@ -112,10 +115,15 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
       ),
+      const VerticalNavTabItem(
+        icon: Icons.inventory_2_outlined,
+        titleEn: 'Central Archive & Discrepancies Hub',
+        titleAr: 'الأرشيف المركزي وملخص التعديلات',
+      ),
       VerticalNavTabItem(
         icon: Icons.folder_shared_outlined,
         titleEn: 'Central Archive & CargoX',
-        titleAr: 'السجل المركزي وتظهير CargoX',
+        titleAr: 'السجل وتظهير CargoX',
         badge: shipmentDocs.isNotEmpty
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -142,7 +150,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
-        if (index == 6) {
+        if (index == 7) {
           ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
         }
       },
@@ -153,7 +161,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onPressed: _refreshData,
         ),
       ],
-      body: _selectedSubTab == 6
+      body: _selectedSubTab == 7
           ? SingleChildScrollView(padding: const EdgeInsets.all(20), child: _buildCentralDocsArchiveView())
           : _buildCurrentSubTabContent(),
     );
@@ -180,6 +188,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         return COOReviewTab(initialImportFileId: _selectedImportFileId);
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
+      case 6:
+        return CentralDocsArchiveScreen(
+          initialImportFileId: _selectedImportFileId,
+          isEmbedded: true,
+        );
       default:
         return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
     }

@@ -14,6 +14,9 @@ from modules.import_documentation.model import (
     ShipmentDocumentItem,
     CustomsDeclarationDraft,
     POPackingReconciliationSession,
+    DraftBLReviewSession,
+    CertificateOfOriginReviewSession,
+    InspectionCertificateReviewSession,
 )
 from modules.import_documentation.schemas import (
     AcidRegistrationCreate,
@@ -32,6 +35,8 @@ from modules.import_documentation.schemas import (
     DocumentExtractResponse,
     ThreeWayCrossMatchRequest,
     ThreeWayCrossMatchResponse,
+    CentralArchiveDocumentSummary,
+    CentralArchiveResponse,
 )
 
 from modules.import_documentation.validators import (
@@ -2749,3 +2754,306 @@ def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_
 
 def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
     return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+
+
+def get_central_archive_service(db: Session, import_file_id: int) -> CentralArchiveResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    booking = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == import_file_id,
+        ShipmentBooking.is_active == True
+    ).first()
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+    po_reconciliation = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id,
+        POPackingReconciliationSession.is_active == True
+    ).first()
+    bl_review = db.query(DraftBLReviewSession).filter(
+        DraftBLReviewSession.import_file_id == import_file_id,
+        DraftBLReviewSession.is_active == True
+    ).order_by(DraftBLReviewSession.bl_review_id.desc()).first()
+    coo_review = db.query(CertificateOfOriginReviewSession).filter(
+        CertificateOfOriginReviewSession.import_file_id == import_file_id,
+        CertificateOfOriginReviewSession.is_active == True
+    ).order_by(CertificateOfOriginReviewSession.coo_review_id.desc()).first()
+    inspection_review = db.query(InspectionCertificateReviewSession).filter(
+        InspectionCertificateReviewSession.import_file_id == import_file_id,
+        InspectionCertificateReviewSession.is_active == True
+    ).order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).first()
+
+    all_discrepancies = []
+    total_critical = 0
+    total_warning = 0
+
+    # 1. Final Commercial Invoice
+    inv_available = po_reconciliation is not None and bool(po_reconciliation.final_invoice_number)
+    inv_discrepancies = []
+    if po_reconciliation and po_reconciliation.header_discrepancies:
+        for d in po_reconciliation.header_discrepancies:
+            if "invoice" in str(d.get("field", "")).lower() or "price" in str(d.get("field", "")).lower() or "amount" in str(d.get("field", "")).lower():
+                sev = "CRITICAL" if d.get("severity") in ["CRITICAL", "BLOCKING"] else "WARNING"
+                item = {
+                    "document": "الفاتورة التجارية النهائية (Commercial Invoice)",
+                    "field": d.get("field", "Invoice Field"),
+                    "severity": sev,
+                    "issue": d.get("issue", d.get("description", "عدم تطابق في الفاتورة")),
+                    "rectification": d.get("rectification", "تعديل الفاتورة التجارية لتطابق أمر الشراء"),
+                }
+                inv_discrepancies.append(item)
+                all_discrepancies.append(item)
+                if sev == "CRITICAL": total_critical += 1
+                else: total_warning += 1
+
+    final_invoice = CentralArchiveDocumentSummary(
+        document_type="FINAL_COMMERCIAL_INVOICE",
+        title_ar="الفاتورة التجارية النهائية المعتمدة",
+        is_available=inv_available,
+        status="APPROVED" if (inv_available and po_reconciliation.is_safe_for_certification) else ("REVIEW_PENDING" if inv_available else "NOT_STARTED"),
+        document_reference=(po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
+        details={
+            "invoice_number": (po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
+            "total_amount": float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
+            "currency": (po_reconciliation.currency if po_reconciliation else None) or getattr(imp_file, 'estimated_cost_currency', 'EUR'),
+            "shipper_name": (po_reconciliation.shipper_name if po_reconciliation else None) or (supplier.company_name if supplier else imp_file.supplier_name),
+            "reconciled_items_count": len(po_reconciliation.reconciled_invoice_items or []) if po_reconciliation else 0,
+            "certified_by": po_reconciliation.certified_by if po_reconciliation else None,
+        },
+        discrepancies=inv_discrepancies,
+        last_updated=po_reconciliation.updated_at if po_reconciliation else None
+    )
+
+    # 2. Final Packing List
+    pkg_available = po_reconciliation is not None and bool(po_reconciliation.final_packing_list_number or po_reconciliation.total_packages)
+    pkg_discrepancies = []
+    if po_reconciliation and po_reconciliation.header_discrepancies:
+        for d in po_reconciliation.header_discrepancies:
+            if "weight" in str(d.get("field", "")).lower() or "package" in str(d.get("field", "")).lower() or "cbm" in str(d.get("field", "")).lower():
+                sev = "CRITICAL" if d.get("severity") in ["CRITICAL", "BLOCKING"] else "WARNING"
+                item = {
+                    "document": "قائمة التعبئة النهائية (Packing List)",
+                    "field": d.get("field", "Packing Field"),
+                    "severity": sev,
+                    "issue": d.get("issue", d.get("description", "عدم تطابق في التعبئة أو الوزن")),
+                    "rectification": d.get("rectification", "تعديل قائمة التعبئة لتطابق الأوزان الفعلية"),
+                }
+                pkg_discrepancies.append(item)
+                all_discrepancies.append(item)
+                if sev == "CRITICAL": total_critical += 1
+                else: total_warning += 1
+
+    final_packing_list = CentralArchiveDocumentSummary(
+        document_type="FINAL_PACKING_LIST",
+        title_ar="قائمة التعبئة النهائية المعتمدة",
+        is_available=pkg_available,
+        status="APPROVED" if (pkg_available and po_reconciliation.is_safe_for_certification) else ("REVIEW_PENDING" if pkg_available else "NOT_STARTED"),
+        document_reference=(po_reconciliation.final_packing_list_number if po_reconciliation else None) or f"PL-{imp_file.import_file_code}",
+        details={
+            "packing_list_number": (po_reconciliation.final_packing_list_number if po_reconciliation else None) or f"PL-{imp_file.import_file_code}",
+            "total_packages": int(po_reconciliation.total_packages) if po_reconciliation else 0,
+            "total_gross_weight_kg": float(po_reconciliation.total_gross_weight_kg) if po_reconciliation else 0.0,
+            "total_net_weight_kg": float(po_reconciliation.total_net_weight_kg) if po_reconciliation else 0.0,
+            "total_cbm": float(po_reconciliation.total_cbm) if po_reconciliation else 0.0,
+        },
+        discrepancies=pkg_discrepancies,
+        last_updated=po_reconciliation.updated_at if po_reconciliation else None
+    )
+
+    # 3. Draft Bill of Lading
+    bl_available = bl_review is not None
+    bl_discrepancies = []
+    if bl_review:
+        if bl_review.comparison_matrix:
+            for row in bl_review.comparison_matrix:
+                if row.get("status") in ["MISMATCH", "MISMATCH_CRITICAL", "MISMATCH_MINOR", "DIFF"]:
+                    sev = "CRITICAL" if row.get("severity") in ["BLOCKING", "CRITICAL"] or row.get("status") == "MISMATCH_CRITICAL" else "WARNING"
+                    item = {
+                        "document": "مسودة بوليصة الشحن (Draft B/L)",
+                        "field": row.get("field") or row.get("check_item", "B/L Field"),
+                        "severity": sev,
+                        "issue": f"القيمة في البوليصة: '{row.get('bl_val') or row.get('compared_value')}' مقابل النظام: '{row.get('sys_val') or row.get('system_value')}'",
+                        "rectification": row.get("correction_instruction") or row.get("details") or "طلب تعديل درافت البوليصة من الخط الملاحي",
+                    }
+                    bl_discrepancies.append(item)
+                    all_discrepancies.append(item)
+                    if sev == "CRITICAL": total_critical += 1
+                    else: total_warning += 1
+
+    draft_bl = CentralArchiveDocumentSummary(
+        document_type="DRAFT_BL",
+        title_ar="مسودة بوليصة الشحن (Draft B/L)",
+        is_available=bl_available,
+        status="APPROVED" if (bl_available and bl_review.status in ["Approved", "APPROVED", "FINAL"]) else ("MODIFICATIONS_REQUESTED" if bl_discrepancies else ("REVIEW_PENDING" if bl_available else "NOT_STARTED")),
+        document_reference=(bl_review.draft_bl_number if bl_review else None) or (booking.booking_reference if booking else None),
+        details={
+            "draft_bl_number": (bl_review.draft_bl_number if bl_review else None) or "DRAFT-BL",
+            "shipping_line": (bl_review.shipping_line if bl_review else None) or (booking.shipping_line if booking else "MSC / Maersk"),
+            "vessel_name": (bl_review.vessel_name if bl_review else None) or (booking.vessel_name if booking else None),
+            "voyage_number": bl_review.voyage_number if bl_review else None,
+            "container_summary": bl_review.container_summary if bl_review else None,
+            "gross_weight_kg": bl_review.gross_weight if (bl_review and hasattr(bl_review, 'gross_weight')) else (booking.gross_weight if booking else 0.0),
+        },
+        discrepancies=bl_discrepancies,
+        raw_content=bl_review.raw_input_text if (bl_review and hasattr(bl_review, 'raw_input_text')) else None,
+        last_updated=bl_review.updated_at if bl_review else None
+    )
+
+    # 4. Certificate of Origin / EUR.1
+    coo_available = coo_review is not None
+    coo_discrepancies = []
+    if coo_review and coo_review.comparison_matrix:
+        for row in coo_review.comparison_matrix:
+            if row.get("status") in ["MISMATCH", "MISMATCH_CRITICAL", "MISMATCH_MINOR", "DIFF"]:
+                sev = "CRITICAL" if row.get("severity") in ["BLOCKING", "CRITICAL"] or row.get("status") == "MISMATCH_CRITICAL" else "WARNING"
+                item = {
+                    "document": f"شهادة المنشأ ({coo_review.certificate_type})",
+                    "field": row.get("field") or row.get("check_item", "COO Field"),
+                    "severity": sev,
+                    "issue": f"المطابقة: {row.get('details') or row.get('issue', 'فرق في بيانات المنشأ')}",
+                    "rectification": row.get("rectification", "طلب تعديل درافت شهادة المنشأ من المصدر أو الغرفة التجارية"),
+                }
+                coo_discrepancies.append(item)
+                all_discrepancies.append(item)
+                if sev == "CRITICAL": total_critical += 1
+                else: total_warning += 1
+
+    certificate_of_origin = CentralArchiveDocumentSummary(
+        document_type="CERTIFICATE_OF_ORIGIN",
+        title_ar="شهادة المنشأ / يورو 1 (COO / EUR.1)",
+        is_available=coo_available,
+        status="APPROVED" if (coo_available and coo_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if coo_discrepancies else ("REVIEW_PENDING" if coo_available else "NOT_STARTED")),
+        document_reference=coo_review.certificate_number if coo_review else None,
+        details={
+            "certificate_type": (coo_review.certificate_type if coo_review else "EUR.1 / China CCPIT"),
+            "certificate_number": coo_review.certificate_number if coo_review else "DRAFT-COO",
+            "country_of_origin": (coo_review.country_of_origin if coo_review else (supplier.foreign_exporter_country if supplier else "Lithuania")),
+            "exporter_name": (coo_review.exporter_name if coo_review else (supplier.company_name if supplier else imp_file.supplier_name)),
+            "importer_name": (coo_review.importer_name if coo_review else (company.importer_name if company else imp_file.company_name)),
+        },
+        discrepancies=coo_discrepancies,
+        raw_content=coo_review.raw_input_text if coo_review else None,
+        last_updated=coo_review.updated_at if coo_review else None
+    )
+
+    # 5. Inspection Certificate / VoC
+    insp_available = inspection_review is not None
+    insp_discrepancies = []
+    if inspection_review and inspection_review.comparison_matrix:
+        for row in inspection_review.comparison_matrix:
+            if row.get("status") in ["MISMATCH", "MISMATCH_CRITICAL", "MISMATCH_MINOR", "DIFF"]:
+                sev = "CRITICAL" if row.get("severity") in ["BLOCKING", "CRITICAL"] or row.get("status") == "MISMATCH_CRITICAL" else "WARNING"
+                item = {
+                    "document": f"شهادة الفحص ({inspection_review.inspection_agency})",
+                    "field": row.get("field") or row.get("check_item", "Inspection Field"),
+                    "severity": sev,
+                    "issue": f"المطابقة: {row.get('details') or row.get('issue', 'فرق في بيانات الفحص')}",
+                    "rectification": row.get("rectification", "طلب تعديل درافت الفحص من شركة المعاينة الدولية"),
+                }
+                insp_discrepancies.append(item)
+                all_discrepancies.append(item)
+                if sev == "CRITICAL": total_critical += 1
+                else: total_warning += 1
+
+    inspection_certificate = CentralArchiveDocumentSummary(
+        document_type="INSPECTION_CERTIFICATE",
+        title_ar="شهادة الفحص والتطابق (VoC / COC)",
+        is_available=insp_available,
+        status="APPROVED" if (insp_available and inspection_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if insp_discrepancies else ("REVIEW_PENDING" if insp_available else "NOT_STARTED")),
+        document_reference=inspection_review.certificate_number if inspection_review else None,
+        details={
+            "inspection_type": (inspection_review.inspection_type if inspection_review else "COC (Certificate of Conformity)"),
+            "inspection_agency": (inspection_review.inspection_agency if inspection_review else "COTECNA / TÜV / SGS"),
+            "certificate_number": inspection_review.certificate_number if inspection_review else "DRAFT-COC",
+            "regulatory_authority": (inspection_review.regulatory_authority if inspection_review else "GOEIC"),
+            "standard_specification": (inspection_review.standard_specification if inspection_review else None),
+        },
+        discrepancies=insp_discrepancies,
+        raw_content=inspection_review.raw_input_text if inspection_review else None,
+        last_updated=inspection_review.updated_at if inspection_review else None
+    )
+
+    # Calculate overall readiness score
+    doc_count = sum(1 for d in [inv_available, pkg_available, bl_available, coo_available, insp_available] if d)
+    base_score = (doc_count / 5.0) * 100.0
+    deduction = (total_critical * 25.0) + (total_warning * 5.0)
+    final_score = max(0.0, min(100.0, base_score - deduction))
+
+    if total_critical == 0 and total_warning == 0 and doc_count >= 4:
+        readiness_status = "READY_FOR_RELEASE"
+    elif total_critical > 0 or total_warning > 0:
+        readiness_status = "ACTION_REQUIRED"
+    else:
+        readiness_status = "IN_REVIEW"
+
+    # Generate Supplier Email & WhatsApp text
+    sys_acid = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "N/A"
+    email_lines = [
+        f"Subject: URGENT: Document Revision & Discrepancies Notice for Shipment {imp_file.import_file_code} (ACID: {sys_acid})\n",
+        f"Dear {supplier.company_name if supplier else imp_file.supplier_name},\n",
+        f"We have reviewed the draft shipping documents for Import File {imp_file.import_file_code} (Customs File: {imp_file.custom_file_number or 'N/A'}).",
+        f"Please find below the required corrections and discrepancies that must be rectified before issuing the final original documents and uploading to CargoX:\n"
+    ]
+    if all_discrepancies:
+        for idx, item in enumerate(all_discrepancies, 1):
+            sev_tag = "[CRITICAL / MANDATORY]" if item["severity"] == "CRITICAL" else "[WARNING / RECOMMENDATION]"
+            email_lines.append(f"{idx}. {sev_tag} {item['document']}:")
+            email_lines.append(f"   - Field / Item: {item['field']}")
+            email_lines.append(f"   - Issue: {item['issue']}")
+            email_lines.append(f"   - Required Correction: {item['rectification']}\n")
+    else:
+        email_lines.append("All reviewed documents are fully compliant with Egyptian Customs and Nafeza regulations. You may proceed to issue final originals.\n")
+
+    email_lines.append(f"Consignee: {company.importer_name if company else imp_file.company_name}")
+    email_lines.append(f"ACID Number: {sys_acid}")
+    email_lines.append("\nBest regards,\nImport Operations Department - Sorour Logistics")
+    email_text = "\n".join(email_lines)
+
+    wa_lines = [
+        f"*إشعار تعديلات المستندات - ملف الشحنة {imp_file.import_file_code}*",
+        f"رقم القيد الجمركي ACID: `{sys_acid}`",
+        f"المستورد: {company.importer_name if company else imp_file.company_name}",
+        f"المورد: {supplier.company_name if supplier else imp_file.supplier_name}",
+        "------------------------------------",
+    ]
+    if all_discrepancies:
+        wa_lines.append("*التعديلات المطلوبة لإصدار الأصول:*")
+        for idx, item in enumerate(all_discrepancies, 1):
+            icon = "🔴" if item["severity"] == "CRITICAL" else "🟡"
+            wa_lines.append(f"{icon} *{item['document']}* ({item['field']}):")
+            wa_lines.append(f"   • المطلوب: {item['rectification']}")
+    else:
+        wa_lines.append("🟢 *كافة المستندات مطابقة بنسبة 100% وجاهزة لإصدار الأصول والرفع على كارجو إكس.*")
+    wa_text = "\n".join(wa_lines)
+
+    return CentralArchiveResponse(
+        import_file_id=import_file_id,
+        import_file_code=imp_file.import_file_code,
+        custom_file_number=imp_file.custom_file_number,
+        importer_name=(company.importer_name if company else imp_file.company_name) or "",
+        supplier_name=(supplier.company_name if supplier else imp_file.supplier_name) or "",
+        acid_number=sys_acid,
+        port_of_loading=getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None),
+        port_of_discharge=getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None),
+        total_packages=int(po_reconciliation.total_packages) if po_reconciliation else (booking.packages_count if booking else 0),
+        total_gross_weight_kg=float(po_reconciliation.total_gross_weight_kg) if po_reconciliation else (booking.gross_weight if booking else 0.0),
+        currency=po_reconciliation.currency if po_reconciliation else (getattr(imp_file, 'estimated_cost_currency', None) or "EUR"),
+        fob_or_cif_amount=float(po_reconciliation.total_invoice_amount) if po_reconciliation else float(getattr(imp_file, 'estimated_cost', 0.0) or 0.0),
+        readiness_status=readiness_status,
+        readiness_score=round(final_score, 1),
+        final_invoice=final_invoice,
+        final_packing_list=final_packing_list,
+        draft_bl=draft_bl,
+        certificate_of_origin=certificate_of_origin,
+        inspection_certificate=inspection_certificate,
+        total_critical_discrepancies=total_critical,
+        total_warning_discrepancies=total_warning,
+        all_rectifications_checklist=all_discrepancies,
+        supplier_email_rectification_text=email_text,
+        supplier_whatsapp_rectification_text=wa_text,
+    )

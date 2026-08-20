@@ -25,6 +25,7 @@ import '../freight_booking/screens/freight_booking_screen.dart';
 import '../freight_quotations/screens/freight_quotations_comparison_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../import_documentation/screens/bank_form4_screen.dart';
+import '../import_documentation/screens/central_docs_archive_screen.dart';
 import '../import_documentation/screens/customs_declaration46_screen.dart';
 import '../import_documentation/screens/nafeza_acid_screen.dart';
 import '../import_documentation/screens/shipment_draft_docs_screen.dart';
@@ -132,6 +133,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 50: Landed Cost Comparison
         LandedCostComparisonScreen(importFileId: 1, importFileCode: 'IMP-DEMO'),
+
+        // 51: Central Shipment Documents Archive & Discrepancies Summary Hub
+        const CentralDocsArchiveScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -408,6 +412,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 26, selectedIndex),
                   _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review', 'مراجعة وتدقيق مسودات المستندات', 19, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
+                  _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
                   _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 6, selectedIndex),
                 ],
               ),

@@ -922,3 +922,48 @@ class POReconciliationSessionResponse(POReconciliationSessionBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+# ==============================================================================
+# CENTRAL SHIPMENT DOCUMENTS ARCHIVE & DISCREPANCIES SUMMARY SCHEMAS
+# ==============================================================================
+
+class CentralArchiveDocumentSummary(BaseModel):
+    document_type: str
+    title_ar: str
+    is_available: bool = False
+    status: str = "NOT_STARTED"  # 'APPROVED', 'REVIEW_PENDING', 'MODIFICATIONS_REQUESTED', 'NOT_STARTED'
+    document_reference: Optional[str] = None
+    details: Dict[str, Any] = {}
+    discrepancies: List[Dict[str, Any]] = []
+    raw_content: Optional[str] = None
+    last_updated: Optional[datetime] = None
+
+
+class CentralArchiveResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    custom_file_number: Optional[str] = None
+    importer_name: str
+    supplier_name: str
+    acid_number: Optional[str] = None
+    port_of_loading: Optional[str] = None
+    port_of_discharge: Optional[str] = None
+    total_packages: Optional[int] = None
+    total_gross_weight_kg: Optional[float] = None
+    currency: Optional[str] = None
+    fob_or_cif_amount: Optional[float] = None
+    readiness_status: str  # 'READY_FOR_RELEASE', 'ACTION_REQUIRED', 'IN_REVIEW'
+    readiness_score: float  # 0.0 to 100.0
+
+    final_invoice: CentralArchiveDocumentSummary
+    final_packing_list: CentralArchiveDocumentSummary
+    draft_bl: CentralArchiveDocumentSummary
+    certificate_of_origin: CentralArchiveDocumentSummary
+    inspection_certificate: CentralArchiveDocumentSummary
+
+    total_critical_discrepancies: int = 0
+    total_warning_discrepancies: int = 0
+    all_rectifications_checklist: List[Dict[str, Any]] = []
+    supplier_email_rectification_text: str = ""
+    supplier_whatsapp_rectification_text: str = ""
+
+

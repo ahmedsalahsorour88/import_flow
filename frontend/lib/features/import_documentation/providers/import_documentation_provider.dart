@@ -753,5 +753,15 @@ class POReconciliationSessionsNotifier
   }
 }
 
+// 7. Central Shipment Documents Archive & Discrepancies Summary Provider
+final centralArchiveProvider =
+    FutureProvider.family<Map<String, dynamic>, int>((ref, importFileId) async {
+  final dio = ref.read(dioProvider);
+  final response = await dio.get(
+    '${ApiConstants.baseUrl}/import-documentation/central-archive/$importFileId',
+  );
+  return response.data as Map<String, dynamic>;
+});
+
 
 

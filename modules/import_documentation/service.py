@@ -1817,14 +1817,145 @@ def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_t
     exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or "LT300591314"
 
     importer_name = (company.importer_name if company else imp_file.company_name) or "ARCHI BRANDS FOR CORPET AND FLOOR TRADING"
+def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, supplier: Optional[Supplier] = None):
+    from modules.purchase_orders.model import PurchaseOrder, POLineItem, PackingListItem
+    from modules.customs_tariff.model import CustomsTariff
+
+    distinct_origins = set()
+    distinct_hs_codes = set()
+    items_summary = []
+
+    # 1. Purchase Orders & Line Items linked to this Import File
+    pos = db.query(PurchaseOrder).filter(
+        PurchaseOrder.import_file_id == import_file_id,
+        PurchaseOrder.is_active == True
+    ).all()
+
+    for po in pos:
+        if po.country_of_origin and str(po.country_of_origin).strip():
+            for c in str(po.country_of_origin).split(","):
+                if c.strip():
+                    distinct_origins.add(c.strip())
+        for itm in po.line_items:
+            if itm.country_of_origin and str(itm.country_of_origin).strip():
+                for c in str(itm.country_of_origin).split(","):
+                    if c.strip():
+                        distinct_origins.add(c.strip())
+            hs = None
+            if itm.tariff and itm.tariff.hs_code:
+                hs = str(itm.tariff.hs_code).strip()
+            elif itm.tariff_id:
+                tf = db.query(CustomsTariff).filter(CustomsTariff.tariff_id == itm.tariff_id).first()
+                if tf and tf.hs_code:
+                    hs = str(tf.hs_code).strip()
+            if hs:
+                distinct_hs_codes.add(hs)
+            
+            items_summary.append({
+                "description": itm.description_en or itm.description_ar,
+                "hs_code": hs or "560229",
+                "origin": itm.country_of_origin or (po.country_of_origin if po else None) or (supplier.foreign_exporter_country if supplier else "Unknown"),
+                "quantity": float(itm.quantity or 1.0),
+                "unit": itm.unit_of_measure or "PCS",
+                "total_price": float(itm.total_price or 0.0),
+            })
+        for pck in po.packing_list_items:
+            if pck.hs_code and pck.hs_code.strip():
+                distinct_hs_codes.add(pck.hs_code.strip())
+
+    # 2. POPackingReconciliationSession items
+    reconciliation = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id,
+        POPackingReconciliationSession.is_active == True
+    ).first()
+
+    if reconciliation:
+        for itm in (reconciliation.reconciled_invoice_items or []):
+            if isinstance(itm, dict):
+                orig = itm.get("country_of_origin") or itm.get("origin_country") or itm.get("origin")
+                if orig and str(orig).strip():
+                    for c in str(orig).split(","):
+                        if c.strip():
+                            distinct_origins.add(c.strip())
+                hs = itm.get("hs_code") or itm.get("tariff_code")
+                if hs and str(hs).strip():
+                    for h in str(hs).split(","):
+                        if h.strip():
+                            distinct_hs_codes.add(h.strip())
+
+    # 3. Default fallback
+    if not distinct_origins and supplier and supplier.foreign_exporter_country:
+        distinct_origins.add(supplier.foreign_exporter_country.strip())
+    if not distinct_origins:
+        distinct_origins.add("Lithuania")
+
+    if not distinct_hs_codes:
+        distinct_hs_codes.add("560229")
+
+    origins_list = sorted(list(distinct_origins))
+    hs_codes_list = sorted(list(distinct_hs_codes))
+    origin_countries_str = ", ".join(origins_list)
+    hs_codes_str = ", ".join(hs_codes_list)
+
+    return {
+        "origins_list": origins_list,
+        "origin_countries_str": origin_countries_str,
+        "hs_codes_list": hs_codes_list,
+        "hs_codes_str": hs_codes_str,
+        "items_summary": items_summary,
+    }
+
+
+def generate_coo_draft_template_service(
+    db: Session,
+    import_file_id: int,
+    cert_type: str = "EUR.1"
+) -> COODraftTemplateResponse:
+    imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+    if not imp_file:
+        raise HTTPException(status_code=404, detail="Import File not found")
+
+    company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
+    supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    reconciliation = db.query(POPackingReconciliationSession).filter(
+        POPackingReconciliationSession.import_file_id == import_file_id,
+        POPackingReconciliationSession.is_active == True
+    ).first()
+    booking = db.query(ShipmentBooking).filter(
+        ShipmentBooking.import_file_id == import_file_id,
+        ShipmentBooking.is_active == True
+    ).first()
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+
+    # Dynamic extraction of all distinct origins and HS codes
+    extracted_meta = _extract_multi_origins_and_hs_codes(db, import_file_id, supplier)
+    origins_list = extracted_meta["origins_list"]
+    origin_countries_str = extracted_meta["origin_countries_str"]
+    hs_codes_list = extracted_meta["hs_codes_list"]
+    hs_codes_str = extracted_meta["hs_codes_str"]
+    items_summary = extracted_meta["items_summary"]
+
+    acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
+    invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
+    inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
+    gross_wt = float(getattr(reconciliation, 'total_gross_weight_kg', None) or getattr(booking, 'gross_weight', None) or getattr(imp_file, 'total_weight', None) or 1774.514)
+    pkgs = int(getattr(reconciliation, 'total_packages', None) or getattr(booking, 'packages_count', None) or getattr(imp_file, 'total_packages', None) or 141)
+
+    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB NARBUTAS INTERNATIONAL"
+    exporter_addr = (supplier.address if supplier else None) or "EITMINIU G. 3, LT012113, VILNIUS, LITHUANIA"
+    exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or "LT300591314"
+
+    importer_name = (company.importer_name if company else imp_file.company_name) or "ARCHI BRANDS FOR CORPET AND FLOOR TRADING"
     importer_addr = (company.address if company else None) or "STREET 18, BUILDING 44, THIRD FLOOR, CAIRO 11728, EGYPT"
 
-    origin_country = (supplier.foreign_exporter_country if supplier else None) or "Lithuania"
     dest_country = "EGYPT"
     pol = (booking.pol_port_name if booking else None) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI / VILNIUS"
     pod = (booking.pod_port_name if booking else None) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
 
-    is_china = "CHINA" in cert_type.upper() or "CCPIT" in cert_type.upper() or "CHINA" in str(origin_country).upper()
+    is_china = "CHINA" in cert_type.upper() or "CCPIT" in cert_type.upper() or "CHINA" in str(origin_countries_str).upper()
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
@@ -1838,12 +1969,16 @@ def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_t
             "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
             "box_6_marks_and_numbers": "Acoustic Panel / Office Furniture",
             "box_7_description_and_acid": f"COMMERCIAL CARGO ACID:{acid_no}",
-            "box_8_hs_code": "560229",
+            "box_8_hs_code": hs_codes_str,
             "box_9_quantity_and_weight": f"{pkgs} SHEETS / PACKAGES\nG.WEIGHT {gross_wt:,.2f} KGS G.W.",
             "box_10_invoice_number_and_date": f"{invoice_no}\n{inv_date}",
             "box_11_declaration_by_exporter": f"SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
             "box_12_certification": f"CCPIT SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
             "verification_url": "http://check.ecoccpit.net/",
+            "countries_of_origin_list": origins_list,
+            "country_of_origin": origin_countries_str,
+            "hs_codes_list": hs_codes_list,
+            "items_summary": items_summary,
         }
         markdown = f"""# CERTIFICATE OF ORIGIN (PEOPLE'S REPUBLIC OF CHINA)
 **Certificate No:** {template['certificate_number']}
@@ -1852,12 +1987,13 @@ def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_t
 **3. Transport:** {template['box_3_means_of_transport']}
 **4. Destination:** {dest_country}
 **5. Certifying Authority:** {template['box_5_certifying_authority']}
+**Country/Countries of Origin:** **{origin_countries_str}**
 **7. Description & ACID:** {template['box_7_description_and_acid']}
-**8. H.S. Code:** {template['box_8_hs_code']}
+**8. H.S. Code(s):** **{hs_codes_str}**
 **9. Quantity & Gross Weight:** {template['box_9_quantity_and_weight']}
 **10. Invoice No & Date:** {template['box_10_invoice_number_and_date']}
 **Official Verification URL:** {template['verification_url']}"""
-        exemption = "المنشأ صيني: تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%."
+        exemption = f"المنشأ: {origin_countries_str} — تخضع الشحنة لضريبة الوارد العامة المقررة بجدول التعريفة الجمركية المصرية وضريبة القيمة المضافة 14%."
     else:
         # EUR.1
         cert_name = "EUR.1 Movement Certificate"
@@ -1867,30 +2003,35 @@ def generate_coo_draft_template_service(db: Session, import_file_id: int, cert_t
             "box_1_exporter": f"{exporter_reg}, {exporter_name}\n{exporter_addr}",
             "box_2_preferential_trade": "EU and EGYPT",
             "box_3_consignee": f"{importer_name}\n{importer_addr}",
-            "box_4_country_origin": "EU",
+            "box_4_country_origin": origin_countries_str,
             "box_5_country_destination": dest_country,
             "box_6_transport_details": f"BY SEA FROM {pol} TO {pod}",
             "box_7_remarks": "REVISED RULES",
-            "box_8_description_packages": f"OFFICE FURNITURE {pkgs} PACKAGES HS9401; HS9403",
+            "box_8_description_packages": f"OFFICE FURNITURE {pkgs} PACKAGES HS: {hs_codes_str}",
             "box_9_gross_mass": f"{gross_wt:,.3f} KG",
             "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {invoice_no}",
             "box_11_customs_endorsement": f"Customs Office EU - {date.today()}",
             "box_12_declaration_by_exporter": f"{exporter_name} - {date.today()}",
             "is_revised_rules_compliant": True,
+            "countries_of_origin_list": origins_list,
+            "country_of_origin": origin_countries_str,
+            "hs_codes_list": hs_codes_list,
+            "items_summary": items_summary,
         }
         markdown = f"""# MOVEMENT CERTIFICATE (EUR.1)
 **Certificate No:** {template['certificate_number']}
 **1. Exporter:** {template['box_1_exporter']}
 **2. Preferential Trade Between:** EU and EGYPT
 **3. Consignee:** {template['box_3_consignee']}
-**4. Country of Origin:** EU
+**4. Country/Countries of Origin:** **{origin_countries_str}**
 **5. Country of Destination:** EGYPT
 **7. Remarks:** **REVISED RULES** *(إلزامي للإعفاء التفضيلى الكامل)*
 **8. Description of Goods:** {template['box_8_description_packages']}
+**8. H.S. Code(s):** **{hs_codes_str}**
 **9. Gross Mass:** {template['box_9_gross_mass']}
 **10. Invoices & ACID:** {template['box_10_invoices_and_acid']}
 **11. Customs Endorsement:** {template['box_11_customs_endorsement']}"""
-        exemption = "مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
+        exemption = f"مؤهلة للإعفاء الجمركي التفضيلى الكامل (ضريبة وارد 0%) لدول المنشأ ({origin_countries_str}) بموجب اتفاقية الشراكة المصرية الأوروبية وقواعد المنشأ المعدلة (REVISED RULES)."
 
     return COODraftTemplateResponse(
         import_file_id=import_file_id,
@@ -1923,6 +2064,14 @@ def generate_inspection_draft_template_service(
         AcidRegistrationSession.is_active == True
     ).first()
 
+    # Dynamic extraction of all distinct origins and HS codes
+    extracted_meta = _extract_multi_origins_and_hs_codes(db, import_file_id, supplier)
+    origins_list = extracted_meta["origins_list"]
+    origin_countries_str = extracted_meta["origin_countries_str"]
+    hs_codes_list = extracted_meta["hs_codes_list"]
+    hs_codes_str = extracted_meta["hs_codes_str"]
+    items_summary = extracted_meta["items_summary"]
+
     acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271015010011"
     invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
     inv_amount = float(getattr(reconciliation, 'total_invoice_amount', None) or getattr(imp_file, 'estimated_cost', None) or getattr(imp_file, 'fob_amount', None) or 15375.50)
@@ -1952,7 +2101,10 @@ def generate_inspection_draft_template_service(
         "importer_name_and_address": f"{importer_name}\n{importer_addr}",
         "exporter_name_and_address": f"{exporter_name}\n{exporter_addr}",
         "producer_name_and_address": f"{exporter_name}\n{exporter_addr}",
-        "country_of_origin": supplier.foreign_exporter_country if supplier else "Lithuania",
+        "country_of_origin": origin_countries_str,
+        "countries_of_origin_list": origins_list,
+        "hs_code": hs_codes_str,
+        "hs_codes_list": hs_codes_list,
         "acid_number": acid_no,
         "commercial_invoices": [
             {
@@ -1964,11 +2116,12 @@ def generate_inspection_draft_template_service(
             }
         ],
         "total_value": f"{inv_amount:,.2f} {inv_currency}",
-        "place_of_inspection": supplier.foreign_exporter_country if supplier else "Lithuania",
+        "place_of_inspection": origin_countries_str,
         "date_of_inspection": str(date.today()),
         "port_of_entry": getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "Alexandria",
         "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
         "applicable_standards": applicable_standards,
+        "items_summary": items_summary,
     }
 
     markdown = f"""# {agency.upper()} - CERTIFICATE OF CONFORMITY (COC / VoC)
@@ -1978,6 +2131,8 @@ def generate_inspection_draft_template_service(
 **CoC No:** {template['coc_number']} | **Date:** {template['date_of_inspection']}
 **Importer:** {importer_name} ({importer_addr})
 **Exporter & Producer:** {exporter_name} ({exporter_addr})
+**Country/Countries of Origin:** **{origin_countries_str}**
+**H.S. Code(s):** **{hs_codes_str}**
 **ACID Number:** **{acid_no}**
 **Value:** {template['total_value']} ({incoterm_val})
 **Point of Entry:** {template['port_of_entry']}

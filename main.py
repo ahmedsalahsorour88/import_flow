@@ -58,6 +58,7 @@ from modules.shipment_updates.model import ShipmentUpdateLog
 from modules.demurrage_detention.model import DemurragePolicy, DemurrageTracking
 from modules.smart_document_upload.model import UploadSession
 from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
+from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument
 
 
 # ==================================================
@@ -99,6 +100,7 @@ from modules.demurrage_detention.router import router as demurrage_detention_rou
 from modules.lifecycle_board.router import router as lifecycle_board_router
 from modules.smart_document_upload.router import router as smart_document_upload_router
 from modules.docs_customs_approval.router import router as docs_customs_approval_router
+from modules.cargox.router import router as cargox_router
 
 
 # ==================================================
@@ -205,6 +207,7 @@ app.include_router(demurrage_detention_router)
 app.include_router(lifecycle_board_router)
 app.include_router(smart_document_upload_router)
 app.include_router(docs_customs_approval_router)
+app.include_router(cargox_router)
 
 
 # ==================================================

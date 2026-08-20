@@ -6,6 +6,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
+import 'visual_draft_coo_sheet.dart';
 
 class COOReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -31,6 +32,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
   String? _pickedFileName;
+  Map<String, dynamic>? _activeDraftTemplate;
+  String? _activeAcidNumber;
+  String? _activeExemptionNotes;
+  bool _showVisualDraftSheet = true;
 
   static const List<ImportDocStep> _steps = [
     ImportDocStep(label: '1. متطلبات شهادة المنشأ / EUR.1', icon: Icons.description),
@@ -56,88 +61,35 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     _importerCtrl.text = file.companyName;
     _exporterCtrl.text = file.supplierName;
     _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    _fetchAndApplyDraft(fileId);
   }
 
-  Future<void> _runComparison() async {
-    if (_selectedImportFileId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
+  Future<void> _fetchAndApplyDraft(int fileId) async {
     try {
-      final draftFields = {
-        'certificate_type': _certType,
-        'certificate_number': _certNumberCtrl.text.trim(),
-        'exporter_name': _exporterCtrl.text.trim(),
-        'importer_name': _importerCtrl.text.trim(),
-        'country_of_origin': _originCountryCtrl.text.trim(),
-        'destination_country': _destCountryCtrl.text.trim(),
-        'invoice_number': _invoiceNoCtrl.text.trim(),
-      };
-
-      final res = await ref.read(cooReviewsProvider.notifier).compareCOO(
-            _selectedImportFileId!,
-            _certType,
-            draftFields,
+      final res = await ref.read(cooReviewsProvider.notifier).fetchCooDraftTemplate(
+            fileId,
+            certType: _certType,
           );
+      final template = res['template_data'] as Map<String, dynamic>? ?? {};
+      final files = ref.read(importFilesProvider).value ?? [];
+      final file = files.where((f) => f.importFileId == fileId).firstOrNull;
 
-      setState(() {
-        _comparisonResult = res;
-        _activeStep = 2;
-      });
-    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء المقارنة: $e'), backgroundColor: Colors.red),
-        );
+        setState(() {
+          _activeDraftTemplate = template;
+          _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
+              ? file.acidNumber
+              : (template['box_7_description_and_acid'] ?? template['box_10_invoices_and_acid'] ?? '7595528271020210010');
+          _activeExemptionNotes = res['exemption_notes']?.toString();
+
+          if (template['certificate_number'] != null) _certNumberCtrl.text = template['certificate_number'].toString();
+          if (template['country_of_origin'] != null) _originCountryCtrl.text = template['country_of_origin'].toString();
+          if (template['box_1_exporter'] != null) _exporterCtrl.text = template['box_1_exporter'].toString();
+          if (template['box_2_consignee'] != null) _importerCtrl.text = template['box_2_consignee'].toString();
+        });
       }
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    } catch (_) {}
   }
-
-  Future<void> _saveReview() async {
-    if (_comparisonResult == null || _selectedImportFileId == null) return;
-    setState(() => _isLoading = true);
-    try {
-      final payload = {
-        'import_file_id': _selectedImportFileId,
-        'certificate_type': _certType,
-        'certificate_number': _certNumberCtrl.text.trim(),
-        'raw_text': _rawTextCtrl.text,
-        'system_snapshot_data': _comparisonResult!['system_snapshot_data'],
-        'draft_input_data': _comparisonResult!['draft_input_data'],
-        'comparison_matrix': _comparisonResult!['comparison_matrix'],
-        'has_discrepancies': _comparisonResult!['has_discrepancies'],
-        'has_critical_mismatch': _comparisonResult!['has_critical_mismatch'],
-        'status': _comparisonResult!['status'],
-      };
-
-      await ref.read(cooReviewsProvider.notifier).saveCOOReview(payload);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✔ تم حفظ جلسة مراجعة شهادة المنشأ بنجاح بالسجل'), backgroundColor: Colors.green),
-        );
-        setState(() => _activeStep = 3);
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الحفظ: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  // TODO: Implement certificate file picker when upload endpoint is ready
-  // Future<void> _pickCertificateFile() async { ... }
-
-
 
   Future<void> _generateOfficialDraft() async {
     if (_selectedImportFileId == null) {
@@ -159,6 +111,15 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       final preview = res['preview_markdown']?.toString() ?? '';
       final template = res['template_data'] as Map<String, dynamic>? ?? {};
       final exemption = res['exemption_notes']?.toString() ?? '';
+      final files = ref.read(importFilesProvider).value ?? [];
+      final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      final acidNo = file?.acidNumber ?? '7595528271020210010';
+
+      setState(() {
+        _activeDraftTemplate = template;
+        _activeAcidNumber = acidNo;
+        _activeExemptionNotes = exemption;
+      });
 
       showDialog(
         context: context,
@@ -171,7 +132,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 children: [
                   const Icon(Icons.verified, color: AppTheme.cobalt),
                   const SizedBox(width: 8),
-                  Text('مسودة شهادة المنشأ الرسمية: ${res['certificate_type'] ?? _certType}',
+                  Text('المعاينة المصورة لمسودة شهادة المنشأ الرسمية: ${res['certificate_type'] ?? _certType}',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -182,46 +143,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             ],
           ),
           content: SizedBox(
-            width: 700,
+            width: 860,
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (exemption.isNotEmpty)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      margin: const EdgeInsets.only(bottom: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.green.shade50,
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.green.shade300),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.stars, color: Colors.green),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              exemption,
-                              style: TextStyle(fontSize: 13, color: Colors.green.shade900, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: SelectableText(
-                      preview,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5),
-                    ),
-                  ),
-                ],
+              child: VisualDraftCOOSheet(
+                templateData: template,
+                certificateType: res['certificate_type'] ?? _certType,
+                acidNumber: acidNo,
+                exemptionNotes: exemption,
+                onRefresh: () => _fetchAndApplyDraft(_selectedImportFileId!),
               ),
             ),
           ),
@@ -328,6 +257,82 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     }
   }
 
+  Future<void> _runComparison() async {
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      final draftFields = {
+        'certificate_type': _certType,
+        'certificate_number': _certNumberCtrl.text.trim(),
+        'exporter_name': _exporterCtrl.text.trim(),
+        'importer_name': _importerCtrl.text.trim(),
+        'country_of_origin': _originCountryCtrl.text.trim(),
+        'destination_country': _destCountryCtrl.text.trim(),
+        'invoice_number': _invoiceNoCtrl.text.trim(),
+      };
+
+      final res = await ref.read(cooReviewsProvider.notifier).compareCOO(
+            _selectedImportFileId!,
+            _certType,
+            draftFields,
+          );
+
+      setState(() {
+        _comparisonResult = res;
+        _activeStep = 2;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ أثناء المقارنة: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _saveReview() async {
+    if (_comparisonResult == null || _selectedImportFileId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      final payload = {
+        'import_file_id': _selectedImportFileId,
+        'certificate_type': _certType,
+        'certificate_number': _certNumberCtrl.text.trim(),
+        'raw_text': _rawTextCtrl.text,
+        'system_snapshot_data': _comparisonResult!['system_snapshot_data'],
+        'draft_input_data': _comparisonResult!['draft_input_data'],
+        'comparison_matrix': _comparisonResult!['comparison_matrix'],
+        'has_discrepancies': _comparisonResult!['has_discrepancies'],
+        'has_critical_mismatch': _comparisonResult!['has_critical_mismatch'],
+        'status': _comparisonResult!['status'],
+      };
+
+      await ref.read(cooReviewsProvider.notifier).saveCOOReview(payload);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('✔ تم حفظ جلسة مراجعة شهادة المنشأ بنجاح بالسجل'), backgroundColor: Colors.green),
+        );
+        setState(() => _activeStep = 3);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('خطأ في الحفظ: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
@@ -369,81 +374,104 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+    return Column(
+      children: [
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.flag, color: AppTheme.cobalt),
-                SizedBox(width: 10),
-                Text('توليد بيانات متطلبات شهادة المنشأ و EUR.1 من النظام', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Row(
+                  children: [
+                    Icon(Icons.flag, color: AppTheme.cobalt),
+                    SizedBox(width: 10),
+                    Text('توليد واستدعاء مسودة شهادة المنشأ الرسمية (EUR.1 / China CCPIT / General COO)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: SearchableDropdownField<int>(
+                        value: _selectedImportFileId,
+                        labelText: 'اختر ملف الشحنة *',
+                        searchHintText: 'ابحث برقم الملف...',
+                        items: importFiles
+                            .map((f) => SearchableDropdownItem<int>(
+                                  value: f.importFileId,
+                                  label: '${f.importFileCode} - ${f.companyName}',
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedImportFileId = v);
+                            _loadSnapshot(v);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 3,
+                      child: SearchableDropdownField<String>(
+                        value: _certType,
+                        labelText: 'نوع شهادة المنشأ *',
+                        searchHintText: 'اختر نوع الشهادة...',
+                        items: const [
+                          SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)'),
+                          SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT / China-Egypt)'),
+                          SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin (شهادة منشأ عادية)'),
+                          SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / Generalized System of Preferences'),
+                          SearchableDropdownItem(value: 'Agadir Agreement', label: 'شهادة اتفاقية أغادير'),
+                          SearchableDropdownItem(value: 'GAFTA', label: 'شهادة منطقة التجارة الحرة العربية الكبرى'),
+                        ],
+                        onChanged: (v) {
+                          setState(() => _certType = v ?? 'EUR.1');
+                          if (_selectedImportFileId != null) {
+                            _fetchAndApplyDraft(_selectedImportFileId!);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                      icon: const Icon(Icons.bolt, color: Colors.white),
+                      label: const Text('⚡ فتح المعاينة المصورة والتصدير', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _generateOfficialDraft,
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                      label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: () => setState(() => _activeStep = 1),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const Divider(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SearchableDropdownField<int>(
-                    value: _selectedImportFileId,
-                    labelText: 'اختر ملف الشحنة *',
-                    searchHintText: 'ابحث برقم الملف...',
-                    items: importFiles
-                        .map((f) => SearchableDropdownItem<int>(
-                              value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _selectedImportFileId = v);
-                        _loadSnapshot(v);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 3,
-                  child: SearchableDropdownField<String>(
-                    value: _certType,
-                    labelText: 'نوع شهادة المنشأ *',
-                    searchHintText: 'اختر نوع الشهادة...',
-                    items: const [
-                      SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)'),
-                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT / China-Egypt)'),
-                      SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin (شهادة منشأ عادية)'),
-                      SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / Generalized System of Preferences'),
-                      SearchableDropdownItem(value: 'Agadir Agreement', label: 'شهادة اتفاقية أغادير'),
-                      SearchableDropdownItem(value: 'GAFTA', label: 'شهادة منطقة التجارة الحرة العربية الكبرى'),
-                    ],
-                    onChanged: (v) => setState(() => _certType = v ?? 'EUR.1'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                  icon: const Icon(Icons.bolt, color: Colors.white),
-                  label: const Text('⚡ توليد درافت رسمي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _generateOfficialDraft,
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                  icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                  label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => setState(() => _activeStep = 1),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+        if (_activeDraftTemplate != null) ...[
+          const SizedBox(height: 16),
+          VisualDraftCOOSheet(
+            templateData: _activeDraftTemplate!,
+            certificateType: _certType,
+            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+            exemptionNotes: _activeExemptionNotes,
+            onRefresh: () {
+              if (_selectedImportFileId != null) {
+                _fetchAndApplyDraft(_selectedImportFileId!);
+              }
+            },
+          ),
+        ],
+      ],
     );
   }
 

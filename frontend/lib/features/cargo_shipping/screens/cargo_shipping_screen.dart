@@ -15,7 +15,8 @@ import '../models/cargo_shipping_model.dart';
 import '../providers/cargo_shipping_provider.dart';
 
 class CargoShippingScreen extends ConsumerStatefulWidget {
-  const CargoShippingScreen({super.key});
+  final int initialSubTab;
+  const CargoShippingScreen({super.key, this.initialSubTab = 0});
 
   @override
   ConsumerState<CargoShippingScreen> createState() => _CargoShippingScreenState();
@@ -53,7 +54,11 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   @override
   void initState() {
     super.initState();
-    _mainTabController = TabController(length: 2, vsync: this);
+    _mainTabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: widget.initialSubTab.clamp(0, 1),
+    );
     _initDefaultContainer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshAllData();

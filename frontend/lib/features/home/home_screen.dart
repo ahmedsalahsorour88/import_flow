@@ -136,6 +136,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 51: Central Shipment Documents Archive & Discrepancies Summary Hub
         const CentralDocsArchiveScreen(),
+
+        // 52: Cargo Shipping Tracking (Tracking Subtab)
+        const CargoShippingScreen(initialSubTab: 1),
+
+        // 53: Draft Inspection Certificate (Dedicated Subtab 4)
+        const ShipmentDraftDocsScreen(initialSubTab: 4),
+
+        // 54: CargoX Blockchain & ACI Dispatch Hub (Dedicated Subtab 7)
+        const ShipmentDraftDocsScreen(initialSubTab: 7),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -408,9 +417,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
-                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع', 26, selectedIndex),
-                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 26, selectedIndex),
-                  _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review', 'مراجعة وتدقيق مسودات المستندات', 19, selectedIndex),
+                  _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع (VGM)', 26, selectedIndex),
+                  _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 52, selectedIndex),
+                  _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review (B/L)', 'مراجعة وتدقيق مسودات بوالص الشحن', 18, selectedIndex),
+                  _buildMenuItem(Icons.flag_circle_outlined, 'Draft COO / EUR.1', 'مسودة وتوليد شهادة المنشأ الرسمية', 19, selectedIndex),
+                  _buildMenuItem(Icons.fact_check_outlined, 'Draft Inspection / COC', 'مسودة وتوليد شهادة الفحص والمطابقة', 53, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
                   _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
                   _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 6, selectedIndex),
@@ -427,7 +438,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.crimson,
                 initiallyExpanded: false,
                 children: [
-                  _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Follow-up / Upload', 'متابعة ورفع المستندات عبر نافذة و CargoX', 22, selectedIndex),
+                  _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Blockchain & ACI Hub', 'منظومة الشحن المسبق والبلوك تشين CargoX', 54, selectedIndex),
                   _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة', 18, selectedIndex),
                   _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 16, selectedIndex),
                 ],

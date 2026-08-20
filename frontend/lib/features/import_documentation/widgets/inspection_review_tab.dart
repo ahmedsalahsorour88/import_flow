@@ -6,6 +6,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
+import 'visual_draft_inspection_sheet.dart';
 
 class InspectionReviewTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -32,6 +33,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
   String? _pickedFileName;
+  Map<String, dynamic>? _activeDraftTemplate;
+  String? _activeAcidNumber;
+  List<String> _activeStandards = [];
 
   static const List<ImportDocStep> _steps = [
     ImportDocStep(label: '1. متطلبات شهادة الفحص والمطابقة', icon: Icons.fact_check_outlined),
@@ -57,6 +61,36 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     _importerCtrl.text = file.companyName;
     _exporterCtrl.text = file.supplierName;
     _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    _fetchAndApplyDraft(fileId);
+  }
+
+  Future<void> _fetchAndApplyDraft(int fileId) async {
+    try {
+      final res = await ref.read(inspectionReviewsProvider.notifier).fetchInspectionDraftTemplate(
+            fileId,
+            agency: _inspAgency,
+            certType: _inspType,
+          );
+      final template = res['template_data'] as Map<String, dynamic>? ?? {};
+      final standards = (res['applicable_standards'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      final files = ref.read(importFilesProvider).value ?? [];
+      final file = files.where((f) => f.importFileId == fileId).firstOrNull;
+
+      if (mounted) {
+        setState(() {
+          _activeDraftTemplate = template;
+          _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
+              ? file.acidNumber
+              : (template['acid_number'] ?? '7595528271015010011');
+          _activeStandards = standards;
+
+          if (template['coc_number'] != null) _certNumberCtrl.text = template['coc_number'].toString();
+          if (template['exporter_name_and_address'] != null) _exporterCtrl.text = template['exporter_name_and_address'].toString();
+          if (template['importer_name_and_address'] != null) _importerCtrl.text = template['importer_name_and_address'].toString();
+          if (standards.isNotEmpty) _specCtrl.text = standards.join('\n');
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _runComparison() async {
@@ -141,8 +175,6 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   // TODO: Implement certificate file picker when upload endpoint is ready
   // Future<void> _pickCertificateFile() async { ... }
 
-
-
   Future<void> _generateOfficialDraft() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -161,9 +193,17 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
       if (!mounted) return;
 
-      final preview = res['preview_markdown']?.toString() ?? '';
       final template = res['template_data'] as Map<String, dynamic>? ?? {};
-      final standards = res['applicable_standards'] as List<dynamic>? ?? [];
+      final standards = (res['applicable_standards'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      final files = ref.read(importFilesProvider).value ?? [];
+      final file = files.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+      final acidNo = file?.acidNumber ?? '7595528271015010011';
+
+      setState(() {
+        _activeDraftTemplate = template;
+        _activeAcidNumber = acidNo;
+        _activeStandards = standards;
+      });
 
       showDialog(
         context: context,
@@ -176,7 +216,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 children: [
                   const Icon(Icons.fact_check, color: AppTheme.cobalt),
                   const SizedBox(width: 8),
-                  Text('درافت شهادة الفحص الرسمية: $_inspAgency ($_inspType)',
+                  Text('المعاينة المصورة لمسودة شهادة الفحص: $_inspAgency ($_inspType)',
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -187,45 +227,15 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             ],
           ),
           content: SizedBox(
-            width: 750,
+            width: 860,
             child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    margin: const EdgeInsets.only(bottom: 16),
-                    decoration: BoxDecoration(
-                      color: Colors.amber.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.amber.shade400),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.timer_outlined, color: Colors.amber),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            '⚠️ تنبيه فحص الشحنة: ${template['confirmation_deadline'] ?? 'يجب تأكيد الدرافت خلال 48 ساعة'}',
-                            style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.shade300),
-                    ),
-                    child: SelectableText(
-                      preview,
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13, height: 1.5),
-                    ),
-                  ),
-                ],
+              child: VisualDraftInspectionSheet(
+                templateData: template,
+                agency: _inspAgency,
+                certType: _inspType,
+                acidNumber: acidNo,
+                standards: standards,
+                onRefresh: () => _fetchAndApplyDraft(_selectedImportFileId!),
               ),
             ),
           ),
@@ -246,7 +256,6 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   if (template['exporter_name_and_address'] != null) _exporterCtrl.text = template['exporter_name_and_address'].toString();
                   if (template['importer_name_and_address'] != null) _importerCtrl.text = template['importer_name_and_address'].toString();
                   if (standards.isNotEmpty) _specCtrl.text = standards.join('\n');
-                  _rawTextCtrl.text = preview;
                   _activeStep = 1;
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -260,7 +269,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء توليد درافت الفحص: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('خطأ أثناء توليد المسودة: $e'), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -374,96 +383,125 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Row(
+    return Column(
+      children: [
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.verified, color: AppTheme.cobalt),
-                SizedBox(width: 10),
-                Text('توليد متطلبات شهادة الفحص المسبق قبل الشحن (Pre-Shipment Inspection / COC)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Row(
+                  children: [
+                    Icon(Icons.verified, color: AppTheme.cobalt),
+                    SizedBox(width: 10),
+                    Text('توليد متطلبات شهادة الفحص المسبق قبل الشحن (Pre-Shipment Inspection / COC)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const Divider(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: SearchableDropdownField<int>(
+                        value: _selectedImportFileId,
+                        labelText: 'اختر ملف الشحنة *',
+                        searchHintText: 'ابحث برقم الملف...',
+                        items: importFiles
+                            .map((f) => SearchableDropdownItem<int>(
+                                  value: f.importFileId,
+                                  label: '${f.importFileCode} - ${f.companyName}',
+                                ))
+                            .toList(),
+                        onChanged: (v) {
+                          if (v != null) {
+                            setState(() => _selectedImportFileId = v);
+                            _loadSnapshot(v);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: SearchableDropdownField<String>(
+                        value: _inspType,
+                        labelText: 'نوع شهادة الفحص *',
+                        searchHintText: 'اختر نوع الفحص...',
+                        items: const [
+                          SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: 'شهادة المطابقة النوعية (COC)'),
+                          SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: 'شهادة التحليل المخبري (COA)'),
+                          SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: 'التحقق من المطابقة (VOC)'),
+                          SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: 'تقرير المعاينة قبل الشحن (PSI)'),
+                        ],
+                        onChanged: (v) {
+                          setState(() => _inspType = v ?? 'COC (Certificate of Conformity)');
+                          if (_selectedImportFileId != null) {
+                            _fetchAndApplyDraft(_selectedImportFileId!);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      flex: 2,
+                      child: SearchableDropdownField<String>(
+                        value: _inspAgency,
+                        labelText: 'شركة / جهة الفحص الدولية *',
+                        searchHintText: 'اختر جهة الفحص...',
+                        items: const [
+                          SearchableDropdownItem(value: 'SGS', label: 'SGS International'),
+                          SearchableDropdownItem(value: 'TÜV Rheinland', label: 'TÜV Rheinland'),
+                          SearchableDropdownItem(value: 'Bureau Veritas', label: 'Bureau Veritas (BV)'),
+                          SearchableDropdownItem(value: 'Intertek', label: 'Intertek Testing Services'),
+                          SearchableDropdownItem(value: 'Cotecna', label: 'Cotecna Inspection'),
+                        ],
+                        onChanged: (v) {
+                          setState(() => _inspAgency = v ?? 'SGS');
+                          if (_selectedImportFileId != null) {
+                            _fetchAndApplyDraft(_selectedImportFileId!);
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                      icon: const Icon(Icons.bolt, color: Colors.white),
+                      label: const Text('⚡ فتح المعاينة والتصدير', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: _generateOfficialDraft,
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
+                      icon: const Icon(Icons.arrow_forward, color: Colors.white),
+                      label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: () => setState(() => _activeStep = 1),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const Divider(height: 24),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: SearchableDropdownField<int>(
-                    value: _selectedImportFileId,
-                    labelText: 'اختر ملف الشحنة *',
-                    searchHintText: 'ابحث برقم الملف...',
-                    items: importFiles
-                        .map((f) => SearchableDropdownItem<int>(
-                              value: f.importFileId,
-                              label: '${f.importFileCode} - ${f.companyName}',
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) {
-                        setState(() => _selectedImportFileId = v);
-                        _loadSnapshot(v);
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: SearchableDropdownField<String>(
-                    value: _inspType,
-                    labelText: 'نوع شهادة الفحص *',
-                    searchHintText: 'اختر نوع الفحص...',
-                    items: const [
-                      SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: 'شهادة المطابقة النوعية (COC)'),
-                      SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: 'شهادة التحليل المخبري (COA)'),
-                      SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: 'التحقق من المطابقة (VOC)'),
-                      SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: 'تقرير المعاينة قبل الشحن (PSI)'),
-                    ],
-                    onChanged: (v) => setState(() => _inspType = v ?? 'COC (Certificate of Conformity)'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  flex: 2,
-                  child: SearchableDropdownField<String>(
-                    value: _inspAgency,
-                    labelText: 'شركة / جهة الفحص الدولية *',
-                    searchHintText: 'اختر جهة الفحص...',
-                    items: const [
-                      SearchableDropdownItem(value: 'SGS', label: 'SGS International'),
-                      SearchableDropdownItem(value: 'TÜV Rheinland', label: 'TÜV Rheinland'),
-                      SearchableDropdownItem(value: 'Bureau Veritas', label: 'Bureau Veritas (BV)'),
-                      SearchableDropdownItem(value: 'Intertek', label: 'Intertek Testing Services'),
-                      SearchableDropdownItem(value: 'Cotecna', label: 'Cotecna Inspection'),
-                    ],
-                    onChanged: (v) => setState(() => _inspAgency = v ?? 'SGS'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                  icon: const Icon(Icons.bolt, color: Colors.white),
-                  label: const Text('⚡ توليد درافت الفحص', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _generateOfficialDraft,
-                ),
-                const SizedBox(width: 12),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
-                  icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                  label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => setState(() => _activeStep = 1),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
-      ),
+        if (_activeDraftTemplate != null) ...[
+          const SizedBox(height: 16),
+          VisualDraftInspectionSheet(
+            templateData: _activeDraftTemplate!,
+            agency: _inspAgency,
+            certType: _inspType,
+            acidNumber: _activeAcidNumber ?? '7595528271015010011',
+            standards: _activeStandards,
+            onRefresh: () {
+              if (_selectedImportFileId != null) {
+                _fetchAndApplyDraft(_selectedImportFileId!);
+              }
+            },
+          ),
+        ],
+      ],
     );
   }
 

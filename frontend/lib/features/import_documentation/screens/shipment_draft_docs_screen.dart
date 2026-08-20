@@ -14,6 +14,7 @@ import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
+import '../../cargox/screens/cargox_hub_screen.dart';
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -121,19 +122,19 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleAr: 'الأرشيف المركزي وملخص التعديلات',
       ),
       VerticalNavTabItem(
-        icon: Icons.folder_shared_outlined,
-        titleEn: 'Central Archive & CargoX',
-        titleAr: 'السجل وتظهير CargoX',
+        icon: Icons.hub_outlined,
+        titleEn: 'CargoX Blockchain & ACI Hub',
+        titleAr: 'منظومة كارجو إكس والمانيفست الرقمي',
         badge: shipmentDocs.isNotEmpty
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppTheme.emerald.withOpacity(0.2),
+                  color: AppTheme.cobalt.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   '${shipmentDocs.length}',
-                  style: const TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
                 ),
               )
             : null,
@@ -143,7 +144,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
     return VerticalStageScaffold(
       stageCode: '',
       titleEn: 'Shipment Draft Documents Review & CargoX',
-      titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن',
+      titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن وكارجو إكس',
       headerIcon: Icons.folder_open_outlined,
       headerColor: AppTheme.emerald,
       tabs: tabs,
@@ -161,9 +162,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
           onPressed: _refreshData,
         ),
       ],
-      body: _selectedSubTab == 7
-          ? SingleChildScrollView(padding: const EdgeInsets.all(20), child: _buildCentralDocsArchiveView())
-          : _buildCurrentSubTabContent(),
+      body: _buildCurrentSubTabContent(),
     );
   }
 
@@ -190,6 +189,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       case 6:
         return CentralDocsArchiveScreen(
+          initialImportFileId: _selectedImportFileId,
+          isEmbedded: true,
+        );
+      case 7:
+        return CargoXHubScreen(
           initialImportFileId: _selectedImportFileId,
           isEmbedded: true,
         );

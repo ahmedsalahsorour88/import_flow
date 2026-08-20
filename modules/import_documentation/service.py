@@ -1952,8 +1952,8 @@ def generate_coo_draft_template_service(
     importer_addr = (company.address if company else None) or "STREET 18, BUILDING 44, THIRD FLOOR, CAIRO 11728, EGYPT"
 
     dest_country = "EGYPT"
-    pol = (booking.pol_port_name if booking else None) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI / VILNIUS"
-    pod = (booking.pod_port_name if booking else None) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
+    pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI / VILNIUS"
+    pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
 
     is_china = "CHINA" in cert_type.upper() or "CCPIT" in cert_type.upper() or "CHINA" in str(origin_countries_str).upper()
 

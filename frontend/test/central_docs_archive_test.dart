@@ -85,10 +85,28 @@ void main() {
       'fob_or_cif_amount': 15375.50,
       'readiness_status': 'READY_FOR_RELEASE',
       'readiness_score': 100.0,
+      'tariff_exemption_alert': '⚠️ فرصة إعفاء جمركي: الشحنة مؤهلة لإعفاء كامل (0% ضريبة وارد) بموجب الشراكة المصرية الأوروبية بشرط تقديم شهادة EUR.1 مدوناً بها عبارة REVISED RULES.',
+      'import_requirements_summary': {
+        'has_assessment': true,
+        'assessment_code': 'BP011-2026-0042',
+        'hs_code': '9403.10',
+        'commodity_description': 'Metal office furniture',
+        'country_of_origin': 'Lithuania',
+        'coo_required': true,
+        'coo_type': 'EUR.1',
+        'coo_status': 'Required',
+        'inspection_required': false,
+        'inspection_status': 'Waived',
+        'decree_43_applicable': true,
+        'white_list_verified': true,
+        'factory_registration_no': 'FAC-REG-8812',
+      },
       'final_invoice': {
         'document_type': 'FINAL_COMMERCIAL_INVOICE',
         'title_ar': 'الفاتورة التجارية النهائية المعتمدة',
         'is_available': true,
+        'is_mandatory': true,
+        'is_waived': false,
         'status': 'APPROVED',
         'document_reference': 'IN053328',
         'details': {'total_amount': 15375.50, 'currency': 'EUR'},
@@ -98,6 +116,8 @@ void main() {
         'document_type': 'FINAL_PACKING_LIST',
         'title_ar': 'قائمة التعبئة النهائية المعتمدة',
         'is_available': true,
+        'is_mandatory': true,
+        'is_waived': false,
         'status': 'APPROVED',
         'document_reference': 'PL-IN053328',
         'details': {'total_packages': 141, 'total_gross_weight_kg': 1774.514},
@@ -107,6 +127,8 @@ void main() {
         'document_type': 'DRAFT_BL',
         'title_ar': 'مسودة بوليصة الشحن البحرية (Draft Bill of Lading)',
         'is_available': true,
+        'is_mandatory': true,
+        'is_waived': false,
         'status': 'APPROVED',
         'document_reference': 'MEDURE910647',
         'details': {'shipping_line': 'MSC', 'vessel_name': 'MSC LEANNE'},
@@ -116,6 +138,8 @@ void main() {
         'document_type': 'CERTIFICATE_OF_ORIGIN',
         'title_ar': 'درافت شهادة المنشأ / يورو 1 (Draft Certificate of Origin / EUR.1)',
         'is_available': true,
+        'is_mandatory': true,
+        'is_waived': false,
         'status': 'APPROVED',
         'document_reference': 'A-084188',
         'details': {'country_of_origin': 'Lithuania', 'certificate_type': 'EUR.1'},
@@ -124,9 +148,12 @@ void main() {
       'inspection_certificate': {
         'document_type': 'INSPECTION_CERTIFICATE',
         'title_ar': 'درافت شهادة الفحص والمطابقة النوعية (Draft Inspection / VoC / COC)',
-        'is_available': true,
-        'status': 'APPROVED',
-        'document_reference': 'COTECNA-EG-9901',
+        'is_available': false,
+        'is_mandatory': false,
+        'is_waived': true,
+        'waive_reason': 'الصنف غير خاضع لرقابة الصادرات والواردات (GOEIC) ولا يتطلب فحص ما قبل الشحن',
+        'status': 'WAIVED',
+        'document_reference': 'غير مطلوب',
         'details': {'inspection_agency': 'COTECNA'},
         'discrepancies': [],
       },
@@ -155,6 +182,15 @@ void main() {
     expect(find.text('كود الملف: IMP-2026-0042'), findsOneWidget);
     expect(find.text('رقم الملف الجمركي: CUST-8812'), findsOneWidget);
     expect(find.text('7595528271020210010'), findsOneWidget);
+
+    // Verify BP-011 compliance card
+    expect(find.text('📋 تقرير مطابقة متطلبات الاستيراد والرقابة (BP-011 Compliance)'), findsOneWidget);
+    expect(find.textContaining('REVISED RULES'), findsOneWidget);
+
+    // Verify Core vs Conditional Badges
+    expect(find.text('إلزامي حتمي'), findsNWidgets(3));
+    expect(find.text('شرطي / حسب البند'), findsNWidgets(2));
+    expect(find.text('معفاة / غير مطلوبة 🟢'), findsOneWidget);
 
     // Verify Action buttons
     expect(find.text('📋 نسخ إيميل التعديلات للمورد'), findsOneWidget);

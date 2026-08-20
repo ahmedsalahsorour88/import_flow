@@ -234,11 +234,15 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         _buildOverviewHeaderCard(data, readiness, score, totalCritical, totalWarning),
         const SizedBox(height: 16),
 
-        // 2. Master Discrepancies & Rectifications Summary
+        // 2. Import Requirements (BP-011) Compliance & Live Alerts Summary Card
+        _buildImportRequirementsComplianceCard(data),
+        const SizedBox(height: 16),
+
+        // 3. Master Discrepancies & Rectifications Summary
         _buildMasterRectificationsCard(data, checklist, totalCritical, totalWarning),
         const SizedBox(height: 20),
 
-        // 3. Section Title
+        // 4. Section Title
         const Row(
           children: [
             Icon(Icons.library_books, color: AppTheme.cobalt),
@@ -253,12 +257,13 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         ),
         const SizedBox(height: 12),
 
-        // 4. Five Core Document Cards
+        // 5. Five Core & Conditional Document Cards
         _buildDocumentCard(
           doc: finalInv,
           icon: Icons.receipt_long,
           color: Colors.indigo,
           defaultTitle: '1. الفاتورة التجارية النهائية المعتمدة (Final Commercial Invoice)',
+          isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
         _buildDocumentCard(
@@ -266,6 +271,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           icon: Icons.inventory_2,
           color: Colors.teal,
           defaultTitle: '2. قائمة التعبئة النهائية المعتمدة (Final Packing List)',
+          isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
         _buildDocumentCard(
@@ -273,6 +279,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           icon: Icons.directions_boat,
           color: Colors.blue.shade800,
           defaultTitle: '3. مسودة بوليصة الشحن البحرية (Draft Bill of Lading)',
+          isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
         _buildDocumentCard(
@@ -280,6 +287,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           icon: Icons.public,
           color: Colors.purple.shade700,
           defaultTitle: '4. درافت شهادة المنشأ / يورو 1 (Draft Certificate of Origin / EUR.1)',
+          isMandatoryCore: false,
         ),
         const SizedBox(height: 12),
         _buildDocumentCard(
@@ -287,6 +295,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           icon: Icons.verified_user,
           color: Colors.orange.shade800,
           defaultTitle: '5. درافت شهادة الفحص والمطابقة النوعية (Draft Inspection / VoC / COC)',
+          isMandatoryCore: false,
         ),
         const SizedBox(height: 30),
 
@@ -307,6 +316,205 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildImportRequirementsComplianceCard(Map<String, dynamic> data) {
+    final reqSummary = data['import_requirements_summary'] as Map<String, dynamic>? ?? {};
+    final tariffAlert = data['tariff_exemption_alert']?.toString();
+    final goeicAlert = data['goeic_inspection_alert']?.toString();
+    final decreeAlert = data['decree_43_alert']?.toString();
+
+    final hsCode = reqSummary['hs_code']?.toString() ?? 'N/A';
+    final commodity = reqSummary['commodity_description']?.toString() ?? 'بضائع تجارية مستوردة';
+    final origin = reqSummary['country_of_origin']?.toString() ?? 'غير محدد';
+    final cooRequired = reqSummary['coo_required'] as bool? ?? false;
+    final cooType = reqSummary['coo_type']?.toString() ?? 'Standard COO';
+    final inspRequired = reqSummary['inspection_required'] as bool? ?? false;
+    final inspAgency = reqSummary['inspection_body']?.toString() ?? 'COTECNA / SGS';
+    final decree43 = reqSummary['decree_43_applicable'] as bool? ?? false;
+    final whiteList = reqSummary['white_list_verified'] as bool? ?? false;
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.blueGrey.shade200, width: 1),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.rule_folder, color: AppTheme.cobalt, size: 20),
+                    ),
+                    const Text(
+                      '📋 تقرير مطابقة متطلبات الاستيراد والرقابة (BP-011 Compliance)',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.teal.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.teal.shade300),
+                  ),
+                  child: Text(
+                    'المنشأ: $origin | HS: $hsCode',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
+                  ),
+                ),
+              ],
+            ),
+            const Divider(height: 20),
+
+            // Live Alert Banners
+            if (tariffAlert != null && tariffAlert.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade400, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.stars, color: Colors.amber, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        tariffAlert,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.brown.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (goeicAlert != null && goeicAlert.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.verified, color: Colors.blue, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        goeicAlert,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (decreeAlert != null && decreeAlert.isNotEmpty) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.purple.shade300, width: 1.2),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.domain_verification, color: Colors.purple, size: 22),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        decreeAlert,
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            // Requirements Specs Matrix
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                _buildComplianceChip(
+                  label: 'شهادة المنشأ / EUR.1',
+                  statusText: cooRequired ? 'مطلوبة ($cooType)' : 'معفاة / غير مطلوبة',
+                  isRequired: cooRequired,
+                  icon: Icons.public,
+                ),
+                _buildComplianceChip(
+                  label: 'فحص ما قبل الشحن (VoC)',
+                  statusText: inspRequired ? 'مطلوب ($inspAgency)' : 'غير خاضع للرقابة',
+                  isRequired: inspRequired,
+                  icon: Icons.security,
+                ),
+                _buildComplianceChip(
+                  label: 'قرار 43 / تسجيل المصنع',
+                  statusText: decree43 ? (whiteList ? 'مسجل بالقائمة البيضاء' : 'يلزم قيد المصنع') : 'غير خاضع',
+                  isRequired: decree43 && !whiteList,
+                  icon: Icons.factory,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildComplianceChip({
+    required String label,
+    required String statusText,
+    required bool isRequired,
+    required IconData icon,
+  }) {
+    final bg = isRequired ? Colors.blue.shade50 : Colors.green.shade50;
+    final border = isRequired ? Colors.blue.shade300 : Colors.green.shade300;
+    final fg = isRequired ? Colors.blue.shade900 : Colors.green.shade800;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: fg),
+          const SizedBox(width: 6),
+          Text('$label: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+          Text(statusText, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: fg)),
+        ],
+      ),
     );
   }
 
@@ -628,9 +836,13 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     required IconData icon,
     required Color color,
     required String defaultTitle,
+    bool isMandatoryCore = false,
   }) {
     final title = doc['title_ar']?.toString() ?? defaultTitle;
     final isAvail = doc['is_available'] as bool? ?? false;
+    final isWaived = doc['is_waived'] as bool? ?? false;
+    final waiveReason = doc['waive_reason']?.toString();
+    final legalNote = doc['legal_requirement_note']?.toString();
     final status = doc['status']?.toString() ?? 'NOT_STARTED';
     final refNo = doc['document_reference']?.toString() ?? 'غير متوفر';
     final details = doc['details'] as Map<String, dynamic>? ?? {};
@@ -638,7 +850,10 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
     Color badgeColor;
     String badgeText;
-    if (status == 'APPROVED') {
+    if (isWaived || status == 'WAIVED') {
+      badgeColor = Colors.teal;
+      badgeText = 'معفاة / غير مطلوبة 🟢';
+    } else if (status == 'APPROVED') {
       badgeColor = AppTheme.emerald;
       badgeText = 'معتمد بنجاح ✔';
     } else if (status == 'MODIFICATIONS_REQUESTED') {
@@ -656,7 +871,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: ExpansionTile(
-        initiallyExpanded: discrepancies.isNotEmpty || isAvail,
+        initiallyExpanded: discrepancies.isNotEmpty || isAvail || isWaived,
         leading: CircleAvatar(
           backgroundColor: color.withOpacity(0.12),
           child: Icon(icon, color: color, size: 20),
@@ -667,12 +882,36 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           spacing: 10,
           runSpacing: 6,
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-            Row(
-              mainAxisSize: MainAxisSize.min,
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isMandatoryCore ? Colors.red.shade50 : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: isMandatoryCore ? Colors.red.shade200 : Colors.blue.shade200),
+                  ),
+                  child: Text(
+                    isMandatoryCore ? 'إلزامي حتمي' : 'شرطي / حسب البند',
+                    style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: isMandatoryCore ? Colors.red.shade900 : Colors.blue.shade900,
+                    ),
+                  ),
+                ),
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              ],
+            ),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text('المرجع: $refNo', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -692,6 +931,31 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Legal requirement / Waive reason Note Banner
+                if (legalNote != null && legalNote.isNotEmpty) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: isWaived ? Colors.green.shade50 : Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: isWaived ? Colors.green.shade200 : Colors.blue.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(isWaived ? Icons.check_circle : Icons.info_outline, size: 16, color: isWaived ? Colors.green.shade800 : Colors.blue.shade800),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            legalNote,
+                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: isWaived ? Colors.green.shade900 : Colors.blue.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 // Details Grid
                 if (details.isNotEmpty) ...[
                   Wrap(
@@ -735,12 +999,30 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                           ],
                         ),
                       )),
+                ] else if (isWaived) ...[
+                  Row(
+                    children: [
+                      const Icon(Icons.verified, color: Colors.teal, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          waiveReason ?? 'هذا المستند غير مطلوب / معفى قانونياً ولا يؤثر على جاهزية الإفراج 100%.',
+                          style: TextStyle(fontSize: 12, color: Colors.teal.shade800, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
                 ] else if (isAvail) ...[
                   Row(
                     children: [
                       const Icon(Icons.check, color: AppTheme.emerald, size: 16),
                       const SizedBox(width: 6),
-                      Text('هذا المستند لا يحتوي على أي ملاحظات أو فروق.', style: TextStyle(fontSize: 12, color: Colors.green.shade800)),
+                      Expanded(
+                        child: Text(
+                          'هذا المستند لا يحتوي على أي ملاحظات أو فروق.',
+                          style: TextStyle(fontSize: 12, color: Colors.green.shade800),
+                        ),
+                      ),
                     ],
                   ),
                 ],

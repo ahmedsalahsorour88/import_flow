@@ -930,7 +930,11 @@ class CentralArchiveDocumentSummary(BaseModel):
     document_type: str
     title_ar: str
     is_available: bool = False
-    status: str = "NOT_STARTED"  # 'APPROVED', 'REVIEW_PENDING', 'MODIFICATIONS_REQUESTED', 'NOT_STARTED'
+    is_mandatory: bool = True
+    is_waived: bool = False
+    waive_reason: Optional[str] = None
+    legal_requirement_note: Optional[str] = None
+    status: str = "NOT_STARTED"  # 'APPROVED', 'REVIEW_PENDING', 'MODIFICATIONS_REQUESTED', 'WAIVED', 'NOT_STARTED'
     document_reference: Optional[str] = None
     details: Dict[str, Any] = {}
     discrepancies: List[Dict[str, Any]] = []
@@ -959,6 +963,12 @@ class CentralArchiveResponse(BaseModel):
     draft_bl: CentralArchiveDocumentSummary
     certificate_of_origin: CentralArchiveDocumentSummary
     inspection_certificate: CentralArchiveDocumentSummary
+
+    # Import Requirements (BP-011) Integration
+    import_requirements_summary: Optional[Dict[str, Any]] = None
+    tariff_exemption_alert: Optional[str] = None
+    goeic_inspection_alert: Optional[str] = None
+    decree_43_alert: Optional[str] = None
 
     total_critical_discrepancies: int = 0
     total_warning_discrepancies: int = 0

@@ -15,10 +15,11 @@ import modules.import_files.model as imp_models
 import modules.import_companies.model as comp_models
 import modules.suppliers.model as supp_models
 import modules.external_service_providers.model as partner_models
-import modules.purchase_orders.model as po_models
 import modules.freight_booking.model as fb_models
 import modules.cargo_shipping.model as cs_models
 import modules.import_documentation.model as doc_models
+import modules.customs_consultation.model as consult_models
+import modules.import_requirements.model as req_models
 
 from modules.import_documentation.schemas import (
     DocumentExtractRequest,
@@ -326,6 +327,109 @@ class TestCustomsCertificatesEngine(unittest.TestCase):
         self.assertEqual(archive.readiness_status, "READY_FOR_RELEASE")
         self.assertEqual(archive.readiness_score, 100.0)
         self.assertIn("Subject: URGENT", archive.supplier_email_rectification_text)
+
+    def test_get_central_archive_waived_documents_score_is_100(self):
+        """Test that waived conditional documents do not penalize readiness score (100% Ready)."""
+        # Create an assessment where COO and Inspection are not required
+        assessment = req_models.ImportRequirementAssessment(
+            assessment_code="BP011-2026-0099",
+            import_file_id=self.file.import_file_id,
+            import_file_code=self.file.import_file_code,
+            hs_code="8471.30",
+            commodity_description="Laptops & Computers",
+            country_of_origin="USA",
+            coo_required=False,
+            coo_status="Not Required",
+            inspection_required=False,
+            inspection_status="Not Required",
+            overall_status="Complete",
+            is_active=True,
+        )
+        self.db.add(assessment)
+
+        # Seed only 3 Core Documents (Invoice, Packing List, Draft B/L)
+        po_rec = doc_models.POPackingReconciliationSession(
+            session_code="PO-REC-2026-0099",
+            import_file_id=self.file.import_file_id,
+            final_invoice_number="INV-US-99",
+            final_packing_list_number="PL-US-99",
+            total_invoice_amount=50000.0,
+            currency="USD",
+            total_packages=20,
+            total_gross_weight_kg=450.0,
+            overall_status="FULLY_MATCHED",
+            is_safe_for_certification=True,
+            is_active=True,
+        )
+        self.db.add(po_rec)
+
+        bl_rev = doc_models.DraftBLReviewSession(
+            bl_review_code="BL-REV-2026-0099",
+            import_file_id=self.file.import_file_id,
+            draft_bl_number="MSCUS991122",
+            shipping_line="MSC",
+            status="APPROVED",
+            is_active=True,
+        )
+        self.db.add(bl_rev)
+        self.db.commit()
+
+        archive = service.get_central_archive_service(self.db, self.file.import_file_id)
+
+        # 3 Core Docs are Active & Approved
+        self.assertTrue(archive.final_invoice.is_available)
+        self.assertTrue(archive.final_invoice.is_mandatory)
+        self.assertFalse(archive.final_invoice.is_waived)
+
+        self.assertTrue(archive.final_packing_list.is_available)
+        self.assertTrue(archive.final_packing_list.is_mandatory)
+        self.assertFalse(archive.final_packing_list.is_waived)
+
+        self.assertTrue(archive.draft_bl.is_available)
+        self.assertTrue(archive.draft_bl.is_mandatory)
+        self.assertFalse(archive.draft_bl.is_waived)
+
+        # Conditional Docs are Waived
+        self.assertTrue(archive.certificate_of_origin.is_waived)
+        self.assertEqual(archive.certificate_of_origin.status, "WAIVED")
+        self.assertTrue(archive.inspection_certificate.is_waived)
+        self.assertEqual(archive.inspection_certificate.status, "WAIVED")
+
+        # Readiness is 100% READY_FOR_RELEASE
+        self.assertEqual(archive.readiness_score, 100.0)
+        self.assertEqual(archive.readiness_status, "READY_FOR_RELEASE")
+        self.assertIsNotNone(archive.import_requirements_summary)
+        self.assertEqual(archive.import_requirements_summary["hs_code"], "8471.30")
+
+    def test_get_central_archive_eur1_tariff_exemption_alert(self):
+        """Test EUR.1 tariff exemption alert and REVISED RULES prompt for European origin."""
+        assessment = req_models.ImportRequirementAssessment(
+            assessment_code="BP011-2026-0100",
+            import_file_id=self.file.import_file_id,
+            import_file_code=self.file.import_file_code,
+            hs_code="9403.20",
+            commodity_description="Office Chairs & Tables",
+            country_of_origin="Germany",
+            coo_required=True,
+            coo_type="EUR.1",
+            coo_status="Pending",
+            inspection_required=True,
+            inspection_body="TÜV Rheinland",
+            inspection_status="Pending",
+            overall_status="Complete",
+            is_active=True,
+        )
+        self.db.add(assessment)
+        self.db.commit()
+
+        archive = service.get_central_archive_service(self.db, self.file.import_file_id)
+
+        self.assertIsNotNone(archive.tariff_exemption_alert)
+        self.assertIn("REVISED RULES", archive.tariff_exemption_alert)
+        self.assertIn("0% ضريبة وارد", archive.tariff_exemption_alert)
+        self.assertIsNotNone(archive.goeic_inspection_alert)
+        self.assertIn("GOEIC", archive.goeic_inspection_alert)
+        self.assertIn("TÜV Rheinland", archive.goeic_inspection_alert)
 
 
 if __name__ == "__main__":

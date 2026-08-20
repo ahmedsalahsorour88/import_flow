@@ -2757,6 +2757,12 @@ def get_inspection_reviews_service(db: Session, include_inactive: bool = False, 
 
 
 def get_central_archive_service(db: Session, import_file_id: int) -> CentralArchiveResponse:
+    from modules.import_requirements.model import ImportRequirementAssessment
+    from modules.import_files.model import ImportFile
+    from modules.import_companies.model import ImportCompany
+    from modules.suppliers.model import Supplier
+    from modules.cargo_shipping.model import ShipmentBooking
+
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
     if not imp_file:
         raise HTTPException(status_code=404, detail="Import File not found")
@@ -2788,11 +2794,99 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         InspectionCertificateReviewSession.is_active == True
     ).order_by(InspectionCertificateReviewSession.inspection_review_id.desc()).first()
 
+    # Query Import Requirement Assessment (BP-011)
+    assessment = db.query(ImportRequirementAssessment).filter(
+        ImportRequirementAssessment.import_file_id == import_file_id,
+        ImportRequirementAssessment.is_active == True
+    ).order_by(ImportRequirementAssessment.assessment_id.desc()).first()
+    if not assessment and imp_file.supplier_id:
+        assessment = db.query(ImportRequirementAssessment).filter(
+            ImportRequirementAssessment.supplier_id == imp_file.supplier_id,
+            ImportRequirementAssessment.is_active == True
+        ).order_by(ImportRequirementAssessment.assessment_id.desc()).first()
+
+    # Determine Country of Origin
+    origin_country = (
+        (assessment.country_of_origin if assessment and assessment.country_of_origin else None)
+        or (coo_review.country_of_origin if coo_review and coo_review.country_of_origin else None)
+        or (supplier.foreign_exporter_country if supplier and supplier.foreign_exporter_country else None)
+        or (getattr(imp_file, 'country_of_origin', None))
+        or "European Union / International"
+    )
+
+    eu_countries = [
+        'lithuania', 'germany', 'italy', 'france', 'spain', 'poland', 'belgium',
+        'netherlands', 'austria', 'czech', 'sweden', 'denmark', 'finland', 'greece',
+        'portugal', 'hungary', 'ireland', 'romania', 'bulgaria', 'slovakia', 'slovenia',
+        'croatia', 'latvia', 'estonia', 'cyprus', 'malta', 'luxembourg', 'eu', 'europe', 'european'
+    ]
+    is_eu_origin = any(c in origin_country.lower() for c in eu_countries) or (coo_review and coo_review.certificate_type == "EUR.1")
+
+    # Evaluate COO / EUR.1 Requirements (Rule 2: Conditional by Tariff/Origin)
+    tariff_exemption_alert = None
+    if assessment and assessment.coo_required:
+        coo_is_mandatory = True
+        coo_is_waived = False
+        if is_eu_origin or assessment.coo_type == "EUR.1":
+            coo_legal_note = "مطلوبة شهادة EUR.1 مدوناً بها عبارة 'REVISED RULES' بالخانة 7 لتطبيق إعفاء 0% ضريبة وارد."
+            tariff_exemption_alert = "⚠️ فرصة إعفاء جمركي: الشحنة مؤهلة لإعفاء كامل (0% ضريبة وارد) بموجب الشراكة المصرية الأوروبية، بشرط تقديم شهادة EUR.1 مدوناً بها عبارة 'REVISED RULES' بالخانة 7."
+        else:
+            coo_legal_note = "مطلوبة شهادة منشأ معتمدة لإثبات المنشأ الجمركي ومطابقة التعرفة."
+    elif assessment and not assessment.coo_required:
+        coo_is_mandatory = False
+        coo_is_waived = True
+        coo_legal_note = "غير مطلوبة / معفاة قانونياً وفق تقييم متطلبات الاستيراد (BP-011)."
+    else:
+        # Default heuristic based on origin
+        if is_eu_origin:
+            coo_is_mandatory = True
+            coo_is_waived = False
+            coo_legal_note = "مطلوبة شهادة EUR.1 بعبارة 'REVISED RULES' للاستفادة من الإعفاء الجمركي 0%."
+            tariff_exemption_alert = "⚠️ فرصة إعفاء جمركي: الشحنة مؤهلة لإعفاء كامل (0% ضريبة وارد) بموجب الشراكة المصرية الأوروبية، بشرط تقديم شهادة EUR.1 مدوناً بها عبارة 'REVISED RULES' بالخانة 7."
+        elif "china" in origin_country.lower() or (coo_review and "ccpit" in str(coo_review.certificate_type).lower()):
+            coo_is_mandatory = True
+            coo_is_waived = False
+            coo_legal_note = "مطلوبة شهادة منشأ الصين CCPIT إلكترونية مع باركود ورابط التحقق."
+        else:
+            coo_is_mandatory = False
+            coo_is_waived = True
+            coo_legal_note = "شهادة المنشأ غير ملزمة / معفاة لهذا البند الجمركي والمنشأ."
+
+    # Evaluate Inspection Certificate (VoC / COC) Requirements (Rule 2: Conditional by GOEIC/NFSA)
+    goeic_inspection_alert = None
+    if assessment and assessment.inspection_required:
+        insp_is_mandatory = True
+        insp_is_waived = False
+        insp_agency = assessment.inspection_body or "COTECNA / TÜV / SGS"
+        insp_legal_note = f"خاضع لفحص الهيئة العامة للرقابة على الصادرات والواردات (GOEIC) وتفتيش ما قبل الشحن عبر ({insp_agency})."
+        goeic_inspection_alert = f"⚠️ تنبيه فحص نوعي (GOEIC): البند الجمركي خاضع لفحص ما قبل الشحن من شركة معاينة معتمدة ({insp_agency}) مع ضرورة تدقيق مسودة الـ 48 ساعة."
+    elif assessment and not assessment.inspection_required:
+        insp_is_mandatory = False
+        insp_is_waived = True
+        insp_legal_note = "الصنف غير خاضع لفحص الصادرات والواردات (GOEIC) ولا يتطلب شهادة فحص ما قبل الشحن."
+    else:
+        # If an inspection review session exists, consider it active; otherwise waived
+        if inspection_review is not None:
+            insp_is_mandatory = True
+            insp_is_waived = False
+            insp_legal_note = f"تم إدراج فحص نوعي ما قبل الشحن عبر ({inspection_review.inspection_agency})."
+        else:
+            insp_is_mandatory = False
+            insp_is_waived = True
+            insp_legal_note = "غير خاضع لفحص ما قبل الشحن بموجب البند الجمركي."
+
+    # Evaluate Decree 43 / White List
+    decree_43_alert = None
+    if assessment and assessment.decree_43_applicable:
+        if not assessment.white_list_verified:
+            supp_name = assessment.supplier_name or (supplier.company_name if supplier else (imp_file.supplier_name or "المورد"))
+            decree_43_alert = f"⚠️ تنبيه قرار 43: المصنع ({supp_name}) خاضع للقرار 43/2016 ويلزم التحقق من قيده بالقائمة البيضاء للهيئة برقم: {assessment.factory_registration_no or 'غير مسجل'}"
+
     all_discrepancies = []
     total_critical = 0
     total_warning = 0
 
-    # 1. Final Commercial Invoice
+    # 1. Final Commercial Invoice (100% Mandatory Core)
     inv_available = po_reconciliation is not None and bool(po_reconciliation.final_invoice_number)
     inv_discrepancies = []
     if po_reconciliation and po_reconciliation.header_discrepancies:
@@ -2815,6 +2909,9 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         document_type="FINAL_COMMERCIAL_INVOICE",
         title_ar="الفاتورة التجارية النهائية المعتمدة",
         is_available=inv_available,
+        is_mandatory=True,
+        is_waived=False,
+        legal_requirement_note="مستند إلزامي حتمي لكافة الشحنات لإثبات القيمة الجمركية (CIF/FOB) والوعاء الضريبي.",
         status="APPROVED" if (inv_available and po_reconciliation.is_safe_for_certification) else ("REVIEW_PENDING" if inv_available else "NOT_STARTED"),
         document_reference=(po_reconciliation.final_invoice_number if po_reconciliation else None) or imp_file.pi_number,
         details={
@@ -2829,7 +2926,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         last_updated=po_reconciliation.updated_at if po_reconciliation else None
     )
 
-    # 2. Final Packing List
+    # 2. Final Packing List (100% Mandatory Core)
     pkg_available = po_reconciliation is not None and bool(po_reconciliation.final_packing_list_number or po_reconciliation.total_packages)
     pkg_discrepancies = []
     if po_reconciliation and po_reconciliation.header_discrepancies:
@@ -2852,6 +2949,9 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         document_type="FINAL_PACKING_LIST",
         title_ar="قائمة التعبئة النهائية المعتمدة",
         is_available=pkg_available,
+        is_mandatory=True,
+        is_waived=False,
+        legal_requirement_note="مستند إلزامي حتمي لتحديد الأوزان الصافية والقائمة وعدد الطرود وأرقام الحاويات للجمارك.",
         status="APPROVED" if (pkg_available and po_reconciliation.is_safe_for_certification) else ("REVIEW_PENDING" if pkg_available else "NOT_STARTED"),
         document_reference=(po_reconciliation.final_packing_list_number if po_reconciliation else None) or f"PL-{imp_file.import_file_code}",
         details={
@@ -2865,30 +2965,32 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         last_updated=po_reconciliation.updated_at if po_reconciliation else None
     )
 
-    # 3. Draft Bill of Lading
+    # 3. Draft Bill of Lading (100% Mandatory Core)
     bl_available = bl_review is not None
     bl_discrepancies = []
-    if bl_review:
-        if bl_review.comparison_matrix:
-            for row in bl_review.comparison_matrix:
-                if row.get("status") in ["MISMATCH", "MISMATCH_CRITICAL", "MISMATCH_MINOR", "DIFF"]:
-                    sev = "CRITICAL" if row.get("severity") in ["BLOCKING", "CRITICAL"] or row.get("status") == "MISMATCH_CRITICAL" else "WARNING"
-                    item = {
-                        "document": "مسودة بوليصة الشحن (Draft B/L)",
-                        "field": row.get("field") or row.get("check_item", "B/L Field"),
-                        "severity": sev,
-                        "issue": f"القيمة في البوليصة: '{row.get('bl_val') or row.get('compared_value')}' مقابل النظام: '{row.get('sys_val') or row.get('system_value')}'",
-                        "rectification": row.get("correction_instruction") or row.get("details") or "طلب تعديل درافت البوليصة من الخط الملاحي",
-                    }
-                    bl_discrepancies.append(item)
-                    all_discrepancies.append(item)
-                    if sev == "CRITICAL": total_critical += 1
-                    else: total_warning += 1
+    if bl_review and bl_review.comparison_matrix:
+        for row in bl_review.comparison_matrix:
+            if row.get("status") in ["MISMATCH", "MISMATCH_CRITICAL", "MISMATCH_MINOR", "DIFF"]:
+                sev = "CRITICAL" if row.get("severity") in ["BLOCKING", "CRITICAL"] or row.get("status") == "MISMATCH_CRITICAL" else "WARNING"
+                item = {
+                    "document": "مسودة بوليصة الشحن (Draft B/L)",
+                    "field": row.get("field") or row.get("check_item", "B/L Field"),
+                    "severity": sev,
+                    "issue": f"القيمة في البوليصة: '{row.get('bl_val') or row.get('compared_value')}' مقابل النظام: '{row.get('sys_val') or row.get('system_value')}'",
+                    "rectification": row.get("correction_instruction") or row.get("details") or "طلب تعديل درافت البوليصة من الخط الملاحي",
+                }
+                bl_discrepancies.append(item)
+                all_discrepancies.append(item)
+                if sev == "CRITICAL": total_critical += 1
+                else: total_warning += 1
 
     draft_bl = CentralArchiveDocumentSummary(
         document_type="DRAFT_BL",
         title_ar="مسودة بوليصة الشحن (Draft B/L)",
         is_available=bl_available,
+        is_mandatory=True,
+        is_waived=False,
+        legal_requirement_note="مستند إلزامي حتمي يثبت الشحن والناقل البحري ورقم القيد الجمركي ACID.",
         status="APPROVED" if (bl_available and bl_review.status in ["Approved", "APPROVED", "FINAL"]) else ("MODIFICATIONS_REQUESTED" if bl_discrepancies else ("REVIEW_PENDING" if bl_available else "NOT_STARTED")),
         document_reference=(bl_review.draft_bl_number if bl_review else None) or (booking.booking_reference if booking else None),
         details={
@@ -2904,7 +3006,7 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         last_updated=bl_review.updated_at if bl_review else None
     )
 
-    # 4. Certificate of Origin / EUR.1
+    # 4. Certificate of Origin / EUR.1 (Conditional)
     coo_available = coo_review is not None
     coo_discrepancies = []
     if coo_review and coo_review.comparison_matrix:
@@ -2923,25 +3025,35 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
                 if sev == "CRITICAL": total_critical += 1
                 else: total_warning += 1
 
+    coo_status = "WAIVED" if coo_is_waived else (
+        "APPROVED" if (coo_available and coo_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if coo_discrepancies else ("REVIEW_PENDING" if coo_available else "NOT_STARTED"))
+    )
+
     certificate_of_origin = CentralArchiveDocumentSummary(
         document_type="CERTIFICATE_OF_ORIGIN",
         title_ar="شهادة المنشأ / يورو 1 (COO / EUR.1)",
         is_available=coo_available,
-        status="APPROVED" if (coo_available and coo_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if coo_discrepancies else ("REVIEW_PENDING" if coo_available else "NOT_STARTED")),
+        is_mandatory=coo_is_mandatory,
+        is_waived=coo_is_waived,
+        waive_reason="غير مطلوبة قانونياً / معفاة وفق تقييم البند الجمركي (BP-011)" if coo_is_waived else None,
+        legal_requirement_note=coo_legal_note,
+        status=coo_status,
         document_reference=coo_review.certificate_number if coo_review else None,
         details={
-            "certificate_type": (coo_review.certificate_type if coo_review else "EUR.1 / China CCPIT"),
+            "certificate_type": (coo_review.certificate_type if coo_review else ("EUR.1" if is_eu_origin else "Standard COO")),
             "certificate_number": coo_review.certificate_number if coo_review else "DRAFT-COO",
-            "country_of_origin": (coo_review.country_of_origin if coo_review else (supplier.foreign_exporter_country if supplier else "Lithuania")),
+            "country_of_origin": origin_country,
             "exporter_name": (coo_review.exporter_name if coo_review else (supplier.company_name if supplier else imp_file.supplier_name)),
             "importer_name": (coo_review.importer_name if coo_review else (company.importer_name if company else imp_file.company_name)),
+            "is_preferential_agreement": is_eu_origin,
+            "tariff_exemption_eligible": is_eu_origin,
         },
         discrepancies=coo_discrepancies,
         raw_content=coo_review.raw_input_text if coo_review else None,
         last_updated=coo_review.updated_at if coo_review else None
     )
 
-    # 5. Inspection Certificate / VoC
+    # 5. Inspection Certificate / VoC (Conditional)
     insp_available = inspection_review is not None
     insp_discrepancies = []
     if inspection_review and inspection_review.comparison_matrix:
@@ -2960,11 +3072,19 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
                 if sev == "CRITICAL": total_critical += 1
                 else: total_warning += 1
 
+    insp_status = "WAIVED" if insp_is_waived else (
+        "APPROVED" if (insp_available and inspection_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if insp_discrepancies else ("REVIEW_PENDING" if insp_available else "NOT_STARTED"))
+    )
+
     inspection_certificate = CentralArchiveDocumentSummary(
         document_type="INSPECTION_CERTIFICATE",
         title_ar="شهادة الفحص والتطابق (VoC / COC)",
         is_available=insp_available,
-        status="APPROVED" if (insp_available and inspection_review.status in ["Approved", "APPROVED", "Verified"]) else ("MODIFICATIONS_REQUESTED" if insp_discrepancies else ("REVIEW_PENDING" if insp_available else "NOT_STARTED")),
+        is_mandatory=insp_is_mandatory,
+        is_waived=insp_is_waived,
+        waive_reason="الصنف غير خاضع لرقابة الصادرات والواردات (GOEIC) ولا يتطلب فحص ما قبل الشحن" if insp_is_waived else None,
+        legal_requirement_note=insp_legal_note,
+        status=insp_status,
         document_reference=inspection_review.certificate_number if inspection_review else None,
         details={
             "inspection_type": (inspection_review.inspection_type if inspection_review else "COC (Certificate of Conformity)"),
@@ -2978,18 +3098,44 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         last_updated=inspection_review.updated_at if inspection_review else None
     )
 
-    # Calculate overall readiness score
-    doc_count = sum(1 for d in [inv_available, pkg_available, bl_available, coo_available, insp_available] if d)
-    base_score = (doc_count / 5.0) * 100.0
+    # Dynamic Readiness Calculation (Only counts active non-waived mandatory docs)
+    all_doc_summaries = [final_invoice, final_packing_list, draft_bl, certificate_of_origin, inspection_certificate]
+    mandatory_docs = [d for d in all_doc_summaries if d.is_mandatory and not d.is_waived]
+    req_count = len(mandatory_docs)
+    approved_count = sum(1 for d in mandatory_docs if d.status == "APPROVED" or (d.is_available and len(d.discrepancies) == 0))
+
+    base_score = (approved_count / req_count * 100.0) if req_count > 0 else 100.0
     deduction = (total_critical * 25.0) + (total_warning * 5.0)
     final_score = max(0.0, min(100.0, base_score - deduction))
 
-    if total_critical == 0 and total_warning == 0 and doc_count >= 4:
+    if total_critical == 0 and total_warning == 0 and approved_count == req_count:
         readiness_status = "READY_FOR_RELEASE"
+        final_score = 100.0
     elif total_critical > 0 or total_warning > 0:
         readiness_status = "ACTION_REQUIRED"
     else:
         readiness_status = "IN_REVIEW"
+
+    # Compile Import Requirements Summary
+    import_requirements_summary = {
+        "has_assessment": assessment is not None,
+        "assessment_code": assessment.assessment_code if assessment else None,
+        "hs_code": (assessment.hs_code if assessment else None) or "9403.10 / 9403.20",
+        "commodity_description": (assessment.commodity_description if assessment else None) or "Office furniture & commercial goods",
+        "country_of_origin": origin_country,
+        "coo_required": coo_is_mandatory and not coo_is_waived,
+        "coo_type": (assessment.coo_type if assessment else None) or ("EUR.1" if is_eu_origin else "Standard COO"),
+        "coo_status": "Required" if (coo_is_mandatory and not coo_is_waived) else "Waived",
+        "inspection_required": insp_is_mandatory and not insp_is_waived,
+        "inspection_body": (assessment.inspection_body if assessment else None) or "COTECNA",
+        "inspection_status": "Required" if (insp_is_mandatory and not insp_is_waived) else "Waived",
+        "decree_43_applicable": assessment.decree_43_applicable if assessment else False,
+        "white_list_verified": assessment.white_list_verified if assessment else False,
+        "factory_registration_no": assessment.factory_registration_no if assessment else None,
+        "import_permit_required": assessment.import_permit_required if assessment else False,
+        "permit_issuing_authority": assessment.permit_issuing_authority if assessment else None,
+        "overall_status": assessment.overall_status if assessment else "Completed / Inferred",
+    }
 
     # Generate Supplier Email & WhatsApp text
     sys_acid = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "N/A"
@@ -2999,6 +3145,11 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         f"We have reviewed the draft shipping documents for Import File {imp_file.import_file_code} (Customs File: {imp_file.custom_file_number or 'N/A'}).",
         f"Please find below the required corrections and discrepancies that must be rectified before issuing the final original documents and uploading to CargoX:\n"
     ]
+    if tariff_exemption_alert:
+        email_lines.append(f"[IMPORTANT COMPLIANCE NOTE]: {tariff_exemption_alert}\n")
+    if goeic_inspection_alert:
+        email_lines.append(f"[INSPECTION NOTE]: {goeic_inspection_alert}\n")
+
     if all_discrepancies:
         for idx, item in enumerate(all_discrepancies, 1):
             sev_tag = "[CRITICAL / MANDATORY]" if item["severity"] == "CRITICAL" else "[WARNING / RECOMMENDATION]"
@@ -3021,6 +3172,8 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         f"المورد: {supplier.company_name if supplier else imp_file.supplier_name}",
         "------------------------------------",
     ]
+    if tariff_exemption_alert:
+        wa_lines.append(f"🇪🇺 *تنبيه الإعفاء الجمركي:* يلزم تدوين `REVISED RULES` بالخانة 7 بشهادة EUR.1")
     if all_discrepancies:
         wa_lines.append("*التعديلات المطلوبة لإصدار الأصول:*")
         for idx, item in enumerate(all_discrepancies, 1):
@@ -3051,6 +3204,10 @@ def get_central_archive_service(db: Session, import_file_id: int) -> CentralArch
         draft_bl=draft_bl,
         certificate_of_origin=certificate_of_origin,
         inspection_certificate=inspection_certificate,
+        import_requirements_summary=import_requirements_summary,
+        tariff_exemption_alert=tariff_exemption_alert,
+        goeic_inspection_alert=goeic_inspection_alert,
+        decree_43_alert=decree_43_alert,
         total_critical_discrepancies=total_critical,
         total_warning_discrepancies=total_warning,
         all_rectifications_checklist=all_discrepancies,

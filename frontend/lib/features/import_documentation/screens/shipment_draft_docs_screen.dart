@@ -67,6 +67,16 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
     });
   }
 
+  @override
+  void didUpdateWidget(covariant ShipmentDraftDocsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSubTab != widget.initialSubTab) {
+      setState(() {
+        _selectedSubTab = widget.initialSubTab;
+      });
+    }
+  }
+
   void _refreshData() {
     ref.read(importFilesProvider.notifier).fetchImportFiles();
     ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();

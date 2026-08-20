@@ -52,17 +52,30 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   LclLoadingTrackingModel? _lclTracking;
 
   @override
+  @override
   void initState() {
     super.initState();
+    _activeStepIndex = widget.initialSubTab.clamp(0, 1);
     _mainTabController = TabController(
       length: 2,
       vsync: this,
-      initialIndex: widget.initialSubTab.clamp(0, 1),
+      initialIndex: 0,
     );
     _initDefaultContainer();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _refreshAllData();
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant CargoShippingScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialSubTab != widget.initialSubTab) {
+      setState(() {
+        _activeStepIndex = widget.initialSubTab.clamp(0, 1);
+        _mainTabController.index = 0;
+      });
+    }
   }
 
   void _initDefaultContainer() {
@@ -618,13 +631,14 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
         titleAr: 'سجل متابعة الشحنات والتحميل',
       ),
     ];
+    final isTrackingTab = _activeStepIndex == 1;
 
     return VerticalStageScaffold(
-      stageCode: '',
-      titleEn: 'Freight Allocations & Cargo Shipping',
-      titleAr: 'تخصيص وتوزيع الحاويات ومتابعة حركة الشحن',
-      headerIcon: Icons.grid_view_outlined,
-      headerColor: AppTheme.emerald,
+      stageCode: isTrackingTab ? 'STEP-08' : 'STEP-07',
+      titleEn: isTrackingTab ? 'Cargo Shipping Tracking (48h SLA)' : 'Freight Allocations & Cargo Shipping (VGM)',
+      titleAr: isTrackingTab ? 'متابعة حركة الشحن وتحميل وتوريد الحاويات (48h SLA)' : 'تخصيص وتوزيع الحاويات ومتابعة حركة الشحن (VGM)',
+      headerIcon: isTrackingTab ? Icons.directions_boat_outlined : Icons.grid_view_outlined,
+      headerColor: isTrackingTab ? AppTheme.cobalt : AppTheme.emerald,
       tabs: tabs,
       selectedIndex: _mainTabController.index,
       onTabSelected: (index) => setState(() => _mainTabController.index = index),
@@ -721,7 +735,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'ملف الاستيراد المربوط: [${curFile.importFileCode}] ${curFile.companyName} | المورد: ${curFile.supplierName}${_editingRecordCode != null ? " (كود الشحنة: $_editingRecordCode)" : ""}',
+                        'ملف الاستيراد المربوط: [${curFile.importFileCode}] ${curFile.companyName} | المورد: ${curFile.supplierName}${curFile.acidNumber != null ? " | ACID: ${curFile.acidNumber}" : ""}${_editingRecordCode != null ? " (كود الشحنة: $_editingRecordCode)" : ""}',
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                       ),
                     ),
@@ -758,7 +772,7 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
               index: _activeStepIndex,
               children: [
                 _buildStep1ContainerAssignment(importFiles, totalCargoCbm, totalCargoWeightKg, activeContainerRec),
-                _buildStep2ContainerLoadingTracking(),
+                _buildStep2ContainerLoadingTracking(importFiles, curFile),
               ],
             ),
             const SizedBox(height: 16),
@@ -1229,7 +1243,9 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
   }
 
   // ================= STEP 2: CONTAINER LOADING FOLLOW-UP & 48H SLA TRACKING =================
-  Widget _buildStep2ContainerLoadingTracking() {
+  Widget _buildStep2ContainerLoadingTracking(List<dynamic> importFiles, dynamic curFile) {
+    final existingRecords = ref.watch(cargoShippingProvider).value ?? [];
+
     // Calculate summary statistics
     int totalCount = _shipmentType == 'FCL' ? _containers.length : 1;
     int gatedInCount = 0;
@@ -1250,6 +1266,84 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Import File Selector Card for Step 2
+        Container(
+          padding: const EdgeInsets.all(14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.grey.shade300),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 4, offset: const Offset(0, 2))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: SearchableDropdownField<int?>(
+                      labelText: 'ملف الشحنة الاستيرادية المربوط للمتابعة (Import File) *',
+                      hintText: 'اختر ملف الشحنة لمتابعة التوريد والتحميل...',
+                      value: _selectedImportFileId,
+                      items: [
+                        const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة --'),
+                        ...importFiles.map((f) {
+                          final hasExisting = existingRecords.any((r) => r.importFileId == f.importFileId && r.isActive);
+                          return SearchableDropdownItem<int?>(
+                            value: f.importFileId,
+                            label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "لم يصدر"}${hasExisting ? " (مسجل سابقاً)" : ""}',
+                            subtitle: f.supplierName,
+                          );
+                        }),
+                      ],
+                      onChanged: (val) => _onImportFileSelected(val),
+                      validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: SearchableDropdownField<String>(
+                      labelText: 'نوع الشحنة (Shipment Type) *',
+                      value: _shipmentType,
+                      items: const [
+                        SearchableDropdownItem(value: 'FCL', label: 'FCL (حاوية كاملة - Full Container)'),
+                        SearchableDropdownItem(value: 'LCL', label: 'LCL (تجميع بضائع - CFS Consolidation)'),
+                      ],
+                      onChanged: (val) => setState(() => _shipmentType = val ?? 'FCL'),
+                    ),
+                  ),
+                ],
+              ),
+              if (curFile != null) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle, color: AppTheme.cobalt, size: 18),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'ملف الاستيراد: [${curFile.importFileCode}] ${curFile.companyName} | المورد: ${curFile.supplierName} | ACID: ${curFile.acidNumber ?? "لم يصدر"}',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+
         // Top Summary Dashboard Cards
         Row(
           children: [

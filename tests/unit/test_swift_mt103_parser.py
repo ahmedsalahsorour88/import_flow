@@ -78,3 +78,48 @@ def test_match_swift_against_payment_request_exact():
     assert match["beneficiary_matching"]["is_matched"] is True
     assert match["bank_swift_matching"]["is_matched"] is True
     assert match["account_iban_matching"]["is_matched"] is True
+
+
+def test_parse_informal_english_and_arabic_swift_advices():
+    # 1. Informal English advice
+    eng_text = """
+    OUTGOING TELEGRAPHIC TRANSFER RECEIPT
+    Reference Number: TRN-2026-998811
+    Date: 2026-08-19
+    Amount: 15,375.50 EUR
+    Beneficiary Name: UAB Narbutas International
+    Beneficiary Account: LT127044060001234567
+    SWIFT Code: CBVILT2X
+    Remittance Info: Settlement for Invoice IN053328 and PO-2026-0042
+    Applicant: Archi brands for corpet and floor trading
+    """
+    p_eng = parse_swift_mt103_text(eng_text)
+    assert p_eng["success"] is True
+    assert p_eng["transaction_reference"] == "TRN-2026-998811"
+    assert p_eng["amount"] == 15375.50
+    assert p_eng["currency"] == "EUR"
+    assert "UAB Narbutas" in p_eng["beneficiary_name"]
+    assert p_eng["beneficiary_account_or_iban"] == "LT127044060001234567"
+    assert p_eng["beneficiary_bank_swift"] == "CBVILT2X"
+
+    # 2. Informal Arabic bank advice
+    ar_text = """
+    البنك التجاري الدولي CIB - إشعار تحويل خارجي
+    رقم المرجع: CIB/2026/88442
+    تاريخ التنفيذ: 2026-08-20
+    المستفيد: SUZHOU YUHENG TEXTILE CO., LTD
+    المبلغ: 50,000.00 USD
+    رقم الحساب: 32250198613609841015
+    سويفت: PCBCCNBJJSS
+    الآمر بالتحويل: شركة سكاس للتشطيبات المعمارية
+    البيان: سداد دفعة مقدمة أمر شراء PO-2026-0010
+    """
+    p_ar = parse_swift_mt103_text(ar_text)
+    assert p_ar["success"] is True
+    assert p_ar["transaction_reference"] == "CIB/2026/88442"
+    assert p_ar["amount"] == 50000.0
+    assert p_ar["currency"] == "USD"
+    assert "SUZHOU YUHENG" in p_ar["beneficiary_name"]
+    assert p_ar["beneficiary_account_or_iban"] == "32250198613609841015"
+    assert p_ar["beneficiary_bank_swift"] == "PCBCCNBJJSS"
+    assert "شركة سكاس" in p_ar["ordering_customer_name"]

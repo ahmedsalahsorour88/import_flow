@@ -42,6 +42,11 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   final TextEditingController _swiftCodeController = TextEditingController();
   final TextEditingController _ibanController = TextEditingController();
   final TextEditingController _payNotesController = TextEditingController();
+  final TextEditingController _paySwiftRawTextController = TextEditingController();
+
+  bool _isPaySwiftExpanded = true;
+  bool _isPaySwiftExtracting = false;
+  Map<String, dynamic>? _payExtractedSwiftSummary;
 
   String _paymentType = 'Advance Payment';
   String _currencyCode = 'USD';
@@ -136,6 +141,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     _swiftCodeController.dispose();
     _ibanController.dispose();
     _payNotesController.dispose();
+    _paySwiftRawTextController.dispose();
 
     _bgtTitleController.dispose();
     _invoiceEgpController.dispose();
@@ -593,6 +599,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   void _applySwiftParsedData(Map<String, dynamic> p, {String? fileName}) {
     setState(() {
+      _payExtractedSwiftSummary = p;
       if (p['amount'] != null && (p['amount'] as num) > 0) {
         _amountController.text = (p['amount'] as num).toString();
       }
@@ -602,21 +609,71 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       }
       if (p['beneficiary_name'] != null && (p['beneficiary_name'] as String).isNotEmpty) {
         _supplierNameController.text = p['beneficiary_name'];
+        // Auto-match supplier from Master Data
+        final suppliers = ref.read(suppliersProvider).value ?? [];
+        final bName = (p['beneficiary_name'] as String).toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+        final matchedSup = suppliers.where((s) {
+          final sName = s.companyName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          return sName.isNotEmpty && (sName.contains(bName) || bName.contains(sName));
+        }).firstOrNull;
+        if (matchedSup != null) {
+          _selectedSupplierId = matchedSup.supplierId;
+          if (matchedSup.bankName != null && matchedSup.bankName!.isNotEmpty) {
+            _bankNameController.text = matchedSup.bankName!;
+          }
+          if (matchedSup.swiftCode != null && matchedSup.swiftCode!.isNotEmpty && (p['beneficiary_bank_swift'] == null || (p['beneficiary_bank_swift'] as String).isEmpty)) {
+            _swiftCodeController.text = matchedSup.swiftCode!;
+          }
+          final supIban = matchedSup.iban ?? matchedSup.accountNumber;
+          if (supIban != null && supIban.isNotEmpty && (p['beneficiary_account_or_iban'] == null || (p['beneficiary_account_or_iban'] as String).isEmpty)) {
+            _ibanController.text = supIban;
+          }
+        }
       }
-      if (p['beneficiary_bank_swift'] != null) {
+      if (p['beneficiary_bank_swift'] != null && (p['beneficiary_bank_swift'] as String).isNotEmpty) {
         _swiftCodeController.text = p['beneficiary_bank_swift'];
       }
-      if (p['beneficiary_account_or_iban'] != null) {
+      if (p['beneficiary_account_or_iban'] != null && (p['beneficiary_account_or_iban'] as String).isNotEmpty) {
         _ibanController.text = p['beneficiary_account_or_iban'];
       }
+      if (p['value_date'] != null && (p['value_date'] as String).isNotEmpty) {
+        try {
+          final d = DateTime.parse(p['value_date']);
+          _dueDate = d;
+        } catch (_) {}
+      }
+
+      // Auto-match Import File if available
+      final importFiles = ref.read(importFilesProvider).value ?? [];
+      final piNum = p['pi_number']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final poNum = p['po_number']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+      final transRef = p['transaction_reference']?.toString().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+      if (_paySelectedImportFileId == null) {
+        final matchedFile = importFiles.where((f) {
+          final fCode = f.importFileCode.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          final cNum = (f.customFileNumber ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          final pNum = (f.poNumber ?? '').toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+          if (piNum != null && piNum.isNotEmpty && (fCode.contains(piNum) || cNum.contains(piNum) || pNum.contains(piNum))) return true;
+          if (poNum != null && poNum.isNotEmpty && (fCode.contains(poNum) || cNum.contains(poNum) || pNum.contains(poNum))) return true;
+          if (transRef != null && transRef.isNotEmpty && (fCode.contains(transRef) || cNum.contains(transRef))) return true;
+          return false;
+        }).firstOrNull;
+        if (matchedFile != null) {
+          _paySelectedImportFileId = matchedFile.importFileId;
+        }
+      }
+
       if (_payTitleController.text.trim().isEmpty && p['beneficiary_name'] != null) {
         final refNo = p['transaction_reference'] ?? '';
-        _payTitleController.text = 'سداد تحويل سويفت: ${p['beneficiary_name']} ($refNo)';
+        final piText = p['pi_number'] != null ? ' - PI: ${p['pi_number']}' : '';
+        _payTitleController.text = 'سداد تحويل سويفت: ${p['beneficiary_name']}$piText ($refNo)';
       }
       final notesParts = <String>[];
       if (p['transaction_reference'] != null) notesParts.add('SWIFT Ref: ${p['transaction_reference']}');
       if (p['pi_number'] != null) notesParts.add('PI: ${p['pi_number']}');
       if (p['ordering_customer_name'] != null) notesParts.add('الآمر بالتحويل: ${p['ordering_customer_name']}');
+      if (p['payment_details'] != null) notesParts.add('التفاصيل: ${p['payment_details']}');
       if (notesParts.isNotEmpty) {
         _payNotesController.text = notesParts.join(' | ');
       }
@@ -632,24 +689,178 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     }
   }
 
+  Map<String, dynamic> _parseSwiftClientFallback(String rawText) {
+    final text = rawText.trim();
+    if (text.isEmpty) return {'success': false, 'error': 'نص فارغ'};
+
+    // 1. Transaction Ref (:20)
+    String? transRef;
+    final refMatch = RegExp(r'(?:^|[\r\n])\s*:?20(?:/TRANSACTION\s+REFERENCE(?:\s+NUMBER)?)?\s*[:/]?\s*([^\r\n]+)', caseSensitive: false).firstMatch(text);
+    if (refMatch != null) {
+      final rawVal = refMatch.group(1)?.trim() ?? '';
+      final parts = rawVal.split('|').map((p) => p.trim()).where((p) => p.isNotEmpty).toList();
+      transRef = parts.isNotEmpty ? parts.first : rawVal;
+    } else {
+      final fbRef = RegExp(r'(?:Reference(?:\s+No|\s+Number)?|TRN|Ref\s*#?|Transaction\s+(?:Ref|Reference|Id)|Bank\s+Ref|رقم\s+(?:المرجع|المعاملة|الحوالة|العملية)|الرقم\s+المرجعي)\s*[:=-]?\s*([A-Za-z0-9/\-_.]+)', caseSensitive: false).firstMatch(text);
+      if (fbRef != null) {
+        transRef = fbRef.group(1)?.trim();
+      }
+    }
+    if (transRef != null) {
+      transRef = transRef.replaceAll(RegExp(r'^[ |:/]+|[ |:/]+$'), '');
+    }
+
+    // 2. Value Date, Currency, Amount (:32A)
+    String currency = 'USD';
+    double amount = 0.0;
+    String? valueDate;
+
+    final valMatch = RegExp(r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})([A-Za-z]{3})([0-9.,]+)', caseSensitive: false).firstMatch(text);
+    if (valMatch != null) {
+      final rawDate = valMatch.group(1)!;
+      currency = valMatch.group(2)!.toUpperCase();
+      final rawAmt = valMatch.group(3)!.replaceAll(',', '.');
+      amount = double.tryParse(rawAmt) ?? 0.0;
+      try {
+        final yy = int.parse(rawDate.substring(0, 2));
+        final mm = int.parse(rawDate.substring(2, 4));
+        final dd = int.parse(rawDate.substring(4, 6));
+        final y = yy < 70 ? 2000 + yy : 1900 + yy;
+        valueDate = '$y-${mm.toString().padLeft(2, '0')}-${dd.toString().padLeft(2, '0')}';
+      } catch (_) {}
+    } else {
+      final labeledAmt = RegExp(r'(?:Amount|Value|Sum|Total(?:\s+Amount)?|المبلغ|القيمة|الصافي|إجمالي\s+المبلغ)\s*[:=]?\s*(?:([A-Za-z]{3}|\$|€|£|¥)\s*([0-9.,]+)|([0-9.,]+)\s*([A-Za-z]{3}|\$|€|£|¥))', caseSensitive: false).firstMatch(text);
+      if (labeledAmt != null) {
+        final c1 = labeledAmt.group(1);
+        final a1 = labeledAmt.group(2);
+        final a2 = labeledAmt.group(3);
+        final c2 = labeledAmt.group(4);
+        final rawC = c1 ?? c2 ?? 'USD';
+        final rawA = a1 ?? a2 ?? '0';
+
+        if (rawC == '\$') {
+          currency = 'USD';
+        } else if (rawC == '€') {
+          currency = 'EUR';
+        } else if (rawC == '£') {
+          currency = 'GBP';
+        } else if (rawC == '¥') {
+          currency = 'CNY';
+        } else if (rawC.length == 3) {
+          currency = rawC.toUpperCase();
+        }
+
+        var cleanA = rawA.trim().replaceAll(RegExp(r'\.+$'), '');
+        if (cleanA.contains(',') && cleanA.contains('.')) {
+          if (cleanA.indexOf(',') < cleanA.indexOf('.')) {
+            cleanA = cleanA.replaceAll(',', '');
+          } else {
+            cleanA = cleanA.replaceAll('.', '').replaceAll(',', '.');
+          }
+        } else if (cleanA.contains(',')) {
+          if (cleanA.split(',').last.length == 2) {
+            cleanA = cleanA.replaceAll(',', '.');
+          } else {
+            cleanA = cleanA.replaceAll(',', '');
+          }
+        }
+        amount = double.tryParse(cleanA) ?? 0.0;
+      }
+    }
+
+    // 3. Beneficiary Customer (:59)
+    String? beneficiaryAccount;
+    String? beneficiaryName;
+    final benMatch = RegExp(r'(?:^|[\r\n])\s*:?59[A]?\s*(?:/Beneficiary\s+Customer)?\s*[:/]?\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?', caseSensitive: false).firstMatch(text);
+    if (benMatch != null) {
+      beneficiaryAccount = benMatch.group(1)?.trim();
+      beneficiaryName = benMatch.group(2)?.trim();
+    } else {
+      final benGen = RegExp(r'(?:Beneficiary(?:\s+Customer|\s+Name)?|Payee|To\s+the\s+order\s+of|المستفيد|المورد|اسم\s+المستفيد|اسم\s+المورد)\s*[:=]\s*([^\r\n]+)', caseSensitive: false).firstMatch(text);
+      if (benGen != null) beneficiaryName = benGen.group(1)?.trim();
+      final ibanGen = RegExp(r'(?:IBAN|Account(?:\s+No|\s+Number)?|رقم\s+(?:الحساب|الآيبان)|الآيبان)\s*[:=]?\s*([A-Za-z0-9]{8,34})', caseSensitive: false).firstMatch(text);
+      if (ibanGen != null) beneficiaryAccount = ibanGen.group(1)?.trim();
+    }
+
+    // 4. Beneficiary Bank / SWIFT (:57A)
+    String? swiftCode;
+    final swiftMatch = RegExp(r'(?:^|[\r\n])\s*:?57[AD]?(?:/Account\s+with\s+Bank)?\s*[:/]?\s*([A-Za-z0-9]{8,11})', caseSensitive: false).firstMatch(text);
+    if (swiftMatch != null) {
+      swiftCode = swiftMatch.group(1)?.trim().toUpperCase();
+    } else {
+      final swiftGen = RegExp(r'(?:SWIFT(?:\s+Code)?|BIC|Bank\s+SWIFT|كود\s+السويفت|سويفت)\s*[:=]?\s*([A-Za-z0-9]{8,11})', caseSensitive: false).firstMatch(text);
+      if (swiftGen != null) swiftCode = swiftGen.group(1)?.trim().toUpperCase();
+    }
+
+    // 5. Details of Payment (:70)
+    String? piNumber;
+    String? details;
+    final dtMatch = RegExp(r'(?:^|[\r\n])\s*:?70(?:/DETAILS\s+OF\s+PAYMENT)?\s*[:/]?\s*([^\r\n:]+(?:\n[^\r\n:]+)?)', caseSensitive: false).firstMatch(text);
+    if (dtMatch != null) {
+      details = dtMatch.group(1)?.trim();
+      final piMatch = RegExp(r'(?:PI|Proforma\s+Invoice|فاتورة\s+مبدئية)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', caseSensitive: false).firstMatch(details ?? '');
+      if (piMatch != null) piNumber = piMatch.group(1)?.trim();
+    } else {
+      final piMatch = RegExp(r'(?:PI|Proforma\s+Invoice|فاتورة\s+مبدئية)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', caseSensitive: false).firstMatch(text);
+      if (piMatch != null) piNumber = piMatch.group(1)?.trim();
+    }
+
+    // 6. Ordering Customer (:50K)
+    String? orderingCustomer;
+    final ordMatch = RegExp(r'(?:^|[\r\n])\s*:?50[KA]?(?:/ORDERING\s+CUST(?:OMER)?)?\s*[:/]?\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?', caseSensitive: false).firstMatch(text);
+    if (ordMatch != null) {
+      orderingCustomer = ordMatch.group(2)?.trim();
+    } else {
+      final ordGen = RegExp(r'(?:Ordering\s+Customer|Applicant|Sender|Remitter|الآمر\s+بالتحويل|طالب\s+التحويل|الشركة\s+المستوردة|العميل)\s*[:=]\s*([^\r\n]+)', caseSensitive: false).firstMatch(text);
+      if (ordGen != null) orderingCustomer = ordGen.group(1)?.trim();
+    }
+
+    return {
+      'success': true,
+      'transaction_reference': transRef,
+      'amount': amount,
+      'currency': currency,
+      'value_date': valueDate,
+      'beneficiary_name': beneficiaryName,
+      'beneficiary_account_or_iban': beneficiaryAccount,
+      'beneficiary_bank_swift': swiftCode,
+      'payment_details': details,
+      'pi_number': piNumber,
+      'ordering_customer_name': orderingCustomer,
+    };
+  }
+
   Future<void> _autoFillFromSwiftText(String text) async {
+    setState(() => _isPaySwiftExtracting = true);
     try {
-      final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(rawText: text);
-      if (res['success'] == true && res['parsed_swift'] != null) {
-        _applySwiftParsedData(res['parsed_swift'] as Map<String, dynamic>);
+      Map<String, dynamic>? parsed;
+      try {
+        final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(rawText: text);
+        if (res['success'] == true && res['parsed_swift'] != null) {
+          parsed = res['parsed_swift'] as Map<String, dynamic>;
+        }
+      } catch (_) {
+        // Fallback to client parser
+      }
+
+      if (parsed == null || ((parsed['amount'] as num?) == 0 && parsed['beneficiary_name'] == null)) {
+        final clientFallback = _parseSwiftClientFallback(text);
+        if (clientFallback['success'] == true) {
+          parsed = clientFallback;
+        }
+      }
+
+      if (parsed != null) {
+        _applySwiftParsedData(parsed);
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر استخراج البيانات: ${res['error']}'), backgroundColor: AppTheme.crimson),
+            const SnackBar(content: Text('⚠️ تعذر قراءة بيانات السويفت من النص. يرجى التأكد من احتواء النص على بيانات التحويل.'), backgroundColor: AppTheme.orange),
           );
         }
       }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ أثناء الاستخراج: $e'), backgroundColor: AppTheme.crimson),
-        );
-      }
+    } finally {
+      if (mounted) setState(() => _isPaySwiftExtracting = false);
     }
   }
 
@@ -664,11 +875,16 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       final file = result.files.first;
       if (file.bytes == null) return;
 
+      setState(() => _isPaySwiftExtracting = true);
+
       final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwiftFromFile(
         fileBytes: file.bytes!,
         filename: file.name,
       );
       if (res['success'] == true && res['parsed_swift'] != null) {
+        if (res['raw_text'] != null && (res['raw_text'] as String).isNotEmpty) {
+          _paySwiftRawTextController.text = res['raw_text'] as String;
+        }
         _applySwiftParsedData(res['parsed_swift'] as Map<String, dynamic>, fileName: file.name);
       } else {
         if (mounted) {
@@ -683,89 +899,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           SnackBar(content: Text('❌ خطأ أثناء استخراج الملف: $e'), backgroundColor: AppTheme.crimson),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isPaySwiftExtracting = false);
     }
-  }
-
-  void _showSwiftPasteModal() {
-    final textCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Colors.purple),
-            SizedBox(width: 8),
-            Text('استخراج ذكي لبيانات السويفت (MT103 / مستند / صورة)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: SizedBox(
-          width: 560,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('الصق نص رسالة السويفت (MT103) أو قم برفع ملف مستند (Word / Excel / PDF / صورة):', style: TextStyle(fontSize: 12)),
-              const SizedBox(height: 8),
-              TextField(
-                controller: textCtrl,
-                maxLines: 5,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                decoration: const InputDecoration(
-                  hintText: 'مثال: :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE...',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextButton.icon(
-                    icon: const Icon(Icons.description, size: 14),
-                    label: const Text('نموذج تجريبي 📄', style: TextStyle(fontSize: 11)),
-                    onPressed: () => textCtrl.text = kSampleSwiftMT103,
-                  ),
-                  Row(
-                    children: [
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.upload_file, size: 14, color: AppTheme.cobalt),
-                        label: const Text('رفع ملف مستند 📁', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
-                        onPressed: () {
-                          Navigator.pop(ctx);
-                          _autoFillFromSwiftFile();
-                        },
-                      ),
-                      const SizedBox(width: 6),
-                      OutlinedButton.icon(
-                        icon: const Icon(Icons.paste, size: 14),
-                        label: const Text('لصق', style: TextStyle(fontSize: 11)),
-                        onPressed: () async {
-                          final d = await Clipboard.getData(Clipboard.kTextPlain);
-                          if (d != null && d.text != null) textCtrl.text = d.text!;
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade700),
-            icon: const Icon(Icons.bolt, color: Colors.white, size: 16),
-            label: const Text('استخراج وتعبئة النموذج ⚡', style: TextStyle(color: Colors.white)),
-            onPressed: () {
-              Navigator.pop(ctx);
-              if (textCtrl.text.trim().isNotEmpty) {
-                _autoFillFromSwiftText(textCtrl.text.trim());
-              }
-            },
-          ),
-        ],
-      ),
-    );
   }
 
   Future<void> _saveImportBudget() async {
@@ -1675,65 +1811,9 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                           const Divider(),
                           const SizedBox(height: 6),
 
-                          // Smart AI SWIFT MT103 Quick Fill Bar
-                          Container(
-                            margin: const EdgeInsets.only(bottom: 14),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Colors.purple.shade50, Colors.blue.shade50],
-                                begin: Alignment.centerRight,
-                                end: Alignment.centerLeft,
-                              ),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.purple.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.auto_awesome, color: Colors.purple, size: 20),
-                                const SizedBox(width: 8),
-                                const Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '⚡ استخراج وتعبئة فورية من نص السويفت / إشعار التحويل البنكي (SWIFT MT103 Parser)',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple),
-                                      ),
-                                      Text(
-                                        'الصق نص رسالة السويفت أو الإشعار لتعبئة حقول المورد والمبلغ والعملة ورقم الحساب/IBAN تلقائياً',
-                                        style: TextStyle(fontSize: 10, color: Colors.black54),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                TextButton.icon(
-                                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                                  icon: const Icon(Icons.description, size: 14),
-                                  label: const Text('نموذج تجريبي 📄', style: TextStyle(fontSize: 11)),
-                                  onPressed: () => _autoFillFromSwiftText(kSampleSwiftMT103),
-                                ),
-                                const SizedBox(width: 6),
-                                ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.purple.shade700,
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  icon: const Icon(Icons.paste, color: Colors.white, size: 14),
-                                  label: const Text('لصق واستخراج ⚡', style: TextStyle(color: Colors.white, fontSize: 11)),
-                                  onPressed: () async {
-                                    final data = await Clipboard.getData(Clipboard.kTextPlain);
-                                    if (data != null && data.text != null && data.text!.isNotEmpty) {
-                                      _autoFillFromSwiftText(data.text!);
-                                    } else {
-                                      _showSwiftPasteModal();
-                                    }
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 4),
+                          // Smart AI SWIFT MT103 Interactive Extractor & Auto-Fill Box
+                          _buildPaySwiftExtractorWidget(),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
                               Expanded(
@@ -2816,6 +2896,270 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaySwiftExtractorWidget() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.blueGrey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header Bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [AppTheme.cobalt, Colors.blue.shade700],
+                begin: Alignment.centerRight,
+                end: Alignment.centerLeft,
+              ),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(9)),
+            ),
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                    SizedBox(width: 6),
+                    Icon(Icons.bolt, color: Colors.white, size: 18),
+                    SizedBox(width: 8),
+                    Text(
+                      'محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت (Smart AI SWIFT MT103 Extractor) ⚡',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                    ),
+                  ],
+                ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.white.withOpacity(0.18),
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      ),
+                      icon: const Icon(Icons.description, size: 14, color: Colors.white),
+                      label: const Text('تحميل نموذج سويفت تجريبي 📄', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        _paySwiftRawTextController.text = kSampleSwiftMT103;
+                        _autoFillFromSwiftText(kSampleSwiftMT103);
+                      },
+                    ),
+                    const SizedBox(width: 6),
+                    IconButton(
+                      icon: Icon(_isPaySwiftExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down, color: Colors.white),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      tooltip: _isPaySwiftExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                      onPressed: () => setState(() => _isPaySwiftExpanded = !_isPaySwiftExpanded),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          // Collapsible Body
+          if (_isPaySwiftExpanded)
+            Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isNarrow = constraints.maxWidth < 650;
+                      final textArea = Stack(
+                        children: [
+                          TextField(
+                            controller: _paySwiftRawTextController,
+                            maxLines: 5,
+                            minLines: 4,
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, height: 1.4),
+                            decoration: InputDecoration(
+                              hintText:
+                                  '(صورة / Word / Excel / PDF / ...) الصق نص رسالة السويفت البنكي (MT103) أو ارفع ملف المستند\nمثال: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD',
+                              hintStyle: TextStyle(fontSize: 11, color: Colors.grey.shade400),
+                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                              contentPadding: const EdgeInsets.fromLTRB(12, 12, 12, 40),
+                            ),
+                          ),
+                          Positioned(
+                            left: 8,
+                            bottom: 8,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                InkWell(
+                                  onTap: () async {
+                                    final d = await Clipboard.getData(Clipboard.kTextPlain);
+                                    if (d != null && d.text != null && d.text!.isNotEmpty) {
+                                      _paySwiftRawTextController.text = d.text!;
+                                    }
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade200,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.paste, size: 12, color: Colors.black87),
+                                        SizedBox(width: 4),
+                                        Text('لصق', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                InkWell(
+                                  onTap: () {
+                                    _paySwiftRawTextController.clear();
+                                    setState(() => _payExtractedSwiftSummary = null);
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey.shade100,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.clear, size: 12, color: Colors.black54),
+                                        SizedBox(width: 4),
+                                        Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+
+                      final actionButtons = Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.purple.shade800,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: const Icon(Icons.upload_file, size: 16, color: Colors.white),
+                            label: const Text('رفع واستخراج من ملف\n(Word / Excel / PDF / صورة)', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isPaySwiftExtracting ? null : _autoFillFromSwiftFile,
+                          ),
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.cobalt,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            ),
+                            icon: _isPaySwiftExtracting
+                                ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                : const Icon(Icons.bolt, size: 16, color: Colors.amber),
+                            label: const Text('استخراج وتعبئة الحقول ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                            onPressed: _isPaySwiftExtracting
+                                ? null
+                                : () {
+                                    final txt = _paySwiftRawTextController.text.trim();
+                                    if (txt.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(content: Text('⚠️ يرجى لصق نص رسالة السويفت أولاً أو رفع ملف'), backgroundColor: AppTheme.orange),
+                                      );
+                                      return;
+                                    }
+                                    _autoFillFromSwiftText(txt);
+                                  },
+                          ),
+                        ],
+                      );
+
+                      if (isNarrow) {
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            textArea,
+                            const SizedBox(height: 10),
+                            actionButtons,
+                          ],
+                        );
+                      } else {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: textArea),
+                            const SizedBox(width: 14),
+                            SizedBox(width: 200, child: actionButtons),
+                          ],
+                        );
+                      }
+                    },
+                  ),
+
+                  // Extracted Summary Badges (if extracted)
+                  if (_payExtractedSwiftSummary != null) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.check_circle, color: AppTheme.emerald, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Wrap(
+                              spacing: 12,
+                              runSpacing: 4,
+                              children: [
+                                Text('المبلغ: ${_payExtractedSwiftSummary!['amount']} ${_payExtractedSwiftSummary!['currency']}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('المستفيد: ${_payExtractedSwiftSummary!['beneficiary_name'] ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('المرجع: ${_payExtractedSwiftSummary!['transaction_reference'] ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87)),
+                                Text('سويفت: ${_payExtractedSwiftSummary!['beneficiary_bank_swift'] ?? "غير محدد"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                                Text('الحساب: ${_payExtractedSwiftSummary!['beneficiary_account_or_iban'] ?? "غير محدد"}', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
         ],
       ),
     );

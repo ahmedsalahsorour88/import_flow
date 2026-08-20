@@ -10,7 +10,7 @@ from datetime import datetime, date
 
 def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
     """
-    Parses raw SWIFT MT103 message text or standard bank transfer advice receipts
+    Parses raw SWIFT MT103 message text, bank transfer advices, and unstructured text
     and extracts all financial, beneficiary, ordering, and reference fields.
     """
     if not raw_text or not raw_text.strip():
@@ -22,10 +22,9 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
     text = raw_text.strip()
 
     # 1. Transaction Reference Number (Field :20)
-    # Format: :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q or :20:FT/26228/KZ70Q
     trans_ref = None
     ref_match = re.search(
-        r':20(?:/TRANSACTION\s+REFERENCE(?:\s+NUMBER)?)?\s*:\s*([^\r\n]+)',
+        r'(?:^|[\r\n])\s*:?20(?:/TRANSACTION\s+REFERENCE(?:\s+NUMBER)?)?\s*[:/]?\s*([^\r\n]+)',
         text,
         re.IGNORECASE,
     )
@@ -34,48 +33,48 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
         parts = [p.strip() for p in raw_val.split('|') if p.strip()]
         trans_ref = parts[0] if parts else raw_val
     else:
-        # Fallback for plain "Reference: FT/..." or "TRN: ..."
-        fb_ref = re.search(r'(?:Reference(?:\s+No)?|TRN|Ref\s*#?)\s*[:=]\s*([A-Za-z0-9/\-_]+)', text, re.IGNORECASE)
+        # Fallback for plain "Reference: FT/...", "TRN: ...", "رقم المرجع: ..."
+        fb_ref = re.search(
+            r'(?:Reference(?:\s+No|\s+Number)?|TRN|Ref\s*#?|Transaction\s+(?:Ref|Reference|Id)|Bank\s+Ref|رقم\s+(?:المرجع|المعاملة|الحوالة|العملية)|الرقم\s+المرجعي)\s*[:=-]?\s*([A-Za-z0-9/\-_.]+)',
+            text,
+            re.IGNORECASE,
+        )
         if fb_ref:
             trans_ref = fb_ref.group(1).strip()
     if trans_ref:
-        trans_ref = trans_ref.strip(' |:')
-
+        trans_ref = trans_ref.strip(' |:/')
 
     # 2. Bank Operation Code (Field :23B)
-    # Format: :23B/BANK OPERATION CODE : CRED or :23B:CRED
     bank_op_code = None
     op_match = re.search(
-        r':23B(?:/BANK\s+OPERATION\s+CODE)?\s*:\s*([A-Za-z0-9]+)',
+        r'(?:^|[\r\n])\s*:?23B(?:/BANK\s+OPERATION\s+CODE)?\s*[:/]?\s*([A-Za-z0-9]+)',
         text,
         re.IGNORECASE,
     )
     if op_match:
         bank_op_code = op_match.group(1).strip()
 
-    # 3. Value Date, Currency, Amount (Field :32A)
-    # Format: :32A/Value Date, CCY, Amount : 260818USD43704,00 or :32A:260818USD43704,00
+    # 3. Value Date, Currency, Amount (Field :32A / General)
     value_date_str = None
     value_date = None
     currency = "USD"
     amount = 0.0
 
     val_match = re.search(
-        r':32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*:\s*(\d{6})([A-Z]{3})([0-9.,]+)',
+        r'(?:^|[\r\n])\s*:?32A(?:/Value\s+Date,?\s*CCY,?\s*Amount)?\s*[:/]?\s*(\d{6})([A-Z]{3})([0-9.,]+)',
         text,
         re.IGNORECASE,
     )
     if val_match:
         raw_date = val_match.group(1) # YYMMDD e.g. 260818 -> 2026-08-18
         currency = val_match.group(2).upper()
-        raw_amount = val_match.group(3).replace(',', '.') # e.g. 43704.00
+        raw_amount = val_match.group(3).replace(',', '.')
         try:
             amount = float(raw_amount)
         except ValueError:
             amount = 0.0
 
         try:
-            # YYMMDD
             yy = int(raw_date[0:2])
             mm = int(raw_date[2:4])
             dd = int(raw_date[4:6])
@@ -86,38 +85,101 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
         except Exception:
             value_date = None
     else:
-        # Fallback search for Currency & Amount
-        amt_match = re.search(r'(?:Amount|Value|المبلغ)\s*[:=]?\s*([0-9.,]+)\s*([A-Z]{3})?', text, re.IGNORECASE)
-        if amt_match:
+        # Currency + Amount fallback patterns
+        # 1. Primary: Labeled Amount (Amount: USD 43,704.00 or المبلغ: 50,000.00 USD)
+        labeled_amt = re.search(
+            r'(?:Amount|Value|Sum|Total(?:\s+Amount)?|المبلغ|القيمة|الصافي|إجمالي\s+المبلغ)\s*[:=]?\s*(?:([A-Za-z]{3}|\$|€|£|¥)\s*([0-9.,]+)|([0-9.,]+)\s*([A-Za-z]{3}|\$|€|£|¥))',
+            text,
+            re.IGNORECASE,
+        )
+        if labeled_amt:
+            c1, a1, a2, c2 = labeled_amt.groups()
+            raw_c = c1 or c2 or "USD"
+            raw_a = a1 or a2 or "0"
+            if raw_c == "$":
+                currency = "USD"
+            elif raw_c == "€":
+                currency = "EUR"
+            elif raw_c == "£":
+                currency = "GBP"
+            elif raw_c == "¥":
+                currency = "CNY"
+            elif len(raw_c) == 3:
+                currency = raw_c.upper()
+
+            clean_a = raw_a.strip().rstrip('.')
+            if ',' in clean_a and '.' in clean_a:
+                if clean_a.find(',') < clean_a.find('.'):
+                    clean_a = clean_a.replace(',', '')
+                else:
+                    clean_a = clean_a.replace('.', '').replace(',', '.')
+            elif ',' in clean_a:
+                if len(clean_a.split(',')[-1]) == 2:
+                    clean_a = clean_a.replace(',', '.')
+                else:
+                    clean_a = clean_a.replace(',', '')
             try:
-                amount = float(amt_match.group(1).replace(',', '.'))
+                amount = float(clean_a)
             except ValueError:
-                pass
-            if amt_match.group(2):
-                currency = amt_match.group(2).upper()
+                amount = 0.0
+        else:
+            # 2. Secondary: Unlabeled currency + amount pattern (e.g. 43,704.00 USD or EUR 15,375.50)
+            unlabeled_amt = re.search(
+                r'(?:(USD|EUR|EGP|GBP|CNY|SAR|AED|CHF|CAD|JPY|\$|€|£|¥)\s*([0-9]+(?:[,.][0-9]{2,3})+)|([0-9]+(?:[,.][0-9]{2,3})+)\s*(USD|EUR|EGP|GBP|CNY|SAR|AED|CHF|CAD|JPY|\$|€|£|¥))',
+                text,
+                re.IGNORECASE,
+            )
+            if unlabeled_amt:
+                c1, a1, a2, c2 = unlabeled_amt.groups()
+                raw_c = c1 or c2 or "USD"
+                raw_a = a1 or a2 or "0"
+                if raw_c == "$":
+                    currency = "USD"
+                elif raw_c == "€":
+                    currency = "EUR"
+                elif raw_c == "£":
+                    currency = "GBP"
+                elif raw_c == "¥":
+                    currency = "CNY"
+                elif len(raw_c) == 3:
+                    currency = raw_c.upper()
 
-        curr_match = re.search(r'\b(USD|EUR|EGP|GBP|CNY|SAR|AED)\b', text)
-        if curr_match and currency == "USD":
-            currency = curr_match.group(1).upper()
+                clean_a = raw_a.strip().rstrip('.')
+                if ',' in clean_a and '.' in clean_a:
+                    if clean_a.find(',') < clean_a.find('.'):
+                        clean_a = clean_a.replace(',', '')
+                    else:
+                        clean_a = clean_a.replace('.', '').replace(',', '.')
+                elif ',' in clean_a:
+                    if len(clean_a.split(',')[-1]) == 2:
+                        clean_a = clean_a.replace(',', '.')
+                    else:
+                        clean_a = clean_a.replace(',', '')
+                try:
+                    amount = float(clean_a)
+                except ValueError:
+                    amount = 0.0
 
-        date_match = re.search(r'\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]20\d{2})\b', text)
+        if currency == "USD":
+            curr_match = re.search(r'\b(USD|EUR|EGP|GBP|CNY|SAR|AED|CHF|CAD|JPY)\b', text, re.IGNORECASE)
+            if curr_match:
+                currency = curr_match.group(1).upper()
+
+        date_match = re.search(
+            r'\b(20\d{2}[-/.]\d{1,2}[-/.]\d{1,2}|\d{1,2}[-/.]\d{1,2}[-/.]20\d{2}|\d{1,2}[-/.]\d{1,2}[-/.]\d{2})\b',
+            text,
+        )
         if date_match:
             value_date_str = date_match.group(1)
             value_date = value_date_str
 
-    # 4. Ordering Customer (Field :50K or :50A)
-    # Format:
-    # :50K/ORDERING CUST : /EG780057004001017153610010101
-    # SCAS FOR CONSTRUCTION AND FINISHING
-    # ROAD 18
-    # EGYPT,44 ROAD 18
-    # SARIAT EL MAADI,CAIRO
+    # 4. Ordering Customer (Field :50K or :50A or Applicant)
     ordering_account = None
     ordering_customer_name = None
     ordering_address = None
 
     cust_match = re.search(
-        r':50[KA](?:/ORDERING\s+CUST(?:OMER)?)?\s*:\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?',
+        r'(?:^|[\r\n])\s*:?50[KA]?(?:/ORDERING\s+CUST(?:OMER)?)?\s*[:/]?\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?',
         text,
         re.IGNORECASE,
     )
@@ -128,37 +190,39 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
         ordering_customer_name = name_line
         ordering_address = addr_line
     else:
-        # Generic check for Ordering / Importer
-        ord_gen = re.search(r'(?:Ordering\s+Customer|الآمر\s+بالتحويل|الشركة\s+المستوردة)\s*[:=]\s*([^\r\n]+)', text, re.IGNORECASE)
+        ord_gen = re.search(
+            r'(?:Ordering\s+Customer|Applicant|Sender|Remitter|الآمر\s+بالتحويل|طالب\s+التحويل|الشركة\s+المستوردة|العميل)\s*[:=]\s*([^\r\n]+)',
+            text,
+            re.IGNORECASE,
+        )
         if ord_gen:
             ordering_customer_name = ord_gen.group(1).strip()
 
-    # 5. Account with Bank / SWIFT (Field :57A)
-    # Format: :57A/Account with Bank : PCBCCNBJJSS
+    # 5. Account with Bank / SWIFT (Field :57A or Bank Name)
     beneficiary_bank_swift = None
     b_bank_match = re.search(
-        r':57A(?:/Account\s+with\s+Bank)?\s*:\s*([A-Z0-9]{8,11})',
+        r'(?:^|[\r\n])\s*:?57[AD]?(?:/Account\s+with\s+Bank)?\s*[:/]?\s*([A-Za-z0-9]{8,11})',
         text,
         re.IGNORECASE,
     )
     if b_bank_match:
-        beneficiary_bank_swift = b_bank_match.group(1).strip()
+        beneficiary_bank_swift = b_bank_match.group(1).strip().upper()
     else:
-        swift_gen = re.search(r'(?:SWIFT(?:\s+Code)?|BIC)\s*[:=]?\s*([A-Z0-9]{8,11})', text, re.IGNORECASE)
+        swift_gen = re.search(
+            r'(?:SWIFT(?:\s+Code)?|BIC|Bank\s+SWIFT|كود\s+السويفت|سويفت)\s*[:=]?\s*([A-Za-z0-9]{8,11})',
+            text,
+            re.IGNORECASE,
+        )
         if swift_gen:
-            beneficiary_bank_swift = swift_gen.group(1).strip()
+            beneficiary_bank_swift = swift_gen.group(1).strip().upper()
 
-    # 6. Beneficiary Customer (Field :59 or :59A)
-    # Format:
-    # :59/Beneficiary Customer : /32250198613609841015
-    # SUZHOU YUHENG TEXTILE CO., LTD
-    # 16 KANGSHENG ROAD ZHITANG TOWN CHANGSHU CITY SUZHOU CHINA
+    # 6. Beneficiary Customer (Field :59 or :59A or Beneficiary Name)
     beneficiary_account = None
     beneficiary_name = None
     beneficiary_address = None
 
     ben_match = re.search(
-        r':59[A]?\s*(?:/Beneficiary\s+Customer)?\s*:\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?',
+        r'(?:^|[\r\n])\s*:?59[A]?\s*(?:/Beneficiary\s+Customer)?\s*[:/]?\s*(?:/([A-Za-z0-9]+))?\s*\n?([^\n\r:]+)(?:\n([^\n\r:]+))?',
         text,
         re.IGNORECASE,
     )
@@ -169,48 +233,56 @@ def parse_swift_mt103_text(raw_text: str) -> Dict[str, Any]:
         beneficiary_name = b_name
         beneficiary_address = b_addr
     else:
-        ben_gen = re.search(r'(?:Beneficiary(?:\s+Name)?|المستفيد|المورد)\s*[:=]\s*([^\r\n]+)', text, re.IGNORECASE)
+        ben_gen = re.search(
+            r'(?:Beneficiary(?:\s+Customer|\s+Name)?|Payee|To\s+the\s+order\s+of|المستفيد|المورد|اسم\s+المستفيد|اسم\s+المورد)\s*[:=]\s*([^\r\n]+)',
+            text,
+            re.IGNORECASE,
+        )
         if ben_gen:
             beneficiary_name = ben_gen.group(1).strip()
 
-        iban_gen = re.search(r'(?:IBAN|Account(?:\s+No)?|رقم\s+الحساب)\s*[:=]?\s*([A-Za-z0-9]{8,34})', text, re.IGNORECASE)
+        iban_gen = re.search(
+            r'(?:IBAN|Account(?:\s+No|\s+Number)?|رقم\s+(?:الحساب|الآيبان)|الآيبان)\s*[:=]?\s*([A-Za-z0-9]{8,34})',
+            text,
+            re.IGNORECASE,
+        )
         if iban_gen:
             beneficiary_account = iban_gen.group(1).strip()
 
-    # 7. Details of Payment (Field :70)
-    # Format: :70/DETAILS OF PAYMENT : EG0010040 PI NO.YH20260730.6 ALL DOCUMENTS SHOULD BE TRADED THROUGH AAIB
+    # 7. Details of Payment (Field :70 or Details)
     payment_details = None
     pi_number = None
     po_number = None
 
     details_match = re.search(
-        r':70(?:/DETAILS\s+OF\s+PAYMENT)?\s*:\s*([^\r\n:]+(?:\n[^\r\n:]+)?)',
+        r'(?:^|[\r\n])\s*:?70(?:/DETAILS\s+OF\s+PAYMENT)?\s*[:/]?\s*([^\r\n:]+(?:\n[^\r\n:]+)?)',
         text,
         re.IGNORECASE,
     )
     if details_match:
         payment_details = details_match.group(1).strip()
-        # Search for PI or PO inside payment details or full text
-        pi_match = re.search(r'(?:PI|Proforma\s+Invoice)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', payment_details, re.IGNORECASE)
+        pi_match = re.search(r'(?:PI|Proforma\s+Invoice|فاتورة\s+مبدئية)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', payment_details, re.IGNORECASE)
         if pi_match:
             pi_number = pi_match.group(1).strip().rstrip('.')
 
-        po_match = re.search(r'(?:PO|Purchase\s+Order)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', payment_details, re.IGNORECASE)
+        po_match = re.search(r'(?:PO|Purchase\s+Order|أمر\s+شراء)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', payment_details, re.IGNORECASE)
         if po_match:
             po_number = po_match.group(1).strip().rstrip('.')
     else:
-        pi_match = re.search(r'(?:PI|Proforma\s+Invoice)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', text, re.IGNORECASE)
+        pi_match = re.search(r'(?:PI|Proforma\s+Invoice|فاتورة\s+مبدئية)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', text, re.IGNORECASE)
         if pi_match:
             pi_number = pi_match.group(1).strip().rstrip('.')
+        po_match = re.search(r'(?:PO|Purchase\s+Order|أمر\s+شراء)\s*(?:NO\.?|#)?\s*([A-Za-z0-9\-_.]+)', text, re.IGNORECASE)
+        if po_match:
+            po_number = po_match.group(1).strip().rstrip('.')
 
     # 8. Details of Charges (Field :71A)
     charge_details = "SHA"
-    charge_match = re.search(r':71A(?:/DETAILS\s+OF\s+CHARGES)?\s*:\s*([A-Za-z]+)', text, re.IGNORECASE)
+    charge_match = re.search(r':?71A(?:/DETAILS\s+OF\s+CHARGES)?\s*[:/]?\s*([A-Za-z]+)', text, re.IGNORECASE)
     if charge_match:
         charge_details = charge_match.group(1).strip().upper()
 
     # 9. Issuing / Sender Bank SWIFT from Header
-    # {1:F01ARAIECXXXXX...} -> ARAIECXXXXX
     sender_bank_swift = None
     header_match = re.search(r'\{1:[A-Z0-9]{3}([A-Z0-9]{8,11})', text)
     if header_match:

@@ -968,8 +968,10 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               await ref
                                   .read(customsConsultationsProvider.notifier)
                                   .updateConsultation(session.consultationId, payload);
-                              if (mounted) {
+                              if (dialogContext.mounted) {
                                 Navigator.pop(dialogContext);
+                              }
+                              if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text('✅ تم حفظ وتحديث دراسة الاستشارة الجمركية ${session.consultationCode} بنجاح!'),
@@ -979,7 +981,7 @@ class _ShipmentUpdateEngineScreenState extends ConsumerState<ShipmentUpdateEngin
                               }
                             } catch (e) {
                               setDialogState(() => isSaving = false);
-                              if (mounted) {
+                              if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('خطأ في حفظ التعديلات: $e'), backgroundColor: AppTheme.crimson),
                                 );

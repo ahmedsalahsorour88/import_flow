@@ -667,6 +667,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     );
   }
 
+  // ignore: unused_element
   void _showContainerComparisonDialog(
     BuildContext context,
     ContainerDualRecommendationResult dualRec,
@@ -729,6 +730,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     );
   }
 
+  // ignore: unused_element
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
     final List<CargoItem> baseCargoItems = [];
     int itemCounter = 1;

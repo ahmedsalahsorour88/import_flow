@@ -499,9 +499,11 @@ void showPriceListFormDialog(
                                 }
                                 if (ctx.mounted) Navigator.pop(ctx);
                               } catch (e) {
+                                if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),
                                 );
+                                }
                               }
                             },
                             icon: const Icon(Icons.save, color: Colors.white, size: 18),

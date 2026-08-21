@@ -479,9 +479,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     'display_order': 99,
                     'is_active': true,
                   });
-                  if (mounted) Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                 } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red));
+                  if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red));
                 }
               },
               child: const Text('حفظ المصروف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),

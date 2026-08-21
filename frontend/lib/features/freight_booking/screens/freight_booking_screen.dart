@@ -1263,12 +1263,15 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             icon: const Icon(Icons.edit_note_rounded, size: 18),
             label: const Text('🔄 التحويل إلى التعديل', style: TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
-              Navigator.pop(ctx); // Close warning dialog
-              Navigator.pop(context); // Close current form dialog
-              // Open edit dialog for existing booking
-              Future.microtask(() {
+              // Capture overlay entry (root navigator) before any pop
+              final rootNav = Navigator.of(ctx, rootNavigator: false);
+              rootNav.pop(); // Close warning dialog
+              rootNav.pop(); // Close current form dialog
+              // Open edit dialog for existing booking in next frame
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!rootNav.context.mounted) return;
                 showDialog(
-                  context: context,
+                  context: rootNav.context,
                   barrierDismissible: false,
                   builder: (c) => _FreightBookingFormDialog(bookingToEdit: existing),
                 );

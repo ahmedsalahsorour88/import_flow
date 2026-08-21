@@ -608,6 +608,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
   // ==================================================
 
 
+  // ignore: unused_element
   Widget _taxDetailRow(String label, String rateStr) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -637,6 +638,7 @@ class _CustomsTariffScreenState extends ConsumerState<CustomsTariffScreen> {
     );
   }
 
+  // ignore: unused_element
   Widget _buildNafezaRulesList(
       CustomsTariffModel tariff, List<Map<String, dynamic>> agreements) {
     final List<String> rules = [];

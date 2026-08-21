@@ -796,7 +796,7 @@ class _CustomsClearanceQuotationsScreenState
                 );
 
                 await ref.read(customsClearanceQuotationsProvider.notifier).createRFQ(newRfq);
-                if (mounted) Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
           ],
@@ -973,7 +973,7 @@ class _CustomsClearanceQuotationsScreenState
                   );
 
                   await ref.read(customsClearanceQuotationsProvider.notifier).addQuotation(rfqId, quote);
-                  if (mounted) Navigator.pop(ctx);
+                  if (ctx.mounted) Navigator.pop(ctx);
                 },
               ),
             ],
@@ -1266,7 +1266,7 @@ class _CustomsClearanceQuotationsScreenState
                 );
 
                 await ref.read(clearancePriceListProvider.notifier).createPriceItem(newItem);
-                if (mounted) Navigator.pop(ctx);
+                if (ctx.mounted) Navigator.pop(ctx);
               },
             ),
           ],
@@ -1406,9 +1406,11 @@ Future<void> showSmartClearanceExtractorDialog(
                                 });
                               }
                             } catch (e) {
+                              if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(content: Text('خطأ في الاستخراج: $e'), backgroundColor: AppTheme.crimson),
                               );
+                              }
                             } finally {
                               setDState(() => isExtracting = false);
                             }
@@ -1443,9 +1445,11 @@ Future<void> showSmartClearanceExtractorDialog(
                           });
                         }
                       } catch (e) {
+                        if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(content: Text('خطأ في رفع الملف: $e'), backgroundColor: AppTheme.crimson),
                         );
+                        }
                       } finally {
                         setDState(() => isExtracting = false);
                       }

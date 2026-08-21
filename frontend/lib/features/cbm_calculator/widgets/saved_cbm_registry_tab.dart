@@ -1230,6 +1230,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 
+  // ignore: unused_element
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
     showDialog(
       context: context,

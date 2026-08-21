@@ -344,6 +344,7 @@ class FreightRfqGeneratorService {
         name: 'Freight_RFQ_$fileCode.pdf',
       );
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('حدث خطأ أثناء طباعة الملف: $e'),

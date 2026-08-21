@@ -136,3 +136,138 @@ class CargoXNotifier extends StateNotifier<AsyncValue<List<CargoXEnvelopeModel>>
     }
   }
 }
+
+// ============================================================================
+// STANDARD EXCEL COMMERCIAL INVOICE NOTIFIER & PROVIDERS
+// ============================================================================
+
+final standardInvoiceSessionsProvider =
+    StateNotifierProvider<StandardInvoiceNotifier, AsyncValue<List<StandardInvoiceSessionModel>>>((ref) {
+  return StandardInvoiceNotifier(ref.read(dioProvider));
+});
+
+class StandardInvoiceNotifier extends StateNotifier<AsyncValue<List<StandardInvoiceSessionModel>>> {
+  final Dio _dio;
+
+  StandardInvoiceNotifier(this._dio) : super(const AsyncValue.loading()) {
+    fetchSessions();
+  }
+
+  Future<void> fetchSessions({
+    String? search,
+    String? status,
+    int? importFileId,
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final queryParams = <String, dynamic>{};
+      if (search != null && search.isNotEmpty) queryParams['search'] = search;
+      if (status != null && status.isNotEmpty && status != 'All') queryParams['status'] = status;
+      if (importFileId != null) queryParams['import_file_id'] = importFileId;
+
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/sessions',
+        queryParameters: queryParams,
+      );
+
+      final List data = response.data as List;
+      final sessions = data.map((json) => StandardInvoiceSessionModel.fromJson(json as Map<String, dynamic>)).toList();
+      state = AsyncValue.data(sessions);
+    } catch (err, stack) {
+      state = AsyncValue.error(err, stack);
+    }
+  }
+
+  Future<List<int>> downloadExcelTemplate(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/generate/$importFileId',
+        options: Options(responseType: ResponseType.bytes),
+      );
+      return response.data as List<int>;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<StandardInvoicePayloadModel> parseExcelFile(List<int> fileBytes, String fileName) async {
+    try {
+      final formData = FormData.fromMap({
+        'file': MultipartFile.fromBytes(fileBytes, filename: fileName),
+      });
+
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/parse',
+        data: formData,
+      );
+      return StandardInvoicePayloadModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<StandardInvoiceComparisonResponseModel> compareInvoice(
+    int importFileId,
+    StandardInvoicePayloadModel supplierData,
+  ) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/compare/$importFileId',
+        data: supplierData.toJson(),
+      );
+      return StandardInvoiceComparisonResponseModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<StandardInvoiceSessionModel> saveOrUpsertSession(Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/session',
+        data: payload,
+      );
+      final session = StandardInvoiceSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return session;
+    } catch (err) {
+      rethrow;
+    }
+  }
+
+  Future<StandardInvoiceSessionModel?> fetchSessionByFile(int importFileId) async {
+    try {
+      final response = await _dio.get(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/session/by-file/$importFileId',
+      );
+      if (response.data == null) return null;
+      return StandardInvoiceSessionModel.fromJson(response.data as Map<String, dynamic>);
+    } catch (err) {
+      return null;
+    }
+  }
+
+  Future<StandardInvoiceSessionModel> updateSessionStatus(
+    int sessionId,
+    String status, {
+    String? justification,
+    String? notes,
+  }) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/cargox/standard-invoice/session/$sessionId/status',
+        data: {
+          'status': status,
+          if (justification != null) 'discrepancy_override_reason': justification,
+          if (notes != null) 'notes': notes,
+        },
+      );
+      final updated = StandardInvoiceSessionModel.fromJson(response.data as Map<String, dynamic>);
+      await fetchSessions();
+      return updated;
+    } catch (err) {
+      rethrow;
+    }
+  }
+}
+

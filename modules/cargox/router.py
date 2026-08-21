@@ -135,3 +135,114 @@ def restore_cargox_envelope(
     Restore a soft-deleted CargoX envelope.
     """
     return CargoXService.restore_envelope(db, envelope_id, restored_by="ADMIN")
+
+
+# ============================================================================
+# STANDARD EXCEL COMMERCIAL INVOICE ENDPOINTS (BP-025 / CGX-002)
+# ============================================================================
+
+from fastapi import UploadFile, File, Response
+from .schemas import (
+    StandardInvoicePayload,
+    StandardInvoiceComparisonResponse,
+    StandardInvoiceSessionCreate,
+    StandardInvoiceSessionResponse,
+    StandardInvoiceStatusUpdateRequest,
+)
+from .service import CargoXStandardInvoiceService
+
+
+@router.get("/standard-invoice/generate/{import_file_id}")
+def generate_standard_invoice_excel(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Generate and download the official Standard Commercial Invoice (.xlsx)
+    with all 36+ Named Ranges and structured InvoiceItems Table.
+    """
+    excel_bytes = CargoXStandardInvoiceService.generate_excel_template(db, import_file_id)
+    return Response(
+        content=excel_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f"attachment; filename=Commercial_Invoice_IMP_{import_file_id}.xlsx"
+        },
+    )
+
+
+@router.post("/standard-invoice/parse", response_model=StandardInvoicePayload)
+async def parse_supplier_invoice_excel(
+    file: UploadFile = File(...),
+):
+    """
+    Upload and parse supplier's completed Excel Commercial Invoice template
+    using openpyxl Defined Names and the InvoiceItems table.
+    """
+    file_bytes = await file.read()
+    return CargoXStandardInvoiceService.parse_excel_file(file_bytes)
+
+
+@router.post("/standard-invoice/compare/{import_file_id}", response_model=StandardInvoiceComparisonResponse)
+def compare_standard_invoice(
+    import_file_id: int,
+    supplier_data: StandardInvoicePayload,
+    db: Session = Depends(get_db),
+):
+    """
+    Run the side-by-side comparison engine between System Baseline Snapshot vs Supplier Uploaded Excel.
+    """
+    return CargoXStandardInvoiceService.compare_invoices(db, import_file_id, supplier_data)
+
+
+@router.post("/standard-invoice/session", response_model=StandardInvoiceSessionResponse)
+def save_or_upsert_standard_invoice_session(
+    payload: StandardInvoiceSessionCreate,
+    db: Session = Depends(get_db),
+):
+    """
+    Create or update (Upsert) a Standard Commercial Invoice Review Session.
+    Enforces mandatory override justification if approved with discrepancies.
+    """
+    return CargoXStandardInvoiceService.save_or_upsert_session(db, payload, created_by="ADMIN")
+
+
+@router.get("/standard-invoice/session/by-file/{import_file_id}", response_model=Optional[StandardInvoiceSessionResponse])
+def get_standard_invoice_session_by_file(
+    import_file_id: int,
+    db: Session = Depends(get_db),
+):
+    """
+    Retrieve the active Standard Commercial Invoice Review Session for an import file.
+    """
+    return CargoXStandardInvoiceService.get_session_by_file(db, import_file_id)
+
+
+@router.get("/standard-invoice/sessions", response_model=List[StandardInvoiceSessionResponse])
+def list_standard_invoice_sessions(
+    search: Optional[str] = Query(None),
+    status: Optional[str] = Query(None),
+    import_file_id: Optional[int] = Query(None),
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    """
+    List all Standard Commercial Invoice Review Sessions with search and status filtering.
+    """
+    return CargoXStandardInvoiceService.list_sessions(
+        db, search=search, status=status, import_file_id=import_file_id, limit=limit, offset=offset
+    )
+
+
+@router.put("/standard-invoice/session/{session_id}/status", response_model=StandardInvoiceSessionResponse)
+def update_standard_invoice_session_status(
+    session_id: int,
+    payload: StandardInvoiceStatusUpdateRequest,
+    db: Session = Depends(get_db),
+):
+    """
+    Update session status (Approve, Reject, Under Review) with mandatory justification validation.
+    """
+    return CargoXStandardInvoiceService.update_session_status(db, session_id, payload, updated_by="ADMIN")
+

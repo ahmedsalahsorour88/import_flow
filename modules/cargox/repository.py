@@ -135,3 +135,94 @@ class CargoXRepository:
         db.commit()
         db.refresh(envelope)
         return envelope
+
+
+class CargoXStandardInvoiceRepository:
+
+    @staticmethod
+    def get_by_id(db: Session, session_id: int, include_inactive: bool = False) -> Optional["CargoXStandardInvoiceReviewSession"]:
+        from .model import CargoXStandardInvoiceReviewSession
+        query = select(CargoXStandardInvoiceReviewSession).where(CargoXStandardInvoiceReviewSession.session_id == session_id)
+        if not include_inactive:
+            query = query.where(CargoXStandardInvoiceReviewSession.is_active.is_(True))
+        return db.execute(query).scalar_one_or_none()
+
+    @staticmethod
+    def get_by_import_file(db: Session, import_file_id: int) -> Optional["CargoXStandardInvoiceReviewSession"]:
+        from .model import CargoXStandardInvoiceReviewSession
+        query = (
+            select(CargoXStandardInvoiceReviewSession)
+            .where(
+                CargoXStandardInvoiceReviewSession.import_file_id == import_file_id,
+                CargoXStandardInvoiceReviewSession.is_active.is_(True),
+            )
+            .order_by(CargoXStandardInvoiceReviewSession.session_id.desc())
+        )
+        return db.execute(query).scalars().first()
+
+    @staticmethod
+    def get_all(
+        db: Session,
+        search: Optional[str] = None,
+        status: Optional[str] = None,
+        import_file_id: Optional[int] = None,
+        include_inactive: bool = False,
+        limit: int = 100,
+        offset: int = 0,
+    ) -> List["CargoXStandardInvoiceReviewSession"]:
+        from .model import CargoXStandardInvoiceReviewSession
+        query = select(CargoXStandardInvoiceReviewSession)
+        if not include_inactive:
+            query = query.where(CargoXStandardInvoiceReviewSession.is_active.is_(True))
+        if import_file_id:
+            query = query.where(CargoXStandardInvoiceReviewSession.import_file_id == import_file_id)
+        if status and status != "All":
+            query = query.where(CargoXStandardInvoiceReviewSession.status == status)
+        if search:
+            s = f"%{search.strip().lower()}%"
+            query = query.where(
+                or_(
+                    func.lower(CargoXStandardInvoiceReviewSession.session_code).like(s),
+                    func.lower(CargoXStandardInvoiceReviewSession.acid_number).like(s),
+                    func.lower(CargoXStandardInvoiceReviewSession.invoice_number).like(s),
+                    func.lower(CargoXStandardInvoiceReviewSession.exporter_name).like(s),
+                    func.lower(CargoXStandardInvoiceReviewSession.importer_name).like(s),
+                    func.lower(CargoXStandardInvoiceReviewSession.import_file_code).like(s),
+                )
+            )
+        query = query.order_by(CargoXStandardInvoiceReviewSession.session_id.desc()).limit(limit).offset(offset)
+        return list(db.execute(query).scalars().all())
+
+    @staticmethod
+    def get_next_code(db: Session) -> str:
+        from .model import CargoXStandardInvoiceReviewSession
+        current_year = datetime.now(timezone.utc).year
+        prefix = f"CX-INV-{current_year}-"
+        query = (
+            select(CargoXStandardInvoiceReviewSession.session_code)
+            .where(CargoXStandardInvoiceReviewSession.session_code.like(f"{prefix}%"))
+            .order_by(CargoXStandardInvoiceReviewSession.session_id.desc())
+        )
+        last_code = db.execute(query).scalars().first()
+        if last_code:
+            try:
+                last_num = int(last_code.split("-")[-1])
+                return f"{prefix}{str(last_num + 1).zfill(4)}"
+            except Exception:
+                pass
+        return f"{prefix}0001"
+
+    @staticmethod
+    def create(db: Session, session: "CargoXStandardInvoiceReviewSession") -> "CargoXStandardInvoiceReviewSession":
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        return session
+
+    @staticmethod
+    def update(db: Session, session: "CargoXStandardInvoiceReviewSession") -> "CargoXStandardInvoiceReviewSession":
+        session.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(session)
+        return session
+

@@ -296,3 +296,549 @@ class DigitalManifestModel {
     );
   }
 }
+
+// ============================================================================
+// STANDARD EXCEL COMMERCIAL INVOICE MODELS (BP-025 / CGX-002)
+// ============================================================================
+
+class StandardInvoiceLineItemModel {
+  final int index;
+  final String? productCode;
+  final String? manufacturer;
+  final String? brandName;
+  final String? model;
+  final String hsCode;
+  final String countryOfOrigin;
+  final String description;
+  final double quantity;
+  final String qtyUnit;
+  final String? expiryDate;
+  final double unitPrice;
+  final String? unitPriceBasis;
+  final double grossWeightKg;
+  final double netWeightKg;
+  final double totalAmount;
+
+  StandardInvoiceLineItemModel({
+    required this.index,
+    this.productCode,
+    this.manufacturer,
+    this.brandName,
+    this.model,
+    required this.hsCode,
+    required this.countryOfOrigin,
+    required this.description,
+    required this.quantity,
+    this.qtyUnit = 'PCE',
+    this.expiryDate,
+    required this.unitPrice,
+    this.unitPriceBasis = 'PCS',
+    this.grossWeightKg = 0.0,
+    this.netWeightKg = 0.0,
+    required this.totalAmount,
+  });
+
+  factory StandardInvoiceLineItemModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoiceLineItemModel(
+      index: json['index'] as int? ?? 1,
+      productCode: json['product_code'] as String?,
+      manufacturer: json['manufacturer'] as String?,
+      brandName: json['brand_name'] as String?,
+      model: json['model'] as String?,
+      hsCode: json['hs_code'] as String? ?? '',
+      countryOfOrigin: json['country_of_origin'] as String? ?? 'EG',
+      description: json['description'] as String? ?? '',
+      quantity: (json['quantity'] as num?)?.toDouble() ?? 1.0,
+      qtyUnit: json['qty_unit'] as String? ?? 'PCE',
+      expiryDate: json['expiry_date'] as String?,
+      unitPrice: (json['unit_price'] as num?)?.toDouble() ?? 0.0,
+      unitPriceBasis: json['unit_price_basis'] as String? ?? 'PCS',
+      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'index': index,
+      'product_code': productCode,
+      'manufacturer': manufacturer,
+      'brand_name': brandName,
+      'model': model,
+      'hs_code': hsCode,
+      'country_of_origin': countryOfOrigin,
+      'description': description,
+      'quantity': quantity,
+      'qty_unit': qtyUnit,
+      'expiry_date': expiryDate,
+      'unit_price': unitPrice,
+      'unit_price_basis': unitPriceBasis,
+      'gross_weight_kg': grossWeightKg,
+      'net_weight_kg': netWeightKg,
+      'total_amount': totalAmount,
+    };
+  }
+}
+
+class StandardInvoicePayloadModel {
+  final String? sellerName;
+  final String? sellerAddress;
+  final String? sellerCity;
+  final String? sellerCountryCode;
+  final String? sellerTaxId;
+  final String? sellerContactName;
+  final String? sellerPhone;
+  final String? sellerFax;
+  final String? sellerEmail;
+  final String? sellerWebsite;
+  final String? buyerName;
+  final String? buyerAddress;
+  final String? buyerTaxId;
+  final String? buyerContactName;
+  final String? buyerPhone;
+  final String? buyerFax;
+  final String? buyerEmail;
+  final String? acidNumber;
+  final String invoiceType;
+  final String? invoiceNumber;
+  final String? invoiceDate;
+  final String? purchaseOrderNumber;
+  final String? purchaseOrderDate;
+  final String? proformaInvoiceNumber;
+  final String? originPort;
+  final String? destinationPort;
+  final String currencyCode;
+  final String? incoterm;
+  final double grossWeight;
+  final double netWeight;
+  final String weightUnit;
+  final List<StandardInvoiceLineItemModel> items;
+  final double subtotal;
+  final double freightCost;
+  final double insuranceCost;
+  final double otherCosts;
+  final double totalAmount;
+
+  StandardInvoicePayloadModel({
+    this.sellerName,
+    this.sellerAddress,
+    this.sellerCity,
+    this.sellerCountryCode,
+    this.sellerTaxId,
+    this.sellerContactName,
+    this.sellerPhone,
+    this.sellerFax,
+    this.sellerEmail,
+    this.sellerWebsite,
+    this.buyerName,
+    this.buyerAddress,
+    this.buyerTaxId,
+    this.buyerContactName,
+    this.buyerPhone,
+    this.buyerFax,
+    this.buyerEmail,
+    this.acidNumber,
+    this.invoiceType = 'Commercial Invoice',
+    this.invoiceNumber,
+    this.invoiceDate,
+    this.purchaseOrderNumber,
+    this.purchaseOrderDate,
+    this.proformaInvoiceNumber,
+    this.originPort,
+    this.destinationPort,
+    this.currencyCode = 'EUR',
+    this.incoterm,
+    this.grossWeight = 0.0,
+    this.netWeight = 0.0,
+    this.weightUnit = 'KGM',
+    this.items = const [],
+    this.subtotal = 0.0,
+    this.freightCost = 0.0,
+    this.insuranceCost = 0.0,
+    this.otherCosts = 0.0,
+    this.totalAmount = 0.0,
+  });
+
+  factory StandardInvoicePayloadModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoicePayloadModel(
+      sellerName: json['seller_name'] as String?,
+      sellerAddress: json['seller_address'] as String?,
+      sellerCity: json['seller_city'] as String?,
+      sellerCountryCode: json['seller_country_code'] as String?,
+      sellerTaxId: json['seller_tax_id'] as String?,
+      sellerContactName: json['seller_contact_name'] as String?,
+      sellerPhone: json['seller_phone'] as String?,
+      sellerFax: json['seller_fax'] as String?,
+      sellerEmail: json['seller_email'] as String?,
+      sellerWebsite: json['seller_website'] as String?,
+      buyerName: json['buyer_name'] as String?,
+      buyerAddress: json['buyer_address'] as String?,
+      buyerTaxId: json['buyer_tax_id'] as String?,
+      buyerContactName: json['buyer_contact_name'] as String?,
+      buyerPhone: json['buyer_phone'] as String?,
+      buyerFax: json['buyer_fax'] as String?,
+      buyerEmail: json['buyer_email'] as String?,
+      acidNumber: json['acid_number'] as String?,
+      invoiceType: json['invoice_type'] as String? ?? 'Commercial Invoice',
+      invoiceNumber: json['invoice_number'] as String?,
+      invoiceDate: json['invoice_date'] as String?,
+      purchaseOrderNumber: json['purchase_order_number'] as String?,
+      purchaseOrderDate: json['purchase_order_date'] as String?,
+      proformaInvoiceNumber: json['proforma_invoice_number'] as String?,
+      originPort: json['origin_port'] as String?,
+      destinationPort: json['destination_port'] as String?,
+      currencyCode: json['currency_code'] as String? ?? 'EUR',
+      incoterm: json['incoterm'] as String?,
+      grossWeight: (json['gross_weight'] as num?)?.toDouble() ?? 0.0,
+      netWeight: (json['net_weight'] as num?)?.toDouble() ?? 0.0,
+      weightUnit: json['weight_unit'] as String? ?? 'KGM',
+      items: (json['items'] as List<dynamic>?)
+              ?.map((e) => StandardInvoiceLineItemModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
+      freightCost: (json['freight_cost'] as num?)?.toDouble() ?? 0.0,
+      insuranceCost: (json['insurance_cost'] as num?)?.toDouble() ?? 0.0,
+      otherCosts: (json['other_costs'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'seller_name': sellerName,
+      'seller_address': sellerAddress,
+      'seller_city': sellerCity,
+      'seller_country_code': sellerCountryCode,
+      'seller_tax_id': sellerTaxId,
+      'seller_contact_name': sellerContactName,
+      'seller_phone': sellerPhone,
+      'seller_fax': sellerFax,
+      'seller_email': sellerEmail,
+      'seller_website': sellerWebsite,
+      'buyer_name': buyerName,
+      'buyer_address': buyerAddress,
+      'buyer_tax_id': buyerTaxId,
+      'buyer_contact_name': buyerContactName,
+      'buyer_phone': buyerPhone,
+      'buyer_fax': buyerFax,
+      'buyer_email': buyerEmail,
+      'acid_number': acidNumber,
+      'invoice_type': invoiceType,
+      'invoice_number': invoiceNumber,
+      'invoice_date': invoiceDate,
+      'purchase_order_number': purchaseOrderNumber,
+      'purchase_order_date': purchaseOrderDate,
+      'proforma_invoice_number': proformaInvoiceNumber,
+      'origin_port': originPort,
+      'destination_port': destinationPort,
+      'currency_code': currencyCode,
+      'incoterm': incoterm,
+      'gross_weight': grossWeight,
+      'net_weight': netWeight,
+      'weight_unit': weightUnit,
+      'items': items.map((e) => e.toJson()).toList(),
+      'subtotal': subtotal,
+      'freight_cost': freightCost,
+      'insurance_cost': insuranceCost,
+      'other_costs': otherCosts,
+      'total_amount': totalAmount,
+    };
+  }
+}
+
+class StandardInvoiceComparisonRowModel {
+  final String fieldKey;
+  final String fieldLabelAr;
+  final String fieldLabelEn;
+  final String? systemValue;
+  final String? supplierValue;
+  final String status;
+  final String? difference;
+  final String? notes;
+
+  StandardInvoiceComparisonRowModel({
+    required this.fieldKey,
+    required this.fieldLabelAr,
+    required this.fieldLabelEn,
+    this.systemValue,
+    this.supplierValue,
+    required this.status,
+    this.difference,
+    this.notes,
+  });
+
+  factory StandardInvoiceComparisonRowModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoiceComparisonRowModel(
+      fieldKey: json['field_key'] as String? ?? '',
+      fieldLabelAr: json['field_label_ar'] as String? ?? '',
+      fieldLabelEn: json['field_label_en'] as String? ?? '',
+      systemValue: json['system_value'] as String?,
+      supplierValue: json['supplier_value'] as String?,
+      status: json['status'] as String? ?? 'MATCH',
+      difference: json['difference'] as String?,
+      notes: json['notes'] as String?,
+    );
+  }
+}
+
+class StandardInvoiceLineComparisonRowModel {
+  final int index;
+  final String productCode;
+  final String? hsCodeSystem;
+  final String? hsCodeSupplier;
+  final String? descriptionSystem;
+  final String? descriptionSupplier;
+  final double qtySystem;
+  final double qtySupplier;
+  final double unitPriceSystem;
+  final double unitPriceSupplier;
+  final double totalSystem;
+  final double totalSupplier;
+  final double grossWeightSystem;
+  final double grossWeightSupplier;
+  final String status;
+  final String? notes;
+
+  StandardInvoiceLineComparisonRowModel({
+    required this.index,
+    required this.productCode,
+    this.hsCodeSystem,
+    this.hsCodeSupplier,
+    this.descriptionSystem,
+    this.descriptionSupplier,
+    required this.qtySystem,
+    required this.qtySupplier,
+    required this.unitPriceSystem,
+    required this.unitPriceSupplier,
+    required this.totalSystem,
+    required this.totalSupplier,
+    required this.grossWeightSystem,
+    required this.grossWeightSupplier,
+    required this.status,
+    this.notes,
+  });
+
+  factory StandardInvoiceLineComparisonRowModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoiceLineComparisonRowModel(
+      index: json['index'] as int? ?? 1,
+      productCode: json['product_code'] as String? ?? '',
+      hsCodeSystem: json['hs_code_system'] as String?,
+      hsCodeSupplier: json['hs_code_supplier'] as String?,
+      descriptionSystem: json['description_system'] as String?,
+      descriptionSupplier: json['description_supplier'] as String?,
+      qtySystem: (json['qty_system'] as num?)?.toDouble() ?? 0.0,
+      qtySupplier: (json['qty_supplier'] as num?)?.toDouble() ?? 0.0,
+      unitPriceSystem: (json['unit_price_system'] as num?)?.toDouble() ?? 0.0,
+      unitPriceSupplier: (json['unit_price_supplier'] as num?)?.toDouble() ?? 0.0,
+      totalSystem: (json['total_system'] as num?)?.toDouble() ?? 0.0,
+      totalSupplier: (json['total_supplier'] as num?)?.toDouble() ?? 0.0,
+      grossWeightSystem: (json['gross_weight_system'] as num?)?.toDouble() ?? 0.0,
+      grossWeightSupplier: (json['gross_weight_supplier'] as num?)?.toDouble() ?? 0.0,
+      status: json['status'] as String? ?? 'MATCH',
+      notes: json['notes'] as String?,
+    );
+  }
+}
+
+class StandardInvoiceComparisonResponseModel {
+  final int importFileId;
+  final String importFileCode;
+  final String? acidNumber;
+  final bool hasDiscrepancies;
+  final bool hasCriticalMismatch;
+  final int totalDiscrepanciesCount;
+  final int criticalMismatchesCount;
+  final int warningsCount;
+  final List<StandardInvoiceComparisonRowModel> headerComparisons;
+  final List<StandardInvoiceComparisonRowModel> financialComparisons;
+  final List<StandardInvoiceLineComparisonRowModel> lineItemComparisons;
+  final StandardInvoicePayloadModel? systemSnapshot;
+  final StandardInvoicePayloadModel? supplierData;
+  final String? rectificationNoticeEn;
+  final String? rectificationNoticeAr;
+
+  StandardInvoiceComparisonResponseModel({
+    required this.importFileId,
+    required this.importFileCode,
+    this.acidNumber,
+    required this.hasDiscrepancies,
+    required this.hasCriticalMismatch,
+    required this.totalDiscrepanciesCount,
+    required this.criticalMismatchesCount,
+    required this.warningsCount,
+    this.headerComparisons = const [],
+    this.financialComparisons = const [],
+    this.lineItemComparisons = const [],
+    this.systemSnapshot,
+    this.supplierData,
+    this.rectificationNoticeEn,
+    this.rectificationNoticeAr,
+  });
+
+  factory StandardInvoiceComparisonResponseModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoiceComparisonResponseModel(
+      importFileId: json['import_file_id'] as int? ?? 0,
+      importFileCode: json['import_file_code'] as String? ?? '',
+      acidNumber: json['acid_number'] as String?,
+      hasDiscrepancies: json['has_discrepancies'] as bool? ?? false,
+      hasCriticalMismatch: json['has_critical_mismatch'] as bool? ?? false,
+      totalDiscrepanciesCount: json['total_discrepancies_count'] as int? ?? 0,
+      criticalMismatchesCount: json['critical_mismatches_count'] as int? ?? 0,
+      warningsCount: json['warnings_count'] as int? ?? 0,
+      headerComparisons: (json['header_comparisons'] as List<dynamic>?)
+              ?.map((e) => StandardInvoiceComparisonRowModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      financialComparisons: (json['financial_comparisons'] as List<dynamic>?)
+              ?.map((e) => StandardInvoiceComparisonRowModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      lineItemComparisons: (json['line_item_comparisons'] as List<dynamic>?)
+              ?.map((e) => StandardInvoiceLineComparisonRowModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          [],
+      systemSnapshot: json['system_snapshot'] != null
+          ? StandardInvoicePayloadModel.fromJson(json['system_snapshot'] as Map<String, dynamic>)
+          : null,
+      supplierData: json['supplier_data'] != null
+          ? StandardInvoicePayloadModel.fromJson(json['supplier_data'] as Map<String, dynamic>)
+          : null,
+      rectificationNoticeEn: json['rectification_notice_en'] as String?,
+      rectificationNoticeAr: json['rectification_notice_ar'] as String?,
+    );
+  }
+}
+
+class StandardInvoiceSessionModel {
+  final int sessionId;
+  final String sessionCode;
+  final int importFileId;
+  final String importFileCode;
+  final String? acidNumber;
+  final String? invoiceNumber;
+  final String? invoiceDate;
+  final String invoiceType;
+  final int? purchaseOrderId;
+  final String? purchaseOrderNumber;
+  final int? supplierId;
+  final String? exporterName;
+  final String? exporterTaxId;
+  final String? exporterCountryCode;
+  final int? importerCompanyId;
+  final String? importerName;
+  final String? importerTaxId;
+  final String currencyCode;
+  final String? incoterm;
+  final String? polCode;
+  final String? podCode;
+  final double grossWeightKg;
+  final double netWeightKg;
+  final String weightUnit;
+  final double subtotalAmount;
+  final double freightCost;
+  final double insuranceCost;
+  final double otherCosts;
+  final double totalAmount;
+  final int lineItemsCount;
+  final bool hasDiscrepancies;
+  final bool hasCriticalMismatch;
+  final String? discrepancyOverrideReason;
+  final String status;
+  final String? notes;
+  final bool isActive;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+  final String createdBy;
+  final String updatedBy;
+
+  StandardInvoiceSessionModel({
+    required this.sessionId,
+    required this.sessionCode,
+    required this.importFileId,
+    required this.importFileCode,
+    this.acidNumber,
+    this.invoiceNumber,
+    this.invoiceDate,
+    this.invoiceType = 'Commercial Invoice',
+    this.purchaseOrderId,
+    this.purchaseOrderNumber,
+    this.supplierId,
+    this.exporterName,
+    this.exporterTaxId,
+    this.exporterCountryCode,
+    this.importerCompanyId,
+    this.importerName,
+    this.importerTaxId,
+    this.currencyCode = 'EUR',
+    this.incoterm,
+    this.polCode,
+    this.podCode,
+    this.grossWeightKg = 0.0,
+    this.netWeightKg = 0.0,
+    this.weightUnit = 'KGM',
+    this.subtotalAmount = 0.0,
+    this.freightCost = 0.0,
+    this.insuranceCost = 0.0,
+    this.otherCosts = 0.0,
+    this.totalAmount = 0.0,
+    this.lineItemsCount = 0,
+    this.hasDiscrepancies = false,
+    this.hasCriticalMismatch = false,
+    this.discrepancyOverrideReason,
+    this.status = 'DRAFT',
+    this.notes,
+    this.isActive = true,
+    required this.createdAt,
+    required this.updatedAt,
+    this.createdBy = 'SYSTEM',
+    this.updatedBy = 'SYSTEM',
+  });
+
+  factory StandardInvoiceSessionModel.fromJson(Map<String, dynamic> json) {
+    return StandardInvoiceSessionModel(
+      sessionId: json['session_id'] as int? ?? 0,
+      sessionCode: json['session_code'] as String? ?? '',
+      importFileId: json['import_file_id'] as int? ?? 0,
+      importFileCode: json['import_file_code'] as String? ?? '',
+      acidNumber: json['acid_number'] as String?,
+      invoiceNumber: json['invoice_number'] as String?,
+      invoiceDate: json['invoice_date'] as String?,
+      invoiceType: json['invoice_type'] as String? ?? 'Commercial Invoice',
+      purchaseOrderId: json['purchase_order_id'] as int?,
+      purchaseOrderNumber: json['purchase_order_number'] as String?,
+      supplierId: json['supplier_id'] as int?,
+      exporterName: json['exporter_name'] as String?,
+      exporterTaxId: json['exporter_tax_id'] as String?,
+      exporterCountryCode: json['exporter_country_code'] as String?,
+      importerCompanyId: json['importer_company_id'] as int?,
+      importerName: json['importer_name'] as String?,
+      importerTaxId: json['importer_tax_id'] as String?,
+      currencyCode: json['currency_code'] as String? ?? 'EUR',
+      incoterm: json['incoterm'] as String?,
+      polCode: json['pol_code'] as String?,
+      podCode: json['pod_code'] as String?,
+      grossWeightKg: (json['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      netWeightKg: (json['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+      weightUnit: json['weight_unit'] as String? ?? 'KGM',
+      subtotalAmount: (json['subtotal_amount'] as num?)?.toDouble() ?? 0.0,
+      freightCost: (json['freight_cost'] as num?)?.toDouble() ?? 0.0,
+      insuranceCost: (json['insurance_cost'] as num?)?.toDouble() ?? 0.0,
+      otherCosts: (json['other_costs'] as num?)?.toDouble() ?? 0.0,
+      totalAmount: (json['total_amount'] as num?)?.toDouble() ?? 0.0,
+      lineItemsCount: json['line_items_count'] as int? ?? 0,
+      hasDiscrepancies: json['has_discrepancies'] as bool? ?? false,
+      hasCriticalMismatch: json['has_critical_mismatch'] as bool? ?? false,
+      discrepancyOverrideReason: json['discrepancy_override_reason'] as String?,
+      status: json['status'] as String? ?? 'DRAFT',
+      notes: json['notes'] as String?,
+      isActive: json['is_active'] as bool? ?? true,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : DateTime.now(),
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : DateTime.now(),
+      createdBy: json['created_by'] as String? ?? 'SYSTEM',
+      updatedBy: json['updated_by'] as String? ?? 'SYSTEM',
+    );
+  }
+}
+

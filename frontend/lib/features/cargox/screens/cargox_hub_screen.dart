@@ -12,6 +12,7 @@ import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../models/cargox_model.dart';
 import '../providers/cargox_provider.dart';
+import '../widgets/standard_invoice_hub_tab.dart';
 
 class CargoXHubScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -184,6 +185,11 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
     final tabs = [
       const VerticalNavTabItem(
+        icon: Icons.table_chart_outlined,
+        titleEn: 'Standard Commercial Invoice',
+        titleAr: 'الفاتورة المعيارية Excel والمطابقة',
+      ),
+      const VerticalNavTabItem(
         icon: Icons.markunread_mailbox_outlined,
         titleEn: 'Create CargoX Envelope',
         titleAr: 'تجهيز وتوليد مظروف جديد',
@@ -216,6 +222,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     final bodyContent = IndexedStack(
       index: _selectedSubTab,
       children: [
+        StandardInvoiceHubTab(initialImportFileId: _selectedImportFileId),
         _buildCreateEnvelopeTab(),
         _buildEnvelopesTrackingTab(envelopes),
         _buildDigitalManifestViewerTab(envelopes),
@@ -241,9 +248,10 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   const SizedBox(width: 24),
                   SegmentedButton<int>(
                     segments: const [
-                      ButtonSegment(value: 0, label: Text('تجهيز المظروف 📦', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 1, label: Text('تتبع البلوك تشين 🔗', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 2, label: Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 0, label: Text('الفاتورة المعيارية 📊', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 1, label: Text('تجهيز المظروف 📦', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 2, label: Text('تتبع البلوك تشين 🔗', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 3, label: Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11))),
                     ],
                     selected: {_selectedSubTab},
                     onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),

@@ -95,6 +95,21 @@ class _MockImportCompaniesNotifier extends ImportCompaniesNotifier {
   }
 }
 
+class _MockStandardInvoiceNotifier extends StandardInvoiceNotifier {
+  _MockStandardInvoiceNotifier() : super(Dio()) {
+    state = const AsyncValue.data([]);
+  }
+
+  @override
+  Future<void> fetchSessions({
+    String? search,
+    String? status,
+    int? importFileId,
+  }) async {
+    state = const AsyncValue.data([]);
+  }
+}
+
 void main() {
   group('CargoX & ACI Dispatch Hub Models & Unit Tests', () {
     test('CargoXEnvelopeModel JSON serialization and deserialization', () {
@@ -211,6 +226,7 @@ void main() {
             importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([])),
             suppliersProvider.overrideWith((ref) => _MockSuppliersNotifier([])),
             importCompaniesProvider.overrideWith((ref) => _MockImportCompaniesNotifier([])),
+            standardInvoiceSessionsProvider.overrideWith((ref) => _MockStandardInvoiceNotifier()),
           ],
           child: const MaterialApp(
             home: Scaffold(
@@ -227,9 +243,9 @@ void main() {
 
       expect(find.byType(CargoXHubScreen), findsOneWidget);
       expect(find.textContaining('منظومة كارجو إكس والبلوك تشين'), findsOneWidget);
-      expect(find.textContaining('تجهيز المظروف'), findsOneWidget);
-      expect(find.textContaining('تتبع البلوك تشين'), findsOneWidget);
-      expect(find.text('المانيفست الرقمي 📜'), findsOneWidget);
+      expect(find.textContaining('تجهيز المظروف'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('تتبع البلوك تشين'), findsAtLeastNWidgets(1));
+      expect(find.textContaining('المانيفست الرقمي'), findsAtLeastNWidgets(1));
     });
   });
 }

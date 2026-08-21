@@ -494,6 +494,10 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     }
   }
 
+  Future<void> fetchCOOReviews({int? importFileId}) async {
+    await fetchReviews(importFileId: importFileId);
+  }
+
   Future<Map<String, dynamic>> compareCOO(int importFileId, String certType, Map<String, dynamic> draftFields) async {
     try {
       final response = await _dio.post(
@@ -582,6 +586,10 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
+  }
+
+  Future<void> fetchInspectionReviews({int? importFileId}) async {
+    await fetchReviews(importFileId: importFileId);
   }
 
   Future<Map<String, dynamic>> fetchInspectionDraftTemplate(int importFileId, {String agency = 'COTECNA', String certType = 'COC (Certificate of Conformity)'}) async {

@@ -154,3 +154,217 @@ class DigitalManifestResponse(BaseModel):
     manifest_json: Dict[str, Any]
     exported_at: datetime
     formatted_summary: str
+
+
+# ============================================================================
+# STANDARD EXCEL COMMERCIAL INVOICE SCHEMAS (BP-025 / CGX-002)
+# ============================================================================
+
+class StandardInvoiceLineItem(BaseModel):
+    index: int = 1
+    product_code: Optional[str] = None
+    manufacturer: Optional[str] = None
+    brand_name: Optional[str] = None
+    model: Optional[str] = None
+    hs_code: str = Field(..., description="HS Tariff Code (6 to 10 digits)")
+    country_of_origin: str = Field(..., description="ISO-2 Country Code (e.g. IT, LT, CN)")
+    description: str = Field(..., description="Item Description")
+    quantity: float = 1.0
+    qty_unit: str = "PCE"  # KGM, SET, PCE, CT, BX, etc.
+    expiry_date: Optional[str] = None
+    unit_price: float = 0.0
+    unit_price_basis: str = "PCS"
+    gross_weight_kg: float = 0.0
+    net_weight_kg: float = 0.0
+    total_amount: float = 0.0
+
+
+class StandardInvoicePayload(BaseModel):
+    # Seller Data
+    seller_name: Optional[str] = None
+    seller_address: Optional[str] = None
+    seller_city: Optional[str] = None
+    seller_country_code: Optional[str] = None
+    seller_tax_id: Optional[str] = None
+    seller_contact_name: Optional[str] = None
+    seller_phone: Optional[str] = None
+    seller_fax: Optional[str] = None
+    seller_email: Optional[str] = None
+    seller_website: Optional[str] = None
+
+    # Buyer Data
+    buyer_name: Optional[str] = None
+    buyer_address: Optional[str] = None
+    buyer_tax_id: Optional[str] = None
+    buyer_contact_name: Optional[str] = None
+    buyer_phone: Optional[str] = None
+    buyer_fax: Optional[str] = None
+    buyer_email: Optional[str] = None
+    acid_number: Optional[str] = None
+
+    # Shipment / Invoice Header
+    invoice_type: str = "Commercial Invoice"
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    purchase_order_number: Optional[str] = None
+    purchase_order_date: Optional[str] = None
+    proforma_invoice_number: Optional[str] = None
+    origin_port: Optional[str] = None
+    destination_port: Optional[str] = None
+    currency_code: str = "EUR"
+    incoterm: Optional[str] = "EXW"
+    gross_weight: float = 0.0
+    net_weight: float = 0.0
+    weight_unit: str = "KGM"
+
+    # Line Items
+    items: List[StandardInvoiceLineItem] = []
+
+    # Financial Totals
+    subtotal: float = 0.0
+    freight_cost: float = 0.0
+    insurance_cost: float = 0.0
+    other_costs: float = 0.0
+    total_amount: float = 0.0
+
+
+class StandardInvoiceComparisonRow(BaseModel):
+    field_key: str
+    field_label_ar: str
+    field_label_en: str
+    system_value: Any
+    supplier_value: Any
+    status: str  # MATCH, WARNING, CRITICAL_MISMATCH
+    difference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StandardInvoiceLineComparisonRow(BaseModel):
+    index: int
+    product_code: Optional[str] = None
+    hs_code_system: Optional[str] = None
+    hs_code_supplier: Optional[str] = None
+    description_system: Optional[str] = None
+    description_supplier: Optional[str] = None
+    qty_system: float = 0.0
+    qty_supplier: float = 0.0
+    unit_price_system: float = 0.0
+    unit_price_supplier: float = 0.0
+    total_system: float = 0.0
+    total_supplier: float = 0.0
+    gross_weight_system: float = 0.0
+    gross_weight_supplier: float = 0.0
+    status: str  # MATCH, WARNING, CRITICAL_MISMATCH
+    notes: Optional[str] = None
+
+
+class StandardInvoiceComparisonResponse(BaseModel):
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    acid_number: str
+    has_discrepancies: bool
+    has_critical_mismatch: bool
+    total_discrepancies_count: int
+    critical_mismatches_count: int
+    warnings_count: int
+    header_comparisons: List[StandardInvoiceComparisonRow] = []
+    financial_comparisons: List[StandardInvoiceComparisonRow] = []
+    line_item_comparisons: List[StandardInvoiceLineComparisonRow] = []
+    system_snapshot: StandardInvoicePayload
+    supplier_data: StandardInvoicePayload
+    rectification_notice_en: Optional[str] = None
+    rectification_notice_ar: Optional[str] = None
+
+
+class StandardInvoiceSessionCreate(BaseModel):
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    acid_number: str
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    invoice_type: str = "Commercial Invoice"
+    purchase_order_id: Optional[int] = None
+    purchase_order_number: Optional[str] = None
+    supplier_id: Optional[int] = None
+    exporter_name: Optional[str] = None
+    exporter_tax_id: Optional[str] = None
+    exporter_country_code: Optional[str] = None
+    importer_company_id: Optional[int] = None
+    importer_name: Optional[str] = None
+    importer_tax_id: Optional[str] = None
+    currency_code: str = "EUR"
+    incoterm: Optional[str] = None
+    pol_code: Optional[str] = None
+    pod_code: Optional[str] = None
+    gross_weight_kg: float = 0.0
+    net_weight_kg: float = 0.0
+    weight_unit: str = "KGM"
+    subtotal_amount: float = 0.0
+    freight_cost: float = 0.0
+    insurance_cost: float = 0.0
+    other_costs: float = 0.0
+    total_amount: float = 0.0
+    line_items_count: int = 0
+    system_snapshot_data: Optional[Dict[str, Any]] = None
+    supplier_invoice_data: Optional[Dict[str, Any]] = None
+    comparison_data: Optional[Dict[str, Any]] = None
+    has_discrepancies: bool = False
+    has_critical_mismatch: bool = False
+    discrepancy_override_reason: Optional[str] = None
+    status: str = "DRAFT"  # DRAFT, UNDER_REVIEW, APPROVED, REJECTED_NEEDS_MODIFICATION
+    notes: Optional[str] = None
+
+
+class StandardInvoiceStatusUpdateRequest(BaseModel):
+    status: str
+    discrepancy_override_reason: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class StandardInvoiceSessionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int
+    session_code: str
+    import_file_id: int
+    import_file_code: Optional[str] = None
+    acid_number: str
+    invoice_number: Optional[str] = None
+    invoice_date: Optional[str] = None
+    invoice_type: str
+    purchase_order_id: Optional[int] = None
+    purchase_order_number: Optional[str] = None
+    supplier_id: Optional[int] = None
+    exporter_name: Optional[str] = None
+    exporter_tax_id: Optional[str] = None
+    exporter_country_code: Optional[str] = None
+    importer_company_id: Optional[int] = None
+    importer_name: Optional[str] = None
+    importer_tax_id: Optional[str] = None
+    currency_code: str
+    incoterm: Optional[str] = None
+    pol_code: Optional[str] = None
+    pod_code: Optional[str] = None
+    gross_weight_kg: float
+    net_weight_kg: float
+    weight_unit: str
+    subtotal_amount: float
+    freight_cost: float
+    insurance_cost: float
+    other_costs: float
+    total_amount: float
+    line_items_count: int
+    system_snapshot_data: Optional[Dict[str, Any]] = None
+    supplier_invoice_data: Optional[Dict[str, Any]] = None
+    comparison_data: Optional[Dict[str, Any]] = None
+    has_discrepancies: bool
+    has_critical_mismatch: bool
+    discrepancy_override_reason: Optional[str] = None
+    status: str
+    notes: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    created_by: str
+    updated_at: datetime
+    updated_by: str
+

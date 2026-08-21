@@ -642,6 +642,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
       tabs: tabs,
       selectedIndex: _mainTabController.index,
       onTabSelected: (index) => setState(() => _mainTabController.index = index),
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: () {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
+      },
       headerActions: [
         SmartUploadButton(
           module: SmartUploadModule.cargoShipping,

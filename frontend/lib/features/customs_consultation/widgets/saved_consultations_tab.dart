@@ -12,8 +12,14 @@ import '../services/customs_consultation_pdf_service.dart';
 class SavedConsultationsTab extends ConsumerStatefulWidget {
   final Function(CustomsConsultationModel) onEdit;
   final Function(BuildContext, CustomsConsultationModel) onViewDetails;
-  
-  const SavedConsultationsTab({super.key, required this.onEdit, required this.onViewDetails});
+  final bool isTaxReviewOnly;
+
+  const SavedConsultationsTab({
+    super.key,
+    required this.onEdit,
+    required this.onViewDetails,
+    this.isTaxReviewOnly = false,
+  });
 
   @override
   ConsumerState<SavedConsultationsTab> createState() => _SavedConsultationsTabState();
@@ -27,52 +33,55 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
   @override
   Widget build(BuildContext context) {
     final consultationsState = ref.watch(customsConsultationsProvider);
-    return           // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
-          consultationsState.when(
+    return // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
+        consultationsState.when(
+      loading: () => const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: AppTheme.cobalt),
+            SizedBox(height: 16),
+            Text('جارٍ تحميل سجل الدراسات والمراجعات الجمركية...',
+                style: TextStyle(color: Colors.grey)),
+          ],
+        ),
+      ),
+      error: (err, stack) => Center(child: Text('❌ Error: $err')),
+      data: (allSessions) {
+        final sessions = widget.isTaxReviewOnly
+            ? allSessions.where((s) => s.estimatedDutiesEgp > 0).toList()
+            : allSessions;
 
-            loading: () => const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: AppTheme.cobalt),
-                  SizedBox(height: 16),
-                  Text('جارٍ تحميل سجل الدراسات الجمركية...',
-                      style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ),
-            error: (err, stack) => Center(child: Text('❌ Error: $err')),
-            data: (sessions) {
-              final filtered = sessions.where((s) {
-                final matchQuery = _searchQuery.isEmpty ||
-                    s.consultationCode
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase()) ||
-                    s.title
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase()) ||
-                    s.brokerName
-                        .toLowerCase()
-                        .contains(_searchQuery.toLowerCase());
-                final matchStatus =
-                    _statusFilter == 'All' || s.overallStatus == _statusFilter;
-                return matchQuery && matchStatus;
-              }).toList();
+        final filtered = sessions.where((s) {
+          final matchQuery = _searchQuery.isEmpty ||
+              s.consultationCode
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
+              s.title
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase()) ||
+              s.brokerName
+                  .toLowerCase()
+                  .contains(_searchQuery.toLowerCase());
+          final matchStatus =
+              _statusFilter == 'All' || s.overallStatus == _statusFilter;
+          return matchQuery && matchStatus;
+        }).toList();
 
-              // Aggregate metrics for header strip
-              final totalCount = sessions.length;
-              final readyCount = sessions
-                  .where((s) => s.overallStatus == 'Clearance Ready')
-                  .length;
-              final blockedCount = sessions
-                  .where(
-                      (s) => s.overallStatus == 'Blocked' || s.hasBlockingIssues)
-                  .length;
-              final avgReadiness = sessions.isEmpty
-                  ? 0.0
-                  : sessions.fold(
-                          0.0, (s, c) => s + c.readinessPercentage) /
-                      sessions.length;
+        // Aggregate metrics for header strip
+        final totalCount = sessions.length;
+        final readyCount = sessions
+            .where((s) => s.overallStatus == 'Clearance Ready')
+            .length;
+        final blockedCount = sessions
+            .where(
+                (s) => s.overallStatus == 'Blocked' || s.hasBlockingIssues)
+            .length;
+        final avgReadiness = sessions.isEmpty
+            ? 0.0
+            : sessions.fold(
+                    0.0, (s, c) => s + c.readinessPercentage) /
+                sessions.length;
 
               return Column(
                 children: [

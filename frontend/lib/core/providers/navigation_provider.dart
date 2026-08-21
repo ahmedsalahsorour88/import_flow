@@ -73,9 +73,17 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 //  48 = LifecycleBoardScreen
 //  49 = FreightQuotationsComparisonScreen
 //  50 = LandedCostComparisonScreen
+//  51 = CentralDocsArchiveScreen
+//  52 = CargoShippingScreen (tracking subtab)
+//  53 = ShipmentDraftDocsScreen (inspection subtab 5)
+//  54 = OriginalDocsAndCargoXScreen (subTab 1 = CargoX)
+//  55 = CustomsConsultationScreen (quotes subtab 3)
+//  56 = CustomsConsultationScreen (tax review mode)
+//  57 = OriginalDocsAndCargoXScreen (subTab 0 = Original Docs)
+//  58 = OriginalDocsAndCargoXScreen (default)
 // ============================================================
 
-const int _totalScreens = 60;
+const int _totalScreens = 59;
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
 
@@ -107,7 +115,10 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
       break;
     case 6:
     case 7:
+    case 55:
+    case 56:
       ref.read(customsConsultationsProvider.notifier).fetchConsultations();
+      ref.read(customsTariffProvider.notifier).fetchTariffs();
       break;
 
     // --- Financial Approvals ---
@@ -134,7 +145,15 @@ void _liveRefreshScreenData(WidgetRef ref, int index) {
     case 22:
     case 23:
     case 24:
+    case 51:
+    case 53:
+    case 54:
+    case 57:
+    case 58:
       ref.read(acidSessionsProvider.notifier).fetchAcidSessions();
+      ref.read(draftBLReviewsProvider.notifier).fetchReviews();
+      ref.read(cooReviewsProvider.notifier).fetchReviews();
+      ref.read(inspectionReviewsProvider.notifier).fetchReviews();
       break;
 
     // --- Operational Phases ---

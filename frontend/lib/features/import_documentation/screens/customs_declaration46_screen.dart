@@ -135,6 +135,8 @@ class _CustomsDeclaration46ScreenState extends ConsumerState<CustomsDeclaration4
       tabs: tabs,
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) => setState(() => _selectedSubTab = index),
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),

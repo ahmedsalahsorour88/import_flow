@@ -329,6 +329,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
           ref.read(acidTrackerProvider.notifier).fetchAcidTracker();
         }
       },
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),

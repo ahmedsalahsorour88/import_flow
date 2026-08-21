@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../services/coo_export_service.dart';
 import 'visual_draft_coo_sheet.dart';
 
 class COOReviewTab extends ConsumerStatefulWidget {
@@ -465,11 +468,11 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       case 0:
         return _buildStep1(importFiles);
       case 1:
-        return _buildStep2();
+        return _buildStep2(importFiles);
       case 2:
-        return _buildStep3();
+        return _buildStep3(importFiles);
       case 3:
-        return _buildStep4();
+        return _buildStep4(importFiles);
       default:
         return const SizedBox.shrink();
     }
@@ -777,7 +780,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     );
   }
 
-  Widget _buildStep2() {
+  Widget _buildStep2(List<dynamic> importFiles) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -796,11 +799,82 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.compare_arrows, color: Colors.white),
                   label: const Text('تشغيل المقارنة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _isLoading ? null : _runComparison,
+                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
                 ),
               ],
             ),
             const Divider(height: 24),
+            // Mandatory Import File Selector Row
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: 'اختر ملف الشحنة المربوط *',
+                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.importFileCode} - ${f.companyName}',
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedImportFileId = v);
+                        _loadSnapshot(v);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: SearchableDropdownField<String>(
+                    value: _certType,
+                    labelText: 'نوع شهادة المنشأ *',
+                    searchHintText: 'اختر نوع الشهادة...',
+                    items: const [
+                      SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية)'),
+                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT)'),
+                      SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin'),
+                      SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / GSP'),
+                      SearchableDropdownItem(value: 'Agadir Agreement', label: 'اتفاقية أغادير'),
+                      SearchableDropdownItem(value: 'GAFTA', label: 'شهادة التجارة العربية GAFTA'),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _certType = v);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (_selectedImportFileId == null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً حتى يتم استخراج البيانات ومقارنتها بسجلات النظام.',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -915,6 +989,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   ],
               ],
             ),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -922,7 +997,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 TextButton.icon(
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
                   label: const Text('⚡ استخراج وتعبئة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                  onPressed: _isLoading ? null : _extractFromOcrText,
+                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
                 ),
               ],
             ),
@@ -941,9 +1016,51 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     );
   }
 
-  Widget _buildStep3() {
+  Widget _buildStep3(List<dynamic> importFiles) {
+    if (_selectedImportFileId == null) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            children: [
+              const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+              const SizedBox(height: 12),
+              const Text('⚠️ يجب اختيار ملف الشحنة أولاً لعرض مصفوفة المقارنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                onPressed: () => setState(() => _activeStep = 1),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_comparisonResult == null) {
-      return const Center(child: Text('يرجى تشغيل المقارنة أولاً'));
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            children: [
+              const Icon(Icons.compare_arrows, size: 48, color: AppTheme.cobalt),
+              const SizedBox(height: 12),
+              const Text('يرجى تشغيل المقارنة في الخطوة السابقة لاستعراض مصفوفة الفروق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                label: const Text('العودة لتشغيل المقارنة', style: TextStyle(color: Colors.white)),
+                onPressed: () => setState(() => _activeStep = 1),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final matrix = _comparisonResult!['comparison_matrix'] as List<dynamic>? ?? [];
@@ -983,9 +1100,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       icon: const Icon(Icons.picture_as_pdf, size: 16),
                       label: const Text('تصدير PDF', style: TextStyle(fontSize: 12)),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('سيتم تصدير تقرير مطابقة شهادة المنشأ قريباً')),
-                        );
+                        if (_selectedImportFileId != null && _activeDraftTemplate != null) {
+                          CooExportService.printOrSavePdf(
+                            templateData: _activeDraftTemplate!,
+                            certificateType: _certType,
+                            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+                            exemptionNotes: _activeExemptionNotes,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('جارٍ تصدير تقرير مطابقة شهادة المنشأ...')),
+                          );
+                        }
                       },
                     ),
                     const SizedBox(width: 8),
@@ -998,9 +1124,17 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       icon: const Icon(Icons.table_chart, size: 16),
                       label: const Text('Excel', style: TextStyle(fontSize: 12)),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('سيتم تصدير تقرير المطابقة إلى Excel قريباً')),
-                        );
+                        if (_activeDraftTemplate != null) {
+                          final csv = CooExportService.exportCOOCsv(
+                            templateData: _activeDraftTemplate!,
+                            certificateType: _certType,
+                            acidNumber: _activeAcidNumber ?? '7595528271020210010',
+                          );
+                          Clipboard.setData(ClipboardData(text: csv));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('📊 تم نسخ وتصدير بيانات المطابقة إلى Excel بنجاح'), backgroundColor: Colors.green),
+                          );
+                        }
                       },
                     ),
                     const SizedBox(width: 8),
@@ -1015,28 +1149,31 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               ],
             ),
             const Divider(height: 20),
-            DataTable(
-              columns: const [
-                DataColumn(label: Text('الحقل')),
-                DataColumn(label: Text('القيمة بالنظام')),
-                DataColumn(label: Text('القيمة بالدرافت')),
-                DataColumn(label: Text('حالة التطابق')),
-                DataColumn(label: Text('التفاصيل')),
-              ],
-              rows: matrix.map((m) {
-                return DataRow(cells: [
-                  DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(m['system_value']?.toString() ?? '—')),
-                  DataCell(Text(m['draft_value']?.toString() ?? '—')),
-                  DataCell(
-                    Chip(
-                      label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
-                      backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('الحقل')),
+                  DataColumn(label: Text('القيمة بالنظام')),
+                  DataColumn(label: Text('القيمة بالدرافت')),
+                  DataColumn(label: Text('حالة التطابق')),
+                  DataColumn(label: Text('التفاصيل')),
+                ],
+                rows: matrix.map((m) {
+                  return DataRow(cells: [
+                    DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text(m['system_value']?.toString() ?? '—')),
+                    DataCell(Text(m['draft_value']?.toString() ?? '—')),
+                    DataCell(
+                      Chip(
+                        label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
+                        backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                      ),
                     ),
-                  ),
-                  DataCell(Text(m['details'] ?? '')),
-                ]);
-              }).toList(),
+                    DataCell(Text(m['details'] ?? '')),
+                  ]);
+                }).toList(),
+              ),
             ),
             if (hasDisc || hasCritical) ...[
               const SizedBox(height: 16),
@@ -1115,7 +1252,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     );
   }
 
-  Widget _buildStep4() {
+  Widget _buildStep4(List<dynamic> importFiles) {
     final cooReviews = ref.watch(cooReviewsProvider);
 
     return cooReviews.when(
@@ -1130,39 +1267,261 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('سجل مراجعات شهادات المنشأ واليورو 1 (COO Review Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('سجل مراجعات شهادات المنشأ واليورو 1 (COO Review Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      icon: const Icon(Icons.add, color: Colors.white, size: 16),
+                      label: const Text('مراجعة درافت جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      onPressed: () => setState(() => _activeStep = 0),
+                    ),
+                  ],
+                ),
                 const Divider(height: 20),
                 if (reviews.isEmpty)
                   const Center(child: Padding(padding: EdgeInsets.all(30), child: Text('لا توجد مراجعات مسجلة')))
                 else
-                  DataTable(
-                    columns: const [
-                      DataColumn(label: Text('كود الجلسة')),
-                      DataColumn(label: Text('النوع')),
-                      DataColumn(label: Text('رقم الشهادة')),
-                      DataColumn(label: Text('الحالة')),
-                      DataColumn(label: Text('تاريخ الإنشاء')),
-                    ],
-                    rows: reviews.map((r) {
-                      return DataRow(cells: [
-                        DataCell(Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                        DataCell(Text(r.certificateType)),
-                        DataCell(Text(r.certificateNumber)),
-                        DataCell(
-                          Chip(
-                            label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                            backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      columns: const [
+                        DataColumn(label: Text('كود الجلسة')),
+                        DataColumn(label: Text('النوع')),
+                        DataColumn(label: Text('رقم الشهادة')),
+                        DataColumn(label: Text('المصدر')),
+                        DataColumn(label: Text('الحالة')),
+                        DataColumn(label: Text('تاريخ الإنشاء')),
+                        DataColumn(label: Text('الإجراءات')),
+                      ],
+                      rows: reviews.map((r) {
+                        final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+                        final impName = r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—';
+                        final originCountry = r.draftInputData?['country_of_origin'] ?? '—';
+                        final destCountry = r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—';
+                        final invNo = r.draftInputData?['invoice_number'] ?? r.draftInputData?['box_10_invoice_number_and_date'] ?? '—';
+                        final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
+                        final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+
+                        return DataRow(cells: [
+                          DataCell(Text(r.cooReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                          DataCell(Text(r.certificateType)),
+                          DataCell(Text(r.certificateNumber)),
+                          DataCell(Text(expName)),
+                          DataCell(
+                            Chip(
+                              label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                              backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                            ),
                           ),
-                        ),
-                        DataCell(Text(r.createdAt.substring(0, 10))),
-                      ]);
-                    }).toList(),
+                          DataCell(Text(r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt)),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 1. Edit (تعديل)
+                                IconButton(
+                                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
+                                  tooltip: 'تعديل الجلسة',
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedImportFileId = r.importFileId;
+                                      _certType = r.certificateType;
+                                      _certNumberCtrl.text = r.certificateNumber;
+                                      _exporterCtrl.text = expName != '—' ? expName : '';
+                                      _importerCtrl.text = impName != '—' ? impName : '';
+                                      _originCountryCtrl.text = originCountry != '—' ? originCountry : 'Germany';
+                                      _destCountryCtrl.text = destCountry != '—' ? destCountry : 'Egypt';
+                                      _invoiceNoCtrl.text = invNo != '—' ? invNo : '';
+                                      _rawTextCtrl.text = rawTxt;
+                                      _overrideReasonCtrl.text = overrideReason;
+                                      if (r.comparisonMatrix.isNotEmpty) {
+                                        _comparisonResult = {
+                                          'comparison_matrix': r.comparisonMatrix,
+                                          'has_discrepancies': r.hasDiscrepancies,
+                                          'has_critical_mismatch': r.hasCriticalMismatch,
+                                          'system_snapshot_data': r.systemSnapshotData,
+                                          'draft_input_data': r.draftInputData,
+                                        };
+                                      }
+                                      _activeStep = 1;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('تم تحميل بيانات الجلسة (${r.cooReviewCode}) للتعديل')),
+                                    );
+                                  },
+                                ),
+                                // 2. View (مشاهدة)
+                                IconButton(
+                                  icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                  tooltip: 'معاينة التفاصيل',
+                                  onPressed: () => _showCOOReviewDetailsDialog(r),
+                                ),
+                                // 3. Download PDF (تنزيل PDF)
+                                IconButton(
+                                  icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
+                                  tooltip: 'تنزيل PDF',
+                                  onPressed: () async {
+                                    final tData = {
+                                      'certificate_number': r.certificateNumber,
+                                      'box_1_exporter': expName,
+                                      'box_2_consignee': impName,
+                                      'country_of_origin': originCountry,
+                                      'box_4_country_of_destination': destCountry,
+                                      'box_10_invoice_number_and_date': invNo,
+                                    };
+                                    await CooExportService.printOrSavePdf(
+                                      templateData: tData,
+                                      certificateType: r.certificateType,
+                                      acidNumber: '7595528271020210010',
+                                    );
+                                  },
+                                ),
+                                // 4. Delete (حذف)
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  tooltip: 'حذف الجلسة',
+                                  onPressed: () => _confirmDeleteCOOReview(r),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ]);
+                      }).toList(),
+                    ),
                   ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  void _showCOOReviewDetailsDialog(CertificateOfOriginReviewModel r) {
+    final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
+    final impName = r.draftInputData?['importer_name'] ?? r.draftInputData?['box_2_consignee'] ?? '—';
+    final originCountry = r.draftInputData?['country_of_origin'] ?? '—';
+    final destCountry = r.draftInputData?['destination_country'] ?? r.draftInputData?['box_4_country_of_destination'] ?? '—';
+    final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.assignment, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text('تفاصيل جلسة مراجعة شهادة المنشأ: ${r.cooReviewCode}'),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('نوع الشهادة ورقمها'),
+                  subtitle: Text('${r.certificateType} — رقم: ${r.certificateNumber}'),
+                  dense: true,
+                ),
+                ListTile(
+                  title: const Text('المصدر والمستورد'),
+                  subtitle: Text('المصدر: $expName\nالمستورد: $impName'),
+                  dense: true,
+                ),
+                ListTile(
+                  title: const Text('بلد المنشأ والمقصد'),
+                  subtitle: Text('المنشأ: $originCountry ➔ المقصد: $destCountry'),
+                  dense: true,
+                ),
+                if (overrideReason.isNotEmpty)
+                  ListTile(
+                    title: const Text('سبب ومبرر الموافقة على الاختلافات'),
+                    subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    dense: true,
+                  ),
+                if (r.comparisonMatrix.isNotEmpty) ...[
+                  const Divider(),
+                  const Text('مصفوفة الفروق والمطابقة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...r.comparisonMatrix.map((m) {
+                    final item = m is Map ? m : {};
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
+                              color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${item['field_label_ar'] ?? item['field']}: [درافت: ${item['draft_value']}] vs [نظام: ${item['system_value']}]',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إغلاق'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteCOOReview(CertificateOfOriginReviewModel r) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('تأكيد حذف جلسة مراجعة المنشأ'),
+          ],
+        ),
+        content: Text('هل أنت متأكد من حذف جلسة المراجعة رقم (${r.cooReviewCode}) لشهادة (${r.certificateNumber})؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await ref.read(cooReviewsProvider.notifier).deleteCOOReview(r.cooReviewId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✔ تم حذف جلسة المراجعة بنجاح'), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

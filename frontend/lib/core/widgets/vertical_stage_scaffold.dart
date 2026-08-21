@@ -1,6 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'back_to_dashboard_button.dart';
+import 'shipment_stage_lifecycle_control.dart';
 
 class VerticalNavTabItem {
   final IconData icon;
@@ -28,6 +29,9 @@ class VerticalStageScaffold extends StatelessWidget {
   final Widget body;
   final List<Widget>? headerActions;
   final Widget? topBanner;
+  final int? selectedImportFileId;
+  final bool showStageLifecycleControls;
+  final VoidCallback? onShipmentStatusChanged;
 
   const VerticalStageScaffold({
     super.key,
@@ -42,6 +46,9 @@ class VerticalStageScaffold extends StatelessWidget {
     required this.body,
     this.headerActions,
     this.topBanner,
+    this.selectedImportFileId,
+    this.showStageLifecycleControls = true,
+    this.onShipmentStatusChanged,
   });
 
   @override
@@ -52,7 +59,7 @@ class VerticalStageScaffold extends StatelessWidget {
         children: [
           // Top Header Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: AppTheme.charcoal,
               boxShadow: [
@@ -129,6 +136,18 @@ class VerticalStageScaffold extends StatelessWidget {
                     ],
                   ),
                 ),
+
+                // Stage Hold / Resume Lifecycle Control
+                if (showStageLifecycleControls) ...[
+                  ShipmentStageLifecycleControl(
+                    importFileId: selectedImportFileId,
+                    stageName: titleAr,
+                    stageCode: stageCode,
+                    onStatusChanged: onShipmentStatusChanged,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+
                 if (headerActions != null) ...[
                   ...headerActions!,
                   const SizedBox(width: 10),
@@ -137,6 +156,14 @@ class VerticalStageScaffold extends StatelessWidget {
               ],
             ),
           ),
+
+          // Shipment On-Hold Prominent Alert Banner
+          if (showStageLifecycleControls && selectedImportFileId != null)
+            ShipmentHoldWarningBanner(
+              importFileId: selectedImportFileId,
+              currentStageName: titleAr,
+              onResumeSuccess: onShipmentStatusChanged,
+            ),
 
           // Optional Top Banner (e.g. Legal Compliance, Warning, Info)
           if (topBanner != null) topBanner!,

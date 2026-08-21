@@ -28,6 +28,7 @@ import '../import_documentation/screens/bank_form4_screen.dart';
 import '../import_documentation/screens/central_docs_archive_screen.dart';
 import '../import_documentation/screens/customs_declaration46_screen.dart';
 import '../import_documentation/screens/nafeza_acid_screen.dart';
+import '../import_documentation/screens/original_docs_and_cargox_screen.dart';
 import '../import_documentation/screens/shipment_draft_docs_screen.dart';
 import '../import_files/screens/import_files_screen.dart';
 import '../import_requirements/screens/import_requirements_screen.dart';
@@ -143,11 +144,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         // 53: Draft Inspection Certificate (Dedicated Subtab 5)
         ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_inspection_5'), initialSubTab: 5),
 
-        // 54: CargoX Blockchain & ACI Dispatch Hub (Dedicated Subtab 7)
-        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_cargox_7'), initialSubTab: 7),
+        // 54: CargoX Blockchain & ACI Dispatch Hub → Phase 4 Standalone Screen (subTab 1)
+        OriginalDocsAndCargoXScreen(key: ValueKey('original_docs_cargox_1'), initialSubTab: 1),
 
         // 55: Customs Clearance Quotations & AI Extractor (Dedicated Subtab 3 in Customs Studies)
         CustomsConsultationScreen(key: ValueKey('customs_consultation_quotes_3'), initialIndex: 3),
+
+        // 56: Customs Duty Review & Estimator Workspace (Dedicated Tax Review Mode)
+        CustomsConsultationScreen(key: ValueKey('customs_duty_tax_review_56'), isTaxReviewMode: true),
+
+        // 57: Originals Collection → Phase 4 Standalone Screen (subTab 0)
+        OriginalDocsAndCargoXScreen(key: ValueKey('original_docs_cargox_0'), initialSubTab: 0),
+
+        // 58: OriginalDocsAndCargoXScreen — default (subTab 0, Original Docs)
+        OriginalDocsAndCargoXScreen(key: ValueKey('original_docs_cargox_default')),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -428,7 +438,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.fact_check_outlined, 'Draft Inspection / COC', 'مسودة وتوليد شهادة الفحص والمطابقة', 53, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Docs Customs Approval', 'الاعتماد النهائي للمستندات جمركياً', 20, selectedIndex),
                   _buildMenuItem(Icons.inventory_2_outlined, 'Central Docs & Rectifications Hub', 'الأرشيف المركزي لمستندات وتعديلات الشحنة', 51, selectedIndex),
-                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب الضرائب والرسوم الجمركية التقديرية', 6, selectedIndex),
+                  _buildMenuItem(Icons.calculate_outlined, 'Customs Duty Estimator', 'حساب ومراجعة الضرائب والرسوم الجمركية', 56, selectedIndex),
                 ],
               ),
 
@@ -443,7 +453,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 initiallyExpanded: false,
                 children: [
                   _buildMenuItem(Icons.cloud_upload_outlined, 'CargoX Blockchain & ACI Hub', 'منظومة الشحن المسبق والبلوك تشين CargoX', 54, selectedIndex),
-                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة', 18, selectedIndex),
+                  _buildMenuItem(Icons.mark_email_read_outlined, 'Originals Collection', 'تحصيل أصول مستندات الشحنة وتتبع الكورير', 57, selectedIndex),
                   _buildMenuItem(Icons.account_balance_outlined, 'Bank Form 4', 'النموذج الإحصائي والتحويل البنكي نموذج 4', 16, selectedIndex),
                 ],
               ),

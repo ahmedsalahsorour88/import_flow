@@ -555,6 +555,16 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
       rethrow;
     }
   }
+
+  Future<bool> deleteCOOReview(int reviewId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/import-documentation/coo/$reviewId');
+      await fetchReviews();
+      return true;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
 
 // 4. Inspection Certificate Provider
@@ -646,6 +656,16 @@ class InspectionNotifier extends StateNotifier<AsyncValue<List<InspectionCertifi
       final created = InspectionCertificateReviewModel.fromJson(response.data);
       await fetchReviews();
       return created;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<bool> deleteInspectionReview(int reviewId) async {
+    try {
+      await _dio.delete('${ApiConstants.baseUrl}/import-documentation/inspection/$reviewId');
+      await fetchReviews();
+      return true;
     } catch (e) {
       rethrow;
     }

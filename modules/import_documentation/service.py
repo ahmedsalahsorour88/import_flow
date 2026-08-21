@@ -3350,8 +3350,26 @@ def get_draft_bl_review_by_id_service(db: Session, review_id: int, include_inact
 def get_coo_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
     return repo.get_coo_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
 
+def delete_coo_review_service(db: Session, review_id: int) -> dict:
+    ok = repo.delete_coo_review(db, review_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة مراجعة شهادة المنشأ رقم {review_id} غير موجودة للحذف.",
+        )
+    return {"message": f"تم حذف جلسة مراجعة المنشأ رقم {review_id} بنجاح", "deleted": True}
+
 def get_inspection_reviews_service(db: Session, include_inactive: bool = False, import_file_id: int = None, status: str = None, search: str = None):
     return repo.get_inspection_reviews(db, include_inactive=include_inactive, import_file_id=import_file_id, status=status, search=search)
+
+def delete_inspection_review_service(db: Session, review_id: int) -> dict:
+    ok = repo.delete_inspection_review(db, review_id)
+    if not ok:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"جلسة مراجعة شهادة الفحص رقم {review_id} غير موجودة للحذف.",
+        )
+    return {"message": f"تم حذف جلسة مراجعة شهادة الفحص رقم {review_id} بنجاح", "deleted": True}
 
 
 def get_central_archive_service(db: Session, import_file_id: int) -> CentralArchiveResponse:

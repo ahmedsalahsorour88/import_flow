@@ -11,8 +11,7 @@ import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
-import '../widgets/original_documents_collection_tab.dart';
-import '../../cargox/screens/cargox_hub_screen.dart';
+
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
   final int initialSubTab;
@@ -36,8 +35,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   // 3: ⚡ الاستخراج ومطابقة الفاتورة والبوليصة (Smart Invoice vs. B/L Reconciliation)
   // 4: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
   // 5: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
-  // 6: 📦 تحصيل أصول المستندات وتتبع الكورير (Original Documents Collection & Courier Hub)
-  // 7: 📁 منظومة كارجو إكس والمانيفست الرقمي (CargoX Blockchain & ACI Hub)
+  // NOTE: Original Docs Collection & CargoX have been moved to OriginalDocsAndCargoXScreen (Phase 4)
   int _selectedSubTab = 0;
   int? _selectedImportFileId;
 
@@ -74,9 +72,8 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
 
   @override
   Widget build(BuildContext context) {
-    final shipmentDocs = ref.watch(shipmentDocumentsProvider).value ?? [];
-
     final tabs = [
+
       const VerticalNavTabItem(
         icon: Icons.verified_user,
         titleEn: 'Docs Customs Approval & Rectifications Hub',
@@ -107,45 +104,19 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
       ),
-      const VerticalNavTabItem(
-        icon: Icons.markunread_mailbox_outlined,
-        titleEn: 'Original Docs Collection & Courier',
-        titleAr: 'تحصيل أصول المستندات وتتبع الكورير',
-      ),
-      VerticalNavTabItem(
-        icon: Icons.hub_outlined,
-        titleEn: 'CargoX Blockchain & ACI Hub',
-        titleAr: 'منظومة كارجو إكس والمانيفست الرقمي',
-        badge: shipmentDocs.isNotEmpty
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${shipmentDocs.length}',
-                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              )
-            : null,
-      ),
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
-      titleEn: 'Shipment Draft Documents Review & CargoX',
-      titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن وكارجو إكس',
+      stageCode: 'PHASE-3',
+      titleEn: 'Shipment Draft Documents Review',
+      titleAr: 'مراجعة وتدقيق مسودات مستندات الشحن — المرحلة 3',
       headerIcon: Icons.folder_open_outlined,
       headerColor: AppTheme.emerald,
       tabs: tabs,
       selectedIndex: _selectedSubTab,
-      onTabSelected: (index) {
-        setState(() => _selectedSubTab = index);
-        if (index == 7) {
-          ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
-        }
-      },
+      onTabSelected: (index) => setState(() => _selectedSubTab = index),
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: _refreshData,
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
@@ -178,13 +149,6 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         return COOReviewTab(initialImportFileId: _selectedImportFileId);
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
-      case 6:
-        return OriginalDocumentsCollectionTab(initialImportFileId: _selectedImportFileId);
-      case 7:
-        return CargoXHubScreen(
-          initialImportFileId: _selectedImportFileId,
-          isEmbedded: true,
-        );
       default:
         return CustomsDocumentApprovalTab(initialImportFileId: _selectedImportFileId);
     }

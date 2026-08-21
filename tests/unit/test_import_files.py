@@ -266,3 +266,33 @@ class TestImportFilesBackend:
         assert resumed.status == "In Progress"
         assert resumed.hold_reason is None
 
+    def test_hold_shipment_at_specific_stage(self, db_session):
+        payload = ImportFileCreate(
+            custom_file_number="6701068199",
+            company_id=1,
+            company_name="Egyptian Import Co",
+            supplier_name="ABC China",
+        )
+        created = service.create_import_file_service(db_session, payload)
+
+        held = service.hold_import_file_service(
+            db_session,
+            created.import_file_id,
+            hold_reason="في انتظار تعديل مانيفست الشحن",
+            stage_name="مراجعة وتدقيق مسودات مستندات الشحن وكارجو إكس",
+            step_name="STEP-09",
+        )
+        assert held.status == "On Hold"
+        assert held.paused_at_stage == "مراجعة وتدقيق مسودات مستندات الشحن وكارجو إكس"
+        assert held.paused_at_step == "STEP-09"
+        assert "تم إيقاف الشحنة عند مرحلة" in held.notes
+
+        resumed = service.resume_import_file_service(
+            db_session,
+            created.import_file_id,
+            resume_notes="تم تعديل المانيفست بنجاح",
+        )
+        assert resumed.status == "In Progress"
+        assert resumed.hold_reason is None
+
+

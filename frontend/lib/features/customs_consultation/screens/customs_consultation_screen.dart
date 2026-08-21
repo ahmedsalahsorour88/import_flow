@@ -103,7 +103,12 @@ class CustomsItemCalcRow {
 
 class CustomsConsultationScreen extends ConsumerStatefulWidget {
   final int initialIndex;
-  const CustomsConsultationScreen({super.key, this.initialIndex = 0});
+  final bool isTaxReviewMode;
+  const CustomsConsultationScreen({
+    super.key,
+    this.initialIndex = 0,
+    this.isTaxReviewMode = false,
+  });
 
   @override
   ConsumerState<CustomsConsultationScreen> createState() => _CustomsConsultationScreenState();
@@ -114,7 +119,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   // Form State
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _titleController = TextEditingController(text: 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة');
+  late final TextEditingController _titleController;
   final TextEditingController _notesController = TextEditingController();
   final TextEditingController _estimatedDutiesController = TextEditingController(text: '0.0');
 
@@ -155,7 +160,14 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialIndex);
+    _titleController = TextEditingController(
+      text: widget.isTaxReviewMode
+          ? 'مراجعة واحتساب الضرائب والرسوم الجمركية للشحنة'
+          : 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة',
+    );
+    final tabCount = widget.isTaxReviewMode ? 2 : 4;
+    final initialIdx = widget.initialIndex < tabCount ? widget.initialIndex : 0;
+    _tabController = TabController(length: tabCount, vsync: this, initialIndex: initialIdx);
     _initializeDefaultChecklist();
     Future.microtask(() {
       ref.read(customsConsultationsProvider.notifier).fetchConsultations();
@@ -166,8 +178,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ref.read(shippingScenariosProvider.notifier).fetchSessions();
       ref.read(partnersProvider.notifier).fetchPartners();
       ref.read(projectsProvider.notifier).fetchProjects();
-      ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
-      ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+      if (!widget.isTaxReviewMode) {
+        ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+        ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+      }
     });
   }
 
@@ -1024,7 +1038,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ));
     }
 
-    if (_selectedBrokerId == null) {
+    if (!widget.isTaxReviewMode && _selectedBrokerId == null) {
       validationErrors.add(ValidationIssueItem(
         fieldName: 'المستخلص الجمركي المعني (Customs Broker)',
         issueDescription: 'لم يتم تحديد المستخلص الجمركي المسؤول عن دراسة الملف.',
@@ -1033,7 +1047,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       ));
     }
 
-    if (_checklist.isEmpty) {
+    if (!widget.isTaxReviewMode && _checklist.isEmpty) {
       validationErrors.add(ValidationIssueItem(
         fieldName: 'قائمة الفحص والمستندات الجمركية',
         issueDescription: 'قائمة فحص المستندات والاشتراطات فارغة تماماً.',
@@ -1045,15 +1059,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     if (validationErrors.isNotEmpty) {
       await showErrorDetailsDialog(
         context,
-        title: '⚠️ تنبيهات واستيفاء بيانات الاستشارة الجمركية',
-        error: 'يرجى استكمال البيانات الإلزامية التالية لتتمكن من حفظ دراسة الاستشارة بنجاح.',
+        title: '⚠️ تنبيهات واستيفاء بيانات الدراسة',
+        error: 'يرجى استكمال البيانات الإلزامية التالية لتتمكن من حفظ الدراسة بنجاح.',
         validationIssues: validationErrors,
       );
       return;
     }
 
     final estimatedDuties = double.tryParse(_estimatedDutiesController.text.trim()) ?? 0.0;
-    final totalBrokerFees = _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
+    final totalBrokerFees = widget.isTaxReviewMode ? 0.0 : _brokerQuoteItems.fold(0.0, (sum, itm) => sum + (itm.isApplicable ? itm.totalAmount : 0.0));
 
     // Change Diff Confirmation Dialog for Edits
     if (_editingConsultationId != null) {
@@ -1112,7 +1126,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         if (changes.isNotEmpty) {
           final confirmed = await showChangeDiffConfirmationDialog(
             context,
-            title: 'مراجعة وتأكيد تعديلات الاستشارة الجمركية',
+            title: 'مراجعة وتأكيد تعديلات الدراسة الجمركية',
             itemReference: _editingConsultationCode ?? titleToSave,
             changes: changes,
           );
@@ -1125,18 +1139,18 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     try {
       final payload = {
         'title': titleToSave,
-        'broker_id': _selectedBrokerId,
-        'broker_name': _selectedBrokerName,
+        'broker_id': _selectedBrokerId ?? 1,
+        'broker_name': _selectedBrokerName.isNotEmpty ? _selectedBrokerName : 'مراجعة الضرائب الجمركية',
         'broker_contact_person': _brokerContactPerson,
         if (_selectedImportFileId != null) 'import_file_id': _selectedImportFileId,
         if (_selectedPoId != null) 'po_id': _selectedPoId,
         if (_selectedProjectId != null) 'project_id': _selectedProjectId,
         'estimated_duties_egp': estimatedDuties,
         'total_broker_fees_egp': totalBrokerFees,
-        if (_brokerPriceListId != null) 'broker_price_list_id': _brokerPriceListId,
+        if (_brokerPriceListId != null && !widget.isTaxReviewMode) 'broker_price_list_id': _brokerPriceListId,
         'notes': _notesController.text.trim(),
         'checklist_items': _checklist.map((item) => item.toJson()).toList(),
-        'broker_quote_items': _brokerQuoteItems.map((item) => item.toJson()).toList(),
+        'broker_quote_items': widget.isTaxReviewMode ? [] : _brokerQuoteItems.map((item) => item.toJson()).toList(),
       };
 
       if (_editingConsultationId != null) {
@@ -1147,7 +1161,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  '✅ تم تحديث دراسة الاستشارة الجمركية بنجاح! كود: ${updated.consultationCode}'),
+                  '✅ تم تحديث مراجعة الضرائب الجمركية بنجاح! كود: ${updated.consultationCode}'),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -1169,7 +1183,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  '✅ تم حفظ دراسة الاستشارة الجمركية بنجاح! كود الدراسة: ${created.consultationCode}'),
+                  '✅ تم حفظ مراجعة الضرائب والرسوم الجمركية بنجاح! كود: ${created.consultationCode}'),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -1184,7 +1198,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (mounted) {
         await showErrorDetailsDialog(
           context,
-          title: '❌ تعذر حفظ دراسة الاستشارة الجمركية',
+          title: '❌ تعذر حفظ مراجعة الضرائب الجمركية',
           error: e,
           onRetry: () async {
             await _saveConsultation();
@@ -1195,9 +1209,6 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       if (mounted) setState(() => _isSaving = false);
     }
   }
-
-  /// Shows a post-save status dialog summarising each checklist item's state.
-
 
   @override
   Widget build(BuildContext context) {
@@ -1215,63 +1226,97 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     final blockingCount = _checklist.where((i) => i.isBlockingShipment && i.status != 'Approved').length;
     final liveReadinessPct = totalDocs > 0 ? ((approvedDocs / totalDocs) * 100).toInt() : 0;
 
-    // Live Customs Calculations
+    // Calculation Lines & Totals
     final calcLines = _calculateCustomsLines();
-    final double totalFobEgp = calcLines.fold(0.0, (s, l) => s + l.fobEgp);
-    final double totalCifEgp = calcLines.fold(0.0, (s, l) => s + l.cifEgp);
-    final double totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
-    final double totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
-    final double totalTaxesAndDutiesEgp = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
     final double exchangeRate = double.tryParse(_exchangeRateController.text.trim()) ?? 50.0;
     final double totalFreightEgp = double.tryParse(_freightEgpController.text.trim()) ?? 0.0;
     final double totalInsuranceEgp = double.tryParse(_insuranceEgpController.text.trim()) ?? 0.0;
+    final totalFobEgp = calcLines.fold(0.0, (s, l) => s + l.fobEgp);
+    final totalCifEgp = calcLines.fold(0.0, (s, l) => s + l.cifEgp);
+    final totalDutyEgp = calcLines.fold(0.0, (s, l) => s + l.dutyAmountEgp);
+    final totalVatEgp = calcLines.fold(0.0, (s, l) => s + l.vatAmountEgp);
+    final totalTaxesAndDutiesEgp = calcLines.fold(0.0, (s, l) => s + l.totalTaxesAndDutiesEgp);
 
-    final tabs = [
-      const VerticalNavTabItem(
-        icon: Icons.gavel_outlined,
-        titleEn: 'Customs Workspace',
-        titleAr: 'مركز الاستشارة والفحص الجمركي',
-      ),
-      VerticalNavTabItem(
-        icon: Icons.history_edu_outlined,
-        titleEn: 'Consultations Log',
-        titleAr: 'سجل الدراسات المحفوظة',
-        badge: (consultationsState.value?.length ?? 0) > 0
-            ? Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.cobalt.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${consultationsState.value!.length}',
-                  style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              )
-            : null,
-      ),
-      const VerticalNavTabItem(
-        icon: Icons.price_change_outlined,
-        titleEn: 'Broker Price Lists & Catalog',
-        titleAr: 'قوائم الأسعار وتكويد المصروفات',
-      ),
-      const VerticalNavTabItem(
-        icon: Icons.request_quote_rounded,
-        titleEn: 'Clearance Quotes & AI Extractor',
-        titleAr: 'عروض التخليص والاستخراج الذكي',
-      ),
-    ];
+    final tabs = widget.isTaxReviewMode
+        ? [
+            const VerticalNavTabItem(
+              icon: Icons.calculate_outlined,
+              titleEn: 'Customs Duty Workspace',
+              titleAr: 'مركز احتساب ومراجعة الضرائب',
+            ),
+            VerticalNavTabItem(
+              icon: Icons.history_edu_outlined,
+              titleEn: 'Tax Review Log',
+              titleAr: 'سجل مراجعات الضرائب المحفوظة',
+              badge: (consultationsState.value?.length ?? 0) > 0
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${consultationsState.value!.where((s) => s.estimatedDutiesEgp > 0).length}',
+                        style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : null,
+            ),
+          ]
+        : [
+            const VerticalNavTabItem(
+              icon: Icons.gavel_outlined,
+              titleEn: 'Customs Workspace',
+              titleAr: 'مركز الاستشارة والفحص الجمركي',
+            ),
+            VerticalNavTabItem(
+              icon: Icons.history_edu_outlined,
+              titleEn: 'Consultations Log',
+              titleAr: 'سجل الدراسات المحفوظة',
+              badge: (consultationsState.value?.length ?? 0) > 0
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: AppTheme.cobalt.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        '${consultationsState.value!.length}',
+                        style: const TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                      ),
+                    )
+                  : null,
+            ),
+            const VerticalNavTabItem(
+              icon: Icons.price_change_outlined,
+              titleEn: 'Broker Price Lists & Catalog',
+              titleAr: 'قوائم الأسعار وتكويد المصروفات',
+            ),
+            const VerticalNavTabItem(
+              icon: Icons.request_quote_rounded,
+              titleEn: 'Clearance Quotes & AI Extractor',
+              titleAr: 'عروض التخليص والاستخراج الذكي',
+            ),
+          ];
 
     return VerticalStageScaffold(
       stageCode: '',
-      titleEn: 'Customs Broker Consultation & Inspection Workspace',
-      titleAr: 'مركز الاستشارة والفحص الجمركي',
-      headerIcon: Icons.gavel_outlined,
-      headerColor: AppTheme.cobalt,
+      titleEn: widget.isTaxReviewMode
+          ? 'Customs Duty Review & Tax Calculation Workspace'
+          : 'Customs Broker Consultation & Inspection Workspace',
+      titleAr: widget.isTaxReviewMode
+          ? 'مركز مراجعة واحتساب الضرائب والرسوم الجمركية'
+          : 'مركز الاستشارة والفحص الجمركي',
+      headerIcon: widget.isTaxReviewMode ? Icons.calculate_outlined : Icons.gavel_outlined,
+      headerColor: widget.isTaxReviewMode ? Colors.teal : AppTheme.cobalt,
       tabs: tabs,
       selectedIndex: _tabController.index,
       onTabSelected: (index) {
         setState(() => _tabController.index = index);
+      },
+      selectedImportFileId: _selectedImportFileId,
+      onShipmentStatusChanged: () {
+        ref.read(importFilesProvider.notifier).fetchImportFiles();
       },
       headerActions: [
         IconButton(
@@ -1286,15 +1331,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             ref.read(shippingScenariosProvider.notifier).fetchSessions();
             ref.read(partnersProvider.notifier).fetchPartners();
             ref.read(projectsProvider.notifier).fetchProjects();
-            ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
-            ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+            if (!widget.isTaxReviewMode) {
+              ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+              ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+            }
           },
         ),
       ],
       body: IndexedStack(
         index: _tabController.index,
         children: [
-          // TAB 1: CUSTOMS CONSULTATION WORKSPACE
+          // TAB 1: CUSTOMS CONSULTATION / DUTY WORKSPACE
           SingleChildScrollView(
             padding: const EdgeInsets.all(20),
             child: Form(
@@ -1332,8 +1379,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ref.read(shippingScenariosProvider.notifier).fetchSessions();
                           ref.read(partnersProvider.notifier).fetchPartners();
                           ref.read(projectsProvider.notifier).fetchProjects();
-                          ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
-                          ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+                          if (!widget.isTaxReviewMode) {
+                            ref.read(clearanceExpenseTypesProvider.notifier).fetchExpenseTypes();
+                            ref.read(brokerPriceListsProvider.notifier).fetchPriceLists();
+                          }
                         },
                         icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
                         label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -1350,7 +1399,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           setState(() {
                             _editingConsultationId = null;
                             _editingConsultationCode = null;
-                            _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                            _titleController.text = widget.isTaxReviewMode
+                                ? 'مراجعة واحتساب الضرائب والرسوم الجمركية للشحنة'
+                                : 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
                             _selectedImportFileId = null;
                             _selectedPoId = null;
                             _selectedProjectId = null;
@@ -1362,24 +1413,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
-                      // 3. Smart Clearance Quote Extractor Button
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF6C5CE7),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      // 3. Smart Clearance Quote Extractor Button (Clearance Mode Only)
+                      if (!widget.isTaxReviewMode)
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF6C5CE7),
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                          icon: const Icon(Icons.auto_awesome, size: 16),
+                          label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          onPressed: () {
+                            showSmartClearanceExtractorDialog(
+                              context,
+                              ref,
+                              onExtracted: _applyExtractedQuotationToConsultation,
+                            );
+                          },
                         ),
-                        icon: const Icon(Icons.auto_awesome, size: 16),
-                        label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                        onPressed: () {
-                          showSmartClearanceExtractorDialog(
-                            context,
-                            ref,
-                            onExtracted: _applyExtractedQuotationToConsultation,
-                          );
-                        },
-                      ),
 
                       // 4. Save Draft & Continue Later
                       ElevatedButton.icon(
@@ -1406,7 +1458,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                             : Icon(_editingConsultationId != null ? Icons.save_as : Icons.save, color: Colors.white),
                         label: Text(
-                          _editingConsultationId != null ? 'حفظ تعديلات الاستشارة الجمركية' : 'حفظ دراسة الاستشارة الجمركية ✅',
+                          _editingConsultationId != null
+                              ? 'حفظ تعديلات المراجعة الجمركية'
+                              : (widget.isTaxReviewMode ? 'حفظ جلسة مراجعة الضرائب الجمركية ✅' : 'حفظ دراسة الاستشارة الجمركية ✅'),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1483,7 +1537,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               setState(() {
                                 _editingConsultationId = null;
                                 _editingConsultationCode = null;
-                                _titleController.text = 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
+                                _titleController.text = widget.isTaxReviewMode
+                                    ? 'مراجعة واحتساب الضرائب والرسوم الجمركية للشحنة'
+                                    : 'دراسة المراجعة الجمركية الأولية لخط إنتاج ومعدات الشحنة';
                                 _initializeDefaultChecklist();
                               });
                             },
@@ -1505,7 +1561,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('بيانات الجلسة والمستخلص الجمركي المعني (Customs Broker)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              Text(
+                                widget.isTaxReviewMode
+                                    ? 'بيانات ملف الشحنة وأوامر الشراء المربوطة بمراجعة الضرائب'
+                                    : 'بيانات الجلسة والمستخلص الجمركي المعني (Customs Broker)',
+                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                              ),
                               if (_editingConsultationCode != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -1522,37 +1583,39 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _titleController,
-                                  decoration: const InputDecoration(labelText: 'عنوان الاستشارة / موضوع الدراسة *', border: OutlineInputBorder()),
+                                  decoration: const InputDecoration(labelText: 'عنوان موضوع المراجعة / الدراسة *', border: OutlineInputBorder()),
                                   validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال عنوان الدراسة' : null,
                                 ),
                               ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: SearchableDropdownField<int?>(
-                                  value: _selectedBrokerId,
-                                  labelText: 'المستخلص الجمركي (Customs Broker) *',
-                                  searchHintText: 'ابحث عن المستخلص الجمركي...',
-                                  items: brokersList
-                                      .map((b) => SearchableDropdownItem<int?>(
-                                            value: b.providerId,
-                                            label: b.partnerName,
-                                            subtitle: b.contactPerson,
-                                          ))
-                                      .toList(),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      final b = brokersList.firstWhere((element) => element.providerId == val);
-                                      setState(() {
-                                        _selectedBrokerId = val;
-                                        _selectedBrokerName = b.partnerName;
-                                        _brokerContactPerson = b.contactPerson;
-                                      });
-                                    }
-                                  },
-                                  validator: (v) => v == null ? 'مطلوب تحديد المستخلص' : null,
+                              if (!widget.isTaxReviewMode) ...[
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
+                                  child: SearchableDropdownField<int?>(
+                                    value: _selectedBrokerId,
+                                    labelText: 'المستخلص الجمركي (Customs Broker) *',
+                                    searchHintText: 'ابحث عن المستخلص الجمركي...',
+                                    items: brokersList
+                                        .map((b) => SearchableDropdownItem<int?>(
+                                              value: b.providerId,
+                                              label: b.partnerName,
+                                              subtitle: b.contactPerson,
+                                            ))
+                                        .toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        final b = brokersList.firstWhere((element) => element.providerId == val);
+                                        setState(() {
+                                          _selectedBrokerId = val;
+                                          _selectedBrokerName = b.partnerName;
+                                          _brokerContactPerson = b.contactPerson;
+                                        });
+                                      }
+                                    },
+                                    validator: (v) => v == null ? 'مطلوب تحديد المستخلص' : null,
+                                  ),
                                 ),
-                              ),
+                              ],
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -1609,7 +1672,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   controller: _estimatedDutiesController,
                                   keyboardType: TextInputType.number,
                                   decoration: const InputDecoration(
-                                    labelText: 'تقدير الرسوم الجمركية والضرائب (EGP)',
+                                    labelText: 'تقدير الرسوم والضرائب (EGP)',
                                     border: OutlineInputBorder(),
                                     prefixIcon: Icon(Icons.calculate, color: AppTheme.cobalt),
                                   ),
@@ -1623,37 +1686,39 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                   ),
                   const SizedBox(height: 20),
 
-                  // BROKER CLEARANCE & LOGISTICS QUOTE DETAILS CARD
-                  BrokerQuoteDetailsCard(
-                    selectedBrokerId: _selectedBrokerId,
-                    isLoadingPriceList: _isLoadingPriceList,
-                    brokerQuoteItems: _brokerQuoteItems,
-                    brokerPriceListTitle: _brokerPriceListTitle,
-                    categoryFilter: _brokerExpenseCategoryFilter,
-                    isExpanded: _isBrokerQuoteExpanded,
-                    currenciesList: currenciesList,
-                    onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
-                    onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
-                    onAddCustomExpense: _addCustomBrokerExpenseRow,
-                    onApplyAll: () {
-                      setState(() {
-                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
-                          final itm = _brokerQuoteItems[i];
-                          final lineTotal = itm.unitPrice * itm.qty;
-                          _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
-                        }
-                      });
-                    },
-                    onDisableAll: () {
-                      setState(() {
-                        for (int i = 0; i < _brokerQuoteItems.length; i++) {
-                          _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
-                        }
-                      });
-                    },
-                    onUpdateItem: _updateBrokerQuoteItem,
-                  ),
-                  const SizedBox(height: 20),
+                  // BROKER CLEARANCE & LOGISTICS QUOTE DETAILS CARD (Clearance Mode Only)
+                  if (!widget.isTaxReviewMode) ...[
+                    BrokerQuoteDetailsCard(
+                      selectedBrokerId: _selectedBrokerId,
+                      isLoadingPriceList: _isLoadingPriceList,
+                      brokerQuoteItems: _brokerQuoteItems,
+                      brokerPriceListTitle: _brokerPriceListTitle,
+                      categoryFilter: _brokerExpenseCategoryFilter,
+                      isExpanded: _isBrokerQuoteExpanded,
+                      currenciesList: currenciesList,
+                      onToggleExpanded: () => setState(() => _isBrokerQuoteExpanded = !_isBrokerQuoteExpanded),
+                      onCategoryChanged: (cat) => setState(() => _brokerExpenseCategoryFilter = cat),
+                      onAddCustomExpense: _addCustomBrokerExpenseRow,
+                      onApplyAll: () {
+                        setState(() {
+                          for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                            final itm = _brokerQuoteItems[i];
+                            final lineTotal = itm.unitPrice * itm.qty;
+                            _brokerQuoteItems[i] = itm.copyWith(isApplicable: true, totalAmount: lineTotal);
+                          }
+                        });
+                      },
+                      onDisableAll: () {
+                        setState(() {
+                          for (int i = 0; i < _brokerQuoteItems.length; i++) {
+                            _brokerQuoteItems[i] = _brokerQuoteItems[i].copyWith(isApplicable: false, totalAmount: 0.0);
+                          }
+                        });
+                      },
+                      onUpdateItem: _updateBrokerQuoteItem,
+                    ),
+                    const SizedBox(height: 20),
+                  ],
 
                   // CUSTOMS CALCULATION ENGINE CARD (MD-008 Customs Engine)
                   Card(
@@ -2343,11 +2408,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             ),
           ),
 
-          SavedConsultationsTab(onEdit: _loadConsultationForEdit, onViewDetails: showConsultationDetailsDialog),
-          // TAB 3: BROKER PRICE LISTS & CATALOG MANAGEMENT
-          const BrokerPriceListsTab(),
-          // TAB 4: CLEARANCE QUOTATIONS & SMART AI EXTRACTOR
-          const CustomsClearanceQuotationsScreen(embedded: true),
+          SavedConsultationsTab(
+            isTaxReviewOnly: widget.isTaxReviewMode,
+            onEdit: _loadConsultationForEdit,
+            onViewDetails: showConsultationDetailsDialog,
+          ),
+          if (!widget.isTaxReviewMode) ...[
+            // TAB 3: BROKER PRICE LISTS & CATALOG MANAGEMENT
+            const BrokerPriceListsTab(),
+            // TAB 4: CLEARANCE QUOTATIONS & SMART AI EXTRACTOR
+            const CustomsClearanceQuotationsScreen(embedded: true),
+          ],
         ],
       ),
     );

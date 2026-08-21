@@ -601,6 +601,11 @@ def update_coo_review(
     return service.update_coo_review_service(db, review_id, payload)
 
 
+@router.delete("/coo/{review_id}", status_code=status.HTTP_200_OK)
+def delete_coo_review(review_id: int, db: Session = Depends(get_db)):
+    return service.delete_coo_review_service(db, review_id)
+
+
 @router.get(
     "/coo/draft-template/{import_file_id}",
     response_model=COODraftTemplateResponse,
@@ -659,6 +664,11 @@ def update_inspection_review(
     review_id: int, payload: InspectionCertificateReviewUpdate, db: Session = Depends(get_db)
 ):
     return service.update_inspection_review_service(db, review_id, payload)
+
+
+@router.delete("/inspection/{review_id}", status_code=status.HTTP_200_OK)
+def delete_inspection_review(review_id: int, db: Session = Depends(get_db)):
+    return service.delete_inspection_review_service(db, review_id)
 
 
 @router.get(

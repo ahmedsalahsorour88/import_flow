@@ -634,6 +634,8 @@ def hold_import_file_service(
     import_file_id: int,
     hold_reason: str,
     hold_notes: Optional[str] = None,
+    stage_name: Optional[str] = None,
+    step_name: Optional[str] = None,
 ) -> ImportFile:
     existing = repo.get_import_file_by_id(db, import_file_id)
     if not existing:
@@ -649,13 +651,16 @@ def hold_import_file_service(
         )
 
     now_dt = datetime.now()
+    stage = stage_name or existing.current_stage
+    step = step_name or existing.current_module
+
     update_dict = {
         "status": "On Hold",
-        "paused_at_stage": existing.current_stage,
-        "paused_at_step": existing.current_module,
+        "paused_at_stage": stage,
+        "paused_at_step": step,
         "hold_reason": hold_reason.strip(),
         "hold_date": now_dt,
-        "notes": f"تم التعليق: {hold_reason.strip()}" + (f" | {hold_notes}" if hold_notes else ""),
+        "notes": f"تم إيقاف الشحنة عند مرحلة [{stage}]: {hold_reason.strip()}" + (f" | {hold_notes}" if hold_notes else ""),
     }
 
     # Update lifecycle board activities

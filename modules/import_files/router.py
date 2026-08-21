@@ -240,7 +240,7 @@ def reopen_shipment(
 )
 def hold_shipment(
     import_file_id: int,
-    payload: schemas.HoldShipmentPayload,
+    payload: HoldShipmentPayload,
     db: Session = Depends(get_db),
 ):
     return service.hold_import_file_service(
@@ -248,6 +248,8 @@ def hold_shipment(
         import_file_id=import_file_id,
         hold_reason=payload.hold_reason,
         hold_notes=payload.hold_notes,
+        stage_name=payload.stage_name,
+        step_name=payload.step_name,
     )
 
 

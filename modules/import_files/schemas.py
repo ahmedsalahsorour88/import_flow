@@ -100,6 +100,8 @@ class ReopenShipmentSubmit(BaseModel):
 class HoldShipmentPayload(BaseModel):
     hold_reason: str = Field(..., min_length=3, description="Reason for placing shipment on hold")
     hold_notes: Optional[str] = None
+    stage_name: Optional[str] = None
+    step_name: Optional[str] = None
 
 
 class ResumeShipmentPayload(BaseModel):

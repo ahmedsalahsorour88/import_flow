@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../models/import_documentation_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../services/inspection_export_service.dart';
 import 'visual_draft_inspection_sheet.dart';
 
 class InspectionReviewTab extends ConsumerStatefulWidget {
@@ -498,11 +501,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       case 0:
         return _buildStep1(importFiles);
       case 1:
-        return _buildStep2();
+        return _buildStep2(importFiles);
       case 2:
-        return _buildStep3();
+        return _buildStep3(importFiles);
       case 3:
-        return _buildStep4();
+        return _buildStep4(importFiles);
       default:
         return const SizedBox.shrink();
     }
@@ -663,7 +666,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     );
   }
 
-  Widget _buildStep2() {
+  Widget _buildStep2(List<dynamic> importFiles) {
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -682,11 +685,97 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.compare_arrows, color: Colors.white),
                   label: const Text('تشغيل المطابقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: _isLoading ? null : _runComparison,
+                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
                 ),
               ],
             ),
             const Divider(height: 24),
+            // Mandatory Import File Selector Row
+            Row(
+              children: [
+                Expanded(
+                  flex: 4,
+                  child: SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: 'اختر ملف الشحنة المربوط *',
+                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.importFileCode} - ${f.companyName}',
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null) {
+                        setState(() => _selectedImportFileId = v);
+                        _loadSnapshot(v);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: SearchableDropdownField<String>(
+                    value: _inspType,
+                    labelText: 'نوع شهادة الفحص *',
+                    searchHintText: 'اختر نوع الفحص...',
+                    items: const [
+                      SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: 'شهادة المطابقة النوعية (COC)'),
+                      SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: 'شهادة التحليل المخبري (COA)'),
+                      SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: 'التحقق من المطابقة (VOC)'),
+                      SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: 'تقرير المعاينة قبل الشحن (PSI)'),
+                    ],
+                    onChanged: (v) {
+                      setState(() => _inspType = v ?? 'COC (Certificate of Conformity)');
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: SearchableDropdownField<String>(
+                    value: _inspAgency,
+                    labelText: 'جهة الفحص الدولية *',
+                    searchHintText: 'اختر جهة الفحص...',
+                    items: const [
+                      SearchableDropdownItem(value: 'SGS', label: 'SGS International'),
+                      SearchableDropdownItem(value: 'TÜV Rheinland', label: 'TÜV Rheinland'),
+                      SearchableDropdownItem(value: 'Bureau Veritas', label: 'Bureau Veritas (BV)'),
+                      SearchableDropdownItem(value: 'Intertek', label: 'Intertek Testing Services'),
+                      SearchableDropdownItem(value: 'Cotecna', label: 'Cotecna Inspection'),
+                    ],
+                    onChanged: (v) {
+                      setState(() => _inspAgency = v ?? 'SGS');
+                    },
+                  ),
+                ),
+              ],
+            ),
+            if (_selectedImportFileId == null) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.shade300),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً حتى يتم استخراج البيانات ومقارنتها بسجلات النظام.',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            const SizedBox(height: 16),
             Row(
               children: [
                 Expanded(
@@ -818,6 +907,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   ],
               ],
             ),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -825,7 +915,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 TextButton.icon(
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
                   label: const Text('⚡ استخراج ومطابقة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
-                  onPressed: _isLoading ? null : _extractFromOcrText,
+                  onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
                 ),
               ],
             ),
@@ -844,9 +934,51 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     );
   }
 
-  Widget _buildStep3() {
+  Widget _buildStep3(List<dynamic> importFiles) {
+    if (_selectedImportFileId == null) {
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            children: [
+              const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+              const SizedBox(height: 12),
+              const Text('⚠️ يجب اختيار ملف الشحنة أولاً لعرض مصفوفة المقارنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                onPressed: () => setState(() => _activeStep = 1),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     if (_comparisonResult == null) {
-      return const Center(child: Text('يرجى تشغيل المقارنة أولاً'));
+      return Card(
+        elevation: 2,
+        child: Padding(
+          padding: const EdgeInsets.all(30),
+          child: Column(
+            children: [
+              const Icon(Icons.compare_arrows, size: 48, color: AppTheme.cobalt),
+              const SizedBox(height: 12),
+              const Text('يرجى تشغيل المطابقة في الخطوة السابقة لاستعراض مصفوفة الفروق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                label: const Text('العودة لتشغيل المطابقة', style: TextStyle(color: Colors.white)),
+                onPressed: () => setState(() => _activeStep = 1),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
     final matrix = _comparisonResult!['comparison_matrix'] as List<dynamic>? ?? [];
@@ -886,9 +1018,19 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       icon: const Icon(Icons.picture_as_pdf, size: 16),
                       label: const Text('تصدير PDF', style: TextStyle(fontSize: 12)),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('سيتم تصدير تقرير مطابقة شهادة الفحص قريباً')),
-                        );
+                        if (_selectedImportFileId != null && _activeDraftTemplate != null) {
+                          InspectionExportService.printOrSavePdf(
+                            templateData: _activeDraftTemplate!,
+                            agency: _inspAgency,
+                            certType: _inspType,
+                            acidNumber: _activeAcidNumber ?? '7595528271015010011',
+                            standards: _activeStandards,
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('جارٍ تصدير تقرير مطابقة شهادة الفحص...')),
+                          );
+                        }
                       },
                     ),
                     const SizedBox(width: 8),
@@ -901,9 +1043,19 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       icon: const Icon(Icons.table_chart, size: 16),
                       label: const Text('Excel', style: TextStyle(fontSize: 12)),
                       onPressed: () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('سيتم تصدير تقرير المطابقة إلى Excel قريباً')),
-                        );
+                        if (_activeDraftTemplate != null) {
+                          final csv = InspectionExportService.exportInspectionCsv(
+                            templateData: _activeDraftTemplate!,
+                            agency: _inspAgency,
+                            certType: _inspType,
+                            acidNumber: _activeAcidNumber ?? '7595528271015010011',
+                            standards: _activeStandards,
+                          );
+                          Clipboard.setData(ClipboardData(text: csv));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('📊 تم نسخ وتصدير بيانات المطابقة إلى Excel بنجاح'), backgroundColor: Colors.green),
+                          );
+                        }
                       },
                     ),
                     const SizedBox(width: 8),
@@ -918,28 +1070,31 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               ],
             ),
             const Divider(height: 20),
-            DataTable(
-              columns: const [
-                DataColumn(label: Text('الحقل')),
-                DataColumn(label: Text('القيمة بالنظام')),
-                DataColumn(label: Text('القيمة بالدرافت')),
-                DataColumn(label: Text('حالة التطابق')),
-                DataColumn(label: Text('التفاصيل')),
-              ],
-              rows: matrix.map((m) {
-                return DataRow(cells: [
-                  DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  DataCell(Text(m['system_value']?.toString() ?? '—')),
-                  DataCell(Text(m['draft_value']?.toString() ?? '—')),
-                  DataCell(
-                    Chip(
-                      label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
-                      backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('الحقل')),
+                  DataColumn(label: Text('القيمة بالنظام')),
+                  DataColumn(label: Text('القيمة بالدرافت')),
+                  DataColumn(label: Text('حالة التطابق')),
+                  DataColumn(label: Text('التفاصيل')),
+                ],
+                rows: matrix.map((m) {
+                  return DataRow(cells: [
+                    DataCell(Text(m['field_label_ar'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataCell(Text(m['system_value']?.toString() ?? '—')),
+                    DataCell(Text(m['draft_value']?.toString() ?? '—')),
+                    DataCell(
+                      Chip(
+                        label: Text(m['match_status'] ?? '', style: const TextStyle(fontSize: 11, color: Colors.white)),
+                        backgroundColor: m['severity'] == 'BLOCKING' ? Colors.red : (m['severity'] == 'WARNING' ? Colors.orange : Colors.green),
+                      ),
                     ),
-                  ),
-                  DataCell(Text(m['details'] ?? '')),
-                ]);
-              }).toList(),
+                    DataCell(Text(m['details'] ?? '')),
+                  ]);
+                }).toList(),
+              ),
             ),
             if (hasDisc || hasCritical) ...[
               const SizedBox(height: 16),
@@ -1018,12 +1173,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     );
   }
 
-  Widget _buildStep4() {
-    final inspReviews = ref.watch(inspectionReviewsProvider);
+  Widget _buildStep4(List<dynamic> importFiles) {
+    final reviewsState = ref.watch(inspectionReviewsProvider);
 
-    return inspReviews.when(
+    return reviewsState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('خطأ: $e'),
+      error: (err, _) => Center(child: Text('خطأ في جلب السجلات: $err')),
       data: (reviews) {
         return Card(
           elevation: 2,
@@ -1033,41 +1188,258 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('سجل مراجعات شهادات الفحص والمطابقة (Inspection Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                const Divider(height: 20),
-                if (reviews.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(30), child: Text('لا توجد مراجعات مسجلة')))
-                else
-                  DataTable(
-                    columns: const [
-                      DataColumn(label: Text('كود الجلسة')),
-                      DataColumn(label: Text('نوع الفحص')),
-                      DataColumn(label: Text('جهة الفحص')),
-                      DataColumn(label: Text('رقم الشهادة')),
-                      DataColumn(label: Text('الحالة')),
-                      DataColumn(label: Text('تاريخ الإنشاء')),
-                    ],
-                    rows: reviews.map((r) {
-                      return DataRow(cells: [
-                        DataCell(Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                        DataCell(Text(r.inspectionType)),
-                        DataCell(Text(r.inspectionAgency)),
-                        DataCell(Text(r.certificateNumber)),
-                        DataCell(
-                          Chip(
-                            label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
-                            backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
-                          ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.history_edu, color: AppTheme.cobalt, size: 22),
+                        const SizedBox(width: 8),
+                        Text(
+                          'سجل مراجعات واعتماد شهادات الفحص والتفتيش (${reviews.length} جلسة)',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
-                        DataCell(Text(r.createdAt.substring(0, 10))),
-                      ]);
-                    }).toList(),
+                      ],
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      icon: const Icon(Icons.add, color: Colors.white, size: 16),
+                      label: const Text('بدء مراجعة جديدة', style: TextStyle(color: Colors.white)),
+                      onPressed: () => setState(() => _activeStep = 1),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                if (reviews.isEmpty)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
+                    child: const Center(child: Text('لا توجد جلسات مراجعة مسجلة لشهادات الفحص حتى الآن.')),
+                  )
+                else
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: DataTable(
+                      headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
+                      columns: const [
+                        DataColumn(label: Text('كود الجلسة')),
+                        DataColumn(label: Text('نوع الفحص')),
+                        DataColumn(label: Text('جهة الفحص')),
+                        DataColumn(label: Text('رقم الشهادة')),
+                        DataColumn(label: Text('الحالة')),
+                        DataColumn(label: Text('تاريخ الإنشاء')),
+                        DataColumn(label: Text('الإجراءات')),
+                      ],
+                      rows: reviews.map((r) {
+                        final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
+                        final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+
+                        return DataRow(cells: [
+                          DataCell(Text(r.inspectionReviewCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                          DataCell(Text(r.inspectionType)),
+                          DataCell(Text(r.inspectionAgency)),
+                          DataCell(Text(r.certificateNumber)),
+                          DataCell(
+                            Chip(
+                              label: Text(r.status, style: const TextStyle(color: Colors.white, fontSize: 11)),
+                              backgroundColor: r.status == 'Verified' ? Colors.green : Colors.orange,
+                            ),
+                          ),
+                          DataCell(Text(r.createdAt.length >= 10 ? r.createdAt.substring(0, 10) : r.createdAt)),
+                          DataCell(
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                // 1. Edit (تعديل)
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
+                                  tooltip: 'تعديل الجلسة',
+                                  onPressed: () {
+                                    setState(() {
+                                      _selectedImportFileId = r.importFileId;
+                                      _inspType = r.inspectionType;
+                                      _inspAgency = r.inspectionAgency;
+                                      _certNumberCtrl.text = r.certificateNumber;
+                                      _rawTextCtrl.text = rawTxt;
+                                      _overrideReasonCtrl.text = overrideReason;
+                                      if (r.comparisonMatrix.isNotEmpty) {
+                                        _comparisonResult = {
+                                          'comparison_matrix': r.comparisonMatrix,
+                                          'has_discrepancies': r.hasDiscrepancies,
+                                          'has_critical_mismatch': r.hasCriticalMismatch,
+                                          'system_snapshot_data': r.systemSnapshotData,
+                                          'draft_input_data': r.draftInputData,
+                                        };
+                                      }
+                                      _activeStep = 1;
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('تم تحميل بيانات الجلسة (${r.inspectionReviewCode}) للتعديل')),
+                                    );
+                                  },
+                                ),
+                                // 2. View (مشاهدة)
+                                IconButton(
+                                  icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                  tooltip: 'معاينة التفاصيل',
+                                  onPressed: () => _showInspectionReviewDetailsDialog(r),
+                                ),
+                                // 3. Download PDF (تنزيل PDF)
+                                IconButton(
+                                  icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
+                                  tooltip: 'تنزيل PDF',
+                                  onPressed: () async {
+                                    final tData = {
+                                      'certificate_number': r.certificateNumber,
+                                      'inspection_agency': r.inspectionAgency,
+                                      'inspection_type': r.inspectionType,
+                                      ...?r.draftInputData,
+                                    };
+                                    await InspectionExportService.printOrSavePdf(
+                                      templateData: tData,
+                                      agency: r.inspectionAgency,
+                                      certType: r.inspectionType,
+                                      acidNumber: '7595528271015010011',
+                                      standards: _activeStandards,
+                                    );
+                                  },
+                                ),
+                                // 4. Delete (حذف)
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  tooltip: 'حذف الجلسة',
+                                  onPressed: () => _confirmDeleteInspectionReview(r),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ]);
+                      }).toList(),
+                    ),
                   ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  void _showInspectionReviewDetailsDialog(InspectionCertificateReviewModel r) {
+    final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            const Icon(Icons.assignment, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text('تفاصيل جلسة مراجعة شهادة الفحص: ${r.inspectionReviewCode}'),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  title: const Text('نوع الفحص والجهة المصدرة'),
+                  subtitle: Text('${r.inspectionType} — جهة الفحص: ${r.inspectionAgency}'),
+                  dense: true,
+                ),
+                ListTile(
+                  title: const Text('رقم الشهادة والحالة'),
+                  subtitle: Text('رقم الشهادة: ${r.certificateNumber} | الحالة: ${r.status}'),
+                  dense: true,
+                ),
+                if (overrideReason.isNotEmpty)
+                  ListTile(
+                    title: const Text('سبب ومبرر الموافقة على الاختلافات'),
+                    subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                    dense: true,
+                  ),
+                if (r.comparisonMatrix.isNotEmpty) ...[
+                  const Divider(),
+                  const Text('مصفوفة الفروق والمطابقة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  ...r.comparisonMatrix.map((m) {
+                    final item = m is Map ? m : {};
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Icon(item['match_status'] == 'MATCH' ? Icons.check_circle : Icons.warning,
+                              color: item['match_status'] == 'MATCH' ? Colors.green : Colors.orange, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${item['field_label_ar'] ?? item['field']}: [درافت: ${item['draft_value']}] vs [نظام: ${item['system_value']}]',
+                              style: const TextStyle(fontSize: 12),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                ],
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إلغاء'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDeleteInspectionReview(InspectionCertificateReviewModel r) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('تأكيد حذف جلسة مراجعة الفحص'),
+          ],
+        ),
+        content: Text('هل أنت متأكد من حذف جلسة المراجعة رقم (${r.inspectionReviewCode}) لشهادة (${r.certificateNumber})؟'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إلغاء'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.of(ctx).pop();
+              try {
+                await ref.read(inspectionReviewsProvider.notifier).deleteInspectionReview(r.inspectionReviewId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('✔ تم حذف جلسة مراجعة الفحص بنجاح'), backgroundColor: Colors.green),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -233,13 +233,21 @@ class ImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>
     }
   }
 
-  Future<ImportFileModel?> holdShipment(int importFileId, String holdReason, {String? holdNotes}) async {
+  Future<ImportFileModel?> holdShipment(
+    int importFileId,
+    String holdReason, {
+    String? holdNotes,
+    String? stageName,
+    String? stepName,
+  }) async {
     try {
       final response = await _dio.post(
         '${ApiConstants.baseUrl}/import-files/$importFileId/hold',
         data: {
           'hold_reason': holdReason,
           if (holdNotes != null) 'hold_notes': holdNotes,
+          if (stageName != null) 'stage_name': stageName,
+          if (stepName != null) 'step_name': stepName,
         },
       );
       final held = ImportFileModel.fromJson(response.data);

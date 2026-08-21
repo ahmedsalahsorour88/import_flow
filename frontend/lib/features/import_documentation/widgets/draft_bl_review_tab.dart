@@ -516,11 +516,11 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
       case 0:
         return _buildStage1UnifiedReviewSheetView(importFiles);
       case 1:
-        return _buildStage2RevisionView();
+        return _buildStage2RevisionView(importFiles);
       case 2:
-        return _buildStage3VersionBranchingView();
+        return _buildStage3VersionBranchingView(importFiles);
       case 3:
-        return _buildStage4DualApprovalView();
+        return _buildStage4DualApprovalView(importFiles);
       case 4:
         return _buildStage5FinalRegistryView(allReviews);
       default:
@@ -1364,7 +1364,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // ===========================================================================
   // STAGE 2: REVISION REPORT & CARRIER CORRECTION LETTER
   // ===========================================================================
-  Widget _buildStage2RevisionView() {
+  Widget _buildStage2RevisionView(List<dynamic> importFiles) {
     final checklist = _comparisonResult?.checklist ?? [];
     final incorrectItems = checklist.where((c) => c.status == 'Incorrect').toList();
     final letter = _comparisonResult?.correctionRequestLetter ?? 'لا يوجد خطاب مولد حالياً.';
@@ -1372,116 +1372,173 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // Top File Selector
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                Expanded(
+                  child: SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: 'ملف الشحنة المربوط *',
+                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.importFileCode} - ${f.companyName}',
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null && v != _selectedImportFileId) {
+                        setState(() => _selectedImportFileId = v);
+                        _runComparison(silent: false);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_selectedImportFileId == null)
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Center(
+                child: Column(
                   children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.assignment_late, color: Colors.orange, size: 24),
-                        SizedBox(width: 8),
-                        Text('تقرير التعديلات المطلوبة (Revision Report)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const SizedBox(height: 12),
+                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لعرض تقرير التعديلات وخطاب الخط الملاحي', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                      icon: const Icon(Icons.history, color: Colors.white, size: 16),
-                      label: const Text('المتابعة لسجل النسخ (Stage 3)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () => setState(() => _activeStep = 2),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      onPressed: () => setState(() => _activeStep = 0),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
-                const Text('يضم هذا التقرير فقط البنود غير المطابقة المطلوب تعديلها من الخط الملاحي أو المورد.', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                const Divider(height: 20),
-                if (incorrectItems.isEmpty)
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
-                    child: const Row(
-                      children: [
-                        Icon(Icons.check_circle, color: Colors.green),
-                        SizedBox(width: 10),
-                        Text('رائع! لا توجد أي تعديلات مطلوبة. كافة بنود المسودة مطابقة تماماً للمنظومة.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  )
-                else
-                  DataTable(
-                    columns: const [
-                      DataColumn(label: Text('البند (Item)')),
-                      DataColumn(label: Text('الإجراء والتصحيح المطلوب (Required Action)')),
-                      DataColumn(label: Text('الجهة المسؤولة (Responsible)')),
-                      DataColumn(label: Text('السبب (Reason)')),
+              ),
+            ),
+          )
+        else ...[
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.assignment_late, color: Colors.orange, size: 24),
+                          SizedBox(width: 8),
+                          Text('تقرير التعديلات المطلوبة (Revision Report)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                        icon: const Icon(Icons.history, color: Colors.white, size: 16),
+                        label: const Text('المتابعة لسجل النسخ (Stage 3)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        onPressed: () => setState(() => _activeStep = 2),
+                      ),
                     ],
-                    rows: incorrectItems.map((itm) {
-                      return DataRow(cells: [
-                        DataCell(Text(itm.fieldLabelEn, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        DataCell(Text(itm.requiredCorrection ?? 'Update to match system value (${itm.systemValue})', style: const TextStyle(color: Colors.red))),
-                        DataCell(Text(itm.responsibleParty ?? 'Shipping Provider')),
-                        DataCell(Text(itm.reason ?? 'Mismatch with system master record')),
-                      ]);
-                    }).toList(),
                   ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 20),
-
-        // Carrier Request Letter
-        Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.mail, color: AppTheme.cobalt, size: 24),
-                        SizedBox(width: 8),
-                        Text('خطاب طلب التعديل الرسمي للخط الملاحي (Carrier Correction Request Letter)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 6),
+                  const Text('يضم هذا التقرير فقط البنود غير المطابقة المطلوب تعديلها من الخط الملاحي أو المورد.', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                  const Divider(height: 20),
+                  if (incorrectItems.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.green)),
+                      child: const Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green),
+                          SizedBox(width: 10),
+                          Text('رائع! لا توجد أي تعديلات مطلوبة. كافة بنود المسودة مطابقة تماماً للمنظومة.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                    )
+                  else
+                    DataTable(
+                      columns: const [
+                        DataColumn(label: Text('البند (Item)')),
+                        DataColumn(label: Text('الإجراء والتصحيح المطلوب (Required Action)')),
+                        DataColumn(label: Text('الجهة المسؤولة (Responsible)')),
+                        DataColumn(label: Text('السبب (Reason)')),
                       ],
+                      rows: incorrectItems.map((itm) {
+                        return DataRow(cells: [
+                          DataCell(Text(itm.fieldLabelEn, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          DataCell(Text(itm.requiredCorrection ?? 'Update to match system value (${itm.systemValue})', style: const TextStyle(color: Colors.red))),
+                          DataCell(Text(itm.responsibleParty ?? 'Shipping Provider')),
+                          DataCell(Text(itm.reason ?? 'Mismatch with system master record')),
+                        ]);
+                      }).toList(),
                     ),
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
-                      icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-                      label: const Text('نسخ الخطاب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      onPressed: () {
-                        Clipboard.setData(ClipboardData(text: letter));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✔ تم نسخ خطاب التعديل إلى الحافظة بنجاح'), backgroundColor: Colors.green),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                const Divider(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
-                  child: SelectableText(
-                    letter,
-                    style: const TextStyle(fontFamily: 'Courier', fontSize: 13, height: 1.5),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
+          const SizedBox(height: 20),
+
+          // Carrier Request Letter
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.mail, color: AppTheme.cobalt, size: 24),
+                          SizedBox(width: 8),
+                          Text('خطاب طلب التعديل الرسمي للخط الملاحي (Carrier Correction Request Letter)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                        icon: const Icon(Icons.copy, color: Colors.white, size: 16),
+                        label: const Text('نسخ الخطاب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          Clipboard.setData(ClipboardData(text: letter));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('✔ تم نسخ خطاب التعديل إلى الحافظة بنجاح'), backgroundColor: Colors.green),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.grey.shade300)),
+                    child: SelectableText(
+                      letter,
+                      style: const TextStyle(fontFamily: 'Courier', fontSize: 13, height: 1.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -1489,222 +1546,339 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // ===========================================================================
   // STAGE 3: VERSION BRANCHING (v1 / v2 / v3)
   // ===========================================================================
-  Widget _buildStage3VersionBranchingView() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildStage3VersionBranchingView(List<dynamic> importFiles) {
+    return Column(
+      children: [
+        // Top File Selector
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.alt_route, color: AppTheme.cobalt, size: 24),
-                    SizedBox(width: 8),
-                    Text('إدارة النسخ والإصدارات (Version Branching & Locking)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-                  icon: const Icon(Icons.verified_user, color: Colors.white, size: 16),
-                  label: const Text('المتابعة للاعتماد الثنائي (Stage 4)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  onPressed: () => setState(() => _activeStep = 3),
+                Expanded(
+                  child: SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: 'ملف الشحنة المربوط *',
+                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.importFileCode} - ${f.companyName}',
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null && v != _selectedImportFileId) {
+                        setState(() => _selectedImportFileId = v);
+                        _runComparison(silent: false);
+                      }
+                    },
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
-            const Text(
-              'عند استلام مسودة معدلة جديدة (v2, v3)، يقوم النظام بقفل البنود المطابقة سابقاً (Locked)، وإعادة فتح البنود ذات الملاحظات فقط للتأكد من تعديلها.',
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+        ),
+        const SizedBox(height: 16),
+        if (_selectedImportFileId == null)
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const SizedBox(height: 12),
+                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لعرض إدارة النسخ والتعديلات', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      onPressed: () => setState(() => _activeStep = 0),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            const Divider(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-              child: Row(
+          )
+        else
+          Card(
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.info, color: AppTheme.cobalt),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'النسخة الحالية النشطة: ${_activeSession?.version ?? 'v1'} (${_activeSession?.stage ?? 'Stage 1: Review'}) | البنود المقفلة: ${_comparisonResult?.checklist.where((c) => c.isLocked).length ?? 0}',
-                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.alt_route, color: AppTheme.cobalt, size: 24),
+                          SizedBox(width: 8),
+                          Text('إدارة النسخ والإصدارات (Version Branching & Locking)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                        icon: const Icon(Icons.verified_user, color: Colors.white, size: 16),
+                        label: const Text('المتابعة للاعتماد الثنائي (Stage 4)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        onPressed: () => setState(() => _activeStep = 3),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'عند استلام مسودة معدلة جديدة (v2, v3)، يقوم النظام بقفل البنود المطابقة سابقاً (Locked)، وإعادة فتح البنود ذات الملاحظات فقط للتأكد من تعديلها.',
+                    style: TextStyle(color: Colors.grey, fontSize: 13),
+                  ),
+                  const Divider(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info, color: AppTheme.cobalt),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'النسخة الحالية النشطة: ${_activeSession?.version ?? 'v1'} (${_activeSession?.stage ?? 'Stage 1: Review'}) | البنود المقفلة: ${_comparisonResult?.checklist.where((c) => c.isLocked).length ?? 0}',
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
+          ),
+      ],
     );
   }
 
   // ===========================================================================
   // STAGE 4: DUAL APPROVAL (IMPORTER + CUSTOMS BROKER)
   // ===========================================================================
-  Widget _buildStage4DualApprovalView() {
+  Widget _buildStage4DualApprovalView(List<dynamic> importFiles) {
     final hasBlocking = _comparisonResult?.hasBlockingMismatch ?? false;
     final reasons = _comparisonResult?.blockingReasons ?? [];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasBlocking)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
+        // Top File Selector
+        Card(
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          child: Padding(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
             child: Row(
               children: [
-                const Icon(Icons.block, color: Colors.red, size: 28),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('🚨 حظر الاعتماد التام (Approval Blocked): توجد اختلافات حرجة تمنع اعتماد البوليصة', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
-                      const SizedBox(height: 4),
-                      Text(reasons.join(' | '), style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
-                    ],
+                  child: SearchableDropdownField<int>(
+                    value: _selectedImportFileId,
+                    labelText: 'ملف الشحنة المربوط *',
+                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    items: importFiles
+                        .map((f) => SearchableDropdownItem<int>(
+                              value: f.importFileId,
+                              label: '${f.importFileCode} - ${f.companyName}',
+                            ))
+                        .toList(),
+                    onChanged: (v) {
+                      if (v != null && v != _selectedImportFileId) {
+                        setState(() => _selectedImportFileId = v);
+                        _runComparison(silent: false);
+                      }
+                    },
                   ),
                 ),
               ],
             ),
           ),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Importer Card
-            Expanded(
-              child: Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.person, color: AppTheme.cobalt),
-                          const SizedBox(width: 8),
-                          const Text('1. اعتماد مسؤول الاستيراد (Importer Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                          const Spacer(),
-                          Text(
-                            _activeSession?.importerApprovalStatus ?? 'Pending',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _activeSession?.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      TextFormField(
-                        controller: _importerApproverCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم مسؤول الاستيراد / المعتمِد *', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _importerNotesCtrl,
-                        maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'ملاحظات وتوجيهات الاستيراد', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.check, color: Colors.white),
-                              label: const Text('اعتماد وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('importer', 'Approved'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
-                            icon: const Icon(Icons.close),
-                            label: const Text('رفض المسودة'),
-                            onPressed: _isLoading ? null : () => _submitApproval('importer', 'Rejected'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 16),
-
-            // Customs Broker Card
-            Expanded(
-              child: Card(
-                elevation: 2,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.gavel, color: Colors.teal),
-                          const SizedBox(width: 8),
-                          const Text('2. اعتماد المخلص الجمركي (Broker Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-                          const Spacer(),
-                          Text(
-                            _activeSession?.brokerApprovalStatus ?? 'Pending',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _activeSession?.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Divider(height: 20),
-                      TextFormField(
-                        controller: _brokerApproverCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم المخلص الجمركي المعتمد *', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _brokerNotesCtrl,
-                        maxLines: 2,
-                        decoration: const InputDecoration(labelText: 'ملاحظات التخليص ومطابقة نافذة', border: OutlineInputBorder()),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
-                              icon: const Icon(Icons.check, color: Colors.white),
-                              label: const Text('اعتماد جمركي وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                              onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('broker', 'Approved'),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          OutlinedButton.icon(
-                            style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
-                            icon: const Icon(Icons.close),
-                            label: const Text('رفض المسودة'),
-                            onPressed: _isLoading ? null : () => _submitApproval('broker', 'Rejected'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ],
         ),
+        const SizedBox(height: 16),
+        if (_selectedImportFileId == null)
+          Card(
+            elevation: 2,
+            child: Padding(
+              padding: const EdgeInsets.all(30),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.folder_off, size: 48, color: Colors.orange),
+                    const SizedBox(height: 12),
+                    const Text('⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً لإتمام الاعتماد الثنائي للبوليصة', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                      onPressed: () => setState(() => _activeStep = 0),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          )
+        else ...[
+          if (hasBlocking)
+            Container(
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
+              child: Row(
+                children: [
+                  const Icon(Icons.block, color: Colors.red, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('🚨 حظر الاعتماد التام (Approval Blocked): توجد اختلافات حرجة تمنع اعتماد البوليصة', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                        const SizedBox(height: 4),
+                        Text(reasons.join(' | '), style: TextStyle(fontSize: 12, color: Colors.red.shade900)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Importer Card
+              Expanded(
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.person, color: AppTheme.cobalt),
+                            const SizedBox(width: 8),
+                            const Text('1. اعتماد مسؤول الاستيراد (Importer Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            const Spacer(),
+                            Text(
+                              _activeSession?.importerApprovalStatus ?? 'Pending',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _activeSession?.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 20),
+                        TextFormField(
+                          controller: _importerApproverCtrl,
+                          decoration: const InputDecoration(labelText: 'اسم مسؤول الاستيراد / المعتمِد *', border: OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _importerNotesCtrl,
+                          maxLines: 2,
+                          decoration: const InputDecoration(labelText: 'ملاحظات وتوجيهات الاستيراد', border: OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.green, padding: const EdgeInsets.symmetric(vertical: 12)),
+                                icon: const Icon(Icons.check, color: Colors.white),
+                                label: const Text('اعتماد وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('importer', 'Approved'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
+                              icon: const Icon(Icons.close),
+                              label: const Text('رفض المسودة'),
+                              onPressed: _isLoading ? null : () => _submitApproval('importer', 'Rejected'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+
+              // Customs Broker Card
+              Expanded(
+                child: Card(
+                  elevation: 2,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.gavel, color: Colors.teal),
+                            const SizedBox(width: 8),
+                            const Text('2. اعتماد المخلص الجمركي (Broker Approval)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            const Spacer(),
+                            Text(
+                              _activeSession?.brokerApprovalStatus ?? 'Pending',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: _activeSession?.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 20),
+                        TextFormField(
+                          controller: _brokerApproverCtrl,
+                          decoration: const InputDecoration(labelText: 'اسم المخلص الجمركي المعتمد *', border: OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: _brokerNotesCtrl,
+                          maxLines: 2,
+                          decoration: const InputDecoration(labelText: 'ملاحظات التخليص ومطابقة نافذة', border: OutlineInputBorder()),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: const EdgeInsets.symmetric(vertical: 12)),
+                                icon: const Icon(Icons.check, color: Colors.white),
+                                label: const Text('اعتماد جمركي وموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                onPressed: (hasBlocking || _isLoading) ? null : () => _submitApproval('broker', 'Approved'),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            OutlinedButton.icon(
+                              style: OutlinedButton.styleFrom(foregroundColor: Colors.red, padding: const EdgeInsets.symmetric(vertical: 12)),
+                              icon: const Icon(Icons.close),
+                              label: const Text('رفض المسودة'),
+                              onPressed: _isLoading ? null : () => _submitApproval('broker', 'Rejected'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ],
     );
   }

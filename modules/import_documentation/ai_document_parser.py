@@ -47,6 +47,34 @@ def clean_bl_boilerplate(text: str) -> str:
     return cleaned
 
 
+def clean_exporter_name(raw: str, reg_id: Optional[str] = None) -> str:
+    """
+    Cleans raw exporter name string:
+    - Strips markdown formatting (*, #, _, `)
+    - Strips prefix labels ('1. Exporter:', 'Shipper:', etc.)
+    - Strips foreign tax registration code (e.g. 'LT300591314', 'IT01982510305')
+    - Strips trailing address snippets, postal codes, and EUR.1 number tokens
+    """
+    if not raw:
+        return ""
+    cleaned = re.sub(r'[*#_`]', '', raw).strip()
+    # Strip prefix label
+    cleaned = re.sub(r'^(?:1\.?\s*)?(?:Exporter|Shipper|Consignor|Producer)[:\s]*', '', cleaned, flags=re.I).strip()
+    # Strip country code + reg ID prefix
+    if reg_id:
+        cleaned = re.sub(r'^' + re.escape(reg_id) + r'[,:\s]*', '', cleaned, flags=re.I).strip()
+    cleaned = re.sub(r'^[A-Z]{2}\d{6,15}[,:\s]*', '', cleaned).strip()
+
+    # Cut off at pipe | or EUR.1 or Movement Certificate or Address markers
+    cleaned = re.split(
+        r'\s*\|\s*|\s*EUR\.?1\b|\s*No\s*[A-Z]?\s*\d{5,8}|\s*Via\s+|\s*EITMINI|\s*Street\b|\s*St\.\b|\s*Building\b|\s*c/o\b|\s*Road\b|\s*District\b|\s*Zone\b',
+        cleaned,
+        flags=re.I
+    )[0].strip()
+    cleaned = re.sub(r'[,;\-\s]+$', '', cleaned).strip()
+    return cleaned
+
+
 def extract_spatial_pdf_text_and_boxes(content_bytes: bytes) -> Tuple[str, dict]:
     """
     Extracts text from PDF preserving 2D spatial layout and bounding boxes
@@ -1828,17 +1856,18 @@ def extract_eur1_certificate_text(raw_text: str) -> Dict[str, Any]:
     if reg_m:
         exporter_reg_id = reg_m.group(1).strip()
 
+    # Search for explicit exporter line containing reg id or standard business suffixes
     for line in text.splitlines():
         l_strip = line.strip()
         if exporter_reg_id and exporter_reg_id in l_strip:
-            cand = re.sub(r'^[A-Z]{2}\d{6,15}[,\s]*', '', l_strip).strip()
+            cand = clean_exporter_name(l_strip, exporter_reg_id)
             if cand and len(cand) > 3 and not cand.lower().startswith("exporter"):
                 exporter = cand
                 break
     if not exporter:
         exp_m = re.search(r'([A-Z0-9\s,\.\-&]+(?:UAB|GMBH|LTD|CORP|COMPANY|SPA|S\.P\.A\.|SRL|INC|INTERNATIONAL|CO\.,\s*LTD)[^\n]*)', text, re.I)
         if exp_m:
-            cand_exp = re.sub(r'^[A-Z]{2}\d{6,15}[,\s]*', '', exp_m.group(1)).strip()
+            cand_exp = clean_exporter_name(exp_m.group(1), exporter_reg_id)
             if not any(w in cand_exp.lower() for w in ('declaration', 'customs', 'endorsement', 'overleaf')):
                 exporter = cand_exp
 

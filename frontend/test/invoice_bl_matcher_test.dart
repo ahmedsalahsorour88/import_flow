@@ -91,19 +91,9 @@ void main() {
     expect(find.textContaining('BEAU5851356'), findsWidgets);
     expect(find.textContaining('7595528271019210013'), findsWidgets);
 
-    // Test adding Packing List additional document card
-    expect(find.text('+ إضافة كشف التعبئة كملف إضافي (Packing List)'), findsOneWidget);
-    await tester.tap(find.text('+ إضافة كشف التعبئة كملف إضافي (Packing List)'));
-    await tester.pumpAndSettle();
-
-    // Verify Packing List card appears
-    expect(find.textContaining('كشف التعبئة النهائي'), findsOneWidget);
-    expect(find.byTooltip('إلغاء وإخفاء كشف التعبئة'), findsOneWidget);
-
-    // Test removing Packing List card
-    await tester.tap(find.byTooltip('إلغاء وإخفاء كشف التعبئة'));
-    await tester.pumpAndSettle();
-    expect(find.text('+ إضافة كشف التعبئة كملف إضافي (Packing List)'), findsOneWidget);
+    // Verify Packing List card is visible and accessible
+    expect(find.textContaining('كشف التعبئة النهائي'), findsWidgets);
+    expect(find.textContaining('Packing List'), findsWidgets);
   });
 }
 

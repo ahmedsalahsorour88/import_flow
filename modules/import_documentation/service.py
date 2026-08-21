@@ -1676,15 +1676,23 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
         ("certificate_type", "نوع شهادة المنشأ (Certificate Type)", False),
     ]
 
+    from modules.import_documentation.ai_document_parser import clean_exporter_name
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
         drf_val = draft_fields.get(key)
-        
+
+        clean_sys_val = sys_val
+        clean_drf_val = drf_val
+
+        if key == "exporter_name":
+            clean_sys_val = clean_exporter_name(str(sys_val or ""))
+            clean_drf_val = clean_exporter_name(str(drf_val or ""), str(draft_fields.get("exporter_reg_id") or ""))
+
         if key == "exporter_reg_id" and (not drf_val or not str(drf_val).strip()):
             matched = True
             ratio = 1.0
         else:
-            matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+            matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
         # Special rule for EUR.1 origin comparison: 'EU' or 'European Union' matches any EU-27 member country in system
         if key == "country_of_origin" and not matched:
@@ -1711,7 +1719,7 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
             "field_key": key,
             "field_label_ar": label_ar,
             "system_value": sys_val,
-            "draft_value": drf_val,
+            "draft_value": clean_drf_val if key == "exporter_name" else drf_val,
             "match_status": match_status,
             "severity": severity,
             "details": f"نسبة التشابه: {round(ratio * 100, 1)}%",

@@ -154,9 +154,9 @@ class MasterDataExportService {
                   pw.SizedBox(height: 12),
                   pw.Container(
                     padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
+                    decoration: const pw.BoxDecoration(
                       color: PdfColors.grey100,
-                      borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                      borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                     ),
                     child: pw.Text('ملاحظات الشركة: ${company.notes}', style: const pw.TextStyle(fontSize: 9)),
                   ),
@@ -699,9 +699,9 @@ Sorour Logistics ERP
                 // Contact Details
                 pw.Container(
                   padding: const pw.EdgeInsets.all(10),
-                  decoration: pw.BoxDecoration(
+                  decoration: const pw.BoxDecoration(
                     color: PdfColors.grey100,
-                    borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+                    borderRadius: pw.BorderRadius.all(pw.Radius.circular(4)),
                   ),
                   child: pw.Column(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,

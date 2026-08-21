@@ -46,6 +46,7 @@ from modules.import_documentation.validators import (
     validate_no_duplicate_form4_session,
 )
 import modules.import_documentation.repository as repo
+from modules.customs_tariff.model import CustomsTariff
 
 
 from modules.import_documentation.nafeza_acid_parser import (
@@ -725,7 +726,10 @@ from modules.import_documentation.schemas import (
 def _normalize_str(s: Any) -> str:
     if s is None:
         return ""
-    return " ".join(str(s).lower().strip().split())
+    st = str(s).strip()
+    # Strip leading country-code + registration ID or numeric tax ID if present before company name
+    st = re.sub(r'^[A-Z]{2}\d{6,15}[,\s]+|^\d{8,15}[,\s]+', '', st, flags=re.I)
+    return " ".join(st.lower().split())
 
 
 def _fuzzy_match(s1: Any, s2: Any, threshold: float = 0.70) -> tuple[bool, float]:
@@ -1019,9 +1023,44 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
     }
 
 
+def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
+    """
+    High-accuracy optical character recognition (OCR) for scanned PDFs and images.
+    Uses RapidOCR + pypdfium2 / Pillow.
+    """
+    lower = filename.lower()
+    try:
+        from rapidocr_onnxruntime import RapidOCR
+        import numpy as np
+        engine = RapidOCR()
+        extracted_lines = []
+
+        if lower.endswith(".pdf"):
+            import pypdfium2 as pdfium
+            pdf = pdfium.PdfDocument(content_bytes)
+            for i in range(len(pdf)):
+                page = pdf.get_page(i)
+                pil_img = page.render(scale=2.0).to_pil()
+                ocr_res, _ = engine(np.array(pil_img))
+                if ocr_res:
+                    extracted_lines.extend([item[1] for item in ocr_res])
+        elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
+            from PIL import Image
+            pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
+            ocr_res, _ = engine(np.array(pil_img))
+            if ocr_res:
+                extracted_lines.extend([item[1] for item in ocr_res])
+
+        return "\n".join(extracted_lines)
+    except Exception as e:
+        logger.warning(f"RapidOCR extraction failed for '{filename}': {e}")
+        return ""
+
+
 def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: bytes) -> Tuple[str, dict]:
     """
     Extracts raw text and 2D spatial bounding boxes from uploaded PDF or files.
+    Includes automatic OCR fallback for scanned documents and images.
     """
     lower_name = filename.lower()
     text_content = ""
@@ -1049,6 +1088,12 @@ def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: byte
                 text_content = f"PDF Extraction Note: {str(e2)}"
     else:
         text_content = extract_text_from_uploaded_file(filename, content_bytes)
+
+    # Automatic OCR fallback if document contains scanned images or no text stream
+    if not text_content or len(text_content.strip()) < 30:
+        ocr_text = _ocr_pdf_or_image(filename, content_bytes)
+        if ocr_text and len(ocr_text.strip()) > len(text_content.strip()):
+            text_content = ocr_text
 
     return text_content, spatial_boxes
 
@@ -1082,6 +1127,8 @@ def extract_text_from_uploaded_file(filename: str, content_bytes: bytes) -> str:
             except Exception as e2:
                 text_content = f"PDF Extraction Note: {str(e2)}"
 
+    elif lower_name.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
+        text_content = _ocr_pdf_or_image(filename, content_bytes)
 
     elif lower_name.endswith(".docx") or lower_name.endswith(".doc"):
         try:
@@ -1593,11 +1640,19 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
         raise HTTPException(status_code=404, detail="Import File not found")
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    raw_country = (getattr(supplier, 'foreign_exporter_country', None)) or (getattr(imp_file, 'origin_country', None)) or "Lithuania"
+    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(raw_country).strip().lower(), "")
+    raw_reg = (getattr(supplier, 'tax_id', None)) or (getattr(supplier, 'foreign_exporter_id', None)) or (getattr(supplier, 'exporter_code', None)) or ""
+    if raw_reg and country_iso and not str(raw_reg).strip().upper().startswith(country_iso.upper()):
+        exp_reg_id = f"{country_iso.upper()}{str(raw_reg).strip()}"
+    else:
+        exp_reg_id = str(raw_reg).strip()
 
     sys_snapshot = {
         "exporter_name": supplier.company_name if supplier else imp_file.supplier_name,
+        "exporter_reg_id": exp_reg_id,
         "exporter_address": supplier.address if supplier else "",
-        "country_of_origin": supplier.foreign_exporter_country if supplier else "Germany",
+        "country_of_origin": raw_country,
         "importer_name": company.importer_name if company else imp_file.company_name,
         "importer_address": company.address if company else "",
         "destination_country": "Egypt",
@@ -1612,6 +1667,7 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     has_discrepancies = False
 
     coo_checks = [
+        ("exporter_reg_id", "كود المصدر الأجنبي / رقم التسجيل (Foreign Exporter Reg Code)", False),
         ("exporter_name", "اسم المصدر (Exporter Name)", True),
         ("country_of_origin", "بلد المنشأ (Country of Origin)", True),
         ("importer_name", "اسم المستورد (Importer / Consignee)", True),
@@ -1623,7 +1679,21 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
         drf_val = draft_fields.get(key)
-        matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+        
+        if key == "exporter_reg_id" and (not drf_val or not str(drf_val).strip()):
+            matched = True
+            ratio = 1.0
+        else:
+            matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+        
+        # Special rule for EUR.1 origin comparison: 'EU' or 'European Union' matches any EU-27 member country in system
+        if key == "country_of_origin" and not matched:
+            sys_norm = str(sys_val or "").lower().strip()
+            drf_norm = str(drf_val or "").lower().strip()
+            if ("eu" in drf_norm or "european union" in drf_norm or "الاتحاد الأوروبي" in drf_norm) and any(eu == sys_norm or eu in sys_norm for eu in EU_27_COUNTRIES):
+                matched = True
+                ratio = 1.0
+        
         if matched:
             match_status = "MATCH"
             severity = "NONE"
@@ -1786,6 +1856,156 @@ def update_inspection_review_service(db: Session, review_id: int, schema: Inspec
 
 # --- SPECIALIZED CERTIFICATE DRAFT GENERATORS, EXTRACTION & CROSS-MATCHING ---
 
+COUNTRY_ISO_MAP = {
+    "italy": "IT", "italia": "IT", "إيطاليا": "IT",
+    "lithuania": "LT", "lietuva": "LT", "ليتوانيا": "LT",
+    "germany": "DE", "deutschland": "DE", "ألمانيا": "DE",
+    "france": "FR", "فرنسا": "FR",
+    "spain": "ES", "إسبانيا": "ES",
+    "austria": "AT", "النمسا": "AT",
+    "belgium": "BE", "بلجيكا": "BE",
+    "poland": "PL", "بولندا": "PL",
+    "netherlands": "NL", "holland": "NL", "هولندا": "NL",
+    "china": "CN", "الصين": "CN",
+    "saudi arabia": "SA", "السعودية": "SA",
+    "united arab emirates": "AE", "uae": "AE", "الإمارات": "AE",
+    "jordan": "JO", "الأردن": "JO",
+    "tunisia": "TN", "تونس": "TN",
+    "morocco": "MA", "المغرب": "MA",
+    "egypt": "EG", "مصر": "EG",
+}
+
+EU_27_COUNTRIES = {
+    "austria", "belgium", "bulgaria", "croatia", "cyprus", "republic of cyprus",
+    "czech republic", "czechia", "denmark", "estonia", "finland", "france",
+    "germany", "greece", "hungary", "ireland", "italy", "latvia", "lithuania",
+    "luxembourg", "malta", "netherlands", "poland", "portugal", "romania",
+    "slovakia", "slovenia", "spain", "sweden", "eu", "european union",
+    "النمسا", "بلجيكا", "بلغاريا", "كرواتيا", "قبرص", "التشيك", "الدنمارك",
+    "إستونيا", "فنلندا", "فرنسا", "ألمانيا", "اليونان", "المجر", "أيرلندا",
+    "إيطاليا", "لاتفيا", "ليتوانيا", "لوكسمبورغ", "مالطا", "هولندا", "بولندا",
+    "البرتغال", "رومانيا", "سلوفاكيا", "سلوفينيا", "إسبانيا", "السويد", "الاتحاد الأوروبي"
+}
+
+CHINA_NAMES = {
+    "china", "prc", "people's republic of china", "cn", "الصين", "جمهورية الصين الشعبية"
+}
+
+AGADIR_COUNTRIES = {
+    "egypt", "jordan", "tunisia", "morocco", "palestine", "lebanon",
+    "مصر", "الأردن", "تونس", "المغرب", "فلسطين", "لبنان"
+}
+
+GAFTA_COUNTRIES = {
+    "egypt", "united arab emirates", "uae", "bahrain", "saudi arabia", "ksa",
+    "oman", "qatar", "kuwait", "jordan", "tunisia", "algeria", "syria",
+    "iraq", "palestine", "lebanon", "libya", "morocco", "sudan", "yemen",
+    "مصر", "الإمارات", "البحرين", "السعودية", "عمان", "قطر", "الكويت",
+    "الأردن", "تونس", "الجزائر", "سوريا", "العراق", "فلسطين", "لبنان",
+    "ليبيا", "المغرب", "السودان", "اليمن"
+}
+
+ARAB_LEAGUE_COUNTRIES = GAFTA_COUNTRIES | {
+    "comoros", "mauritania", "somalia", "djibouti",
+    "جزر القمر", "موريتانيا", "الصومال", "جيبوتي"
+}
+
+
+def classify_coo_certificate_type(country_name: str) -> dict:
+    """
+    Automated COO Certificate Decision Engine based on Egyptian Customs Regulations & Bilateral Trade Agreements:
+    1. EU-27 Member States -> EUR.1 automatically.
+    2. China -> China Certificate of Origin (CCPIT) automatically.
+    3. Dual Agadir & GAFTA members (Egypt, Jordan, Tunisia, Morocco, Palestine, Lebanon) -> Manual choice between Agadir & GAFTA.
+    4. Agadir member only -> Agadir Agreement automatically.
+    5. GAFTA member only -> GAFTA automatically.
+    6. Arab League country (not Agadir, not GAFTA) -> Form A / GSP automatically.
+    7. All other countries -> Manual selection from full list.
+    """
+    c_norm = str(country_name or "").strip().lower()
+    if not c_norm:
+        return {
+            "recommended_type": None,
+            "allowed_types": ["EUR.1", "China Certificate of Origin (CCPIT)", "Standard COO", "Form A / GSP", "Agadir Agreement", "GAFTA"],
+            "is_manual_choice_required": True,
+            "recommendation_alert": "يرجى اختيار نوع شهادة المنشأ المطلوبة.",
+            "exemption_type": "GENERAL",
+        }
+
+    # 1. EU-27
+    if any(c_norm == eu or eu in c_norm for eu in EU_27_COUNTRIES):
+        return {
+            "recommended_type": "EUR.1",
+            "allowed_types": ["EUR.1"],
+            "is_manual_choice_required": False,
+            "recommendation_alert": "بلد المنشأ ضمن دول الاتحاد الأوروبي (27 دولة) — تم اختيار شهادة الحركة EUR.1 تلقائياً للاستفادة من الإعفاء الجمركي التفضيلى الكامل.",
+            "exemption_type": "EU_AGREEMENT",
+        }
+
+    # 2. China
+    if any(c_norm == cn or cn in c_norm for cn in CHINA_NAMES):
+        return {
+            "recommended_type": "China Certificate of Origin (CCPIT)",
+            "allowed_types": ["China Certificate of Origin (CCPIT)"],
+            "is_manual_choice_required": False,
+            "recommendation_alert": "بلد المنشأ جمهورية الصين الشعبية — تم اختيار شهادة منشأ الصين (CCPIT) تلقائياً.",
+            "exemption_type": "GENERAL_TARIFF",
+        }
+
+    # 3. Dual Agadir & GAFTA
+    is_agadir = any(c_norm == ag or ag in c_norm for ag in AGADIR_COUNTRIES)
+    is_gafta = any(c_norm == gf or gf in c_norm for gf in GAFTA_COUNTRIES)
+
+    if is_agadir and is_gafta:
+        return {
+            "recommended_type": None,
+            "allowed_types": ["Agadir Agreement", "GAFTA"],
+            "is_manual_choice_required": True,
+            "recommendation_alert": "بلد المنشأ عضو في اتفاقية أغادير ومنطقة التجارة الحرة العربية (GAFTA) معاً — لا يتم الاختيار تلقائياً، يرجى اختيار نوع الشهادة يدوياً وقت الاستيراد.",
+            "exemption_type": "ARAB_DUAL_PREFERENTIAL",
+        }
+
+    # 4. Agadir only
+    if is_agadir and not is_gafta:
+        return {
+            "recommended_type": "Agadir Agreement",
+            "allowed_types": ["Agadir Agreement"],
+            "is_manual_choice_required": False,
+            "recommendation_alert": "بلد المنشأ عضو في اتفاقية أغادير فقط — تم اختيار شهادة اتفاقية أغادير تلقائياً.",
+            "exemption_type": "AGADIR_AGREEMENT",
+        }
+
+    # 5. GAFTA only
+    if is_gafta and not is_agadir:
+        return {
+            "recommended_type": "GAFTA",
+            "allowed_types": ["GAFTA"],
+            "is_manual_choice_required": False,
+            "recommendation_alert": "بلد المنشأ عضو في منطقة التجارة الحرة العربية الكبرى (GAFTA) فقط — تم اختيار شهادة GAFTA تلقائياً.",
+            "exemption_type": "GAFTA_AGREEMENT",
+        }
+
+    # 6. Arab League non-member
+    is_arab = any(c_norm == ar or ar in c_norm for ar in ARAB_LEAGUE_COUNTRIES)
+    if is_arab:
+        return {
+            "recommended_type": "Form A / GSP",
+            "allowed_types": ["Form A / GSP", "Standard COO"],
+            "is_manual_choice_required": False,
+            "recommendation_alert": "بلد المنشأ عربي (جامعة الدول العربية) وليس عضواً في أغادير أو GAFTA — تم اختيار شهادة عادية / Form A تلقائياً.",
+            "exemption_type": "FORM_A",
+        }
+
+    # 7. Unclassified general country
+    return {
+        "recommended_type": None,
+        "allowed_types": ["Standard COO", "Form A / GSP", "EUR.1", "China Certificate of Origin (CCPIT)", "Agadir Agreement", "GAFTA"],
+        "is_manual_choice_required": True,
+        "recommendation_alert": "لا يوجد تصنيف تفضيلي تلقائي لهذا المنشأ — يُترك الاختيار للمستخدم من القائمة الكاملة.",
+        "exemption_type": "STANDARD_GENERAL",
+    }
+
+
 def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, supplier: Optional[Supplier] = None):
     from modules.purchase_orders.model import PurchaseOrder, POLineItem, PackingListItem
     from modules.customs_tariff.model import CustomsTariff
@@ -1801,13 +2021,15 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
     ).all()
 
     for po in pos:
-        if po.country_of_origin and str(po.country_of_origin).strip():
-            for c in str(po.country_of_origin).split(","):
+        po_origin = str(po.country_of_origin).strip() if po.country_of_origin else None
+        if po_origin:
+            for c in po_origin.split(","):
                 if c.strip():
                     distinct_origins.add(c.strip())
         for itm in po.line_items:
-            if itm.country_of_origin and str(itm.country_of_origin).strip():
-                for c in str(itm.country_of_origin).split(","):
+            itm_origin = str(itm.country_of_origin).strip() if itm.country_of_origin else po_origin
+            if itm_origin:
+                for c in itm_origin.split(","):
                     if c.strip():
                         distinct_origins.add(c.strip())
             hs = None
@@ -1821,9 +2043,9 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
                 distinct_hs_codes.add(hs)
             
             items_summary.append({
-                "description": itm.description_en or itm.description_ar,
+                "description": itm.description_en or itm.description_ar or (itm.tariff.description_en if itm.tariff else None) or (itm.tariff.description_ar if itm.tariff else None) or "COMMERCIAL CARGO",
                 "hs_code": hs or "560229",
-                "origin": itm.country_of_origin or (po.country_of_origin if po else None) or (supplier.foreign_exporter_country if supplier else "Unknown"),
+                "origin": itm_origin or (supplier.foreign_exporter_country if supplier else "Unknown"),
                 "quantity": float(itm.quantity or 1.0),
                 "unit": itm.unit_of_measure or "PCS",
                 "total_price": float(itm.total_price or 0.0),
@@ -1878,7 +2100,7 @@ def _extract_multi_origins_and_hs_codes(db: Session, import_file_id: int, suppli
 def generate_coo_draft_template_service(
     db: Session,
     import_file_id: int,
-    cert_type: str = "EUR.1"
+    cert_type: Optional[str] = None
 ) -> COODraftTemplateResponse:
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
     if not imp_file:
@@ -1899,7 +2121,7 @@ def generate_coo_draft_template_service(
         AcidRegistrationSession.is_active == True
     ).first()
 
-    # Dynamic extraction of all distinct origins and HS codes
+    # Dynamic extraction of all distinct origins, HS codes, and item descriptions
     extracted_meta = _extract_multi_origins_and_hs_codes(db, import_file_id, supplier)
     origins_list = extracted_meta["origins_list"]
     origin_countries_str = extracted_meta["origin_countries_str"]
@@ -1907,47 +2129,116 @@ def generate_coo_draft_template_service(
     hs_codes_str = extracted_meta["hs_codes_str"]
     items_summary = extracted_meta["items_summary"]
 
+    # Automated Classification Rule for COO
+    primary_origin = origins_list[0] if origins_list else (supplier.foreign_exporter_country if supplier else "Lithuania")
+    classification = classify_coo_certificate_type(primary_origin)
+
+    rec_type = classification.get("recommended_type")
+    
+    if cert_type and cert_type.strip():
+        effective_cert_type = cert_type
+    elif rec_type:
+        effective_cert_type = rec_type
+    else:
+        effective_cert_type = "EUR.1"
+
+    is_china = (
+        "CHINA" in effective_cert_type.upper()
+        or "CCPIT" in effective_cert_type.upper()
+        or any(cn in primary_origin.lower() for cn in CHINA_NAMES)
+        or any(cn in o.lower() for cn in CHINA_NAMES for o in origins_list)
+    )
+
+    # Dynamic goods description grouping by (HS Code, Origin)
+    hs_origin_pairs: dict[tuple[str, str], list[str]] = {}
+    for itm in items_summary:
+        hs = str(itm.get("hs_code") or "560229").strip()
+        orig = str(itm.get("origin") or origin_countries_str or "EU").strip()
+        desc = itm.get("description")
+        desc_str = str(desc).strip() if desc else ""
+        pair_key = (hs, orig)
+        if pair_key not in hs_origin_pairs:
+            hs_origin_pairs[pair_key] = []
+        if desc_str and desc_str not in hs_origin_pairs[pair_key]:
+            hs_origin_pairs[pair_key].append(desc_str)
+
+    if not hs_origin_pairs and hs_codes_list:
+        for hs in hs_codes_list:
+            tariff_rec = db.query(CustomsTariff).filter(CustomsTariff.hs_code == hs).first()
+            t_desc = (tariff_rec.description_en if tariff_rec and tariff_rec.description_en else None) or (tariff_rec.description_ar if tariff_rec and tariff_rec.description_ar else None) or "COMMERCIAL CARGO"
+            for orig in origins_list:
+                hs_origin_pairs[(hs, orig)] = [t_desc]
+
+    structured_desc_lines = []
+    for (hs_val, orig_val), descs in hs_origin_pairs.items():
+        d_text = " / ".join(descs[:3]) if descs else "COMMERCIAL CARGO"
+        structured_desc_lines.append(f"{d_text} HS: {hs_val} (Origin: {orig_val})")
+
+    goods_desc_str = " | ".join(structured_desc_lines) if structured_desc_lines else "COMMERCIAL CARGO"
+
     acid_no = (acid_session.acid_number if acid_session else None) or imp_file.acid_number or "7595528271020210010"
     invoice_no = (reconciliation.final_invoice_number if reconciliation else None) or imp_file.pi_number or f"IN{imp_file.import_file_code}"
     inv_date = str(getattr(imp_file, 'pi_date', None) or getattr(imp_file, 'file_opening_date', None) or date.today())
     gross_wt = float(getattr(reconciliation, 'total_gross_weight_kg', None) or getattr(booking, 'gross_weight', None) or getattr(imp_file, 'total_weight', None) or 1774.514)
     pkgs = int(getattr(reconciliation, 'total_packages', None) or getattr(booking, 'packages_count', None) or getattr(imp_file, 'total_packages', None) or 141)
 
-    exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB NARBUTAS INTERNATIONAL"
-    exporter_addr = (supplier.address if supplier else None) or "EITMINIU G. 3, LT012113, VILNIUS, LITHUANIA"
-    exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or "LT300591314"
+    # Dynamic exporter details with (Country Code + Foreign Exporter Code) prefixing
+    exporter_name = (supplier.company_name if supplier else None) or imp_file.supplier_name or "FOREIGN EXPORTER"
+    exporter_addr = (supplier.address if supplier else None) or (f"{supplier.city}, {supplier.foreign_exporter_country}" if supplier and getattr(supplier, 'city', None) and getattr(supplier, 'foreign_exporter_country', None) else None) or (supplier.foreign_exporter_country if supplier else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or ""
+    
+    raw_exporter_reg = (supplier.tax_id if hasattr(supplier, 'tax_id') and supplier.tax_id else None) or (supplier.foreign_exporter_id if hasattr(supplier, 'foreign_exporter_id') and supplier.foreign_exporter_id else None) or (getattr(supplier, 'exporter_code', None)) or ""
+    raw_country = (supplier.foreign_exporter_country if supplier and supplier.foreign_exporter_country else None) or (imp_file.origin_country if hasattr(imp_file, 'origin_country') else None) or primary_origin
+    country_iso = getattr(supplier, 'foreign_exporter_country_code', None) or COUNTRY_ISO_MAP.get(str(raw_country).strip().lower(), "")
+    
+    reg_clean = str(raw_exporter_reg).strip()
+    if reg_clean and country_iso and not reg_clean.upper().startswith(country_iso.upper()):
+        full_exporter_reg = f"{country_iso.upper()}{reg_clean}"
+    else:
+        full_exporter_reg = reg_clean
 
-    importer_name = (company.importer_name if company else imp_file.company_name) or "ARCHI BRANDS FOR CORPET AND FLOOR TRADING"
-    importer_addr = (company.address if company else None) or "STREET 18, BUILDING 44, THIRD FLOOR, CAIRO 11728, EGYPT"
+    # Dynamic importer details
+    importer_name = (company.importer_name if company and hasattr(company, 'importer_name') and company.importer_name else None) or (company.company_name if company else None) or imp_file.company_name or "EGYPTIAN IMPORTER"
+    importer_addr = (company.address if company else None) or (f"{company.city}, Egypt" if company and hasattr(company, 'city') and company.city else None) or "EGYPT"
 
     dest_country = "EGYPT"
-    pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "SHANGHAI / VILNIUS"
+    pol = (getattr(booking, 'pol_name', None) or getattr(booking, 'pol_port_name', None)) or getattr(imp_file, 'port_of_loading', None) or getattr(imp_file, 'pol_name', None) or "PORT OF LOADING"
     pod = (getattr(booking, 'pod_name', None) or getattr(booking, 'pod_port_name', None)) or getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "ALEXANDRIA"
-
-    is_china = "CHINA" in cert_type.upper() or "CCPIT" in cert_type.upper() or "CHINA" in str(origin_countries_str).upper()
 
     if is_china:
         cert_name = "China Certificate of Origin (CCPIT)"
+        total_pcs = sum(float(itm.get("quantity") or 0.0) for itm in items_summary)
+        pcs_unit = (items_summary[0].get("unit") if items_summary else "PCS") or "PCS"
+        if total_pcs > 0:
+            pcs_str = f"{int(total_pcs) if total_pcs.is_integer() else total_pcs:,.0f} {pcs_unit.upper()} (TOTAL PIECES)"
+        else:
+            pcs_str = f"{pkgs} {pcs_unit.upper()} (TOTAL PIECES)"
+
+        pkgs_str = f"{pkgs} CARTONS / PACKAGES (TOTAL CARTONS)"
+        wt_str = f"G.WEIGHT {gross_wt:,.2f} KGS G.W."
+        box_9_china = f"{pcs_str}\n{pkgs_str}\n{wt_str}"
+
         template = {
             "certificate_type": cert_name,
             "certificate_number": f"26C{import_file_id:06d}/00001",
-            "box_1_exporter": f"{exporter_name}\n{exporter_addr}",
-            "box_2_consignee": f"{importer_name}\n{importer_addr}",
+            "box_1_exporter": f"{exporter_name}\n{exporter_addr}".strip(),
+            "box_2_consignee": f"{importer_name}\n{importer_addr}".strip(),
             "box_3_means_of_transport": f"FROM {pol} TO {pod} BY SEA",
             "box_4_country_of_destination": dest_country,
             "box_5_certifying_authority": "CHINA COUNCIL FOR THE PROMOTION OF INTERNATIONAL TRADE (CCPIT)",
-            "box_6_marks_and_numbers": "Acoustic Panel / Office Furniture",
-            "box_7_description_and_acid": f"COMMERCIAL CARGO ACID:{acid_no}",
+            "box_6_marks_and_numbers": goods_desc_str,
+            "box_7_description_and_acid": f"{goods_desc_str} / ACID: {acid_no}",
             "box_8_hs_code": hs_codes_str,
-            "box_9_quantity_and_weight": f"{pkgs} SHEETS / PACKAGES\nG.WEIGHT {gross_wt:,.2f} KGS G.W.",
+            "box_9_quantity_and_weight": box_9_china,
             "box_10_invoice_number_and_date": f"{invoice_no}\n{inv_date}",
-            "box_11_declaration_by_exporter": f"SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
-            "box_12_certification": f"CCPIT SUZHOU, CHINA {date.today().strftime('%b.%d,%Y')}",
+            "box_11_declaration_by_exporter": f"CHINA {date.today().strftime('%b.%d,%Y')}",
+            "box_12_certification": f"CCPIT CHINA {date.today().strftime('%b.%d,%Y')}",
             "verification_url": "http://check.ecoccpit.net/",
+            "exporter_reg_id": full_exporter_reg,
             "countries_of_origin_list": origins_list,
             "country_of_origin": origin_countries_str,
             "hs_codes_list": hs_codes_list,
             "items_summary": items_summary,
+            "structured_desc_lines": structured_desc_lines,
         }
         markdown = f"""# CERTIFICATE OF ORIGIN (PEOPLE'S REPUBLIC OF CHINA)
 **Certificate No:** {template['certificate_number']}
@@ -1957,6 +2248,7 @@ def generate_coo_draft_template_service(
 **4. Destination:** {dest_country}
 **5. Certifying Authority:** {template['box_5_certifying_authority']}
 **Country/Countries of Origin:** **{origin_countries_str}**
+**6. Marks and Numbers:** {goods_desc_str}
 **7. Description & ACID:** {template['box_7_description_and_acid']}
 **8. H.S. Code(s):** **{hs_codes_str}**
 **9. Quantity & Gross Weight:** {template['box_9_quantity_and_weight']}
@@ -1966,17 +2258,19 @@ def generate_coo_draft_template_service(
     else:
         # EUR.1
         cert_name = "EUR.1 Movement Certificate"
+        exp_header = f"{full_exporter_reg}, {exporter_name}".strip(", ") if full_exporter_reg else exporter_name
         template = {
             "certificate_type": cert_name,
             "certificate_number": f"No A {100000 + import_file_id:06d}",
-            "box_1_exporter": f"{exporter_reg}, {exporter_name}\n{exporter_addr}",
+            "exporter_reg_id": full_exporter_reg,
+            "box_1_exporter": f"{exp_header}\n{exporter_addr}".strip(),
             "box_2_preferential_trade": "EU and EGYPT",
-            "box_3_consignee": f"{importer_name}\n{importer_addr}",
-            "box_4_country_origin": origin_countries_str,
+            "box_3_consignee": f"{importer_name}\n{importer_addr}".strip(),
+            "box_4_country_origin": "EU",
             "box_5_country_destination": dest_country,
             "box_6_transport_details": f"BY SEA FROM {pol} TO {pod}",
             "box_7_remarks": "REVISED RULES",
-            "box_8_description_packages": f"OFFICE FURNITURE {pkgs} PACKAGES HS: {hs_codes_str}",
+            "box_8_description_packages": f"{goods_desc_str} {pkgs} PACKAGES HS: {hs_codes_str}",
             "box_9_gross_mass": f"{gross_wt:,.3f} KG",
             "box_10_invoices_and_acid": f"ACID: {acid_no}\nINV: {invoice_no}",
             "box_11_customs_endorsement": f"Customs Office EU - {date.today()}",
@@ -1986,13 +2280,14 @@ def generate_coo_draft_template_service(
             "country_of_origin": origin_countries_str,
             "hs_codes_list": hs_codes_list,
             "items_summary": items_summary,
+            "structured_desc_lines": structured_desc_lines,
         }
         markdown = f"""# MOVEMENT CERTIFICATE (EUR.1)
 **Certificate No:** {template['certificate_number']}
 **1. Exporter:** {template['box_1_exporter']}
 **2. Preferential Trade Between:** EU and EGYPT
 **3. Consignee:** {template['box_3_consignee']}
-**4. Country/Countries of Origin:** **{origin_countries_str}**
+**4. Country/Countries of Origin:** **EU** ({origin_countries_str})
 **5. Country of Destination:** EGYPT
 **7. Remarks:** **REVISED RULES** *(إلزامي للإعفاء التفضيلى الكامل)*
 **8. Description of Goods:** {template['box_8_description_packages']}
@@ -2009,6 +2304,10 @@ def generate_coo_draft_template_service(
         template_data=template,
         preview_markdown=markdown,
         exemption_notes=exemption,
+        recommended_certificate_type=classification.get("recommended_type"),
+        allowed_certificate_types=classification.get("allowed_types"),
+        recommendation_alert=classification.get("recommendation_alert"),
+        is_manual_choice_required=classification.get("is_manual_choice_required", False),
     )
 
 
@@ -2061,10 +2360,60 @@ def generate_inspection_draft_template_service(
         "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
     ]
 
+    # Dynamic generation of inspected items
+    inspected_items = []
+    if items_summary:
+        for idx, itm in enumerate(items_summary, start=1):
+            d_name = itm.get("product_name") or itm.get("description") or f"Item {idx}"
+            q_val = f"{itm.get('quantity', 1)} {itm.get('uom', 'pieces')}"
+            is_acoustic = "acoustic" in d_name.lower() or "panel" in d_name.lower()
+            is_chair = any(w in d_name.lower() for w in ["chair", "seat", "armchair", "stool"])
+            is_table = any(w in d_name.lower() for w in ["table", "desk"])
+            if is_acoustic:
+                p_type = "Acoustic Panels"
+                std = "EN 13501-1:2018"
+            elif is_chair:
+                p_type = "Office Chairs"
+                std = "ES 7321/2011 + ES 495-1/2005 + ES 495-2/2015"
+            elif is_table:
+                p_type = "Office Furniture / Tables"
+                std = "ES 4029-1 / 2024 + ES 7321 / 2011"
+            else:
+                p_type = "Commercial Goods"
+                std = "ES 7321 / 2011"
+
+            inspected_items.append({
+                "item_no": idx,
+                "quantity": q_val,
+                "country_of_origin": itm.get("origin_country") or origin_countries_str,
+                "product_type": p_type,
+                "description": f"{d_name}, brand: {exporter_name.split()[0] if exporter_name else 'Standard'}",
+                "adopted_standard": std,
+            })
+    else:
+        if "italy" in origin_countries_str.lower():
+            inspected_items = [
+                {"item_no": 1, "quantity": "2 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.10.24.112.00 Acoustic Panel, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
+                {"item_no": 2, "quantity": "4 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.10.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
+                {"item_no": 3, "quantity": "4 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "7938.10.24.115.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
+                {"item_no": 4, "quantity": "1 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.12.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
+                {"item_no": 5, "quantity": "2 pieces", "country_of_origin": "Italy", "product_type": "Acoustic Panels", "description": "938.13.24.113.00 Acoustic Panels, brand: Impact", "adopted_standard": "EN 13501-1:2018"},
+            ]
+        else:
+            inspected_items = [
+                {"item_no": 1, "quantity": "4 pieces", "country_of_origin": "Lithuania", "product_type": "Office Furniture", "description": "Table, Mobile table with metal base, W=400, D=500, H=620 MOBI, Brand: Narbutas", "adopted_standard": "ES 4029-1 / 2024 + ES 7321 / 2011"},
+                {"item_no": 2, "quantity": "2 pieces", "country_of_origin": "Lithuania", "product_type": "Office Furniture", "description": "Table, Meeting table (3 seats), Ø 800, H=740 FSC Mix 70% FORUM, Brand: Narbutas", "adopted_standard": "ES 4029-1 / 2024 + ES 7321 / 2011"},
+                {"item_no": 3, "quantity": "6 pieces", "country_of_origin": "Lithuania", "product_type": "Office Chairs", "description": "Office Chairs, Conference chair. Powder coated wire steel frame, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 495-1/2005"},
+                {"item_no": 4, "quantity": "22 pieces", "country_of_origin": "Lithuania", "product_type": "Office Chairs", "description": "Office Chairs, Armchair. Steel framework. Entirely moulded in cold-cure polyurethane, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 495-2/2015"},
+                {"item_no": 5, "quantity": "1 pieces", "country_of_origin": "Lithuania", "product_type": "Sofas", "description": "Sofa, Three-seater sofa. Base: powder-coated metal legs with glides MYAMI, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 5309-1/2017"},
+            ]
+
+    issuing_office = f"TÜV Rheinland Sweden AB" if "TÜV" in agency or "TUV" in agency else (f"Cotecna Inspection S.A. Geneva Office" if "COTECNA" in agency else f"{agency} Inspection Office")
+
     template = {
         "inspection_agency": agency,
         "inspection_type": cert_type,
-        "coc_number": f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
+        "coc_number": f"DEG-{import_file_id:06d}" if "TÜV" in agency or "TUV" in agency else f"DRAFT-{agency.upper()[:3]}-{import_file_id:04d}",
         "is_draft": True,
         "confirmation_deadline": "PLEASE CONFIRM THIS DRAFT WITHIN 48 HOURS AFTER WHICH WE SHALL PROCEED TO ISSUE AS IT IS",
         "importer_name_and_address": f"{importer_name}\n{importer_addr}",
@@ -2085,12 +2434,15 @@ def generate_inspection_draft_template_service(
             }
         ],
         "total_value": f"{inv_amount:,.2f} {inv_currency}",
+        "method_of_shipment": getattr(imp_file, 'shipping_mode', 'Sea') or "Sea",
         "place_of_inspection": origin_countries_str,
         "date_of_inspection": str(date.today()),
         "port_of_entry": getattr(imp_file, 'port_of_discharge', None) or getattr(imp_file, 'pod_name', None) or "Alexandria",
+        "issuing_office": issuing_office,
         "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
         "applicable_standards": applicable_standards,
         "items_summary": items_summary,
+        "inspected_items": inspected_items,
     }
 
     markdown = f"""# {agency.upper()} - CERTIFICATE OF CONFORMITY (COC / VoC)

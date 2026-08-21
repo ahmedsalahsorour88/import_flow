@@ -379,7 +379,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     border: Border.all(color: Colors.teal.shade300),
                   ),
                   child: Text(
-                    'المنشأ: $origin | HS: $hsCode',
+                    'المنشأ: $origin | HS: $hsCode | $commodity',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
                   ),
                 ),

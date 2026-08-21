@@ -167,7 +167,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
       final company = file.companyName.isNotEmpty ? file.companyName : '';
       final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
       return SearchableDropdownItem<int>(
-        value: file.importFileId!,
+        value: file.importFileId,
         label: label,
       );
     }).toList();

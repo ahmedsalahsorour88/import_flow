@@ -12,7 +12,6 @@ import '../providers/partners_provider.dart';
 import '../widgets/partner_details_dialog.dart';
 import '../widgets/partner_statement_of_account_dialog.dart';
 import '../../../core/services/master_data_export_service.dart';
-import '../../audit_logs/widgets/row_history_dialog.dart';
 
 class PartnersScreen extends ConsumerStatefulWidget {
   const PartnersScreen({super.key});

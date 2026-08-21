@@ -2,16 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:frontend/features/currencies/models/currency_model.dart';
 import 'package:frontend/features/currencies/providers/currencies_provider.dart';
-import 'package:frontend/features/financial_approval/models/financial_approval_model.dart';
 import 'package:frontend/features/financial_approval/providers/financial_approval_provider.dart';
 import 'package:frontend/features/financial_approval/screens/financial_approval_screen.dart';
-import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
-import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
-import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
-import 'package:frontend/features/suppliers/models/supplier_model.dart';
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 
 class _MockPaymentRequestsNotifier extends PaymentRequestsNotifier {

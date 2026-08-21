@@ -1632,7 +1632,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             if (nonStackInThis > 0) {
                               statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص (استغلال أرضية: ${floorUtil.toStringAsFixed(1)}%)';
                             } else {
-                              statusText = 'رص 3D متعدد الطبقات متوافق (${totalPlacedCount} طرد)';
+                              statusText = 'رص 3D متعدد الطبقات متوافق ($totalPlacedCount طرد)';
                             }
                           }
 

@@ -265,7 +265,62 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                 ),
               ),
 
-              // Value & Port Row
+              // Commercial Invoices Table
+              if ((t['commercial_invoices'] as List<dynamic>?)?.isNotEmpty ?? false) ...[
+                Container(
+                  color: Colors.grey.shade50,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Commercial Invoices / الفواتير التجارية المرفقة الخاضعة للفحص:',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 4),
+                      Table(
+                        border: TableBorder.all(color: Colors.grey.shade300),
+                        columnWidths: const {
+                          0: FlexColumnWidth(1.5),
+                          1: FlexColumnWidth(2),
+                          2: FlexColumnWidth(1.5),
+                          3: FlexColumnWidth(1.2),
+                        },
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: Colors.grey.shade200),
+                            children: const [
+                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice Amount / Currency', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice No. / رقم الفاتورة', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice Date / تاريخها', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(4), child: Text('Incoterm / الشرط', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                            ],
+                          ),
+                          ...((t['commercial_invoices'] as List<dynamic>).map((inv) {
+                            final i = inv as Map<String, dynamic>;
+                            final amt = (i['amount'] is num) ? (i['amount'] as num).toStringAsFixed(2) : (i['amount'] ?? '').toString();
+                            final curr = (i['currency'] ?? 'EUR').toString();
+                            final numStr = (i['invoice_number'] ?? '').toString();
+                            final dtStr = (i['invoice_date'] ?? '').toString();
+                            final incoStr = (i['incoterm'] ?? 'EXW').toString();
+                            return TableRow(
+                              children: [
+                                Padding(padding: const EdgeInsets.all(4), child: Text('$amt $curr', style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                                Padding(padding: const EdgeInsets.all(4), child: Text(numStr, style: const TextStyle(fontSize: 9.5, color: AppTheme.cobalt, fontWeight: FontWeight.bold))),
+                                Padding(padding: const EdgeInsets.all(4), child: Text(dtStr, style: const TextStyle(fontSize: 9.5))),
+                                Padding(padding: const EdgeInsets.all(4), child: Text(incoStr, style: const TextStyle(fontSize: 9.5))),
+                              ],
+                            );
+                          })),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.black87),
+              ],
+
+              // Transport & Entry Details Row
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: const BoxDecoration(
@@ -275,9 +330,82 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('Total Declared Value: $totalValue', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    Text('Port of Entry: $portOfEntry', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    Text('Inspection Date: $dateInsp', style: const TextStyle(fontSize: 11, color: Colors.black87)),
+                    Text('Method of Shipment: ${t['method_of_shipment'] ?? 'Sea'}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text('Country of Shipment: $origin', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                    Text('Point of Entry: $portOfEntry', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text('Total Declared Value: $totalValue', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                  ],
+                ),
+              ),
+
+              // Inspected Line Items Table
+              if ((t['inspected_items'] as List<dynamic>?)?.isNotEmpty ?? false) ...[
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Goods Description, Quantities & Adopted Standards / بنود البضائع والمواصفات المعتمدة:',
+                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                      ),
+                      const SizedBox(height: 4),
+                      Table(
+                        border: TableBorder.all(color: Colors.grey.shade300),
+                        columnWidths: const {
+                          0: FixedColumnWidth(35),
+                          1: FlexColumnWidth(1.1),
+                          2: FlexColumnWidth(0.9),
+                          3: FlexColumnWidth(1.2),
+                          4: FlexColumnWidth(2.5),
+                          5: FlexColumnWidth(2),
+                        },
+                        children: [
+                          TableRow(
+                            decoration: BoxDecoration(color: Colors.grey.shade200),
+                            children: const [
+                              Padding(padding: EdgeInsets.all(3), child: Text('#', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(3), child: Text('Quantity', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(3), child: Text('Origin', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(3), child: Text('Product Type', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(3), child: Text('Description (Brand/Model)', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: EdgeInsets.all(3), child: Text('Adopted Standard', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                            ],
+                          ),
+                          ...((t['inspected_items'] as List<dynamic>).map((item) {
+                            final itm = item as Map<String, dynamic>;
+                            return TableRow(
+                              children: [
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['item_no'] ?? ''}', style: const TextStyle(fontSize: 9))),
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['quantity'] ?? ''}', style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['country_of_origin'] ?? ''}', style: const TextStyle(fontSize: 9))),
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['product_type'] ?? ''}', style: const TextStyle(fontSize: 9))),
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['description'] ?? ''}', style: const TextStyle(fontSize: 9))),
+                                Padding(padding: const EdgeInsets.all(3), child: Text('${itm['adopted_standard'] ?? ''}', style: const TextStyle(fontSize: 8.5, color: Colors.green, fontWeight: FontWeight.bold))),
+                              ],
+                            );
+                          })),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: Colors.black87),
+              ],
+
+              // Inspection Office & Remarks Row
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  border: Border(bottom: BorderSide(color: Colors.black87, width: 0.8)),
+                ),
+                child: Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  children: [
+                    Text('Place of Inspection: ${t['place_of_inspection'] ?? origin}', style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                    Text('Date of Inspection: $dateInsp', style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                    Text('Issuing Office: ${t['issuing_office'] ?? '${widget.agency} Office'}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
                   ],
                 ),
               ),

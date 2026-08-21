@@ -1,12 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
-import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/financial_approval_model.dart';
 import '../providers/financial_approval_provider.dart';
@@ -46,7 +43,6 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
 
   Widget _buildHistoryRegistryTab(List<ImportBudgetModel> budgetsList) {
     final totalBudgets = budgetsList.length;
-    final activeBudgets = budgetsList.where((b) => b.isActive).length;
     final approvedBudgets = budgetsList.where((b) => b.isActive && (b.budgetStatus.toLowerCase().contains('approved'))).length;
     final pendingBudgets = budgetsList.where((b) => b.isActive && (b.budgetStatus.toLowerCase().contains('pending') || b.budgetStatus.toLowerCase().contains('draft'))).length;
     final totalValueEgp = budgetsList.where((b) => b.isActive).fold<double>(0.0, (sum, b) => sum + b.totalBudgetEgp);
@@ -592,17 +588,17 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
                     TableRow(
                       children: [
                         const Padding(padding: EdgeInsets.all(6), child: Text('فاتورة البضاعة (Commercial Invoice)', style: TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text(budget.invoiceAmountForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text(budget.invoiceCurrency, style: const TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.invoiceAmountForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.invoiceCurrency, style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.invoiceAmountEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                       ],
                     ),
                     TableRow(
                       children: [
                         const Padding(padding: EdgeInsets.all(6), child: Text('النولون والشحن (Freight)', style: TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text(budget.freightCostForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text(budget.freightCurrency, style: const TextStyle(fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(6), child: Text('${budget.freightCostEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.freightCostForeign.toStringAsFixed(2), style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text(budget.freightCurrency, style: const TextStyle(fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(6), child: Text('${budget.freightCostEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                       ],
                     ),
                     TableRow(

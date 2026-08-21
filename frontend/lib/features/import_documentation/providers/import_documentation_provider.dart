@@ -510,11 +510,11 @@ class COONotifier extends StateNotifier<AsyncValue<List<CertificateOfOriginRevie
     }
   }
 
-  Future<Map<String, dynamic>> fetchCooDraftTemplate(int importFileId, {String certType = 'EUR.1'}) async {
+  Future<Map<String, dynamic>> fetchCooDraftTemplate(int importFileId, {String? certType}) async {
     try {
       final response = await _dio.get(
         '${ApiConstants.baseUrl}/import-documentation/coo/draft-template/$importFileId',
-        queryParameters: {'cert_type': certType},
+        queryParameters: certType != null ? {'cert_type': certType} : null,
       );
       return response.data as Map<String, dynamic>;
     } catch (e) {

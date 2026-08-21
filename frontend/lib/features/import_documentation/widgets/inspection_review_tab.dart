@@ -93,6 +93,27 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     } catch (_) {}
   }
 
+  /// Normalizes a free-text agency name (e.g. from OCR) to a valid Dropdown value.
+  String _normalizeInspAgency(String raw) {
+    final r = raw.trim().toLowerCase();
+    if (r.contains('tuv') || r.contains('tüv') || r.contains('rheinland')) return 'TÜV Rheinland';
+    if (r.contains('bureau') || r.contains('veritas') || r.contains('bv')) return 'Bureau Veritas';
+    if (r.contains('intertek')) return 'Intertek';
+    if (r.contains('cotecna')) return 'Cotecna';
+    if (r.contains('sgs')) return 'SGS';
+    return 'SGS'; // fallback
+  }
+
+  /// Normalizes a free-text cert type to a valid Dropdown value.
+  String _normalizeInspType(String raw) {
+    final r = raw.trim().toLowerCase();
+    if (r.contains('analysis') || r.contains('coa')) return 'COA (Certificate of Analysis)';
+    if (r.contains('verification') || r.contains('voc')) return 'VOC (Verification of Conformity)';
+    if (r.contains('pre-shipment') || r.contains('psi')) return 'PSI (Pre-Shipment Inspection)';
+    return 'COC (Certificate of Conformity)'; // default
+  }
+
+
   Future<void> _runComparison() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -301,6 +322,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       setState(() {
         if (extracted['coc_number'] != null && extracted['coc_number'].toString().isNotEmpty) {
           _certNumberCtrl.text = extracted['coc_number'].toString();
+        } else if (extracted['certificate_number'] != null && extracted['certificate_number'].toString().isNotEmpty) {
+          _certNumberCtrl.text = extracted['certificate_number'].toString();
         }
         if (extracted['exporter_name'] != null && extracted['exporter_name'].toString().isNotEmpty) {
           _exporterCtrl.text = extracted['exporter_name'].toString();
@@ -308,16 +331,43 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         if (extracted['importer_name'] != null && extracted['importer_name'].toString().isNotEmpty) {
           _importerCtrl.text = extracted['importer_name'].toString();
         }
+        if (extracted['invoice_number'] != null && extracted['invoice_number'].toString().isNotEmpty) {
+          _invoiceNoCtrl.text = extracted['invoice_number'].toString();
+        } else if (extracted['invoices'] != null && (extracted['invoices'] as List).isNotEmpty) {
+          final invList = (extracted['invoices'] as List)
+              .map((i) => i is Map ? (i['invoice_number'] ?? '').toString() : i.toString())
+              .where((s) => s.isNotEmpty)
+              .toList();
+          if (invList.isNotEmpty) _invoiceNoCtrl.text = invList.join(', ');
+        }
+        if (extracted['regulatory_authority'] != null && extracted['regulatory_authority'].toString().isNotEmpty) {
+          _authorityCtrl.text = extracted['regulatory_authority'].toString();
+        }
         if (extracted['inspection_agency'] != null && extracted['inspection_agency'].toString().isNotEmpty) {
-          _inspAgency = extracted['inspection_agency'].toString();
+          _inspAgency = _normalizeInspAgency(extracted['inspection_agency'].toString());
+        }
+        if (extracted['certificate_type'] != null && extracted['certificate_type'].toString().isNotEmpty) {
+          _inspType = _normalizeInspType(extracted['certificate_type'].toString());
+        } else if (extracted['inspection_type'] != null && extracted['inspection_type'].toString().isNotEmpty) {
+          _inspType = _normalizeInspType(extracted['inspection_type'].toString());
         }
         if (extracted['testing_standards'] != null && (extracted['testing_standards'] as List).isNotEmpty) {
           _specCtrl.text = (extracted['testing_standards'] as List).join(' + ');
+        } else if (extracted['standards_tested'] != null && (extracted['standards_tested'] as List).isNotEmpty) {
+          _specCtrl.text = (extracted['standards_tested'] as List).join(' + ');
         }
       });
 
       if (mounted) {
-        if (isDraft) {
+        if (warnings.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('⚠️ تنبيهات الاستخراج: ${warnings.join(", ")}'),
+              backgroundColor: Colors.orange.shade800,
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        } else if (isDraft) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('⚠️ تم اكتشاف مسودة (DRAFT) - يرجى تأكيد الفحص خلال مهلة الـ 48 ساعة لتفادي رفض الإفراج.'),
@@ -592,10 +642,28 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       if (fields['certificate_number'] != null && fields['certificate_number'].toString().isNotEmpty) {
                         _certNumberCtrl.text = fields['certificate_number'].toString();
                       }
-                      if (fields['inspector_name'] != null && fields['inspector_name'].toString().isNotEmpty) {
+                      if (fields['importer_name'] != null && fields['importer_name'].toString().isNotEmpty) {
+                        _importerCtrl.text = fields['importer_name'].toString();
+                      }
+                      if (fields['exporter_name'] != null && fields['exporter_name'].toString().isNotEmpty) {
+                        _exporterCtrl.text = fields['exporter_name'].toString();
+                      }
+                      if (fields['invoice_number'] != null && fields['invoice_number'].toString().isNotEmpty) {
+                        _invoiceNoCtrl.text = fields['invoice_number'].toString();
+                      }
+                      if (fields['inspection_agency'] != null && fields['inspection_agency'].toString().isNotEmpty) {
+                        _inspAgency = _normalizeInspAgency(fields['inspection_agency'].toString());
+                      }
+                      if (fields['regulatory_authority'] != null && fields['regulatory_authority'].toString().isNotEmpty) {
+                        _authorityCtrl.text = fields['regulatory_authority'].toString();
+                      } else if (fields['inspector_name'] != null && fields['inspector_name'].toString().isNotEmpty) {
                         _authorityCtrl.text = fields['inspector_name'].toString();
                       }
-                      if (fields['product_description'] != null && fields['product_description'].toString().isNotEmpty) {
+                      if (fields['standard_specification'] != null && fields['standard_specification'].toString().isNotEmpty) {
+                        _specCtrl.text = fields['standard_specification'].toString();
+                      } else if (fields['standards'] != null && (fields['standards'] as List).isNotEmpty) {
+                        _specCtrl.text = (fields['standards'] as List).join(' + ');
+                      } else if (fields['product_description'] != null && fields['product_description'].toString().isNotEmpty) {
                         _specCtrl.text = fields['product_description'].toString();
                       }
                     });

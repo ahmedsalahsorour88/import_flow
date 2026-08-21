@@ -266,7 +266,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                             ],
                           ),
                         );
-                      }).toList(),
+                      }),
                     ],
                   ),
                 );

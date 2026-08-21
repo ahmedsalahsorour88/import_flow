@@ -6,11 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../external_service_providers/models/partner_model.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
-import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
-import '../../transport_locations/models/transport_location_model.dart';
 import '../../transport_locations/providers/transport_locations_provider.dart';
 import '../models/customs_clearance_quotation_model.dart';
 import '../providers/customs_clearance_quotations_provider.dart';
@@ -604,8 +601,8 @@ class _CustomsClearanceQuotationsScreenState
                           selectedImportFileId = val;
                           final match = importFiles.where((f) => f.importFileId == val).firstOrNull;
                           if (match != null) {
-                            if (match.customsPortName != null && match.customsPortName!.isNotEmpty) {
-                              portName = match.customsPortName!;
+                            if (match.portOfDischarge != null && match.portOfDischarge!.isNotEmpty) {
+                              portName = match.portOfDischarge!;
                             }
                           }
                         });
@@ -901,7 +898,6 @@ class _CustomsClearanceQuotationsScreenState
     final textCtrl = TextEditingController();
     bool isExtracting = false;
     Map<String, dynamic>? extractedResult;
-    List<dynamic> rateOptions = [];
 
     await showDialog(
       context: context,
@@ -960,7 +956,6 @@ class _CustomsClearanceQuotationsScreenState
                                 if (resp.statusCode == 200 && resp.data != null) {
                                   setDState(() {
                                     extractedResult = resp.data['extracted_fields'] as Map<String, dynamic>?;
-                                    rateOptions = resp.data['rate_options'] as List<dynamic>? ?? [];
                                   });
                                 }
                               } catch (e) {
@@ -1000,7 +995,6 @@ class _CustomsClearanceQuotationsScreenState
                           if (resp.statusCode == 200 && resp.data != null) {
                             setDState(() {
                               extractedResult = resp.data['extracted_fields'] as Map<String, dynamic>?;
-                              rateOptions = resp.data['rate_options'] as List<dynamic>? ?? [];
                             });
                           }
                         } catch (e) {

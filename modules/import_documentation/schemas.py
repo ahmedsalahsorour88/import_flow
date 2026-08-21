@@ -637,6 +637,10 @@ class COODraftTemplateResponse(BaseModel):
     template_data: Dict[str, Any]
     preview_markdown: str
     exemption_notes: Optional[str] = None
+    recommended_certificate_type: Optional[str] = None
+    allowed_certificate_types: Optional[List[str]] = None
+    recommendation_alert: Optional[str] = None
+    is_manual_choice_required: Optional[bool] = False
 
 
 # --- PHASE 6: INSPECTION CERTIFICATE SCHEMAS ---

@@ -22,7 +22,7 @@ class ImportFileDetailsDialog extends ConsumerStatefulWidget {
   final int totalPackingListsCount;
   final VoidCallback? onEditPressed;
 
-  const ImportFileDetailsDialog({
+  const ImportFileDetailsDialog({super.key, 
     required this.file,
     required this.linkedPOs,
     required this.invoiceNumbers,

@@ -23,6 +23,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   String _certType = 'EUR.1';
   final TextEditingController _certNumberCtrl = TextEditingController(text: 'DRAFT-EUR1-001');
   final TextEditingController _exporterCtrl = TextEditingController();
+  final TextEditingController _exporterRegIdCtrl = TextEditingController();
   final TextEditingController _importerCtrl = TextEditingController();
   final TextEditingController _originCountryCtrl = TextEditingController(text: 'Germany');
   final TextEditingController _destCountryCtrl = TextEditingController(text: 'Egypt');
@@ -35,7 +36,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   Map<String, dynamic>? _activeDraftTemplate;
   String? _activeAcidNumber;
   String? _activeExemptionNotes;
-  bool _showVisualDraftSheet = true;
+  String? _recommendationAlert;
+  bool _isManualChoiceRequired = false;
+  List<String> _allowedCertTypes = [];
 
   static const List<ImportDocStep> _steps = [
     ImportDocStep(label: '1. متطلبات شهادة المنشأ / EUR.1', icon: Icons.description),
@@ -53,29 +56,58 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     }
   }
 
+  @override
+  void dispose() {
+    _certNumberCtrl.dispose();
+    _exporterCtrl.dispose();
+    _exporterRegIdCtrl.dispose();
+    _importerCtrl.dispose();
+    _originCountryCtrl.dispose();
+    _destCountryCtrl.dispose();
+    _invoiceNoCtrl.dispose();
+    _rawTextCtrl.dispose();
+    super.dispose();
+  }
+
   void _loadSnapshot(int fileId) {
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
-    if (file == null) return;
-
-    _importerCtrl.text = file.companyName;
-    _exporterCtrl.text = file.supplierName;
-    _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    if (file != null) {
+      _importerCtrl.text = file.companyName;
+      _exporterCtrl.text = file.supplierName;
+      _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    }
     _fetchAndApplyDraft(fileId);
   }
 
-  Future<void> _fetchAndApplyDraft(int fileId) async {
+  Future<void> _fetchAndApplyDraft(int fileId, {String? overrideCertType}) async {
+    setState(() => _isLoading = true);
     try {
       final res = await ref.read(cooReviewsProvider.notifier).fetchCooDraftTemplate(
             fileId,
-            certType: _certType,
+            certType: overrideCertType,
           );
       final template = res['template_data'] as Map<String, dynamic>? ?? {};
       final files = ref.read(importFilesProvider).value ?? [];
       final file = files.where((f) => f.importFileId == fileId).firstOrNull;
+      final recType = res['recommended_certificate_type']?.toString();
+      final retCertType = (res['certificate_type'] ?? template['certificate_type'] ?? recType)?.toString();
+      final allowed = (res['allowed_certificate_types'] as List<dynamic>?)?.map((e) => e.toString()).toList() ?? [];
+      final alertMsg = res['recommendation_alert']?.toString();
+      final manualReq = res['is_manual_choice_required'] == true;
 
       if (mounted) {
         setState(() {
+          if (overrideCertType != null) {
+            _certType = overrideCertType;
+          } else if (retCertType != null && retCertType.isNotEmpty) {
+            _certType = retCertType;
+          } else if (recType != null && recType.isNotEmpty) {
+            _certType = recType;
+          }
+          _recommendationAlert = alertMsg;
+          _isManualChoiceRequired = manualReq;
+          _allowedCertTypes = allowed;
           _activeDraftTemplate = template;
           _activeAcidNumber = (file?.acidNumber != null && file!.acidNumber!.isNotEmpty)
               ? file.acidNumber
@@ -88,7 +120,11 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           if (template['box_2_consignee'] != null) _importerCtrl.text = template['box_2_consignee'].toString();
         });
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Error fetching COO template: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   Future<void> _generateOfficialDraft() async {
@@ -227,6 +263,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         if (extracted['exporter_name'] != null && extracted['exporter_name'].toString().isNotEmpty) {
           _exporterCtrl.text = extracted['exporter_name'].toString();
         }
+        if (extracted['exporter_reg_id'] != null && extracted['exporter_reg_id'].toString().isNotEmpty) {
+          _exporterRegIdCtrl.text = extracted['exporter_reg_id'].toString();
+        }
         if (extracted['importer_name'] != null && extracted['importer_name'].toString().isNotEmpty) {
           _importerCtrl.text = extracted['importer_name'].toString();
         }
@@ -271,6 +310,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         'certificate_type': _certType,
         'certificate_number': _certNumberCtrl.text.trim(),
         'exporter_name': _exporterCtrl.text.trim(),
+        'exporter_reg_id': _exporterRegIdCtrl.text.trim(),
         'importer_name': _importerCtrl.text.trim(),
         'country_of_origin': _originCountryCtrl.text.trim(),
         'destination_country': _destCountryCtrl.text.trim(),
@@ -337,6 +377,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   Widget build(BuildContext context) {
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
+    if (_selectedImportFileId == null && importFiles.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _selectedImportFileId == null && importFiles.isNotEmpty) {
+          final firstId = importFiles.first.importFileId;
+          setState(() {
+            _selectedImportFileId = firstId;
+          });
+          _loadSnapshot(firstId);
+        }
+      });
+    }
+
     return Column(
       children: [
         // Unified Stepper Navigation
@@ -375,7 +427,112 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   Widget _buildStep1(List<dynamic> importFiles) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Dedicated COO Decision Engine Header Card
+        Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [AppTheme.charcoal, AppTheme.charcoal.withOpacity(0.92)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 3)),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.cobalt.withOpacity(0.25),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 22),
+                      ),
+                      const SizedBox(width: 12),
+                      const Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'محرك اتخاذ القرار الجمركي لشهادات المنشأ (COO Decision Engine)',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            'توجيه ذكي لنوع الشهادة تلقائياً بناءً على بلد المنشأ المذكور في الفواتير والاتفاقيات الدولية',
+                            style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (_selectedImportFileId != null)
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.cobalt,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.refresh, size: 16),
+                      label: const Text('إعادة فحص الاتفاقية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () => _fetchAndApplyDraft(_selectedImportFileId!),
+                    ),
+                ],
+              ),
+              if (_selectedImportFileId != null) ...[
+                const Divider(color: Colors.white24, height: 24),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (_originCountryCtrl.text.isNotEmpty || _activeDraftTemplate?['country_of_origin'] != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white12,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.white24),
+                        ),
+                        child: Text(
+                          '🌍 بلد المنشأ بالفاتورة: ${_activeDraftTemplate?['country_of_origin'] ?? _originCountryCtrl.text}',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                        ),
+                      ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: _isManualChoiceRequired ? Colors.amber.withOpacity(0.2) : Colors.green.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: _isManualChoiceRequired ? Colors.amber : Colors.greenAccent),
+                      ),
+                      child: Text(
+                        _isManualChoiceRequired ? '⚠️ مطلوب اختيار يدوي (اتفاقيات متعددة)' : '✔ الشهادة المعتمدة: $_certType',
+                        style: TextStyle(
+                          color: _isManualChoiceRequired ? Colors.amberAccent : Colors.greenAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+
         Card(
           elevation: 2,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -430,9 +587,11 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           SearchableDropdownItem(value: 'GAFTA', label: 'شهادة منطقة التجارة الحرة العربية الكبرى'),
                         ],
                         onChanged: (v) {
-                          setState(() => _certType = v ?? 'EUR.1');
-                          if (_selectedImportFileId != null) {
-                            _fetchAndApplyDraft(_selectedImportFileId!);
+                          if (v != null) {
+                            setState(() => _certType = v);
+                            if (_selectedImportFileId != null) {
+                              _fetchAndApplyDraft(_selectedImportFileId!, overrideCertType: v);
+                            }
                           }
                         },
                       ),
@@ -453,6 +612,67 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ),
                   ],
                 ),
+                if (_recommendationAlert != null && _recommendationAlert!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: _isManualChoiceRequired ? Colors.amber.shade50 : Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: _isManualChoiceRequired ? Colors.amber.shade400 : Colors.green.shade400, width: 1.2),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(_isManualChoiceRequired ? Icons.warning_amber_rounded : Icons.verified, color: _isManualChoiceRequired ? Colors.amber.shade800 : Colors.green.shade800),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                _recommendationAlert!,
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: _isManualChoiceRequired ? Colors.amber.shade900 : Colors.green.shade900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (_isManualChoiceRequired && _allowedCertTypes.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 4,
+                            children: _allowedCertTypes.map((type) {
+                              final isSelected = _certType == type;
+                              return ChoiceChip(
+                                label: Text(
+                                  type == 'Agadir Agreement' ? 'شهادة اتفاقية أغادير' : (type == 'GAFTA' ? 'شهادة منطقة التجارة الحرة العربية (GAFTA)' : type),
+                                  style: TextStyle(
+                                    fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isSelected ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                selected: isSelected,
+                                selectedColor: AppTheme.cobalt,
+                                onSelected: (sel) {
+                                  if (sel) {
+                                    setState(() => _certType = type);
+                                    if (_selectedImportFileId != null) {
+                                      _fetchAndApplyDraft(_selectedImportFileId!, overrideCertType: type);
+                                    }
+                                  }
+                                },
+                              );
+                            }).toList(),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -527,6 +747,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             Row(
               children: [
                 Expanded(
+                  flex: 3,
                   child: TextFormField(
                     controller: _exporterCtrl,
                     decoration: const InputDecoration(labelText: 'اسم المصدر / الشاحن *', border: OutlineInputBorder()),
@@ -534,6 +755,19 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _exporterRegIdCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'كود المصدر الأجنبي / السجل الضريبي',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
                   child: TextFormField(
                     controller: _importerCtrl,
                     decoration: const InputDecoration(labelText: 'اسم المستورد / المرسل إليه *', border: OutlineInputBorder()),
@@ -541,9 +775,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ),
                 const SizedBox(width: 12),
                 Expanded(
+                  flex: 2,
                   child: TextFormField(
                     controller: _invoiceNoCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم الفاتورة التجارية المذكورة *', border: OutlineInputBorder()),
+                    decoration: const InputDecoration(labelText: 'رقم الفاتورة المذكورة *', border: OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -568,8 +803,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       if (fields['exporter_name'] != null && fields['exporter_name'].toString().isNotEmpty) {
                         _exporterCtrl.text = fields['exporter_name'].toString();
                       }
+                      if (fields['exporter_reg_id'] != null && fields['exporter_reg_id'].toString().isNotEmpty) {
+                        _exporterRegIdCtrl.text = fields['exporter_reg_id'].toString();
+                      }
                       if (fields['consignee_name'] != null && fields['consignee_name'].toString().isNotEmpty) {
                         _importerCtrl.text = fields['consignee_name'].toString();
+                      }
+                      if (fields['importer_name'] != null && fields['importer_name'].toString().isNotEmpty) {
+                        _importerCtrl.text = fields['importer_name'].toString();
                       }
                       if (fields['invoice_number'] != null && fields['invoice_number'].toString().isNotEmpty) {
                         _invoiceNoCtrl.text = fields['invoice_number'].toString();

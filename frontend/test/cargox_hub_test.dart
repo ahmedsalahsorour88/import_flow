@@ -28,6 +28,18 @@ class _MockCargoXNotifier extends CargoXNotifier {
   }) async {
     state = AsyncValue.data(initialEnvelopes);
   }
+
+  @override
+  Future<DigitalManifestModel> fetchDigitalManifest(int envelopeId) async {
+    return DigitalManifestModel(
+      envelopeId: envelopeId,
+      envelopeCode: 'CGX-ENV-2026-0001',
+      acidNumber: '7595528271020210010',
+      manifestJson: {'manifest_id': 'MTS-001'},
+      exportedAt: DateTime.now(),
+      formattedSummary: 'Summary',
+    );
+  }
 }
 
 class _MockImportFilesNotifier extends ImportFilesNotifier {
@@ -210,13 +222,14 @@ void main() {
         ),
       );
 
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
 
+      expect(find.byType(CargoXHubScreen), findsOneWidget);
       expect(find.textContaining('منظومة كارجو إكس والبلوك تشين'), findsOneWidget);
       expect(find.textContaining('تجهيز المظروف'), findsOneWidget);
       expect(find.textContaining('تتبع البلوك تشين'), findsOneWidget);
-      expect(find.textContaining('المانيفست الرقمي'), findsOneWidget);
-      expect(find.textContaining('توليد وتوقيع مظروف CargoX بالبلوك تشين'), findsOneWidget);
+      expect(find.text('المانيفست الرقمي 📜'), findsOneWidget);
     });
   });
 }

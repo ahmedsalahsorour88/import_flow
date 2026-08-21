@@ -24,7 +24,7 @@ import '../providers/import_files_provider.dart';
 
 class ImportFileFormDialog extends ConsumerStatefulWidget {
   final ImportFileModel? fileToEdit;
-  const ImportFileFormDialog({this.fileToEdit});
+  const ImportFileFormDialog({super.key, this.fileToEdit});
 
   @override
   ConsumerState<ImportFileFormDialog> createState() => ImportFileFormDialogState();

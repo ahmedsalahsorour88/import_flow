@@ -312,7 +312,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final rawTokens = rawSupp.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
       final sTokens = sName.toLowerCase().split(RegExp(r'[\s,\.\-_]+')).where((w) => w.length > 2 && !noise.contains(w)).toSet();
       final intersection = rawTokens.intersection(sTokens);
-      return intersection.isNotEmpty && (intersection.length >= 1 || intersection.length == rawTokens.length || intersection.length == sTokens.length);
+      return intersection.isNotEmpty && (intersection.isNotEmpty || intersection.length == rawTokens.length || intersection.length == sTokens.length);
     }).firstOrNull;
 
     return matchedSupp?.supplierId;
@@ -656,12 +656,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
     final ext = widget.initialExtractedFields;
     if (widget.po == null && ext != null) {
-      if (_selectedCompanyId == null) {
-        _selectedCompanyId = _matchCompanyId(ext, companies);
-      }
-      if (_selectedSupplierId == null) {
-        _selectedSupplierId = _matchSupplierId(ext, suppliers);
-      }
+      _selectedCompanyId ??= _matchCompanyId(ext, companies);
+      _selectedSupplierId ??= _matchSupplierId(ext, suppliers);
       if (_selectedIncotermId == null && incoterms.isNotEmpty) {
         final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
         if (rawInco != null && rawInco.isNotEmpty) {
@@ -2242,8 +2238,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Row(
-                      children: const [
+                    const Row(
+                      children: [
                         Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 24),
                         SizedBox(width: 8),
                         Text(

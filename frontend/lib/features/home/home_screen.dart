@@ -84,67 +84,67 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         BankForm4Screen(initialSubTab: 1),
 
         // 18..22: Phase 5 Shipment Draft Documents & CargoX Review (Dedicated Screen with Vertical Tabs)
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_bl_2'), initialSubTab: 2), // 18: Draft B/L Review
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_coo_4'), initialSubTab: 4), // 19: Draft COO / EUR.1
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_approval_0'), initialSubTab: 0), // 20: Docs Customs Approval
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_po_1'), initialSubTab: 1), // 21: PO & Packing Reconciliation
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_match_3'), initialSubTab: 3), // 22: Smart Invoice vs B/L Match
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_bl_2'), initialSubTab: 2), // 18: Draft B/L Review
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_coo_4'), initialSubTab: 4), // 19: Draft COO / EUR.1
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_approval_0'), initialSubTab: 0), // 20: Docs Customs Approval
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_po_1'), initialSubTab: 1), // 21: PO & Packing Reconciliation
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_match_3'), initialSubTab: 3), // 22: Smart Invoice vs B/L Match
 
         // 23..24: Phase 6 Customs Declaration 46 (Dedicated Screen with Vertical Tabs)
-        const CustomsDeclaration46Screen(initialSubTab: 0),
-        const CustomsDeclaration46Screen(initialSubTab: 1),
+        CustomsDeclaration46Screen(initialSubTab: 0),
+        CustomsDeclaration46Screen(initialSubTab: 1),
 
         // 25..30: Execution Phases (Phases 4 -> 10)
-        const FreightBookingScreen(),
-        const CargoShippingScreen(key: ValueKey('cargo_shipping_allocations_0'), initialSubTab: 0), // 26: Freight Allocations (VGM)
-        const CustomsClearanceScreen(),
-        const WarehouseReceivingScreen(),
-        const FinancialSettlementScreen(),
-        const FileClosureScreen(),
+        FreightBookingScreen(),
+        CargoShippingScreen(key: ValueKey('cargo_shipping_allocations_0'), initialSubTab: 0), // 26: Freight Allocations (VGM)
+        CustomsClearanceScreen(),
+        WarehouseReceivingScreen(),
+        FinancialSettlementScreen(),
+        FileClosureScreen(),
 
         // 31..34: Master Data
-        const ProjectsScreen(),
-        const ImportCompaniesScreen(),
-        const SuppliersScreen(),
-        const PartnersScreen(),
+        ProjectsScreen(),
+        ImportCompaniesScreen(),
+        SuppliersScreen(),
+        PartnersScreen(),
 
         // 35..39: Reference Master Tables & Audit
-        const IncotermsScreen(),
-        const CustomsTariffScreen(),
-        const TransportLocationsScreen(),
-        const CurrenciesScreen(),
-        const AuditLogsScreen(),
+        IncotermsScreen(),
+        CustomsTariffScreen(),
+        TransportLocationsScreen(),
+        CurrenciesScreen(),
+        AuditLogsScreen(),
 
         // 40..47: Smart Engines & Reporting
-        const SmartTasksScreen(),
-        const DynamicReportBuilderScreen(),
-        const ShipmentUpdateEngineScreen(),
-        const ImportRequirementsScreen(),
-        const DemurrageDetentionScreen(),
-        const HsCodeSearchScreen(),
-        const SwiftReconciliationScreen(),
-        const ImportFileComprehensiveReportScreen(),
+        SmartTasksScreen(),
+        DynamicReportBuilderScreen(),
+        ShipmentUpdateEngineScreen(),
+        ImportRequirementsScreen(),
+        DemurrageDetentionScreen(),
+        HsCodeSearchScreen(),
+        SwiftReconciliationScreen(),
+        ImportFileComprehensiveReportScreen(),
 
         // 48: Native 6-Phase Lifecycle Operations Board
-        const LifecycleBoardScreen(),
+        LifecycleBoardScreen(),
 
         // 49: Freight Quotations Comparison
-        const FreightQuotationsComparisonScreen(),
+        FreightQuotationsComparisonScreen(),
 
         // 50: Landed Cost Comparison
-        const LandedCostComparisonScreen(importFileId: 1, importFileCode: 'IMP-DEMO'),
+        LandedCostComparisonScreen(importFileId: 1, importFileCode: 'IMP-DEMO'),
 
         // 51: Central Shipment Documents Archive & Discrepancies Summary Hub
-        const CentralDocsArchiveScreen(),
+        CentralDocsArchiveScreen(),
 
         // 52: Cargo Shipping Tracking (48h SLA Tracking Subtab)
-        const CargoShippingScreen(key: ValueKey('cargo_shipping_tracking_1'), initialSubTab: 1),
+        CargoShippingScreen(key: ValueKey('cargo_shipping_tracking_1'), initialSubTab: 1),
 
         // 53: Draft Inspection Certificate (Dedicated Subtab 5)
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_inspection_5'), initialSubTab: 5),
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_inspection_5'), initialSubTab: 5),
 
         // 54: CargoX Blockchain & ACI Dispatch Hub (Dedicated Subtab 7)
-        const ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_cargox_7'), initialSubTab: 7),
+        ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_cargox_7'), initialSubTab: 7),
       ];
 
   bool _isSidebarCollapsed = false;

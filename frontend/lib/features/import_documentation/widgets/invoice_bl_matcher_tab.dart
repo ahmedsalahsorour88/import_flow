@@ -43,7 +43,7 @@ class _InvoiceBLMatcherTabState extends ConsumerState<InvoiceBLMatcherTab> {
   Uint8List? _invoiceFileBytes;
   Uint8List? _blFileBytes;
   Uint8List? _packingFileBytes;
-  bool _showPackingList = false;
+  bool _showPackingList = true;
   bool _isLoading = false;
   bool _isSyncing = false;
 
@@ -1228,7 +1228,19 @@ Total Items: 31 Total: 20,030.000 kgs.
               ],
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
+          // Export / Copy Match Report Button
+          OutlinedButton.icon(
+            onPressed: _matchResult == null ? null : _showExportReportDialog,
+            icon: const Icon(Icons.picture_as_pdf_outlined, size: 18),
+            label: const Text('تصدير تقرير المطابقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.cobalt,
+              side: const BorderSide(color: AppTheme.cobalt),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            ),
+          ),
+          const SizedBox(width: 12),
           ElevatedButton.icon(
             onPressed: (_activeFileId == null || _isSyncing) ? null : _certifyAndSync,
             icon: _isSyncing
@@ -1248,6 +1260,109 @@ Total Items: 31 Total: 20,030.000 kgs.
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  void _showExportReportDialog() {
+    if (_matchResult == null) return;
+
+    final score = _matchResult!['match_score_percentage'] ?? 0;
+    final status = _matchResult!['overall_status'] ?? 'UNKNOWN';
+    final isSafe = _matchResult!['is_safe_for_certification'] == true;
+    final criticals = _matchResult!['critical_discrepancies_count'] ?? 0;
+    final warnings = _matchResult!['warning_discrepancies_count'] ?? 0;
+    final matrix = _matchResult!['comparison_matrix'] as List<dynamic>? ?? [];
+    final correctionLetter = _matchResult!['correction_letter']?.toString() ?? '';
+
+    final reportBuffer = StringBuffer();
+    reportBuffer.writeln('===============================================================');
+    reportBuffer.writeln('    تقرير المطابقة الذكية: الفاتورة التجارية vs البوليصة');
+    reportBuffer.writeln('===============================================================');
+    reportBuffer.writeln('نسبة التطابق الإجمالية : $score%');
+    reportBuffer.writeln('حالة النتيجة           : $status');
+    reportBuffer.writeln('قابل للاعتماد          : ${isSafe ? "نعم ✔" : "لا ✖"}');
+    reportBuffer.writeln('الاختلافات الحرجة      : $criticals');
+    reportBuffer.writeln('التنبيهات              : $warnings');
+    reportBuffer.writeln('---------------------------------------------------------------');
+    reportBuffer.writeln('تفاصيل مصفوفة المقارنة:');
+    for (final row in matrix) {
+      final r = row as Map<String, dynamic>;
+      reportBuffer.writeln(
+        '  ${r['field_label_ar'] ?? r['field_key']} | ${r['match_status']} | '
+        'System: ${r['system_value'] ?? "—"} | Draft: ${r['draft_value'] ?? "—"}',
+      );
+    }
+    if (correctionLetter.isNotEmpty) {
+      reportBuffer.writeln('---------------------------------------------------------------');
+      reportBuffer.writeln('خطاب التصحيح المقترح:');
+      reportBuffer.writeln(correctionLetter);
+    }
+    reportBuffer.writeln('===============================================================');
+
+    final reportText = reportBuffer.toString();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: const Row(
+          children: [
+            Icon(Icons.picture_as_pdf_outlined, color: AppTheme.cobalt),
+            SizedBox(width: 10),
+            Text('تقرير المطابقة الذكية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          ],
+        ),
+        content: SizedBox(
+          width: 700,
+          height: 480,
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'نسبة التطابق: $score%  |  ${isSafe ? "✅ آمن للاعتماد" : "⚠ يوجد فوارق حرجة"}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isSafe ? AppTheme.emerald : AppTheme.crimson,
+                    ),
+                  ),
+                  TextButton.icon(
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('نسخ التقرير'),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: reportText));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('✔ تم نسخ التقرير إلى الحافظة'), backgroundColor: AppTheme.emerald),
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: SingleChildScrollView(
+                    child: SelectableText(
+                      reportText,
+                      style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
         ],
       ),
     );

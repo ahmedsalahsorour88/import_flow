@@ -508,7 +508,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
   DateTime? _atd;
   String? _containerMismatchReason;
 
-  bool _isStackable = true;
+  final bool _isStackable = true;
   List<ContainerAllocationModel> _containers = [];
   List<BookingChargeModel> _charges = [];
 

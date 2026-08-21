@@ -1835,10 +1835,10 @@ Please note that the required documents for the mentioned shipment must be uploa
                   Text('لم يتم العثور على رقم ACID في النص الملصق'),
                 ],
               ),
-              content: Text(
+              content: const Text(
                 'النص الذي تم لصقه ينقصه السطور العلوية الأولى من إشعار نافذة (التي تحتوي على رقم ACID المكون من 19 رقماً وتواريخ الصلاحية).\n\n'
                 '📌 للتجربة الفورية ورؤية جدول الاستخراج بالكامل، اضغط على "تحميل إشعار نافذة نموذجي".',
-                style: const TextStyle(fontSize: 13, height: 1.5),
+                style: TextStyle(fontSize: 13, height: 1.5),
               ),
               actions: [
                 TextButton(

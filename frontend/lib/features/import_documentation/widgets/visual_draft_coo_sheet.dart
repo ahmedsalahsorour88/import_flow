@@ -451,20 +451,20 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 decoration: const BoxDecoration(
                   border: Border(right: BorderSide(color: Colors.black87, width: 0.8)),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('11. Declaration by the exporter', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    const SizedBox(height: 4),
-                    const Text(
+                    Text('11. Declaration by the exporter', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    SizedBox(height: 4),
+                    Text(
                       'The undersigned hereby declares that the above details and statements are correct, that all the goods were produced in China and that they comply with the Rules of Origin of the People\'s Republic of China.',
                       style: TextStyle(fontSize: 9.5, height: 1.25, color: Colors.black87),
                     ),
-                    const SizedBox(height: 16),
-                    const Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                    const SizedBox(height: 8),
-                    const Divider(height: 1, color: Colors.black54),
-                    const Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
+                    SizedBox(height: 16),
+                    Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    SizedBox(height: 8),
+                    Divider(height: 1, color: Colors.black54),
+                    Text('Place and date, signature and stamp of authorized signatory', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
                   ],
                 ),
               ),
@@ -475,25 +475,25 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
               flex: 5,
               child: Container(
                 padding: const EdgeInsets.all(8),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('12. Certification', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    const SizedBox(height: 4),
-                    const Text(
+                    Text('12. Certification', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    SizedBox(height: 4),
+                    Text(
                       'It is hereby certified that the declaration by the exporter is correct.',
                       style: TextStyle(fontSize: 9.5, height: 1.25, color: Colors.black87),
                     ),
-                    const SizedBox(height: 6),
-                    const Text(
+                    SizedBox(height: 6),
+                    Text(
                       'ADDRESS: DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR WUZHONG DISTRICT SUZHOU CITY\nFAX: 0512-65252957  TEL: 0512-65252453',
                       style: TextStyle(fontSize: 8.5, color: Colors.black87),
                     ),
-                    const SizedBox(height: 8),
-                    const Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
-                    const SizedBox(height: 8),
-                    const Divider(height: 1, color: Colors.black54),
-                    const Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
+                    SizedBox(height: 8),
+                    Text('SUZHOU, CHINA', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10)),
+                    SizedBox(height: 8),
+                    Divider(height: 1, color: Colors.black54),
+                    Text('Place and date, signature and stamp of certifying authority', style: TextStyle(fontSize: 8.5, color: Colors.black54)),
                   ],
                 ),
               ),
@@ -527,8 +527,6 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
     required String remarks,
     required bool isEur1,
   }) {
-    final originDisplay = originsList.isNotEmpty ? originsList.join(', ') : 'EU';
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -609,9 +607,9 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                           ),
                         ),
                         const SizedBox(height: 3),
-                        Text(
-                          originDisplay.contains('EU') ? 'EU' : originDisplay.toUpperCase(),
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.black87),
+                        const Text(
+                          'EU',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: Colors.black87),
                         ),
                         const Text('and', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
                         Text(
@@ -671,25 +669,21 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                             '4. Country, group of countries or territory in which the products are considered as originating',
                             style: TextStyle(fontSize: 8.5, color: Colors.black54),
                           ),
-                          const SizedBox(height: 4),
-                          if (originsList.isNotEmpty)
-                            Wrap(
-                              spacing: 4,
-                              runSpacing: 2,
-                              children: originsList.map((c) {
-                                return Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(3),
-                                    border: Border.all(color: Colors.blue.shade300),
-                                  ),
-                                  child: Text('🌍 $c', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.cobalt)),
-                                );
-                              }).toList(),
-                            )
-                          else
-                            Text(originDisplay, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10.5, color: Colors.black87)),
+                          const SizedBox(height: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(3),
+                              border: Border.all(color: Colors.blue.shade300),
+                            ),
+                            child: const Text('🇪🇺 EU', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 11, color: AppTheme.cobalt)),
+                          ),
+                          if (originsList.isNotEmpty && !originsList.contains('EU'))
+                            Padding(
+                              padding: const EdgeInsets.only(top: 3),
+                              child: Text('(${originsList.join(', ')})', style: const TextStyle(fontSize: 8.5, color: Colors.black54)),
+                            ),
                         ],
                       ),
                     ),

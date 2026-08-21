@@ -1396,8 +1396,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: const [
+                  const Row(
+                    children: [
                       Icon(Icons.inventory, color: AppTheme.orange),
                       SizedBox(width: 8),
                       Expanded(

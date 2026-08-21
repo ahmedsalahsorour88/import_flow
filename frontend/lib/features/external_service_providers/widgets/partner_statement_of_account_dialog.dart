@@ -274,7 +274,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                     borderRadius: BorderRadius.circular(8),
                                     child: SingleChildScrollView(
                                       child: DataTable(
-                                        headingRowColor: MaterialStateProperty.all(Colors.grey.shade100),
+                                        headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                                         columnSpacing: 18,
                                         horizontalMargin: 12,
                                         columns: const [

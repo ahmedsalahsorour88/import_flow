@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -91,7 +90,7 @@ class InspectionExportService {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Importer (Name, Address & Tax ID):', style: pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                            pw.Text('Importer (Name, Address & Tax ID):', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
                             pw.Text(importer, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
                           ],
@@ -106,7 +105,7 @@ class InspectionExportService {
                         child: pw.Column(
                           crossAxisAlignment: pw.CrossAxisAlignment.start,
                           children: [
-                            pw.Text('Exporter & Producer (Name & Address):', style: pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
+                            pw.Text('Exporter & Producer (Name & Address):', style: const pw.TextStyle(fontSize: 7.5, color: PdfColors.grey700)),
                             pw.SizedBox(height: 2),
                             pw.Text(exporter, style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
                           ],

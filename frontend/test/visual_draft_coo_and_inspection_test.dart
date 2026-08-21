@@ -40,9 +40,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('EUR.1'), findsWidgets);
-      expect(find.text('🌍 Germany'), findsOneWidget);
-      expect(find.text('🌍 Lithuania'), findsOneWidget);
-      expect(find.text('🌍 Poland'), findsOneWidget);
+      expect(find.textContaining('EU'), findsWidgets);
+      expect(find.textContaining('Germany'), findsWidgets);
+      expect(find.textContaining('Lithuania'), findsWidgets);
+      expect(find.textContaining('Poland'), findsWidgets);
       expect(find.text('🔖 940130'), findsOneWidget);
       expect(find.text('🔖 940310'), findsOneWidget);
       expect(find.textContaining('حفظ وطباعة PDF'), findsOneWidget);

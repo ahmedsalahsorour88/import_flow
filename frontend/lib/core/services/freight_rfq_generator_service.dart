@@ -1,11 +1,8 @@
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:file_picker/file_picker.dart';
 
 import '../../features/import_files/models/import_file_model.dart';
 import '../theme/app_theme.dart';
@@ -35,7 +32,6 @@ class FreightRfqGeneratorService {
 
     const primaryColor = PdfColor.fromInt(0xFF2C3E50); // Charcoal
     const accentColor = PdfColor.fromInt(0xFF3498DB); // Cobalt
-    const emeraldColor = PdfColor.fromInt(0xFF27AE60); // Emerald
     const lightBg = PdfColor.fromInt(0xFFF8F9FA);
 
     pdf.addPage(
@@ -68,8 +64,8 @@ class FreightRfqGeneratorService {
                     pw.SizedBox(height: 4),
                     pw.Text(
                       'طلب عرض أسعار نولون شحن دولي وبحري',
-                      style: pw.TextStyle(
-                        color: const PdfColor.fromInt(0xFFBDC3C7),
+                      style: const pw.TextStyle(
+                        color: PdfColor.fromInt(0xFFBDC3C7),
                         fontSize: 12,
                       ),
                       textDirection: pw.TextDirection.rtl,

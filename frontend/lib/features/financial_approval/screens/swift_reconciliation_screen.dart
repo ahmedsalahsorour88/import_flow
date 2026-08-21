@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -50,7 +49,6 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   Map<String, dynamic>? _extractedSwift;
   Map<String, dynamic>? _matchedPayment;
-  List<dynamic> _candidateMatches = [];
   int? _selectedPaymentIdForReconcile;
   String? _uploadedFileName;
   String? _detectedFileType;
@@ -112,7 +110,6 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           setState(() {
             _extractedSwift = res['parsed_swift'] as Map<String, dynamic>?;
             _matchedPayment = res['matched_payment_request'] as Map<String, dynamic>?;
-            _candidateMatches = (res['candidate_matches'] as List<dynamic>?) ?? [];
             _detectedFileType = res['detected_file_type'] as String?;
             if (res['raw_text'] != null && (res['raw_text'] as String).isNotEmpty) {
               _rawSwiftTextController.text = res['raw_text'] as String;
@@ -166,7 +163,6 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           setState(() {
             _extractedSwift = res['parsed_swift'] as Map<String, dynamic>?;
             _matchedPayment = res['matched_payment_request'] as Map<String, dynamic>?;
-            _candidateMatches = (res['candidate_matches'] as List<dynamic>?) ?? [];
             if (_matchedPayment != null && _matchedPayment!['payment_id'] != null) {
               _selectedPaymentIdForReconcile = _matchedPayment!['payment_id'] as int;
             }
@@ -1314,7 +1310,6 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   setState(() {
                                     _extractedSwift = null;
                                     _matchedPayment = null;
-                                    _candidateMatches = [];
                                     _selectedPaymentIdForReconcile = null;
                                     _uploadedFileName = null;
                                     _detectedFileType = null;

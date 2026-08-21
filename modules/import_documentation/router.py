@@ -608,7 +608,7 @@ def update_coo_review(
 )
 def get_coo_draft_template(
     import_file_id: int,
-    cert_type: str = "EUR.1",
+    cert_type: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -784,15 +784,16 @@ async def extract_invoice_bl_files_and_match(
 
     if invoice_file:
         content = await invoice_file.read()
-        inv_raw = service.extract_text_from_uploaded_file(invoice_file.filename, content)
+        inv_raw, _ = service.extract_text_and_boxes_from_uploaded_file(invoice_file.filename, content)
 
     if bl_file:
         content = await bl_file.read()
-        bl_raw = service.extract_text_from_uploaded_file(bl_file.filename, content)
+        bl_raw, _ = service.extract_text_and_boxes_from_uploaded_file(bl_file.filename, content)
 
     if packing_list_file:
         content = await packing_list_file.read()
-        pl_raw = service.extract_text_from_uploaded_file(packing_list_file.filename, content)
+        pl_raw, _ = service.extract_text_and_boxes_from_uploaded_file(packing_list_file.filename, content)
+
 
     req = InvoiceBLExtractAndMatchRequest(
         import_file_id=import_file_id,

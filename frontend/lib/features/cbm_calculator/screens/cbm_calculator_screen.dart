@@ -3,7 +3,6 @@ import '../../purchase_orders/models/purchase_order_model.dart';
 import '../widgets/saved_cbm_registry_tab.dart';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -674,7 +673,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 160,
                                   child: SearchableDropdownField<String>(
-                                    key: ValueKey('type_${idx}_${item.packageType}_${_activeSessionId}'),
+                                    key: ValueKey('type_${idx}_${item.packageType}_$_activeSessionId'),
                                     value: item.packageType,
                                     labelText: 'Package Type',
                                     searchHintText: 'ابحث عن نوع الطرد...',
@@ -704,7 +703,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 95,
                                   child: SearchableDropdownField<String>(
-                                    key: ValueKey('unit_${idx}_${item.unit}_${_activeSessionId}'),
+                                    key: ValueKey('unit_${idx}_${item.unit}_$_activeSessionId'),
                                     value: item.unit,
                                     labelText: 'Unit',
                                     searchHintText: 'الوحدة...',
@@ -736,7 +735,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 80,
                                   child: TextFormField(
-                                    key: ValueKey('qty_${idx}_${item.quantity}_${_activeSessionId}'),
+                                    key: ValueKey('qty_${idx}_${item.quantity}_$_activeSessionId'),
                                     initialValue: item.quantity.toString(),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: const InputDecoration(labelText: 'Qty', isDense: true, border: OutlineInputBorder()),
@@ -762,7 +761,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 100,
                                   child: TextFormField(
-                                    key: ValueKey('len_${idx}_${item.length}_${_activeSessionId}'),
+                                    key: ValueKey('len_${idx}_${item.length}_$_activeSessionId'),
                                     initialValue: item.length.toString(),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(labelText: 'Length (${item.unit})', isDense: true, border: const OutlineInputBorder()),
@@ -788,7 +787,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 100,
                                   child: TextFormField(
-                                    key: ValueKey('wid_${idx}_${item.width}_${_activeSessionId}'),
+                                    key: ValueKey('wid_${idx}_${item.width}_$_activeSessionId'),
                                     initialValue: item.width.toString(),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(labelText: 'Width (${item.unit})', isDense: true, border: const OutlineInputBorder()),
@@ -814,7 +813,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 100,
                                   child: TextFormField(
-                                    key: ValueKey('hei_${idx}_${item.height}_${_activeSessionId}'),
+                                    key: ValueKey('hei_${idx}_${item.height}_$_activeSessionId'),
                                     initialValue: item.height.toString(),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(labelText: 'Height (${item.unit})', isDense: true, border: const OutlineInputBorder()),
@@ -840,7 +839,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                 SizedBox(
                                   width: 145,
                                   child: SearchableDropdownField<bool>(
-                                    key: ValueKey('stack_${idx}_${item.isStackable}_${_activeSessionId}'),
+                                    key: ValueKey('stack_${idx}_${item.isStackable}_$_activeSessionId'),
                                     value: item.isStackable,
                                     labelText: 'الرص (Stacking)',
                                     searchHintText: 'نوع الرص...',
@@ -871,7 +870,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                                   SizedBox(
                                     width: 120,
                                     child: TextFormField(
-                                      key: ValueKey('wt_${idx}_${item.grossWeightPerUnitKg}_${_activeSessionId}'),
+                                      key: ValueKey('wt_${idx}_${item.grossWeightPerUnitKg}_$_activeSessionId'),
                                       initialValue: item.grossWeightPerUnitKg.toString(),
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                       decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true, border: OutlineInputBorder()),
@@ -1567,7 +1566,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                             if (nonStackInThis > 0) {
                               statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص (استغلال أرضية: ${floorUtil.toStringAsFixed(1)}%)';
                             } else {
-                              statusText = 'رص 3D متعدد الطبقات متوافق (${totalPlacedCount} طرد)';
+                              statusText = 'رص 3D متعدد الطبقات متوافق ($totalPlacedCount طرد)';
                             }
                           }
 

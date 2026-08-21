@@ -1,5 +1,3 @@
-import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -394,7 +392,7 @@ class CooExportService {
                           child: pw.Text('2. Certificate used in preferential trade between', style: const pw.TextStyle(fontSize: 6.5, color: PdfColors.grey700)),
                         ),
                         pw.SizedBox(height: 2),
-                        pw.Text(origin.contains('EU') ? 'EU' : origin.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
+                        pw.Text('EU', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
                         pw.Text('and', style: const pw.TextStyle(fontSize: 7.5)),
                         pw.Text(destination.toUpperCase(), style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 8.5)),
                         pw.Text('(Insert appropriate countries, groups of countries or territories)', style: const pw.TextStyle(fontSize: 6, color: PdfColors.grey600)),
@@ -421,7 +419,7 @@ class CooExportService {
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
                   pw.Expanded(
-                    child: _buildPdfBoxCell('4. Country of Origin', origin, minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
+                    child: _buildPdfBoxCell('4. Country of Origin', 'EU', minHeight: 70, hasRightBorder: true, hasBottomBorder: true),
                   ),
                   pw.Expanded(
                     child: _buildPdfBoxCell('5. Country of Destination', destination, minHeight: 70, hasBottomBorder: true),

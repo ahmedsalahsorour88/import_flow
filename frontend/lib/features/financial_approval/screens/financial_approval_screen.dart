@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -88,7 +87,6 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
 
   // Edit Mode for Tab 2 (Import Budgets)
   int? _editingBudgetId;
-  String? _editingBudgetCode;
 
   double _getExchangeRateForCurrency(String currencyCode) {
     if (currencyCode.toUpperCase() == 'EGP') return 1.0;
@@ -531,7 +529,6 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   void _loadBudgetForEdit(ImportBudgetModel b) {
     setState(() {
       _editingBudgetId = b.budgetId;
-      _editingBudgetCode = b.budgetCode;
       _bgtTitleController.text = b.title;
       _bgtSelectedImportFileId = b.importFileId;
       _invoiceForeignController.text = b.invoiceAmountForeign.toStringAsFixed(2);
@@ -938,7 +935,6 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
           setState(() {
             _lastSavedBudget = updated;
             _editingBudgetId = null;
-            _editingBudgetCode = null;
           });
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('✅ تم تعديل الميزانية الاستيرادية (${updated.budgetCode}) بنجاح'), backgroundColor: AppTheme.emerald),
@@ -1660,7 +1656,6 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
     final budgetsState = ref.watch(importBudgetsProvider);
 
     final suppliersList = suppliersState.value ?? [];
-    final totalRecords = (paymentsState.value?.length ?? 0) + (budgetsState.value?.length ?? 0);
 
     final tabs = [
       const VerticalNavTabItem(
@@ -2304,7 +2299,6 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
                                     onPressed: () {
                                       setState(() {
                                         _editingBudgetId = null;
-                                        _editingBudgetCode = null;
                                         _bgtSelectedImportFileId = null;
                                         _bgtPrefillData = null;
                                         _bgtNotesController.clear();

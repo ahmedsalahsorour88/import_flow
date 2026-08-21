@@ -54,8 +54,6 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
   String _searchQuery = '';
   String _statusFilter = 'All';
 
-  // Tab 2: Manifest Viewer State
-  CargoXEnvelopeModel? _selectedManifestEnvelope;
   DigitalManifestModel? _activeDigitalManifest;
   bool _isLoadingManifest = false;
 
@@ -218,25 +216,28 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
           Container(
             color: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              children: [
-                const Icon(Icons.hub_outlined, color: AppTheme.cobalt, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'منظومة كارجو إكس والبلوك تشين (CargoX & ACI Dispatch Hub):',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
-                ),
-                const Spacer(),
-                SegmentedButton<int>(
-                  segments: const [
-                    ButtonSegment(value: 0, label: Text('تجهيز المظروف 📦', style: TextStyle(fontSize: 11))),
-                    ButtonSegment(value: 1, label: Text('تتبع البلوك تشين 🔗', style: TextStyle(fontSize: 11))),
-                    ButtonSegment(value: 2, label: Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11))),
-                  ],
-                  selected: {_selectedSubTab},
-                  onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),
-                ),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  const Icon(Icons.hub_outlined, color: AppTheme.cobalt, size: 20),
+                  const SizedBox(width: 8),
+                  const Text(
+                    'منظومة كارجو إكس والبلوك تشين (CargoX & ACI Dispatch Hub):',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                  ),
+                  const SizedBox(width: 24),
+                  SegmentedButton<int>(
+                    segments: const [
+                      ButtonSegment(value: 0, label: Text('تجهيز المظروف 📦', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 1, label: Text('تتبع البلوك تشين 🔗', style: TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 2, label: Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11))),
+                    ],
+                    selected: {_selectedSubTab},
+                    onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),
+                  ),
+                ],
+              ),
             ),
           ),
           const Divider(height: 1),
@@ -440,25 +441,29 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.checklist_rtl_outlined, color: AppTheme.emerald, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              '2. قائمة المستندات المحملة داخل المظروف (Attached Documents Checklist):',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
-                            ),
-                          ],
-                        ),
-                        TextButton.icon(
-                          icon: const Icon(Icons.restore_page, size: 16),
-                          label: const Text('استعادة القائمة القياسية 📄', style: TextStyle(fontSize: 11)),
-                          onPressed: () => setState(() => _initDefaultAttachedDocs()),
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Row(
+                            children: [
+                              Icon(Icons.checklist_rtl_outlined, color: AppTheme.emerald, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                '2. قائمة المستندات المحملة داخل المظروف (Attached Documents Checklist):',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(width: 16),
+                          TextButton.icon(
+                            icon: const Icon(Icons.restore_page, size: 16),
+                            label: const Text('استعادة القائمة القياسية 📄', style: TextStyle(fontSize: 11)),
+                            onPressed: () => setState(() => _initDefaultAttachedDocs()),
+                          ),
+                        ],
+                      ),
                     ),
                     const Divider(),
                     const SizedBox(height: 8),
@@ -1042,7 +1047,6 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
   void _viewManifest(CargoXEnvelopeModel env) async {
     setState(() {
-      _selectedManifestEnvelope = env;
       _selectedSubTab = 2;
       _isLoadingManifest = true;
     });
@@ -1070,7 +1074,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     }
 
     if (_activeDigitalManifest == null && envelopes.isNotEmpty) {
-      _viewManifest(envelopes.first);
+      if (!_isLoadingManifest) {
+        Future.microtask(() => _viewManifest(envelopes.first));
+      }
       return const Center(child: CircularProgressIndicator());
     }
 

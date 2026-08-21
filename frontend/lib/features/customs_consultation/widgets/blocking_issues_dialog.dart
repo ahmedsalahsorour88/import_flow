@@ -60,7 +60,7 @@ import '../models/customs_consultation_model.dart';
                         child: const Row(
                           children: [
                             Icon(Icons.info_outline, color: AppTheme.crimson, size: 22),
-                            const SizedBox(width: 10),
+                            SizedBox(width: 10),
                             Expanded(
                               child: Text(
                                 'هذه المستندات والاشتراطات مصنفة كـ (Blocking) ولا يمكن الإفراج عن الشحنة بدون استيفائها أو اعتمادها من المستخلص/الجهة الرقابية.',

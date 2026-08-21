@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
-import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/docs_customs_approval_model.dart';
 import '../providers/docs_customs_approval_provider.dart';
@@ -32,11 +31,24 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     });
   }
 
+  @override
+  void didUpdateWidget(covariant CustomsDocumentApprovalTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialImportFileId != oldWidget.initialImportFileId &&
+        widget.initialImportFileId != null) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+        _matrixResult = null;
+      });
+      _refresh();
+    }
+  }
+
   void _refresh() {
     ref.read(importFilesProvider.notifier).fetchImportFiles();
     ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(
           importFileId: _selectedImportFileId,
-          overallStatus: _selectedStatusFilter,
+          overallStatus: _selectedStatusFilter == 'All' ? null : _selectedStatusFilter,
         );
     ref.read(discrepancyTicketsProvider.notifier).fetchTickets(
           importFileId: _selectedImportFileId,
@@ -201,6 +213,28 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
                     onPressed: () => _showRaiseTicketDialog(),
                     icon: const Icon(Icons.report_problem_outlined),
                     label: const Text('تذكرة استدراك للمورد'),
+                  ),
+                  const SizedBox(width: 16),
+                  const VerticalDivider(width: 1, thickness: 1),
+                  const SizedBox(width: 12),
+                  // Status Filter Dropdown
+                  DropdownButton<String>(
+                    value: _selectedStatusFilter,
+                    underline: const SizedBox.shrink(),
+                    icon: const Icon(Icons.filter_list, size: 18, color: AppTheme.charcoal),
+                    borderRadius: BorderRadius.circular(8),
+                    items: const [
+                      DropdownMenuItem(value: 'All', child: Text('الكل (All)')),
+                      DropdownMenuItem(value: 'Pending', child: Text('قيد المراجعة (Pending)')),
+                      DropdownMenuItem(value: 'Approved', child: Text('معتمد (Approved)')),
+                      DropdownMenuItem(value: 'Rejected', child: Text('مرفوض (Rejected)')),
+                      DropdownMenuItem(value: 'Discrepancy', child: Text('يوجد فروق (Discrepancy)')),
+                    ],
+                    onChanged: (val) {
+                      if (val == null) return;
+                      setState(() => _selectedStatusFilter = val);
+                      _refresh();
+                    },
                   ),
                 ],
               ),

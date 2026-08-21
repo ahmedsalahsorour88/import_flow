@@ -400,34 +400,37 @@ Future<void> showErrorDetailsDialog(
                       ),
                       const SizedBox(height: 16),
                     ],
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        TextButton.icon(
-                          onPressed: () {
-                            setState(() => showTechnical = !showTechnical);
-                          },
-                          icon: Icon(
-                            showTechnical ? Icons.expand_less : Icons.expand_more,
-                            size: 18,
-                            color: Colors.grey.shade700,
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          TextButton.icon(
+                            onPressed: () {
+                              setState(() => showTechnical = !showTechnical);
+                            },
+                            icon: Icon(
+                              showTechnical ? Icons.expand_less : Icons.expand_more,
+                              size: 18,
+                              color: Colors.grey.shade700,
+                            ),
+                            label: Text(
+                              showTechnical
+                                  ? 'إخفاء السجل التقني المفصل'
+                                  : 'عرض السجل التقني المفصل للمطورين (Diagnostic Log)',
+                              style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                            ),
                           ),
-                          label: Text(
-                            showTechnical
-                                ? 'إخفاء السجل التقني المفصل'
-                                : 'عرض السجل التقني المفصل للمطورين (Diagnostic Log)',
-                            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
-                          ),
-                        ),
-                        OutlinedButton.icon(
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            side: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
-                          label: const Text('نسخ تقرير الفحص', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
-                          onPressed: () {
-                            final report = '''
+                          const SizedBox(width: 16),
+                          OutlinedButton.icon(
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              side: BorderSide(color: Colors.grey.shade300),
+                            ),
+                            icon: const Icon(Icons.copy, size: 14, color: AppTheme.cobalt),
+                            label: const Text('نسخ تقرير الفحص', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                            onPressed: () {
+                              final report = '''
 === تقرير فحص ومعالجة أخطاء Sorour Logistics ERP ===
 التاريخ والوقت: ${DateTime.now().toIso8601String()}
 العنوان: $title
@@ -441,17 +444,18 @@ ${parsed.validationIssues.map((i) => '- [${i.fieldName}]: ${i.issueDescription} 
 ${parsed.rawTechnicalLog}
 ================================================
 ''';
-                            Clipboard.setData(ClipboardData(text: report));
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('📋 تم نسخ تقرير الفحص التشخيصي إلى الحافظة!'),
-                                backgroundColor: AppTheme.charcoal,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
-                          },
-                        ),
-                      ],
+                              Clipboard.setData(ClipboardData(text: report));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('📋 تم نسخ تقرير الفحص التشخيصي إلى الحافظة!'),
+                                  backgroundColor: AppTheme.charcoal,
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                     if (showTechnical) ...[
                       const SizedBox(height: 6),

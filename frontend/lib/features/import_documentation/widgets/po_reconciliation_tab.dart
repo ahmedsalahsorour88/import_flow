@@ -112,8 +112,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
     Future.microtask(() async {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
       await ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
       await ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
+      if (_selectedImportFileId == null && mounted) {
+        final files = ref.read(importFilesProvider).value ?? [];
+        if (files.isNotEmpty) {
+          setState(() {
+            _selectedImportFileId = files.first.importFileId;
+          });
+        }
+      }
       if (_selectedImportFileId != null && mounted) {
         _loadPOItems(_selectedImportFileId!);
       }

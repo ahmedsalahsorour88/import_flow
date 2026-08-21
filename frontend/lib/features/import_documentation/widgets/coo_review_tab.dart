@@ -51,7 +51,29 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   void initState() {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
-    if (_selectedImportFileId != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final files = ref.read(importFilesProvider).value ?? [];
+      if (_selectedImportFileId == null && files.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _selectedImportFileId = files.first.importFileId;
+          });
+        }
+      }
+      if (_selectedImportFileId != null) {
+        _loadSnapshot(_selectedImportFileId!);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant COOReviewTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialImportFileId != oldWidget.initialImportFileId && widget.initialImportFileId != null) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+      });
       _loadSnapshot(_selectedImportFileId!);
     }
   }

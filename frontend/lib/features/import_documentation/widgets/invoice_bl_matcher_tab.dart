@@ -103,6 +103,15 @@ Total Items: 31 Total: 20,030.000 kgs.
   void initState() {
     super.initState();
     _activeFileId = widget.selectedImportFileId;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final files = ref.read(importFilesProvider).value ?? [];
+      if (_activeFileId == null && files.isNotEmpty && mounted) {
+        setState(() {
+          _activeFileId = files.first.importFileId;
+        });
+      }
+    });
   }
 
   @override

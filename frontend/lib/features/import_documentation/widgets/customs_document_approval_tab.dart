@@ -44,8 +44,14 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     }
   }
 
-  void _refresh() {
-    ref.read(importFilesProvider.notifier).fetchImportFiles();
+  Future<void> _refresh() async {
+    await ref.read(importFilesProvider.notifier).fetchImportFiles();
+    final files = ref.read(importFilesProvider).value ?? [];
+    if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
+      setState(() {
+        _selectedImportFileId = files.first.importFileId;
+      });
+    }
     ref.read(docsCustomsApprovalProvider.notifier).fetchApprovals(
           importFileId: _selectedImportFileId,
           overallStatus: _selectedStatusFilter == 'All' ? null : _selectedStatusFilter,
@@ -66,6 +72,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
     setState(() => _isRunningMatrixCheck = true);
     try {
       final res = await ref.read(docsCustomsApprovalProvider.notifier).runMatrixCheck(_selectedImportFileId!);
+      if (!mounted) return;
       setState(() => _matrixResult = res);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -74,11 +81,14 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
         ),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ فشل إجراء الفحص: $e'), backgroundColor: AppTheme.crimson),
       );
     } finally {
-      setState(() => _isRunningMatrixCheck = false);
+      if (mounted) {
+        setState(() => _isRunningMatrixCheck = false);
+      }
     }
   }
 
@@ -92,10 +102,12 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
 
     try {
       await ref.read(docsCustomsApprovalProvider.notifier).autoGenerateChecklist(_selectedImportFileId!);
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('✅ تم توليد قائمة مستندات الاعتماد القياسية بنجاح.'), backgroundColor: AppTheme.emerald),
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('❌ خطأ أثناء التوليد: $e'), backgroundColor: AppTheme.crimson),
       );

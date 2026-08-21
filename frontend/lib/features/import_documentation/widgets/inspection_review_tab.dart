@@ -48,7 +48,29 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   void initState() {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
-    if (_selectedImportFileId != null) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final files = ref.read(importFilesProvider).value ?? [];
+      if (_selectedImportFileId == null && files.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _selectedImportFileId = files.first.importFileId;
+          });
+        }
+      }
+      if (_selectedImportFileId != null) {
+        _loadSnapshot(_selectedImportFileId!);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant InspectionReviewTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialImportFileId != oldWidget.initialImportFileId && widget.initialImportFileId != null) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+      });
       _loadSnapshot(_selectedImportFileId!);
     }
   }
@@ -56,11 +78,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   void _loadSnapshot(int fileId) {
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
-    if (file == null) return;
-
-    _importerCtrl.text = file.companyName;
-    _exporterCtrl.text = file.supplierName;
-    _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    if (file != null) {
+      _importerCtrl.text = file.companyName;
+      _exporterCtrl.text = file.supplierName;
+      _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+    }
     _fetchAndApplyDraft(fileId);
   }
 

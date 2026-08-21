@@ -65,9 +65,18 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   void initState() {
     super.initState();
     _selectedImportFileId = widget.initialImportFileId;
-    if (_selectedImportFileId != null) {
-      _runComparison(silent: true);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      final files = ref.read(importFilesProvider).value ?? [];
+      if (_selectedImportFileId == null && files.isNotEmpty && mounted) {
+        setState(() {
+          _selectedImportFileId = files.first.importFileId;
+        });
+      }
+      if (_selectedImportFileId != null) {
+        _runComparison(silent: true);
+      }
+    });
   }
 
   @override

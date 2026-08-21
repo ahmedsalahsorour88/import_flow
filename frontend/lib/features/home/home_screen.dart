@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers/navigation_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/constants/api_constants.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
 import '../auth/providers/auth_provider.dart';
 import '../cargo_shipping/screens/cargo_shipping_screen.dart';
@@ -226,6 +227,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         const Divider(color: Colors.white24, height: 8),
         const NotificationBellWidget(),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
+          tooltip: 'معلومات الإصدار والنظام (System Info)',
+          onPressed: () => _showSystemInfoDialog(context),
+        ),
         const SizedBox(height: 6),
         if (user != null)
           Tooltip(
@@ -303,7 +311,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const NotificationBellWidget(),
-              const SizedBox(width: 2),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
+                tooltip: 'معلومات الإصدار والنظام (System Info)',
+                onPressed: () => _showSystemInfoDialog(context),
+              ),
+              const SizedBox(width: 4),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -579,6 +594,50 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
+
+        // System Version & Port Status Footer
+        InkWell(
+          onTap: () => _showSystemInfoDialog(context),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            color: Colors.black.withOpacity(0.28),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Row(
+                  children: [
+                    Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
+                    SizedBox(width: 4),
+                    Text(
+                      'v1.0.0 (Build 2026.08)',
+                      style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                  decoration: BoxDecoration(
+                    color: AppTheme.emerald.withOpacity(0.18),
+                    borderRadius: BorderRadius.circular(4),
+                    border: Border.all(color: AppTheme.emerald.withOpacity(0.4), width: 0.8),
+                  ),
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.circle, color: AppTheme.emerald, size: 5),
+                      SizedBox(width: 3.5),
+                      Text(
+                        'Port: 28080',
+                        style: TextStyle(color: AppTheme.emerald, fontSize: 8.5, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -716,6 +775,106 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           selectNavigationIndex(ref, index);
         },
       ),
+    );
+  }
+
+  void _showSystemInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        titlePadding: EdgeInsets.zero,
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: const BoxDecoration(
+            color: AppTheme.charcoal,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'ImportFlow ERP',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    Text(
+                      'سرور للخدمات اللوجستية وإدارة الاستيراد',
+                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ],
+          ),
+        ),
+        content: SizedBox(
+          width: 480,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildInfoRow(Icons.verified, 'إصدار المنظومة (Version)', 'v1.0.0 (Release)'),
+              const Divider(height: 14),
+              _buildInfoRow(Icons.build_circle_outlined, 'رقم البناء (Build ID)', 'Build 2026.08.22+1'),
+              const Divider(height: 14),
+              _buildInfoRow(Icons.dns_outlined, 'الخادم المدمج (Backend Engine)', 'FastAPI (Port 28080)'),
+              const Divider(height: 14),
+              _buildInfoRow(Icons.storage_outlined, 'قاعدة البيانات (Database)', 'SQLite (sorour_logistics.db)'),
+              const Divider(height: 14),
+              _buildInfoRow(Icons.offline_pin_outlined, 'نمط التشغيل (Operating Mode)', 'Standalone Offline / Local Engine'),
+              const Divider(height: 14),
+              _buildInfoRow(Icons.shield_outlined, 'الترخيص والحقوق', '© 2026 Sorour Logistics. All rights reserved.'),
+            ],
+          ),
+        ),
+        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.cobalt,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: AppTheme.cobalt),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+          ),
+        ),
+        Text(
+          value,
+          style: const TextStyle(fontSize: 11.5, color: Colors.black87, fontFamily: 'monospace'),
+        ),
+      ],
     );
   }
 }

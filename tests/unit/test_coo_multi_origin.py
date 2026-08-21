@@ -23,30 +23,63 @@ def db_session():
     session.close()
 
 
+from datetime import datetime, timezone, timedelta
+
 def test_multi_origin_and_multi_hs_code_extraction(db_session):
     # Setup Master Data
     company = db_session.query(ImportCompany).first()
     if not company:
-        company = ImportCompany(importer_name="Archi Brands Egypt", tax_id="100200300", is_active=True)
+        now = datetime.now(timezone.utc)
+        company = ImportCompany(
+            importer_name="Archi Brands Egypt",
+            importer_id="IMP-ARCHI-001",
+            importer_id_expiry=now + timedelta(days=365),
+            vat_id="VAT-100200300",
+            vat_id_expiry=now + timedelta(days=365),
+            registration_number="REG-100200",
+            registration_expiry=now + timedelta(days=365),
+            address="12 Ramses St, Cairo",
+            country="Egypt",
+            phone="+20 2 2577 8899",
+            is_active=True,
+        )
         db_session.add(company)
         db_session.commit()
 
     supplier = db_session.query(Supplier).first()
     if not supplier:
-        supplier = Supplier(company_name="Multi Global Ltd", foreign_exporter_country="Lithuania", is_active=True)
+        supplier = Supplier(
+            supplier_code="SUP-TEST-001",
+            company_name="Multi Global Ltd",
+            supplier_type="Manufacturer",
+            registration_type="Factory",
+            foreign_exporter_id="EXP-LT-001",
+            foreign_exporter_country="Lithuania",
+            foreign_exporter_country_code="LT",
+            address="Vilnius, Lithuania",
+            is_active=True,
+        )
         db_session.add(supplier)
-        db_session.commit()
-
-    project = db_session.query(Project).first()
-    if not project:
-        project = Project(project_name="Central Project", is_active=True)
-        db_session.add(project)
         db_session.commit()
 
     incoterm = db_session.query(Incoterm).first()
     if not incoterm:
         incoterm = Incoterm(incoterm_code="FOB", incoterm_name="Free on Board", is_active=True)
         db_session.add(incoterm)
+        db_session.commit()
+
+    project = db_session.query(Project).first()
+    if not project:
+        project = Project(
+            project_code="PRJ-TEST-001",
+            project_name="Central Project",
+            project_owner="Logistics Specialist",
+            company_id=company.company_id,
+            supplier_id=supplier.supplier_id,
+            incoterm_id=incoterm.incoterm_id,
+            is_active=True,
+        )
+        db_session.add(project)
         db_session.commit()
 
     currency = db_session.query(Currency).first()

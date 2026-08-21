@@ -81,7 +81,7 @@ class CustomsTariffNotifier
         return 'انتهت مهلة الاتصال بالخادم. يرجى التأكد من تشغيل السيرفر.';
       }
       if (e.type == DioExceptionType.connectionError) {
-        return 'تعذر الاتصال بخادم الباك إند (127.0.0.1:8000). يرجى التأكد من تشغيل السيرفر.';
+        return 'تعذر الاتصال بخادم الباك إند (${ApiConstants.serverUrl}). يرجى التأكد من تشغيل السيرفر.';
       }
       return e.message ?? defaultMsg;
     }

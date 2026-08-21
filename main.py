@@ -257,3 +257,23 @@ def health_check():
     return {
         "status": "OK",
     }
+
+
+# ==================================================
+# Graceful System Shutdown
+# ==================================================
+
+@app.post("/shutdown")
+def shutdown_system():
+    import os
+    import threading
+    import time
+
+    def _delayed_exit():
+        time.sleep(0.3)
+        os._exit(0)
+
+    threading.Thread(target=_delayed_exit, daemon=True).start()
+    return {
+        "status": "shutting down",
+    }

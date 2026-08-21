@@ -4,13 +4,15 @@ import '../models/import_requirement_model.dart';
 import '../../../core/network/api_client.dart';
 
 
+import '../../../core/constants/api_constants.dart';
+
 final importRequirementsProvider = AsyncNotifierProvider<ImportRequirementsNotifier, List<ImportRequirementModel>>(() {
   return ImportRequirementsNotifier();
 });
 
 class ImportRequirementsNotifier extends AsyncNotifier<List<ImportRequirementModel>> {
   Dio get _dio => ref.read(dioProvider);
-  final String _baseUrl = 'http://127.0.0.1:8000/api/v1';
+  final String _baseUrl = ApiConstants.baseUrl;
 
   @override
   Future<List<ImportRequirementModel>> build() async {

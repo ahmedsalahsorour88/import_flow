@@ -2,8 +2,18 @@ from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
 
+import os
+import sys
+from pathlib import Path
+
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys.executable).parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+
+DB_PATH = os.getenv("DATABASE_PATH", str(BASE_DIR / "sorour_logistics.db"))
 # SQLite Database
-DATABASE_URL = "sqlite:///./sorour_logistics.db"
+DATABASE_URL = f"sqlite:///{Path(DB_PATH).as_posix()}"
 
 
 # Create Engine

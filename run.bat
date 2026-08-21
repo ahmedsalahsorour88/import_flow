@@ -7,9 +7,9 @@ echo                 ImportFlow ERP - Enterprise Launcher
 echo ===============================================================================
 echo.
 
-:: 1. Free ports 8000 and 3000
-echo [1/3] Checking and freeing ports 8000 and 3000...
-for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":8000"') do taskkill /f /pid %%p >nul 2>&1
+:: 1. Free ports 28080 and 3000
+echo [1/3] Checking and freeing ports 28080 and 3000...
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":28080"') do taskkill /f /pid %%p >nul 2>&1
 for /f "tokens=5" %%p in ('netstat -ano ^| findstr ":3000"') do taskkill /f /pid %%p >nul 2>&1
 
 :: 2. Check Python
@@ -27,7 +27,7 @@ echo   Select Launch Mode:
 echo ===============================================================================
 echo   [1] Desktop Application (Native Windows Release EXE) - [Default]
 echo   [2] Web Application (Chrome / Browser at http://localhost:3000)
-echo   [3] Backend API Only (FastAPI + Swagger Docs at http://localhost:8000/docs)
+echo   [3] Backend API Only (FastAPI + Swagger Docs at http://localhost:28080/docs)
 echo   [4] Run Backend Unit Tests
 echo ===============================================================================
 echo.
@@ -40,8 +40,8 @@ if errorlevel 1 goto launch_desktop
 
 :launch_desktop
 echo.
-echo [2/3] Starting FastAPI Backend on http://127.0.0.1:8000...
-start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 8000"
+echo [2/3] Starting FastAPI Backend on http://127.0.0.1:28080...
+start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080"
 
 echo [3/3] Launching ImportFlow Desktop...
 ping 127.0.0.1 -n 3 >nul 2>&1
@@ -51,8 +51,8 @@ if exist "%~dp0frontend\build\windows\x64\runner\Release\frontend.exe" (
     echo.
     echo ===============================================================================
     echo [SUCCESS] ImportFlow ERP Desktop is running!
-    echo    - Backend API: http://127.0.0.1:8000
-    echo    - API Docs:    http://127.0.0.1:8000/docs
+    echo    - Backend API: http://127.0.0.1:28080
+    echo    - API Docs:    http://127.0.0.1:28080/docs
     echo ===============================================================================
     ping 127.0.0.1 -n 3 >nul 2>&1
     exit /b 0
@@ -64,8 +64,8 @@ if exist "%~dp0frontend\build\windows\x64\runner\Release\frontend.exe" (
 
 :launch_web
 echo.
-echo [2/3] Starting FastAPI Backend on http://0.0.0.0:8000...
-start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 0.0.0.0 --port 8000"
+echo [2/3] Starting FastAPI Backend on http://0.0.0.0:28080...
+start "ImportFlow Backend" /min cmd /c "cd /d %~dp0 && python -m uvicorn main:app --host 0.0.0.0 --port 28080"
 
 echo [3/3] Starting Flutter Web on http://localhost:3000...
 start "ImportFlow Frontend" cmd /k "cd /d %~dp0frontend && flutter run -d web-server --web-port 3000 --web-hostname 0.0.0.0"
@@ -83,10 +83,10 @@ exit /b 0
 
 :launch_backend_only
 echo.
-echo Starting FastAPI Backend on http://127.0.0.1:8000...
-start "ImportFlow Backend" cmd /k "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload"
+echo Starting FastAPI Backend on http://127.0.0.1:28080...
+start "ImportFlow Backend" cmd /k "cd /d %~dp0 && python -m uvicorn main:app --host 127.0.0.1 --port 28080 --reload"
 ping 127.0.0.1 -n 3 >nul 2>&1
-start http://127.0.0.1:8000/docs
+start http://127.0.0.1:28080/docs
 exit /b 0
 
 :launch_tests

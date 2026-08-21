@@ -5,9 +5,9 @@ class ApiConstants {
   static String get serverUrl {
     if (kIsWeb) {
       final host = Uri.base.host.isNotEmpty ? Uri.base.host : '127.0.0.1';
-      return 'http://$host:8000';
+      return 'http://$host:28080';
     }
-    return 'http://127.0.0.1:8000';
+    return 'http://127.0.0.1:28080';
   }
 
   static String get baseUrl => '$serverUrl/api/v1';

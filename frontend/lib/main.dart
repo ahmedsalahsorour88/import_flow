@@ -1,15 +1,31 @@
+import 'dart:io';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:window_manager/window_manager.dart';
 import 'core/theme/app_theme.dart';
+import 'core/constants/api_constants.dart';
 import 'features/home/home_screen.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
 
 final appReloadKeyProvider = StateProvider<int>((ref) => 0);
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  if (!kIsWeb && Platform.isWindows) {
+    try {
+      await windowManager.ensureInitialized();
+      windowManager.waitUntilReadyToShow(null, () async {
+        await windowManager.setPreventClose(true);
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    } catch (_) {}
+  }
 
   // Custom friendly error widget preventing red screen of death
   ErrorWidget.builder = (FlutterErrorDetails details) {
@@ -40,7 +56,7 @@ void main() {
               ),
               const SizedBox(height: 8),
               Text(
-                'تأكد من تشغيل سيرفر الباك إند (FastAPI) على http://127.0.0.1:8000 ثم اضغط على زر إعادة المحاولة أدناه.',
+                'تأكد من تشغيل سيرفر الباك إند على ${ApiConstants.serverUrl} ثم اضغط على زر إعادة المحاولة أدناه.',
                 style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                 textAlign: TextAlign.center,
               ),
@@ -108,11 +124,46 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
-class ImportFlowApp extends ConsumerWidget {
+class ImportFlowApp extends ConsumerStatefulWidget {
   const ImportFlowApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ImportFlowApp> createState() => _ImportFlowAppState();
+}
+
+class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.addListener(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (!kIsWeb && Platform.isWindows) {
+      windowManager.removeListener(this);
+    }
+    super.dispose();
+  }
+
+  @override
+  void onWindowClose() async {
+    if (!kIsWeb && Platform.isWindows) {
+      try {
+        final dio = Dio();
+        await dio.post('${ApiConstants.baseUrl}/shutdown').timeout(const Duration(milliseconds: 300)).catchError((_) {});
+      } catch (_) {}
+      try {
+        await Process.run('taskkill', ['/F', '/IM', 'backend.exe', '/T']);
+      } catch (_) {}
+      await windowManager.destroy();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final reloadKey = ref.watch(appReloadKeyProvider);
     final authState = ref.watch(authProvider);
 
@@ -120,7 +171,7 @@ class ImportFlowApp extends ConsumerWidget {
       key: ValueKey(reloadKey),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Sorour Logistics ERP',
+        title: 'ImportFlow ERP - Sorour Logistics (v1.0.0)',
         theme: AppTheme.lightTheme,
         scrollBehavior: AppCustomScrollBehavior(),
         home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),

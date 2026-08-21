@@ -23,3 +23,13 @@ Thumbs.db
 .vscode/
 .idea/
 *.bak
+*.log
+
+# PyInstaller & Build Artifacts
+dist/
+dist_backend/
+build_backend/
+backend.spec
+*.exe
+*.zip
+*.tar.gz

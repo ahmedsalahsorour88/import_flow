@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/api_constants.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
 import '../../../core/providers/navigation_provider.dart';
@@ -295,9 +296,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('تعذر الاتصال بسيرفر الخادم (127.0.0.1:8000)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 14)),
+                            Text('تعذر الاتصال بسيرفر الخادم (${ApiConstants.serverUrl})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 14)),
                             const SizedBox(height: 2),
-                            Text('يرجى التأكد من تشغيل خادم الباك إند (FastAPI Backend Server) أو الضغط على زر إعادة المحاولة.', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                            Text('يرجى التأكد من تشغيل خادم الباك إند أو الضغط على زر إعادة المحاولة.', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
                           ],
                         ),
                       ),

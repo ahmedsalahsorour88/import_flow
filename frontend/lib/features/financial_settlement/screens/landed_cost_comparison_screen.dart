@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/api_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 
@@ -45,7 +46,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     });
 
     try {
-      final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:8000/api/v1'));
+      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
       
       // Fetch import file for estimated cost
       try {

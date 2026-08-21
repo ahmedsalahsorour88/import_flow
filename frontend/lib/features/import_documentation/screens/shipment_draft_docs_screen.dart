@@ -11,6 +11,7 @@ import '../widgets/draft_bl_review_tab.dart';
 import '../widgets/inspection_review_tab.dart';
 import '../widgets/invoice_bl_matcher_tab.dart';
 import '../widgets/po_reconciliation_tab.dart';
+import '../widgets/original_documents_collection_tab.dart';
 import '../../cargox/screens/cargox_hub_screen.dart';
 
 class ShipmentDraftDocsScreen extends ConsumerStatefulWidget {
@@ -35,8 +36,8 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
   // 3: ⚡ الاستخراج ومطابقة الفاتورة والبوليصة (Smart Invoice vs. B/L Reconciliation)
   // 4: 📜 مسودة شهادة المنشأ و EUR.1 (Draft COO / EUR.1 Review)
   // 5: 🛡️ شهادات الفحص والمطابقة (Inspection & Conformity Review)
-  // 6: 🏛️ الأرشيف المركزي وملخص التعديلات (Central Archive & Rectifications Hub)
-  // 7: 📁 السجل المركزي وتظهير CargoX (CargoX Archive)
+  // 6: 📦 تحصيل أصول المستندات وتتبع الكورير (Original Documents Collection & Courier Hub)
+  // 7: 📁 منظومة كارجو إكس والمانيفست الرقمي (CargoX Blockchain & ACI Hub)
   int _selectedSubTab = 0;
   int? _selectedImportFileId;
 
@@ -106,6 +107,11 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
       ),
+      const VerticalNavTabItem(
+        icon: Icons.markunread_mailbox_outlined,
+        titleEn: 'Original Docs Collection & Courier',
+        titleAr: 'تحصيل أصول المستندات وتتبع الكورير',
+      ),
       VerticalNavTabItem(
         icon: Icons.hub_outlined,
         titleEn: 'CargoX Blockchain & ACI Hub',
@@ -136,7 +142,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
-        if (index == 6) {
+        if (index == 7) {
           ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
         }
       },
@@ -173,6 +179,8 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       case 6:
+        return OriginalDocumentsCollectionTab(initialImportFileId: _selectedImportFileId);
+      case 7:
         return CargoXHubScreen(
           initialImportFileId: _selectedImportFileId,
           isEmbedded: true,

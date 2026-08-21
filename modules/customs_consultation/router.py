@@ -17,6 +17,8 @@ from modules.customs_consultation.schemas import (
     CustomsConsultationCreate,
     CustomsConsultationUpdate,
     CustomsConsultationResponse,
+    CustomsRecalculationRequest,
+    CustomsRecalculationResponse,
 )
 from modules.customs_consultation.service import (
     ClearanceExpenseTypeService,
@@ -28,6 +30,30 @@ router = APIRouter(
     prefix="/api/v1/customs-consultations",
     tags=["Customs Consultation & Broker Price Lists (BP-009)"],
 )
+
+
+# ==============================================================================
+# Customs Re-estimation & Variance Comparison (إعادة احتساب الجمارك ومقارنة الفروق)
+# ==============================================================================
+
+@router.post(
+    "/recalculate-from-reconciliation",
+    response_model=CustomsRecalculationResponse,
+    summary="Recalculate customs duties based on final reconciled invoice and compare variances",
+)
+def recalculate_from_reconciliation(
+    payload: CustomsRecalculationRequest,
+    db: Session = Depends(get_db),
+):
+    return CustomsConsultationService.recalculate_from_reconciliation_service(
+        db,
+        import_file_id=payload.import_file_id,
+        exchange_rate=payload.exchange_rate,
+        freight_egp=payload.freight_egp,
+        insurance_egp=payload.insurance_egp,
+        estimate_date=payload.estimate_date,
+    )
+
 
 
 # ==============================================================================

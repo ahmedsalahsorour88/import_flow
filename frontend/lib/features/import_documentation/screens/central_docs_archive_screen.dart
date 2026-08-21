@@ -31,6 +31,16 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     });
   }
 
+  @override
+  void didUpdateWidget(covariant CentralDocsArchiveScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialImportFileId != null && widget.initialImportFileId != _selectedImportFileId) {
+      setState(() {
+        _selectedImportFileId = widget.initialImportFileId;
+      });
+    }
+  }
+
   void _copyToClipboard(String text, String successMessage) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(

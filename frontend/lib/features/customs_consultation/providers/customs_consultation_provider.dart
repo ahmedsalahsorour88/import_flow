@@ -274,4 +274,30 @@ class CustomsConsultationNotifier extends StateNotifier<AsyncValue<List<CustomsC
       rethrow;
     }
   }
+
+  Future<CustomsRecalculationResponseModel> recalculateFromReconciliation({
+    required int importFileId,
+    double? exchangeRate,
+    double? freightEgp,
+    double? insuranceEgp,
+    String? estimateDate,
+  }) async {
+    try {
+      final payload = <String, dynamic>{
+        'import_file_id': importFileId,
+        if (exchangeRate != null) 'exchange_rate': exchangeRate,
+        if (freightEgp != null) 'freight_egp': freightEgp,
+        if (insuranceEgp != null) 'insurance_egp': insuranceEgp,
+        if (estimateDate != null) 'estimate_date': estimateDate,
+      };
+      final response = await _dio.post(
+        '${ApiConstants.baseUrl}/customs-consultations/recalculate-from-reconciliation',
+        data: payload,
+      );
+      return CustomsRecalculationResponseModel.fromJson(response.data);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }
+

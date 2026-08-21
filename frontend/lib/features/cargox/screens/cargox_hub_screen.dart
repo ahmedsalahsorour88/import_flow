@@ -73,6 +73,18 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     });
   }
 
+  @override
+  void didUpdateWidget(covariant CargoXHubScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialSubTab != oldWidget.initialSubTab) {
+      setState(() => _selectedSubTab = widget.initialSubTab);
+    }
+    if (widget.initialImportFileId != null && widget.initialImportFileId != _selectedImportFileId) {
+      setState(() => _selectedImportFileId = widget.initialImportFileId);
+      _onImportFileSelected(widget.initialImportFileId);
+    }
+  }
+
   void _initDefaultAttachedDocs() {
     _attachedDocs = [
       {

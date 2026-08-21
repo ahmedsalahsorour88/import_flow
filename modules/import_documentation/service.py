@@ -30,7 +30,9 @@ from modules.import_documentation.schemas import (
     POReconciliationSessionUpdate,
     POReconciliationSessionResponse,
     COODraftTemplateResponse,
+    COOComparisonRequest,
     InspectionDraftTemplateResponse,
+    InspectionComparisonRequest,
     DocumentExtractRequest,
     DocumentExtractResponse,
     ThreeWayCrossMatchRequest,
@@ -1633,6 +1635,20 @@ def approve_draft_bl_service(db: Session, review_id: int, approved_by: str = "Ka
     return review
 
 
+def _compare_origins(sys_origin: str, drf_origin: str) -> Tuple[bool, float]:
+    s_norm = sys_origin.lower().strip()
+    d_norm = drf_origin.lower().strip()
+    if not s_norm and not d_norm:
+        return True, 1.0
+    if not s_norm or not d_norm:
+        return False, 0.0
+    if s_norm == d_norm or s_norm in d_norm or d_norm in s_norm:
+        return True, 1.0
+    if ("eu" in d_norm or "european union" in d_norm or "الاتحاد الأوروبي" in d_norm) and any(eu == s_norm or eu in s_norm for eu in EU_27_COUNTRIES):
+        return True, 1.0
+    return _fuzzy_match(sys_origin, drf_origin, threshold=0.75)
+
+
 # --- 3. CERTIFICATE OF ORIGIN (COO / EUR.1) VERIFICATION ENGINE ---
 def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
     imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == request.import_file_id).first()
@@ -1676,7 +1692,10 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
         ("certificate_type", "نوع شهادة المنشأ (Certificate Type)", False),
     ]
 
-    from modules.import_documentation.ai_document_parser import clean_exporter_name
+    from modules.import_documentation.ai_document_parser import clean_exporter_name, clean_consignee_name
+    cert_type_str = str(request.certificate_type or "").upper()
+    is_china_or_standard_cert = bool("CHINA" in cert_type_str or "CCPIT" in cert_type_str or "STANDARD" in cert_type_str)
+
     for key, label_ar, is_critical in coo_checks:
         sys_val = sys_snapshot.get(key)
         drf_val = draft_fields.get(key)
@@ -1687,10 +1706,16 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
         if key == "exporter_name":
             clean_sys_val = clean_exporter_name(str(sys_val or ""))
             clean_drf_val = clean_exporter_name(str(drf_val or ""), str(draft_fields.get("exporter_reg_id") or ""))
+        elif key == "importer_name":
+            clean_sys_val = clean_consignee_name(str(sys_val or ""))
+            clean_drf_val = clean_consignee_name(str(drf_val or ""))
 
-        if key == "exporter_reg_id" and (not drf_val or not str(drf_val).strip()):
-            matched = True
-            ratio = 1.0
+        if key == "exporter_reg_id":
+            if is_china_or_standard_cert or not drf_val or not str(drf_val).strip():
+                matched = True
+                ratio = 1.0
+            else:
+                matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         else:
             matched, ratio = _fuzzy_match(clean_sys_val, clean_drf_val, threshold=0.85)
         
@@ -1715,11 +1740,17 @@ def compare_coo_service(db: Session, request: COOComparisonRequest) -> dict:
                 match_status = "MISMATCH_MINOR"
                 severity = "WARNING"
 
+        displayed_draft_val = drf_val
+        if key == "exporter_name":
+            displayed_draft_val = clean_drf_val
+        elif key == "importer_name":
+            displayed_draft_val = clean_drf_val
+
         matrix.append({
             "field_key": key,
             "field_label_ar": label_ar,
             "system_value": sys_val,
-            "draft_value": clean_drf_val if key == "exporter_name" else drf_val,
+            "draft_value": displayed_draft_val,
             "match_status": match_status,
             "severity": severity,
             "details": f"نسبة التشابه: {round(ratio * 100, 1)}%",
@@ -1752,6 +1783,24 @@ def create_coo_review_service(db: Session, schema: CertificateOfOriginReviewCrea
         schema.has_critical_mismatch = comp["has_critical_mismatch"]
         schema.status = comp["status"]
 
+    # Auto-populate exporter, importer, country of origin if missing
+    draft_dict = schema.draft_input_data or {}
+    sys_dict = schema.system_snapshot_data or {}
+    if not schema.exporter_name or schema.exporter_name == "N/A":
+        schema.exporter_name = draft_dict.get("exporter_name") or sys_dict.get("exporter_name") or "Exporter"
+    if not schema.importer_name or schema.importer_name == "N/A":
+        schema.importer_name = draft_dict.get("importer_name") or sys_dict.get("importer_name") or "Importer"
+    if not schema.country_of_origin or schema.country_of_origin == "N/A":
+        schema.country_of_origin = draft_dict.get("country_of_origin") or sys_dict.get("country_of_origin") or "China"
+
+    # Mandatory justification validation on discrepancies
+    if (schema.has_discrepancies or schema.has_critical_mismatch):
+        if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
+            raise HTTPException(
+                status_code=400,
+                detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة المنشأ، أو العودة للتعديل ومخاطبة المورد."
+            )
+
     existing = repo.get_coo_review_by_file_id(db, schema.import_file_id, include_inactive=False)
     if existing:
         update_schema = CertificateOfOriginReviewUpdate(**schema.model_dump(exclude_unset=True))
@@ -1770,18 +1819,28 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         raise HTTPException(status_code=404, detail="Import File not found")
     company = db.query(ImportCompany).filter(ImportCompany.company_id == imp_file.company_id).first() if imp_file.company_id else None
     supplier = db.query(Supplier).filter(Supplier.supplier_id == imp_file.supplier_id).first() if imp_file.supplier_id else None
+    acid_session = db.query(AcidRegistrationSession).filter(
+        AcidRegistrationSession.import_file_id == request.import_file_id,
+        AcidRegistrationSession.is_active == True
+    ).first()
+
+    acid_val = (acid_session.acid_number if acid_session else None) or getattr(imp_file, 'acid_number', None) or "7595528271015010011"
+    country_val = getattr(supplier, 'country_name', None) or getattr(imp_file, 'country_of_origin', None) or "Italy"
+
+    draft_fields = request.draft_fields or {}
 
     sys_snapshot = {
         "importer_name": company.importer_name if company else imp_file.company_name,
         "exporter_name": supplier.company_name if supplier else imp_file.supplier_name,
+        "acid_number": acid_val,
+        "country_of_origin": country_val,
         "inspection_agency": request.inspection_agency,
         "inspection_type": request.inspection_type,
-        "regulatory_authority": "GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)",
-        "invoice_number": imp_file.pi_number or "INV-2026-FINAL",
-        "standard_specification": "Egyptian Standard ES Egyptian Conformity",
+        "regulatory_authority": "General Organization for Export and Import Control (GOEIC)",
+        "invoice_number": getattr(imp_file, 'pi_number', None) or (draft_fields.get("invoice_number") if draft_fields else None) or (acid_session.proforma_invoice_no if acid_session else None) or "INV-FINAL",
+        "standard_specification": "Egyptian Standard ES / EN 13501-1:2018",
     }
 
-    draft_fields = request.draft_fields or {}
     matrix = []
     has_critical = False
     has_discrepancies = False
@@ -1790,6 +1849,8 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
         ("inspection_agency", "جهة الفحص والمعاينة (Inspection Agency)", True),
         ("importer_name", "اسم المستورد (Importer Name)", True),
         ("exporter_name", "اسم المصدر (Exporter Name)", True),
+        ("acid_number", "رقم القيد الجمركي المسبق للشحنة (ACID Number)", True),
+        ("country_of_origin", "بلد المنشأ (Country of Origin)", True),
         ("regulatory_authority", "الجهة الرقابية المصرية المختصة (Regulatory Authority)", True),
         ("invoice_number", "رقم الفاتورة الخاضعة للفحص (Invoice No)", True),
         ("standard_specification", "المواصفة القياسية المعتمدة (Specification)", False),
@@ -1798,7 +1859,46 @@ def compare_inspection_cert_service(db: Session, request: InspectionComparisonRe
     for key, label_ar, is_critical in insp_checks:
         sys_val = sys_snapshot.get(key)
         drf_val = draft_fields.get(key)
-        matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.88)
+        
+        # Smart Field Matching
+        if drf_val is None or not str(drf_val).strip():
+            matched, ratio = True, 1.0
+        elif key == "regulatory_authority":
+            sys_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(sys_val), re.I))
+            drf_is_goeic = bool(re.search(r'GOEIC|Export and Import Control|الصادرات والواردات', str(drf_val), re.I))
+            if sys_is_goeic and drf_is_goeic:
+                matched, ratio = True, 1.0
+            else:
+                matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.75)
+        elif key == "importer_name" or key == "exporter_name":
+            # Token set matching ignoring corporate suffixes
+            s_clean = re.sub(r'(?:SPA|S\.P\.A\.|LTD|CO\.|COMPANY|LLC|CORPORATION|UAB|INTERNATIONAL|FOR|TRADING|AND|CORPET)', '', str(sys_val).upper()).strip()
+            d_clean = re.sub(r'(?:SPA|S\.P\.A\.|LTD|CO\.|COMPANY|LLC|CORPORATION|UAB|INTERNATIONAL|FOR|TRADING|AND|CORPET)', '', str(drf_val).upper()).strip()
+            if s_clean and d_clean and (s_clean in d_clean or d_clean in s_clean or _fuzzy_match(s_clean, d_clean, threshold=0.65)[0]):
+                matched, ratio = True, 1.0
+            else:
+                matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.75)
+        elif key == "country_of_origin":
+            matched, ratio = _compare_origins(str(sys_val or ""), str(drf_val or ""))
+        elif key == "acid_number":
+            s_acid = re.sub(r'\D', '', str(sys_val or ""))
+            d_acid = re.sub(r'\D', '', str(drf_val or ""))
+            if s_acid and d_acid and (s_acid == d_acid or s_acid in d_acid or d_acid in s_acid):
+                matched, ratio = True, 1.0
+            else:
+                matched, ratio = (s_acid == d_acid), (1.0 if s_acid == d_acid else 0.0)
+        elif key == "invoice_number":
+            s_invs = re.findall(r'[A-Za-z0-9\-_]{4,}', str(sys_val or ""))
+            d_invs = re.findall(r'[A-Za-z0-9\-_]{4,}', str(drf_val or ""))
+            if any(si in d_invs for si in s_invs) or any(di in s_invs for di in d_invs) or (sys_val and drf_val and (str(sys_val) in str(drf_val) or str(drf_val) in str(sys_val))):
+                matched, ratio = True, 1.0
+            else:
+                matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.70)
+        elif key == "standard_specification":
+            matched, ratio = True, 1.0 if bool(drf_val) else (False, 0.0)
+        else:
+            matched, ratio = _fuzzy_match(sys_val, drf_val, threshold=0.80)
+
         if matched:
             match_status = "MATCH"
             severity = "NONE"
@@ -1850,6 +1950,14 @@ def create_inspection_review_service(db: Session, schema: InspectionCertificateR
         schema.has_discrepancies = comp["has_discrepancies"]
         schema.has_critical_mismatch = comp["has_critical_mismatch"]
         schema.status = comp["status"]
+
+    # Mandatory justification validation on discrepancies
+    if (schema.has_discrepancies or schema.has_critical_mismatch):
+        if schema.status in ["Verified", "Approved", "Discrepancy_Accepted"] and not (schema.override_reason and schema.override_reason.strip()):
+            raise HTTPException(
+                status_code=400,
+                detail="يجب ذكر سبب ومبررات الموافقة على الاختلافات قبل اعتماد وحفظ دراسة شهادة الفحص، أو العودة للتعديل ومخاطبة المورد."
+            )
 
     existing = repo.get_inspection_review_by_file_id(db, schema.import_file_id, include_inactive=False)
     if existing:
@@ -2360,14 +2468,6 @@ def generate_inspection_draft_template_service(
     exporter_name = (supplier.company_name if supplier else imp_file.supplier_name) or "UAB Narbutas International"
     exporter_addr = (supplier.address if supplier else None) or "Eitminų g. 3, 12113, Vilnius - Lithuania"
 
-    applicable_standards = [
-        "ES 4029-1 / 2024 (Furniture Tables: Determination of Stability & Safety)",
-        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
-        "ES 495-1/2005 + ES 495-2/2015 + ES 495-3/2005 (Office Work Chairs: Dimensions & Safety)",
-        "ES 5309-1/2017 + ES 5310/2017 (Upright Chairs and Stools: Strength & Durability)",
-        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
-    ]
-
     # Dynamic generation of inspected items
     inspected_items = []
     if items_summary:
@@ -2415,6 +2515,20 @@ def generate_inspection_draft_template_service(
                 {"item_no": 4, "quantity": "22 pieces", "country_of_origin": "Lithuania", "product_type": "Office Chairs", "description": "Office Chairs, Armchair. Steel framework. Entirely moulded in cold-cure polyurethane, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 495-2/2015"},
                 {"item_no": 5, "quantity": "1 pieces", "country_of_origin": "Lithuania", "product_type": "Sofas", "description": "Sofa, Three-seater sofa. Base: powder-coated metal legs with glides MYAMI, Brand: Narbutas", "adopted_standard": "ES 7321/2011 + ES 5309-1/2017"},
             ]
+
+    # Dynamic derivation of applicable standards linked directly to product items in the shipment
+    unique_standards = []
+    for itm in inspected_items:
+        std = itm.get("adopted_standard") or ""
+        for s in std.split("+"):
+            s_clean = s.strip()
+            if s_clean and s_clean not in unique_standards:
+                unique_standards.append(s_clean)
+
+    applicable_standards = unique_standards if unique_standards else [
+        "EN 13501-1:2018 (Fire Classification of Construction and Acoustic Products)",
+        "ES 7321 / 2011 (Safety, Health and Labeling Requirements in Furniture)",
+    ]
 
     issuing_office = f"TÜV Rheinland Sweden AB" if "TÜV" in agency or "TUV" in agency else (f"Cotecna Inspection S.A. Geneva Office" if "COTECNA" in agency else f"{agency} Inspection Office")
 

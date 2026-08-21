@@ -118,6 +118,13 @@ def get_acid_session_by_id(db: Session, acid_id: int, include_inactive: bool = F
     return query.first()
 
 
+def get_acid_session_by_file_id(db: Session, import_file_id: int, include_inactive: bool = False) -> AcidRegistrationSession | None:
+    query = db.query(AcidRegistrationSession).filter(AcidRegistrationSession.import_file_id == import_file_id)
+    if not include_inactive:
+        query = query.filter(AcidRegistrationSession.is_active == True)
+    return query.first()
+
+
 def restore_acid_session(db: Session, acid_id: int) -> AcidRegistrationSession | None:
     item = get_acid_session_by_id(db, acid_id, include_inactive=True)
     if not item:

@@ -25,10 +25,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   final TextEditingController _certNumberCtrl = TextEditingController(text: 'DRAFT-COC-SGS-9901');
   final TextEditingController _importerCtrl = TextEditingController();
   final TextEditingController _exporterCtrl = TextEditingController();
-  final TextEditingController _authorityCtrl = TextEditingController(text: 'GOEIC (الهيئة العامة للرقابة على الصادرات والواردات)');
+  final TextEditingController _authorityCtrl = TextEditingController(text: 'General Organization for Export and Import Control (GOEIC)');
   final TextEditingController _invoiceNoCtrl = TextEditingController();
-  final TextEditingController _specCtrl = TextEditingController(text: 'Egyptian Standard ES Egyptian Conformity');
+  final TextEditingController _acidCtrl = TextEditingController(text: '7595528271015010011');
+  final TextEditingController _originCountryCtrl = TextEditingController(text: 'Italy');
+  final TextEditingController _specCtrl = TextEditingController(text: 'Egyptian Standard ES / EN 13501-1:2018');
   final TextEditingController _rawTextCtrl = TextEditingController();
+  final TextEditingController _overrideReasonCtrl = TextEditingController();
 
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
@@ -50,6 +53,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      await ref.read(inspectionReviewsProvider.notifier).fetchInspectionReviews();
       final files = ref.read(importFilesProvider).value ?? [];
       if (_selectedImportFileId == null && files.isNotEmpty) {
         if (mounted) {
@@ -62,6 +66,21 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         _loadSnapshot(_selectedImportFileId!);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _certNumberCtrl.dispose();
+    _importerCtrl.dispose();
+    _exporterCtrl.dispose();
+    _authorityCtrl.dispose();
+    _invoiceNoCtrl.dispose();
+    _acidCtrl.dispose();
+    _originCountryCtrl.dispose();
+    _specCtrl.dispose();
+    _rawTextCtrl.dispose();
+    _overrideReasonCtrl.dispose();
+    super.dispose();
   }
 
   @override
@@ -81,7 +100,10 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     if (file != null) {
       _importerCtrl.text = file.companyName;
       _exporterCtrl.text = file.supplierName;
-      _invoiceNoCtrl.text = file.piNumber ?? 'INV-FINAL-${file.importFileCode}';
+      _invoiceNoCtrl.text = file.piNumber ?? 'IT-DN26-003201, IT-DN26-003196, IT-DN26-003401, IT-DN26-003400';
+      if (file.acidNumber != null && file.acidNumber!.isNotEmpty) {
+        _acidCtrl.text = file.acidNumber!;
+      }
     }
     _fetchAndApplyDraft(fileId);
   }
@@ -109,6 +131,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           if (template['coc_number'] != null) _certNumberCtrl.text = template['coc_number'].toString();
           if (template['exporter_name_and_address'] != null) _exporterCtrl.text = template['exporter_name_and_address'].toString();
           if (template['importer_name_and_address'] != null) _importerCtrl.text = template['importer_name_and_address'].toString();
+          if (template['acid_number'] != null) _acidCtrl.text = template['acid_number'].toString();
+          if (template['country_of_origin'] != null) _originCountryCtrl.text = template['country_of_origin'].toString();
           if (standards.isNotEmpty) _specCtrl.text = standards.join('\n');
         });
       }
@@ -152,6 +176,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         'certificate_number': _certNumberCtrl.text.trim(),
         'importer_name': _importerCtrl.text.trim(),
         'exporter_name': _exporterCtrl.text.trim(),
+        'acid_number': _acidCtrl.text.trim(),
+        'country_of_origin': _originCountryCtrl.text.trim(),
         'regulatory_authority': _authorityCtrl.text.trim(),
         'invoice_number': _invoiceNoCtrl.text.trim(),
         'standard_specification': _specCtrl.text.trim(),
@@ -181,20 +207,40 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
   Future<void> _saveReview() async {
     if (_comparisonResult == null || _selectedImportFileId == null) return;
+
+    final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
+    final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
+    final reason = _overrideReasonCtrl.text.trim();
+
+    if ((hasDisc || hasCritical) && reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يجب كتابة سبب ومبرر الموافقة على الاختلافات قبل الاعتماد والحفظ، أو الضغط على [العودة للتعديل ومخاطبة المورد].'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
       final payload = {
         'import_file_id': _selectedImportFileId,
         'inspection_type': _inspType,
         'inspection_agency': _inspAgency,
-        'certificate_number': _certNumberCtrl.text.trim(),
+        'certificate_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-INSP',
+        'regulatory_authority': _authorityCtrl.text.trim().isNotEmpty ? _authorityCtrl.text.trim() : 'General Organization for Export and Import Control (GOEIC)',
+        'standard_specification': _specCtrl.text.trim(),
+        'raw_input_text': _rawTextCtrl.text,
         'raw_text': _rawTextCtrl.text,
         'system_snapshot_data': _comparisonResult!['system_snapshot_data'],
         'draft_input_data': _comparisonResult!['draft_input_data'],
         'comparison_matrix': _comparisonResult!['comparison_matrix'],
-        'has_discrepancies': _comparisonResult!['has_discrepancies'],
-        'has_critical_mismatch': _comparisonResult!['has_critical_mismatch'],
-        'status': _comparisonResult!['status'],
+        'has_discrepancies': hasDisc,
+        'has_critical_mismatch': hasCritical,
+        'override_reason': reason,
+        'status': hasDisc ? (hasCritical ? 'Correction Requested' : 'Discrepancy_Accepted') : 'Verified',
       };
 
       await ref.read(inspectionReviewsProvider.notifier).saveInspectionReview(payload);
@@ -373,6 +419,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         } else if (extracted['inspection_type'] != null && extracted['inspection_type'].toString().isNotEmpty) {
           _inspType = _normalizeInspType(extracted['inspection_type'].toString());
         }
+        if (extracted['acid_number'] != null && extracted['acid_number'].toString().isNotEmpty) {
+          _acidCtrl.text = extracted['acid_number'].toString();
+        }
+        if (extracted['country_of_origin'] != null && extracted['country_of_origin'].toString().isNotEmpty) {
+          _originCountryCtrl.text = extracted['country_of_origin'].toString();
+        } else if (extracted['origin_country'] != null && extracted['origin_country'].toString().isNotEmpty) {
+          _originCountryCtrl.text = extracted['origin_country'].toString();
+        }
         if (extracted['testing_standards'] != null && (extracted['testing_standards'] as List).isNotEmpty) {
           _specCtrl.text = (extracted['testing_standards'] as List).join(' + ');
         } else if (extracted['standards_tested'] != null && (extracted['standards_tested'] as List).isNotEmpty) {
@@ -455,6 +509,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
+    final existingReviews = ref.watch(inspectionReviewsProvider).value ?? [];
+    final existingReview = existingReviews.where((r) => r.importFileId == _selectedImportFileId).firstOrNull;
+
     return Column(
       children: [
         Card(
@@ -465,6 +522,35 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (existingReview != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'ℹ️ توجد دراسة مسجلة مسبقاً لهذا الملف [كود الجلسة: ${existingReview.inspectionReviewCode} - الحالة: ${existingReview.status}]. سيتم تحديث وتعديل نفس الدراسة المعتمدة لضمان عدم تكرار السجلات.',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                          icon: const Icon(Icons.history, color: Colors.white, size: 14),
+                          label: const Text('سجل الشهادات', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _activeStep = 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Row(
                   children: [
                     Icon(Icons.verified, color: AppTheme.cobalt),
@@ -651,6 +737,24 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               ],
             ),
             const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _acidCtrl,
+                    decoration: const InputDecoration(labelText: 'رقم القيد الجمركي المسبق (ACID Number) *', border: OutlineInputBorder()),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _originCountryCtrl,
+                    decoration: const InputDecoration(labelText: 'بلد المنشأ (Country of Origin) *', border: OutlineInputBorder()),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             // File Picker & Smart Upload Row
             Row(
               children: [
@@ -669,6 +773,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       }
                       if (fields['exporter_name'] != null && fields['exporter_name'].toString().isNotEmpty) {
                         _exporterCtrl.text = fields['exporter_name'].toString();
+                      }
+                      if (fields['acid_number'] != null && fields['acid_number'].toString().isNotEmpty) {
+                        _acidCtrl.text = fields['acid_number'].toString();
+                      }
+                      if (fields['country_of_origin'] != null && fields['country_of_origin'].toString().isNotEmpty) {
+                        _originCountryCtrl.text = fields['country_of_origin'].toString();
+                      } else if (fields['origin_country'] != null && fields['origin_country'].toString().isNotEmpty) {
+                        _originCountryCtrl.text = fields['origin_country'].toString();
                       }
                       if (fields['invoice_number'] != null && fields['invoice_number'].toString().isNotEmpty) {
                         _invoiceNoCtrl.text = fields['invoice_number'].toString();
@@ -829,6 +941,77 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 ]);
               }).toList(),
             ),
+            if (hasDisc || hasCritical) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.gavel, color: Colors.amber.shade900, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'سبب ومبررات الموافقة على الاختلافات (إلزامي للاعتماد والحفظ):',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'عند وجود فروق أو اختلافات في شهادة الفحص والمطابقة، يجب تسجيل سبب الموافقة والاعتماد (مثال: اعتماد المعمل المرجعي / استثناء الفحص الظاهري)، أو الضغط على العودة للتعديل ومخاطبة المورد.',
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _overrideReasonCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'سبب ومبرر الموافقة على الاختلافات (Approval Justification) *',
+                        hintText: 'اكتب مبررات قبول الاختلافات هنا قبل الحفظ...',
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _overrideReasonCtrl.text.trim().isNotEmpty ? AppTheme.emerald : Colors.grey,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                          label: const Text('✔ اعتماد وحفظ مع ذكر سبب الموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: _saveReview,
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.crimson,
+                            side: const BorderSide(color: AppTheme.crimson),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.edit_note, size: 16),
+                          label: const Text('↩ العودة لتعديل المسودة ومخاطبة المورد', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _activeStep = 1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

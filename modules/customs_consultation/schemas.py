@@ -257,3 +257,74 @@ class CustomsConsultationResponse(CustomsConsultationBase):
     applied_broker_items_count: int = 0
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ==============================================================================
+# Re-estimation & Variance Comparison Schemas (إعادة احتساب الجمارك ومقارنة الفروق)
+# ==============================================================================
+
+class CustomsRecalculationRequest(BaseModel):
+    import_file_id: int
+    exchange_rate: Optional[float] = None
+    freight_egp: Optional[float] = 0.0
+    insurance_egp: Optional[float] = 0.0
+    estimate_date: Optional[date] = None
+
+
+class LineVarianceComparison(BaseModel):
+    item_name: str
+    hs_code: str
+    country_of_origin: Optional[str] = None
+    preliminary_qty: float = 0.0
+    final_qty: float = 0.0
+    qty_variance: float = 0.0
+    preliminary_unit_price: float = 0.0
+    final_unit_price: float = 0.0
+    unit_price_variance: float = 0.0
+    preliminary_fob_egp: float = 0.0
+    final_fob_egp: float = 0.0
+    fob_variance_egp: float = 0.0
+    preliminary_cif_egp: float = 0.0
+    final_cif_egp: float = 0.0
+    cif_variance_egp: float = 0.0
+    duty_rate_pct: float = 0.0
+    preliminary_duty_egp: float = 0.0
+    final_duty_egp: float = 0.0
+    duty_variance_egp: float = 0.0
+    vat_rate_pct: float = 0.0
+    preliminary_vat_egp: float = 0.0
+    final_vat_egp: float = 0.0
+    vat_variance_egp: float = 0.0
+    preliminary_total_taxes_egp: float = 0.0
+    final_total_taxes_egp: float = 0.0
+    total_taxes_variance_egp: float = 0.0
+
+
+class CustomsRecalculationResponse(BaseModel):
+    import_file_id: int
+    import_file_code: str
+    final_invoice_number: Optional[str] = None
+    reconciliation_session_id: Optional[int] = None
+    is_reconciled: bool = False
+    source_description: str = "Reconciled Final Commercial Invoice"
+    exchange_rate: float
+    estimate_date: date
+    preliminary_fob_egp: float = 0.0
+    final_fob_egp: float = 0.0
+    fob_variance_egp: float = 0.0
+    preliminary_cif_egp: float = 0.0
+    final_cif_egp: float = 0.0
+    cif_variance_egp: float = 0.0
+    preliminary_duty_egp: float = 0.0
+    final_duty_egp: float = 0.0
+    duty_variance_egp: float = 0.0
+    preliminary_vat_egp: float = 0.0
+    final_vat_egp: float = 0.0
+    vat_variance_egp: float = 0.0
+    preliminary_total_taxes_egp: float = 0.0
+    final_total_taxes_egp: float = 0.0
+    total_taxes_variance_egp: float = 0.0
+    variance_percentage: float = 0.0
+    forecast_status: str = "Balanced"  # "Increased Cost", "Reduced Cost", "Exact Match"
+    comparison_lines: List[LineVarianceComparison] = []
+

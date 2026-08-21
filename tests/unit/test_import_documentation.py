@@ -18,6 +18,8 @@ from modules.currencies.model import Currency
 from modules.customs_tariff.model import CustomsTariff
 from modules.purchase_orders.model import PurchaseOrder
 from modules.import_files.model import ImportFile
+from modules.shipping_scenarios.model import ShippingEvaluationSession
+from modules.freight_booking.model import ShipmentBooking
 from modules.import_documentation.model import (
     AcidRegistrationSession,
     BankingDocumentSession,

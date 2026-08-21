@@ -29,6 +29,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   final TextEditingController _destCountryCtrl = TextEditingController(text: 'Egypt');
   final TextEditingController _invoiceNoCtrl = TextEditingController();
   final TextEditingController _rawTextCtrl = TextEditingController();
+  final TextEditingController _overrideReasonCtrl = TextEditingController();
 
   bool _isLoading = false;
   Map<String, dynamic>? _comparisonResult;
@@ -53,6 +54,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     _selectedImportFileId = widget.initialImportFileId;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(importFilesProvider.notifier).fetchImportFiles();
+      await ref.read(cooReviewsProvider.notifier).fetchCOOReviews();
       final files = ref.read(importFilesProvider).value ?? [];
       if (_selectedImportFileId == null && files.isNotEmpty) {
         if (mounted) {
@@ -88,6 +90,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     _destCountryCtrl.dispose();
     _invoiceNoCtrl.dispose();
     _rawTextCtrl.dispose();
+    _overrideReasonCtrl.dispose();
     super.dispose();
   }
 
@@ -262,7 +265,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     setState(() => _isLoading = true);
     try {
-      final docTypeKey = _certType.contains('China') ? 'CHINA_COO' : 'EUR1';
+      final docTypeKey = _certType.contains('China') ? 'CHINA_COO' : (_certType.contains('EUR') ? 'EUR1' : 'STANDARD_COO');
       final res = await ref.read(cooReviewsProvider.notifier).extractCertificate(
             docTypeKey,
             rawText,
@@ -273,27 +276,13 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       final warnings = res['warnings'] as List<dynamic>? ?? [];
 
       setState(() {
-        if (extracted['certificate_number'] != null && extracted['certificate_number'].toString().isNotEmpty) {
-          _certNumberCtrl.text = extracted['certificate_number'].toString();
-        }
-        if (extracted['country_of_origin'] != null && extracted['country_of_origin'].toString().isNotEmpty) {
-          _originCountryCtrl.text = extracted['country_of_origin'].toString();
-        }
-        if (extracted['destination_country'] != null && extracted['destination_country'].toString().isNotEmpty) {
-          _destCountryCtrl.text = extracted['destination_country'].toString();
-        }
-        if (extracted['exporter_name'] != null && extracted['exporter_name'].toString().isNotEmpty) {
-          _exporterCtrl.text = extracted['exporter_name'].toString();
-        }
-        if (extracted['exporter_reg_id'] != null && extracted['exporter_reg_id'].toString().isNotEmpty) {
-          _exporterRegIdCtrl.text = extracted['exporter_reg_id'].toString();
-        }
-        if (extracted['importer_name'] != null && extracted['importer_name'].toString().isNotEmpty) {
-          _importerCtrl.text = extracted['importer_name'].toString();
-        }
-        if (extracted['invoice_number'] != null && extracted['invoice_number'].toString().isNotEmpty) {
-          _invoiceNoCtrl.text = extracted['invoice_number'].toString();
-        }
+        _certNumberCtrl.text = extracted['certificate_number']?.toString() ?? '';
+        _originCountryCtrl.text = extracted['country_of_origin']?.toString() ?? extracted['origin_country']?.toString() ?? '';
+        _destCountryCtrl.text = extracted['destination_country']?.toString() ?? 'Egypt';
+        _exporterCtrl.text = extracted['exporter_name']?.toString() ?? '';
+        _exporterRegIdCtrl.text = extracted['exporter_reg_id']?.toString() ?? '';
+        _importerCtrl.text = extracted['importer_name']?.toString() ?? extracted['consignee_name']?.toString() ?? '';
+        _invoiceNoCtrl.text = extracted['invoice_number']?.toString() ?? '';
       });
 
       if (mounted) {
@@ -362,19 +351,58 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
   Future<void> _saveReview() async {
     if (_comparisonResult == null || _selectedImportFileId == null) return;
+
+    final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
+    final hasCritical = _comparisonResult!['has_critical_mismatch'] as bool? ?? false;
+    final reason = _overrideReasonCtrl.text.trim();
+
+    if ((hasDisc || hasCritical) && reason.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يجب كتابة سبب ومبرر الموافقة على الاختلافات قبل الاعتماد والحفظ، أو الضغط على [العودة للتعديل ومخاطبة المورد].'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
+      final snap = _comparisonResult!['system_snapshot_data'] as Map<String, dynamic>? ?? {};
+      final draft = _comparisonResult!['draft_input_data'] as Map<String, dynamic>? ?? {};
+
+      final expName = _exporterCtrl.text.trim().isNotEmpty
+          ? _exporterCtrl.text.trim()
+          : (draft['exporter_name'] ?? snap['exporter_name'] ?? 'Exporter');
+      final impName = _importerCtrl.text.trim().isNotEmpty
+          ? _importerCtrl.text.trim()
+          : (draft['importer_name'] ?? snap['importer_name'] ?? 'Importer');
+      final originCountry = _originCountryCtrl.text.trim().isNotEmpty
+          ? _originCountryCtrl.text.trim()
+          : (draft['country_of_origin'] ?? snap['country_of_origin'] ?? 'China');
+      final destCountry = _destCountryCtrl.text.trim().isNotEmpty
+          ? _destCountryCtrl.text.trim()
+          : 'Egypt';
+
       final payload = {
         'import_file_id': _selectedImportFileId,
         'certificate_type': _certType,
-        'certificate_number': _certNumberCtrl.text.trim(),
+        'certificate_number': _certNumberCtrl.text.trim().isNotEmpty ? _certNumberCtrl.text.trim() : 'DRAFT-COO',
+        'exporter_name': expName,
+        'importer_name': impName,
+        'country_of_origin': originCountry,
+        'destination_country': destCountry,
+        'invoice_number': _invoiceNoCtrl.text.trim(),
+        'raw_input_text': _rawTextCtrl.text,
         'raw_text': _rawTextCtrl.text,
         'system_snapshot_data': _comparisonResult!['system_snapshot_data'],
         'draft_input_data': _comparisonResult!['draft_input_data'],
         'comparison_matrix': _comparisonResult!['comparison_matrix'],
-        'has_discrepancies': _comparisonResult!['has_discrepancies'],
-        'has_critical_mismatch': _comparisonResult!['has_critical_mismatch'],
-        'status': _comparisonResult!['status'],
+        'has_discrepancies': hasDisc,
+        'has_critical_mismatch': hasCritical,
+        'override_reason': reason,
+        'status': hasDisc ? (hasCritical ? 'Correction Requested' : 'Discrepancy_Accepted') : 'Verified',
       };
 
       await ref.read(cooReviewsProvider.notifier).saveCOOReview(payload);
@@ -448,6 +476,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
+    final existingReviews = ref.watch(cooReviewsProvider).value ?? [];
+    final existingReview = existingReviews.where((r) => r.importFileId == _selectedImportFileId).firstOrNull;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -563,6 +594,35 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (existingReview != null) ...[
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.shade300, width: 1.2),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'ℹ️ توجد دراسة مسجلة مسبقاً لهذا الملف [كود الجلسة: ${existingReview.cooReviewCode} - الحالة: ${existingReview.status}]. سيتم تحديث وتعديل نفس الدراسة المعتمدة لضمان عدم تكرار السجلات.',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
+                          icon: const Icon(Icons.history, color: Colors.white, size: 14),
+                          label: const Text('سجل المراجعات', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _activeStep = 3),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
                 const Row(
                   children: [
                     Icon(Icons.flag, color: AppTheme.cobalt),
@@ -978,6 +1038,77 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 ]);
               }).toList(),
             ),
+            if (hasDisc || hasCritical) ...[
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.amber.shade400, width: 1.5),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.gavel, color: Colors.amber.shade900, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'سبب ومبررات الموافقة على الاختلافات (إلزامي للاعتماد والحفظ):',
+                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'عند وجود فروق أو اختلافات في شهادة المنشأ، يجب تسجيل سبب الموافقة والاعتماد (مثال: ملحق تفويضي من المصدر / الاسم التجاري موثق بالسجل)، أو الضغط على العودة للتعديل ومخاطبة المورد.',
+                      style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
+                    ),
+                    const SizedBox(height: 10),
+                    TextFormField(
+                      controller: _overrideReasonCtrl,
+                      maxLines: 2,
+                      decoration: const InputDecoration(
+                        labelText: 'سبب ومبرر الموافقة على الاختلافات (Approval Justification) *',
+                        hintText: 'اكتب مبررات قبول الاختلافات هنا قبل الحفظ...',
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.white,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _overrideReasonCtrl.text.trim().isNotEmpty ? AppTheme.emerald : Colors.grey,
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
+                          label: const Text('✔ اعتماد وحفظ مع ذكر سبب الموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          onPressed: _saveReview,
+                        ),
+                        const SizedBox(width: 12),
+                        OutlinedButton.icon(
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppTheme.crimson,
+                            side: const BorderSide(color: AppTheme.crimson),
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          ),
+                          icon: const Icon(Icons.edit_note, size: 16),
+                          label: const Text('↩ العودة لتعديل المسودة ومخاطبة المورد', style: TextStyle(fontWeight: FontWeight.bold)),
+                          onPressed: () => setState(() => _activeStep = 1),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ],
         ),
       ),

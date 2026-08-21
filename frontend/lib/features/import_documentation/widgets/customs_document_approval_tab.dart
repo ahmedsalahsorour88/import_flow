@@ -6,6 +6,7 @@ import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../models/docs_customs_approval_model.dart';
 import '../providers/docs_customs_approval_provider.dart';
+import '../screens/central_docs_archive_screen.dart';
 
 class CustomsDocumentApprovalTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -21,6 +22,7 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
   CrossDocumentMatrixResultModel? _matrixResult;
   bool _isRunningMatrixCheck = false;
   String _selectedStatusFilter = 'All';
+  int _activeViewIndex = 0; // 0: Dual-Tier Sign-off & Audit, 1: Central Archive & Rectifications Hub
 
   @override
   void initState() {
@@ -254,8 +256,41 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
           ),
         ),
 
-        // --- Live Matrix Banner (if available) ---
-        if (_matrixResult != null)
+        // --- Sub-View Switcher Bar ---
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  avatar: Icon(Icons.verified_user, size: 16, color: _activeViewIndex == 0 ? Colors.white : AppTheme.cobalt),
+                  label: const Text('مصفوفة الاعتماد الثنائي والفحص المتقاطع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  selected: _activeViewIndex == 0,
+                  selectedColor: AppTheme.cobalt,
+                  labelStyle: TextStyle(color: _activeViewIndex == 0 ? Colors.white : AppTheme.charcoal),
+                  onSelected: (selected) {
+                    if (selected) setState(() => _activeViewIndex = 0);
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  avatar: Icon(Icons.inventory_2_outlined, size: 16, color: _activeViewIndex == 1 ? Colors.white : AppTheme.emerald),
+                  label: const Text('الأرشيف المركزي وملخص إخطارات التعديل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  selected: _activeViewIndex == 1,
+                  selectedColor: AppTheme.emerald,
+                  labelStyle: TextStyle(color: _activeViewIndex == 1 ? Colors.white : AppTheme.charcoal),
+                  onSelected: (selected) {
+                    if (selected) setState(() => _activeViewIndex = 1);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+
+        // --- Live Matrix Banner (if available and in view 0) ---
+        if (_activeViewIndex == 0 && _matrixResult != null)
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             padding: const EdgeInsets.all(12),
@@ -311,24 +346,32 @@ class _CustomsDocumentApprovalTabState extends ConsumerState<CustomsDocumentAppr
             ),
           ),
 
-        // --- Main Workspace: Split View ---
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // --- Left Column: Dual-Tier Approvals ---
-                Expanded(
-                  flex: 3,
-                  child: Card(
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+        // --- Main Workspace: View 0 (Split Matrix) vs View 1 (Central Archive & Rectifications) ---
+        if (_activeViewIndex == 1)
+          Expanded(
+            child: CentralDocsArchiveScreen(
+              initialImportFileId: _selectedImportFileId,
+              isEmbedded: true,
+            ),
+          )
+        else
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // --- Left Column: Dual-Tier Approvals ---
+                  Expanded(
+                    flex: 3,
+                    child: Card(
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      child: Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           Row(
                             children: [
                               const Icon(Icons.verified_user, color: AppTheme.cobalt),

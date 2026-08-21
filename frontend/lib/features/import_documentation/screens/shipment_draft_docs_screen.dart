@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../providers/import_documentation_provider.dart';
-import 'central_docs_archive_screen.dart';
 import '../widgets/coo_review_tab.dart';
 import '../widgets/customs_document_approval_tab.dart';
 import '../widgets/draft_bl_review_tab.dart';
@@ -79,8 +78,8 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
     final tabs = [
       const VerticalNavTabItem(
         icon: Icons.verified_user,
-        titleEn: 'Docs Customs Approval Hub',
-        titleAr: 'مركز اعتماد المستندات الجمركية',
+        titleEn: 'Docs Customs Approval & Rectifications Hub',
+        titleAr: 'مركز اعتماد المستندات وتعديلات المورد',
       ),
       const VerticalNavTabItem(
         icon: Icons.fact_check_outlined,
@@ -106,11 +105,6 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
         icon: Icons.security_outlined,
         titleEn: 'Inspection Review',
         titleAr: 'شهادات الفحص والمطابقة',
-      ),
-      const VerticalNavTabItem(
-        icon: Icons.inventory_2_outlined,
-        titleEn: 'Central Archive & Discrepancies Hub',
-        titleAr: 'الأرشيف المركزي وملخص التعديلات',
       ),
       VerticalNavTabItem(
         icon: Icons.hub_outlined,
@@ -142,7 +136,7 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       selectedIndex: _selectedSubTab,
       onTabSelected: (index) {
         setState(() => _selectedSubTab = index);
-        if (index == 7) {
+        if (index == 6) {
           ref.read(shipmentDocumentsProvider.notifier).fetchShipmentDocuments();
         }
       },
@@ -179,11 +173,6 @@ class _ShipmentDraftDocsScreenState extends ConsumerState<ShipmentDraftDocsScree
       case 5:
         return InspectionReviewTab(initialImportFileId: _selectedImportFileId);
       case 6:
-        return CentralDocsArchiveScreen(
-          initialImportFileId: _selectedImportFileId,
-          isEmbedded: true,
-        );
-      case 7:
         return CargoXHubScreen(
           initialImportFileId: _selectedImportFileId,
           isEmbedded: true,

@@ -566,10 +566,10 @@ class CertificateOfOriginReviewBase(BaseModel):
     po_id: Optional[int] = None
     certificate_type: str = "EUR.1"
     certificate_number: str = "DRAFT-COO"
-    exporter_name: str
-    importer_name: str
-    country_of_origin: str
-    destination_country: str = "Egypt"
+    exporter_name: Optional[str] = "N/A"
+    importer_name: Optional[str] = "N/A"
+    country_of_origin: Optional[str] = "N/A"
+    destination_country: Optional[str] = "Egypt"
     transport_details: Optional[str] = None
     invoice_number: Optional[str] = None
     invoice_date: Optional[date] = None

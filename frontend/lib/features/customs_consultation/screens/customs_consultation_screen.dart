@@ -8,6 +8,7 @@ import '../widgets/post_save_status_dialog.dart';
 import '../widgets/consultation_metric_badge.dart';
 import '../widgets/add_checklist_item_dialog.dart';
 import '../widgets/add_custom_expense_dialog.dart';
+import '../widgets/recalculation_variance_comparison_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -123,6 +124,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   final TextEditingController _insuranceEgpController = TextEditingController(text: '0.0');
   String _customsCurrency = 'USD';
   bool _isCustomsCalculatorExpanded = true;
+
+  // Customs Recalculation & Forecast Variance State
+  CustomsRecalculationResponseModel? _recalculationResult;
+  bool _isRecalculating = false;
+  DateTime _studyDate = DateTime.now();
 
   int? _editingConsultationId;
   String? _editingConsultationCode;
@@ -552,6 +558,91 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         ),
       );
     }
+  }
+
+  Future<void> _fetchReconciledFinalInvoiceAndRecalculate() async {
+    if (_selectedImportFileId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('⚠️ يرجى اختيار ملف الشحنة الاستيرادية أولاً لاستدعاء الفاتورة النهائية.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isRecalculating = true);
+    try {
+      final fx = double.tryParse(_exchangeRateController.text.trim());
+      final freight = double.tryParse(_freightEgpController.text.trim());
+      final ins = double.tryParse(_insuranceEgpController.text.trim());
+      final dateStr = '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}';
+
+      final res = await ref.read(customsConsultationsProvider.notifier).recalculateFromReconciliation(
+        importFileId: _selectedImportFileId!,
+        exchangeRate: fx,
+        freightEgp: freight,
+        insuranceEgp: ins,
+        estimateDate: dateStr,
+      );
+
+      setState(() {
+        _recalculationResult = res;
+        _isCustomsCalculatorExpanded = true;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    res.isReconciled
+                        ? '✅ تم استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة بنجاح (${res.finalInvoiceNumber ?? ""}) وإعادة احتساب الرسوم بدقة.'
+                        : 'ℹ️ تم احتساب الرسوم بناءً على بنود أمر الشراء المبدئي لعدم وجود جلسة مطابقة نهائية معتمدة بعد.',
+                  ),
+                ),
+              ],
+            ),
+            backgroundColor: res.isReconciled ? AppTheme.emerald : AppTheme.cobalt,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('❌ تعذر استدعاء وإعادة احتساب البنود: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isRecalculating = false);
+      }
+    }
+  }
+
+  void _applyAndSaveRecalculatedFees() {
+    if (_recalculationResult == null) return;
+    setState(() {
+      _estimatedDutiesController.text = _recalculationResult!.finalTotalTaxesEgp.toStringAsFixed(2);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          '💾 تم اعتماد وتطبيق قيمة الرسوم الجمركية والضرائب الجديدة (${_recalculationResult!.finalTotalTaxesEgp.toStringAsFixed(2)} EGP). يمكنك الآن حفظ أو تحديث الدراسة الجمركية.',
+        ),
+        backgroundColor: AppTheme.emerald,
+        duration: const Duration(seconds: 4),
+      ),
+    );
   }
 
   List<CustomsItemCalcRow> _calculateCustomsLines() {
@@ -1587,6 +1678,25 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 ),
                               ),
                               ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.emerald,
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                ),
+                                onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
+                                icon: _isRecalculating
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                      )
+                                    : const Icon(Icons.flash_on, color: Colors.white, size: 16),
+                                label: const Text(
+                                  '⚡ استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
                                 onPressed: () => _syncHsRequirementsToChecklist(silent: false),
                                 icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
@@ -1602,7 +1712,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           ),
                           if (_isCustomsCalculatorExpanded) ...[
                             const Divider(height: 24),
-                            // Inputs Bar: Currency, Exchange Rate, Freight, Insurance
+                            // Inputs Bar: Currency, Exchange Rate, Study Date, Freight, Insurance
                             Row(
                               children: [
                                 Expanded(
@@ -1647,6 +1757,34 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 const SizedBox(width: 12),
                                 Expanded(
                                   flex: 2,
+                                  child: InkWell(
+                                    onTap: () async {
+                                      final picked = await showDatePicker(
+                                        context: context,
+                                        initialDate: _studyDate,
+                                        firstDate: DateTime(2020),
+                                        lastDate: DateTime(2030),
+                                      );
+                                      if (picked != null) {
+                                        setState(() => _studyDate = picked);
+                                      }
+                                    },
+                                    child: InputDecorator(
+                                      decoration: const InputDecoration(
+                                        labelText: 'تاريخ الدراسة الجمركية (Study Date)',
+                                        border: OutlineInputBorder(),
+                                        prefixIcon: Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
+                                      ),
+                                      child: Text(
+                                        '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  flex: 2,
                                   child: TextFormField(
                                     controller: _freightEgpController,
                                     keyboardType: TextInputType.number,
@@ -1664,9 +1802,16 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
-
                               ],
                             ),
+                            if (_recalculationResult != null) ...[
+                              const SizedBox(height: 16),
+                              RecalculationVarianceComparisonCard(
+                                recalculationResult: _recalculationResult!,
+                                onApplyNewFees: _applyAndSaveRecalculatedFees,
+                                onClose: () => setState(() => _recalculationResult = null),
+                              ),
+                            ],
                             const SizedBox(height: 16),
 
                             // HS Code Line Items Calculation Table

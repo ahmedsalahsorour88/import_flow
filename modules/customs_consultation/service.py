@@ -324,3 +324,306 @@ class CustomsConsultationService:
             )
         restored_session = CustomsConsultationRepository.restore(db, db_session)
         return CustomsConsultationService._compute_session_metrics(db, restored_session)
+
+    @staticmethod
+    def recalculate_from_reconciliation_service(
+        db: Session,
+        import_file_id: int,
+        exchange_rate: Optional[float] = None,
+        freight_egp: Optional[float] = 0.0,
+        insurance_egp: Optional[float] = 0.0,
+        estimate_date: Optional[date] = None,
+    ):
+        """
+        Recalculates Egyptian Customs duties, taxes, and fees for an import file based on
+        the final reconciled commercial invoice and packing list (POPackingReconciliationSession),
+        and compares with baseline preliminary PO values to compute liquidity variance forecast.
+        """
+        from modules.import_files.model import ImportFile
+        from modules.import_documentation.model import POPackingReconciliationSession
+        from modules.purchase_orders.model import PurchaseOrder, POLineItem
+        from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement
+        from modules.customs_consultation.schemas import (
+            CustomsRecalculationResponse,
+            LineVarianceComparison,
+        )
+
+        imp_file = db.query(ImportFile).filter(ImportFile.import_file_id == import_file_id).first()
+        if not imp_file:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"ملف الشحنة رقم {import_file_id} غير موجود.",
+            )
+
+        calc_date = estimate_date or date.today()
+        fx_rate = exchange_rate if (exchange_rate and exchange_rate > 0) else float(getattr(imp_file, "exchange_rate", 50.0) or 50.0)
+        freight_val = float(freight_egp or 0.0)
+        ins_val = float(insurance_egp or 0.0)
+
+        # 1. Fetch Reconciliation Session (Final Approved Commercial Invoice & Packing List)
+        reconcil_session = (
+            db.query(POPackingReconciliationSession)
+            .filter(
+                POPackingReconciliationSession.import_file_id == import_file_id,
+                POPackingReconciliationSession.is_active == True,
+            )
+            .order_by(POPackingReconciliationSession.session_id.desc())
+            .first()
+        )
+
+        final_items = []
+        final_inv_no = None
+        is_reconciled = False
+        reconcil_id = None
+
+        if reconcil_session and reconcil_session.reconciled_invoice_items:
+            final_items = reconcil_session.reconciled_invoice_items
+            final_inv_no = reconcil_session.final_invoice_number
+            is_reconciled = bool(reconcil_session.is_safe_for_certification or reconcil_session.overall_status in ("FULLY_MATCHED", "RECONCILED", "APPROVED"))
+            reconcil_id = reconcil_session.session_id
+
+        # 2. Fetch Preliminary PO Line Items (Baseline)
+        prelim_items = []
+        pos = (
+            db.query(PurchaseOrder)
+            .filter(
+                PurchaseOrder.import_file_id == import_file_id,
+                PurchaseOrder.is_active == True,
+            )
+            .all()
+        )
+        for po in pos:
+            for item in (getattr(po, "line_items", []) or []):
+                prelim_items.append(item)
+
+        # Build Tariff Lookups
+        tariffs = db.query(CustomsTariff).filter(CustomsTariff.is_active == True).all()
+        tariff_map = {t.hs_code.replace(".", "").strip(): t for t in tariffs}
+
+        def get_tariff(hs: str) -> Optional[CustomsTariff]:
+            clean_hs = (hs or "").replace(".", "").strip()
+            return tariff_map.get(clean_hs)
+
+        # If no reconciled items exist yet, use preliminary items as current final base
+        lines_comparison: List[LineVarianceComparison] = []
+
+        total_prelim_fob_egp = 0.0
+        total_final_fob_egp = 0.0
+        total_prelim_duty_egp = 0.0
+        total_final_duty_egp = 0.0
+        total_prelim_vat_egp = 0.0
+        total_final_vat_egp = 0.0
+        total_prelim_taxes_egp = 0.0
+        total_final_taxes_egp = 0.0
+
+        if final_items:
+            # Reconciled final items available
+            for idx, f_item in enumerate(final_items):
+                item_name = f_item.get("item_name") or f"Item #{idx + 1}"
+                hs_code = str(f_item.get("hs_code") or "6802.99")
+                origin = f_item.get("country_of_origin") or "CN"
+                final_q = float(f_item.get("quantity") or 0.0)
+                final_u_price = float(f_item.get("unit_price") or 0.0)
+                final_fob_foreign = float(f_item.get("total_price") or (final_q * final_u_price))
+                final_fob_egp_item = final_fob_foreign * fx_rate
+
+                # Match with corresponding preliminary item if exists
+                matched_p = None
+                if idx < len(prelim_items):
+                    matched_p = prelim_items[idx]
+                elif prelim_items:
+                    matched_p = next(
+                        (
+                            p for p in prelim_items
+                            if ((p.tariff.hs_code if p.tariff else getattr(p, 'hs_code', '')) or '').replace('.', '') == hs_code.replace('.', '')
+                        ),
+                        None,
+                    )
+
+                prelim_q = float(matched_p.quantity) if matched_p else final_q
+                prelim_u_price = float(matched_p.unit_price) if matched_p else final_u_price
+                prelim_fob_foreign = float(matched_p.total_price) if matched_p else final_fob_foreign
+                prelim_fob_egp_item = prelim_fob_foreign * fx_rate
+
+                t = get_tariff(hs_code)
+                duty_rate = float(t.customs_duty_rate) if t else 10.0
+                vat_rate = float(t.vat_rate) if t else 14.0
+                sch_rate = float(t.schedule_tax_rate) if t else 0.0
+                dev_rate = float(t.development_fee_rate) if t else 0.0
+                svc_rate = float(t.customs_service_fee_rate) if (t and t.customs_service_fee_rate is not None) else 1.0
+
+                # Allocating proportional freight & insurance
+                prop_freight_final = freight_val / len(final_items) if len(final_items) > 0 else 0.0
+                prop_ins_final = ins_val / len(final_items) if len(final_items) > 0 else 0.0
+                final_cif_item = final_fob_egp_item + prop_freight_final + prop_ins_final
+
+                prop_freight_prelim = freight_val / (len(prelim_items) or 1)
+                prop_ins_prelim = ins_val / (len(prelim_items) or 1)
+                prelim_cif_item = prelim_fob_egp_item + prop_freight_prelim + prop_ins_prelim
+
+                # Preliminary tax calculation
+                p_duty = round(prelim_cif_item * (duty_rate / 100.0), 2)
+                p_vat_base = prelim_cif_item + p_duty
+                p_vat = round(p_vat_base * (vat_rate / 100.0), 2)
+                p_sch = round(prelim_cif_item * (sch_rate / 100.0), 2)
+                p_dev = round(prelim_cif_item * (dev_rate / 100.0), 2)
+                p_svc = round(prelim_cif_item * (svc_rate / 100.0), 2)
+                p_total = round(p_duty + p_vat + p_sch + p_dev + p_svc, 2)
+
+                # Final tax calculation
+                f_duty = round(final_cif_item * (duty_rate / 100.0), 2)
+                f_vat_base = final_cif_item + f_duty
+                f_vat = round(f_vat_base * (vat_rate / 100.0), 2)
+                f_sch = round(final_cif_item * (sch_rate / 100.0), 2)
+                f_dev = round(final_cif_item * (dev_rate / 100.0), 2)
+                f_svc = round(final_cif_item * (svc_rate / 100.0), 2)
+                f_total = round(f_duty + f_vat + f_sch + f_dev + f_svc, 2)
+
+                line = LineVarianceComparison(
+                    item_name=item_name,
+                    hs_code=hs_code,
+                    country_of_origin=origin,
+                    preliminary_qty=prelim_q,
+                    final_qty=final_q,
+                    qty_variance=round(final_q - prelim_q, 2),
+                    preliminary_unit_price=prelim_u_price,
+                    final_unit_price=final_u_price,
+                    unit_price_variance=round(final_u_price - prelim_u_price, 2),
+                    preliminary_fob_egp=round(prelim_fob_egp_item, 2),
+                    final_fob_egp=round(final_fob_egp_item, 2),
+                    fob_variance_egp=round(final_fob_egp_item - prelim_fob_egp_item, 2),
+                    preliminary_cif_egp=round(prelim_cif_item, 2),
+                    final_cif_egp=round(final_cif_item, 2),
+                    cif_variance_egp=round(final_cif_item - prelim_cif_item, 2),
+                    duty_rate_pct=duty_rate,
+                    preliminary_duty_egp=p_duty,
+                    final_duty_egp=f_duty,
+                    duty_variance_egp=round(f_duty - p_duty, 2),
+                    vat_rate_pct=vat_rate,
+                    preliminary_vat_egp=p_vat,
+                    final_vat_egp=f_vat,
+                    vat_variance_egp=round(f_vat - p_vat, 2),
+                    preliminary_total_taxes_egp=p_total,
+                    final_total_taxes_egp=f_total,
+                    total_taxes_variance_egp=round(f_total - p_total, 2),
+                )
+                lines_comparison.append(line)
+
+                total_prelim_fob_egp += prelim_fob_egp_item
+                total_final_fob_egp += final_fob_egp_item
+                total_prelim_duty_egp += p_duty
+                total_final_duty_egp += f_duty
+                total_prelim_vat_egp += p_vat
+                total_final_vat_egp += f_vat
+                total_prelim_taxes_egp += p_total
+                total_final_taxes_egp += f_total
+        else:
+            # Fallback to preliminary PO line items
+            for p in prelim_items:
+                item_name = getattr(p, "description_ar", "") or getattr(p, "item_name", "Item")
+                hs_code = (p.tariff.hs_code if getattr(p, 'tariff', None) else getattr(p, "hs_code", "")) or "6802.99"
+                origin = getattr(p, "country_of_origin", "CN") or "CN"
+                q = float(p.quantity or 0.0)
+                u_price = float(p.unit_price or 0.0)
+                fob_foreign = float(p.total_price or (q * u_price))
+                fob_egp_item = fob_foreign * fx_rate
+
+                t = get_tariff(hs_code)
+                duty_rate = float(t.customs_duty_rate) if t else 10.0
+                vat_rate = float(t.vat_rate) if t else 14.0
+                sch_rate = float(t.schedule_tax_rate) if t else 0.0
+                dev_rate = float(t.development_fee_rate) if t else 0.0
+                svc_rate = float(t.customs_service_fee_rate) if (t and t.customs_service_fee_rate is not None) else 1.0
+
+                prop_freight = freight_val / (len(prelim_items) or 1)
+                prop_ins = ins_val / (len(prelim_items) or 1)
+                cif_item = fob_egp_item + prop_freight + prop_ins
+
+                duty = round(cif_item * (duty_rate / 100.0), 2)
+                vat_base = cif_item + duty
+                vat = round(vat_base * (vat_rate / 100.0), 2)
+                sch = round(cif_item * (sch_rate / 100.0), 2)
+                dev = round(cif_item * (dev_rate / 100.0), 2)
+                svc = round(cif_item * (svc_rate / 100.0), 2)
+                total = round(duty + vat + sch + dev + svc, 2)
+
+                line = LineVarianceComparison(
+                    item_name=item_name,
+                    hs_code=hs_code,
+                    country_of_origin=origin,
+                    preliminary_qty=q,
+                    final_qty=q,
+                    qty_variance=0.0,
+                    preliminary_unit_price=u_price,
+                    final_unit_price=u_price,
+                    unit_price_variance=0.0,
+                    preliminary_fob_egp=round(fob_egp_item, 2),
+                    final_fob_egp=round(fob_egp_item, 2),
+                    fob_variance_egp=0.0,
+                    preliminary_cif_egp=round(cif_item, 2),
+                    final_cif_egp=round(cif_item, 2),
+                    cif_variance_egp=0.0,
+                    duty_rate_pct=duty_rate,
+                    preliminary_duty_egp=duty,
+                    final_duty_egp=duty,
+                    duty_variance_egp=0.0,
+                    vat_rate_pct=vat_rate,
+                    preliminary_vat_egp=vat,
+                    final_vat_egp=vat,
+                    vat_variance_egp=0.0,
+                    preliminary_total_taxes_egp=total,
+                    final_total_taxes_egp=total,
+                    total_taxes_variance_egp=0.0,
+                )
+                lines_comparison.append(line)
+
+                total_prelim_fob_egp += fob_egp_item
+                total_final_fob_egp += fob_egp_item
+                total_prelim_duty_egp += duty
+                total_final_duty_egp += duty
+                total_prelim_vat_egp += vat
+                total_final_vat_egp += vat
+                total_prelim_taxes_egp += total
+                total_final_taxes_egp += total
+
+        total_prelim_cif_egp = total_prelim_fob_egp + freight_val + ins_val
+        total_final_cif_egp = total_final_fob_egp + freight_val + ins_val
+
+        taxes_variance = round(total_final_taxes_egp - total_prelim_taxes_egp, 2)
+        pct_change = round((taxes_variance / total_prelim_taxes_egp * 100.0), 2) if total_prelim_taxes_egp > 0 else 0.0
+
+        forecast_status = "Exact Match"
+        if taxes_variance > 0:
+            forecast_status = "Increased Cost"
+        elif taxes_variance < 0:
+            forecast_status = "Reduced Cost"
+
+        return CustomsRecalculationResponse(
+            import_file_id=import_file_id,
+            import_file_code=imp_file.import_file_code or f"IMP-{import_file_id:04d}",
+            final_invoice_number=final_inv_no or imp_file.pi_number,
+            reconciliation_session_id=reconcil_id,
+            is_reconciled=is_reconciled,
+            source_description="الفاتورة وقائمة التعبئة النهائية المعتمدة" if is_reconciled else "أمر الشراء التقديري (مبدئي)",
+            exchange_rate=round(fx_rate, 4),
+            estimate_date=calc_date,
+            preliminary_fob_egp=round(total_prelim_fob_egp, 2),
+            final_fob_egp=round(total_final_fob_egp, 2),
+            fob_variance_egp=round(total_final_fob_egp - total_prelim_fob_egp, 2),
+            preliminary_cif_egp=round(total_prelim_cif_egp, 2),
+            final_cif_egp=round(total_final_cif_egp, 2),
+            cif_variance_egp=round(total_final_cif_egp - total_prelim_cif_egp, 2),
+            preliminary_duty_egp=round(total_prelim_duty_egp, 2),
+            final_duty_egp=round(total_final_duty_egp, 2),
+            duty_variance_egp=round(total_final_duty_egp - total_prelim_duty_egp, 2),
+            preliminary_vat_egp=round(total_prelim_vat_egp, 2),
+            final_vat_egp=round(total_final_vat_egp, 2),
+            vat_variance_egp=round(total_final_vat_egp - total_prelim_vat_egp, 2),
+            preliminary_total_taxes_egp=round(total_prelim_taxes_egp, 2),
+            final_total_taxes_egp=round(total_final_taxes_egp, 2),
+            total_taxes_variance_egp=taxes_variance,
+            variance_percentage=pct_change,
+            forecast_status=forecast_status,
+            comparison_lines=lines_comparison,
+        )
+

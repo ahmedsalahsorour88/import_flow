@@ -227,3 +227,75 @@ UAB Narbutas International Dokumentai Vilnius
     assert "1774" in result["gross_weight"]
     assert "OFFICE FURNITURE" in result["product_description"]
     assert "2026-08-11" in result["issue_date"]
+
+
+def test_china_ccpit_certificate_full_extraction():
+    from modules.smart_document_upload.extractors.other_extractors import COOCertificateExtractor
+    from modules.import_documentation.ai_document_parser import extract_coo_china_ccpit_text
+
+    sample_china_ocr = """ORIGINAL
+Page 1 of 1
+1.Exporter
+SUZHOU GREENISH IMP&EXP CO.,LTD.
+NO.78 SUNWU ROAD, XUKOU TOWN, WUZHONG DISTRICTSUZHOU 215100 
+CHINA
+***
+Serial No.
+Certificate No. 26C311120218/00004
+CERTIFICATE OF ORIGIN
+OF
+THE PEOPLE'S REPUBLIC OF CHINA
+2.Consignee
+SCAS FOR CONSTRUCTION AND FINISHING
+44, RD 81, MAADI SARAYAT CAIRO, EGYPT
+3.Means of transport and route
+FROM SHANGHAI CHINA TO ALEXANDRIA EGYPT BY SEA
+5.For certifying authority use only
+VERIFY URL:HTTP://CHECK.ECOCCPIT.NET/
+4.Country / region of destination
+EGYPT
+6.Marks and numbers 7.Number and kind of packages;description of goods 8.H.S.Code 9.Quantity 10.Number
+and date of
+invoices
+Acoustic Panel ACOUSTIC PANEL ACID:5281534391017110019 560229 810 SHEETS
+G.WEIGHT
+4904 KGS G.W.
+GRS20260505T9
+MAY.05,2026
+***
+11.Declaration by the exporter
+The undersigned hereby declares that the above details and statements are 
+correct, that all the goods were produced in China and that they comply with the 
+Rules of Origin of the People's Republic of China.
+SUZHOU,CHINA JUL.30,2026
+Place and date,signature and stamp of authorized signatory
+12.Certification
+It is hereby certified that the declaration by the exporter is correct.
+ADDRESS:DONGWU NORTH ROAD GUOYU BUILDING 15A FLOOR 
+WUZHONG DISTRICT SUZHOU CITY
+FAX:0512-65252957 TEL:0512-65252453
+SUZHOU,CHINA JUL.30,2026
+Place and date,signature and stamp of certifying authority
+"""
+
+    extractor = COOCertificateExtractor()
+    result = extractor.extract(sample_china_ocr, {})
+    ai_result = extract_coo_china_ccpit_text(sample_china_ocr)
+
+    assert result["certificate_number"] == "26C311120218/00004"
+    assert "SUZHOU GREENISH" in result["exporter_name"]
+    assert "SCAS FOR CONSTRUCTION" in result["importer_name"]
+    assert "OF " not in result["importer_name"]
+    assert result["origin_country"] == "China"
+    assert result["destination_country"] == "EGYPT"
+    assert result["acid_number"] == "5281534391017110019"
+    assert result["hs_code"] == "560229"
+    assert "4904" in result["gross_weight"]
+    assert result["invoice_number"] == "GRS20260505T9"
+    assert "2026" in result["issue_date"] or "JUL" in result["issue_date"]
+
+    assert ai_result["certificate_number"] == "26C311120218/00004"
+    assert "SUZHOU GREENISH" in ai_result["exporter_name"]
+    assert "SCAS FOR CONSTRUCTION" in ai_result["importer_name"]
+    assert ai_result["verification_url"] == "HTTP://CHECK.ECOCCPIT.NET/"
+

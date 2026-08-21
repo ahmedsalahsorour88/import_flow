@@ -499,3 +499,189 @@ class CustomsConsultationModel {
     };
   }
 }
+
+// ==============================================================================
+// Customs Re-estimation & Variance Comparison Models
+// ==============================================================================
+
+class LineVarianceComparisonModel {
+  final String itemName;
+  final String hsCode;
+  final String? countryOfOrigin;
+  final double preliminaryQty;
+  final double finalQty;
+  final double qtyVariance;
+  final double preliminaryUnitPrice;
+  final double finalUnitPrice;
+  final double unitPriceVariance;
+  final double preliminaryFobEgp;
+  final double finalFobEgp;
+  final double fobVarianceEgp;
+  final double preliminaryCifEgp;
+  final double finalCifEgp;
+  final double cifVarianceEgp;
+  final double dutyRatePct;
+  final double preliminaryDutyEgp;
+  final double finalDutyEgp;
+  final double dutyVarianceEgp;
+  final double vatRatePct;
+  final double preliminaryVatEgp;
+  final double finalVatEgp;
+  final double vatVarianceEgp;
+  final double preliminaryTotalTaxesEgp;
+  final double finalTotalTaxesEgp;
+  final double totalTaxesVarianceEgp;
+
+  LineVarianceComparisonModel({
+    required this.itemName,
+    required this.hsCode,
+    this.countryOfOrigin,
+    this.preliminaryQty = 0.0,
+    this.finalQty = 0.0,
+    this.qtyVariance = 0.0,
+    this.preliminaryUnitPrice = 0.0,
+    this.finalUnitPrice = 0.0,
+    this.unitPriceVariance = 0.0,
+    this.preliminaryFobEgp = 0.0,
+    this.finalFobEgp = 0.0,
+    this.fobVarianceEgp = 0.0,
+    this.preliminaryCifEgp = 0.0,
+    this.finalCifEgp = 0.0,
+    this.cifVarianceEgp = 0.0,
+    this.dutyRatePct = 0.0,
+    this.preliminaryDutyEgp = 0.0,
+    this.finalDutyEgp = 0.0,
+    this.dutyVarianceEgp = 0.0,
+    this.vatRatePct = 0.0,
+    this.preliminaryVatEgp = 0.0,
+    this.finalVatEgp = 0.0,
+    this.vatVarianceEgp = 0.0,
+    this.preliminaryTotalTaxesEgp = 0.0,
+    this.finalTotalTaxesEgp = 0.0,
+    this.totalTaxesVarianceEgp = 0.0,
+  });
+
+  factory LineVarianceComparisonModel.fromJson(Map<String, dynamic> json) {
+    return LineVarianceComparisonModel(
+      itemName: json['item_name'] ?? '',
+      hsCode: json['hs_code'] ?? '',
+      countryOfOrigin: json['country_of_origin'],
+      preliminaryQty: (json['preliminary_qty'] as num?)?.toDouble() ?? 0.0,
+      finalQty: (json['final_qty'] as num?)?.toDouble() ?? 0.0,
+      qtyVariance: (json['qty_variance'] as num?)?.toDouble() ?? 0.0,
+      preliminaryUnitPrice: (json['preliminary_unit_price'] as num?)?.toDouble() ?? 0.0,
+      finalUnitPrice: (json['final_unit_price'] as num?)?.toDouble() ?? 0.0,
+      unitPriceVariance: (json['unit_price_variance'] as num?)?.toDouble() ?? 0.0,
+      preliminaryFobEgp: (json['preliminary_fob_egp'] as num?)?.toDouble() ?? 0.0,
+      finalFobEgp: (json['final_fob_egp'] as num?)?.toDouble() ?? 0.0,
+      fobVarianceEgp: (json['fob_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryCifEgp: (json['preliminary_cif_egp'] as num?)?.toDouble() ?? 0.0,
+      finalCifEgp: (json['final_cif_egp'] as num?)?.toDouble() ?? 0.0,
+      cifVarianceEgp: (json['cif_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      dutyRatePct: (json['duty_rate_pct'] as num?)?.toDouble() ?? 0.0,
+      preliminaryDutyEgp: (json['preliminary_duty_egp'] as num?)?.toDouble() ?? 0.0,
+      finalDutyEgp: (json['final_duty_egp'] as num?)?.toDouble() ?? 0.0,
+      dutyVarianceEgp: (json['duty_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      vatRatePct: (json['vat_rate_pct'] as num?)?.toDouble() ?? 0.0,
+      preliminaryVatEgp: (json['preliminary_vat_egp'] as num?)?.toDouble() ?? 0.0,
+      finalVatEgp: (json['final_vat_egp'] as num?)?.toDouble() ?? 0.0,
+      vatVarianceEgp: (json['vat_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryTotalTaxesEgp: (json['preliminary_total_taxes_egp'] as num?)?.toDouble() ?? 0.0,
+      finalTotalTaxesEgp: (json['final_total_taxes_egp'] as num?)?.toDouble() ?? 0.0,
+      totalTaxesVarianceEgp: (json['total_taxes_variance_egp'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+}
+
+class CustomsRecalculationResponseModel {
+  final int importFileId;
+  final String importFileCode;
+  final String? finalInvoiceNumber;
+  final int? reconciliationSessionId;
+  final bool isReconciled;
+  final String sourceDescription;
+  final double exchangeRate;
+  final String estimateDate;
+  final double preliminaryFobEgp;
+  final double finalFobEgp;
+  final double fobVarianceEgp;
+  final double preliminaryCifEgp;
+  final double finalCifEgp;
+  final double cifVarianceEgp;
+  final double preliminaryDutyEgp;
+  final double finalDutyEgp;
+  final double dutyVarianceEgp;
+  final double preliminaryVatEgp;
+  final double finalVatEgp;
+  final double vatVarianceEgp;
+  final double preliminaryTotalTaxesEgp;
+  final double finalTotalTaxesEgp;
+  final double totalTaxesVarianceEgp;
+  final double variancePercentage;
+  final String forecastStatus;
+  final List<LineVarianceComparisonModel> comparisonLines;
+
+  CustomsRecalculationResponseModel({
+    required this.importFileId,
+    required this.importFileCode,
+    this.finalInvoiceNumber,
+    this.reconciliationSessionId,
+    this.isReconciled = false,
+    required this.sourceDescription,
+    required this.exchangeRate,
+    required this.estimateDate,
+    this.preliminaryFobEgp = 0.0,
+    this.finalFobEgp = 0.0,
+    this.fobVarianceEgp = 0.0,
+    this.preliminaryCifEgp = 0.0,
+    this.finalCifEgp = 0.0,
+    this.cifVarianceEgp = 0.0,
+    this.preliminaryDutyEgp = 0.0,
+    this.finalDutyEgp = 0.0,
+    this.dutyVarianceEgp = 0.0,
+    this.preliminaryVatEgp = 0.0,
+    this.finalVatEgp = 0.0,
+    this.vatVarianceEgp = 0.0,
+    this.preliminaryTotalTaxesEgp = 0.0,
+    this.finalTotalTaxesEgp = 0.0,
+    this.totalTaxesVarianceEgp = 0.0,
+    this.variancePercentage = 0.0,
+    this.forecastStatus = "Balanced",
+    this.comparisonLines = const [],
+  });
+
+  factory CustomsRecalculationResponseModel.fromJson(Map<String, dynamic> json) {
+    return CustomsRecalculationResponseModel(
+      importFileId: json['import_file_id'] ?? 0,
+      importFileCode: json['import_file_code'] ?? '',
+      finalInvoiceNumber: json['final_invoice_number'],
+      reconciliationSessionId: json['reconciliation_session_id'],
+      isReconciled: json['is_reconciled'] ?? false,
+      sourceDescription: json['source_description'] ?? '',
+      exchangeRate: (json['exchange_rate'] as num?)?.toDouble() ?? 50.0,
+      estimateDate: json['estimate_date'] ?? '',
+      preliminaryFobEgp: (json['preliminary_fob_egp'] as num?)?.toDouble() ?? 0.0,
+      finalFobEgp: (json['final_fob_egp'] as num?)?.toDouble() ?? 0.0,
+      fobVarianceEgp: (json['fob_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryCifEgp: (json['preliminary_cif_egp'] as num?)?.toDouble() ?? 0.0,
+      finalCifEgp: (json['final_cif_egp'] as num?)?.toDouble() ?? 0.0,
+      cifVarianceEgp: (json['cif_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryDutyEgp: (json['preliminary_duty_egp'] as num?)?.toDouble() ?? 0.0,
+      finalDutyEgp: (json['final_duty_egp'] as num?)?.toDouble() ?? 0.0,
+      dutyVarianceEgp: (json['duty_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryVatEgp: (json['preliminary_vat_egp'] as num?)?.toDouble() ?? 0.0,
+      finalVatEgp: (json['final_vat_egp'] as num?)?.toDouble() ?? 0.0,
+      vatVarianceEgp: (json['vat_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      preliminaryTotalTaxesEgp: (json['preliminary_total_taxes_egp'] as num?)?.toDouble() ?? 0.0,
+      finalTotalTaxesEgp: (json['final_total_taxes_egp'] as num?)?.toDouble() ?? 0.0,
+      totalTaxesVarianceEgp: (json['total_taxes_variance_egp'] as num?)?.toDouble() ?? 0.0,
+      variancePercentage: (json['variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      forecastStatus: json['forecast_status'] ?? 'Balanced',
+      comparisonLines: (json['comparison_lines'] as List<dynamic>?)
+              ?.map((c) => LineVarianceComparisonModel.fromJson(c))
+              .toList() ??
+          [],
+    );
+  }
+}
+

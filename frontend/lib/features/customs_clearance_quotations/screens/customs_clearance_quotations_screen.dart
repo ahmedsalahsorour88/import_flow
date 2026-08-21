@@ -13,7 +13,8 @@ import '../models/customs_clearance_quotation_model.dart';
 import '../providers/customs_clearance_quotations_provider.dart';
 
 class CustomsClearanceQuotationsScreen extends ConsumerStatefulWidget {
-  const CustomsClearanceQuotationsScreen({super.key});
+  final bool embedded;
+  const CustomsClearanceQuotationsScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<CustomsClearanceQuotationsScreen> createState() =>
@@ -49,6 +50,94 @@ class _CustomsClearanceQuotationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.embedded) {
+      return Container(
+        color: const Color(0xFFF4F6F8),
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: Border(bottom: BorderSide(color: Colors.grey.shade300)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.request_quote_rounded, color: AppTheme.cobalt, size: 24),
+                  const SizedBox(width: 10),
+                  const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'عروض ومقايسات التخليص الجمركي والاستخراج الذكي',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      Text(
+                        'Customs Clearance RFQs, Quotes Evaluator & AI Rate Extractor',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: AppTheme.charcoal),
+                    tooltip: 'تحديث البيانات',
+                    onPressed: () {
+                      ref.invalidate(customsClearanceQuotationsProvider);
+                      ref.invalidate(clearancePriceListProvider);
+                      ref.invalidate(partnersProvider);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF6C5CE7),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    icon: const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: () => _showSmartExtractorDialog(null),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              color: Colors.white,
+              child: TabBar(
+                controller: _tabController,
+                indicatorColor: AppTheme.cobalt,
+                indicatorWeight: 3,
+                labelColor: AppTheme.cobalt,
+                unselectedLabelColor: Colors.grey.shade600,
+                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                tabs: const [
+                  Tab(
+                    icon: Icon(Icons.compare_arrows_rounded, size: 18),
+                    text: 'طلب ومقارنة عروض التخليص الجمركي (RFQs & Evaluator)',
+                  ),
+                  Tab(
+                    icon: Icon(Icons.price_change_rounded, size: 18),
+                    text: 'قوائم أسعار بنود التخليص الثابتة (Master Price Lists)',
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildRFQsTab(),
+                  _buildPriceListsTab(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
@@ -1244,4 +1333,175 @@ class _CustomsClearanceQuotationsScreenState
       await ref.read(customsClearanceQuotationsProvider.notifier).deleteQuotation(quotationId);
     }
   }
+}
+
+/// Global helper to show the Smart Clearance Quotation Extractor dialog from any screen/tab
+Future<void> showSmartClearanceExtractorDialog(
+  BuildContext context,
+  WidgetRef ref, {
+  int? targetRfqId,
+  Function(Map<String, dynamic> extracted)? onExtracted,
+}) async {
+  final textCtrl = TextEditingController();
+  bool isExtracting = false;
+  Map<String, dynamic>? extractedResult;
+
+  await showDialog(
+    context: context,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setDState) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.auto_awesome, color: Color(0xFF6C5CE7)),
+            SizedBox(width: 10),
+            Text('الاستخلاص الذكي لعروض أسعار ومقايسات التخليص'),
+          ],
+        ),
+        content: SizedBox(
+          width: 750,
+          height: 520,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('الصق نص عرض السعر / الإيميل أو اختر ملف المقايسة لاستخلاص البنود آلياً:'),
+              const SizedBox(height: 10),
+              Expanded(
+                child: TextField(
+                  controller: textCtrl,
+                  maxLines: 8,
+                  decoration: InputDecoration(
+                    hintText: 'مثال:\nعرض أسعار تخليص جمركي من مكتب النسر...\nأتعاب التخليص: 3500 جنيه\nنقل داخلي: 7000 جنيه\nمصاريف فحص وعرض: 1500 جنيه...',
+                    filled: true,
+                    fillColor: Colors.grey.shade50,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6C5CE7), foregroundColor: Colors.white),
+                    icon: isExtracting
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                        : const Icon(Icons.bolt_rounded),
+                    label: Text(isExtracting ? 'جاري الاستخراج...' : 'استخراج فوري من النص'),
+                    onPressed: isExtracting
+                        ? null
+                        : () async {
+                            final text = textCtrl.text.trim();
+                            if (text.isEmpty) return;
+                            setDState(() => isExtracting = true);
+                            try {
+                              final dio = Dio();
+                              final formData = FormData.fromMap({'raw_text': text});
+                              final resp = await dio.post(
+                                '${ApiConstants.baseUrl}/smart-upload/parse-text/clearance-quotation',
+                                data: formData,
+                              );
+                              if (resp.statusCode == 200 && resp.data != null) {
+                                setDState(() {
+                                  extractedResult = resp.data['extracted_fields'] as Map<String, dynamic>?;
+                                });
+                              }
+                            } catch (e) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text('خطأ في الاستخراج: $e'), backgroundColor: AppTheme.crimson),
+                              );
+                            } finally {
+                              setDState(() => isExtracting = false);
+                            }
+                          },
+                  ),
+                  const SizedBox(width: 10),
+                  OutlinedButton.icon(
+                    icon: const Icon(Icons.upload_file_rounded),
+                    label: const Text('رفع مستند PDF / Excel / Word'),
+                    onPressed: () async {
+                      final result = await FilePicker.pickFiles(
+                        type: FileType.custom,
+                        allowedExtensions: ['pdf', 'xlsx', 'xls', 'docx', 'doc', 'png', 'jpg', 'jpeg', 'txt'],
+                        withData: true,
+                      );
+                      if (result == null || result.files.isEmpty || result.files.first.bytes == null) return;
+                      final file = result.files.first;
+
+                      setDState(() => isExtracting = true);
+                      try {
+                        final dio = Dio();
+                        final formData = FormData.fromMap({
+                          'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+                        });
+                        final resp = await dio.post(
+                          '${ApiConstants.baseUrl}/smart-upload/parse/clearance-quotation',
+                          data: formData,
+                        );
+                        if (resp.statusCode == 200 && resp.data != null) {
+                          setDState(() {
+                            extractedResult = resp.data['extracted_fields'] as Map<String, dynamic>?;
+                          });
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('خطأ في رفع الملف: $e'), backgroundColor: AppTheme.crimson),
+                        );
+                      } finally {
+                        setDState(() => isExtracting = false);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              if (extractedResult != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: AppTheme.emerald),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('المخلص المستخرج: ${extractedResult!['broker_name'] ?? 'مكتب تخليص'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('الميناء: ${extractedResult!['port_name'] ?? '-'} | الحاوية: ${extractedResult!['container_type'] ?? '-'}'),
+                          Text('إجمالي التكلفة المقدرة: ${extractedResult!['total_estimated_clearance_cost']} EGP', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                        ],
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                        icon: const Icon(Icons.check),
+                        label: const Text('تطبيق واستخدام العرض'),
+                        onPressed: () {
+                          Navigator.pop(ctx);
+                          if (onExtracted != null) {
+                            onExtracted(extractedResult!);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('✔ تم استخلاص عرض المخلص بنجاح: ${extractedResult!['broker_name']} - الإجمالي: ${extractedResult!['total_estimated_clearance_cost']} EGP'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(child: const Text('إغلاق'), onPressed: () => Navigator.pop(ctx)),
+        ],
+      ),
+    ),
+  );
 }

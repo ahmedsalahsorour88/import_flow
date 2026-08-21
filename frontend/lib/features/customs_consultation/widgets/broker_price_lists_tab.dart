@@ -5,6 +5,7 @@ import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
 import 'price_list_form_dialog.dart';
 
 class BrokerPriceListsTab extends ConsumerStatefulWidget {
@@ -52,6 +53,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                 selectedColor: AppTheme.cobalt.withOpacity(0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 1),
               ),
+              const SizedBox(width: 12),
+              ChoiceChip(
+                label: const Text('🤖 عروض التخليص والاستخراج الذكي (Clearance Quotes & AI Extractor)', style: TextStyle(fontWeight: FontWeight.bold)),
+                selected: _managementSubTabIndex == 2,
+                selectedColor: const Color(0xFF6C5CE7).withOpacity(0.18),
+                onSelected: (_) => setState(() => _managementSubTabIndex = 2),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -60,7 +68,9 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
           Expanded(
             child: _managementSubTabIndex == 0
                 ? _buildBrokerPriceListsView(priceListsAsync, brokersList)
-                : _buildExpenseCatalogView(expenseTypesAsync),
+                : (_managementSubTabIndex == 1
+                    ? _buildExpenseCatalogView(expenseTypesAsync)
+                    : const CustomsClearanceQuotationsScreen(embedded: true)),
           ),
         ],
       ),
@@ -102,6 +112,16 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       ),
                     ),
                     const Spacer(),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6C5CE7),
+                        foregroundColor: Colors.white,
+                      ),
+                      icon: const Icon(Icons.auto_awesome, size: 18),
+                      label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontWeight: FontWeight.bold)),
+                      onPressed: () => showSmartClearanceExtractorDialog(context, ref),
+                    ),
+                    const SizedBox(width: 10),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),

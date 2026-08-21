@@ -18,6 +18,7 @@ import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
+import '../../customs_clearance_quotations/screens/customs_clearance_quotations_screen.dart';
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../../customs_tariff/providers/customs_tariff_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -148,7 +149,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialIndex);
+    _tabController = TabController(length: 4, vsync: this, initialIndex: widget.initialIndex);
     _initializeDefaultChecklist();
     Future.microtask(() {
       ref.read(customsConsultationsProvider.notifier).fetchConsultations();
@@ -857,6 +858,68 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     );
   }
 
+  void _applyExtractedQuotationToConsultation(Map<String, dynamic> extracted) {
+    setState(() {
+      // 1. Try to match and select broker if name matches partners
+      final brokerName = extracted['broker_name']?.toString().toLowerCase() ?? '';
+      if (brokerName.isNotEmpty) {
+        final partners = ref.read(partnersProvider).value ?? [];
+        final matchedPartner = partners.where((p) =>
+            p.partnerName.toLowerCase().contains(brokerName) ||
+            brokerName.contains(p.partnerName.toLowerCase())).firstOrNull;
+        if (matchedPartner != null) {
+          _selectedBrokerId = matchedPartner.partnerId;
+          _selectedBrokerName = matchedPartner.partnerName;
+        }
+      }
+
+      // 2. Add or update items in _brokerQuoteItems
+      void upsertQuoteItem(String name, String category, double amount) {
+        if (amount <= 0) return;
+        final existingIdx = _brokerQuoteItems.indexWhere((i) => i.expenseName.contains(name) || i.category.contains(category));
+        if (existingIdx != -1) {
+          final itm = _brokerQuoteItems[existingIdx];
+          _brokerQuoteItems[existingIdx] = itm.copyWith(
+            unitPrice: amount,
+            qty: 1.0,
+            isApplicable: true,
+            totalAmount: amount,
+          );
+        } else {
+          _brokerQuoteItems.add(CustomsBrokerQuoteItemModel(
+            expenseName: name,
+            category: category,
+            unitType: 'Fixed (مبلغ مقطوع)',
+            unitPrice: amount,
+            currency: 'EGP',
+            qty: 1.0,
+            isApplicable: true,
+            totalAmount: amount,
+          ));
+        }
+      }
+
+      final clearanceFee = (extracted['clearance_fee'] is num) ? (extracted['clearance_fee'] as num).toDouble() : (double.tryParse(extracted['clearance_fee']?.toString() ?? '') ?? 0.0);
+      final inlandFee = (extracted['inland_transport_fee'] is num) ? (extracted['inland_transport_fee'] as num).toDouble() : (double.tryParse(extracted['inland_transport_fee']?.toString() ?? '') ?? 0.0);
+      final inspectionFee = (extracted['inspection_fee'] is num) ? (extracted['inspection_fee'] as num).toDouble() : (double.tryParse(extracted['inspection_fee']?.toString() ?? '') ?? 0.0);
+      final portExp = (extracted['port_expenses'] is num) ? (extracted['port_expenses'] as num).toDouble() : (double.tryParse(extracted['port_expenses']?.toString() ?? '') ?? 0.0);
+      final miscFee = (extracted['miscellaneous_fee'] is num) ? (extracted['miscellaneous_fee'] as num).toDouble() : (double.tryParse(extracted['miscellaneous_fee']?.toString() ?? '') ?? 0.0);
+
+      upsertQuoteItem('أتعاب التخليص الجمركي', 'Clearance Agency Fees', clearanceFee);
+      upsertQuoteItem('النقل الداخلي للمصنع/المستودع', 'Inland Transportation', inlandFee);
+      upsertQuoteItem('مصاريف فحص وعرض جمركي', 'Customs Inspection', inspectionFee);
+      upsertQuoteItem('رسوم موانئ وأرضيات', 'Port & Terminal', portExp);
+      upsertQuoteItem('نثريات ومصروفات إدارية', 'Miscellaneous', miscFee);
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('✔ تم استخلاص وتطبيق بنود مقايسة التخليص بنجاح (${extracted['broker_name'] ?? 'مكتب تخليص'})'),
+        backgroundColor: AppTheme.emerald,
+      ),
+    );
+  }
+
   Future<void> _saveConsultation() async {
     final validationErrors = <ValidationIssueItem>[];
 
@@ -1101,6 +1164,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         titleEn: 'Broker Price Lists & Catalog',
         titleAr: 'قوائم الأسعار وتكويد المصروفات',
       ),
+      const VerticalNavTabItem(
+        icon: Icons.request_quote_rounded,
+        titleEn: 'Clearance Quotes & AI Extractor',
+        titleAr: 'عروض التخليص والاستخراج الذكي',
+      ),
     ];
 
     return VerticalStageScaffold(
@@ -1203,7 +1271,26 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
-                      // 3. Save Draft & Continue Later
+                      // 3. Smart Clearance Quote Extractor Button
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C5CE7),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                        ),
+                        icon: const Icon(Icons.auto_awesome, size: 16),
+                        label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        onPressed: () {
+                          showSmartClearanceExtractorDialog(
+                            context,
+                            ref,
+                            onExtracted: _applyExtractedQuotationToConsultation,
+                          );
+                        },
+                      ),
+
+                      // 4. Save Draft & Continue Later
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFEFF6FF),
@@ -2114,6 +2201,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           SavedConsultationsTab(onEdit: _loadConsultationForEdit, onViewDetails: showConsultationDetailsDialog),
           // TAB 3: BROKER PRICE LISTS & CATALOG MANAGEMENT
           const BrokerPriceListsTab(),
+          // TAB 4: CLEARANCE QUOTATIONS & SMART AI EXTRACTOR
+          const CustomsClearanceQuotationsScreen(embedded: true),
         ],
       ),
     );

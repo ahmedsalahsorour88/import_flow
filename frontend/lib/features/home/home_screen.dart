@@ -145,6 +145,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 54: CargoX Blockchain & ACI Dispatch Hub (Dedicated Subtab 7)
         ShipmentDraftDocsScreen(key: ValueKey('shipment_draft_docs_cargox_7'), initialSubTab: 7),
+
+        // 55: Customs Clearance Quotations & AI Extractor (Dedicated Subtab 3 in Customs Studies)
+        CustomsConsultationScreen(key: ValueKey('customs_consultation_quotes_3'), initialIndex: 3),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -387,6 +390,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.compare_arrows_outlined, 'Freight Studies', 'دراسات ومفاضلة نولون الشحن', 4, selectedIndex),
                   _buildMenuItem(Icons.price_change_outlined, 'Freight Quotations Comparison', 'مقارنة عروض أسعار الشحن', 49, selectedIndex),
                   _buildMenuItem(Icons.gavel_outlined, 'Customs Studies', 'الدراسات والاستشارات الجمركية', 6, selectedIndex),
+                  _buildMenuItem(Icons.request_quote_outlined, 'Clearance Quotations & Extractor', 'عروض ومقايسات التخليص والاستخراج', 55, selectedIndex),
                   _buildMenuItem(Icons.verified_outlined, 'Import Regulatory Requirements', 'متطلبات واشتراطات الاستيراد للشحنة', 43, selectedIndex),
                 ],
               ),

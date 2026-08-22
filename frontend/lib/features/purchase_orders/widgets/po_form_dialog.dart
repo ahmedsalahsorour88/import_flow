@@ -669,12 +669,6 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffs = tariffsAsync.value ?? [];
     final importFiles = importFilesAsync.value ?? [];
 
-    final isLoadingMaster = (projectsAsync.isLoading && projects.isEmpty) ||
-        (companiesAsync.isLoading && companies.isEmpty) ||
-        (suppliersAsync.isLoading && suppliers.isEmpty) ||
-        (incotermsAsync.isLoading && incoterms.isEmpty) ||
-        (currenciesAsync.isLoading && currencies.isEmpty);
-
     final reconciliation = evaluatePOReconciliation(
       invoiceItems: _dialogItems,
       packingItems: _dialogPackingItems,
@@ -836,22 +830,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         content: SizedBox(
           width: 850,
           height: 520,
-          child: isLoadingMaster
-              ? const Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      CircularProgressIndicator(),
-                      SizedBox(height: 16),
-                      Text('جاري تحميل البيانات المرجعية...', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
-                    ],
-                  ),
-                )
-              : Form(
-                  key: _formKey,
-                  child: TabBarView(
-                    children: [
+          child: Form(
+            key: _formKey,
+            child: TabBarView(
+              children: [
                       // Tab 1: Commercial Header & Line Items
                       SingleChildScrollView(
                         padding: const EdgeInsets.only(top: 8, right: 4),
@@ -1977,7 +1959,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-            onPressed: (_isSubmitting || isLoadingMaster)
+            onPressed: _isSubmitting
                 ? null
                 : () async {
                     if (!_formKey.currentState!.validate()) {

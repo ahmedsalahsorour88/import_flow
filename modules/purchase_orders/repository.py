@@ -162,6 +162,7 @@ class PurchaseOrderRepository:
                 pli = PackingListItem(
                     hs_code=pitem.hs_code.strip(),
                     item_code=pitem.item_code.strip(),
+                    description=pitem.description.strip() if getattr(pitem, "description", None) else None,
                     qty_pcs=pitem.qty_pcs,
                     qty_pkg=pitem.qty_pkg,
                     package_type=pitem.package_type.strip() if pitem.package_type else "Carton",
@@ -300,6 +301,7 @@ class PurchaseOrderRepository:
                 pli = PackingListItem(
                     hs_code=str(pitem.get("hs_code", "")).strip(),
                     item_code=str(pitem.get("item_code", "")).strip(),
+                    description=str(pitem.get("description", "")).strip() if pitem.get("description") else None,
                     qty_pcs=q_pcs,
                     qty_pkg=q_pkg,
                     package_type=pitem.get("package_type", "Carton"),

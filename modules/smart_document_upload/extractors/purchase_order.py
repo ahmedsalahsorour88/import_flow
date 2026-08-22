@@ -466,11 +466,12 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "total_price": qty * price,
                 })
 
-        # 3. Narbutas / Standard Invoice item row pattern
+        # 3. Narbutas / European Standard Invoice item row pattern
+        # Matches: PSHD041 [.PA01.MA03] Mobile table with metal base... 4.00 Pcs 124.00 496.00
         if not items:
             narbutas_pattern = re.compile(
-                r"([A-Z0-9\-]{4,20})\s+(\.[A-Z0-9\.]+)?\s+(.+?)\s+(\d+(?:\.\d+)?)\s+(?:Pcs|PCS|vnt|UNT|Box|BOX)\s+([0-9.,]+)\s+([0-9.,]+)",
-                re.IGNORECASE,
+                r"^\s*([A-Z0-9\-]{3,25})\s+(\.[A-Z0-9\.]+)?\s+([^\n\r]+?)\s+(\d+(?:[\.,]\d+)?)\s+(?:Pcs|PCS|vnt|UNT|Box|BOX|CTN|Set|SET)\s+([0-9.,]+)\s+([0-9.,]+)",
+                re.MULTILINE | re.IGNORECASE,
             )
             for m in narbutas_pattern.finditer(text):
                 try:
@@ -479,13 +480,14 @@ class PurchaseOrderExtractor(BaseExtractor):
                     qty = BaseExtractor.parse_numeric_str(m.group(4))
                     price = BaseExtractor.parse_numeric_str(m.group(5))
                     total = BaseExtractor.parse_numeric_str(m.group(6))
-                    items.append({
-                        "item_code": code,
-                        "description": desc,
-                        "quantity": qty,
-                        "unit_price": price,
-                        "total_price": total,
-                    })
+                    if qty > 0 and price > 0:
+                        items.append({
+                            "item_code": code,
+                            "description": desc if desc else f"Product {code}",
+                            "quantity": qty,
+                            "unit_price": price,
+                            "total_price": total,
+                        })
                 except (ValueError, IndexError):
                     continue
 
@@ -527,6 +529,48 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
         packing: List[Dict[str, Any]] = []
+
+        # 0. Narbutas / European Table with Item number, Item name, Delivered, Unit, Net Weight, Gross Weight, Volume
+        # Header: Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume
+        # Example: PSHD041 .PA01.MA03 Mobile table with metal base, W=400, D=500, H=620 MOBI 4.00 Pcs 46.000 51.950 0.086
+        # Example: G2A0913 .PA01.0 Desktop, 500x400x16 4.00 vnt 8.800 10.279 0.031
+        # Example: G3B0079 .MA03.0 Metal base, 450x300, H=604 4.00 vnt 37.200 41.671 0.056
+        narbutas_pl_pattern = re.compile(
+            r"^\s*([A-Z0-9\-]{3,25})\s+(\.[A-Z0-9\.]+)?\s+([^\n\r%]+?)\s+(\d+(?:[\.,]\d+)?)\s+(Pcs|PCS|vnt|UNT|Box|BOX|CTN|Set|SET)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)\s*$",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for m in narbutas_pl_pattern.finditer(text):
+            line_str = m.group(0)
+            if "%" in line_str or "VAT" in line_str or "Sales" in line_str:
+                continue
+            try:
+                code = m.group(1).strip()
+                desc = m.group(3).strip()
+                qty = BaseExtractor.parse_numeric_str(m.group(4))
+                unit_str = m.group(5).strip()
+                nw = BaseExtractor.parse_numeric_str(m.group(6))
+                gw = BaseExtractor.parse_numeric_str(m.group(7))
+                cbm = BaseExtractor.parse_numeric_str(m.group(8))
+                if qty > 0 and (gw > 0 or cbm > 0 or nw > 0):
+                    packing.append({
+                        "item_code": code,
+                        "description": desc,
+                        "package_type": "Carton",
+                        "qty_pkg": qty,
+                        "qty_pcs": qty,
+                        "weight_unit": "KGM",
+                        "net_weight_unit_kg": round(nw / qty, 3) if qty > 0 else nw,
+                        "gross_weight_unit_kg": round(gw / qty, 3) if qty > 0 else gw,
+                        "total_net_weight_kg": nw,
+                        "total_gross_weight_kg": gw,
+                        "total_cbm": cbm,
+                        "is_stackable": True,
+                    })
+            except (ValueError, IndexError):
+                continue
+
+        if packing:
+            return packing
 
         # 1. Italian G.I. Industrial & European Packing List table row format
         # Pattern: [Item Code / Description] [Qty Pcs] [L] [W] [H] [Net Wt] [Gross Wt] [Qty Pkg] [Pkg Type]

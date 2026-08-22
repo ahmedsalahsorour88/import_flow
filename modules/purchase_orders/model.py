@@ -127,6 +127,7 @@ class PackingListItem(Base):
 
     hs_code = Column(String(50), nullable=False)
     item_code = Column(String(50), nullable=False)
+    description = Column(String(250), nullable=True)
     qty_pcs = Column(Numeric(12, 2), nullable=False, default=1.0)
     qty_pkg = Column(Numeric(12, 2), nullable=False, default=1.0)
     package_type = Column(String(50), nullable=True, default="Carton")

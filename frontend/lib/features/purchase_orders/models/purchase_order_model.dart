@@ -192,6 +192,7 @@ class PackingListItemModel {
   final int? poId;
   final String hsCode;
   final String itemCode;
+  final String? description;
   final double qtyPcs;
   final double qtyPkg;
   final String packageType;
@@ -213,6 +214,7 @@ class PackingListItemModel {
     this.poId,
     required this.hsCode,
     required this.itemCode,
+    this.description,
     this.qtyPcs = 1.0,
     this.qtyPkg = 1.0,
     this.packageType = 'Carton',
@@ -246,6 +248,7 @@ class PackingListItemModel {
     int? poId,
     String? hsCode,
     String? itemCode,
+    String? description,
     double? qtyPcs,
     double? qtyPkg,
     String? packageType,
@@ -267,6 +270,7 @@ class PackingListItemModel {
       poId: poId ?? this.poId,
       hsCode: hsCode ?? this.hsCode,
       itemCode: itemCode ?? this.itemCode,
+      description: description ?? this.description,
       qtyPcs: qtyPcs ?? this.qtyPcs,
       qtyPkg: qtyPkg ?? this.qtyPkg,
       packageType: packageType ?? this.packageType,
@@ -291,6 +295,7 @@ class PackingListItemModel {
       poId: _numToInt(json['po_id']),
       hsCode: json['hs_code'] as String? ?? '',
       itemCode: json['item_code'] as String? ?? '',
+      description: json['description'] as String?,
       qtyPcs: _numToDouble(json['qty_pcs'], 1.0),
       qtyPkg: _numToDouble(json['qty_pkg'], 1.0),
       packageType: json['package_type'] as String? ?? 'Carton',
@@ -315,6 +320,7 @@ class PackingListItemModel {
       if (poId != null) 'po_id': poId,
       'hs_code': hsCode,
       'item_code': itemCode,
+      if (description != null) 'description': description,
       'qty_pcs': qtyPcs,
       'qty_pkg': qtyPkg,
       'package_type': packageType,

@@ -29,6 +29,15 @@ class ExtractionProgressController extends ChangeNotifier {
   }
 
   /// Automatically simulates smooth progress during backend processing
+  bool _isCancelled = false;
+  bool get isCancelled => _isCancelled;
+
+  void cancel() {
+    _isCancelled = true;
+    _timer?.cancel();
+    notifyListeners();
+  }
+
   Timer? _timer;
   void startAutoAdvance({double targetPercent = 0.90, Duration duration = const Duration(seconds: 4)}) {
     _timer?.cancel();
@@ -84,6 +93,7 @@ class ExtractionProgressDialog extends StatelessWidget {
   final String? fileName;
   final String? fileSize;
   final ExtractionProgressController controller;
+  final VoidCallback? onCancel;
 
   const ExtractionProgressDialog({
     super.key,
@@ -91,6 +101,7 @@ class ExtractionProgressDialog extends StatelessWidget {
     this.fileName,
     this.fileSize,
     required this.controller,
+    this.onCancel,
   });
 
   static Future<void> show({
@@ -99,15 +110,17 @@ class ExtractionProgressDialog extends StatelessWidget {
     String? fileName,
     String? fileSize,
     required ExtractionProgressController controller,
+    VoidCallback? onCancel,
   }) {
     return showDialog<void>(
       context: context,
-      barrierDismissible: false,
+      barrierDismissible: true,
       builder: (ctx) => ExtractionProgressDialog(
         title: title,
         fileName: fileName,
         fileSize: fileSize,
         controller: controller,
+        onCancel: onCancel,
       ),
     );
   }
@@ -180,6 +193,18 @@ class ExtractionProgressDialog extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 22),
+                      tooltip: 'إغلاق وإلغاء الاستخراج',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      onPressed: () {
+                        controller.cancel();
+                        onCancel?.call();
+                        Navigator.of(context, rootNavigator: true).pop();
+                      },
                     ),
                   ],
                 ),
@@ -266,6 +291,22 @@ class ExtractionProgressDialog extends StatelessWidget {
                     _buildStepIndicator(stepNum: 3, label: 'OCR ذكي', active: controller.currentStep >= 3, done: controller.currentStep > 3 || pctInt == 100),
                     _buildStepLine(done: controller.currentStep > 3 || pctInt == 100),
                     _buildStepIndicator(stepNum: 4, label: 'استخراج الحقول', active: controller.currentStep >= 4, done: pctInt == 100),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton.icon(
+                      style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
+                      icon: const Icon(Icons.cancel_outlined, size: 16),
+                      label: const Text('إلغاء العملية وإغلاق الأداة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      onPressed: () {
+                        controller.cancel();
+                        onCancel?.call();
+                        Navigator.of(context, rootNavigator: true).pop();
+                      },
+                    ),
                   ],
                 ),
               ],

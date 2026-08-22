@@ -491,17 +491,27 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final p = Map<String, dynamic>.from(raw as Map);
             final qtyPcs = (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 10.0;
             final qtyPkg = (p['qty_pkg'] as num?)?.toDouble() ?? (qtyPcs > 0 ? (qtyPcs / 10).ceilToDouble() : 1.0);
+            final pDesc = p['description']?.toString() ?? p['item_name']?.toString() ?? p['name']?.toString();
+            final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
+            final pUnit = p['unit']?.toString() ?? 'cm';
+            final pWeightUnit = p['weight_unit']?.toString() ?? 'KGM';
             return PackingListItemModel(
               hsCode: p['hs_code']?.toString() ?? '',
               itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+              description: pDesc,
               qtyPcs: qtyPcs,
               qtyPkg: qtyPkg,
               packageType: p['package_type']?.toString() ?? 'Carton',
-              lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
-              widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
-              heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
-              grossWeightUnitKg: (p['gross_weight_unit_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 646.0,
-              netWeightUnitKg: (p['net_weight_unit_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 626.0,
+              unit: pUnit,
+              weightUnit: pWeightUnit,
+              lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 0.0,
+              widthCm: (p['width_cm'] as num?)?.toDouble() ?? 0.0,
+              heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
+              grossWeightUnitKg: (p['gross_weight_unit_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              netWeightUnitKg: (p['net_weight_unit_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalGrossWeightKg: (p['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalNetWeightKg: (p['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+              totalCbm: pTotCbm,
               isStackable: p['is_stackable'] as bool? ?? true,
             );
           }).toList();
@@ -679,17 +689,25 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       final packingList = ext['packing_list_items'] as List;
       _dialogPackingItems = packingList.map((raw) {
         final p = Map<String, dynamic>.from(raw as Map);
+        final pDesc = p['description']?.toString() ?? p['item_name']?.toString();
+        final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
         return PackingListItemModel(
           hsCode: p['hs_code']?.toString() ?? '',
           itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+          description: pDesc,
           qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
           qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
-          packageType: p['package_type']?.toString() ?? 'Pallet',
-          lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
-          widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
-          heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
-          grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 646.0,
-          netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 626.0,
+          packageType: p['package_type']?.toString() ?? 'Carton',
+          unit: p['unit']?.toString() ?? 'cm',
+          weightUnit: p['weight_unit']?.toString() ?? 'KGM',
+          lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 0.0,
+          widthCm: (p['width_cm'] as num?)?.toDouble() ?? 0.0,
+          heightCm: (p['height_cm'] as num?)?.toDouble() ?? 0.0,
+          grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+          netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 0.0,
+          totalGrossWeightKg: (p['total_gross_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalNetWeightKg: (p['total_net_weight_kg'] as num?)?.toDouble() ?? 0.0,
+          totalCbm: pTotCbm,
           isStackable: p['is_stackable'] as bool? ?? true,
         );
       }).toList();
@@ -2020,6 +2038,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               PackingListItemModel(
                                                 hsCode: itemHsCode,
                                                 itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                                description: item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn,
                                                 qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
                                                 qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
                                                 packageType: 'Carton',

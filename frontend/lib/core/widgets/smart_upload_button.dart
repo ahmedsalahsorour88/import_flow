@@ -220,7 +220,9 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       _progressLabel = 'جاري تحضير الملف 10%...';
     });
 
-    // Show full extraction progress dialog
+    final cancelToken = CancelToken();
+
+    // Show full extraction progress dialog with cancel support
     if (mounted) {
       ExtractionProgressDialog.show(
         context: context,
@@ -228,16 +230,22 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         fileName: fileDisplayName,
         fileSize: fileSizeFormatted,
         controller: progressCtrl,
+        onCancel: () {
+          cancelToken.cancel('تم إلغاء عملية الاستخراج بواسطة المستخدم');
+        },
       );
     }
+
+    // Start auto-advance progress immediately
+    progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 4));
 
     try {
       // 2 — Upload & parse (single or multi-file) with live percentage tracking
       final SmartUploadResult uploadResult;
       if (validFiles.length == 1) {
-        uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!, progressCtrl);
+        uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!, progressCtrl, cancelToken: cancelToken);
       } else {
-        uploadResult = await _uploadAndParseMulti(validFiles, progressCtrl);
+        uploadResult = await _uploadAndParseMulti(validFiles, progressCtrl, cancelToken: cancelToken);
       }
 
       progressCtrl.complete();
@@ -282,7 +290,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     }
   }
 
-  Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes, ExtractionProgressController progressCtrl) async {
+  Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes, ExtractionProgressController progressCtrl, {CancelToken? cancelToken}) async {
     final dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 180),
@@ -300,6 +308,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     final response = await dio.post(
       endpoint,
       data: formData,
+      cancelToken: cancelToken,
       onSendProgress: (sent, total) {
         if (total > 0 && mounted) {
           final uploadRatio = sent / total;
@@ -328,7 +337,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     return SmartUploadResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files, ExtractionProgressController progressCtrl) async {
+  Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files, ExtractionProgressController progressCtrl, {CancelToken? cancelToken}) async {
     final dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 180),

@@ -142,9 +142,42 @@ def extract_spatial_pdf_text_and_boxes(content_bytes: bytes) -> Tuple[str, dict]
     """
     Extracts text from PDF preserving 2D spatial layout and bounding boxes
     specifically for multi-column shipping Bills of Lading and Invoices.
+    Uses ultra-fast PyMuPDF (fitz) with fallback to pdfplumber/pypdf.
     """
     spatial_boxes: Dict[str, str] = {}
     full_text = ""
+
+    # 1. Ultra-fast PyMuPDF (fitz) primary path (<10ms)
+    try:
+        import fitz
+        doc = fitz.open(stream=content_bytes, filetype="pdf")
+        parts = []
+        for idx, page in enumerate(doc):
+            w = page.rect.width
+            h = page.rect.height
+            if idx == 0:
+                try:
+                    spatial_boxes["shipper_box"] = page.get_text("text", clip=fitz.Rect(0, 0.050 * h, 0.46 * w, 0.148 * h)) or ""
+                    spatial_boxes["consignee_box"] = page.get_text("text", clip=fitz.Rect(0, 0.145 * h, 0.46 * w, 0.212 * h)) or ""
+                    spatial_boxes["notify_box"] = page.get_text("text", clip=fitz.Rect(0, 0.210 * h, 0.46 * w, 0.285 * h)) or ""
+                    spatial_boxes["header_box"] = page.get_text("text", clip=fitz.Rect(0.48 * w, 0, w, 0.20 * h)) or ""
+                    spatial_boxes["vessel_ports_box"] = page.get_text("text", clip=fitz.Rect(0, 0.285 * h, w, 0.340 * h)) or ""
+                    spatial_boxes["cargo_table_box"] = page.get_text("text", clip=fitz.Rect(0, 0.33 * h, w, 0.82 * h)) or ""
+                    spatial_boxes["weight_column_box"] = page.get_text("text", clip=fitz.Rect(0.65 * w, 0.40 * h, w, 0.82 * h)) or ""
+                except Exception as crop_err:
+                    logger.debug(f"fitz spatial crop note: {crop_err}")
+
+            page_layout = page.get_text("layout") if hasattr(page, "get_text") else ""
+            if not page_layout:
+                page_layout = page.get_text("text") or ""
+            if page_layout and page_layout.strip():
+                parts.append(page_layout)
+
+        full_text = "\n\n".join(parts)
+        if full_text and len(full_text.strip()) > 30:
+            return full_text, spatial_boxes
+    except Exception as fitz_err:
+        logger.debug(f"fitz extraction note: {fitz_err}. Trying pdfplumber...")
 
     try:
         import pdfplumber

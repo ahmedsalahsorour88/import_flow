@@ -15,6 +15,17 @@ class CustomsClearanceModel {
   final double whtAmount;
   final double labServiceFees;
   final double totalDutyPayable;
+  final double estimatedDutyTotal;
+  final double actualDutyTotal;
+  final double dutyVarianceAmount;
+  final double dutyVariancePercentage;
+  final String? dutyVarianceReason;
+  final Map<String, dynamic>? nafezaAssessmentJson;
+  final String? portArrivalDate;
+  final String? deliveryOrderNumber;
+  final String? deliveryOrderExpiry;
+  final int freeDaysAllowed;
+  final String? portGateOutDate;
   final String paymentStatus;
   final String? bankReceiptNo;
   final String? payingBankName;
@@ -49,6 +60,17 @@ class CustomsClearanceModel {
     this.whtAmount = 0.0,
     this.labServiceFees = 0.0,
     this.totalDutyPayable = 0.0,
+    this.estimatedDutyTotal = 0.0,
+    this.actualDutyTotal = 0.0,
+    this.dutyVarianceAmount = 0.0,
+    this.dutyVariancePercentage = 0.0,
+    this.dutyVarianceReason,
+    this.nafezaAssessmentJson,
+    this.portArrivalDate,
+    this.deliveryOrderNumber,
+    this.deliveryOrderExpiry,
+    this.freeDaysAllowed = 14,
+    this.portGateOutDate,
     this.paymentStatus = 'Unpaid',
     this.bankReceiptNo,
     this.payingBankName,
@@ -70,9 +92,9 @@ class CustomsClearanceModel {
   factory CustomsClearanceModel.fromJson(Map<String, dynamic> json) {
     var rawReg = json['regulatory_bodies'] as List<dynamic>? ?? [];
     return CustomsClearanceModel(
-      customsClearanceId: json['customs_clearance_id'],
+      customsClearanceId: json['customs_clearance_id'] ?? 0,
       clearanceCode: json['clearance_code'] ?? '',
-      importFileId: json['import_file_id'],
+      importFileId: json['import_file_id'] ?? 0,
       declaration46No: json['declaration_46_no'],
       customsOfficeName: json['customs_office_name'] ?? 'Alexandria Port Customs',
       channelType: json['channel_type'] ?? 'Red Channel',
@@ -86,6 +108,17 @@ class CustomsClearanceModel {
       whtAmount: (json['wht_amount'] as num?)?.toDouble() ?? 0.0,
       labServiceFees: (json['lab_service_fees'] as num?)?.toDouble() ?? 0.0,
       totalDutyPayable: (json['total_duty_payable'] as num?)?.toDouble() ?? 0.0,
+      estimatedDutyTotal: (json['estimated_duty_total'] as num?)?.toDouble() ?? 0.0,
+      actualDutyTotal: (json['actual_duty_total'] as num?)?.toDouble() ?? ((json['total_duty_payable'] as num?)?.toDouble() ?? 0.0),
+      dutyVarianceAmount: (json['duty_variance_amount'] as num?)?.toDouble() ?? 0.0,
+      dutyVariancePercentage: (json['duty_variance_percentage'] as num?)?.toDouble() ?? 0.0,
+      dutyVarianceReason: json['duty_variance_reason'],
+      nafezaAssessmentJson: json['nafeza_assessment_json'] as Map<String, dynamic>?,
+      portArrivalDate: json['port_arrival_date'],
+      deliveryOrderNumber: json['delivery_order_number'],
+      deliveryOrderExpiry: json['delivery_order_expiry'],
+      freeDaysAllowed: (json['free_days_allowed'] as num?)?.toInt() ?? 14,
+      portGateOutDate: json['port_gate_out_date'],
       paymentStatus: json['payment_status'] ?? 'Unpaid',
       bankReceiptNo: json['bank_receipt_no'],
       payingBankName: json['paying_bank_name'],
@@ -123,6 +156,17 @@ class CustomsClearanceModel {
       'wht_amount': whtAmount,
       'lab_service_fees': labServiceFees,
       'total_duty_payable': totalDutyPayable,
+      'estimated_duty_total': estimatedDutyTotal,
+      'actual_duty_total': actualDutyTotal,
+      'duty_variance_amount': dutyVarianceAmount,
+      'duty_variance_percentage': dutyVariancePercentage,
+      'duty_variance_reason': dutyVarianceReason,
+      'nafeza_assessment_json': nafezaAssessmentJson,
+      'port_arrival_date': portArrivalDate,
+      'delivery_order_number': deliveryOrderNumber,
+      'delivery_order_expiry': deliveryOrderExpiry,
+      'free_days_allowed': freeDaysAllowed,
+      'port_gate_out_date': portGateOutDate,
       'payment_status': paymentStatus,
       'bank_receipt_no': bankReceiptNo,
       'paying_bank_name': payingBankName,

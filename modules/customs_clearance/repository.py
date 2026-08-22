@@ -55,12 +55,20 @@ def get_customs_clearance_list(
             (CustomsClearanceRecord.clearance_code.ilike(pattern)) |
             (CustomsClearanceRecord.declaration_46_no.ilike(pattern)) |
             (CustomsClearanceRecord.release_permit_no.ilike(pattern)) |
+            (CustomsClearanceRecord.delivery_order_number.ilike(pattern)) |
             (CustomsClearanceRecord.owner.ilike(pattern))
         )
     return query.order_by(desc(CustomsClearanceRecord.customs_clearance_id)).all()
 
 def create_customs_clearance(db: Session, schema: CustomsClearanceCreate, code: str) -> CustomsClearanceRecord:
     total_duty = schema.import_duty_amount + schema.vat_amount + schema.schedule_tax_amount + schema.wht_amount + schema.lab_service_fees
+    actual_duty = schema.actual_duty_total if schema.actual_duty_total > 0 else total_duty
+    
+    variance_amt = schema.duty_variance_amount
+    variance_pct = schema.duty_variance_percentage
+    if schema.estimated_duty_total > 0:
+        variance_amt = actual_duty - schema.estimated_duty_total
+        variance_pct = round((variance_amt / schema.estimated_duty_total) * 100, 2)
     
     db_obj = CustomsClearanceRecord(
         clearance_code=code,
@@ -77,6 +85,17 @@ def create_customs_clearance(db: Session, schema: CustomsClearanceCreate, code: 
         wht_amount=schema.wht_amount,
         lab_service_fees=schema.lab_service_fees,
         total_duty_payable=total_duty,
+        estimated_duty_total=schema.estimated_duty_total,
+        actual_duty_total=actual_duty,
+        duty_variance_amount=variance_amt,
+        duty_variance_percentage=variance_pct,
+        duty_variance_reason=schema.duty_variance_reason,
+        nafeza_assessment_json=schema.nafeza_assessment_json or {},
+        port_arrival_date=schema.port_arrival_date,
+        delivery_order_number=schema.delivery_order_number,
+        delivery_order_expiry=schema.delivery_order_expiry,
+        free_days_allowed=schema.free_days_allowed,
+        port_gate_out_date=schema.port_gate_out_date,
         owner=schema.owner,
         notes=schema.notes,
         created_at=datetime.now(timezone.utc),
@@ -98,6 +117,13 @@ def update_customs_clearance(db: Session, record_id: int, schema: CustomsClearan
 
     # Recalculate total duty
     db_obj.total_duty_payable = db_obj.import_duty_amount + db_obj.vat_amount + db_obj.schedule_tax_amount + db_obj.wht_amount + db_obj.lab_service_fees
+    if db_obj.actual_duty_total == 0.0:
+        db_obj.actual_duty_total = db_obj.total_duty_payable
+        
+    if db_obj.estimated_duty_total and db_obj.estimated_duty_total > 0:
+        db_obj.duty_variance_amount = db_obj.actual_duty_total - db_obj.estimated_duty_total
+        db_obj.duty_variance_percentage = round((db_obj.duty_variance_amount / db_obj.estimated_duty_total) * 100, 2)
+        
     db_obj.updated_at = datetime.now(timezone.utc)
     
     db.commit()

@@ -15,6 +15,17 @@ class CustomsClearanceCreate(BaseModel):
     schedule_tax_amount: float = 0.0
     wht_amount: float = 0.0
     lab_service_fees: float = 0.0
+    estimated_duty_total: float = 0.0
+    actual_duty_total: float = 0.0
+    duty_variance_amount: float = 0.0
+    duty_variance_percentage: float = 0.0
+    duty_variance_reason: Optional[str] = None
+    nafeza_assessment_json: Optional[Dict[str, Any]] = None
+    port_arrival_date: Optional[datetime] = None
+    delivery_order_number: Optional[str] = None
+    delivery_order_expiry: Optional[datetime] = None
+    free_days_allowed: int = 14
+    port_gate_out_date: Optional[datetime] = None
     owner: str = "Kamal"
     notes: Optional[str] = None
 
@@ -22,11 +33,16 @@ class DutyPaymentSubmit(BaseModel):
     bank_receipt_no: str
     paying_bank_name: str
     payment_date: datetime
+    actual_duty_total: Optional[float] = None
+    estimated_duty_total: Optional[float] = None
+    duty_variance_reason: Optional[str] = None
+    nafeza_assessment_json: Optional[Dict[str, Any]] = None
     payment_notes: Optional[str] = None
 
 class CompleteReleaseSubmit(BaseModel):
     release_permit_no: str
     release_date: datetime
+    port_gate_out_date: Optional[datetime] = None
     demurrage_storage_fees: float = 0.0
     dispatch_authorized: bool = True
     notes: Optional[str] = None
@@ -44,6 +60,17 @@ class CustomsClearanceUpdate(BaseModel):
     schedule_tax_amount: Optional[float] = None
     wht_amount: Optional[float] = None
     lab_service_fees: Optional[float] = None
+    estimated_duty_total: Optional[float] = None
+    actual_duty_total: Optional[float] = None
+    duty_variance_amount: Optional[float] = None
+    duty_variance_percentage: Optional[float] = None
+    duty_variance_reason: Optional[str] = None
+    nafeza_assessment_json: Optional[Dict[str, Any]] = None
+    port_arrival_date: Optional[datetime] = None
+    delivery_order_number: Optional[str] = None
+    delivery_order_expiry: Optional[datetime] = None
+    free_days_allowed: Optional[int] = None
+    port_gate_out_date: Optional[datetime] = None
     status: Optional[str] = None
     owner: Optional[str] = None
     notes: Optional[str] = None
@@ -65,6 +92,17 @@ class CustomsClearanceResponse(BaseModel):
     wht_amount: float
     lab_service_fees: float
     total_duty_payable: float
+    estimated_duty_total: float = 0.0
+    actual_duty_total: float = 0.0
+    duty_variance_amount: float = 0.0
+    duty_variance_percentage: float = 0.0
+    duty_variance_reason: Optional[str] = None
+    nafeza_assessment_json: Optional[Dict[str, Any]] = None
+    port_arrival_date: Optional[datetime] = None
+    delivery_order_number: Optional[str] = None
+    delivery_order_expiry: Optional[datetime] = None
+    free_days_allowed: int = 14
+    port_gate_out_date: Optional[datetime] = None
     payment_status: str
     bank_receipt_no: Optional[str] = None
     paying_bank_name: Optional[str] = None

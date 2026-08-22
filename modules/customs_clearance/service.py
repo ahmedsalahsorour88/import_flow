@@ -54,7 +54,7 @@ def list_customs_clearances_service(
     return get_customs_clearance_list(db, include_inactive, import_file_id, status, search)
 
 def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymentSubmit) -> CustomsClearanceRecord:
-    """BP-031 Record Customs Duty Payment."""
+    """BP-031 Record Customs Duty Payment & Match Final Customs Ledger."""
     validate_bank_receipt_no(payload.bank_receipt_no)
     
     record = get_customs_clearance_service(db, record_id)
@@ -62,6 +62,25 @@ def submit_duty_payment_service(db: Session, record_id: int, payload: DutyPaymen
     record.paying_bank_name = payload.paying_bank_name
     record.payment_date = payload.payment_date
     record.payment_notes = payload.payment_notes
+    
+    if payload.actual_duty_total is not None and payload.actual_duty_total > 0:
+        record.actual_duty_total = payload.actual_duty_total
+    elif record.actual_duty_total == 0.0:
+        record.actual_duty_total = record.total_duty_payable
+        
+    if payload.estimated_duty_total is not None and payload.estimated_duty_total > 0:
+        record.estimated_duty_total = payload.estimated_duty_total
+
+    if record.estimated_duty_total > 0:
+        record.duty_variance_amount = record.actual_duty_total - record.estimated_duty_total
+        record.duty_variance_percentage = round((record.duty_variance_amount / record.estimated_duty_total) * 100, 2)
+
+    if payload.duty_variance_reason:
+        record.duty_variance_reason = payload.duty_variance_reason
+
+    if payload.nafeza_assessment_json:
+        record.nafeza_assessment_json = payload.nafeza_assessment_json
+
     record.payment_status = "Paid & Verified"
     record.status = "Duty Paid"
     record.updated_at = datetime.now(timezone.utc)
@@ -77,6 +96,8 @@ def complete_customs_release_service(db: Session, record_id: int, payload: Compl
 
     record.release_permit_no = payload.release_permit_no
     record.release_date = payload.release_date
+    if payload.port_gate_out_date:
+        record.port_gate_out_date = payload.port_gate_out_date
     record.demurrage_storage_fees = payload.demurrage_storage_fees
     record.dispatch_authorized = payload.dispatch_authorized
     record.dispatch_date = datetime.now(timezone.utc) if payload.dispatch_authorized else None
@@ -111,12 +132,14 @@ def update_customs_clearance_service(db: Session, record_id: int, schema: Custom
 
     return updated
 
-def soft_delete_customs_clearance_service(db: Session, record_id: int) -> bool:
+def delete_customs_clearance_service(db: Session, record_id: int) -> bool:
     get_customs_clearance_service(db, record_id)
     return soft_delete_customs_clearance(db, record_id)
 
+soft_delete_customs_clearance_service = delete_customs_clearance_service
+
 def restore_customs_clearance_service(db: Session, record_id: int) -> CustomsClearanceRecord:
-    record = restore_customs_clearance(db, record_id)
-    if not record:
-        raise HTTPException(status_code=404, detail=f"سجل التخليص الجمركي رقم {record_id} غير موجود.")
-    return record
+    restored = restore_customs_clearance(db, record_id)
+    if not restored:
+        raise HTTPException(status_code=404, detail="السجل المطلوب استعادته غير موجود.")
+    return restored

@@ -38,13 +38,28 @@ class CustomsClearanceRecord(Base):
     sample_test_status = Column(String(50), default="Samples Under Testing") # Pending, Samples Under Testing, Approved, Rejected
     inspection_notes = Column(Text, nullable=True)
 
-    # BP-030 Duty Payment Breakdown
+    # BP-030 Duty Payment Breakdown & Nafeza Assessment
     import_duty_amount = Column(Float, default=0.0)
     vat_amount = Column(Float, default=0.0)
     schedule_tax_amount = Column(Float, default=0.0)
     wht_amount = Column(Float, default=0.0)
     lab_service_fees = Column(Float, default=0.0)
     total_duty_payable = Column(Float, default=0.0)
+
+    # Variance & Final Customs Duty Ledger for Landed Cost
+    estimated_duty_total = Column(Float, default=0.0)
+    actual_duty_total = Column(Float, default=0.0)
+    duty_variance_amount = Column(Float, default=0.0)
+    duty_variance_percentage = Column(Float, default=0.0)
+    duty_variance_reason = Column(Text, nullable=True)
+    nafeza_assessment_json = Column(JSON, default=dict, nullable=True)
+
+    # Port & Delivery Order Tracking
+    port_arrival_date = Column(DateTime, nullable=True)
+    delivery_order_number = Column(String(100), nullable=True)
+    delivery_order_expiry = Column(DateTime, nullable=True)
+    free_days_allowed = Column(Integer, default=14)
+    port_gate_out_date = Column(DateTime, nullable=True)
 
     # BP-031 Duty Payment Recording
     payment_status = Column(String(30), default="Unpaid") # Unpaid, Payment Requested, Paid & Verified

@@ -1742,25 +1742,27 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   ],
                                 ),
                               ),
-                              ElevatedButton.icon(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.emerald,
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              if (widget.isTaxReviewMode) ...[
+                                ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.emerald,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  ),
+                                  onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
+                                  icon: _isRecalculating
+                                      ? const SizedBox(
+                                          width: 16,
+                                          height: 16,
+                                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                        )
+                                      : const Icon(Icons.flash_on, color: Colors.white, size: 16),
+                                  label: const Text(
+                                    '⚡ استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة',
+                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  ),
                                 ),
-                                onPressed: _isRecalculating ? null : _fetchReconciledFinalInvoiceAndRecalculate,
-                                icon: _isRecalculating
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                                      )
-                                    : const Icon(Icons.flash_on, color: Colors.white, size: 16),
-                                label: const Text(
-                                  '⚡ استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
+                                const SizedBox(width: 8),
+                              ],
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
                                 onPressed: () => _syncHsRequirementsToChecklist(silent: false),

@@ -23,6 +23,7 @@ import 'po_reconciliation_warning_dialog.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../currencies/models/currency_model.dart';
+import 'po_report_preview_dialog.dart';
 
 
 class POFormDialog extends ConsumerStatefulWidget {
@@ -2433,6 +2434,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: AppTheme.cobalt,
+              side: const BorderSide(color: AppTheme.cobalt, width: 1.5),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            icon: const Icon(Icons.preview_rounded, size: 18),
+            label: const Text('استعراض التقرير قبل الحفظ (Report Preview)', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () => _showPoComprehensiveReportPreview(context),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             onPressed: _isSubmitting
@@ -2826,6 +2837,49 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  void _showPoComprehensiveReportPreview(BuildContext context) {
+    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final suppliers = ref.read(suppliersProvider).value ?? [];
+    final incoterms = ref.read(incotermsProvider).value ?? [];
+    final currencies = ref.read(currenciesProvider).value ?? [];
+    final projects = ref.read(projectsProvider).value ?? [];
+    final tariffs = ref.read(customsTariffProvider).value ?? [];
+    final importFiles = ref.read(importFilesProvider).value ?? [];
+
+    final comp = companies.where((c) => c.companyId == _selectedCompanyId).firstOrNull;
+    final supp = suppliers.where((s) => s.supplierId == _selectedSupplierId).firstOrNull;
+    final inco = incoterms.where((i) => i.incotermId == _selectedIncotermId).firstOrNull;
+    final curr = currencies.where((c) => c.currencyId == _selectedCurrencyId).firstOrNull;
+    final proj = projects.where((p) => p.projectId == _selectedProjectId).firstOrNull;
+    final impF = importFiles.where((f) => f.importFileId == _selectedImportFileId).firstOrNull;
+
+    final rate = double.tryParse(_rateCtrl.text.trim()) ?? 1.0;
+
+    POReportPreviewDialog.show(
+      context: context,
+      poNumber: widget.po?.poNumber ?? 'PO-NEW (Draft)',
+      piNumber: _piCtrl.text.trim().isNotEmpty ? _piCtrl.text.trim() : null,
+      orderDate: _selectedOrderDate,
+      companyName: comp?.importerName ?? 'غير محدد (Select Company)',
+      companyTaxId: comp?.vatId,
+      supplierName: supp?.companyName ?? 'غير محدد (Select Supplier)',
+      supplierCountry: supp?.foreignExporterCountry ?? _selectedCountryOfOrigin,
+      incoterm: inco?.incotermCode ?? 'EXW',
+      currency: curr?.currencyCode ?? 'USD',
+      exchangeRate: rate,
+      countryOfOrigin: _selectedCountryOfOrigin,
+      paymentTerms: _selectedPaymentTerms,
+      projectName: proj?.projectName,
+      importFileCode: impF?.importFileCode ?? impF?.customFileNumber,
+      items: _dialogItems,
+      packingItems: _dialogPackingItems,
+      palletItems: _dialogPalletItems,
+      tariffs: tariffs,
+      isDirectVolumeMode: _isDirectVolumeMode,
+      notes: _notesCtrl.text.trim(),
     );
   }
 

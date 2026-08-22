@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import '../theme/app_theme.dart';
 import '../constants/api_constants.dart';
 import 'searchable_dropdown_field.dart';
+import 'extraction_progress_dialog.dart';
 
 enum EntityTarget { supplier, company, partner, bank }
 
@@ -147,7 +148,27 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     final text = _rawTextCtrl.text.trim();
     if (text.isEmpty) return;
 
+    final progressCtrl = ExtractionProgressController();
+    progressCtrl.update(
+      percent: 0.15,
+      status: 'جاري فحص النص المدخل...',
+      stepLabel: 'المرحلة 1 من 4: تحليل النص',
+      currentStep: 1,
+    );
+
     setState(() => _isExtracting = true);
+
+    if (mounted) {
+      ExtractionProgressDialog.show(
+        context: context,
+        title: 'جاري استخراج بيانات ${_targetArabicName(_selectedTarget)} من النص',
+        fileName: 'النص المنسوخ (${text.length} حرف)',
+        controller: progressCtrl,
+      );
+    }
+
+    progressCtrl.startAutoAdvance(targetPercent: 0.90, duration: const Duration(seconds: 3));
+
     try {
       final dio = Dio();
       final formData = FormData.fromMap({'raw_text': text});
@@ -156,6 +177,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         data: formData,
       );
 
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 350));
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+
       if (resp.statusCode == 200 && resp.data != null) {
         final extracted = resp.data['extracted_fields'] as Map<String, dynamic>? ?? {};
         final score = (resp.data['confidence_score'] as num?)?.toDouble() ?? 0.85;
@@ -163,12 +191,26 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       }
     } catch (e) {
       if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('خطأ في استخراج النص: $e'), backgroundColor: AppTheme.crimson),
         );
       }
     } finally {
       if (mounted) setState(() => _isExtracting = false);
+    }
+  }
+
+  String _targetArabicName(EntityTarget t) {
+    switch (t) {
+      case EntityTarget.supplier:
+        return 'المورد الأجنبي';
+      case EntityTarget.company:
+        return 'الشركة المستوردة';
+      case EntityTarget.partner:
+        return 'مقدم الخدمة / المخلص';
+      case EntityTarget.bank:
+        return 'البنك المصرفي';
     }
   }
 
@@ -191,10 +233,32 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       return;
     }
 
+    final fileSizeFormatted = file.size > 1024 * 1024
+        ? '${(file.size / (1024 * 1024)).toStringAsFixed(2)} MB'
+        : '${(file.size / 1024).toStringAsFixed(1)} KB';
+
+    final progressCtrl = ExtractionProgressController();
+    progressCtrl.update(
+      percent: 0.15,
+      status: 'جاري قراءة محتوى المستند...',
+      stepLabel: 'المرحلة 1 من 4: فحص وتهيئة المستند',
+      currentStep: 1,
+    );
+
     setState(() {
       _isExtracting = true;
       _selectedFileName = file.name;
     });
+
+    if (mounted) {
+      ExtractionProgressDialog.show(
+        context: context,
+        title: 'جاري استخراج بيانات ${_targetArabicName(_selectedTarget)} (OCR)',
+        fileName: file.name,
+        fileSize: fileSizeFormatted,
+        controller: progressCtrl,
+      );
+    }
 
     try {
       final dio = Dio();
@@ -204,7 +268,31 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       final resp = await dio.post(
         '${ApiConstants.baseUrl}/smart-upload/parse/master-data-entity',
         data: formData,
+        onSendProgress: (sent, total) {
+          if (total > 0) {
+            final uploadRatio = sent / total;
+            final currentP = 0.15 + (uploadRatio * 0.35);
+            final pctInt = (currentP * 100).round();
+            progressCtrl.update(
+              percent: currentP,
+              status: 'جاري رفع المستند ($pctInt%)...',
+              stepLabel: 'المرحلة 2 من 4: رفع المستند',
+              currentStep: 2,
+            );
+
+            if (uploadRatio >= 0.99) {
+              progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 4));
+            }
+          }
+        },
       );
+
+      progressCtrl.complete();
+      await Future.delayed(const Duration(milliseconds: 350));
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
 
       if (resp.statusCode == 200 && resp.data != null) {
         final extracted = resp.data['extracted_fields'] as Map<String, dynamic>? ?? {};
@@ -213,6 +301,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       }
     } catch (e) {
       if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('خطأ في قراءة المستند: $e'), backgroundColor: AppTheme.crimson),
         );

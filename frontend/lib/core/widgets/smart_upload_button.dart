@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../constants/api_constants.dart';
 import '../theme/app_theme.dart';
 import 'universal_entity_extractor_dialog.dart';
+import 'extraction_progress_dialog.dart';
 import '../../features/customs_tariff/widgets/tariff_form_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -198,26 +199,60 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       return;
     }
 
+    final firstFile = validFiles.first;
+    final totalBytes = validFiles.fold<int>(0, (sum, f) => sum + (f.size));
+    final fileSizeFormatted = totalBytes > 1024 * 1024
+        ? '${(totalBytes / (1024 * 1024)).toStringAsFixed(2)} MB'
+        : '${(totalBytes / 1024).toStringAsFixed(1)} KB';
+    final fileDisplayName = validFiles.length == 1 ? firstFile.name : '${validFiles.length} مستندات مجمعة (${firstFile.name})';
+
+    final progressCtrl = ExtractionProgressController();
+    progressCtrl.update(
+      percent: 0.10,
+      status: 'جاري تهيئة الملف وقراءة المحتوى الرقمي...',
+      stepLabel: 'المرحلة 1 من 4: فحص وتهيئة المستند',
+      currentStep: 1,
+    );
+
     setState(() {
       _isLoading = true;
-      _progressPercent = 0.05;
-      _progressLabel = 'جاري تحضير الملف...';
+      _progressPercent = 0.10;
+      _progressLabel = 'جاري تحضير الملف 10%...';
     });
+
+    // Show full extraction progress dialog
+    if (mounted) {
+      ExtractionProgressDialog.show(
+        context: context,
+        title: 'جاري استخراج بيانات ${widget.label ?? widget.module.arabicLabel}',
+        fileName: fileDisplayName,
+        fileSize: fileSizeFormatted,
+        controller: progressCtrl,
+      );
+    }
 
     try {
       // 2 — Upload & parse (single or multi-file) with live percentage tracking
       final SmartUploadResult uploadResult;
       if (validFiles.length == 1) {
-        uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!);
+        uploadResult = await _uploadAndParseSingle(validFiles.first.name, validFiles.first.bytes!, progressCtrl);
       } else {
-        uploadResult = await _uploadAndParseMulti(validFiles);
+        uploadResult = await _uploadAndParseMulti(validFiles, progressCtrl);
       }
 
+      progressCtrl.complete();
       setState(() {
         _progressPercent = 1.0;
         _progressLabel = 'اكتمل بنجاح 100%';
         _isLoading = false;
       });
+
+      // Brief delay to show 100% completion state
+      await Future.delayed(const Duration(milliseconds: 400));
+
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close progress dialog
+      }
 
       if (!mounted) return;
 
@@ -235,6 +270,9 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         ),
       );
     } catch (e) {
+      if (mounted) {
+        Navigator.of(context, rootNavigator: true).pop(); // Close progress dialog on error
+      }
       setState(() {
         _isLoading = false;
         _progressPercent = 0.0;
@@ -244,7 +282,7 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
     }
   }
 
-  Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes) async {
+  Future<SmartUploadResult> _uploadAndParseSingle(String filename, Uint8List bytes, ExtractionProgressController progressCtrl) async {
     final dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 180),
@@ -265,22 +303,32 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
       onSendProgress: (sent, total) {
         if (total > 0 && mounted) {
           final uploadRatio = sent / total;
+          final currentP = 0.15 + (uploadRatio * 0.35); // 15% -> 50%
+          final pctInt = (currentP * 100).round();
+          
+          progressCtrl.update(
+            percent: currentP,
+            status: 'جاري رفع المستند إلى خادم المعالجة الذكية ($pctInt%)...',
+            stepLabel: 'المرحلة 2 من 4: رفع المستند',
+            currentStep: 2,
+          );
+
           setState(() {
-            // Upload phase is 0% -> 60%, AI parsing phase is 60% -> 95%
-            _progressPercent = 0.05 + (uploadRatio * 0.55);
-            if (_progressPercent < 0.6) {
-              _progressLabel = 'جاري الرفع: ${(_progressPercent * 100).round()}%';
-            } else {
-              _progressLabel = 'جاري التحليل واستخراج البيانات: 75%';
-            }
+            _progressPercent = currentP;
+            _progressLabel = 'جاري الرفع: $pctInt%';
           });
+
+          if (uploadRatio >= 0.99) {
+            // Start automatic simulated advance for AI extraction
+            progressCtrl.startAutoAdvance(targetPercent: 0.92, duration: const Duration(seconds: 5));
+          }
         }
       },
     );
     return SmartUploadResult.fromJson(response.data as Map<String, dynamic>);
   }
 
-  Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files) async {
+  Future<SmartUploadResult> _uploadAndParseMulti(List<PlatformFile> files, ExtractionProgressController progressCtrl) async {
     final dio = Dio(
       BaseOptions(
         connectTimeout: const Duration(seconds: 180),

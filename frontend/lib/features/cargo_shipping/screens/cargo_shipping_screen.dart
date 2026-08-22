@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
@@ -696,13 +697,10 @@ class _CargoShippingScreenState extends ConsumerState<CargoShippingScreen> with 
     double totalCargoCbm = 0.0;
     double totalCargoWeightKg = 0.0;
     if (_selectedImportFileId != null && curFile != null) {
-      final filePos = poList.where((p) => (curFile.poIds ?? []).contains(p.poId)).toList();
-      for (var po in filePos) {
-        for (var pl in po.packingListItems) {
-          totalCargoCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-          totalCargoWeightKg += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-        }
-      }
+      final filePos = ImportFilePoLinker.getLinkedPOs(file: curFile, allPOs: poList);
+      final metrics = ImportFilePoLinker.computeMetrics(file: curFile, linkedPOs: filePos);
+      totalCargoCbm = metrics.cbm;
+      totalCargoWeightKg = metrics.weightKg;
     }
 
     if (totalCargoCbm == 0 && _selectedImportFileId != null) {

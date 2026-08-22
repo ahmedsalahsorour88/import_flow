@@ -38,8 +38,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-; Standalone Package Files
-Source: "..\dist\ImportFlow_Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Standalone Package Application Binaries & Assets (Excludes Database)
+Source: "..\dist\ImportFlow_Standalone\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.db"
+
+; Initial Master Database: Copied ONLY on fresh first install, NEVER overwritten or uninstalled during updates
+Source: "..\dist\ImportFlow_Standalone\sorour_logistics.db"; DestDir: "{app}"; Flags: onlyifdoesntexist uninsneveruninstall
 
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\app_icon.ico"; WorkingDir: "{app}"

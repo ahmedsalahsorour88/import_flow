@@ -14,6 +14,8 @@ import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../shipment_updates/widgets/shipment_update_dialog.dart';
 import '../providers/operational_dashboard_provider.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
+import '../../lifecycle_board/models/lifecycle_board_model.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
   const OperationalDashboardScreen({super.key});
@@ -25,17 +27,76 @@ class OperationalDashboardScreen extends ConsumerStatefulWidget {
 class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboardScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  static const List<Map<String, String>> _phases = [
-    {'id': 'Phase 1', 'name': 'P1: التخطيط والجدوى'},
-    {'id': 'Phase 2', 'name': 'P2: الموافقة المالية'},
-    {'id': 'Phase 3', 'name': 'P3: المستندات والـ ACID'},
-    {'id': 'Phase 4', 'name': 'P4: حجز الشحن'},
-    {'id': 'Phase 5', 'name': 'P5: الشحن و CargoX'},
-    {'id': 'Phase 6', 'name': 'P6: التعريفة والجمرك'},
-    {'id': 'Phase 7', 'name': 'P7: التخليص والسداد'},
-    {'id': 'Phase 8', 'name': 'P8: استلام المخازن'},
-    {'id': 'Phase 9', 'name': 'P9: التسوية المالية'},
-    {'id': 'Phase 10', 'name': 'P10: إغلاق الملف'},
+  static const List<Map<String, dynamic>> _lifecyclePhases = [
+    {
+      'phase_id': 1,
+      'name_ar': 'المرحلة 1: التخطيط والدراسات',
+      'name_en': 'Phase 1: Planning & Studies',
+      'color': Color(0xFF2980B9),
+      'steps': [
+        {'code': 'STEP_01', 'name': '1. دراسات النولون'},
+        {'code': 'STEP_02', 'name': '2. الدراسات الجمركية'},
+        {'code': 'STEP_03', 'name': '3. اشتراطات الاستيراد'},
+      ],
+    },
+    {
+      'phase_id': 2,
+      'name_ar': 'المرحلة 2: الاعتمادات والـ ACID',
+      'name_en': 'Phase 2: Approvals & ACID',
+      'color': Color(0xFF27AE60),
+      'steps': [
+        {'code': 'STEP_04', 'name': '4. اعتماد الميزانية'},
+        {'code': 'STEP_05', 'name': '5. إصدار ACID نافذة'},
+      ],
+    },
+    {
+      'phase_id': 3,
+      'name_ar': 'المرحلة 3: الحجز وتدقيق المستندات',
+      'name_en': 'Phase 3: Booking & Docs',
+      'color': Color(0xFFE67E22),
+      'steps': [
+        {'code': 'STEP_06', 'name': '6. تأكيد الحجز الملاحي'},
+        {'code': 'STEP_07', 'name': '7. تخصيص الحاويات'},
+        {'code': 'STEP_08', 'name': '8. مراجعة المسودات'},
+        {'code': 'STEP_09', 'name': '9. الاعتماد النهائي'},
+      ],
+    },
+    {
+      'phase_id': 4,
+      'name_ar': 'المرحلة 4: شحن CargoX والبنك',
+      'name_en': 'Phase 4: CargoX & Banking',
+      'color': Color(0xFF8E44AD),
+      'steps': [
+        {'code': 'STEP_10', 'name': '10. رفع CargoX'},
+        {'code': 'STEP_11', 'name': '11. أصول المستندات'},
+        {'code': 'STEP_12', 'name': '12. نموذج 4 البنكي'},
+      ],
+    },
+    {
+      'phase_id': 5,
+      'name_ar': 'المرحلة 5: التخليص الجمركي والإفراج',
+      'name_en': 'Phase 5: Clearance & Release',
+      'color': Color(0xFFC0392B),
+      'steps': [
+        {'code': 'STEP_13', 'name': '13. إقرار 46 ك.م'},
+        {'code': 'STEP_14', 'name': '14. الكشف والتثمين'},
+        {'code': 'STEP_15', 'name': '15. سحب العينات'},
+        {'code': 'STEP_16', 'name': '16. محضر المعاينة'},
+        {'code': 'STEP_17', 'name': '17. سداد الرسوم'},
+        {'code': 'STEP_18', 'name': '18. الأرضيات والحراسات'},
+      ],
+    },
+    {
+      'phase_id': 6,
+      'name_ar': 'المرحلة 6: المخازن والتسوية النهائية',
+      'name_en': 'Phase 6: Storage & Settlement',
+      'color': Color(0xFF16A085),
+      'steps': [
+        {'code': 'STEP_19', 'name': '19. إذن إضافة المخازن'},
+        {'code': 'STEP_20', 'name': '20. تسوية التكلفة Landed'},
+        {'code': 'STEP_21', 'name': '21. إغلاق وأرشفة الملف'},
+      ],
+    },
   ];
 
   static const List<String> _priorities = ['All', 'Low', 'Medium', 'High', 'Critical'];
@@ -49,6 +110,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(operationalDashboardProvider);
+    final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
     final notifier = ref.read(operationalDashboardProvider.notifier);
 
     return Scaffold(
@@ -95,91 +157,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               ),
             ),
 
-            // 1. Phase 1 -> Phase 10 Pipeline Bar (Single-select interactive segment)
-            Card(
-              elevation: 2,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('تصفية حسب مراحل الشحنة العشر (Phase 1 → Phase 10):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
-                        if (dashboardState.selectedPhase != null)
-                          TextButton.icon(
-                            onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
-                            icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
-                            label: const Text('إلغاء تحديد المرحلة', style: TextStyle(color: AppTheme.crimson, fontSize: 12)),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: _phases.map((p) {
-                          final phaseId = p['id']!;
-                          final isSelected = dashboardState.selectedPhase == phaseId;
-
-                          int phaseCount = 0;
-                          dashboardState.data.whenData((d) {
-                            phaseCount = d.phaseCounts[phaseId] ?? 0;
-                          });
-
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () => notifier.togglePhase(phaseId),
-                                borderRadius: BorderRadius.circular(6),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 200),
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: isSelected ? AppTheme.cobalt : Colors.grey.shade200,
-                                    borderRadius: BorderRadius.circular(6),
-                                    border: Border.all(color: isSelected ? AppTheme.cobalt : Colors.grey.shade300),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        p['name']!,
-                                        style: TextStyle(
-                                          fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                          color: isSelected ? Colors.white : AppTheme.charcoal,
-                                          fontSize: 11.5,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: isSelected ? Colors.white.withOpacity(0.25) : AppTheme.cobalt.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(10),
-                                        ),
-                                        child: Text(
-                                          '$phaseCount',
-                                          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: isSelected ? Colors.white : AppTheme.cobalt),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            // 1. Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
+            _buildLifecycleOperationsBoardSummary(context, ref, boardAsync, dashboardState, notifier),
             const SizedBox(height: 16),
 
             // 2. Control Bar (Priority Button Group, Customs Broker Dropdown & Debounced Search)
@@ -549,43 +528,43 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       nextStepTitle = 'P4: حجز الشحن وتأكيد رص الحاويات B/L';
       nextStepDesc = 'تأكيد حجز الباخرة مع الخط الملاحي وإصدار مسودة البوليصة وتأكيد الشحن';
       responsible = 'شركة الشحن / Freight Forwarder';
-      targetNavIndex = 15;
+      targetNavIndex = 25;
       actionIcon = Icons.directions_boat_outlined;
     } else if (mod.contains('Phase 4')) {
       nextStepTitle = 'P5: تتبع الإبحار وتوثيق CargoX ومراقبة الوصول';
       nextStepDesc = 'متابعة إبحار السفينة وتاريخ الـ ETA المتوقع واستلام مستندات الشاحن';
       responsible = 'الناقل / المورد الأجنبي';
-      targetNavIndex = 16;
+      targetNavIndex = 26;
       actionIcon = Icons.sailing_outlined;
     } else if (mod.contains('Phase 5')) {
       nextStepTitle = 'P6: وصول التنويه Arrival Notice وقيد إقرار 46 جمارك';
       nextStepDesc = 'استلام إخطار الوصول وتكليف المخلص الجمركي بفتح ملف الكشف الجمركي';
       responsible = 'المستخلص الجمركي (Customs Broker)';
-      targetNavIndex = 17;
+      targetNavIndex = 23;
       actionIcon = Icons.receipt_long_outlined;
     } else if (mod.contains('Phase 6')) {
       nextStepTitle = 'P7: استكمال الكشف وسداد الرسوم وإصدار إذن الإفراج';
       nextStepDesc = 'متابعة المعاينة الجمركية وسحب العينات وسداد الضرائب والرسوم';
       responsible = 'المستخلص الجمركي (Customs Broker)';
-      targetNavIndex = 17;
+      targetNavIndex = 27;
       actionIcon = Icons.verified_user_outlined;
     } else if (mod.contains('Phase 7')) {
       nextStepTitle = 'P8: النقل الداخلي واستلام المخازن وتوليد إذن GRN';
       nextStepDesc = 'تنسيق سيارات النقل واستلام البضاعة في المخازن وفحص الكميات والجودة';
       responsible = 'أمين المخزن / إدارة المخازن';
-      targetNavIndex = 18;
+      targetNavIndex = 28;
       actionIcon = Icons.warehouse_outlined;
     } else if (mod.contains('Phase 8')) {
       nextStepTitle = 'P9: تسوية تكلفة الوصول الشاملة Landed Cost';
       nextStepDesc = 'تجميع كافة الفواتير ومصاريف النولون والجمارك واحتساب التكلفة الفعلية';
       responsible = 'الحسابات والمراجعة المالية';
-      targetNavIndex = 19;
+      targetNavIndex = 29;
       actionIcon = Icons.calculate_outlined;
     } else if (mod.contains('Phase 9')) {
       nextStepTitle = 'P10: مراجعة شروط الأرشفة وإغلاق الملف التاريخي';
       nextStepDesc = 'التحقق من اكتمال كافة الفواتير والمستندات وإغلاق الملف نهائياً';
       responsible = 'مدير الاستيراد (Import Manager)';
-      targetNavIndex = 20;
+      targetNavIndex = 30;
       actionIcon = Icons.archive_outlined;
     }
 
@@ -668,7 +647,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal)),
               const Spacer(),
               TextButton.icon(
-                onPressed: () => selectNavigationIndex(ref, 30),
+                onPressed: () => selectNavigationIndex(ref, 40),
                 icon: const Icon(Icons.open_in_new, size: 12),
                 label: const Text('إدارة كل المهام', style: TextStyle(fontSize: 11)),
               ),
@@ -999,7 +978,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   'إنشاء مشروع جديد',
                   Icons.assignment_outlined,
                   AppTheme.cobalt,
-                  () => selectNavigationIndex(ref, 21), // Projects
+                  () => selectNavigationIndex(ref, 31), // Projects
                 ),
                 _buildQuickActionButton(
                   'إنشاء ملف استيرادي',
@@ -1011,43 +990,43 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   'إنشاء شركة مستوردة',
                   Icons.domain_outlined,
                   AppTheme.orange,
-                  () => selectNavigationIndex(ref, 22), // Import Companies
+                  () => selectNavigationIndex(ref, 32), // Import Companies
                 ),
                 _buildQuickActionButton(
                   'إنشاء مورد خارجي',
                   Icons.business_outlined,
                   AppTheme.charcoal,
-                  () => selectNavigationIndex(ref, 23), // Foreign Suppliers
+                  () => selectNavigationIndex(ref, 33), // Foreign Suppliers
                 ),
                 _buildQuickActionButton(
                   'إنشاء بنك / شريك',
                   Icons.account_balance_outlined,
                   AppTheme.cobalt,
-                  () => selectNavigationIndex(ref, 24), // Partners & Banks
+                  () => selectNavigationIndex(ref, 34), // Partners & Banks
                 ),
                 _buildQuickActionButton(
                   'إدخال تعريفة جمركية',
                   Icons.description_outlined,
                   AppTheme.orange,
-                  () => selectNavigationIndex(ref, 26), // Customs Tariff
+                  () => selectNavigationIndex(ref, 36), // Customs Tariff
                 ),
                 _buildQuickActionButton(
                   'إدخال موانئ ومواقع',
                   Icons.location_on_outlined,
                   AppTheme.emerald,
-                  () => selectNavigationIndex(ref, 27), // Ports & Locations
+                  () => selectNavigationIndex(ref, 37), // Ports & Locations
                 ),
                 _buildQuickActionButton(
                   'إدخال عملة جديدة',
                   Icons.currency_exchange_outlined,
                   AppTheme.charcoal,
-                  () => selectNavigationIndex(ref, 28), // Currencies
+                  () => selectNavigationIndex(ref, 38), // Currencies
                 ),
                 _buildQuickActionButton(
                   'تعديل سعر صرف جديد',
                   Icons.rate_review_outlined,
                   AppTheme.cobalt,
-                  () => selectNavigationIndex(ref, 28), // Exchange Rates
+                  () => selectNavigationIndex(ref, 38), // Exchange Rates
                 ),
               ],
             ),
@@ -1156,5 +1135,270 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       ),
     );
   }
-}
 
+  // =========================================================================
+  // Shipment Lifecycle Operations Board Summary (6 Phases / 21 Steps)
+  // =========================================================================
+  Widget _buildLifecycleOperationsBoardSummary(
+    BuildContext context,
+    WidgetRef ref,
+    AsyncValue<LifecycleBoardSummaryModel> boardAsync,
+    OperationalDashboardState dashboardState,
+    OperationalDashboardNotifier notifier,
+  ) {
+    return Card(
+      elevation: 2.5,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header Bar
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cobalt.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.view_kanban_outlined, color: AppTheme.cobalt, size: 22),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'ملخص مسار عمليات الشحنات (Shipment Lifecycle Operations Board — 21 خطوة تشغيلية)',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.charcoal),
+                      ),
+                      Text(
+                        'متابعة حية لتوزيع ملفات الشحنات عبر 6 مراحل رئيسية و 21 خطوة تشغيلية تفصيلية',
+                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                if (dashboardState.selectedPhase != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: OutlinedButton.icon(
+                      onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
+                      icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
+                      label: Text('إلغاء التصفية (${dashboardState.selectedPhase})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: AppTheme.crimson),
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      ),
+                    ),
+                  ),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    selectNavigationIndex(ref, 48);
+                  },
+                  icon: const Icon(Icons.open_in_new, size: 15, color: Colors.white),
+                  label: const Text('لوحة مسار العمليات الكاملة (21 Steps) ↗️', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.charcoal,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            const Divider(height: 1),
+            const SizedBox(height: 14),
+
+            // 6 Phases & 21 Steps
+            boardAsync.when(
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(20.0),
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+              error: (_, __) => _buildDynamicLifecyclePhases(null, dashboardState, notifier),
+              data: (boardData) => _buildDynamicLifecyclePhases(boardData, dashboardState, notifier),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDynamicLifecyclePhases(
+    LifecycleBoardSummaryModel? boardData,
+    OperationalDashboardState dashboardState,
+    OperationalDashboardNotifier notifier,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth > 1000;
+        final cardWidth = isWide ? (constraints.maxWidth - 36) / 3 : (constraints.maxWidth - 16) / 2;
+
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: _lifecyclePhases.map((phaseMeta) {
+            final int phaseId = phaseMeta['phase_id'];
+            final String nameAr = phaseMeta['name_ar'];
+            final Color phaseColor = phaseMeta['color'];
+            final List<Map<String, String>> steps = List<Map<String, String>>.from(phaseMeta['steps']);
+
+            final matchingPhase = boardData?.phases.where((p) => p.phaseId == phaseId).firstOrNull;
+            final int phaseActiveCount = matchingPhase?.totalActiveShipments ?? 0;
+            final Map<String, int> stepCounts = matchingPhase?.stepCounts ?? {};
+
+            final bool isPhaseSelected = dashboardState.selectedPhase == 'Phase $phaseId' || dashboardState.selectedPhase == 'P$phaseId';
+
+            return Container(
+              width: cardWidth.clamp(280.0, 480.0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: isPhaseSelected ? phaseColor.withOpacity(0.08) : Colors.white,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: isPhaseSelected ? phaseColor : Colors.grey.shade300,
+                  width: isPhaseSelected ? 2 : 1,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.02),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Phase Header
+                  InkWell(
+                    onTap: () => notifier.togglePhase('Phase $phaseId'),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                width: 10,
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  color: phaseColor,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                nameAr,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12.5,
+                                  color: isPhaseSelected ? phaseColor : AppTheme.charcoal,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: phaseColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$phaseActiveCount شحنة',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: phaseColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  const Divider(height: 1, thickness: 0.5),
+                  const SizedBox(height: 8),
+
+                  // Steps Chips
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: steps.map((step) {
+                      final String stepCode = step['code']!;
+                      final String stepName = step['name']!;
+                      final int count = stepCounts[stepCode] ?? 0;
+                      final bool isStepSelected = dashboardState.selectedPhase == stepCode;
+
+                      return InkWell(
+                        onTap: () => notifier.togglePhase(stepCode),
+                        borderRadius: BorderRadius.circular(6),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: isStepSelected
+                                ? phaseColor
+                                : (count > 0 ? phaseColor.withOpacity(0.12) : Colors.grey.shade100),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: isStepSelected
+                                  ? phaseColor
+                                  : (count > 0 ? phaseColor.withOpacity(0.4) : Colors.grey.shade300),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                stepName,
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isStepSelected ? FontWeight.bold : FontWeight.normal,
+                                  color: isStepSelected
+                                      ? Colors.white
+                                      : (count > 0 ? AppTheme.charcoal : Colors.grey.shade700),
+                                ),
+                              ),
+                              const SizedBox(width: 5),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                                decoration: BoxDecoration(
+                                  color: isStepSelected
+                                      ? Colors.white.withOpacity(0.35)
+                                      : (count > 0 ? phaseColor : Colors.grey.shade400),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '$count',
+                                  style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+        );
+      },
+    );
+  }
+
+}

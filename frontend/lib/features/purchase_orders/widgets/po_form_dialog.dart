@@ -318,7 +318,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return matchedSupp?.supplierId;
   }
 
-  void _applyExtractedFieldsToState(Map<String, dynamic> ext) {
+  void _applyExtractedFieldsToState(Map<String, dynamic> ext, {String targetTab = 'all'}) {
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
     final incoterms = ref.read(incotermsProvider).value ?? [];
@@ -326,143 +326,152 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffs = ref.read(customsTariffProvider).value ?? [];
 
     setState(() {
-      final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
-      if (poNum != null && poNum.isNotEmpty) {
-        _piCtrl.text = poNum;
-      }
-      final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
-      if (dateStr != null && dateStr.isNotEmpty) {
-        _selectedOrderDate = _parseFlexDate(dateStr);
-      }
-
-      // 1. Company Matching (الشركة المستوردة)
-      final matchedCompanyId = _matchCompanyId(ext, companies);
-      if (matchedCompanyId != null) {
-        _selectedCompanyId = matchedCompanyId;
-      }
-
-      // 2. Supplier Matching (المورد الأجنبي)
-      final matchedSupplierId = _matchSupplierId(ext, suppliers);
-      if (matchedSupplierId != null) {
-        _selectedSupplierId = matchedSupplierId;
-      }
-
-      // 3. Incoterm Matching (شروط التعاقد)
-      final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
-      if (rawInco != null && rawInco.isNotEmpty) {
-        final matchedInco = incoterms.where((i) {
-          final code = i.incotermCode.toUpperCase().trim();
-          return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
-        }).firstOrNull;
-        if (matchedInco != null) {
-          _selectedIncotermId = matchedInco.incotermId;
+      if (targetTab == 'invoice' || targetTab == 'all') {
+        final poNum = ext['po_number']?.toString() ?? ext['proforma_invoice_number']?.toString();
+        if (poNum != null && poNum.isNotEmpty) {
+          _piCtrl.text = poNum;
         }
-      }
-
-      // 4. Currency Matching (العملة)
-      final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
-      if (rawCurr != null && rawCurr.isNotEmpty) {
-        final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
-        if (matchedCurr != null) {
-          _selectedCurrencyId = matchedCurr.currencyId;
-          _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+        final dateStr = (ext['order_date'] ?? ext['po_date'] ?? ext['date'])?.toString();
+        if (dateStr != null && dateStr.isNotEmpty) {
+          _selectedOrderDate = _parseFlexDate(dateStr);
         }
-      }
 
-      // 5. Country of Origin (بلد المنشأ)
-      final rawCty = _getExt(ext, ['country_of_origin', 'country of origin', 'origin_country', 'supplier_country', 'supplier country', 'country'])?.toString().trim().toUpperCase();
-      if (rawCty != null && rawCty.isNotEmpty) {
-        final matchedCty = countryOptions.where((c) =>
-          c['code'] == rawCty ||
-          c['name']!.toUpperCase().contains(rawCty) ||
-          (rawCty == 'LT' && (c['code'] == 'LT' || c['name']!.contains('Lithuania') || c['name']!.contains('ليتوانيا'))) ||
-          (rawCty == 'CN' && (c['code'] == 'CN' || c['name']!.contains('China') || c['name']!.contains('الصين'))) ||
-          (rawCty == 'IT' && (c['code'] == 'IT' || c['name']!.contains('Italy') || c['name']!.contains('إيطاليا')))
-        ).firstOrNull;
-        if (matchedCty != null) {
-          _selectedCountryOfOrigin = matchedCty['name'];
+        // 1. Company Matching (الشركة المستوردة)
+        final matchedCompanyId = _matchCompanyId(ext, companies);
+        if (matchedCompanyId != null) {
+          _selectedCompanyId = matchedCompanyId;
         }
-      }
 
-      // 6. Payment Terms (شروط الدفع)
-      final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString().toUpperCase();
-      if (rawTerms != null && rawTerms.isNotEmpty) {
-        if (rawTerms.contains('LC') || rawTerms.contains('LETTER OF CREDIT') || rawTerms.contains('اعتماد')) {
-          _selectedPaymentTerms = 'Letter of Credit / LC';
-        } else if (rawTerms.contains('PREPAYMENT') || rawTerms.contains('AVV.MERCE') || rawTerms.contains('SWIFT') || rawTerms.contains('CASH') || rawTerms.contains('T/T') || rawTerms.contains('سويفت') || rawTerms.contains('مقدم')) {
-          _selectedPaymentTerms = 'Cash in Advance / SWIFT';
-        } else if (rawTerms.contains('CAD') || rawTerms.contains('COLLECTION') || rawTerms.contains('مستندات')) {
-          _selectedPaymentTerms = 'Cash Against Documents / CAD';
-        } else if (rawTerms.contains('OPEN ACCOUNT') || rawTerms.contains('حساب مفتوح')) {
-          _selectedPaymentTerms = 'Open Account';
+        // 2. Supplier Matching (المورد الأجنبي)
+        final matchedSupplierId = _matchSupplierId(ext, suppliers);
+        if (matchedSupplierId != null) {
+          _selectedSupplierId = matchedSupplierId;
         }
-      }
 
-      if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
-        final itemList = ext['items'] as List;
-        _dialogItems = itemList.map((raw) {
-          final i = Map<String, dynamic>.from(raw as Map);
-          final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
-          final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-          final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
-          final code = i['item_code']?.toString() ?? 'ITEM-001';
-          final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
-
-          String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
-          if (itemCty != null && itemCty.isNotEmpty) {
-            itemCty = normalizeCountryName(itemCty);
-          } else {
-            itemCty = normalizeCountryName(_selectedCountryOfOrigin);
+        // 3. Incoterm Matching (شروط التعاقد)
+        final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
+        if (rawInco != null && rawInco.isNotEmpty) {
+          final matchedInco = incoterms.where((i) {
+            final code = i.incotermCode.toUpperCase().trim();
+            return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
+          }).firstOrNull;
+          if (matchedInco != null) {
+            _selectedIncotermId = matchedInco.incotermId;
           }
+        }
 
-          int? matchedTariffId;
-          String? matchedHsCode = rawHs;
-          if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
-            final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
-            final matched = tariffs.where((t) {
-              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-              return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
-            }).firstOrNull;
-            if (matched != null) {
-              matchedTariffId = matched.tariffId;
-              matchedHsCode = matched.hsCode;
+        // 4. Currency Matching (العملة)
+        final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
+        if (rawCurr != null && rawCurr.isNotEmpty) {
+          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
+          if (matchedCurr != null) {
+            _selectedCurrencyId = matchedCurr.currencyId;
+            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+          }
+        }
+
+        // 5. Country of Origin (بلد المنشأ)
+        final rawCty = _getExt(ext, ['country_of_origin', 'country of origin', 'origin_country', 'supplier_country', 'supplier country', 'country'])?.toString().trim().toUpperCase();
+        if (rawCty != null && rawCty.isNotEmpty) {
+          final matchedCty = countryOptions.where((c) =>
+            c['code'] == rawCty ||
+            c['name']!.toUpperCase().contains(rawCty) ||
+            (rawCty == 'LT' && (c['code'] == 'LT' || c['name']!.contains('Lithuania') || c['name']!.contains('ليتوانيا'))) ||
+            (rawCty == 'CN' && (c['code'] == 'CN' || c['name']!.contains('China') || c['name']!.contains('الصين'))) ||
+            (rawCty == 'IT' && (c['code'] == 'IT' || c['name']!.contains('Italy') || c['name']!.contains('إيطاليا')))
+          ).firstOrNull;
+          if (matchedCty != null) {
+            _selectedCountryOfOrigin = matchedCty['name'];
+          }
+        }
+
+        // 6. Payment Terms (شروط الدفع)
+        final rawTerms = (ext['payment_terms'] ?? ext['payment_condition'] ?? ext['terms_of_payment'])?.toString().toUpperCase();
+        if (rawTerms != null && rawTerms.isNotEmpty) {
+          if (rawTerms.contains('LC') || rawTerms.contains('LETTER OF CREDIT') || rawTerms.contains('اعتماد')) {
+            _selectedPaymentTerms = 'Letter of Credit / LC';
+          } else if (rawTerms.contains('PREPAYMENT') || rawTerms.contains('AVV.MERCE') || rawTerms.contains('SWIFT') || rawTerms.contains('CASH') || rawTerms.contains('T/T') || rawTerms.contains('سويفت') || rawTerms.contains('مقدم')) {
+            _selectedPaymentTerms = 'Cash in Advance / SWIFT';
+          } else if (rawTerms.contains('CAD') || rawTerms.contains('COLLECTION') || rawTerms.contains('مستندات')) {
+            _selectedPaymentTerms = 'Cash Against Documents / CAD';
+          } else if (rawTerms.contains('OPEN ACCOUNT') || rawTerms.contains('حساب مفتوح')) {
+            _selectedPaymentTerms = 'Open Account';
+          }
+        }
+
+        if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
+          final itemList = ext['items'] as List;
+          _dialogItems = itemList.map((raw) {
+            final i = Map<String, dynamic>.from(raw as Map);
+            final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
+            final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
+            final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
+            final code = i['item_code']?.toString() ?? 'ITEM-001';
+            final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
+
+            String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
+            if (itemCty != null && itemCty.isNotEmpty) {
+              itemCty = normalizeCountryName(itemCty);
+            } else {
+              itemCty = normalizeCountryName(_selectedCountryOfOrigin);
             }
-          }
 
-          return POLineItemModel(
-            itemCode: code,
-            descriptionAr: desc,
-            descriptionEn: desc,
-            countryOfOrigin: itemCty,
-            tariffId: matchedTariffId,
-            hsCode: matchedHsCode,
-            quantity: qty > 0 ? qty : 100.0,
-            unitPrice: price > 0 ? price : 10.0,
-            cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
-            grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
-            netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
-          );
-        }).toList();
+            int? matchedTariffId;
+            String? matchedHsCode = rawHs;
+            if (rawHs != null && rawHs.trim().isNotEmpty && tariffs.isNotEmpty) {
+              final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
+              final matched = tariffs.where((t) {
+                final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
+                return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+              }).firstOrNull;
+              if (matched != null) {
+                matchedTariffId = matched.tariffId;
+                matchedHsCode = matched.hsCode;
+              }
+            }
+
+            return POLineItemModel(
+              itemCode: code,
+              descriptionAr: desc,
+              descriptionEn: desc,
+              countryOfOrigin: itemCty,
+              tariffId: matchedTariffId,
+              hsCode: matchedHsCode,
+              quantity: qty > 0 ? qty : 100.0,
+              unitPrice: price > 0 ? price : 10.0,
+              cbmPerUnit: (i['cbm_per_unit'] as num?)?.toDouble() ?? 0.1,
+              grossWeightKg: (i['gross_weight_kg'] as num?)?.toDouble() ?? 5.0,
+              netWeightKg: (i['net_weight_kg'] as num?)?.toDouble() ?? 4.5,
+            );
+          }).toList();
+        }
       }
 
-      if (ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
-        final packingList = ext['packing_list_items'] as List;
-        _dialogPackingItems = packingList.map((raw) {
-          final p = Map<String, dynamic>.from(raw as Map);
-          return PackingListItemModel(
-            hsCode: p['hs_code']?.toString() ?? '',
-            itemCode: p['item_code']?.toString() ?? 'ITEM-001',
-            qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
-            qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
-            packageType: p['package_type']?.toString() ?? 'Pallet',
-            lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
-            widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
-            heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
-            grossWeightUnitKg: (p['gross_weight_unit_kg'] as num?)?.toDouble() ?? 646.0,
-            netWeightUnitKg: (p['net_weight_unit_kg'] as num?)?.toDouble() ?? 626.0,
-            isStackable: p['is_stackable'] as bool? ?? true,
-          );
-        }).toList();
+      if (targetTab == 'packing' || targetTab == 'all') {
+        final packingList = ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty
+            ? ext['packing_list_items'] as List
+            : (ext['items'] is List ? ext['items'] as List : []);
+
+        if (packingList.isNotEmpty) {
+          _dialogPackingItems = packingList.map((raw) {
+            final p = Map<String, dynamic>.from(raw as Map);
+            final qtyPcs = (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 10.0;
+            final qtyPkg = (p['qty_pkg'] as num?)?.toDouble() ?? (qtyPcs > 0 ? (qtyPcs / 10).ceilToDouble() : 1.0);
+            return PackingListItemModel(
+              hsCode: p['hs_code']?.toString() ?? '',
+              itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+              qtyPcs: qtyPcs,
+              qtyPkg: qtyPkg,
+              packageType: p['package_type']?.toString() ?? 'Carton',
+              lengthCm: (p['length_cm'] as num?)?.toDouble() ?? 110.0,
+              widthCm: (p['width_cm'] as num?)?.toDouble() ?? 110.0,
+              heightCm: (p['height_cm'] as num?)?.toDouble() ?? 106.0,
+              grossWeightUnitKg: (p['gross_weight_unit_kg'] ?? p['gross_weight_kg'] as num?)?.toDouble() ?? 646.0,
+              netWeightUnitKg: (p['net_weight_unit_kg'] ?? p['net_weight_kg'] as num?)?.toDouble() ?? 626.0,
+              isStackable: p['is_stackable'] as bool? ?? true,
+            );
+          }).toList();
+        }
       }
     });
   }
@@ -470,6 +479,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() {
+      ref.read(projectsProvider.notifier).fetchProjects();
+      ref.read(importCompaniesProvider.notifier).fetchCompanies();
+      ref.read(suppliersProvider.notifier).fetchSuppliers();
+      ref.read(incotermsProvider.notifier).fetchIncoterms();
+      ref.read(currenciesProvider.notifier).fetchCurrencies();
+      ref.read(customsTariffProvider.notifier).fetchTariffs();
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+    });
+
     final po = widget.po;
     final ext = widget.initialExtractedFields;
     final tariffs = ref.read(customsTariffProvider).value ?? [];
@@ -634,15 +653,27 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final projects = ref.watch(projectsProvider).value ?? [];
-    final companies = ref.watch(importCompaniesProvider).value ?? [];
-    final suppliers = ref.watch(suppliersProvider).value ?? [];
-    final incoterms = ref.watch(incotermsProvider).value ?? [];
-    final currencies = ref.watch(currenciesProvider).value ?? [];
-    final tariffs = ref.watch(customsTariffProvider).value ?? [];
-    final importFiles = ref.watch(importFilesProvider).value ?? [];
+    final projectsAsync = ref.watch(projectsProvider);
+    final companiesAsync = ref.watch(importCompaniesProvider);
+    final suppliersAsync = ref.watch(suppliersProvider);
+    final incotermsAsync = ref.watch(incotermsProvider);
+    final currenciesAsync = ref.watch(currenciesProvider);
+    final tariffsAsync = ref.watch(customsTariffProvider);
+    final importFilesAsync = ref.watch(importFilesProvider);
 
-    final isLoadingMaster = projects.isEmpty || companies.isEmpty || suppliers.isEmpty || incoterms.isEmpty || currencies.isEmpty;
+    final projects = projectsAsync.value ?? [];
+    final companies = companiesAsync.value ?? [];
+    final suppliers = suppliersAsync.value ?? [];
+    final incoterms = incotermsAsync.value ?? [];
+    final currencies = currenciesAsync.value ?? [];
+    final tariffs = tariffsAsync.value ?? [];
+    final importFiles = importFilesAsync.value ?? [];
+
+    final isLoadingMaster = (projectsAsync.isLoading && projects.isEmpty) ||
+        (companiesAsync.isLoading && companies.isEmpty) ||
+        (suppliersAsync.isLoading && suppliers.isEmpty) ||
+        (incotermsAsync.isLoading && incoterms.isEmpty) ||
+        (currenciesAsync.isLoading && currencies.isEmpty);
 
     final reconciliation = evaluatePOReconciliation(
       invoiceItems: _dialogItems,
@@ -755,20 +786,24 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    SmartUploadButton(
-                      module: SmartUploadModule.purchaseOrder,
-                      compact: true,
-                      label: '🚀 رفع واستخراج المستندات (Invoice + Packing List)',
-                      onDataExtracted: (result) {
-                        _applyExtractedFieldsToState(result.extractedFields);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('تمت تعبئة بيانات أمر الشراء وكشف التعبئة بنجاح!'),
-                            backgroundColor: AppTheme.emerald,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emerald.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.emerald),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.auto_awesome, color: AppTheme.emerald, size: 14),
+                          SizedBox(width: 4),
+                          Text(
+                            'أدوات AI مخصصة داخل التبويبات',
+                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                           ),
-                        );
-                      },
+                        ],
+                      ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
@@ -823,6 +858,51 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFEFF6FF),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFBFDBFE)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.receipt_long_outlined, color: AppTheme.cobalt, size: 22),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '🧾 أداة قراءة واستخراج الفاتورة المبدئية (Invoice Reader)',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        ),
+                                        Text(
+                                          'قم برفع الفاتورة المبدئية/التجارية (PDF/صورة) لاستخراج ترويسة الفاتورة، الأسعار، العملة، وبنود الشراء تلقائياً',
+                                          style: TextStyle(fontSize: 11, color: Colors.black54),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  SmartUploadButton(
+                                    module: SmartUploadModule.purchaseOrder,
+                                    compact: false,
+                                    label: '🚀 قراءة الفاتورة المبدئية',
+                                    onDataExtracted: (result) {
+                                      _applyExtractedFieldsToState(result.extractedFields, targetTab: 'invoice');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('تمت قراءة واستخراج بيانات الفاتورة المبدئية وبنود الشراء بنجاح!'),
+                                          backgroundColor: AppTheme.emerald,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
                             SearchableDropdownField<int?>(
                               value: _selectedImportFileId,
                               labelText: 'Import File (ملف الشحنة الاستيرادية)',
@@ -1257,16 +1337,35 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       Row(
                                         children: [
                                           Expanded(
+                                            flex: 3,
                                             child: TextFormField(
                                               key: ValueKey('qty_${idx}_${item.quantity}'),
                                               initialValue: item.quantity.toString(),
                                               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                              decoration: const InputDecoration(labelText: 'Qty (العدد)', isDense: true),
+                                              decoration: const InputDecoration(labelText: 'Qty (الكمية/العدد)', isDense: true),
                                               onChanged: (v) {
                                                 final q = double.tryParse(v) ?? 1.0;
                                                 setState(() {
                                                   _dialogItems[idx] = _dialogItems[idx].copyWith(quantity: q);
                                                 });
+                                              },
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            flex: 3,
+                                            child: SearchableDropdownField<String>(
+                                              value: item.unitOfMeasure,
+                                              labelText: 'Unit / الوحدة',
+                                              items: kMasterUnitsOfMeasure
+                                                  .map((u) => SearchableDropdownItem(value: u['code']!, label: u['name']!))
+                                                  .toList(),
+                                              onChanged: (v) {
+                                                if (v != null) {
+                                                  setState(() {
+                                                    _dialogItems[idx] = _dialogItems[idx].copyWith(unitOfMeasure: v);
+                                                  });
+                                                }
                                               },
                                             ),
                                           ),
@@ -1396,136 +1495,183 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                       // Tab 2: BP-003 Dynamic Detailed Packing List
                       SingleChildScrollView(
                         padding: const EdgeInsets.only(top: 8, right: 4),
-                        child: SizedBox(
-                          height: 480,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFF0FDF4),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFF86EFAC)),
+                              ),
+                              child: Row(
                                 children: [
-                                  const Text(
-                                    'Packing List Entries (بيان التعبئة والطرود والأبعاد) *',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                  const Icon(Icons.inventory_2_outlined, color: AppTheme.emerald, size: 22),
+                                  const SizedBox(width: 10),
+                                  const Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '📦 أداة قراءة واستخراج بيان التعبئة والوزن (Packing List Reader)',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        ),
+                                        Text(
+                                          'قم برفع ملف بيان التعبئة (Packing List PDF/صورة) لاستخراج أعداد الطرود، الأوزان القائمة والصافية، والأحجام CBM تلقائياً',
+                                          style: TextStyle(fontSize: 11, color: Colors.black54),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  Row(
-                                    children: [
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                                        icon: const Icon(Icons.auto_fix_high, size: 16),
-                                        label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
-                                        onPressed: () {
-                                          if (_dialogItems.isEmpty) return;
-                                          setState(() {
-                                            _dialogPackingItems.clear();
-                                            for (int i = 0; i < _dialogItems.length; i++) {
-                                              final item = _dialogItems[i];
-                                              String itemHsCode = '';
-                                              if (item.hsCode != null && item.hsCode!.isNotEmpty) {
-                                                itemHsCode = item.hsCode!;
-                                              } else if (item.tariffId != null) {
-                                                final matchingTariff = tariffs.cast<CustomsTariffModel?>().firstWhere(
-                                                      (t) => t?.tariffId == item.tariffId,
-                                                      orElse: () => null,
-                                                    );
-                                                if (matchingTariff != null && matchingTariff.hsCode.isNotEmpty) {
-                                                  itemHsCode = matchingTariff.hsCode;
-                                                }
-                                              }
-                                              _dialogPackingItems.add(
-                                                PackingListItemModel(
-                                                  hsCode: itemHsCode,
-                                                  itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
-                                                  qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
-                                                  qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
-                                                  packageType: 'Carton',
-                                                  lengthCm: 50.0,
-                                                  widthCm: 40.0,
-                                                  heightCm: 30.0,
-                                                  netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
-                                                  grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
-                                                ),
-                                              );
-                                            }
-                                          });
-                                          ScaffoldMessenger.of(context).showSnackBar(
-                                            SnackBar(
-                                              content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
-                                              backgroundColor: AppTheme.emerald,
-                                              duration: const Duration(seconds: 2),
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                      const SizedBox(width: 8),
-                                      ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
-                                        icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                                        label: const Text('محاكاة ورص الحاويات 3D', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                        onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
-                                      ),
-                                      const SizedBox(width: 8),
-                                      TextButton.icon(
-                                        icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
-                                        label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
-                                        onPressed: () {
-                                          String defaultHs = '';
-                                          if (_dialogItems.isNotEmpty) {
-                                            final first = _dialogItems.first;
-                                            if (first.hsCode != null && first.hsCode!.isNotEmpty) {
-                                              defaultHs = first.hsCode!;
-                                            } else if (first.tariffId != null) {
-                                              final match = tariffs.cast<CustomsTariffModel?>().firstWhere((t) => t?.tariffId == first.tariffId, orElse: () => null);
-                                              if (match != null) defaultHs = match.hsCode;
-                                            }
-                                          }
-                                          setState(() {
-                                            _dialogPackingItems.add(
-                                              PackingListItemModel(
-                                                hsCode: defaultHs,
-                                                itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
-                                                qtyPcs: 10,
-                                                qtyPkg: 1,
-                                                packageType: 'Carton',
-                                                lengthCm: 50,
-                                                widthCm: 40,
-                                                heightCm: 30,
-                                                netWeightUnitKg: 5,
-                                                grossWeightUnitKg: 6,
-                                              ),
-                                            );
-                                          });
-                                        },
-                                      ),
-                                    ],
+                                  const SizedBox(width: 12),
+                                  SmartUploadButton(
+                                    module: SmartUploadModule.purchaseOrder,
+                                    compact: false,
+                                    label: '🚀 قراءة بيان التعبئة',
+                                    onDataExtracted: (result) {
+                                      _applyExtractedFieldsToState(result.extractedFields, targetTab: 'packing');
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('تمت قراءة واستخراج بيانات كشف التعبئة والوزن (Packing List) بنجاح!'),
+                                          backgroundColor: AppTheme.emerald,
+                                        ),
+                                      );
+                                    },
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
+                            ),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Packing List Entries (بيان التعبئة والطرود والأبعاد) *',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                ),
+                                Row(
+                                  children: [
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
+                                      icon: const Icon(Icons.auto_fix_high, size: 16),
+                                      label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
+                                      onPressed: () {
+                                        if (_dialogItems.isEmpty) return;
+                                        setState(() {
+                                          _dialogPackingItems.clear();
+                                          for (int i = 0; i < _dialogItems.length; i++) {
+                                            final item = _dialogItems[i];
+                                            String itemHsCode = '';
+                                            if (item.hsCode != null && item.hsCode!.isNotEmpty) {
+                                              itemHsCode = item.hsCode!;
+                                            } else if (item.tariffId != null) {
+                                              final matchingTariff = tariffs.cast<CustomsTariffModel?>().firstWhere(
+                                                    (t) => t?.tariffId == item.tariffId,
+                                                    orElse: () => null,
+                                                  );
+                                              if (matchingTariff != null && matchingTariff.hsCode.isNotEmpty) {
+                                                itemHsCode = matchingTariff.hsCode;
+                                              }
+                                            }
+                                            _dialogPackingItems.add(
+                                              PackingListItemModel(
+                                                hsCode: itemHsCode,
+                                                itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                                qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
+                                                qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
+                                                packageType: 'Carton',
+                                                lengthCm: 50.0,
+                                                widthCm: 40.0,
+                                                heightCm: 30.0,
+                                                netWeightUnitKg: item.netWeightKg > 0 ? item.netWeightKg : 5.0,
+                                                grossWeightUnitKg: item.grossWeightKg > 0 ? item.grossWeightKg : 6.0,
+                                              ),
+                                            );
+                                          }
+                                        });
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
+                                            backgroundColor: AppTheme.emerald,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    const SizedBox(width: 8),
+                                    ElevatedButton.icon(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
+                                      icon: const Icon(Icons.view_in_ar_rounded, size: 16),
+                                      label: const Text('محاكاة ورص الحاويات 3D', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton.icon(
+                                      icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
+                                      label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
+                                      onPressed: () {
+                                        String defaultHs = '';
+                                        if (_dialogItems.isNotEmpty) {
+                                          final first = _dialogItems.first;
+                                          if (first.hsCode != null && first.hsCode!.isNotEmpty) {
+                                            defaultHs = first.hsCode!;
+                                          } else if (first.tariffId != null) {
+                                            final match = tariffs.cast<CustomsTariffModel?>().firstWhere((t) => t?.tariffId == first.tariffId, orElse: () => null);
+                                            if (match != null) defaultHs = match.hsCode;
+                                          }
+                                        }
+                                        setState(() {
+                                          _dialogPackingItems.add(
+                                            PackingListItemModel(
+                                              hsCode: defaultHs,
+                                              itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
+                                              qtyPcs: 10,
+                                              qtyPkg: 1,
+                                              packageType: 'Carton',
+                                              lengthCm: 50,
+                                              widthCm: 40,
+                                              heightCm: 30,
+                                              netWeightUnitKg: 5,
+                                              grossWeightUnitKg: 6,
+                                            ),
+                                          );
+                                        });
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
 
-                              Expanded(
-                                child: _dialogPackingItems.isEmpty
-                                    ? Center(
-                                        child: Column(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
-                                            const SizedBox(height: 12),
-                                            const Text(
-                                              'لم يتم إضافة بنود تعبئة بعد',
-                                              style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
-                                            ),
-                                            const SizedBox(height: 6),
-                                            const Text(
-                                              'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
-                                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                                            ),
-                                          ],
-                                        ),
-                                      )
-                                    : ListView.builder(
-                                        itemCount: _dialogPackingItems.length,
-                                        itemBuilder: (context, idx) {
+                            _dialogPackingItems.isEmpty
+                                ? Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(vertical: 40),
+                                      child: Column(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            'لم يتم إضافة بنود تعبئة بعد',
+                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                            'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: _dialogPackingItems.length,
+                                    itemBuilder: (context, idx) {
                                           final p = _dialogPackingItems[idx];
                                           final isMismatched = p.hsCode.isNotEmpty && mismatchedHsCodes.contains(p.hsCode);
 
@@ -1606,12 +1752,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   Expanded(
                                                     child: SearchableDropdownField<String>(
                                                       value: p.packageType,
-                                                      labelText: 'Package Type',
-                                                      items: ['Carton', 'Pallet', 'Bag', 'Wooden Crate', 'Drum', 'Container']
-                                                          .map((t) => SearchableDropdownItem(value: t, label: t))
+                                                      labelText: 'Package Type / نوع الطرد',
+                                                      items: kMasterPackageTypes
+                                                          .map((t) => SearchableDropdownItem(value: t['code']!, label: t['name']!))
                                                           .toList(),
                                                       onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(packageType: v ?? 'Carton');
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(packageType: v ?? 'CT');
                                                       }),
                                                     ),
                                                   ),
@@ -1710,52 +1856,73 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                 ],
                                               ),
                                               const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: TextFormField(
-                                                      initialValue: p.netWeightUnitKg.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Net Wt/Unit (kg)', isDense: true),
-                                                      onChanged: (v) {
-                                                        final nw = double.tryParse(v) ?? 0.0;
-                                                        setState(() {
-                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(netWeightUnitKg: nw);
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: TextFormField(
-                                                      initialValue: p.grossWeightUnitKg.toString(),
-                                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Gross Wt/Unit (kg)', isDense: true),
-                                                      onChanged: (v) {
-                                                        final gw = double.tryParse(v) ?? 0.0;
-                                                        setState(() {
-                                                          _dialogPackingItems[idx] = p.copyWith(grossWeightUnitKg: gw);
-                                                        });
-                                                      },
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 8),
-                                                  Expanded(
-                                                    child: SearchableDropdownField<bool>(
-                                                      value: p.isStackable,
-                                                      labelText: 'تعليمات الرص *',
-                                                      items: const [
-                                                        SearchableDropdownItem(value: true, label: '📦 قابل للرص'),
-                                                        SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص'),
-                                                      ],
-                                                      onChanged: (v) => setState(() {
-                                                        _dialogPackingItems[idx] = p.copyWith(isStackable: v ?? true);
-                                                      }),
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    flex: 2,
+                                               Row(
+                                                 children: [
+                                                   Expanded(
+                                                     flex: 3,
+                                                     child: SearchableDropdownField<String>(
+                                                       value: p.weightUnit,
+                                                       labelText: 'Weight Unit / وحدة الوزن',
+                                                       items: kMasterUnitsOfMeasure
+                                                           .map((u) => SearchableDropdownItem(value: u['code']!, label: u['name']!))
+                                                           .toList(),
+                                                       onChanged: (v) {
+                                                         if (v != null) {
+                                                           setState(() {
+                                                             _dialogPackingItems[idx] = p.copyWith(weightUnit: v);
+                                                           });
+                                                         }
+                                                       },
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Expanded(
+                                                     flex: 2,
+                                                     child: TextFormField(
+                                                       initialValue: p.netWeightUnitKg.toString(),
+                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                       decoration: InputDecoration(labelText: 'Net Wt (${p.weightUnit})', isDense: true),
+                                                       onChanged: (v) {
+                                                         final nw = double.tryParse(v) ?? 0.0;
+                                                         setState(() {
+                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(netWeightUnitKg: nw);
+                                                         });
+                                                       },
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Expanded(
+                                                     flex: 2,
+                                                     child: TextFormField(
+                                                       initialValue: p.grossWeightUnitKg.toString(),
+                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                                       decoration: InputDecoration(labelText: 'Gross Wt (${p.weightUnit})', isDense: true),
+                                                       onChanged: (v) {
+                                                         final gw = double.tryParse(v) ?? 0.0;
+                                                         setState(() {
+                                                           _dialogPackingItems[idx] = p.copyWith(grossWeightUnitKg: gw);
+                                                         });
+                                                       },
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 8),
+                                                   Expanded(
+                                                     flex: 3,
+                                                     child: SearchableDropdownField<bool>(
+                                                       value: p.isStackable,
+                                                       labelText: 'تعليمات الرص *',
+                                                       items: const [
+                                                         SearchableDropdownItem(value: true, label: '📦 قابل للرص'),
+                                                         SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص'),
+                                                       ],
+                                                       onChanged: (v) => setState(() {
+                                                         _dialogPackingItems[idx] = p.copyWith(isStackable: v ?? true);
+                                                       }),
+                                                     ),
+                                                   ),
+                                                   const SizedBox(width: 10),
+                                                   Expanded(
+                                                     flex: 4,
                                                     child: Container(
                                                       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                                       decoration: BoxDecoration(
@@ -1796,9 +1963,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       );
                                     },
                                   ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
                     ],

@@ -681,14 +681,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             child: SearchableDropdownField<String>(
                               value: _polController.text.isNotEmpty ? _polController.text : null,
                               labelText: 'ميناء الشحن (Port of Loading - POL)',
-                              searchHintText: 'ابحث في موانئ الشحن العالمية...',
+                              searchHintText: 'ابحث في موانئ الشحن العالمية (Shanghai, Genoa, Hamburg)...',
                               items: [
                                 if (_polController.text.isNotEmpty && !locations.any((l) => l.locationName == _polController.text))
                                   SearchableDropdownItem<String>(value: _polController.text, label: _polController.text),
                                 ...locations.map((loc) => SearchableDropdownItem<String>(
                                       value: loc.locationName,
                                       label: '${loc.locationName} (${loc.country}${loc.unLocode.isNotEmpty ? " - ${loc.unLocode}" : ""})',
-                                      subtitle: loc.locationType,
+                                      subtitle: '${loc.locationType} - ${loc.country}',
                                     )),
                               ],
                               onChanged: (v) {
@@ -705,10 +705,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                               items: [
                                 if (_podController.text.isNotEmpty && !locations.any((l) => l.locationName == _podController.text))
                                   SearchableDropdownItem<String>(value: _podController.text, label: _podController.text),
-                                ...locations.map((loc) => SearchableDropdownItem<String>(
+                                ...[
+                                  ...locations.where((l) => l.country == 'Egypt' || l.unLocode.startsWith('EG')),
+                                  ...locations.where((l) => l.country != 'Egypt' && !l.unLocode.startsWith('EG')),
+                                ].map((loc) => SearchableDropdownItem<String>(
                                       value: loc.locationName,
                                       label: '${loc.locationName} (${loc.country}${loc.unLocode.isNotEmpty ? " - ${loc.unLocode}" : ""})',
-                                      subtitle: loc.locationType,
+                                      subtitle: '${loc.locationType} - ${loc.country}',
                                     )),
                               ],
                               onChanged: (v) {

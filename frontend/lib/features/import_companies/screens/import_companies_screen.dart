@@ -315,6 +315,8 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    _buildExpiryBadge(company.daysUntilImporterIdExpiry, 'Import ID'),
+                    const SizedBox(height: 4),
                     _buildExpiryBadge(company.daysUntilVatExpiry, 'VAT Expiry'),
                     const SizedBox(height: 4),
                     _buildExpiryBadge(company.daysUntilRegExpiry, 'Com. Reg'),

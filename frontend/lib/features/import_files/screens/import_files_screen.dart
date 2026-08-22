@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
@@ -954,40 +955,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
   void _showImportFileDetailsDialog(BuildContext context, ImportFileModel file) {
     final allPOs = ref.read(purchaseOrdersProvider).purchaseOrders;
-    final linkedPOs = allPOs.where((p) =>
-        (p.importFileId != null && p.importFileId == file.importFileId) ||
-        (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
-        (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
-
-    final invoiceNumbers = <String>{};
-    if (file.piNumber != null && file.piNumber!.isNotEmpty) {
-      invoiceNumbers.add(file.piNumber!);
-    }
-    if (file.poNumber != null && file.poNumber!.isNotEmpty) {
-      invoiceNumbers.add(file.poNumber!);
-    }
-    for (var po in linkedPOs) {
-      if (po.proformaInvoiceNumber != null && po.proformaInvoiceNumber!.isNotEmpty) {
-        invoiceNumbers.add(po.proformaInvoiceNumber!);
-      }
-    }
-
-    double totalPackingListCbm = 0.0;
-    double totalPackingListWeight = 0.0;
-    int totalPackingListsCount = 0;
-
-    for (var po in linkedPOs) {
-      if (po.packingListItems.isNotEmpty) {
-        totalPackingListsCount += po.packingListItems.length;
-        for (var pl in po.packingListItems) {
-          totalPackingListCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-          totalPackingListWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
-        }
-      } else {
-        totalPackingListCbm += po.totalCbm;
-        totalPackingListWeight += po.totalGrossWeightKg;
-      }
-    }
+    final linkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
+    final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
 
     showDialog(
       context: context,
@@ -995,10 +964,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
         return ImportFileDetailsDialog(
           file: file,
           linkedPOs: linkedPOs,
-          invoiceNumbers: invoiceNumbers,
-          totalPackingListCbm: totalPackingListCbm,
-          totalPackingListWeight: totalPackingListWeight,
-          totalPackingListsCount: totalPackingListsCount,
+          invoiceNumbers: metrics.invoices,
+          totalPackingListCbm: metrics.cbm,
+          totalPackingListWeight: metrics.weightKg,
+          totalPackingListsCount: metrics.plCount,
           onEditPressed: () => _showAddEditFileDialog(file),
         );
       },

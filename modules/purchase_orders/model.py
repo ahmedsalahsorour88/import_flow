@@ -126,6 +126,7 @@ class PackingListItem(Base):
     height_cm = Column(Numeric(10, 2), nullable=True, default=0.0)
     net_weight_unit_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
     gross_weight_unit_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
+    weight_unit = Column(String(30), nullable=True, default="KGM")
 
     # Computed fields stored for reports and fast retrieval
     total_net_weight_kg = Column(Numeric(12, 2), nullable=False, default=0.0)
@@ -137,4 +138,47 @@ class PackingListItem(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     purchase_order = relationship("PurchaseOrder", back_populates="packing_list_items")
+
+
+# ==================================================
+# Package Types Master (أنواع التعبئة والتغليف والطرود)
+# ==================================================
+
+class PackageType(Base):
+    __tablename__ = "package_types"
+
+    package_type_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    code = Column(String(10), nullable=False, unique=True, index=True)   # e.g. B4, CT, BX, PK
+    name = Column(String(150), nullable=False, index=True)              # e.g. Belt, Carton, Box, Package
+    name_ar = Column(String(150), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+
+# ==================================================
+# Units of Measure Master (وحدات القياس)
+# ==================================================
+
+class UnitOfMeasure(Base):
+    __tablename__ = "units_of_measure"
+
+    unit_id = Column(Integer, primary_key=True, autoincrement=True, index=True)
+    code = Column(String(10), nullable=False, unique=True, index=True)   # e.g. GRM, KGM, SET, STN, PCS
+    name = Column(String(150), nullable=False, index=True)              # e.g. gram, kilogram, set, ton
+    name_ar = Column(String(150), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
 

@@ -327,9 +327,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           final impId = _importerCardCtrl.text.trim();
           final vatId = _taxIdCtrl.text.trim();
           final regNum = _commercialRegisterCtrl.text.trim();
-          final finalName = arabicName.isNotEmpty
-              ? (name.isNotEmpty ? '$arabicName - $name' : arabicName)
-              : name;
+          final finalName = name.isNotEmpty ? name : arabicName;
 
           payload = {
             'importer_name': finalName,
@@ -920,32 +918,15 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Company Names
-        Row(
-          children: [
-            Expanded(
-              child: TextFormField(
-                controller: _arabicNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'اسم الشركة المستوردة بالعربي *',
-                  prefixIcon: Icon(Icons.domain_rounded, size: 18),
-                  hintText: 'مثال: شركة النور للاستيراد والتصدير',
-                ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الشركة بالعربي مطلوب' : null,
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: TextField(
-                controller: _companyNameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'اسم الشركة بالإنجليزي (English Name)',
-                  prefixIcon: Icon(Icons.language_rounded, size: 18),
-                  hintText: 'e.g. Al-Noor Import & Export LLC',
-                ),
-              ),
-            ),
-          ],
+        // Company Name
+        TextFormField(
+          controller: _companyNameCtrl,
+          decoration: const InputDecoration(
+            labelText: 'اسم الشركة المستوردة (Company Name) *',
+            prefixIcon: Icon(Icons.domain_rounded, size: 18),
+            hintText: 'e.g. Al-Noor Import & Export LLC',
+          ),
+          validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الشركة المستوردة مطلوب' : null,
         ),
         const SizedBox(height: 10),
 

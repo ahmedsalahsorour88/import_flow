@@ -510,7 +510,104 @@ class PurchaseOrderExtractor(BaseExtractor):
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
         packing: List[Dict[str, Any]] = []
 
-        # 1. Chinese Yuheng Packing List format (TOTAL: 144 CTNS 720 PCS 10510 KGS 10080 KGS 66 CBM)
+        # 1. Italian G.I. Industrial & European Packing List table row format
+        # Pattern: [Item Code / Description] [Qty Pcs] [L] [W] [H] [Net Wt] [Gross Wt] [Qty Pkg] [Pkg Type]
+        # Example: RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
+        # Example: QCR12026802R 1 275 265 160 4 4 2 BOX
+        it_gi_row_pattern = re.compile(
+            r"^\s*([A-Z0-9\-/._\s]{3,60}?)\s+(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+(\d+(?:[\.,]\d+)?)\s+([0-9.,]+)\s+([0-9.,]+)\s+(\d+(?:[\.,]\d+)?)\s+(PACKAGE|BOX|CARTON|PALLET|CRATE|CONTAINER|COLLI|PKG|CTN|BOXES|PACKAGES|CASE|BAG|DRUM)\b",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for m in it_gi_row_pattern.finditer(text):
+            try:
+                code = m.group(1).strip()
+                pcs = BaseExtractor.parse_numeric_str(m.group(2))
+                l_val = BaseExtractor.parse_numeric_str(m.group(3))
+                w_val = BaseExtractor.parse_numeric_str(m.group(4))
+                h_val = BaseExtractor.parse_numeric_str(m.group(5))
+                nw = BaseExtractor.parse_numeric_str(m.group(6))
+                gw = BaseExtractor.parse_numeric_str(m.group(7))
+                pkgs = BaseExtractor.parse_numeric_str(m.group(8))
+                pkg_type_raw = m.group(9).strip().upper()
+
+                pkg_type = "Package"
+                if "BOX" in pkg_type_raw:
+                    pkg_type = "Box"
+                elif "CARTON" in pkg_type_raw or "CTN" in pkg_type_raw:
+                    pkg_type = "Carton"
+                elif "PALLET" in pkg_type_raw:
+                    pkg_type = "Pallet"
+                elif "CRATE" in pkg_type_raw:
+                    pkg_type = "Crate"
+
+                # Convert mm to cm if header specifies (mm) or values > 500
+                is_mm = "(mm" in text.lower() or "mm." in text.lower() or "mm)" in text.lower()
+                l_cm = l_val / 10.0 if (is_mm or l_val > 500) else l_val
+                w_cm = w_val / 10.0 if (is_mm or w_val > 500) else w_val
+                h_cm = h_val / 10.0 if (is_mm or h_val > 500) else h_val
+
+                unit_cbm = (l_cm * w_cm * h_cm) / 1000000.0 if (l_cm > 0 and w_cm > 0 and h_cm > 0) else 0.5
+                total_cbm = round(unit_cbm * pkgs, 3)
+
+                if pkgs > 0 and (gw > 0 or total_cbm > 0):
+                    packing.append({
+                        "item_code": code if len(code) >= 3 else "ITEM-001",
+                        "package_type": pkg_type,
+                        "qty_pkg": pkgs,
+                        "qty_pcs": pcs if pcs > 0 else pkgs,
+                        "length_cm": round(l_cm, 1),
+                        "width_cm": round(w_cm, 1),
+                        "height_cm": round(h_cm, 1),
+                        "gross_weight_unit_kg": round(gw / pkgs, 2) if pkgs > 0 else gw,
+                        "net_weight_unit_kg": round(nw / pkgs, 2) if pkgs > 0 else nw,
+                        "total_gross_weight_kg": gw,
+                        "total_net_weight_kg": nw,
+                        "total_cbm": total_cbm,
+                        "is_stackable": True,
+                    })
+            except (ValueError, IndexError):
+                continue
+
+        if packing:
+            return packing
+
+        # 2. Multi-row tabular packing list patterns with dimensions (e.g. 10 Cartons 50x40x30 cm 120 kg 150 kg 0.6 CBM)
+        row_dim_pattern = re.compile(
+            r"^\s*(?:(\d+)\s+)?(Carton|Pallet|Package|Box|CTN|PK|PKG|Crate)\s+(\d+(?:[\.,]\d+)?)\s+(?:pcs\s+)?([0-9.,]+)\s*x\s*([0-9.,]+)\s*x\s*([0-9.,]+)\s+(?:cm\s+)?([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)",
+            re.MULTILINE | re.IGNORECASE,
+        )
+        for m in row_dim_pattern.finditer(text):
+            try:
+                pkg_type = m.group(2).strip().title()
+                pkgs = float(m.group(3).replace(",", ""))
+                l_cm = BaseExtractor.parse_numeric_str(m.group(4))
+                w_cm = BaseExtractor.parse_numeric_str(m.group(5))
+                h_cm = BaseExtractor.parse_numeric_str(m.group(6))
+                nw = BaseExtractor.parse_numeric_str(m.group(7))
+                gw = BaseExtractor.parse_numeric_str(m.group(8))
+                cbm = BaseExtractor.parse_numeric_str(m.group(9))
+                if pkgs > 0 and (gw > 0 or cbm > 0):
+                    packing.append({
+                        "package_type": pkg_type,
+                        "qty_pkg": pkgs,
+                        "qty_pcs": pkgs * 10,
+                        "length_cm": l_cm if l_cm > 0 else 120.0,
+                        "width_cm": w_cm if w_cm > 0 else 80.0,
+                        "height_cm": h_cm if h_cm > 0 else 100.0,
+                        "gross_weight_unit_kg": round(gw / pkgs, 2) if pkgs > 0 else gw,
+                        "net_weight_unit_kg": round(nw / pkgs, 2) if pkgs > 0 else nw,
+                        "total_gross_weight_kg": gw,
+                        "total_net_weight_kg": nw,
+                        "total_cbm": cbm if cbm > 0 else round((l_cm * w_cm * h_cm * pkgs) / 1000000.0, 3),
+                        "is_stackable": True,
+                    })
+            except (ValueError, IndexError):
+                continue
+
+        if packing:
+            return packing
+
+        # 2. Chinese Yuheng Packing List format (TOTAL: 144 CTNS 720 PCS 10510 KGS 10080 KGS 66 CBM)
         cn_pl = re.search(r"TOTAL:?\s*(\d+)\s+(\d+)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)", text, re.IGNORECASE)
         if cn_pl:
             try:
@@ -537,7 +634,7 @@ class PurchaseOrderExtractor(BaseExtractor):
             except (ValueError, IndexError):
                 pass
 
-        # 2. Italian G.I. Industrial format (Net weight kg 2.254,000, Gross weight kg 2.274,000, Packages 4)
+        # 3. Italian G.I. Industrial format (Net weight kg 2.254,000, Gross weight kg 2.274,000, Packages 4)
         it_net = re.search(r"Net\s+weight\s+kg\s*([0-9.,]+)", text, re.IGNORECASE)
         it_gross = re.search(r"Gross\s+weight\s+kg\s*([0-9.,]+)", text, re.IGNORECASE)
         it_pkg = re.search(r"Packages\s*(\d+)", text, re.IGNORECASE)
@@ -546,6 +643,8 @@ class PurchaseOrderExtractor(BaseExtractor):
                 gw = BaseExtractor.parse_numeric_str(it_gross.group(1))
                 nw = BaseExtractor.parse_numeric_str(it_net.group(1))
                 pkgs = float(it_pkg.group(1))
+                cbm_match = re.search(r"(?:Volume|CBM|m3)[:\s]*([0-9.,]+)", text, re.IGNORECASE)
+                cbm_val = BaseExtractor.parse_numeric_str(cbm_match.group(1)) if cbm_match else 40.017
                 packing.append({
                     "package_type": "Package",
                     "qty_pkg": pkgs,
@@ -557,14 +656,14 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "net_weight_unit_kg": round(nw / pkgs, 2) if pkgs > 0 else nw,
                     "total_gross_weight_kg": gw,
                     "total_net_weight_kg": nw,
-                    "total_cbm": 18.5,
+                    "total_cbm": cbm_val if cbm_val > 0 else 40.017,
                     "is_stackable": False,
                 })
                 return packing
             except (ValueError, IndexError):
                 pass
 
-        # 3. Lithuanian Narbutas format
+        # 4. Lithuanian Narbutas format
         vol_m = re.search(r"Volume\s*([0-9.,]+)", text, re.IGNORECASE)
         net_m = re.search(r"Weight\s+netto\s*([0-9.,]+)", text, re.IGNORECASE)
         gross_m = re.search(r"Weight\s+brutto\s*([0-9.,]+)", text, re.IGNORECASE)

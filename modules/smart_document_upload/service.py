@@ -219,7 +219,10 @@ def parse_uploaded_document(
 
     # Step 3 — Extract fields
     try:
-        extracted_fields = extractor.extract(raw_text, spatial_boxes)
+        if isinstance(extractor, MasterDataEntityExtractor):
+            extracted_fields = extractor.extract(raw_text, spatial_boxes, module_name=module_name)
+        else:
+            extracted_fields = extractor.extract(raw_text, spatial_boxes)
     except Exception as e:
         logger.error(f"Extractor error for '{module_name}': {e}")
         extracted_fields = {}
@@ -317,7 +320,10 @@ def parse_multiple_uploaded_documents(
         extractor = ImportFileExtractor()
 
     try:
-        extracted_fields = extractor.extract(full_text, combined_boxes)
+        if isinstance(extractor, MasterDataEntityExtractor):
+            extracted_fields = extractor.extract(full_text, combined_boxes, module_name=module_name)
+        else:
+            extracted_fields = extractor.extract(full_text, combined_boxes)
     except Exception as e:
         logger.error(f"Multi-document extractor error for '{module_name}': {e}")
         extracted_fields = {}
@@ -390,7 +396,10 @@ def parse_raw_text_directly(
         extractor = MasterDataEntityExtractor()
 
     try:
-        extracted_fields = extractor.extract(raw_text, {})
+        if isinstance(extractor, MasterDataEntityExtractor):
+            extracted_fields = extractor.extract(raw_text, {}, module_name=module_name)
+        else:
+            extracted_fields = extractor.extract(raw_text, {})
     except Exception as e:
         logger.error(f"Direct raw text extractor error for '{module_name}': {e}")
         extracted_fields = {}

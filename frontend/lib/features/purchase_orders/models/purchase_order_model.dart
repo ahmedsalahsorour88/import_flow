@@ -1,3 +1,45 @@
+const List<Map<String, String>> kMasterPackageTypes = [
+  {'code': 'CT', 'name': 'CT - Carton (كرتونة)'},
+  {'code': 'BX', 'name': 'BX - Box (صندوق)'},
+  {'code': 'PK', 'name': 'PK - Package (طرد / عبوة)'},
+  {'code': 'PLT', 'name': 'PLT - Pallet (بالتة)'},
+  {'code': 'BG', 'name': 'BG - Bag (كيس / شوال)'},
+  {'code': 'CR', 'name': 'CR - Crate (قفص خشبي)'},
+  {'code': 'DR', 'name': 'DR - Drum (برميل)'},
+  {'code': 'RO', 'name': 'RO - Roll (رول / لفة)'},
+  {'code': 'CL', 'name': 'CL - Coil (لفافة / كويل)'},
+  {'code': 'BE', 'name': 'BE - Bundle (حزمة)'},
+  {'code': 'BL', 'name': 'BL - Bale, compressed (بالة مضغوطة)'},
+  {'code': 'BD', 'name': 'BD - Board (لوح)'},
+  {'code': 'B4', 'name': 'B4 - Belt (حزام / سير)'},
+  {'code': 'BK', 'name': 'BK - Basket (سلة)'},
+  {'code': 'CA', 'name': 'CA - Can, rectangular (صفيحة مستطيلة)'},
+  {'code': 'CH', 'name': 'CH - Chest (صندوق خشب كبير)'},
+  {'code': 'PF', 'name': 'PF - Pen (قلم / حاوية خاصة)'},
+  {'code': 'PG', 'name': 'PG - Plate (صفيحة / لوح مسطح)'},
+  {'code': 'PL', 'name': 'PL - Pail (سطل / جردل)'},
+  {'code': 'PR', 'name': 'PR - Receptacle, plastic (وعاء بلاستيكي)'},
+  {'code': 'RL', 'name': 'RL - Reel (بكرة)'},
+  {'code': 'TN', 'name': 'TN - Tin (علبة صفيح)'},
+  {'code': 'VQ', 'name': 'VQ - Bulk, liquefied gas (صب / غاز مسال)'},
+  {'code': 'IBC', 'name': 'IBC - IBC Tank (خزان سوائل)'},
+];
+
+const List<Map<String, String>> kMasterUnitsOfMeasure = [
+  {'code': 'PCS', 'name': 'PCS - Piece (قطعة)'},
+  {'code': 'KGM', 'name': 'KGM - Kilogram (كيلوجرام)'},
+  {'code': 'GRM', 'name': 'GRM - Gram (جرام)'},
+  {'code': 'SET', 'name': 'SET - Set (طقم / مجموعة)'},
+  {'code': 'STN', 'name': 'STN - Ton (US / Short ton)'},
+  {'code': 'TON', 'name': 'TON - Metric Ton (طن متري)'},
+  {'code': 'CTN', 'name': 'CTN - Carton (كرتونة)'},
+  {'code': 'BOX', 'name': 'BOX - Box (صندوق)'},
+  {'code': 'PKG', 'name': 'PKG - Package (طرد)'},
+  {'code': 'MTR', 'name': 'MTR - Meter (متر)'},
+  {'code': 'LTR', 'name': 'LTR - Liter (لتر)'},
+  {'code': 'LOT', 'name': 'LOT - Lot (دفعة)'},
+];
+
 double _numToDouble(dynamic val, [double fallback = 0.0]) {
   if (val == null) return fallback;
   if (val is num) return val.toDouble();
@@ -157,6 +199,7 @@ class PackingListItemModel {
   final double lengthCm;
   final double widthCm;
   final double heightCm;
+  final String weightUnit;
   final double netWeightUnitKg;
   final double grossWeightUnitKg;
   final double totalNetWeightKg;
@@ -177,6 +220,7 @@ class PackingListItemModel {
     this.lengthCm = 0.0,
     this.widthCm = 0.0,
     this.heightCm = 0.0,
+    this.weightUnit = 'KGM',
     this.netWeightUnitKg = 0.0,
     this.grossWeightUnitKg = 0.0,
     this.totalNetWeightKg = 0.0,
@@ -207,6 +251,7 @@ class PackingListItemModel {
     double? lengthCm,
     double? widthCm,
     double? heightCm,
+    String? weightUnit,
     double? netWeightUnitKg,
     double? grossWeightUnitKg,
     double? totalNetWeightKg,
@@ -227,6 +272,7 @@ class PackingListItemModel {
       lengthCm: lengthCm ?? this.lengthCm,
       widthCm: widthCm ?? this.widthCm,
       heightCm: heightCm ?? this.heightCm,
+      weightUnit: weightUnit ?? this.weightUnit,
       netWeightUnitKg: netWeightUnitKg ?? this.netWeightUnitKg,
       grossWeightUnitKg: grossWeightUnitKg ?? this.grossWeightUnitKg,
       totalNetWeightKg: totalNetWeightKg ?? this.totalNetWeightKg,
@@ -250,6 +296,7 @@ class PackingListItemModel {
       lengthCm: _numToDouble(json['length_cm']),
       widthCm: _numToDouble(json['width_cm']),
       heightCm: _numToDouble(json['height_cm']),
+      weightUnit: json['weight_unit'] as String? ?? 'KGM',
       netWeightUnitKg: _numToDouble(json['net_weight_unit_kg']),
       grossWeightUnitKg: _numToDouble(json['gross_weight_unit_kg']),
       totalNetWeightKg: _numToDouble(json['total_net_weight_kg']),
@@ -273,6 +320,7 @@ class PackingListItemModel {
       'length_cm': lengthCm,
       'width_cm': widthCm,
       'height_cm': heightCm,
+      'weight_unit': weightUnit,
       'net_weight_unit_kg': netWeightUnitKg,
       'gross_weight_unit_kg': grossWeightUnitKg,
       'is_stackable': isStackable,

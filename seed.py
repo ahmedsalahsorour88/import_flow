@@ -425,25 +425,90 @@ def seed_data():
         # ==================================================
         # 5. Seed Transport Locations (MD-009)
         # ==================================================
-        if db.query(TransportLocation).count() == 0:
-            print("Seeding Transport Locations (MD-009)...")
-            ports = [
-                TransportLocation(un_locode="EGALY", location_name="Alexandria Port (ميناء الإسكندرية)", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
-                TransportLocation(un_locode="EGDKH", location_name="El-Dekheila Port (ميناء الدخيلة)", location_type="Port", country="Egypt", city="Alexandria", is_active=True),
-                TransportLocation(un_locode="EGPSD", location_name="Port Said West (ميناء غرب بورسعيد)", location_type="Port", country="Egypt", city="Port Said", is_active=True),
-                TransportLocation(un_locode="EGPSE", location_name="Port Said East (ميناء شرق بورسعيد)", location_type="Port", country="Egypt", city="Port Said", is_active=True),
-                TransportLocation(un_locode="EGDAM", location_name="Damietta Port (ميناء دمياط)", location_type="Port", country="Egypt", city="Damietta", is_active=True),
-                TransportLocation(un_locode="EGSOK", location_name="Sokhna Port (ميناء العين السخنة)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-                TransportLocation(un_locode="EGSUZ", location_name="Suez Port (ميناء السويس - بورتوفيق)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-                TransportLocation(un_locode="EGADA", location_name="Adabiya Port (ميناء الأدبية)", location_type="Port", country="Egypt", city="Suez", is_active=True),
-                TransportLocation(un_locode="EGCAI", location_name="Cairo International Airport Cargo Terminal (قرية البضائع بمطار القاهرة)", location_type="Airport", country="Egypt", city="Cairo", is_active=True),
-                TransportLocation(un_locode="EG6OCT", location_name="6th of October Dry Port (الميناء الجاف بمدينة 6 أكتوبر)", location_type="Dry Port", country="Egypt", city="Giza", is_active=True),
-                TransportLocation(un_locode="EG10R", location_name="10th of Ramadan Dry Port (الميناء الجاف بمدينة العاشر من رمضان)", location_type="Dry Port", country="Egypt", city="Sharqia", is_active=True),
-                TransportLocation(un_locode="EGSAD", location_name="Sadat City Inland Logistics Center (المركز اللوجستي بمدينة السادات)", location_type="Warehouse", country="Egypt", city="Monufia", is_active=True),
-            ]
-            db.add_all(ports)
+        print("Seeding Transport Locations (MD-009)...")
+        ports_data = [
+            # Egyptian Ports & Logistics Nodes
+            ("EGALY", "Alexandria Port (ميناء الإسكندرية)", "Port", "Egypt", "Alexandria"),
+            ("EGDKH", "El-Dekheila Port (ميناء الدخيلة)", "Port", "Egypt", "Alexandria"),
+            ("EGPSD", "Port Said West (ميناء غرب بورسعيد)", "Port", "Egypt", "Port Said"),
+            ("EGPSE", "Port Said East (ميناء شرق بورسعيد)", "Port", "Egypt", "Port Said"),
+            ("EGDAM", "Damietta Port (ميناء دمياط)", "Port", "Egypt", "Damietta"),
+            ("EGSOK", "Sokhna Port (ميناء العين السخنة)", "Port", "Egypt", "Suez"),
+            ("EGSUZ", "Suez Port (ميناء السويس - بورتوفيق)", "Port", "Egypt", "Suez"),
+            ("EGADA", "Adabiya Port (ميناء الأدبية)", "Port", "Egypt", "Suez"),
+            ("EGCAI", "Cairo International Airport Cargo Terminal (قرية البضائع بمطار القاهرة)", "Airport", "Egypt", "Cairo"),
+            ("EG6OCT", "6th of October Dry Port (الميناء الجاف بمدينة 6 أكتوبر)", "Dry Port", "Egypt", "Giza"),
+            ("EG10R", "10th of Ramadan Dry Port (الميناء الجاف بمدينة العاشر من رمضان)", "Dry Port", "Egypt", "Sharqia"),
+            ("EGSAD", "Sadat City Inland Logistics Center (المركز اللوجستي بمدينة السادات)", "Warehouse", "Egypt", "Monufia"),
+            
+            # Global International Ports (POL departure ports)
+            # Italy
+            ("ITGOA", "Genoa Port (ميناء جنوة - إيطاليا)", "Port", "Italy", "Genoa"),
+            ("ITSPE", "La Spezia Port (ميناء لا سبيتسيا - إيطاليا)", "Port", "Italy", "La Spezia"),
+            ("ITTRS", "Trieste Port (ميناء ترييستي - إيطاليا)", "Port", "Italy", "Trieste"),
+            ("ITVCE", "Venice Port (ميناء البندقية - إيطاليا)", "Port", "Italy", "Venice"),
+            ("ITNAP", "Naples Port (ميناء نابولي - إيطاليا)", "Port", "Italy", "Naples"),
+            ("ITUDI", "Udine Inland Cargo Terminal (المركز اللوجستي أوديني - إيطاليا)", "Dry Port", "Italy", "Udine"),
+            
+            # China
+            ("CNSHA", "Shanghai Port (ميناء شانغهاي - الصين)", "Port", "China", "Shanghai"),
+            ("CNNGB", "Ningbo-Zhoushan Port (ميناء نينغبو - الصين)", "Port", "China", "Ningbo"),
+            ("CNSZX", "Shenzhen Yantian Port (ميناء شينزين - الصين)", "Port", "China", "Shenzhen"),
+            ("CNTAO", "Qingdao Port (ميناء تشينغداو - الصين)", "Port", "China", "Qingdao"),
+            ("CNCAN", "Guangzhou Nansha Port (ميناء جوانزو - الصين)", "Port", "China", "Guangzhou"),
+            ("CNTSN", "Tianjin Port (ميناء تيانجين - الصين)", "Port", "China", "Tianjin"),
+            ("CNDLC", "Dalian Port (ميناء داليان - الصين)", "Port", "China", "Dalian"),
+            ("CNXMN", "Xiamen Port (ميناء شيامين - الصين)", "Port", "China", "Xiamen"),
+
+            # Germany & Western Europe
+            ("DEHAM", "Hamburg Port (ميناء هامبورغ - ألمانيا)", "Port", "Germany", "Hamburg"),
+            ("DEBRV", "Bremerhaven Port (ميناء بريمرهافن - ألمانيا)", "Port", "Germany", "Bremerhaven"),
+            ("DEFRA", "Frankfurt Airport Cargo Terminal (مطار فرانكفورت - ألمانيا)", "Airport", "Germany", "Frankfurt"),
+            ("NLRTM", "Rotterdam Port (ميناء روتردام - هولندا)", "Port", "Netherlands", "Rotterdam"),
+            ("BEANR", "Antwerp Port (ميناء أنتويرب - بلجيكا)", "Port", "Belgium", "Antwerp"),
+            
+            # United Kingdom
+            ("GBLGW", "London Gateway Port (ميناء لندن غيتواي - بريطانيا)", "Port", "United Kingdom", "London"),
+            ("GBFXT", "Felixstowe Port (ميناء فيليكستو - بريطانيا)", "Port", "United Kingdom", "Felixstowe"),
+            ("GBSOU", "Southampton Port (ميناء ساوثهامبتون - بريطانيا)", "Port", "United Kingdom", "Southampton"),
+            
+            # Turkey & Mediterranean
+            ("TRAMB", "Istanbul Ambarli Port (ميناء إسطنبول أمبارلي - تركيا)", "Port", "Turkey", "Istanbul"),
+            ("TRMER", "Mersin Port (ميناء مرسين - تركيا)", "Port", "Turkey", "Mersin"),
+            ("TRIZM", "Izmir Port (ميناء إزمير - تركيا)", "Port", "Turkey", "Izmir"),
+            ("TRGEB", "Gebze Logistics Port (ميناء جبزي - تركيا)", "Dry Port", "Turkey", "Gebze"),
+            
+            # Middle East & Gulf
+            ("AEJEA", "Jebel Ali Port (ميناء جبل علي دبي - الإمارات)", "Port", "United Arab Emirates", "Dubai"),
+            ("AEKHF", "Khalifa Port Abu Dhabi (ميناء خليفة أبوظبي - الإمارات)", "Port", "United Arab Emirates", "Abu Dhabi"),
+            ("SAJED", "Jeddah Islamic Port (ميناء جدة الإسلامي - السعودية)", "Port", "Saudi Arabia", "Jeddah"),
+            ("SADMM", "King Abdulaziz Port Dammam (ميناء الدمام - السعودية)", "Port", "Saudi Arabia", "Dammam"),
+
+            # Americas & Asia Pacific
+            ("USLAX", "Los Angeles Port (ميناء لوس أنجلوس - أمريكا)", "Port", "United States", "Los Angeles"),
+            ("USNYC", "New York / New Jersey Port (ميناء نيويورك - أمريكا)", "Port", "United States", "New York"),
+            ("USSAV", "Savannah Port (ميناء سافانا - أمريكا)", "Port", "United States", "Savannah"),
+            ("ESVLC", "Valencia Port (ميناء فالنسيا - إسبانيا)", "Port", "Spain", "Valencia"),
+            ("ESBCN", "Barcelona Port (ميناء برشلونة - إسبانيا)", "Port", "Spain", "Barcelona"),
+            ("FRLEH", "Le Havre Port (ميناء لو هافر - فرنسا)", "Port", "France", "Le Havre"),
+            ("INNSA", "Nhava Sheva JNPT Port (ميناء نفا شيفا - الهند)", "Port", "India", "Mumbai"),
+            ("INMUN", "Mundra Port (ميناء موندرا - الهند)", "Port", "India", "Gujarat"),
+            ("JPTYO", "Tokyo Port (ميناء طوكيو - اليابان)", "Port", "Japan", "Tokyo"),
+            ("JPYOK", "Yokohama Port (ميناء يوكوهاما - اليابان)", "Port", "Japan", "Yokohama"),
+            ("KRPUS", "Busan Port (ميناء بوسان - كوريا الجنوبية)", "Port", "South Korea", "Busan"),
+            ("SGSIN", "Singapore Port (ميناء سنغافورة - سنغافورة)", "Port", "Singapore", "Singapore"),
+        ]
+
+        existing_locodes = {loc.un_locode for loc in db.query(TransportLocation.un_locode).all()}
+        new_ports = [
+            TransportLocation(un_locode=code, location_name=name, location_type=ltype, country=country, city=city, is_active=True)
+            for code, name, ltype, country, city in ports_data
+            if code not in existing_locodes
+        ]
+        if new_ports:
+            db.add_all(new_ports)
             db.commit()
-            print("Transport Locations (MD-009) seeded successfully.")
+            print(f"Added {len(new_ports)} international transport locations to DB.")
 
         # ==================================================
         # 6. Seed Currencies & Exchange Rates (MD-004)

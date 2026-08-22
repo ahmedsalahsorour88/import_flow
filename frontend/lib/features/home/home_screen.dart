@@ -45,6 +45,8 @@ import '../smart_tasks/screens/smart_tasks_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
+import '../production_sync/screens/production_sync_screen.dart';
+import '../production_sync/widgets/production_sync_hub_dialog.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -159,6 +161,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 58: OriginalDocsAndCargoXScreen — default (subTab 0, Original Docs)
         OriginalDocsAndCargoXScreen(key: ValueKey('original_docs_cargox_default')),
+
+        // 59: Production Sync & Deployment Hub (In-App Sync Utility)
+        ProductionSyncScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -311,6 +316,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
               ),
               const NotificationBellWidget(),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.sync_rounded, color: AppTheme.emerald, size: 17),
+                tooltip: 'مركز مزامنة وتحديث الإنتاج (Production Sync Hub)',
+                onPressed: () => ProductionSyncHubDialog.show(context),
+              ),
+              const SizedBox(width: 4),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -526,6 +539,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.published_with_changes_outlined, 'Quick Update Engine', 'محرك التحديث السريع', 42, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Smart Tasks & Alerts', 'المهام والتنبيهات الذكية', 40, selectedIndex),
                   _buildMenuItem(Icons.history_edu_outlined, 'System Audit Logs', 'سجل التدقيق والرقابة', 39, selectedIndex),
+                  _buildMenuItem(Icons.sync_alt_rounded, 'Production Sync Hub', 'مركز مزامنة وتحديث الإنتاج', 59, selectedIndex),
                 ],
               ),
             ],
@@ -844,6 +858,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
         actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.emerald,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+            ),
+            icon: const Icon(Icons.sync_rounded, size: 16),
+            label: const Text('مركز المزامنة والتحديث (Sync Hub)', style: TextStyle(fontWeight: FontWeight.bold)),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              ProductionSyncHubDialog.show(context);
+            },
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.cobalt,

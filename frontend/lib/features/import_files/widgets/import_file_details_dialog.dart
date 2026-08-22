@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/import_file_po_linker.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../purchase_orders/models/purchase_order_model.dart' hide PackingListItemModel;
 import '../../../core/utils/container_requirement_engine.dart';
@@ -38,52 +39,13 @@ class ImportFileDetailsDialog extends ConsumerStatefulWidget {
 
 class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog> {
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
-    final List<CargoItem> baseCargoItems = [];
-    int itemCounter = 1;
-
-    for (final po in pos) {
-      for (final pl in po.packingListItems) {
-        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
-          double lCm = pl.lengthCm;
-          double wCm = pl.widthCm;
-          double hCm = pl.heightCm;
-          if (pl.unit == 'mm') {
-            lCm /= 10;
-            wCm /= 10;
-            hCm /= 10;
-          } else if (pl.unit == 'm') {
-            lCm *= 100;
-            wCm *= 100;
-            hCm *= 100;
-          }
-
-          baseCargoItems.add(CargoItem(
-            itemId: '$itemCounter',
-            length: lCm,
-            width: wCm,
-            height: hCm,
-            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
-            rotate: true,
-            isStackable: pl.isStackable,
-            packageType: pl.packageType,
-          ));
-          itemCounter++;
-        }
-      }
-    }
-
-    if (baseCargoItems.isEmpty) {
-      final fallbackWeight = widget.totalPackingListWeight > 0 ? widget.totalPackingListWeight : 500.0;
-      baseCargoItems.add(CargoItem(
-        itemId: '1',
-        length: 120,
-        width: 80,
-        height: 100,
-        weight: fallbackWeight,
-        rotate: true,
-        isStackable: true,
-      ));
-    }
+    final file = widget.file;
+    final baseCargoItems = ImportFilePoLinker.buildCargoItems(
+      pos: pos,
+      file: file,
+      fallbackCbm: widget.totalPackingListCbm,
+      fallbackWeight: widget.totalPackingListWeight,
+    );
 
     // Default active view mode: null = Actual/Mixed, true = All Stackable, false = All Non-Stackable
     bool? activeStackingMode = baseCargoItems.any((i) => !i.isStackable) ? null : true;
@@ -582,33 +544,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
   Widget build(BuildContext context) {
     final file = widget.file;
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
-    final liveLinkedPOs = allPOs.where((p) =>
-        (p.importFileId != null && p.importFileId == file.importFileId) ||
-        (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) ||
-        (file.poIds != null && p.poId != null && file.poIds!.contains(p.poId))).toList();
+    final liveLinkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
     final linkedPOs = liveLinkedPOs.isNotEmpty ? liveLinkedPOs : widget.linkedPOs;
 
-    // Recalculate live CBM & Gross Weight & Packing List counts from the linked POs
-    double liveCbm = 0.0;
-    double liveWeight = 0.0;
-    int livePlCount = 0;
-    for (final po in linkedPOs) {
-      if (po.packingListItems.isNotEmpty) {
-        livePlCount += po.packingListItems.length;
-        for (final pl in po.packingListItems) {
-          liveCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
-          liveWeight += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.qtyPkg * pl.grossWeightUnitKg));
-        }
-      } else {
-        liveCbm += po.totalCbm;
-        liveWeight += po.totalGrossWeightKg;
-      }
-    }
-
-    final totalPackingListCbm = liveCbm > 0 ? liveCbm : widget.totalPackingListCbm;
-    final totalPackingListWeight = liveWeight > 0 ? liveWeight : widget.totalPackingListWeight;
-    final totalPackingListsCount = livePlCount > 0 ? livePlCount : widget.totalPackingListsCount;
-    final invoiceNumbers = widget.invoiceNumbers;
+    final metrics = ImportFilePoLinker.computeMetrics(file: file, linkedPOs: linkedPOs);
+    final totalPackingListCbm = metrics.cbm > 0 ? metrics.cbm : widget.totalPackingListCbm;
+    final totalPackingListWeight = metrics.weightKg > 0 ? metrics.weightKg : widget.totalPackingListWeight;
+    final totalPackingListsCount = metrics.plCount > 0 ? metrics.plCount : widget.totalPackingListsCount;
+    final invoiceNumbers = metrics.invoices.isNotEmpty ? metrics.invoices : widget.invoiceNumbers;
 
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: totalPackingListCbm,
@@ -616,51 +559,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     );
     final modeRec = dualRec.modeRecommendation;
 
-    final List<CargoItem> baseCargoItems = [];
-    int itemCounter = 1;
-    for (final po in linkedPOs) {
-      for (final pl in po.packingListItems) {
-        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
-          double lCm = pl.lengthCm;
-          double wCm = pl.widthCm;
-          double hCm = pl.heightCm;
-          if (pl.unit == 'mm') {
-            lCm /= 10;
-            wCm /= 10;
-            hCm /= 10;
-          } else if (pl.unit == 'm') {
-            lCm *= 100;
-            wCm *= 100;
-            hCm *= 100;
-          }
-
-          baseCargoItems.add(CargoItem(
-            itemId: '$itemCounter',
-            length: lCm,
-            width: wCm,
-            height: hCm,
-            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
-            rotate: true,
-            isStackable: pl.isStackable,
-            packageType: pl.packageType,
-          ));
-          itemCounter++;
-        }
-      }
-    }
-
-    if (baseCargoItems.isEmpty) {
-      final fallbackWeight = totalPackingListWeight > 0 ? totalPackingListWeight : 500.0;
-      baseCargoItems.add(CargoItem(
-        itemId: '1',
-        length: 120,
-        width: 80,
-        height: 100,
-        weight: fallbackWeight,
-        rotate: true,
-        isStackable: true,
-      ));
-    }
+    final baseCargoItems = ImportFilePoLinker.buildCargoItems(
+      pos: linkedPOs,
+      file: file,
+      fallbackCbm: totalPackingListCbm,
+      fallbackWeight: totalPackingListWeight,
+    );
 
     // Run the 3 plans
     final planStackable = ContainerRequirementEngine.planShipment(baseCargoItems, forceStackable: true);

@@ -17,35 +17,45 @@ class MasterDataEntityExtractor(BaseExtractor):
     def required_fields(self) -> List[str]:
         return ["company_name", "phone_number", "country_code"]
 
-    def extract(self, raw_text: str, spatial_boxes: dict = None) -> Dict[str, Any]:
+    def extract(self, raw_text: str, spatial_boxes: dict = None, module_name: str = "generic") -> Dict[str, Any]:
         text = raw_text or ""
+        entity_type = "importer" if "importer" in module_name.lower() else ("supplier" if "supplier" in module_name.lower() else "generic")
 
         result: Dict[str, Any] = {
-            "company_name": self._extract_company_name(text),
+            "company_name": self._extract_company_name(text, entity_type=entity_type),
             "arabic_name": self._extract_arabic_name(text),
-            "contact_person": self._extract_contact_person(text),
-            "mobile_number": self._extract_mobile(text),
-            "phone_number": self._extract_phone(text),
-            "fax_number": self._extract_fax(text),
-            "website": self._extract_website(text),
-            "email": self._extract_email(text),
-            "vat_tax_id": self._extract_tax_id(text),
-            "address": self._extract_address(text),
-            "country_code": self._extract_country(text),
-            "postcode": self._extract_postcode(text),
-            "industry_description": self._extract_industry(text),
-            "commercial_register": self._extract_commercial_register(text),
-            "registration_expiry": self._extract_registration_expiry(text),
-            "importer_id": self._extract_importer_id(text),
-            "importer_id_expiry": self._extract_importer_expiry(text),
-            "vat_id_expiry": self._extract_vat_expiry(text),
-            "cargox_id": self._extract_cargox_id(text),
-            "license_number": self._extract_broker_license(text),
-            "swift_code": self._extract_swift(text),
-            "bank_account": self._extract_iban(text),
-            "iban": self._extract_iban(text),
+            "contact_person": self._clean_val(self._extract_contact_person(text)),
+            "mobile_number": self._clean_val(self._extract_mobile(text)),
+            "phone_number": self._clean_val(self._extract_phone(text)),
+            "fax_number": self._clean_val(self._extract_fax(text)),
+            "website": self._clean_val(self._extract_website(text)),
+            "email": self._clean_val(self._extract_email(text)),
+            "vat_tax_id": self._clean_val(self._extract_tax_id(text)),
+            "address": self._clean_val(self._extract_address(text)),
+            "country_code": self._clean_val(self._extract_country(text)),
+            "postcode": self._clean_val(self._extract_postcode(text)),
+            "industry_description": self._clean_val(self._extract_industry(text)),
+            "commercial_register": self._clean_val(self._extract_commercial_register(text)),
+            "registration_expiry": self._clean_val(self._extract_registration_expiry(text)),
+            "importer_id": self._clean_val(self._extract_importer_id(text)),
+            "importer_id_expiry": self._clean_val(self._extract_importer_expiry(text)),
+            "vat_id_expiry": self._clean_val(self._extract_vat_expiry(text)),
+            "cargox_id": self._clean_val(self._extract_cargox_id(text)),
+            "license_number": self._clean_val(self._extract_broker_license(text)),
+            "swift_code": self._clean_val(self._extract_swift(text)),
+            "bank_account": self._clean_val(self._extract_iban(text)),
+            "iban": self._clean_val(self._extract_iban(text)),
         }
         return result
+
+    def _clean_val(self, val: Optional[str]) -> Optional[str]:
+        if not val:
+            return None
+        cleaned = re.sub(r"[\r\n]+", " ", str(val)).strip()
+        cleaned = re.sub(r"\s+", " ", cleaned)
+        if not cleaned or cleaned.upper() in ["NONE", "NULL", "PNG", "JPG", "PDF", "UNKNOWN", "SUPPLIER"]:
+            return None
+        return cleaned
 
     def _extract_importer_expiry(self, text: str) -> Optional[str]:
         for line in text.splitlines():
@@ -96,30 +106,69 @@ class MasterDataEntityExtractor(BaseExtractor):
         ], text)
 
     def _extract_arabic_name(self, text: str) -> Optional[str]:
-        # Look for Arabic company names
         lines = [l.strip() for l in text.splitlines() if l.strip()]
         for l in lines:
             if re.search(r"[\u0600-\u06FF]{3,}", l) and any(kw in l for kw in ["شركة", "مؤسسة", "مكتب", "للاستيراد", "للتجارة", "ش.م.م", "ذ.م.م"]):
                 return l
         return None
 
-    def _extract_company_name(self, text: str) -> Optional[str]:
-        # 1. Look for explicit company lines with legal suffixes
-        lines = [line.strip() for line in text.splitlines() if line.strip()]
-        for line in lines:
+    def _extract_company_name(self, text: str, entity_type: str = "generic") -> Optional[str]:
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        valid_lines = []
+        system_stop_words = [
+            "UNIVERSAL MASTER DATA", "ENTITY EXTRACTOR", "COMMERCIAL INVOICE",
+            "PACKING LIST", "BILL OF LADING", "PAGE 1", "IMPORTFLOW", "SCREENSHOT",
+            "RAW TEXT", "POWERED", "AUTO-REGISTRATION ENGINE", ".PNG", ".PDF", ".JPG"
+        ]
+
+        for l in lines:
+            upper = l.upper()
+            if not any(stop in upper for stop in system_stop_words):
+                valid_lines.append(l)
+
+        if not valid_lines:
+            return None
+
+        # 1. Entity-specific labeled detection
+        if entity_type == "importer":
+            consignee_match = self.find_first([
+                r"(?:Consignee|Importer|Buyer|Billed\s+to|Sold\s+to|Messrs|Client|اسم\s+المستورد|الشركة\s+المستوردة)[:\s]+([^\n]{3,80})",
+            ], text)
+            if consignee_match:
+                return self._clean_val(consignee_match)
+
+        elif entity_type == "supplier":
+            shipper_match = self.find_first([
+                r"(?:Shipper|Supplier|Exporter|Seller|Manufacturer|Vendor|المورد|الشاحن)[:\s]+([^\n]{3,80})",
+            ], text)
+            if shipper_match:
+                return self._clean_val(shipper_match)
+
+        # 2. General labeled company detection
+        labeled = self.find_first([
+            r"(?:Company\s+Name|Company|Consignee|Shipper|Supplier|Exporter|Name)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+        ], text)
+        if labeled and not any(stop in labeled.upper() for stop in system_stop_words):
+            return self._clean_val(labeled)
+
+        # 3. Look for explicit company lines with legal suffixes
+        suffixes = ["LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT", "S.A.E"]
+        for idx, line in enumerate(valid_lines):
             upper = line.upper()
-            if any(kw in upper for kw in ["LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT"]):
-                if not any(stop in upper for stop in ["ADDRESS:", "VAT NUMBER", "PHONE", "TEL:", "FACTORY ADDRESS"]):
+            if any(kw in upper for kw in suffixes):
+                if not any(stop in upper for stop in ["ADDRESS:", "VAT NUMBER", "PHONE", "TEL:", "FACTORY ADDRESS", "URL:"]):
+                    # If line is just suffix alone (e.g. "Ltd."), merge with preceding lines
+                    if len(line.strip("., ")) < 5 and idx > 0:
+                        prev = valid_lines[idx - 1]
+                        return f"{prev} {line}".strip()
                     return line.strip()
 
-        # 2. Look for labeled Company Name
-        labeled = self.find_first([
-            r"(?:Company\s+Name|Company|Supplier|Exporter|Name)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
-        ], text)
-        if labeled:
-            return labeled.strip()
+        # 4. Fallback to first clean valid line
+        first_clean = valid_lines[0]
+        if len(first_clean) > 3 and not any(stop in first_clean.upper() for stop in system_stop_words):
+            return first_clean
 
-        return lines[0] if lines else None
+        return None
 
     def _extract_contact_person(self, text: str) -> Optional[str]:
         return self.find_first([
@@ -160,7 +209,7 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_tax_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:VAT\s+Number|VAT\s+No\.?|P\.IVA|Tax\s+ID|C\.F\.|Registration\s+No\.?|البطاقة\s+الضريبية|بطاقة\s+ضريبية|التسجيل\s+الضريبي|الرقم\s+الضريبي)[:\s]*([A-Za-z0-9\-]+)",
+            r"(?:VAT\s+Registration|VAT\s+Number|VAT\s+No\.?|VAT\s+ID|P\.IVA|Tax\s+ID|C\.F\.|Registration\s+No\.?|البطاقة\s+الضريبية|بطاقة\s+ضريبية|التسجيل\s+الضريبي|الرقم\s+الضريبي)[:\s]*([A-Za-z0-9\-]+)",
             r"VAT\s+Number\s+([0-9]+)",
             r"P\.IVA\s+([A-Za-z0-9]+)",
         ], text)
@@ -172,7 +221,6 @@ class MasterDataEntityExtractor(BaseExtractor):
         if labeled:
             return labeled.strip()
 
-        # Look for multi-line address clues (Road, Street, Town, City, Province, District)
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         addr_lines = []
         for line in lines:
@@ -206,19 +254,22 @@ class MasterDataEntityExtractor(BaseExtractor):
         return c
 
     def _extract_postcode(self, text: str) -> Optional[str]:
-        return self.find_first([
+        found = self.find_first([
             r"(?:Postcode|Zip|Postal\s+Code)[:\s]*([A-Za-z0-9\s]{4,10})",
-            r"\b(\d{6})\b",  # Chinese 6-digit postal code e.g. 215500
-            r"\b([A-Z]{1,2}\d[A-Z0-9]?\s*\d[A-Z]{2})\b",  # UK postcode e.g. DG4 6DB
-            r"\b(\d{5})\b",  # Italian 5-digit postal code e.g. 33053
+            r"\b(\d{6})\b",
+            r"\b([A-Z]{1,2}\d[A-Z0-9]?\s*\d[A-Z]{2})\b",
+            r"\b(\d{5})\b",
         ], text)
+        if found:
+            found = found.split("\n")[0].strip()
+        return found
 
     def _extract_industry(self, text: str) -> Optional[str]:
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         for line in lines:
             upper = line.upper()
             if any(kw in upper for kw in ["MANUFACTURER", "TRADING", "SUPPLIER", "INDUSTRIES", "CARPET", "ACOUSTIC", "TEXTILE", "HVAC", "FURNITURE"]):
-                if not any(stop in upper for stop in ["ADDRESS:", "FACTORY ADDRESS", "FACTORY OWNER", "PHONE", "VAT NUMBER", "LIMITED", "LTD"]):
+                if not any(stop in upper for stop in ["ADDRESS:", "FACTORY ADDRESS", "FACTORY OWNER", "PHONE", "VAT NUMBER", "LIMITED", "LTD", "E-MAIL", "URL:", "HTTP"]):
                     return line
         return None
 
@@ -230,10 +281,19 @@ class MasterDataEntityExtractor(BaseExtractor):
         ], text)
 
     def _extract_swift(self, text: str) -> Optional[str]:
-        return self.find_first([
+        explicit = self.find_first([
             r"(?:SWIFT|Swift\s+Code|BIC|SWIFT/BIC)[:\s]*([A-Z0-9]{8,11})",
-            r"\b([A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b",
         ], text)
+        if explicit:
+            return explicit.strip()
+
+        # Strict regex matching 8-11 char BIC with valid country code in pos 5-6
+        m = re.search(r"\b([A-Z]{4}(?:EG|US|CN|GB|DE|IT|FR|TR|SA|AE|ES|JP|KR|BR|RU|VN|CH|NL|BE|CA|AU|SG|HK)[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b", text)
+        if m:
+            val = m.group(1).strip()
+            if val.upper() not in ["SUPPLIER", "CONTAINER", "REGISTER", "IMPORTFLOW"]:
+                return val
+        return None
 
     def _extract_iban(self, text: str) -> Optional[str]:
         return self.find_first([

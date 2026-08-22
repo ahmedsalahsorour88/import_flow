@@ -103,6 +103,7 @@ from modules.smart_document_upload.router import router as smart_document_upload
 from modules.docs_customs_approval.router import router as docs_customs_approval_router
 from modules.cargox.router import router as cargox_router
 from modules.original_documents_collection.router import router as original_documents_collection_router
+from modules.production_sync.router import router as production_sync_router
 
 
 # ==================================================
@@ -211,6 +212,7 @@ app.include_router(smart_document_upload_router)
 app.include_router(docs_customs_approval_router)
 app.include_router(cargox_router)
 app.include_router(original_documents_collection_router)
+app.include_router(production_sync_router)
 
 
 # ==================================================

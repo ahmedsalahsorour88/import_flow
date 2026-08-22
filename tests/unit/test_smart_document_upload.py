@@ -86,6 +86,46 @@ class TestPurchaseOrderExtractor:
         missing = self.extractor.missing_required(result)
         assert len(missing) > 0
 
+    def test_gi_industrial_packing_list_extraction(self):
+        sample_gi_pl_ocr = """
+        Latisana, 30/06/2026
+        ECO ASSOCIATES
+        7 HOSNI OSMAN ST. SEFARAT DISTRICT
+        NOSTRO ORDINE / OUR ORDER M26 413
+        COMMESSA 27/360012
+        VOSTRO ORDINE / YOUR ORDER ECO/049/2026/REV00
+        ACID NUMBER 2001830441013710010
+        Q.TA' / Q.TY (NO) LENGTH (mm.) WIDTH (mm.) HEIGHT (mm.) NET (KG) GROSS (KG) (NO) (TYPE)
+        RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
+        QCR12026802R 1 275 265 160 4 4 2 BOX
+        KG / COLLI 2254,0 2274,0 4,0 TOTAL
+        11471 NASR CITY, CAIRO
+        DESCRIZIONE / DESCRIPTION PESO / WEIGHT IMBALLO / PACKING PACKING AND WEIGHT LIST EGYPT
+        """
+        result = self.extractor.extract(sample_gi_pl_ocr, {})
+        packing = result.get("packing_list_items", [])
+        assert len(packing) == 2
+        
+        row1 = packing[0]
+        assert "RTAXT" in row1["item_code"]
+        assert row1["package_type"] == "Package"
+        assert row1["qty_pkg"] == 2.0
+        assert row1["length_cm"] == 395.0
+        assert row1["width_cm"] == 225.0
+        assert row1["height_cm"] == 225.0
+        assert row1["total_gross_weight_kg"] == 2270.0
+        assert row1["total_net_weight_kg"] == 2250.0
+
+        row2 = packing[1]
+        assert row2["item_code"] == "QCR12026802R"
+        assert row2["package_type"] == "Box"
+        assert row2["qty_pkg"] == 2.0
+        assert row2["length_cm"] == 27.5
+        assert row2["width_cm"] == 26.5
+        assert row2["height_cm"] == 16.0
+        assert row2["total_gross_weight_kg"] == 4.0
+        assert row2["total_net_weight_kg"] == 4.0
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cargo Shipping Extractor Tests

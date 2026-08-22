@@ -1025,17 +1025,57 @@ def _build_system_bl_snapshot(db: Session, import_file_id: int) -> dict:
     }
 
 
+def _group_ocr_boxes_into_lines(ocr_res, y_threshold: float = 15.0) -> List[str]:
+    if not ocr_res:
+        return []
+    items = []
+    for box, txt, conf in ocr_res:
+        text_clean = str(txt).strip()
+        if not text_clean:
+            continue
+        y_center = sum(pt[1] for pt in box) / 4.0
+        x_min = min(pt[0] for pt in box)
+        items.append({"y": y_center, "x": x_min, "txt": text_clean})
+    if not items:
+        return []
+
+    items.sort(key=lambda item: (item["y"], item["x"]))
+    lines = []
+    current_line = []
+    last_y = None
+
+    for item in items:
+        if last_y is None or abs(item["y"] - last_y) < y_threshold:
+            current_line.append(item)
+            if last_y is None:
+                last_y = item["y"]
+            else:
+                last_y = (last_y * (len(current_line) - 1) + item["y"]) / len(current_line)
+        else:
+            current_line.sort(key=lambda i: i["x"])
+            lines.append(" ".join(i["txt"] for i in current_line))
+            current_line = [item]
+            last_y = item["y"]
+
+    if current_line:
+        current_line.sort(key=lambda i: i["x"])
+        lines.append(" ".join(i["txt"] for i in current_line))
+
+    return lines
+
+
 def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
     """
     High-accuracy optical character recognition (OCR) for scanned PDFs and images.
-    Uses RapidOCR + pypdfium2 / Pillow.
+    Uses RapidOCR with spatial line grouping + pytesseract fallback.
     """
     lower = filename.lower()
+    extracted_lines: List[str] = []
+
     try:
         from rapidocr_onnxruntime import RapidOCR
         import numpy as np
         engine = RapidOCR()
-        extracted_lines = []
 
         if lower.endswith(".pdf"):
             import pypdfium2 as pdfium
@@ -1045,18 +1085,35 @@ def _ocr_pdf_or_image(filename: str, content_bytes: bytes) -> str:
                 pil_img = page.render(scale=2.0).to_pil()
                 ocr_res, _ = engine(np.array(pil_img))
                 if ocr_res:
-                    extracted_lines.extend([item[1] for item in ocr_res])
+                    page_lines = _group_ocr_boxes_into_lines(ocr_res)
+                    extracted_lines.extend(page_lines)
+
         elif lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
             from PIL import Image
             pil_img = Image.open(io.BytesIO(content_bytes)).convert("RGB")
             ocr_res, _ = engine(np.array(pil_img))
             if ocr_res:
-                extracted_lines.extend([item[1] for item in ocr_res])
+                image_lines = _group_ocr_boxes_into_lines(ocr_res)
+                extracted_lines.extend(image_lines)
 
-        return "\n".join(extracted_lines)
     except Exception as e:
         logger.warning(f"RapidOCR extraction failed for '{filename}': {e}")
-        return ""
+
+    result_text = "\n".join(extracted_lines)
+
+    # Fallback to pytesseract if RapidOCR produced insufficient output for images
+    if len(result_text.strip()) < 15 and lower.endswith((".png", ".jpg", ".jpeg", ".tiff", ".bmp", ".webp")):
+        try:
+            import pytesseract
+            from PIL import Image
+            pil_img = Image.open(io.BytesIO(content_bytes))
+            tes_text = pytesseract.image_to_string(pil_img, lang="eng+ara")
+            if tes_text and len(tes_text.strip()) > len(result_text.strip()):
+                result_text = tes_text
+        except Exception as te:
+            logger.debug(f"Pytesseract fallback note: {te}")
+
+    return result_text
 
 
 def extract_text_and_boxes_from_uploaded_file(filename: str, content_bytes: bytes) -> Tuple[str, dict]:

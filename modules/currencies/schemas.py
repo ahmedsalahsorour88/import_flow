@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, ConfigDict
 class CurrencyBase(BaseModel):
     currency_code: str = Field(..., min_length=3, max_length=3, description="ISO 4217 code e.g. USD, EUR, GBP, EGP, CNY")
     currency_name: str = Field(..., min_length=2, max_length=100)
-    currency_symbol: str = Field(..., min_length=1, max_length=10)
+    currency_symbol: str = Field(default="", max_length=10)
     is_base_currency: bool = Field(False)
     decimal_places: int = Field(2, ge=0, le=4)
 
@@ -19,7 +19,7 @@ class CurrencyCreate(CurrencyBase):
 
 class CurrencyUpdate(BaseModel):
     currency_name: Optional[str] = Field(None, min_length=2, max_length=100)
-    currency_symbol: Optional[str] = Field(None, min_length=1, max_length=10)
+    currency_symbol: Optional[str] = Field(None, max_length=10)
     is_base_currency: Optional[bool] = None
     decimal_places: Optional[int] = Field(None, ge=0, le=4)
     is_active: Optional[bool] = None

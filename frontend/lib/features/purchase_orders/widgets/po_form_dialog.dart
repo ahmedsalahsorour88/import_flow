@@ -105,6 +105,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   late List<POLineItemModel> _dialogItems;
   late List<PackingListItemModel> _dialogPackingItems;
   bool _isSubmitting = false;
+  bool _isDirectVolumeMode = false;
+  int _palletCount = 0;
+  String _selectedPalletType = 'Euro Pallet (120x80)';
+  bool _isPalletStackable = false;
+  double _palletLengthCm = 120.0;
+  double _palletWidthCm = 80.0;
+  double _palletHeightCm = 150.0;
 
   Future<CustomsTariffModel?> _showHsCodeSearchPicker(BuildContext context, List<CustomsTariffModel> tariffs) async {
     return showDialog<CustomsTariffModel?>(
@@ -237,6 +244,21 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (foundRate != null && foundRate > 0) {
       _rateCtrl.text = foundRate.toString();
     }
+  }
+
+  int _numToInt(dynamic val, [int fallback = 0]) {
+    if (val == null) return fallback;
+    if (val is int) return val;
+    if (val is num) return val.toInt();
+    if (val is String) return int.tryParse(val) ?? fallback;
+    return fallback;
+  }
+
+  double _numToDouble(dynamic val, [double fallback = 0.0]) {
+    if (val == null) return fallback;
+    if (val is num) return val.toDouble();
+    if (val is String) return double.tryParse(val) ?? fallback;
+    return fallback;
   }
 
   DateTime _parseFlexDate(String? rawStr) {
@@ -399,6 +421,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           }
         }
 
+        if (ext['pallet_count'] != null) {
+          final pCount = _numToInt(ext['pallet_count']);
+          if (pCount > 0) {
+            _palletCount = pCount;
+            _isDirectVolumeMode = true;
+          }
+        }
+        if (ext['is_pallet_stackable'] != null) {
+          _isPalletStackable = ext['is_pallet_stackable'] as bool? ?? false;
+        }
+
         if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
           final itemList = ext['items'] as List;
           _dialogItems = itemList.map((raw) {
@@ -502,6 +535,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     _rateCtrl = TextEditingController(text: (po?.exchangeRate ?? 1.0).toString());
     _notesCtrl = TextEditingController(text: po?.notes ?? '');
     _selectedStatus = po?.status ?? 'Draft';
+    _palletCount = po?.palletCount ?? (ext != null ? _numToInt(ext['pallet_count']) : 0);
+    _selectedPalletType = po?.palletType ?? (ext != null ? ext['pallet_type']?.toString() : null) ?? 'Euro Pallet (120x80)';
+    _isPalletStackable = po?.isPalletStackable ?? (ext != null ? (ext['is_pallet_stackable'] as bool? ?? false) : false);
+    _palletLengthCm = po?.palletLengthCm ?? (ext != null ? _numToDouble(ext['pallet_length_cm'], 120.0) : 120.0);
+    _palletWidthCm = po?.palletWidthCm ?? (ext != null ? _numToDouble(ext['pallet_width_cm'], 80.0) : 80.0);
+    _palletHeightCm = po?.palletHeightCm ?? (ext != null ? _numToDouble(ext['pallet_height_cm'], 150.0) : 150.0);
+    if (_palletCount > 0) {
+      _isDirectVolumeMode = true;
+    }
 
     final rawTerms = po?.paymentTerms ?? (ext != null ? ext['payment_terms']?.toString() : null);
     if (rawTerms != null && (rawTerms.contains('LC') || rawTerms.contains('اعتماد') || rawTerms.contains('CREDIT'))) {
@@ -1536,6 +1578,162 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 ],
                               ),
                             ),
+                            // Dual-Mode Selection Banner
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: const Color(0xFFE2E8F0)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.tune_rounded, color: AppTheme.charcoal, size: 20),
+                                  const SizedBox(width: 10),
+                                  const Text(
+                                    'مسار إدخال ومعالجة الشحنة:',
+                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  ChoiceChip(
+                                    label: const Text('📏 مسار الأبعاد الصريحة (L × W × H)'),
+                                    selected: !_isDirectVolumeMode,
+                                    onSelected: (val) {
+                                      if (val) setState(() => _isDirectVolumeMode = false);
+                                    },
+                                    selectedColor: AppTheme.cobalt.withOpacity(0.18),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ChoiceChip(
+                                    label: const Text('📦 مسار الحجم المباشر CBM ومخطط البالتات'),
+                                    selected: _isDirectVolumeMode,
+                                    onSelected: (val) {
+                                      if (val) setState(() => _isDirectVolumeMode = true);
+                                    },
+                                    selectedColor: AppTheme.emerald.withOpacity(0.18),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // Palletization Board (Visible when Direct Volume Mode is active or Pallets > 0)
+                            if (_isDirectVolumeMode || _palletCount > 0)
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1)),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.pallet, color: AppTheme.cobalt, size: 20),
+                                            const SizedBox(width: 8),
+                                            const Text(
+                                              'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)',
+                                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: _isPalletStackable ? Colors.green.shade100 : Colors.orange.shade100,
+                                                borderRadius: BorderRadius.circular(12),
+                                              ),
+                                              child: Text(
+                                                _isPalletStackable ? 'قابل للرص 📦' : 'غير قابل للرص (Floor Placement) 🚫',
+                                                style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: _isPalletStackable ? Colors.green.shade900 : Colors.orange.shade900,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700, foregroundColor: Colors.white),
+                                          icon: const Icon(Icons.view_in_ar_rounded, size: 16),
+                                          label: Text('محاكاة رص البالتات بالحاويات 3D (${_palletCount > 0 ? _palletCount : 13} بالتة)', style: const TextStyle(fontSize: 12)),
+                                          onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 2,
+                                          child: TextFormField(
+                                            initialValue: _palletCount.toString(),
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(labelText: 'عدد البالتات (Pallets Count) *', isDense: true),
+                                            onChanged: (v) => setState(() => _palletCount = int.tryParse(v) ?? 0),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 3,
+                                          child: SearchableDropdownField<String>(
+                                            value: _selectedPalletType,
+                                            labelText: 'نوع ومقاس البالتة',
+                                            items: const [
+                                              SearchableDropdownItem(value: 'Euro Pallet (120x80)', label: 'Euro Pallet (120 × 80 cm)'),
+                                              SearchableDropdownItem(value: 'Standard Pallet (120x100)', label: 'Standard Industrial (120 × 100 cm)'),
+                                              SearchableDropdownItem(value: 'Custom Pallet', label: 'Custom Pallet (أبعاد مخصصة)'),
+                                            ],
+                                            onChanged: (v) {
+                                              if (v != null) {
+                                                setState(() {
+                                                  _selectedPalletType = v;
+                                                  if (v.contains('120x80')) {
+                                                    _palletLengthCm = 120.0;
+                                                    _palletWidthCm = 80.0;
+                                                  } else if (v.contains('120x100')) {
+                                                    _palletLengthCm = 120.0;
+                                                    _palletWidthCm = 100.0;
+                                                  }
+                                                });
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 2,
+                                          child: TextFormField(
+                                            initialValue: _palletHeightCm.toString(),
+                                            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                            decoration: const InputDecoration(labelText: 'ارتفاع البالتة (Height cm)', isDense: true),
+                                            onChanged: (v) => setState(() => _palletHeightCm = double.tryParse(v) ?? 150.0),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          flex: 3,
+                                          child: SearchableDropdownField<bool>(
+                                            value: _isPalletStackable,
+                                            labelText: 'تعليمات رص البالتات *',
+                                            items: const [
+                                              SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص (Floor Placement)'),
+                                              SearchableDropdownItem(value: true, label: '📦 قابل للرص (Stackable)'),
+                                            ],
+                                            onChanged: (v) => setState(() => _isPalletStackable = v ?? false),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
@@ -2051,6 +2249,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         orderDate: _selectedOrderDate,
                         exchangeRate: rate,
                         paymentTerms: _selectedPaymentTerms,
+                        palletCount: _palletCount,
+                        palletType: _selectedPalletType,
+                        isPalletStackable: _isPalletStackable,
+                        palletLengthCm: _palletLengthCm,
+                        palletWidthCm: _palletWidthCm,
+                        palletHeightCm: _palletHeightCm,
                         status: _selectedStatus,
                         notes: effectiveNotes,
                         items: _dialogItems,
@@ -2309,6 +2513,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         'order_date': _selectedOrderDate.toIso8601String(),
                         'exchange_rate': rate,
                         'payment_terms': _selectedPaymentTerms,
+                        'pallet_count': _palletCount,
+                        'pallet_type': _selectedPalletType,
+                        'is_pallet_stackable': _isPalletStackable,
+                        'pallet_length_cm': _palletLengthCm,
+                        'pallet_width_cm': _palletWidthCm,
+                        'pallet_height_cm': _palletHeightCm,
                         'status': _selectedStatus,
                         'notes': effectiveNotes,
                         'items': _dialogItems.map((i) => i.toJson()).toList(),
@@ -2355,26 +2565,52 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       return;
     }
 
-    final cargoItems = packingItems.asMap().entries.map((entry) {
-      final idx = entry.key + 1;
-      final p = entry.value;
-      final lCm = p.unit == 'mm' ? p.lengthCm / 10.0 : (p.unit == 'm' ? p.lengthCm * 100.0 : p.lengthCm);
-      final wCm = p.unit == 'mm' ? p.widthCm / 10.0 : (p.unit == 'm' ? p.widthCm * 100.0 : p.widthCm);
-      final hCm = p.unit == 'mm' ? p.heightCm / 10.0 : (p.unit == 'm' ? p.heightCm * 100.0 : p.heightCm);
-      final grossWt = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg);
-
-      return CargoItem(
-        itemId: '$idx',
-        length: lCm > 0 ? lCm : 100.0,
-        width: wCm > 0 ? wCm : 80.0,
-        height: hCm > 0 ? hCm : 60.0,
-        weight: grossWt > 0 ? grossWt : 10.0,
-        isStackable: p.isStackable,
-        rotate: true,
-        packageType: p.packageType,
-        description: p.itemCode,
+    final List<CargoItem> cargoItems;
+    if (_palletCount > 0) {
+      final double pL = _palletLengthCm > 0 ? _palletLengthCm : 120.0;
+      final double pW = _palletWidthCm > 0 ? _palletWidthCm : 80.0;
+      final double pH = _palletHeightCm > 0 ? _palletHeightCm : 150.0;
+      final double totalGross = packingItems.fold<double>(
+        0.0,
+        (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
       );
-    }).toList();
+      final double palletWeight = totalGross > 0 ? (totalGross / _palletCount) : 137.5;
+
+      cargoItems = List.generate(_palletCount, (i) {
+        return CargoItem(
+          itemId: 'PLT-${i + 1}',
+          length: pL,
+          width: pW,
+          height: pH,
+          weight: palletWeight,
+          isStackable: _isPalletStackable,
+          rotate: true,
+          packageType: _selectedPalletType,
+          description: 'بالتة #${i + 1} ($_selectedPalletType)',
+        );
+      });
+    } else {
+      cargoItems = packingItems.asMap().entries.map((entry) {
+        final idx = entry.key + 1;
+        final p = entry.value;
+        final lCm = p.unit == 'mm' ? p.lengthCm / 10.0 : (p.unit == 'm' ? p.lengthCm * 100.0 : p.lengthCm);
+        final wCm = p.unit == 'mm' ? p.widthCm / 10.0 : (p.unit == 'm' ? p.widthCm * 100.0 : p.widthCm);
+        final hCm = p.unit == 'mm' ? p.heightCm / 10.0 : (p.unit == 'm' ? p.heightCm * 100.0 : p.heightCm);
+        final grossWt = p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg);
+
+        return CargoItem(
+          itemId: '$idx',
+          length: lCm > 0 ? lCm : 100.0,
+          width: wCm > 0 ? wCm : 80.0,
+          height: hCm > 0 ? hCm : 60.0,
+          weight: grossWt > 0 ? grossWt : 10.0,
+          isStackable: p.isStackable,
+          rotate: true,
+          packageType: p.packageType,
+          description: p.itemCode,
+        );
+      }).toList();
+    }
 
     final plan = ContainerRequirementEngine.planShipment(cargoItems);
 

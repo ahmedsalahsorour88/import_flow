@@ -69,6 +69,9 @@ class PurchaseOrderExtractor(BaseExtractor):
                 f"⚠️ يوجد {unregistered_hs_items_count} بند/أصناف بدون بند تعريفة مسجل (HS Code). يجب ربطها بجدول التعريفة الجمركية (MD-008)."
                 if unregistered_hs_items_count > 0 else None
             ),
+            "pallet_count": self._extract_pallet_count(text),
+            "pallet_type": "Euro Pallet (120x80)",
+            "is_pallet_stackable": False,
             "packing_list_items": self._extract_packing_list_items(text),
         }
         return result
@@ -97,6 +100,21 @@ class PurchaseOrderExtractor(BaseExtractor):
             r"Order\s+(?:No\.?|#)[:\s]*([A-Z0-9/\-]+)",
             r"(?:PO)[:\s]*([A-Z0-9/\-]{4,})",
         ], text)
+
+    def _extract_pallet_count(self, text: str) -> int:
+        pallets_m = re.search(r"Number\s+of\s+pallets[:\s]*(\d+)", text, re.IGNORECASE)
+        if pallets_m:
+            try:
+                return int(pallets_m.group(1))
+            except ValueError:
+                pass
+        pallets_alt = re.search(r"(\d+)\s*(?:PALLETS|PALLET|PLT|PLTS)\b", text, re.IGNORECASE)
+        if pallets_alt:
+            try:
+                return int(pallets_alt.group(1))
+            except ValueError:
+                pass
+        return 0
 
     def _extract_supplier(self, text: str) -> Optional[str]:
         # Filter out common disclaimers & footer text

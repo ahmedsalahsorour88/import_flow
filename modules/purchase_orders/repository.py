@@ -80,6 +80,12 @@ class PurchaseOrderRepository:
             exchange_rate=data.exchange_rate,
             payment_terms=data.payment_terms.strip() if data.payment_terms else None,
             notes=data.notes.strip() if data.notes else None,
+            pallet_count=getattr(data, "pallet_count", 0) or 0,
+            pallet_type=getattr(data, "pallet_type", "Euro Pallet (120x80)") or "Euro Pallet (120x80)",
+            is_pallet_stackable=bool(getattr(data, "is_pallet_stackable", False)),
+            pallet_length_cm=float(getattr(data, "pallet_length_cm", 120.0) or 120.0),
+            pallet_width_cm=float(getattr(data, "pallet_width_cm", 80.0) or 80.0),
+            pallet_height_cm=float(getattr(data, "pallet_height_cm", 150.0) or 150.0),
             status="Draft",
             is_active=True,
         )
@@ -142,7 +148,8 @@ class PurchaseOrderRepository:
                     l_m, w_m, h_m = l_val / 100.0, w_val / 100.0, h_val / 100.0
                     l_cm_val, w_cm_val, h_cm_val = l_val, w_val, h_val
 
-                tot_cbm = round(pitem.qty_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
+                direct_cbm = float(getattr(pitem, "total_cbm", 0.0) or 0.0)
+                tot_cbm = round(pitem.qty_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else direct_cbm
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
 
                 pkg_total_net += tot_net
@@ -275,7 +282,8 @@ class PurchaseOrderRepository:
 
                 tot_net = round(q_pkg * net_u, 2)
                 tot_gross = round(q_pkg * gross_u, 2)
-                tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else 0.0
+                direct_cbm = float(pitem.get("total_cbm", 0.0) or 0.0)
+                tot_cbm = round(q_pkg * (l_m * w_m * h_m), 4) if (l_m > 0 and w_m > 0 and h_m > 0) else direct_cbm
                 chg_wt = max(tot_gross, round(tot_cbm * 167.0, 2))
 
                 pkg_total_net += tot_net

@@ -13,7 +13,7 @@ class ImportFilePoLinker {
   }) {
     return allPOs.where((p) {
       // 1. Direct ID match
-      if (file.importFileId != null && p.importFileId == file.importFileId) return true;
+      if (p.importFileId == file.importFileId) return true;
 
       // 2. Import File Code match
       if (file.importFileCode.isNotEmpty && p.importFileCode != null && p.importFileCode == file.importFileCode) return true;

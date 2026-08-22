@@ -53,6 +53,9 @@ class PackingListItemBase(BaseModel):
     gross_weight_unit_kg: float = Field(0.0, ge=0)
     weight_unit: Optional[str] = Field("KGM", max_length=30, description="Weight Unit of Measure e.g. KGM, GRM, TON, STN")
     is_stackable: bool = Field(True, description="Stackable vs Non-stackable cargo instruction")
+    total_cbm: Optional[float] = Field(0.0, ge=0, description="CBM volume either calculated or directly entered")
+    total_net_weight_kg: Optional[float] = Field(0.0, ge=0)
+    total_gross_weight_kg: Optional[float] = Field(0.0, ge=0)
 
 
 class PackingListItemCreate(PackingListItemBase):
@@ -120,6 +123,12 @@ class PurchaseOrderBase(BaseModel):
     exchange_rate: float = Field(1.0, gt=0)
     payment_terms: Optional[str] = Field("LC at Sight / اعتماد مستندي", max_length=100)
     notes: Optional[str] = None
+    pallet_count: Optional[int] = Field(0, ge=0, description="عدد البالتات الكلي")
+    pallet_type: Optional[str] = Field("Euro Pallet (120x80)", max_length=100)
+    is_pallet_stackable: Optional[bool] = Field(False, description="تعليمات رص البالتات")
+    pallet_length_cm: Optional[float] = Field(120.0, ge=0)
+    pallet_width_cm: Optional[float] = Field(80.0, ge=0)
+    pallet_height_cm: Optional[float] = Field(150.0, ge=0)
 
 
 class PurchaseOrderCreate(PurchaseOrderBase):
@@ -143,6 +152,12 @@ class PurchaseOrderUpdate(BaseModel):
     payment_terms: Optional[str] = Field(None, max_length=100)
     status: Optional[str] = Field(None, max_length=50) # Draft, Approved, In Transit, Closed, Cancelled
     notes: Optional[str] = None
+    pallet_count: Optional[int] = Field(None, ge=0)
+    pallet_type: Optional[str] = Field(None, max_length=100)
+    is_pallet_stackable: Optional[bool] = None
+    pallet_length_cm: Optional[float] = Field(None, ge=0)
+    pallet_width_cm: Optional[float] = Field(None, ge=0)
+    pallet_height_cm: Optional[float] = Field(None, ge=0)
     is_active: Optional[bool] = None
     items: Optional[List[POLineItemCreate]] = None
     packing_list_items: Optional[List[PackingListItemCreate]] = None

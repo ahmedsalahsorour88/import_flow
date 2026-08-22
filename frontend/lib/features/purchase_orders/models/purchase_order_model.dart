@@ -235,8 +235,10 @@ class PackingListItemModel {
   double get heightM => unit == 'mm' ? heightCm / 1000.0 : (unit == 'm' ? heightCm : heightCm / 100.0);
 
   double get calculatedCbm {
-    if (lengthM <= 0 || widthM <= 0 || heightM <= 0) return 0.0;
-    return qtyPkg * (lengthM * widthM * heightM);
+    if (lengthM > 0 && widthM > 0 && heightM > 0) {
+      return qtyPkg * (lengthM * widthM * heightM);
+    }
+    return totalCbm;
   }
 
   PackingListItemModel copyWith({
@@ -323,6 +325,7 @@ class PackingListItemModel {
       'weight_unit': weightUnit,
       'net_weight_unit_kg': netWeightUnitKg,
       'gross_weight_unit_kg': grossWeightUnitKg,
+      'total_cbm': totalCbm,
       'is_stackable': isStackable,
     };
   }
@@ -348,6 +351,12 @@ class PurchaseOrderModel {
   final double totalGrossWeightKg;
   final double totalNetWeightKg;
   final int totalPackagesCount;
+  final int palletCount;
+  final String palletType;
+  final bool isPalletStackable;
+  final double palletLengthCm;
+  final double palletWidthCm;
+  final double palletHeightCm;
   final String status;
   final String? notes;
   final bool isActive;
@@ -382,6 +391,12 @@ class PurchaseOrderModel {
     this.totalGrossWeightKg = 0.0,
     this.totalNetWeightKg = 0.0,
     this.totalPackagesCount = 0,
+    this.palletCount = 0,
+    this.palletType = 'Euro Pallet (120x80)',
+    this.isPalletStackable = false,
+    this.palletLengthCm = 120.0,
+    this.palletWidthCm = 80.0,
+    this.palletHeightCm = 150.0,
     this.status = 'Draft',
     this.notes,
     this.isActive = true,
@@ -420,6 +435,12 @@ class PurchaseOrderModel {
       totalGrossWeightKg: _numToDouble(json['total_gross_weight_kg']),
       totalNetWeightKg: _numToDouble(json['total_net_weight_kg']),
       totalPackagesCount: _numToInt(json['total_packages_count']),
+      palletCount: _numToInt(json['pallet_count']),
+      palletType: json['pallet_type'] as String? ?? 'Euro Pallet (120x80)',
+      isPalletStackable: json['is_pallet_stackable'] as bool? ?? false,
+      palletLengthCm: _numToDouble(json['pallet_length_cm'], 120.0),
+      palletWidthCm: _numToDouble(json['pallet_width_cm'], 80.0),
+      palletHeightCm: _numToDouble(json['pallet_height_cm'], 150.0),
       status: json['status'] as String? ?? 'Draft',
       notes: json['notes'] as String?,
       isActive: json['is_active'] as bool? ?? true,
@@ -456,6 +477,12 @@ class PurchaseOrderModel {
       if (expectedDeliveryDate != null) 'expected_delivery_date': expectedDeliveryDate!.toIso8601String(),
       'exchange_rate': exchangeRate,
       if (paymentTerms != null) 'payment_terms': paymentTerms,
+      'pallet_count': palletCount,
+      'pallet_type': palletType,
+      'is_pallet_stackable': isPalletStackable,
+      'pallet_length_cm': palletLengthCm,
+      'pallet_width_cm': palletWidthCm,
+      'pallet_height_cm': palletHeightCm,
       'status': status,
       if (notes != null) 'notes': notes,
       'is_active': isActive,

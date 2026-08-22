@@ -228,7 +228,7 @@ def migrate_db():
     row = cursor.fetchone()
     if row:
         table_sql = row[0]
-        if "uq_customs_tariff_hs_code" in table_sql or "UNIQUE (hs_code)" in table_sql:
+        if "uq_customs_tariff_hs_code_eff_from" not in table_sql and ("uq_customs_tariff_hs_code" in table_sql or "UNIQUE (hs_code)" in table_sql):
             print("Migrating customs_tariffs table schema to support date-based versioning...")
             cursor.execute("DROP INDEX IF EXISTS uq_customs_tariff_hs_code;")
             cursor.execute("DROP INDEX IF EXISTS ix_customs_tariffs_hs_code;")

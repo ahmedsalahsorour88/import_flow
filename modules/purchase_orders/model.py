@@ -47,6 +47,14 @@ class PurchaseOrder(Base):
     total_net_weight_kg = Column(Numeric(12, 2), default=0.0, nullable=False)
     total_packages_count = Column(Integer, default=0, nullable=False)
 
+    # Palletization & Master Handling Plan (مخطط البالتات)
+    pallet_count = Column(Integer, default=0, nullable=True)
+    pallet_type = Column(String(100), default="Euro Pallet (120x80)", nullable=True)
+    is_pallet_stackable = Column(Boolean, default=False, nullable=True)
+    pallet_length_cm = Column(Numeric(10, 2), default=120.0, nullable=True)
+    pallet_width_cm = Column(Numeric(10, 2), default=80.0, nullable=True)
+    pallet_height_cm = Column(Numeric(10, 2), default=150.0, nullable=True)
+
     # Workflow Status & Information
     country_of_origin = Column(String(100), nullable=True) # بلد المنشأ لأمر التوريد e.g. "CN", "DE - Germany"
     payment_terms = Column(String(100), nullable=True, default="LC at Sight / اعتماد مستندي")

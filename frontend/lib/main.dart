@@ -153,7 +153,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListen
     if (!kIsWeb && Platform.isWindows) {
       try {
         final dio = Dio();
-        await dio.post('${ApiConstants.baseUrl}/shutdown').timeout(const Duration(milliseconds: 300)).catchError((_) {});
+        await dio.post('${ApiConstants.baseUrl}/shutdown').timeout(const Duration(milliseconds: 300)).catchError((_) => Response(requestOptions: RequestOptions()));
       } catch (_) {}
       try {
         await Process.run('taskkill', ['/F', '/IM', 'backend.exe', '/T']);

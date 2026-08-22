@@ -54,6 +54,7 @@ class PurchaseOrder(Base):
     pallet_length_cm = Column(Numeric(10, 2), default=120.0, nullable=True)
     pallet_width_cm = Column(Numeric(10, 2), default=80.0, nullable=True)
     pallet_height_cm = Column(Numeric(10, 2), default=150.0, nullable=True)
+    pallet_plan = Column(Text, nullable=True) # JSON list of multi-row pallet items
 
     # Workflow Status & Information
     country_of_origin = Column(String(100), nullable=True) # بلد المنشأ لأمر التوريد e.g. "CN", "DE - Germany"

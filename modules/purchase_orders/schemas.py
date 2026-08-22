@@ -105,6 +105,17 @@ class PackingListValidationReport(BaseModel):
     hs_code_summary: List[PackingListSummaryByHSCode] = Field(default_factory=list)
 
 
+class PalletPlanItem(BaseModel):
+    pallet_type: str = Field("Euro Pallet (120x80)", max_length=100)
+    pallet_count: int = Field(1, ge=1)
+    length_cm: float = Field(120.0, ge=0)
+    width_cm: float = Field(80.0, ge=0)
+    height_cm: float = Field(150.0, ge=0)
+    gross_weight_per_pallet_kg: float = Field(0.0, ge=0)
+    is_stackable: bool = Field(False)
+    notes: Optional[str] = None
+
+
 # ==================================================
 # Purchase Order Schemas
 # ==================================================
@@ -129,6 +140,7 @@ class PurchaseOrderBase(BaseModel):
     pallet_length_cm: Optional[float] = Field(120.0, ge=0)
     pallet_width_cm: Optional[float] = Field(80.0, ge=0)
     pallet_height_cm: Optional[float] = Field(150.0, ge=0)
+    pallet_plan: Optional[List[PalletPlanItem]] = Field(default_factory=list)
 
 
 class PurchaseOrderCreate(PurchaseOrderBase):
@@ -158,6 +170,7 @@ class PurchaseOrderUpdate(BaseModel):
     pallet_length_cm: Optional[float] = Field(None, ge=0)
     pallet_width_cm: Optional[float] = Field(None, ge=0)
     pallet_height_cm: Optional[float] = Field(None, ge=0)
+    pallet_plan: Optional[List[PalletPlanItem]] = None
     is_active: Optional[bool] = None
     items: Optional[List[POLineItemCreate]] = None
     packing_list_items: Optional[List[PackingListItemCreate]] = None

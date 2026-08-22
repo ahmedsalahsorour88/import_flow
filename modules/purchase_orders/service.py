@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional
 
 from fastapi import HTTPException, status
@@ -10,6 +11,7 @@ from modules.purchase_orders.schemas import (
     PackingListItemResponse,
     PackingListSummaryByHSCode,
     PackingListValidationReport,
+    PalletPlanItem,
     PurchaseOrderCreate,
     PurchaseOrderResponse,
     PurchaseOrderUpdate,
@@ -276,6 +278,11 @@ class PurchaseOrderService:
             pallet_length_cm=float(getattr(po, "pallet_length_cm", 120.0) or 120.0),
             pallet_width_cm=float(getattr(po, "pallet_width_cm", 80.0) or 80.0),
             pallet_height_cm=float(getattr(po, "pallet_height_cm", 150.0) or 150.0),
+            pallet_plan=(
+                [PalletPlanItem(**p) if isinstance(p, dict) else p for p in json.loads(po.pallet_plan)]
+                if getattr(po, "pallet_plan", None) and isinstance(po.pallet_plan, str)
+                else (po.pallet_plan if isinstance(getattr(po, "pallet_plan", None), list) else [])
+            ),
             status=po.status,
             notes=po.notes,
             is_active=po.is_active,

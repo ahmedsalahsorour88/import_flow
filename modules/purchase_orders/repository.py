@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 from typing import List, Optional
 
 from sqlalchemy import or_
@@ -86,6 +87,7 @@ class PurchaseOrderRepository:
             pallet_length_cm=float(getattr(data, "pallet_length_cm", 120.0) or 120.0),
             pallet_width_cm=float(getattr(data, "pallet_width_cm", 80.0) or 80.0),
             pallet_height_cm=float(getattr(data, "pallet_height_cm", 150.0) or 150.0),
+            pallet_plan=json.dumps([p.model_dump() if hasattr(p, "model_dump") else p for p in data.pallet_plan]) if getattr(data, "pallet_plan", None) else None,
             status="Draft",
             is_active=True,
         )
@@ -197,6 +199,10 @@ class PurchaseOrderRepository:
         update_data = data.model_dump(exclude_unset=True)
         items_data = update_data.pop("items", None)
         packing_items_data = update_data.pop("packing_list_items", None)
+        pallet_plan_data = update_data.pop("pallet_plan", None)
+
+        if pallet_plan_data is not None:
+            po.pallet_plan = json.dumps([p.model_dump() if hasattr(p, "model_dump") else p for p in pallet_plan_data])
 
         for field, value in update_data.items():
             if value is not None and isinstance(value, str):

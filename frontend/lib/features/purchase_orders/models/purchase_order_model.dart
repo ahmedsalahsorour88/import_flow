@@ -331,6 +331,79 @@ class PackingListItemModel {
   }
 }
 
+class PalletPlanItemModel {
+  final String palletType;
+  final int palletCount;
+  final double lengthCm;
+  final double widthCm;
+  final double heightCm;
+  final double grossWeightPerPalletKg;
+  final bool isStackable;
+  final String? notes;
+
+  PalletPlanItemModel({
+    this.palletType = 'Euro Pallet (120x80)',
+    this.palletCount = 1,
+    this.lengthCm = 120.0,
+    this.widthCm = 80.0,
+    this.heightCm = 150.0,
+    this.grossWeightPerPalletKg = 0.0,
+    this.isStackable = false,
+    this.notes,
+  });
+
+  double get calculatedCbm => (lengthCm * widthCm * heightCm / 1000000.0) * palletCount;
+  double get totalWeightKg => grossWeightPerPalletKg * palletCount;
+
+  factory PalletPlanItemModel.fromJson(Map<String, dynamic> json) {
+    return PalletPlanItemModel(
+      palletType: json['pallet_type'] as String? ?? 'Euro Pallet (120x80)',
+      palletCount: _numToInt(json['pallet_count'], 1),
+      lengthCm: _numToDouble(json['length_cm'], 120.0),
+      widthCm: _numToDouble(json['width_cm'], 80.0),
+      heightCm: _numToDouble(json['height_cm'], 150.0),
+      grossWeightPerPalletKg: _numToDouble(json['gross_weight_per_pallet_kg']),
+      isStackable: json['is_stackable'] as bool? ?? false,
+      notes: json['notes'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'pallet_type': palletType,
+      'pallet_count': palletCount,
+      'length_cm': lengthCm,
+      'width_cm': widthCm,
+      'height_cm': heightCm,
+      'gross_weight_per_pallet_kg': grossWeightPerPalletKg,
+      'is_stackable': isStackable,
+      if (notes != null) 'notes': notes,
+    };
+  }
+
+  PalletPlanItemModel copyWith({
+    String? palletType,
+    int? palletCount,
+    double? lengthCm,
+    double? widthCm,
+    double? heightCm,
+    double? grossWeightPerPalletKg,
+    bool? isStackable,
+    String? notes,
+  }) {
+    return PalletPlanItemModel(
+      palletType: palletType ?? this.palletType,
+      palletCount: palletCount ?? this.palletCount,
+      lengthCm: lengthCm ?? this.lengthCm,
+      widthCm: widthCm ?? this.widthCm,
+      heightCm: heightCm ?? this.heightCm,
+      grossWeightPerPalletKg: grossWeightPerPalletKg ?? this.grossWeightPerPalletKg,
+      isStackable: isStackable ?? this.isStackable,
+      notes: notes ?? this.notes,
+    );
+  }
+}
+
 class PurchaseOrderModel {
   final int? poId;
   final String poNumber;
@@ -370,6 +443,7 @@ class PurchaseOrderModel {
   final String? currencyCode;
   final List<POLineItemModel> items;
   final List<PackingListItemModel> packingListItems;
+  final List<PalletPlanItemModel> palletPlanItems;
 
   PurchaseOrderModel({
     this.poId,
@@ -410,6 +484,7 @@ class PurchaseOrderModel {
     this.currencyCode,
     this.items = const [],
     this.packingListItems = const [],
+    this.palletPlanItems = const [],
   });
 
   factory PurchaseOrderModel.fromJson(Map<String, dynamic> json) {
@@ -458,6 +533,9 @@ class PurchaseOrderModel {
       packingListItems: json['packing_list_items'] != null
           ? (json['packing_list_items'] as List).map((i) => PackingListItemModel.fromJson(i as Map<String, dynamic>)).toList()
           : [],
+      palletPlanItems: json['pallet_plan'] != null && json['pallet_plan'] is List
+          ? (json['pallet_plan'] as List).map((i) => PalletPlanItemModel.fromJson(i as Map<String, dynamic>)).toList()
+          : [],
     );
   }
 
@@ -488,6 +566,7 @@ class PurchaseOrderModel {
       'is_active': isActive,
       'items': items.map((i) => i.toJson()).toList(),
       'packing_list_items': packingListItems.map((i) => i.toJson()).toList(),
+      'pallet_plan': palletPlanItems.map((i) => i.toJson()).toList(),
     };
   }
 }

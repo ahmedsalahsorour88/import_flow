@@ -669,6 +669,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     final tariffs = tariffsAsync.value ?? [];
     final importFiles = importFilesAsync.value ?? [];
 
+    final cachedCountryItems = [
+      const SearchableDropdownItem<String?>(value: null, label: '-- الافتراضي --'),
+      ...countryOptions.map((c) => SearchableDropdownItem<String?>(
+            value: c['name'],
+            label: c['name']!,
+          )),
+    ];
+
+    final cachedUomItems = kMasterUnitsOfMeasure
+        .map((u) => SearchableDropdownItem<String>(value: u['code']!, label: u['name']!))
+        .toList();
+
+    final cachedPackageTypeItems = kMasterPackageTypes
+        .map((p) => SearchableDropdownItem<String>(value: p['name']!, label: '${p['name']} (${p['code']})'))
+        .toList();
+
     final reconciliation = evaluatePOReconciliation(
       invoiceItems: _dialogItems,
       packingItems: _dialogPackingItems,
@@ -835,7 +851,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             child: TabBarView(
               children: [
                       // Tab 1: Commercial Header & Line Items
-                      SingleChildScrollView(
+                      _KeepAliveWrapper(
+                        child: SingleChildScrollView(
                         padding: const EdgeInsets.only(top: 8, right: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1294,13 +1311,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               value: normalizeCountryName(item.countryOfOrigin ?? _selectedCountryOfOrigin),
                                               labelText: 'بلد المنشأ للبند',
                                               searchHintText: 'ابحث عن بلد المنشأ...',
-                                              items: [
-                                                const SearchableDropdownItem<String?>(value: null, label: '-- الافتراضي --'),
-                                                ...countryOptions.map((c) => SearchableDropdownItem<String?>(
-                                                      value: c['name'],
-                                                      label: c['name']!,
-                                                    )),
-                                              ],
+                                              items: cachedCountryItems,
                                               onChanged: (v) {
                                                 setState(() {
                                                   _dialogItems[idx] = _dialogItems[idx].copyWith(countryOfOrigin: normalizeCountryName(v));
@@ -1339,9 +1350,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             child: SearchableDropdownField<String>(
                                               value: item.unitOfMeasure,
                                               labelText: 'Unit / الوحدة',
-                                              items: kMasterUnitsOfMeasure
-                                                  .map((u) => SearchableDropdownItem(value: u['code']!, label: u['name']!))
-                                                  .toList(),
+                                              items: cachedUomItems,
                                               onChanged: (v) {
                                                 if (v != null) {
                                                   setState(() {
@@ -1472,10 +1481,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             ),
                           ],
                         ),
+                        ),
                       ),
 
                       // Tab 2: BP-003 Dynamic Detailed Packing List
-                      SingleChildScrollView(
+                      _KeepAliveWrapper(
+                        child: SingleChildScrollView(
                         padding: const EdgeInsets.only(top: 8, right: 4),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1735,9 +1746,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: SearchableDropdownField<String>(
                                                       value: p.packageType,
                                                       labelText: 'Package Type / نوع الطرد',
-                                                      items: kMasterPackageTypes
-                                                          .map((t) => SearchableDropdownItem(value: t['code']!, label: t['name']!))
-                                                          .toList(),
+                                                      items: cachedPackageTypeItems,
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(packageType: v ?? 'CT');
                                                       }),
@@ -1845,9 +1854,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      child: SearchableDropdownField<String>(
                                                        value: p.weightUnit,
                                                        labelText: 'Weight Unit / وحدة الوزن',
-                                                       items: kMasterUnitsOfMeasure
-                                                           .map((u) => SearchableDropdownItem(value: u['code']!, label: u['name']!))
-                                                           .toList(),
+                                                       items: cachedUomItems,
                                                        onChanged: (v) {
                                                          if (v != null) {
                                                            setState(() {
@@ -1948,9 +1955,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
+              ),
         ),
         actions: [
           TextButton(
@@ -2463,5 +2471,27 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         );
       },
     );
+  }
+}
+
+// ==================================================
+// Tab Keep-Alive Wrapper for Zero-Latency Tab Switching
+// ==================================================
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }

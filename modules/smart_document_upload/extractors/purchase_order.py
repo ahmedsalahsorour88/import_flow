@@ -503,32 +503,35 @@ class PurchaseOrderExtractor(BaseExtractor):
         items: List[Dict[str, Any]] = []
         lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-        # 1. Pipe-separated / Tab-separated Table Parsing (e.g. Item number | Configuration | Item name | Quantity | Unit | Sales price | Amount | VAT)
+        # 1. Delimiter-separated Table Parsing (Pipe |, Tab \t, Semicolon ;, Comma ,)
         for line in lines:
             lower_line = line.lower()
-            if lower_line.startswith(('item number', 'item no', 'pos', '#', 'description', 'sales order', 'customer requisition', 'subtotal', 'total', 'page', 'inv no', 'invoice no')):
+            if lower_line.startswith(('item number', 'item no', 'pos', '#', 'description', 'sales order', 'customer requisition', 'subtotal', 'total', 'page', 'inv no', 'invoice no', 'code,', 'item,')):
                 continue
-            if 'total' in lower_line and any(w in lower_line for w in ('amount', 'invoice', 'fob', 'cif', 'grand')):
+            if 'total' in lower_line and any(w in lower_line for w in ('amount', 'invoice', 'fob', 'cif', 'grand', 'net')):
                 continue
 
-            if '|' in line or '\t' in line:
-                delimiter = '|' if '|' in line else '\t'
+            is_csv = ',' in line and any(h in text.lower() for h in ['code,', 'item,', 'description,', 'qty,', 'price,'])
+            if '|' in line or '\t' in line or ';' in line or is_csv:
+                delimiter = '|' if '|' in line else ('\t' if '\t' in line else (';' if ';' in line else ','))
                 raw_cells = [c.strip() for c in line.split(delimiter)]
                 cells = [c for c in raw_cells if c]
                 if len(cells) >= 3:
                     code = ''
                     desc = ''
+                    hs = ''
                     qty = 0.0
                     price = 0.0
                     total = 0.0
                     unit = 'PCS'
+                    cty = ''
 
                     start_idx = 0
                     if cells[0].isdigit() and len(cells) > 3:
                         start_idx = 1
 
                     first_cell = cells[start_idx]
-                    # Check if first cell is item number / code (e.g. PSHD041, PCOM080, PDNA124-U, ART-102, 1001-A)
+                    # Check if first cell is item number / code (e.g. PSHD041, PCOM080, PDNA124-U, ART-102, 1001-A, VALVE-01)
                     if re.match(r'^[A-Z0-9\-_/.]{2,30}$', first_cell, re.IGNORECASE) and not first_cell.replace('.', '').isdigit():
                         code = first_cell
                         next_idx = start_idx + 1
@@ -546,13 +549,27 @@ class PurchaseOrderExtractor(BaseExtractor):
 
                     num_cells = []
                     for c in cells[data_start_idx:]:
-                        c_clean = c.replace('EUR', '').replace('USD', '').replace('$', '').replace('€', '').replace('%', '').strip()
+                        c_clean = re.sub(r"\b(USD|EUR|GBP|EGP|SAR|AED|CNY|CHF|CAD|AUD)\b|\$|€|%|\s", "", c, flags=re.IGNORECASE).strip()
+                        # Check if cell is an 8 or 10 digit HS code
+                        if re.match(r"^\d{4,10}$", c.strip()) and not hs and len(c.strip()) in (6, 8, 10):
+                            hs = c.strip()
+                            continue
+                        # Check if cell is country
+                        if re.match(r"^[A-Za-z\s]{4,20}$", c.strip()) and c.strip().upper() in ["CHINA", "GERMANY", "FRANCE", "ITALY", "SPAIN", "USA", "UK", "TURKEY", "LITHUANIA"]:
+                            cty = c.strip().title()
+                            continue
+
+                        u = c.upper().rstrip('.')
+                        if u in ('PCS', 'VNT', 'UNT', 'BOX', 'CTN', 'SET', 'KGM', 'KG', 'MTR', 'TON', 'PCE', 'PACK', 'SQM', 'SQYD', 'SQFT', 'LTR', 'DRUM', 'ROLL', 'BAG', 'PAIR', 'LOT'):
+                            unit = u
+                            continue
+
                         try:
-                            val = float(c_clean.replace(',', '.'))
-                            num_cells.append(val)
+                            val = BaseExtractor.parse_numeric_str(c_clean)
+                            if val > 0:
+                                num_cells.append(val)
                         except ValueError:
-                            if c.upper().rstrip('.') in ('PCS', 'VNT', 'UNT', 'BOX', 'CTN', 'SET', 'KGM', 'MTR', 'TON', 'PCE', 'PACK'):
-                                unit = c.upper().rstrip('.')
+                            pass
 
                     if len(num_cells) >= 2:
                         qty = num_cells[0]
@@ -562,6 +579,8 @@ class PurchaseOrderExtractor(BaseExtractor):
                             items.append({
                                 "item_code": code if code else f"ITEM-{len(items)+1:03d}",
                                 "description": desc if desc else f"Product {code or len(items)+1}",
+                                "hs_code": hs if hs else default_hs,
+                                "country_of_origin": cty if cty else default_cty,
                                 "quantity": qty,
                                 "unit": unit,
                                 "unit_price": price,
@@ -634,6 +653,49 @@ class PurchaseOrderExtractor(BaseExtractor):
                             "item_code": code,
                             "description": desc if desc else f"Product {code}",
                             "quantity": qty,
+                            "unit_price": price,
+                            "total_price": total,
+                        })
+                except (ValueError, IndexError):
+                    continue
+
+        # 4.5 Universal Space-aligned / Multi-column Table Pattern
+        # Matches: [Pos/Code?] [Description] [HS Code?] [Qty] [Unit?] [Unit Price] [Total Amount] [Country?]
+        # e.g.: ITEM-001  Acoustic Carpet Tile 50x50 cm  57032000  1000.00  SQM  14.50  14500.00  China
+        # e.g.: 1  Double Flanged Butterfly Valve  10  PCS  250.00  2500.00
+        if not items:
+            general_row_pattern = re.compile(
+                r"^\s*(?:(\d{1,3}|[A-Z0-9\-_/.]{2,25})\s+)?([A-Za-z0-9\s&,.'\-_/()xX*#]{3,80}?)\s+(?:(\d{6,10})\s+)?(\d+(?:[\.,]\d+)?)\s+(?:(PCS|VNT|UNT|BOX|CTN|SET|KGM|KG|MTR|M|TON|PCE|PACK|SQM|SQYD|SQFT|LTR|ROLL|PAIR|LOT|DRUM|BAG)\s+)?([0-9.,]+)\s+([0-9.,]+)(?:\s+([A-Za-z\s]+))?$",
+                re.MULTILINE | re.IGNORECASE,
+            )
+            for m in general_row_pattern.finditer(text):
+                line_str = m.group(0).lower()
+                if any(w in line_str for w in ('total', 'subtotal', 'page', 'bank', 'vat', 'tax', 'date', 'order')):
+                    continue
+                try:
+                    code_or_pos = m.group(1) or ""
+                    desc = m.group(2).strip()
+                    hs = m.group(3) or ""
+                    qty = BaseExtractor.parse_numeric_str(m.group(4))
+                    unit = (m.group(5) or "PCS").upper()
+                    price = BaseExtractor.parse_numeric_str(m.group(6))
+                    total = BaseExtractor.parse_numeric_str(m.group(7))
+                    cty = (m.group(8) or "").strip()
+
+                    code = code_or_pos if (code_or_pos and not code_or_pos.isdigit()) else f"ITEM-{len(items)+1:03d}"
+                    if qty > 0 and (price > 0 or total > 0):
+                        if price == 0 and total > 0 and qty > 0:
+                            price = round(total / qty, 2)
+                        elif total == 0 and price > 0 and qty > 0:
+                            total = round(qty * price, 2)
+
+                        items.append({
+                            "item_code": code,
+                            "description": desc,
+                            "hs_code": hs if hs else default_hs,
+                            "country_of_origin": cty if cty else default_cty,
+                            "quantity": qty,
+                            "unit": unit,
                             "unit_price": price,
                             "total_price": total,
                         })

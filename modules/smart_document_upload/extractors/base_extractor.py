@@ -67,23 +67,37 @@ class BaseExtractor(ABC):
     @staticmethod
     def parse_numeric_str(raw: str) -> float:
         """
-        Parses numeric string supporting both US/UK (15,375.50 or 623,000) and European (37.741,00 or 18.602,37500 or 536,25) formats.
+        Parses numeric string supporting US/UK (15,375.50 or 623,000) and European (37.741,00 or 18.602,37500 or 536,25 or 0,400) formats.
         """
         clean = raw.strip()
+        if not clean:
+            return 0.0
+
+        # Remove currency symbols and extra characters
+        clean = re.sub(r"[^\d.,\-]", "", clean)
+        if not clean or clean == "-":
+            return 0.0
+
         if "." in clean and "," in clean:
             if clean.rfind(",") > clean.rfind("."):
-                # European format with dot thousand and comma decimal: 37.741,00 or 18.602,37500
+                # European format with dot thousand and comma decimal: 37.741,00 or 18.602,37500 or 1.262,569
                 clean = clean.replace(".", "").replace(",", ".")
             else:
-                # US/UK format with comma thousand and dot decimal: 15,375.50
+                # US/UK format with comma thousand and dot decimal: 15,375.50 or 25,000.00
                 clean = clean.replace(",", "")
         elif "," in clean:
             parts = clean.split(",")
-            # If exactly 2 digits after comma (e.g. 536,25 or 37204,75), treat as decimal comma
-            if len(parts) == 2 and len(parts[1]) == 2:
-                clean = clean.replace(",", ".")
+            if len(parts) == 2:
+                # If parts[0] is "0" -> decimal (0,400 -> 0.400)
+                # If 1 or 2 digits after comma -> decimal (536,25 -> 536.25 or 14,8 -> 14.8)
+                # If more than 3 digits after comma -> decimal (18602,37500 -> 18602.375)
+                if parts[0] == "0" or len(parts[1]) in (1, 2) or len(parts[1]) > 3:
+                    clean = clean.replace(",", ".")
+                else:
+                    # Exactly 3 digits after comma with non-zero prefix -> thousands (2,500 or 6,700 or 95,942 or 623,000)
+                    clean = clean.replace(",", "")
             else:
-                # Thousands comma: 623,000 or 2,500 or 10,510
+                # Multiple commas (1,234,567) -> thousands
                 clean = clean.replace(",", "")
         return float(clean)
 

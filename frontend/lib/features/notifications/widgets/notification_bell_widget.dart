@@ -125,7 +125,7 @@ class NotificationBellWidget extends ConsumerWidget {
                           children: [
                             Row(
                               children: [
-                                Icon(_getSeverityIcon(n.severity), size: 16, color: _getSeverityBgColor(n.severity)),
+                                Icon(_getCategoryIcon(n.category, n.severity), size: 16, color: _getSeverityBgColor(n.severity)),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
@@ -170,7 +170,18 @@ class NotificationBellWidget extends ConsumerWidget {
     }
   }
 
-  IconData _getSeverityIcon(String severity) {
+  IconData _getCategoryIcon(String category, String severity) {
+    final cat = category.toUpperCase();
+    if (cat.contains('CARGOX')) return Icons.cloud_upload_outlined;
+    if (cat.contains('FORM4') || cat.contains('BANK')) return Icons.account_balance_outlined;
+    if (cat.contains('DETENTION') || cat.contains('CONTAINER')) return Icons.local_shipping_outlined;
+    if (cat.contains('COURIER') || cat.contains('DOC')) return Icons.markunread_mailbox_outlined;
+    if (cat.contains('REGULATORY') || cat.contains('INSPECTION')) return Icons.verified_user_outlined;
+    if (cat.contains('BUDGET') || cat.contains('VARIANCE')) return Icons.attach_money_outlined;
+    if (cat.contains('CURRENCY') || cat.contains('EXCHANGE')) return Icons.currency_exchange_outlined;
+    if (cat.contains('COMPANY')) return Icons.business_outlined;
+    if (cat.contains('ACID')) return Icons.timer_outlined;
+
     switch (severity.toUpperCase()) {
       case 'CRITICAL':
         return Icons.error_outline;

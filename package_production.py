@@ -20,6 +20,29 @@ DB_SRC = ROOT_DIR / "sorour_logistics.db"
 APP_ICON_SRC = ROOT_DIR / "installer" / "app_icon.ico"
 
 
+def safe_copy_file(src: Path, dst: Path) -> bool:
+    """Safely copy a file handling open file locks or retry with temporary rename."""
+    if not src.exists():
+        return False
+    try:
+        if dst.exists():
+            try:
+                dst.unlink(missing_ok=True)
+            except Exception:
+                pass
+        shutil.copy2(src, dst)
+        return True
+    except Exception as e:
+        # Fallback: try copy via reading binary chunks
+        try:
+            with open(src, "rb") as fsrc, open(dst, "wb") as fdst:
+                shutil.copyfileobj(fsrc, fdst)
+            return True
+        except Exception as e2:
+            print(f"      [WARN] Could not copy {src.name} to {dst.name}: {e2}")
+            return False
+
+
 def clean_dist():
     print(f"[1/5] Preparing clean dist directory: {DIST_DIR}...")
     # Backup current standalone db before cleaning
@@ -29,7 +52,7 @@ def clean_dist():
         from datetime import datetime
         backup_snapshot = backup_dir / f"sorour_logistics_prod_before_pack_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
         try:
-            shutil.copy2(STANDALONE_DEST / "sorour_logistics.db", backup_snapshot)
+            safe_copy_file(STANDALONE_DEST / "sorour_logistics.db", backup_snapshot)
         except Exception:
             pass
 
@@ -41,7 +64,7 @@ def clean_dist():
                 shutil.rmtree(item, ignore_errors=True)
             else:
                 try:
-                    item.unlink()
+                    item.unlink(missing_ok=True)
                 except Exception:
                     pass
     else:
@@ -64,11 +87,11 @@ def copy_standalone_package():
         if item.is_dir():
             shutil.copytree(item, dest, dirs_exist_ok=True)
         else:
-            shutil.copy2(item, dest)
+            safe_copy_file(item, dest)
     
     # 2. Copy backend.exe
     if BACKEND_EXE.exists():
-        shutil.copy2(BACKEND_EXE, STANDALONE_DEST / "backend.exe")
+        safe_copy_file(BACKEND_EXE, STANDALONE_DEST / "backend.exe")
         print(f"      Included backend.exe into {STANDALONE_DEST}")
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
@@ -76,12 +99,12 @@ def copy_standalone_package():
     # 3. Copy Full Master Database (With 3,952 World Ports & Full Master Data)
     prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
     if DB_SRC.exists():
-        shutil.copy2(DB_SRC, prod_db_file)
+        safe_copy_file(DB_SRC, prod_db_file)
         print(f"      Included master sorour_logistics.db (3,952 Ports & Full Data) into {STANDALONE_DEST}")
 
     # 4. Copy App Icon
     if APP_ICON_SRC.exists():
-        shutil.copy2(APP_ICON_SRC, STANDALONE_DEST / "app_icon.ico")
+        safe_copy_file(APP_ICON_SRC, STANDALONE_DEST / "app_icon.ico")
         print(f"      Included app_icon.ico into {STANDALONE_DEST}")
 
     # 5. Create Standalone Silent VBS Launcher (0 Terminal Windows)

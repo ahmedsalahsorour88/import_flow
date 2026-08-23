@@ -52,3 +52,25 @@ class TestProductionSyncBackend(unittest.TestCase):
         self.assertTrue(res.success)
         self.assertEqual(res.action, "PUSH_TO_PROD")
         self.assertTrue(PROD_DB.exists())
+
+    def test_restore_backup_success(self):
+        """Create a backup, then restore it — verify restore response is correct and safety backup is created."""
+        # Create a backup first
+        backup = self.service.create_safety_backup(DEV_DB, tag="test_restore_source")
+        self.assertTrue(Path(backup.filepath).exists())
+
+        # Restore it to dev
+        from modules.production_sync.schemas import RestoreBackupResponseSchema
+        result = self.service.restore_backup(filename=backup.filename, target="dev")
+        self.assertIsInstance(result, RestoreBackupResponseSchema)
+        self.assertTrue(result.success)
+        self.assertEqual(result.restored_from, backup.filename)
+        self.assertEqual(result.target, "dev")
+        # Safety backup should have been created (not empty)
+        self.assertNotEqual(result.safety_backup_created, "")
+
+    def test_restore_backup_nonexistent_raises(self):
+        """Attempting to restore a nonexistent backup should raise FileNotFoundError."""
+        with self.assertRaises(FileNotFoundError):
+            self.service.restore_backup(filename="nonexistent_backup_99999.db", target="dev")
+

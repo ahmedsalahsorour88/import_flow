@@ -102,6 +102,16 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   static const List<String> _priorities = ['All', 'Low', 'Medium', 'High', 'Critical'];
 
   @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(operationalDashboardProvider.notifier).fetchDashboard();
+      ref.invalidate(lifecycleBoardSummaryProvider);
+      ref.read(smartTasksProvider.notifier).fetchTasks();
+    });
+  }
+
+  @override
   void dispose() {
     _searchController.dispose();
     super.dispose();

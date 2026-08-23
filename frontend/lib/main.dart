@@ -151,16 +151,36 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListen
   @override
   void onWindowClose() async {
     if (!kIsWeb && Platform.isWindows) {
+      // 1. Auto-backup dev DB on every close (runs silently — 5s timeout)
       try {
         final dio = Dio();
-        await dio.post('${ApiConstants.baseUrl}/shutdown').timeout(const Duration(milliseconds: 300)).catchError((_) => Response(requestOptions: RequestOptions()));
+        await dio
+            .post(
+              '${ApiConstants.productionSync}/backup',
+              queryParameters: {'target': 'dev'},
+            )
+            .timeout(const Duration(seconds: 5))
+            .catchError((_) => Response(requestOptions: RequestOptions(path: '')));
       } catch (_) {}
+
+      // 2. Graceful backend shutdown
+      try {
+        final dio = Dio();
+        await dio
+            .post('${ApiConstants.serverUrl}/shutdown')
+            .timeout(const Duration(milliseconds: 400))
+            .catchError((_) => Response(requestOptions: RequestOptions(path: '')));
+      } catch (_) {}
+
+      // 3. Kill backend process
       try {
         await Process.run('taskkill', ['/F', '/IM', 'backend.exe', '/T']);
       } catch (_) {}
+
       await windowManager.destroy();
     }
   }
+
 
   @override
   Widget build(BuildContext context) {

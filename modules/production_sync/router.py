@@ -13,6 +13,7 @@ from modules.production_sync.schemas import (
     SyncActionResponseSchema,
     BackupsListResponseSchema,
     BackupItemSchema,
+    RestoreBackupResponseSchema,
 )
 
 router = APIRouter(
@@ -73,3 +74,14 @@ def create_manual_backup(target: str = "dev", db: Session = Depends(get_db)):
 def list_backups(db: Session = Depends(get_db)):
     service = ProductionSyncService(db)
     return service.list_backups()
+
+
+@router.post(
+    "/restore",
+    response_model=RestoreBackupResponseSchema,
+    status_code=status.HTTP_200_OK,
+    summary="استعادة نسخة احتياطية محددة إلى قاعدة بيانات الإنتاج أو التطوير",
+)
+def restore_backup(filename: str, target: str = "prod", db: Session = Depends(get_db)):
+    service = ProductionSyncService(db)
+    return service.restore_backup(filename=filename, target=target)

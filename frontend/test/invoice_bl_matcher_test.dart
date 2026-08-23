@@ -2,42 +2,42 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:dio/dio.dart';
 import 'package:frontend/features/import_documentation/widgets/invoice_bl_matcher_tab.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 
-class MockImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileModel>>>
-    implements ImportFilesNotifier {
+class MockImportFilesNotifier extends ImportFilesNotifier {
   MockImportFilesNotifier()
-      : super(
-          AsyncValue.data([
-            ImportFileModel(
-              importFileId: 101,
-              importFileCode: 'IMP-2026-001',
-              companyName: 'ARCHI Brands',
-              supplierName: 'Shaw Europe Limited',
-              piNumber: '35220',
-              status: 'Draft Documents',
-              invoicesData: [],
-              packingListsData: [],
-              projectIds: [],
-              shipmentMode: 'Sea',
-              incotermCode: 'EXW',
-              priority: 'Normal',
-              shipmentCategory: 'Commercial',
-              estimatedCost: 85060.57,
-              estimatedCostCurrency: 'USD',
-              currentModule: 'Import Documentation',
-              currentStage: 'Draft Documents',
-              progressPercent: 65.0,
-              nextAction: 'Reconcile B/L',
-              isCustomsReleased: false,
-              isActive: true,
-              createdAt: DateTime.now().toString(),
-              updatedAt: DateTime.now().toString(),
-            ),
-          ]),
-        );
+      : super(Dio()) {
+    state = AsyncValue.data([
+      ImportFileModel(
+        importFileId: 101,
+        importFileCode: 'IMP-2026-001',
+        companyName: 'ARCHI Brands',
+        supplierName: 'Shaw Europe Limited',
+        piNumber: '35220',
+        status: 'Draft Documents',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        shipmentMode: 'Sea',
+        incotermCode: 'EXW',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        estimatedCost: 85060.57,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'Import Documentation',
+        currentStage: 'Draft Documents',
+        progressPercent: 65.0,
+        nextAction: 'Reconcile B/L',
+        isCustomsReleased: false,
+        isActive: true,
+        createdAt: DateTime.now().toString(),
+        updatedAt: DateTime.now().toString(),
+      ),
+    ]);
+  }
 
   @override
   Future<void> fetchImportFiles({
@@ -48,9 +48,6 @@ class MockImportFilesNotifier extends StateNotifier<AsyncValue<List<ImportFileMo
     String? status,
     String? owner,
   }) async {}
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {

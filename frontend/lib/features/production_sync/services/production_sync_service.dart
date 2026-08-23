@@ -62,4 +62,19 @@ class ProductionSyncService {
     }
     throw Exception('فشل جلب قائمة النسخ الاحتياطية: ${response.statusCode}');
   }
+
+  Future<RestoreBackupResponseModel> restoreBackup({
+    required String filename,
+    String target = 'prod',
+  }) async {
+    final response = await _dio.post(
+      '${ApiConstants.serverUrl}/api/v1/production-sync/restore',
+      queryParameters: {'filename': filename, 'target': target},
+    );
+    if (response.statusCode == 200) {
+      return RestoreBackupResponseModel.fromJson(Map<String, dynamic>.from(response.data as Map));
+    }
+    throw Exception('فشل استعادة النسخة الاحتياطية: ${response.statusCode}');
+  }
 }
+

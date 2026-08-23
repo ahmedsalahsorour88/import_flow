@@ -103,6 +103,8 @@ class POLineItemModel {
     this.vatRate,
   });
 
+  String get itemDescription => descriptionAr.isNotEmpty ? descriptionAr : (descriptionEn ?? '');
+
   factory POLineItemModel.fromJson(Map<String, dynamic> json) {
     return POLineItemModel(
       itemId: _numToInt(json['item_id']),
@@ -448,6 +450,7 @@ class PurchaseOrderModel {
   final String? incotermCode;
   final String? currencyCode;
   final List<POLineItemModel> items;
+  List<POLineItemModel> get lineItems => items;
   final List<PackingListItemModel> packingListItems;
   final List<PalletPlanItemModel> palletPlanItems;
 

@@ -286,7 +286,19 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
         _progressPercent = 0.0;
         _progressLabel = '';
       });
-      _showError('فشل استخراج البيانات: ${_friendlyError(e)}');
+      if (e is DioException && CancelToken.isCancel(e)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('تم إلغاء عملية المعالجة والاستخراج بناءً على طلبك ✋'),
+              backgroundColor: AppTheme.charcoal,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        _showError('فشل استخراج البيانات: ${_friendlyError(e)}');
+      }
     }
   }
 

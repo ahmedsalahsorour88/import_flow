@@ -19,6 +19,7 @@ from modules.production_sync.schemas import (
     SyncActionResponseSchema,
     BackupItemSchema,
     BackupsListResponseSchema,
+    RestoreBackupResponseSchema,
 )
 from modules.production_sync.validators import validate_db_exists
 
@@ -86,12 +87,33 @@ class ProductionSyncService:
         except Exception:
             return {}
 
+    def _cleanup_old_backups(self, max_keep: int = 50, exclude_path: Optional[Path] = None):
+        """Maintains the newest `max_keep` backups in BACKUPS_DIR and removes older ones."""
+        try:
+            if not BACKUPS_DIR.exists():
+                return
+            all_backups = sorted(BACKUPS_DIR.glob("*.db"), key=lambda f: (f.stat().st_mtime, f.name), reverse=True)
+            if len(all_backups) > max_keep:
+                for old_file in all_backups[max_keep:]:
+                    if exclude_path and old_file.resolve() == exclude_path.resolve():
+                        continue
+                    try:
+                        old_file.unlink(missing_ok=True)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
     def create_safety_backup(self, db_path: Path, tag: str = "manual") -> BackupItemSchema:
         validate_db_exists(db_path, tag)
         BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_file = BACKUPS_DIR / f"{db_path.stem}_{tag}_{timestamp}.db"
-        shutil.copy2(db_path, backup_file)
+        shutil.copy(db_path, backup_file)
+        try:
+            os.utime(backup_file, None)
+        except Exception:
+            pass
         
         try:
             self.repo.create_log(
@@ -102,6 +124,9 @@ class ProductionSyncService:
             )
         except Exception:
             pass
+
+        # Automatically clean up oldest snapshots beyond the retention threshold
+        self._cleanup_old_backups(max_keep=50, exclude_path=backup_file)
 
         return BackupItemSchema(
             filename=backup_file.name,
@@ -386,3 +411,61 @@ class ProductionSyncService:
             )
 
         return BackupsListResponseSchema(total_backups=len(backups), backups=backups)
+
+    def restore_backup(self, filename: str, target: str = "prod") -> RestoreBackupResponseSchema:
+        """
+        Restore a specific backup snapshot to the target database (dev or prod).
+        Always creates a safety backup of the current target DB before restoring.
+
+        Args:
+            filename: The backup filename (must exist in BACKUPS_DIR).
+            target: 'prod' or 'dev' — which database to restore into.
+
+        Returns:
+            RestoreBackupResponseSchema with result details.
+        """
+        BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
+        # Normalize filename in case a path was passed
+        clean_filename = Path(filename).name
+        backup_file = BACKUPS_DIR / clean_filename
+        if not backup_file.exists():
+            # Check if it was provided as an absolute or relative path
+            alt_path = Path(filename)
+            if alt_path.exists():
+                backup_file = alt_path
+            else:
+                raise FileNotFoundError(f"الملف الاحتياطي '{clean_filename}' غير موجود في مجلد النسخ الاحتياطية.")
+
+        target_db = PROD_DB if target == "prod" else DEV_DB
+
+        # 1. Safety backup of current target DB before overwrite
+        safety_backup: Optional[BackupItemSchema] = None
+        if target_db.exists():
+            safety_backup = self.create_safety_backup(target_db, tag=f"pre_restore_{target}")
+
+        # 2. Ensure target directory exists
+        target_db.parent.mkdir(parents=True, exist_ok=True)
+
+        # 3. Replace target DB with the selected backup
+        shutil.copy2(backup_file, target_db)
+
+        # 4. Log action
+        try:
+            self.repo.create_log(
+                action_type="RESTORE_BACKUP",
+                status="SUCCESS",
+                backup_path=str(backup_file),
+                notes=f"Restored '{filename}' to {target} DB. Safety backup: {safety_backup.filename if safety_backup else 'none'}",
+            )
+        except Exception:
+            pass
+
+        return RestoreBackupResponseSchema(
+            success=True,
+            message=f"تمت استعادة النسخة الاحتياطية '{filename}' بنجاح إلى قاعدة بيانات {'الإنتاج' if target == 'prod' else 'التطوير'} مع حفظ نسخة أمان من الوضع الحالي.",
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            restored_from=filename,
+            safety_backup_created=safety_backup.filename if safety_backup else "لم تكن هناك قاعدة بيانات سابقة",
+            target=target,
+        )
+

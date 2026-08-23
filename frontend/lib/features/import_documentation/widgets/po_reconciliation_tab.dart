@@ -945,6 +945,60 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       return;
     }
 
+    // Check for any variances in items
+    final hasInvoiceVariance = _invoiceItems.any((i) =>
+        (i.finalQuantity - i.initialQuantity).abs() > 0.001 ||
+        (i.finalUnitPrice - i.initialUnitPrice).abs() > 0.001);
+    final hasPackingVariance = _packingItems.any((p) =>
+        (p.finalQuantity - p.initialQuantity).abs() > 0.001 ||
+        (p.finalGrossWeightKg - p.initialGrossWeightKg).abs() > 0.001);
+
+    if (hasInvoiceVariance || hasPackingVariance) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          title: const Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 24),
+              SizedBox(width: 8),
+              Text('تنبيه: وجود فروق في المطابقة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          content: const Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'تم رصد فروق بين أمر الشراء الأصلي والفاتورة والباكينج ليست النهائية:\n'
+                '• سيتم اعتماد القيم والكميات النهائية كمرجع رسمي.\n'
+                '• سيتم تحديث رصيد البضاعة في الطريق (GIT) بالكميات المعتمدة.\n'
+                'هل ترغب في المتابعة وتأكيد الاعتماد؟',
+                style: TextStyle(fontSize: 12.5, height: 1.6),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('إلغاء والمراجعة'),
+            ),
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.emerald,
+                foregroundColor: Colors.white,
+              ),
+              icon: const Icon(Icons.verified, size: 16),
+              label: const Text('تأكيد الاعتماد والمطابقة', style: TextStyle(fontWeight: FontWeight.bold)),
+              onPressed: () => Navigator.pop(ctx, true),
+            ),
+          ],
+        ),
+      );
+
+      if (confirm != true) return;
+    }
+
     setState(() => _isSubmitting = true);
     try {
       final combined = [..._invoiceItems, ..._packingItems];

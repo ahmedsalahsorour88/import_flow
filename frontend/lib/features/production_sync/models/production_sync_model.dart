@@ -153,3 +153,33 @@ class BackupItemModel {
     );
   }
 }
+
+class RestoreBackupResponseModel {
+  final bool success;
+  final String message;
+  final String timestamp;
+  final String restoredFrom;
+  final String safetyBackupCreated;
+  final String target;
+
+  const RestoreBackupResponseModel({
+    required this.success,
+    required this.message,
+    required this.timestamp,
+    required this.restoredFrom,
+    required this.safetyBackupCreated,
+    required this.target,
+  });
+
+  factory RestoreBackupResponseModel.fromJson(Map<String, dynamic> json) {
+    return RestoreBackupResponseModel(
+      success: json['success'] as bool? ?? false,
+      message: json['message'] as String? ?? '',
+      timestamp: json['timestamp'] as String? ?? '',
+      restoredFrom: json['restored_from'] as String? ?? '',
+      safetyBackupCreated: json['safety_backup_created'] as String? ?? '',
+      target: json['target'] as String? ?? 'prod',
+    );
+  }
+}
+

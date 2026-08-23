@@ -64,6 +64,23 @@ class ProductionSyncNotifier extends StateNotifier<AsyncValue<SyncActionResponse
       rethrow;
     }
   }
+
+  Future<RestoreBackupResponseModel> restoreBackup({
+    required String filename,
+    String target = 'prod',
+  }) async {
+    state = const AsyncValue.loading();
+    try {
+      final result = await _service.restoreBackup(filename: filename, target: target);
+      state = const AsyncValue.data(null);
+      _ref.invalidate(backupsListProvider);
+      _ref.invalidate(syncComparisonProvider);
+      return result;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      rethrow;
+    }
+  }
 }
 
 final productionSyncNotifierProvider =
@@ -71,3 +88,4 @@ final productionSyncNotifierProvider =
   final service = ref.watch(productionSyncServiceProvider);
   return ProductionSyncNotifier(service, ref);
 });
+

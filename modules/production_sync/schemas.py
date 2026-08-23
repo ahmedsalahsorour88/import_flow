@@ -56,3 +56,12 @@ class BackupItemSchema(BaseModel):
 class BackupsListResponseSchema(BaseModel):
     total_backups: int
     backups: List[BackupItemSchema]
+
+
+class RestoreBackupResponseSchema(BaseModel):
+    success: bool
+    message: str
+    timestamp: str
+    restored_from: str
+    safety_backup_created: str
+    target: str

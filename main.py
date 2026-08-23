@@ -254,10 +254,34 @@ def dashboard():
 # ==================================================
 
 @app.get("/health")
+@app.get("/api/v1/health")
 def health_check():
+    import sqlite3
+    import os
+    db_path = "sorour_logistics.db"
+    db_exists = os.path.exists(db_path)
+    db_size_kb = round(os.path.getsize(db_path) / 1024, 1) if db_exists else 0
+    tables_count = 0
+    if db_exists:
+        try:
+            conn = sqlite3.connect(db_path)
+            cur = conn.cursor()
+            cur.execute("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';")
+            tables_count = cur.fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
 
     return {
         "status": "OK",
+        "system": "ImportFlow ERP",
+        "version": "1.0.0",
+        "database": {
+            "connected": db_exists,
+            "path": db_path,
+            "size_kb": db_size_kb,
+            "tables_count": tables_count,
+        },
     }
 
 
@@ -266,6 +290,7 @@ def health_check():
 # ==================================================
 
 @app.post("/shutdown")
+@app.post("/api/v1/shutdown")
 def shutdown_system():
     import os
     import threading
@@ -278,4 +303,5 @@ def shutdown_system():
     threading.Thread(target=_delayed_exit, daemon=True).start()
     return {
         "status": "shutting down",
+        "message": "ImportFlow backend is shutting down gracefully...",
     }

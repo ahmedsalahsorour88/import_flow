@@ -6,6 +6,7 @@ import 'package:frontend/features/currencies/providers/currencies_provider.dart'
 import 'package:frontend/features/financial_approval/providers/financial_approval_provider.dart';
 import 'package:frontend/features/financial_approval/screens/financial_approval_screen.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
+import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/suppliers/providers/suppliers_provider.dart';
 
 class _MockPaymentRequestsNotifier extends PaymentRequestsNotifier {
@@ -78,6 +79,17 @@ class _MockCurrenciesNotifier extends CurrenciesNotifier {
   }
 }
 
+class _MockPurchaseOrdersNotifier extends PurchaseOrdersNotifier {
+  _MockPurchaseOrdersNotifier(super.dio, super.ref) {
+    state = PurchaseOrdersState(purchaseOrders: []);
+  }
+
+  @override
+  Future<void> fetchPurchaseOrders() async {
+    state = PurchaseOrdersState(purchaseOrders: []);
+  }
+}
+
 void main() {
   testWidgets('FinancialApprovalScreen renders Smart AI SWIFT Extractor and auto-fills Payment Request form', (tester) async {
     tester.view.physicalSize = const Size(1600, 1200);
@@ -92,6 +104,7 @@ void main() {
           importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier()),
           suppliersProvider.overrideWith((ref) => _MockSuppliersNotifier()),
           currenciesProvider.overrideWith((ref) => _MockCurrenciesNotifier()),
+          purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier(Dio(), ref)),
         ],
         child: const MaterialApp(
           home: FinancialApprovalScreen(initialIndex: 0),

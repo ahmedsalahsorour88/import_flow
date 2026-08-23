@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import 'consultation_metric_badge.dart';
@@ -32,6 +33,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final consultationsState = ref.watch(customsConsultationsProvider);
     return // TAB 2: SAVED CONSULTATIONS HISTORY REGISTRY (Premium Design)
         consultationsState.when(
@@ -41,7 +43,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
           children: [
             CircularProgressIndicator(color: AppTheme.cobalt),
             SizedBox(height: 16),
-            Text('جارٍ تحميل سجل الدراسات والمراجعات الجمركية...',
+            Text('جارٍ التحميل...',
                 style: TextStyle(color: Colors.grey)),
           ],
         ),
@@ -97,20 +99,20 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                     child: Row(
                       children: [
                         ConsultationMetricBadge(
-                            title: 'إجمالي الدراسات', value: '$totalCount دراسة', color: AppTheme.charcoal),
+                            title: l.totalStudiesMetric, value: '$totalCount', color: AppTheme.charcoal),
                         const SizedBox(width: 10),
                         ConsultationMetricBadge(
-                            title: 'جاهزة للتخليص', value: '$readyCount', color: AppTheme.emerald),
+                            title: l.clearanceReadyStatus, value: '$readyCount', color: AppTheme.emerald),
                         const SizedBox(width: 10),
                         ConsultationMetricBadge(
-                            title: 'عوائق مفتوحة',
+                            title: l.openBlockingIssues,
                             value: '$blockedCount',
                             color: blockedCount > 0
                                 ? AppTheme.crimson
                                 : Colors.grey),
                         const SizedBox(width: 10),
                         ConsultationMetricBadge(
-                            title: 'متوسط الجاهزية',
+                            title: l.avgReadinessMetric,
                             value: '${avgReadiness.toStringAsFixed(0)}%',
                             color: AppTheme.cobalt),
                         const Spacer(),
@@ -119,7 +121,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           width: 260,
                           child: TextField(
                             decoration: InputDecoration(
-                              hintText: 'بحث بالكود أو العنوان أو المستخلص...',
+                              hintText: l.searchConsultationsHint,
                               prefixIcon:
                                   const Icon(Icons.search, size: 18),
                               border: OutlineInputBorder(
@@ -138,23 +140,23 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                           width: 175,
                           child: SearchableDropdownField<String>(
                             value: _statusFilter,
-                            labelText: 'تصفية الحالة',
-                            items: const [
+                            labelText: l.statusFilterLabel,
+                            items: [
                               SearchableDropdownItem(
-                                  value: 'All', label: 'جميع الحالات'),
-                              SearchableDropdownItem(
+                                  value: 'All', label: l.allStatuses),
+                              const SearchableDropdownItem(
                                   value: 'Pending Review',
                                   label: 'Pending Review'),
-                              SearchableDropdownItem(
+                              const SearchableDropdownItem(
                                   value: 'In Progress',
                                   label: 'In Progress'),
-                              SearchableDropdownItem(
+                              const SearchableDropdownItem(
                                   value: 'Action Required',
                                   label: 'Action Required'),
-                              SearchableDropdownItem(
+                              const SearchableDropdownItem(
                                   value: 'Clearance Ready',
                                   label: 'Clearance Ready'),
-                              SearchableDropdownItem(
+                              const SearchableDropdownItem(
                                   value: 'Blocked', label: 'Blocked'),
                             ],
                             onChanged: (v) =>
@@ -181,7 +183,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            '${filtered.length} نتيجة',
+                            '${filtered.length}',
                             style: const TextStyle(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
@@ -203,21 +205,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     size: 64, color: Colors.grey.shade300),
                                 const SizedBox(height: 16),
                                 Text(
-                                  _searchQuery.isNotEmpty ||
-                                          _statusFilter != 'All'
-                                      ? 'لا توجد نتائج مطابقة للبحث أو التصفية'
-                                      : 'لا توجد دراسات استشارة جمركية محفوظة بعد',
+                                  l.noResultsFound,
                                   style: TextStyle(
                                       fontSize: 16,
                                       color: Colors.grey.shade500,
                                       fontWeight: FontWeight.w500),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'قم بإنشاء دراسة جديدة من تبويب "Customs Workspace"',
-                                  style: TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.grey.shade400),
                                 ),
                               ],
                             ),
@@ -250,7 +242,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                     fontSize: 12,
                                     letterSpacing: 0.3,
                                   ),
-                                  columns: const [
+                                  columns: [
                                     DataColumn(
                                       label: SizedBox(
                                         width: 168,
@@ -258,11 +250,11 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                           mainAxisAlignment:
                                               MainAxisAlignment.center,
                                           children: [
-                                            Icon(Icons.bolt_rounded,
+                                            const Icon(Icons.bolt_rounded,
                                                 size: 14, color: Colors.amber),
-                                            SizedBox(width: 4),
-                                            Text('العمليات',
-                                                style: TextStyle(
+                                            const SizedBox(width: 4),
+                                            Text(l.actionsCol,
+                                                style: const TextStyle(
                                                     color: Colors.white,
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 12)),
@@ -270,17 +262,18 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                         ),
                                       ),
                                     ),
-                                    DataColumn(label: Text('📋 كود الدراسة')),
-                                    DataColumn(label: Text('📁 ملف الشحنة')),
-                                    DataColumn(label: Text('📝 عنوان الدراسة')),
+                                    DataColumn(label: Text('📋 ${l.studyCodeCol}')),
+                                    DataColumn(label: Text('📁 ${l.linkImportFile}')),
+                                    DataColumn(label: Text('📝 ${l.titleField}')),
                                     DataColumn(
-                                        label: Text('🧑‍💼 المستخلص الجمركي')),
+                                        label: Text('🧑‍💼 ${l.customsBrokerLabel}')),
                                     DataColumn(
-                                        label: Text('💰 الرسوم التقديرية')),
+                                        label: Text('💰 ${l.customsDutyCol}')),
                                     DataColumn(
-                                        label: Text('📊 جاهزية المستندات')),
-                                    DataColumn(label: Text('🔖 الحالة العامة')),
+                                        label: Text('📊 ${l.customsInspectionReadiness}')),
+                                    DataColumn(label: Text('🔖 ${l.statusCol}')),
                                   ],
+
                                   rows: filtered.asMap().entries.map((entry) {
                                     final idx = entry.key;
                                     final session = entry.value;

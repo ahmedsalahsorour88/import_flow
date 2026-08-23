@@ -92,7 +92,7 @@ class VerticalStageScaffold extends StatelessWidget {
                         spacing: 8,
                         children: [
                           Text(
-                            titleEn,
+                            Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 15.5,
@@ -119,16 +119,6 @@ class VerticalStageScaffold extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        titleAr,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.75),
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
                     ],
                   ),
                 ),
@@ -137,7 +127,7 @@ class VerticalStageScaffold extends StatelessWidget {
                 if (showStageLifecycleControls) ...[
                   ShipmentStageLifecycleControl(
                     importFileId: selectedImportFileId,
-                    stageName: titleAr,
+                    stageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
                     stageCode: stageCode,
                     onStatusChanged: onShipmentStatusChanged,
                   ),
@@ -157,7 +147,7 @@ class VerticalStageScaffold extends StatelessWidget {
           if (showStageLifecycleControls && selectedImportFileId != null)
             ShipmentHoldWarningBanner(
               importFileId: selectedImportFileId,
-              currentStageName: titleAr,
+              currentStageName: Directionality.of(context) == TextDirection.rtl ? titleAr : titleEn,
               onResumeSuccess: onShipmentStatusChanged,
             ),
 
@@ -203,28 +193,14 @@ class VerticalStageScaffold extends StatelessWidget {
                             Icon(Icons.view_sidebar_outlined, size: 14, color: Colors.grey.shade600),
                             const SizedBox(width: 6),
                             Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    'Operations & Stages',
-                                    style: TextStyle(
-                                      fontSize: 10.5,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.grey.shade800,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    'العمليات والإجراءات',
-                                    style: TextStyle(
-                                      fontSize: 9,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
+                              child: Text(
+                                Directionality.of(context) == TextDirection.rtl ? 'العمليات والإجراءات' : 'Operations & Stages',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey.shade800,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -239,6 +215,7 @@ class VerticalStageScaffold extends StatelessWidget {
                           itemBuilder: (context, index) {
                             final tab = tabs[index];
                             final isSelected = selectedIndex == index;
+                            final isRtl = Directionality.of(context) == TextDirection.rtl;
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 3),
@@ -269,20 +246,11 @@ class VerticalStageScaffold extends StatelessWidget {
                                   ),
                                 ),
                                 title: Text(
-                                  tab.titleEn,
+                                  isRtl ? tab.titleAr : tab.titleEn,
                                   style: TextStyle(
-                                    fontSize: 11,
+                                    fontSize: 11.5,
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
                                     color: isSelected ? headerColor : Colors.grey.shade800,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                subtitle: Text(
-                                  tab.titleAr,
-                                  style: TextStyle(
-                                    fontSize: 9,
-                                    color: isSelected ? headerColor.withOpacity(0.85) : Colors.grey.shade600,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,

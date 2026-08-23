@@ -12,6 +12,7 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
+import '../../../core/localization/app_localizations.dart';
 
 class SavedScenariosRegistryTab extends ConsumerStatefulWidget {
   final void Function(ShippingEvaluationModel session) onEditSession;
@@ -46,6 +47,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
   }
 
   Widget _buildHistoryRegistryTab(ShippingScenariosState state, List poList, List projectsList) {
+    final l = context.l10n;
     final totalSessions = state.sessions.length;
     final activeSessions = state.sessions.where((s) => s.isActive).length;
     final avgTransitAll = totalSessions > 0
@@ -64,28 +66,28 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
             children: [
               _histStatCard(
                 icon: Icons.folder_copy_rounded,
-                label: 'إجمالي الدراسات',
+                label: l.totalStudiesMetric,
                 value: '$totalSessions',
                 color: AppTheme.cobalt,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.check_circle_rounded,
-                label: 'نشطة',
+                label: l.activeStatus,
                 value: '$activeSessions',
                 color: AppTheme.emerald,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.schedule_rounded,
-                label: 'متوسط ترانزيت',
-                value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} يوم' : '-',
+                label: l.avgTransitMetric,
+                value: avgTransitAll > 0 ? '${avgTransitAll.toStringAsFixed(1)} d' : '-',
                 color: Colors.purple.shade300,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.recommend_rounded,
-                label: 'مع توصية',
+                label: l.withRecommendationMetric,
                 value: '$withRecommendation',
                 color: Colors.orange.shade300,
               ),
@@ -98,7 +100,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('تحديث السجل', style: TextStyle(fontSize: 13)),
+                label: Text(l.refreshRegistry, style: const TextStyle(fontSize: 13)),
                 onPressed: () => ref.read(shippingScenariosProvider.notifier).fetchSessions(),
               ),
             ],
@@ -128,7 +130,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'ابحث بكود الدراسة، العنوان، أو الملاحظات...',
+                    hintText: l.searchStudiesHint,
                     prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -164,7 +166,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       color: state.showInactive ? AppTheme.crimson : Colors.grey,
                     ),
                     label: Text(
-                      state.showInactive ? 'إظهار الملغية' : 'إخفاء الملغية',
+                      state.showInactive ? l.showDeleted : l.hideDeleted,
                       style: TextStyle(
                         fontSize: 12,
                         color: state.showInactive ? AppTheme.crimson : Colors.grey.shade700,
@@ -187,7 +189,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${state.sessions.length} نتيجة',
+                  '${state.sessions.length}',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                 ),
               ),
@@ -204,7 +206,6 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                     children: [
                       CircularProgressIndicator(color: AppTheme.cobalt),
                       SizedBox(height: 16),
-                      Text('جارٍ تحميل سجل الدراسات...', style: TextStyle(color: Colors.grey)),
                     ],
                   ),
                 )
@@ -217,14 +218,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           const SizedBox(height: 16),
                           Text(
                             _searchController.text.isNotEmpty
-                                ? 'لا توجد نتائج مطابقة للبحث'
-                                : 'لا توجد دراسات محفوظة بعد',
+                                ? l.noResultsFound
+                                : l.noDataFound,
                             style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'قم بإنشاء دراسة جديدة من تبويب "Shipping Scenarios Evaluator"',
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
                           ),
                         ],
                       ),
@@ -254,28 +250,28 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               fontSize: 12,
                               letterSpacing: 0.3,
                             ),
-                            columns: const [
+                            columns: [
                               DataColumn(label: SizedBox(
                                 width: 168,
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
-                                    SizedBox(width: 4),
-                                    Text('العمليات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                    const SizedBox(width: 4),
+                                    Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                   ],
                                 ),
                               )),
-                              DataColumn(label: Text('📋 كود الدراسة')),
-                              DataColumn(label: Text('📁 ملف الاستيراد')),
-                              DataColumn(label: Text('📝 العنوان')),
-                              DataColumn(label: Text('⏱️ متوسط الترانزيت')),
-                              DataColumn(label: Text('🏭 موعد الوصول')),
-                              DataColumn(label: Text('⭐ الخط الموصى به')),
-                              DataColumn(label: Text('🔢 الخيارات')),
-                              DataColumn(label: Text('🔗 أمر الشراء')),
-                              DataColumn(label: Text('📅 CRD')),
-                              DataColumn(label: Text('📍 الاستلام')),
+                              DataColumn(label: Text('📋 ${l.studyCodeCol}')),
+                              DataColumn(label: Text('📁 ${l.linkImportFile}')),
+                              DataColumn(label: Text('📝 ${l.titleField}')),
+                              DataColumn(label: Text('⏱️ ${l.avgTransitMetric}')),
+                              DataColumn(label: Text('🏭 ${l.avgWarehouseArrivalMetric}')),
+                              DataColumn(label: Text('⭐ ${l.recommendedLineMetric}')),
+                              DataColumn(label: Text('🔢 ${l.optionsCountCol}')),
+                              DataColumn(label: Text('🔗 ${l.linkPurchaseOrder}')),
+                              DataColumn(label: Text('📅 ${l.crdLabel}')),
+                              DataColumn(label: Text('📍 ${l.pickupAddressLabel}')),
                             ],
                             rows: state.sessions.asMap().entries.map((entry) {
                               final idx = entry.key;
@@ -302,26 +298,26 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (ctx) => AlertDialog(
-                                              title: const Row(
+                                              title: Row(
                                                 children: [
-                                                  Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                  SizedBox(width: 8),
-                                                  Text('تأكيد الحذف', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                  const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                  const SizedBox(width: 8),
+                                                  Text(l.confirmDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                 ],
                                               ),
                                               content: Text(
-                                                'هل أنت متأكد من حذف الدراسة "${sess.sessionCode}"؟\nيمكن استعادتها لاحقاً من قائمة "إظهار الملغية".',
+                                                '${l.confirmDeleteStudyMessage} (${sess.sessionCode})',
                                                 style: const TextStyle(fontSize: 13),
                                               ),
                                               actions: [
                                                 TextButton(
                                                   onPressed: () => Navigator.pop(ctx, false),
-                                                  child: const Text('إلغاء'),
+                                                  child: Text(l.cancel),
                                                 ),
                                                 ElevatedButton.icon(
                                                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
                                                   icon: const Icon(Icons.delete_rounded, size: 16),
-                                                  label: const Text('حذف'),
+                                                  label: Text(l.delete),
                                                   onPressed: () => Navigator.pop(ctx, true),
                                                 ),
                                               ],
@@ -334,12 +330,13 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                           await ref.read(shippingScenariosProvider.notifier).restoreSession(sess.sessionId!);
                                         }
                                       },
-                                      viewTooltip: 'عرض التقييم والدراسة',
-                                      editTooltip: 'تعديل دراسة الشحن',
-                                      printTooltip: 'طباعة تقرير الدراسة',
-                                      deleteTooltip: sess.isActive ? 'حذف الدراسة' : 'استعادة الدراسة',
+                                      viewTooltip: l.view,
+                                      editTooltip: l.edit,
+                                      printTooltip: l.print,
+                                      deleteTooltip: sess.isActive ? l.delete : l.restore,
                                     ),
                                   ),
+
 
                                   // 2. Study Code
                                   DataCell(
@@ -582,35 +579,36 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
   }
 
   void _showSessionDetailsDialog(BuildContext context, ShippingEvaluationModel sess) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text('Shipping Transit Study Details (${sess.sessionCode})'),
+        title: Text('${l.freightStudiesTitle} (${sess.sessionCode})'),
         content: SizedBox(
           width: 950,
           child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(sess.title ?? 'Shipping Study', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                Text('CRD Date: ${sess.cargoReadyDate} | Pick-up: ${sess.pickUpAddress ?? "N/A"} | Form 4: ${sess.avgForm4Days}d | Clearance: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                Text(sess.title ?? l.freightStudiesTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text('${l.crdLabel}: ${sess.cargoReadyDate} | ${l.pickupAddressLabel}: ${sess.pickUpAddress ?? "—"} | ${l.avgForm4DaysLabel}: ${sess.avgForm4Days}d | ${l.avgClearanceDaysLabel}: ${sess.avgClearanceDays}d', style: const TextStyle(color: Colors.grey, fontSize: 12)),
                 const Divider(height: 20),
 
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: DataTable(
-                    columns: const [
-                      DataColumn(label: Text('#')),
-                      DataColumn(label: Text('Forwarder / Provider')),
-                      DataColumn(label: Text('Total Cost')),
-                      DataColumn(label: Text('Total WH Days')),
-                      DataColumn(label: Text('Customs Broker')),
-                      DataColumn(label: Text('Vessel')),
-                      DataColumn(label: Text('POL ➔ POD')),
-                      DataColumn(label: Text('Sailing')),
-                      DataColumn(label: Text('ETA')),
-                      DataColumn(label: Text('Free Time')),
-                      DataColumn(label: Text('Status')),
+                    columns: [
+                      const DataColumn(label: Text('#')),
+                      DataColumn(label: Text(l.shippingLineCol)),
+                      DataColumn(label: Text(l.totalQuoteValue)),
+                      DataColumn(label: Text(l.avgTransitMetric)),
+                      DataColumn(label: Text(l.customsBrokerLabel)),
+                      DataColumn(label: Text(l.vesselNameCol)),
+                      DataColumn(label: Text('${l.portOfLoadingCol} ➔ ${l.portOfDischargeCol}')),
+                      DataColumn(label: Text(l.sailingDateCol)),
+                      DataColumn(label: Text(l.estimatedArrivalDateCol)),
+                      DataColumn(label: Text(l.freeTimeDaysCol)),
+                      DataColumn(label: Text(l.statusCol)),
                     ],
                     rows: sess.items.asMap().entries.map((e) {
                       final item = e.value;
@@ -619,14 +617,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                           DataCell(Text('${e.key + 1}')),
                           DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold))),
                           DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
-                          DataCell(Text('${item.expectedTotalDaysToWarehouse} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                          DataCell(Text('${item.expectedTotalDaysToWarehouse} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                           DataCell(Text(item.customsBrokerName ?? '-')),
                           DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
                           DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
                           DataCell(Text(item.sailingDate)),
                           DataCell(Text(item.estimatedArrivalDate)),
-                          DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
-                          DataCell(Text(item.isRecommended ? 'Recommended ⭐' : item.isExcludedFromAverage ? 'Excluded 🚫' : 'Normal')),
+                          DataCell(Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+                          DataCell(Text(item.isRecommended ? '⭐ ${l.recommendedLineMetric}' : item.isExcludedFromAverage ? '🚫 Excluded' : 'Normal')),
                         ],
                       );
                     }).toList(),
@@ -637,7 +635,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
         ],
       ),
     );
@@ -674,46 +672,47 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     double cbm,
     double weightKg,
   ) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: const Text('🚚 مقارنة حالة الرص القابل وغير القابل للرص (Dual Container Matrix)'),
+        title: Text('🚚 ${l.compareContainersMatrix}'),
         content: SizedBox(
           width: 650,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('إجمالي CBM الشحنة: ${cbm.toStringAsFixed(3)} m³ | إجمالي الوزن: ${weightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              Text('CBM: ${cbm.toStringAsFixed(3)} m³ | ${l.weightUtilizationCol}: ${weightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 12),
               Table(
                 border: TableBorder.all(color: Colors.grey.shade300),
                 children: [
                   TableRow(
                     decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                    children: const [
-                      Padding(padding: EdgeInsets.all(8), child: Text('الخاصية / Scenario', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('📦 قابل للرص (Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('🚫 غير قابل للرص (Non-Stackable)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange))),
+                    children: [
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('📦 ${l.stackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('🚫 ${l.nonStackableOption}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange))),
                     ],
                   ),
                   TableRow(
                     children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية الموصى بها')),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.recommendedContainerCol)),
                       Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.stackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                       Padding(padding: const EdgeInsets.all(8), child: Text(dualRec.nonStackableResult.recommendedContainerCode, style: const TextStyle(fontWeight: FontWeight.bold))),
                     ],
                   ),
                   TableRow(
                     children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('عدد الحاويات المطلوبة')),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount} حاويات', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.requiredCountCol)),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.requiredContainersCount}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                     ],
                   ),
                   TableRow(
                     children: [
-                      const Padding(padding: EdgeInsets.all(8), child: Text('نسبة استغلال حجم الحاوية')),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.spaceUtilizationCol)),
                       Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
                       Padding(padding: const EdgeInsets.all(8), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%')),
                     ],
@@ -724,11 +723,12 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
         ],
       ),
     );
   }
+
 
   // ignore: unused_element
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {

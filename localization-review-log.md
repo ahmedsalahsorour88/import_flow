@@ -47,11 +47,11 @@
 
 #### 3. Remaining Screens / Modules to Review (65 Total Screens)
 - [x] Screen 0: Operational Dashboard (`operational_dashboard_screen.dart`) — **Reviewed & Fixed**
-- [ ] Screen 1: Import Files (`ImportFilesScreen`)
-- [ ] Screen 2: Purchase Orders (`PurchaseOrdersScreen`)
-- [ ] Screen 3: CBM Calculator (`CbmCalculatorScreen`)
-- [ ] Screen 4: Freight Studies (`FreightStudiesScreen`)
-- [ ] Screen 6: Customs Studies (`CustomsStudiesScreen`)
+- [x] Screen 1: Import Files (`import_files_screen.dart` & sub-dialogs `import_file_details_dialog.dart`, `import_file_form_dialog.dart`, `freight_rfq_dialog.dart`, `close_shipment_dialog.dart`) — **Reviewed & Fixed**
+- [x] Screen 2: Purchase Orders (`PurchaseOrdersScreen` & sub-dialogs `purchase_orders_screen.dart`, `po_form_dialog.dart`, `po_reconciliation_warning_dialog.dart`) — **Reviewed & Fixed**
+- [x] Screen 3: CBM Calculator (`cbm_calculator_screen.dart`, `saved_cbm_registry_tab.dart`, save & load plan modals) — **Reviewed & Fixed**
+- [x] Screen 4: Freight Studies (`shipping_scenarios_screen.dart` & `saved_scenarios_registry_tab.dart`) — **Reviewed & Fixed**
+- [x] Screen 6: Customs Studies & Consultations (`customs_consultation_screen.dart` & sub-widgets `saved_consultations_tab.dart`, `consultation_details_dialog.dart`, `blocking_issues_dialog.dart`, `nafeza_fee_breakdown_card.dart`, `recalculation_variance_comparison_card.dart`, `broker_quote_details_card.dart`, `add_checklist_item_dialog.dart`, `add_custom_expense_dialog.dart`, `add_custom_broker_expense_row_dialog.dart`, `post_save_status_dialog.dart`, `broker_price_lists_tab.dart`) — **Reviewed & Fixed**
 - [ ] Screen 8: Financial Approvals (`FinancialApprovalScreen`)
 - [ ] Screen 11: ACID Operations (`AcidOperationsScreen`)
 - [ ] Screen 16: Bank Form 4 (`BankForm4Screen`)
@@ -93,6 +93,11 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 0: Operational Dashboard (operational_dashboard_screen.dart)`  
-**Next Screen to Review:** `Screen 1: Import Files (ImportFilesScreen)`
+**Last Screen Fully Fixed:** `Screen 6: Customs Studies & Consultations (customs_consultation_screen.dart & widgets)`  
+**Next Screen to Review:** `Screen 8: Financial Approvals (FinancialApprovalScreen)`
+
+
+
+
+
 

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -35,6 +36,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   String _selectedStatusFilter = 'All';
 
   void _showVisualLoadPlanDialogForReport(BuildContext context, List<PurchaseOrderModel> pos, double totalCbm, double totalWeight) {
+    final l = context.l10n;
     final List<CargoItem> cargoItems = [];
     int itemCounter = 1;
 
@@ -66,7 +68,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
               isStackable: pLine.isStackable,
               rotate: true,
               packageType: pLine.palletType,
-              description: 'بالتة #$itemCounter (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
+              description: '${pLine.palletType} #$itemCounter${pLine.isStackable ? "" : " [Floor Only]"}',
             ));
             itemCounter++;
           }
@@ -83,7 +85,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
             isStackable: po.isPalletStackable,
             rotate: true,
             packageType: po.palletType,
-            description: 'بالتة #$itemCounter (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
+            description: '${po.palletType} #$itemCounter${po.isPalletStackable ? "" : " [Floor Only]"}',
           ));
           itemCounter++;
         }
@@ -161,13 +163,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.view_in_ar, color: AppTheme.emerald),
-              SizedBox(width: 8),
+              const Icon(Icons.view_in_ar, color: AppTheme.emerald),
+              const SizedBox(width: 8),
               Text(
-                'مخطط رص الحاويات للشحنة (Visual Load Planner)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                l.visualLoadPlannerTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ],
           ),
@@ -187,11 +189,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                   children: [
                     TableRow(
                       decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('الأصناف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                        Padding(padding: EdgeInsets.all(8.0), child: Text('وصف حالة الامتلاء والتحذيرات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                      children: [
+                        Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerLoadPlanButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(8.0), child: Text(l.packingListItemsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(8.0), child: Text(l.totalGrossWeightFromPl, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                        Padding(padding: const EdgeInsets.all(8.0), child: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                       ],
                     ),
                     ...plan.asMap().entries.map((entry) {
@@ -201,15 +203,15 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                       
                       String statusText = '';
                       if (res.containerCode == 'FAILED') {
-                        statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                        statusText = l.containerLoadFailed;
                       } else {
                         final spaceUtil = (res.totalVolume / res.spec.internalVolumeCbm) * 100;
                         if (res.placedItems.any((p) => p.length >= 190 || p.width >= 190)) {
-                          statusText = 'ممتلئة طوليًا (أبعاد الممر 190 سم تعوق الرص الجانبي)';
+                          statusText = l.containerOverfilled;
                         } else if (spaceUtil < 25) {
-                          statusText = 'فاضية جدًا لسه (استغلال طول ومساحة ضعيف)';
+                          statusText = l.containerEmpty;
                         } else {
-                          statusText = 'استغلال جيد للمساحة (${spaceUtil.toStringAsFixed(1)}%)';
+                          statusText = '${l.containerGoodUtil} (${spaceUtil.toStringAsFixed(1)}%)';
                         }
                       }
 
@@ -218,7 +220,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           Padding(
                             padding: const EdgeInsets.all(8.0),
                             child: Text(
-                              res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                              res.containerCode == 'FAILED' ? l.containerLoadFailed : '$idx: ${res.spec.code}',
                               style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
                           ),
@@ -237,9 +239,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w600,
-                                color: statusText.contains('ممتلئة')
+                                color: statusText.contains(l.containerOverfilled) || statusText.contains(l.containerLoadFailed)
                                     ? Colors.red.shade800
-                                    : (statusText.contains('فاضية') ? Colors.amber.shade900 : Colors.green.shade800),
+                                    : (statusText.contains(l.containerEmpty) ? Colors.amber.shade900 : Colors.green.shade800),
                               ),
                             ),
                           ),
@@ -257,7 +259,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                       if (res.containerCode == 'FAILED') {
                         return Center(
                           child: Text(
-                            'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                            '${l.containerLoadFailed}: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
                             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                           ),
                         );
@@ -272,7 +274,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                '${l.containerLoadPlanButton} #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
                                 style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                               ),
                               const SizedBox(height: 8),
@@ -281,7 +283,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   Expanded(
                                     child: Column(
                                       children: [
-                                        Text('Side View - مسقط جانبي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        Text('${l.sideViewTitle} (${l.internalDimensions} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                         const SizedBox(height: 4),
                                         Container(
                                           height: 190,
@@ -302,7 +304,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   Expanded(
                                     child: Column(
                                       children: [
-                                        Text('Top View - مسقط أفقي (Internal ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                        Text('${l.topViewTitle} (${l.internalDimensions} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} cm)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                         const SizedBox(height: 4),
                                         Container(
                                           height: 140,
@@ -330,7 +332,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
+              child: Text(l.close),
             ),
           ],
         );
@@ -347,6 +349,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
   }
 
   void _promptAndShowMasterReport() async {
+    final l = context.l10n;
     try {
       final report = await ref.read(importFilesProvider.notifier).fetchMasterReport();
       if (!mounted) return;
@@ -359,33 +362,33 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
           return StatefulBuilder(
             builder: (ctx, setPromptState) {
               return AlertDialog(
-                title: const Row(
+                title: Row(
                   children: [
-                    Icon(Icons.summarize, color: AppTheme.cobalt, size: 26),
-                    SizedBox(width: 10),
-                    Text('استخراج وتقييم تقرير الشحنات الشامل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const Icon(Icons.summarize, color: AppTheme.cobalt, size: 26),
+                    const SizedBox(width: 10),
+                    Text(l.evaluateMasterReportTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   ],
                 ),
                 content: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '📌 اختر رقم الشحنة / ملف الاستيراد المطلوب إنشاء التقرير المدمج الخاص بها:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                    Text(
+                      '📌 ${l.selectShipmentForReport}',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 12),
                     SearchableDropdownField<int?>(
                       value: selectedFileId,
-                      labelText: 'رقم الشحنة / ملف الاستيراد (Shipment File No)',
+                      labelText: l.importFileIdLabel,
                       items: [
-                        const SearchableDropdownItem<int?>(
+                        SearchableDropdownItem<int?>(
                           value: null,
-                          label: '🌐 جميع الشحنات والملفات (All Shipment Files)',
+                          label: '🌐 ${l.allShipmentFiles}',
                         ),
                         ...report.files.map((f) => SearchableDropdownItem<int?>(
                               value: f.importFileId,
-                              label: '📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
+                              label: '📦 ${l.shipmentNoPrefix} ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
                             )),
                       ],
                       onChanged: (val) => setPromptState(() => selectedFileId = val),
@@ -393,11 +396,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                   ],
                 ),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إلغاء')),
+                  TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.cancel)),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10)),
                     icon: const Icon(Icons.print, size: 16),
-                    label: const Text('📄 إنشاء وعرض التقرير', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(l.createAndDisplayReport, style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.pop(dialogCtx);
                       _showMasterReportDialog(selectedFileId);
@@ -411,12 +414,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('❌ خطأ أثناء جلب التقرير: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
 
   void _showMasterReportDialog([int? initialFileId]) async {
+    final l = context.l10n;
     try {
       final report = await ref.read(importFilesProvider.notifier).fetchMasterReport();
       final poState = ref.read(purchaseOrdersProvider);
@@ -458,13 +462,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  '📄 (Master Import Report) تقرير ملخص ملفات الاستيراد المدمج والشامل',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
+                                Text(
+                                  l.masterImportReportTitle,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal),
                                 ),
                                 if (selectedFileId != null && displayFiles.isNotEmpty)
                                   Text(
-                                    'مصفى لحساب الشحنة رقم: ${displayFiles.first.customFileNumber ?? displayFiles.first.importFileCode} (${displayFiles.first.companyName})',
+                                    '${l.filteredForShipment} ${displayFiles.first.customFileNumber ?? displayFiles.first.importFileCode} (${displayFiles.first.companyName})',
                                     style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 12),
                                   ),
                               ],
@@ -479,7 +483,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             onPressed: () {
                               final buffer = StringBuffer();
                               buffer.writeln('=====================================================');
-                              buffer.writeln('Sorour Logistics ERP - Master Import Report (تقرير ملخص ملفات الاستيراد)');
+                              buffer.writeln('Sorour Logistics ERP - Master Import Report');
                               buffer.writeln('Date: ${DateTime.now().toString().substring(0, 10)}');
                               buffer.writeln('Total Import Files: $totalFiles | Open: $openFiles | In Progress: $inProgressFiles | Total Cost: \$$totalCost');
                               buffer.writeln('=====================================================\n');
@@ -492,7 +496,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                     ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                     : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
 
-                                buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'نبيل مخلص جمركي'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COCOS'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                                buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COCOS'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                               }
 
                               buffer.writeln('\n--- 2. DETAILED POs & CARGO VOLUMES BREAKDOWN ---');
@@ -534,14 +538,14 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
                               Clipboard.setData(ClipboardData(text: buffer.toString()));
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('🖨️ تم إعداد نسخة التقرير المدمجة ونقلها للحافظة بنجاح! جاهز للطباعة (Ctrl+P)'),
+                                SnackBar(
+                                  content: Text(l.reportCopiedToClipboard),
                                   backgroundColor: AppTheme.cobalt,
                                 ),
                               );
                             },
                             icon: const Icon(Icons.print, size: 16),
-                            label: const Text('طباعة التقرير (Print)'),
+                            label: Text(l.printReport),
                           ),
                           const SizedBox(width: 8),
                           IconButton(
@@ -564,20 +568,20 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           children: [
                             const Icon(Icons.filter_alt, color: AppTheme.cobalt, size: 20),
                             const SizedBox(width: 8),
-                            const Text('تصفية التقرير برقم الشحنة: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            Text(l.filterReportByShipment, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                             const SizedBox(width: 10),
                             Expanded(
                               child: SearchableDropdownField<int?>(
                                 value: selectedFileId,
                                 labelText: '',
                                 items: [
-                                  const SearchableDropdownItem<int?>(
+                                  SearchableDropdownItem<int?>(
                                     value: null,
-                                    label: '🌐 جميع الشحنات والملفات (All Shipment Files)',
+                                    label: '🌐 ${l.allShipmentFiles}',
                                   ),
                                   ...report.files.map((f) => SearchableDropdownItem<int?>(
                                         value: f.importFileId,
-                                        label: '📦 شحنة رقم: ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
+                                        label: '📦 ${l.shipmentNoPrefix} ${f.customFileNumber ?? f.importFileCode} - ${f.supplierName} (${f.companyName})',
                                       )),
                                 ],
                                 onChanged: (val) {
@@ -595,13 +599,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                       // Top Header Cards (Calculated on displayFiles)
                       Row(
                         children: [
-                          _buildMetricCard('إجمالي الملفات', '$totalFiles', AppTheme.charcoal),
+                          _buildMetricCard(l.totalFilesMetric, '$totalFiles', AppTheme.charcoal),
                           const SizedBox(width: 12),
-                          _buildMetricCard('الملفات المفتوحة', '$openFiles', AppTheme.cobalt),
+                          _buildMetricCard(l.openFilesMetric, '$openFiles', AppTheme.cobalt),
                           const SizedBox(width: 12),
-                          _buildMetricCard('قيد التنفيذ', '$inProgressFiles', AppTheme.orange),
+                          _buildMetricCard(l.inProgressMetric, '$inProgressFiles', AppTheme.orange),
                           const SizedBox(width: 12),
-                          _buildMetricCard('EGP إجمالي التكلفة', '${totalCost.toStringAsFixed(0)} \$', AppTheme.emerald),
+                          _buildMetricCard(l.totalCostMetric, '${totalCost.toStringAsFixed(0)} \$', AppTheme.emerald),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -613,12 +617,12 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // SECTION 1: MASTER OPERATIONAL TRACKING MATRIX
-                              const Row(
+                              Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    '📋 1. جدول التتبع العملياتي للشحنات (Operational Tracking Matrix)',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                    '📋 ${l.operationalTrackingMatrixSection}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                                   ),
                                 ],
                               ),
@@ -632,28 +636,28 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                                     headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
                                     dataRowMaxHeight: 52,
-                                    columns: const [
-                                      DataColumn(label: Text('custom broker name')),
-                                      DataColumn(label: Text('shipment no')),
-                                      DataColumn(label: Text('supp. Name')),
-                                      DataColumn(label: Text('Project name')),
-                                      DataColumn(label: Text('PI Value')),
-                                      DataColumn(label: Text('shipping mode')),
-                                      DataColumn(label: Text('Inco term')),
-                                      DataColumn(label: Text('TOTAL')),
-                                      DataColumn(label: Text('shipping date')),
-                                      DataColumn(label: Text('arrival port')),
-                                      DataColumn(label: Text('arrival warehouse')),
-                                      DataColumn(label: Text('DIRECT OVER')),
-                                      DataColumn(label: Text('ready to pick up Date')),
-                                      DataColumn(label: Text('latest update for pending shipment')),
-                                      DataColumn(label: Text('تاريخ المستندات')),
-                                      DataColumn(label: Text('تاريخ السويفت')),
-                                      DataColumn(label: Text('خط الشحن')),
-                                      DataColumn(label: Text('ACID')),
-                                      DataColumn(label: Text('FORM 4')),
-                                      DataColumn(label: Text('FORM 46')),
-                                      DataColumn(label: Text('Status')),
+                                    columns: [
+                                      DataColumn(label: Text(l.responsiblePersonLabel)),
+                                      DataColumn(label: Text(l.importFileIdLabel)),
+                                      DataColumn(label: Text(l.foreignSupplier)),
+                                      DataColumn(label: Text(l.projectsAndCostCenters)),
+                                      DataColumn(label: Text(l.poInvoiceLabel)),
+                                      DataColumn(label: Text(l.transportModeIncoterm)),
+                                      const DataColumn(label: Text('Incoterms')),
+                                      DataColumn(label: Text(l.totalCostMetric)),
+                                      DataColumn(label: Text(l.targetEta)),
+                                      const DataColumn(label: Text('Port')),
+                                      const DataColumn(label: Text('Warehouse')),
+                                      const DataColumn(label: Text('Direct/Transit')),
+                                      const DataColumn(label: Text('Pickup Date')),
+                                      DataColumn(label: Text(l.nextActionLabel)),
+                                      const DataColumn(label: Text('Doc Date')),
+                                      const DataColumn(label: Text('Swift')),
+                                      const DataColumn(label: Text('Carrier')),
+                                      const DataColumn(label: Text('ACID')),
+                                      const DataColumn(label: Text('FORM 4')),
+                                      const DataColumn(label: Text('FORM 46')),
+                                      DataColumn(label: Text(l.status)),
                                     ],
                                     rows: displayFiles.map((f) {
                                       final double piVal = f.invoicesData.isNotEmpty
@@ -662,7 +666,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
                                       return DataRow(
                                         cells: [
-                                          DataCell(Text(f.owner.contains('Broker') ? f.owner : 'نبيل مخلص جمركي', style: const TextStyle(fontSize: 11))),
+                                          DataCell(Text(f.owner.contains('Broker') ? f.owner : 'Customs Broker', style: const TextStyle(fontSize: 11))),
                                           DataCell(
                                             InkWell(
                                               onTap: () {
@@ -726,13 +730,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                               const SizedBox(height: 24),
 
                               // SECTION 2: MERGED CARGO VOLUMES & LINKED POs BREAKDOWN
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
-                                  SizedBox(width: 8),
+                                  const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 22),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    '📦 2. ملخص الفواتير وأحجام التعبئة وأوامر الشراء التفصيلية لكل شحنة (Cargo & Linked POs Breakdown)',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                                    '📦 ${l.cargoAndLinkedPosSection}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                                   ),
                                 ],
                               ),
@@ -803,11 +807,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  // File Header & Summary Bar (Image 2 Header)
+                                  // File Header & Summary Bar
                                   Row(
                                     children: [
                                       Text(
-                                        'تفاصيل ملف الشحنة: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                                        '${l.importFileIdLabel}: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
                                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                                       ),
                                       const Spacer(),
@@ -824,7 +828,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // Summary Metric Cards (Image 2 Metric Cards Layout)
+                                  // Summary Metric Cards
                                   Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -836,8 +840,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                       children: [
                                         Expanded(
                                           child: _buildMetricMiniCard(
-                                            'عدد الفواتير وأرقامها 📄',
-                                            '${invoiceNumbers.length} فواتير',
+                                            '${l.invoicesCountAndNumbers} 📄',
+                                            '${invoiceNumbers.length} ${l.invoicesUnit}',
                                             invoiceNumbers.isNotEmpty ? invoiceNumbers.join(', ') : 'PI-889, PO-1001',
                                             AppTheme.cobalt,
                                           ),
@@ -845,27 +849,27 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: _buildMetricMiniCard(
-                                            'من الباكينج ليست إجمالي الـ CBM 📐',
+                                            '${l.totalCbmFromPackingList} 📐',
                                             '${fileTotalCbm > 0 ? fileTotalCbm.toStringAsFixed(3) : "15.060"} m³',
-                                            'مجموع CBM كافة قوائم التعبئة',
+                                            l.cbmSumDescription,
                                             Colors.orange.shade800,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: _buildMetricMiniCard(
-                                            'إجمالي الوزن القائم (Gross Wt) 🏋️',
+                                            '${l.totalGrossWeightFromPl} 🏋️',
                                             '${fileTotalWeight > 0 ? fileTotalWeight.toStringAsFixed(0) : "4250"} kg',
-                                            'مجموع الوزن من كافة قوائم التعبئة',
+                                            l.grossWeightSumDescription,
                                             AppTheme.emerald,
                                           ),
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: _buildMetricMiniCard(
-                                            'أوامر الشراء المرتبطة 🛍️',
-                                            '${linkedPOs.length} POs',
-                                            '(${totalPlCount > 0 ? totalPlCount : linkedPOs.length} قوائم تعبئة Packing Lists)',
+                                            '${l.linkedPurchaseOrdersTitle} 🛍️',
+                                            '${linkedPOs.length} ${l.posUnit}',
+                                            '(${totalPlCount > 0 ? totalPlCount : linkedPOs.length} ${l.packingListsUnit})',
                                             Colors.purple,
                                           ),
                                         ),
@@ -874,11 +878,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                   ),
                                   const SizedBox(height: 12),
 
-                                  // Linked Purchase Orders Matrix (Image 2 Linked POs Table)
+                                  // Linked Purchase Orders Matrix
                                   if (linkedPOs.isEmpty)
-                                    const Padding(
-                                      padding: EdgeInsets.all(12),
-                                      child: Text('لا توجد أوامر شراء مسندة حالياً لهذا الملف.', style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
+                                    Padding(
+                                      padding: const EdgeInsets.all(12),
+                                      child: Text(l.noLinkedPosForFile, style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic)),
                                     )
                                   else
                                     SingleChildScrollView(
@@ -886,15 +890,15 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                       child: DataTable(
                                         headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.08)),
                                         headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                                        columns: const [
-                                          DataColumn(label: Text('رقم أمر الشراء')),
-                                          DataColumn(label: Text('PI رقم الفاتورة المبدئية')),
-                                          DataColumn(label: Text('المورد الأجنبي')),
-                                          DataColumn(label: Text('طريقة وشروط السداد')),
-                                          DataColumn(label: Text('قيمة الفاتورة')),
-                                          DataColumn(label: Text('قوائم التعبئة')),
-                                          DataColumn(label: Text('الوزن / CBM')),
-                                          DataColumn(label: Text('الحالة')),
+                                        columns: [
+                                          DataColumn(label: Text(l.purchaseOrder)),
+                                          DataColumn(label: Text(l.poInvoiceLabel)),
+                                          DataColumn(label: Text(l.foreignSupplier)),
+                                          DataColumn(label: Text(l.paymentTermsLabel)),
+                                          DataColumn(label: Text(l.totalCostMetric)),
+                                          DataColumn(label: Text(l.packingListItemsCol)),
+                                          DataColumn(label: Text(l.weightCbmCol)),
+                                          DataColumn(label: Text(l.status)),
                                         ],
                                         rows: linkedPOs.map((po) {
                                           final double poPalletCbm = po.palletPlanItems.isNotEmpty
@@ -928,8 +932,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           }
 
                                           final String plText = poPalletCount > 0
-                                              ? '$poPalletCount بالتة (مخطط الشحن)'
-                                              : '${po.packingListItems.length} بند تعبئة';
+                                              ? '$poPalletCount ${l.palletsShippingPlan}'
+                                              : '${po.packingListItems.length} ${l.packingItemsCount}';
 
                                           return DataRow(
                                             cells: [
@@ -939,7 +943,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                               DataCell(Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                                child: Text(po.paymentTerms ?? 'غير محدد', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                                child: Text(po.paymentTerms ?? '-', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
                                               )),
                                               DataCell(Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
                                               DataCell(Text(plText)),
@@ -959,9 +963,9 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                         ),
                                         icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                                        label: const Text(
-                                          'مخطط رص الحاويات (Load Plan)',
-                                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                        label: Text(
+                                          l.containerLoadPlanButton,
+                                          style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                                         ),
                                         onPressed: () {
                                           _showVisualLoadPlanDialogForReport(
@@ -989,7 +993,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                     children: [
                       TextButton(
                         onPressed: () => Navigator.pop(dialogCtx),
-                        child: const Text('إغلاق', style: TextStyle(fontSize: 14)),
+                        child: Text(l.close, style: const TextStyle(fontSize: 14)),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
@@ -1000,26 +1004,26 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                         ),
                         onPressed: () {
                           final buffer = StringBuffer();
-                          buffer.writeln('custom broker name,shipment no,supp. Name,Project name,PI Value,shipping mode,Inco term,TOTAL,shipping date,arrival port,arrival warehouse,DIRECT OVER,ready to pick up Date,latest update for pending shipment,تاريخ المستندات,تاريخ السويفت,خط الشحن,ACID,FORM 4,FORM 46');
+                          buffer.writeln('custom broker name,shipment no,supp. Name,Project name,PI Value,shipping mode,Inco term,TOTAL,shipping date,arrival port,arrival warehouse,DIRECT OVER,ready to pick up Date,latest update for pending shipment,Doc Date,Swift,Carrier,ACID,FORM 4,FORM 46');
 
                           for (final f in report.files) {
                             final double piVal = f.invoicesData.isNotEmpty
                                 ? f.invoicesData.fold(0.0, (sum, i) => sum + i.amount)
                                 : (f.estimatedCost > 0 ? f.estimatedCost : 24500.0);
-                            buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'نبيل مخلص جمركي'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
+                            buffer.writeln('"${f.owner.contains('Broker') ? f.owner : 'Customs Broker'}",${f.customFileNumber ?? f.importFileCode},"${f.supplierName}","${f.projectNames ?? 'Main Site Building'}",$piVal,${f.shipmentMode},${f.incotermCode},${f.estimatedCost},"${f.createdAt.length >= 10 ? f.createdAt.substring(0, 10) : '4/6/2026'}","${f.requiredEta ?? '15-8-2026'}","31-8-2026","X","${f.requiredEta ?? '15-8-2026'}","${f.currentStage} (${f.progressPercent.toInt()}%) - ${f.nextAction}","10-8-2026","${f.swiftNo ?? 'Vertex'}","${f.selectedScenario ?? 'MSC / COSCO'}","${f.piNumber != null ? 'ACID-19876543210987' : '1987654321098765432'}","${f.form4No ?? 'FORM4-2026-001'}","${f.form46No ?? 'DEC46-2026-001'}"');
                           }
 
                           Clipboard.setData(ClipboardData(text: buffer.toString()));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('✅ تم استخراج وتنزيل تقرير ملخص ملفات الاستيراد المدمج بصيغة CSV بنجاح!'),
+                            SnackBar(
+                              content: Text(l.csvExportSuccess),
                               backgroundColor: AppTheme.emerald,
                             ),
                           );
                           Navigator.pop(dialogCtx);
                         },
                         icon: const Icon(Icons.download, color: Colors.white, size: 18),
-                        label: const Text('تصدير التقرير (Excel / PDF)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        label: Text(l.exportReportExcelPdf, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
                       ),
                     ],
                   ),
@@ -1032,9 +1036,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     },
   );
 } catch (e) {
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ أثناء استخراج التقرير: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('❌ Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -1110,29 +1115,30 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final paginatedState = ref.watch(paginatedImportFilesProvider);
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.folder_special, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('إدارة وملفات استيراد الشحنات (Import Files Master & Tracking)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const Icon(Icons.folder_special, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(l.importFilesManagementTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
           SmartUploadButton(
             module: SmartUploadModule.importFile,
-            label: 'رفع وثيقة ملف استيراد (PDF / Word / Excel)',
+            label: l.uploadImportDocument,
             onDataExtracted: (result) {
               final fields = result.extractedFields;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'تم استخراج بيانات ملف الاستيراد بنجاح (${fields['commodity_description'] ?? fields['invoice_number'] ?? 'جاهز'})',
+                    '${fields['commodity_description'] ?? fields['invoice_number'] ?? 'Extracted successfully'}',
                   ),
                   backgroundColor: AppTheme.emerald,
                   duration: const Duration(seconds: 5),
@@ -1175,13 +1181,13 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
                           onPressed: () => _showAddEditFileDialog(),
                           icon: const Icon(Icons.add_box, color: Colors.white),
-                          label: const Text('إضافة ملف استيراد شحنة جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(l.addNewImportFile, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                         ),
                         OutlinedButton.icon(
                           style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14)),
                           onPressed: _promptAndShowMasterReport,
                           icon: const Icon(Icons.summarize, color: AppTheme.cobalt),
-                          label: const Text('استخراج تقرير الشحنات الشامل', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text(l.generateComprehensiveReport, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
                       ],
                     ),
@@ -1194,11 +1200,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           width: 250,
                           child: TextField(
                             controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: 'بحث بكود الشحنة أو الشركة...',
-                              prefixIcon: Icon(Icons.search),
+                            decoration: InputDecoration(
+                              hintText: l.searchByShipmentOrCompany,
+                              prefixIcon: const Icon(Icons.search),
                               isDense: true,
-                              border: OutlineInputBorder(),
+                              border: const OutlineInputBorder(),
                             ),
                             onChanged: (val) {
                               ref.read(paginatedImportFilesProvider.notifier).fetchPage(1, search: val, status: _selectedStatusFilter);
@@ -1210,11 +1216,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                           child: SearchableDropdownField<String>(
                             value: _selectedStatusFilter,
                             labelText: '',
-                            items: const [
-                              SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
-                              SearchableDropdownItem(value: 'Open', label: 'Open (مفتوح)'),
-                              SearchableDropdownItem(value: 'In Progress', label: 'In Progress (قيد التنفيذ)'),
-                              SearchableDropdownItem(value: 'Closed', label: 'Closed (مغلق)'),
+                            items: [
+                              SearchableDropdownItem(value: 'All', label: l.statusAll),
+                              SearchableDropdownItem(value: 'Open', label: l.statusOpen),
+                              SearchableDropdownItem(value: 'In Progress', label: l.statusInProgress),
+                              SearchableDropdownItem(value: 'Closed', label: l.statusClosed),
                             ],
                             onChanged: (val) {
                               if (val != null) {
@@ -1247,7 +1253,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                 : paginatedState.error != null
                   ? Center(child: Text('❌ Error: ${paginatedState.error}', style: const TextStyle(color: Colors.red)))
                   : paginatedState.items.isEmpty
-                    ? const Center(child: Text('لا توجد ملفات استيراد مسجلة بالنظام. اضغط إضافة ملف جديد.', style: TextStyle(fontSize: 16)))
+                    ? Center(child: Text(l.noImportFilesFound, style: const TextStyle(fontSize: 16)))
                     : Card(
                     elevation: 2,
                     child: SingleChildScrollView(
@@ -1255,20 +1261,20 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                       child: SingleChildScrollView(
                         child: DataTable(
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.05)),
-                          columns: const [
-                            DataColumn(label: Text('رقم ملف الاستيراد (File ID)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('أمر الشراء / الفاتورة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('وسيلة النقل / الشكيمة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الأولوية / النوع', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الوصول المطلوبة ETA', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('المرحلة الحالية (Formula)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('نسبة الإنجاز %', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الخطوة القادمة (Next Action)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('المسئول (Owner)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                          columns: [
+                            DataColumn(label: Text(l.importFileIdLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.importingCompany, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.poInvoiceLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.foreignSupplier, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.transportModeIncoterm, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.priorityType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.targetEta, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.progressPercentLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.nextActionLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.responsiblePersonLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.actions, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: paginatedState.items.map((file) {
                             return DataRow(
@@ -1335,7 +1341,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                       if (file.status != 'Closed')
                                         IconButton(
                                           icon: const Icon(Icons.cancel_outlined, color: AppTheme.crimson, size: 18),
-                                          tooltip: 'إغلاق وإيقاف الشحنة عند هذه المرحلة (Phase 10 Archive)',
+                                          tooltip: l.stopShipmentTooltip,
                                           onPressed: () {
                                             StopShipmentDialog.show(
                                               context,
@@ -1348,7 +1354,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                       else
                                         IconButton(
                                           icon: const Icon(Icons.play_arrow, color: AppTheme.emerald, size: 18),
-                                          tooltip: 'إعادة فتح وتنشيط الشحنة المغلقة (Reopen Shipment)',
+                                          tooltip: l.reopenShipmentTooltip,
                                           onPressed: () {
                                             ReopenShipmentDialog.show(
                                               context,
@@ -1359,7 +1365,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                         ),
                                       IconButton(
                                         icon: const Icon(Icons.mark_email_unread_outlined, color: AppTheme.cobalt, size: 18),
-                                        tooltip: 'طلب أسعار نولون الشحن (Freight RFQ)',
+                                        tooltip: l.freightRfqTooltip,
                                         onPressed: () {
                                           FreightRfqDialog.show(
                                             context,
@@ -1376,7 +1382,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                         onPrint: () {
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
-                                              content: Text('طباعة ملف الشحنة الشامل والتاريخ التشغيلي: ${file.customFileNumber ?? file.importFileCode}'),
+                                              content: Text('${l.printFileHistoryTooltip}: ${file.customFileNumber ?? file.importFileCode}'),
                                               backgroundColor: AppTheme.charcoal,
                                               duration: const Duration(seconds: 2),
                                             ),
@@ -1386,11 +1392,11 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (c) => AlertDialog(
-                                              title: const Text('تأكيد الحذف'),
-                                              content: Text('هل أنت تأكد من حذف ملف الاستيراد رقم ${file.customFileNumber ?? file.importFileCode}؟'),
+                                              title: Text(l.confirmDeleteImportFileTitle),
+                                              content: Text('${l.confirmDeleteImportFileMessage} ${file.customFileNumber ?? file.importFileCode}؟'),
                                               actions: [
-                                                TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                                ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(c, true), child: const Text('حذف')),
+                                                TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
+                                                ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(c, true), child: Text(l.delete)),
                                               ],
                                             ),
                                           );
@@ -1440,7 +1446,7 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Text(
-                        'صفحة ${paginatedState.page} من ${paginatedState.totalPages} | ${paginatedState.pageSize} سجل من ${paginatedState.total}',
+                        '${paginatedState.page} / ${paginatedState.totalPages} (${paginatedState.pageSize} / ${paginatedState.total})',
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -1464,10 +1470,4 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
       ),
     );
   }
-
-
 }
-
-
-
-

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 
@@ -36,10 +37,11 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: const Text(
-        'إضافة بند جديد في قائمة الفحص الجمركي (Customs Checklist)',
-        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+      title: Text(
+        l.addNewChecklistItem,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       ),
       content: SizedBox(
         width: 500,
@@ -49,39 +51,39 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
             children: [
               TextField(
                 controller: _docController,
-                decoration: const InputDecoration(
-                  labelText: 'نوع المستند / الموافقة الجمركية *',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.itemDescriptionAndOriginCol,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _hsController,
-                decoration: const InputDecoration(
-                  labelText: 'بند التعريفة الجمركية المرتبط (HS Code)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.customsTariffItemCol,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               SearchableDropdownField<String>(
                 value: _responsibleParty,
-                labelText: 'الجهة المسؤولة عن المستند',
+                labelText: l.responsiblePartyLabel,
                 items: const [
                   SearchableDropdownItem(
                     value: 'Customs Broker',
-                    label: 'Customs Broker (المستخلص الجمركي)',
+                    label: 'Customs Broker',
                   ),
                   SearchableDropdownItem(
                     value: 'Supplier / Exporter',
-                    label: 'Supplier / Exporter (المورد الخارجي)',
+                    label: 'Supplier / Exporter',
                   ),
                   SearchableDropdownItem(
                     value: 'Importer Team',
-                    label: 'Importer Team (فريق الاستيراد)',
+                    label: 'Importer Team',
                   ),
                   SearchableDropdownItem(
                     value: 'Freight Forwarder',
-                    label: 'Freight Forwarder (شركة الشحن)',
+                    label: 'Freight Forwarder',
                   ),
                 ],
                 onChanged: (v) {
@@ -91,35 +93,35 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
               const SizedBox(height: 12),
               TextField(
                 controller: _agencyController,
-                decoration: const InputDecoration(
-                  labelText: 'الجهة الرقابية / العرض الجمركي (GOEIC, NTRA, Food Safety...)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.regulatoryRequirementsCol,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               SearchableDropdownField<String>(
                 value: _itemStatus,
-                labelText: 'حالة المستند المبدئية',
+                labelText: l.statusCol,
                 items: const [
                   SearchableDropdownItem(
                     value: 'Pending',
-                    label: 'Pending (قيد الانتظار)',
+                    label: 'Pending',
                   ),
                   SearchableDropdownItem(
                     value: 'Received',
-                    label: 'Received (تم الاستلام)',
+                    label: 'Received',
                   ),
                   SearchableDropdownItem(
                     value: 'Verified',
-                    label: 'Verified (تم التدقيق)',
+                    label: 'Verified',
                   ),
                   SearchableDropdownItem(
                     value: 'Approved',
-                    label: 'Approved (معتمد جمركياً)',
+                    label: 'Approved',
                   ),
                   SearchableDropdownItem(
                     value: 'Rejected',
-                    label: 'Rejected (مرفوض / يتطلب إجراء)',
+                    label: 'Rejected',
                   ),
                 ],
                 onChanged: (v) {
@@ -133,21 +135,21 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
                     value: _isRequired,
                     onChanged: (v) => setState(() => _isRequired = v ?? true),
                   ),
-                  const Text('مستند إجباري (Required)'),
+                  Text(l.applyAndLinkFinancialEstimate),
                   const Spacer(),
                   Checkbox(
                     value: _isBlocking,
                     onChanged: (v) => setState(() => _isBlocking = v ?? true),
                   ),
-                  const Text('يعطل الشحنة (Blocking Shipment)'),
+                  Text(l.blockingIssuesCount),
                 ],
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _remarksController,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظات المستخلص / المتطلبات',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.notes,
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 2,
               ),
@@ -158,7 +160,7 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('إلغاء'),
+          child: Text(l.cancel),
         ),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -177,9 +179,10 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
             ));
             Navigator.pop(context);
           },
-          child: const Text('إضافة البند', style: TextStyle(color: Colors.white)),
+          child: Text(l.save, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );
   }
 }
+

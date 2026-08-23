@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/error_details_dialog.dart';
@@ -209,7 +210,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
     _checklist.clear();
     _checklist.addAll([
       CustomsChecklistItemModel(
-        documentType: 'Proforma Invoice (الفاتورة المبدئية)',
+        documentType: 'Proforma Invoice',
         isRequired: true,
         isBlockingShipment: true,
         responsibleParty: 'Supplier / Exporter',
@@ -217,7 +218,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         remarks: 'الفاتورة المبدئية معتمدة ومطابقة للبند الجمركي.',
       ),
       CustomsChecklistItemModel(
-        documentType: 'Packing List (قائمة التعبئة والتغليف)',
+        documentType: 'Packing List',
         isRequired: true,
         isBlockingShipment: true,
         responsibleParty: 'Supplier / Exporter',
@@ -225,7 +226,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         remarks: 'محدثة بإجمالي الأوزان الأحجام والطرود.',
       ),
       CustomsChecklistItemModel(
-        documentType: 'Certificate of Origin (شهادة المنشأ COO)',
+        documentType: 'Certificate of Origin',
         isRequired: true,
         isBlockingShipment: true,
         responsibleParty: 'Customs Broker',
@@ -233,25 +234,26 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
         remarks: 'مطلوب توثيق السفارة والغرفة التجارية.',
       ),
       CustomsChecklistItemModel(
-        documentType: 'GOEIC Inspection (عرض هيئة الصادرات والواردات)',
+        documentType: 'GOEIC Inspection',
         isRequired: true,
         isBlockingShipment: true,
         responsibleParty: 'Customs Broker',
-        regulatoryAgency: 'GOEIC (هيئة الرقابة على الصادرات والواردات)',
+        regulatoryAgency: 'GOEIC',
         status: 'Pending',
         remarks: 'يتطلب فحص ظاهري وعينات المعمل فور الوصول.',
       ),
       CustomsChecklistItemModel(
-        documentType: 'NTRA Telecommunications Approval (موافقة جهاز الاتصالات)',
+        documentType: 'NTRA Telecommunications Approval',
         isRequired: false,
         isBlockingShipment: false,
         responsibleParty: 'Importer Team',
-        regulatoryAgency: 'NTRA (الجهاز القومي لتنظيم الاتصالات)',
+        regulatoryAgency: 'NTRA',
         status: 'Pending',
         remarks: 'تنطبق في حال وجود وحدات تحكم لاسلكية.',
       ),
     ]);
   }
+
 
   void _onImportFileChanged(int? fileId) {
     setState(() {
@@ -1212,6 +1214,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final consultationsState = ref.watch(customsConsultationsProvider);
     final partnersState = ref.watch(partnersProvider);
     final partnersList = partnersState.value ?? [];
@@ -1239,15 +1242,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
 
     final tabs = widget.isTaxReviewMode
         ? [
-            const VerticalNavTabItem(
+            VerticalNavTabItem(
               icon: Icons.calculate_outlined,
               titleEn: 'Customs Duty Workspace',
-              titleAr: 'مركز احتساب ومراجعة الضرائب',
+              titleAr: l.taxReviewWorkspaceTab,
             ),
             VerticalNavTabItem(
               icon: Icons.history_edu_outlined,
               titleEn: 'Tax Review Log',
-              titleAr: 'سجل مراجعات الضرائب المحفوظة',
+              titleAr: l.taxReviewLogTab,
               badge: (consultationsState.value?.length ?? 0) > 0
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1264,15 +1267,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
             ),
           ]
         : [
-            const VerticalNavTabItem(
+            VerticalNavTabItem(
               icon: Icons.gavel_outlined,
               titleEn: 'Customs Workspace',
-              titleAr: 'مركز الاستشارة والفحص الجمركي',
+              titleAr: l.customsWorkspaceTab,
             ),
             VerticalNavTabItem(
               icon: Icons.history_edu_outlined,
               titleEn: 'Consultations Log',
-              titleAr: 'سجل الدراسات المحفوظة',
+              titleAr: l.consultationsLogTab,
               badge: (consultationsState.value?.length ?? 0) > 0
                   ? Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -1287,15 +1290,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     )
                   : null,
             ),
-            const VerticalNavTabItem(
+            VerticalNavTabItem(
               icon: Icons.price_change_outlined,
               titleEn: 'Broker Price Lists & Catalog',
-              titleAr: 'قوائم الأسعار وتكويد المصروفات',
+              titleAr: l.brokerPriceListsTab,
             ),
-            const VerticalNavTabItem(
+            VerticalNavTabItem(
               icon: Icons.request_quote_rounded,
               titleEn: 'Clearance Quotes & AI Extractor',
-              titleAr: 'عروض التخليص والاستخراج الذكي',
+              titleAr: l.clearanceQuotesTab,
             ),
           ];
 
@@ -1305,8 +1308,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
           ? 'Customs Duty Review & Tax Calculation Workspace'
           : 'Customs Broker Consultation & Inspection Workspace',
       titleAr: widget.isTaxReviewMode
-          ? 'مركز مراجعة واحتساب الضرائب والرسوم الجمركية'
-          : 'مركز الاستشارة والفحص الجمركي',
+          ? l.customsDutyReviewTitle
+          : l.customsStudiesTitle,
       headerIcon: widget.isTaxReviewMode ? Icons.calculate_outlined : Icons.gavel_outlined,
       headerColor: widget.isTaxReviewMode ? Colors.teal : AppTheme.cobalt,
       tabs: tabs,
@@ -1321,7 +1324,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات (Refresh)',
+          tooltip: l.liveRefresh,
           onPressed: () {
             ref.read(customsConsultationsProvider.notifier).fetchConsultations();
             ref.read(importFilesProvider.notifier).fetchImportFiles();
@@ -1355,10 +1358,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                     runSpacing: 12,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      ConsultationMetricBadge(title: 'جاهزية الفحص الجمركي', value: '$liveReadinessPct%', color: Colors.blue),
-                      ConsultationMetricBadge(title: 'عدد البنود والمستندات', value: '${_checklist.length}', color: Colors.grey),
+                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '$liveReadinessPct%', color: Colors.blue),
+                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${_checklist.length}', color: Colors.grey),
                       ConsultationMetricBadge(
-                        title: 'عوائق التخليص (Blocking)',
+                        title: l.blockingIssuesCount,
                         value: '$blockingCount',
                         color: blockingCount > 0 ? Colors.red : Colors.green,
                         onTap: () => showBlockingIssuesDialog(context, _checklist, (val) => setState(() { _checklist.clear(); _checklist.addAll(val); })),
@@ -1385,7 +1388,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           }
                         },
                         icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-                        label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l.liveRefresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 2. Clear Form & Start New
@@ -1410,7 +1413,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                           });
                         },
                         icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-                        label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l.clearAndStartNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 3. Smart Clearance Quote Extractor Button (Clearance Mode Only)
@@ -1423,7 +1426,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                           ),
                           icon: const Icon(Icons.auto_awesome, size: 16),
-                          label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(l.smartClearanceQuoteExtractor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             showSmartClearanceExtractorDialog(
                               context,
@@ -1444,7 +1447,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         ),
                         onPressed: _isSaving ? null : _saveConsultation,
                         icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
-                        label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l.saveDraftContinueLater, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       ),
 
                       // 4. Final Save / Update
@@ -1459,8 +1462,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             : Icon(_editingConsultationId != null ? Icons.save_as : Icons.save, color: Colors.white),
                         label: Text(
                           _editingConsultationId != null
-                              ? 'حفظ تعديلات المراجعة الجمركية'
-                              : (widget.isTaxReviewMode ? 'حفظ جلسة مراجعة الضرائب الجمركية ✅' : 'حفظ دراسة الاستشارة الجمركية ✅'),
+                              ? l.saveConsultationChanges
+                              : (widget.isTaxReviewMode ? l.saveTaxReviewSession : l.saveCustomsStudy),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                         ),
                       ),
@@ -1563,15 +1566,15 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             children: [
                               Text(
                                 widget.isTaxReviewMode
-                                    ? 'بيانات ملف الشحنة وأوامر الشراء المربوطة بمراجعة الضرائب'
-                                    : 'بيانات الجلسة والمستخلص الجمركي المعني (Customs Broker)',
+                                    ? l.taxReviewWorkspaceTab
+                                    : l.customsWorkspaceTab,
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                               ),
                               if (_editingConsultationCode != null)
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(color: Colors.orange.shade100, borderRadius: BorderRadius.circular(6)),
-                                  child: Text('جاري تعديل الدراسة: $_editingConsultationCode', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
+                                  child: Text('${l.statusCol}: $_editingConsultationCode', style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                             ],
                           ),
@@ -1583,8 +1586,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 flex: 3,
                                 child: TextFormField(
                                   controller: _titleController,
-                                  decoration: const InputDecoration(labelText: 'عنوان موضوع المراجعة / الدراسة *', border: OutlineInputBorder()),
-                                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال عنوان الدراسة' : null,
+                                  decoration: InputDecoration(labelText: '${l.titleField} *', border: const OutlineInputBorder()),
+                                  validator: (v) => (v == null || v.trim().isEmpty) ? l.requiredField : null,
                                 ),
                               ),
                               if (!widget.isTaxReviewMode) ...[
@@ -1593,8 +1596,8 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   flex: 2,
                                   child: SearchableDropdownField<int?>(
                                     value: _selectedBrokerId,
-                                    labelText: 'المستخلص الجمركي (Customs Broker) *',
-                                    searchHintText: 'ابحث عن المستخلص الجمركي...',
+                                    labelText: '${l.customsBrokerLabel} *',
+                                    searchHintText: '${l.search} ${l.customsBrokerLabel}...',
                                     items: brokersList
                                         .map((b) => SearchableDropdownItem<int?>(
                                               value: b.providerId,
@@ -1612,7 +1615,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         });
                                       }
                                     },
-                                    validator: (v) => v == null ? 'مطلوب تحديد المستخلص' : null,
+                                    validator: (v) => v == null ? l.requiredField : null,
                                   ),
                                 ),
                               ],
@@ -1624,17 +1627,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedImportFileId,
-                                  labelText: 'ملف الشحنة الاستيرادية (Import File)',
-                                  searchHintText: 'ابحث عن ملف الشحنة...',
+                                  labelText: l.linkImportFile,
+                                  searchHintText: '${l.search} ${l.linkImportFile}...',
                                   items: [
-                                    const SearchableDropdownItem<int?>(
+                                    SearchableDropdownItem<int?>(
                                       value: null,
-                                      label: '-- بدون ربط بملف شحنة --',
+                                      label: '-- ${l.allFiles} --',
                                     ),
                                     ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
                                           label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
-                                          subtitle: '${f.companyName} | المستخلص: ${f.brokerName ?? "غير محدد"}',
+                                          subtitle: '${f.companyName} | ${l.customsBrokerLabel}: ${f.brokerName ?? ""}',
                                         )),
                                   ],
                                   onChanged: _onImportFileChanged,
@@ -1644,10 +1647,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedPoId,
-                                  labelText: 'ربط بأمر الشراء (Purchase Order - اختياري)',
-                                  searchHintText: 'ابحث عن أمر الشراء...',
+                                  labelText: l.linkPurchaseOrder,
+                                  searchHintText: '${l.search} ${l.linkPurchaseOrder}...',
                                   items: [
-                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط (مستقل)'),
+                                    SearchableDropdownItem<int?>(value: null, label: l.allFiles),
                                     ...poList.map((po) => SearchableDropdownItem<int?>(value: po.poId, label: '${po.poNumber} - ${po.supplierName}')),
                                   ],
                                   onChanged: _onPoChanged,
@@ -1657,10 +1660,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedProjectId,
-                                  labelText: 'ربط بالمشروع (Project - اختياري)',
-                                  searchHintText: 'ابحث عن المشروع...',
+                                  labelText: l.linkProject,
+                                  searchHintText: '${l.search} ${l.linkProject}...',
                                   items: [
-                                    const SearchableDropdownItem<int?>(value: null, label: 'بدون ربط مشروع'),
+                                    SearchableDropdownItem<int?>(value: null, label: l.allFiles),
                                     ...projectsList.map((pj) => SearchableDropdownItem<int?>(value: pj.projectId, label: '${pj.projectCode} - ${pj.projectName}')),
                                   ],
                                   onChanged: (val) => setState(() => _selectedProjectId = val),
@@ -1671,10 +1674,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 child: TextFormField(
                                   controller: _estimatedDutiesController,
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(
-                                    labelText: 'تقدير الرسوم والضرائب (EGP)',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.calculate, color: AppTheme.cobalt),
+                                  decoration: InputDecoration(
+                                    labelText: '${l.totalTaxesAndDutiesCol} (EGP)',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.calculate, color: AppTheme.cobalt),
                                   ),
                                 ),
                               ),
@@ -1733,12 +1736,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                             children: [
                               const Icon(Icons.calculate, color: AppTheme.cobalt, size: 22),
                               const SizedBox(width: 8),
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text('محرك حساب الرسوم والضرائب الجمركية للشحنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                    Text('يستدعي بنود HS Code والقيم والاشتراطات تلقائياً من ملف الشحنة وأوامر الشراء المربوطة ويحسب الجمارك والـ VAT ورسم التنمية', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                    Text(l.customsCalculationEngine, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                    Text(l.customsCalculationEngineSub, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                                   ],
                                 ),
                               ),
@@ -1756,9 +1759,9 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                         )
                                       : const Icon(Icons.flash_on, color: Colors.white, size: 16),
-                                  label: const Text(
-                                    '⚡ استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة',
-                                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                  label: Text(
+                                    l.fetchReconciledFinalInvoice,
+                                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1767,12 +1770,12 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10)),
                                 onPressed: () => _syncHsRequirementsToChecklist(silent: false),
                                 icon: const Icon(Icons.sync_alt, color: Colors.white, size: 16),
-                                label: const Text('⚡ مزامنة اشتراطات الـ HS Codes مع قائمة المستندات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                label: Text(l.syncHsRequirementsToChecklist, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                               ),
                               const SizedBox(width: 8),
                               IconButton(
                                 icon: Icon(_isCustomsCalculatorExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
-                                tooltip: _isCustomsCalculatorExpanded ? 'طي محرك الحساب' : 'توسيع محرك الحساب',
+                                tooltip: l.view,
                                 onPressed: () => setState(() => _isCustomsCalculatorExpanded = !_isCustomsCalculatorExpanded),
                               ),
                             ],
@@ -1786,7 +1789,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   flex: 2,
                                   child: SearchableDropdownField<String>(
                                     value: _customsCurrency,
-                                    labelText: 'عملة الفاتورة (Currency)',
+                                    labelText: l.quoteCurrencyCol,
                                     items: (ref.watch(currenciesProvider).value ?? []).isNotEmpty
                                         ? (ref.watch(currenciesProvider).value ?? [])
                                             .map((c) => SearchableDropdownItem<String>(
@@ -1795,11 +1798,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 ))
                                             .toList()
                                         : const [
-                                            SearchableDropdownItem(value: 'USD', label: 'USD - دولار أمريكي'),
-                                            SearchableDropdownItem(value: 'EUR', label: 'EUR - يورو أوروبي'),
-                                            SearchableDropdownItem(value: 'GBP', label: 'GBP - جنيه إسترليني'),
-                                            SearchableDropdownItem(value: 'CNY', label: 'CNY - يوان صيني'),
-                                            SearchableDropdownItem(value: 'EGP', label: 'EGP - جنيه مصري'),
+                                            SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                            SearchableDropdownItem(value: 'EUR', label: 'EUR'),
+                                            SearchableDropdownItem(value: 'GBP', label: 'GBP'),
+                                            SearchableDropdownItem(value: 'CNY', label: 'CNY'),
+                                            SearchableDropdownItem(value: 'EGP', label: 'EGP'),
                                           ],
                                     onChanged: (v) {
                                       if (v != null) {
@@ -1817,7 +1820,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   child: TextFormField(
                                     controller: _exchangeRateController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'سعر الصرف الجمركي (Exchange Rate EGP)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: '${l.customsExchangeRate} (EGP)', border: const OutlineInputBorder()),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -1837,10 +1840,10 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                       }
                                     },
                                     child: InputDecorator(
-                                      decoration: const InputDecoration(
-                                        labelText: 'تاريخ الدراسة الجمركية (Study Date)',
-                                        border: OutlineInputBorder(),
-                                        prefixIcon: Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
+                                      decoration: InputDecoration(
+                                        labelText: l.studyDateLabel,
+                                        border: const OutlineInputBorder(),
+                                        prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt, size: 18),
                                       ),
                                       child: Text(
                                         '${_studyDate.year}-${_studyDate.month.toString().padLeft(2, '0')}-${_studyDate.day.toString().padLeft(2, '0')}',
@@ -1855,7 +1858,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   child: TextFormField(
                                     controller: _freightEgpController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'النولون البحري/الجوي (Freight EGP)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: '${l.freightEgpLabel} (EGP)', border: const OutlineInputBorder()),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -1865,7 +1868,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   child: TextFormField(
                                     controller: _insuranceEgpController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'التأمين البحري (Insurance EGP)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: '${l.insuranceEgpLabel} (EGP)', border: const OutlineInputBorder()),
                                     onChanged: (_) => setState(() {}),
                                   ),
                                 ),
@@ -1886,11 +1889,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(8)),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.info_outline, color: AppTheme.cobalt),
-                                    SizedBox(width: 10),
-                                    Text('يرجى اختيار ملف شحنة أو أمر شراء يحتوي على بنود وأسعار وأكواد HS Code لتفعيل محرك الحساب التلقائي.', style: TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.w600)),
+                                    const Icon(Icons.info_outline, color: AppTheme.cobalt),
+                                    const SizedBox(width: 10),
+                                    Expanded(child: Text(l.noResultsFound, style: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.w600))),
                                   ],
                                 ),
                               )
@@ -1901,17 +1904,17 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   columnSpacing: 14,
                                   headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                                   headingTextStyle: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 12),
-                                  columns: const [
-                                    DataColumn(label: Text('بند التعريفة (HS Code)')),
-                                    DataColumn(label: Text('بيان الصنف والمنشأ')),
-                                    DataColumn(label: Text('الكمية والوحدة')),
-                                    DataColumn(label: Text('القيمة (FOB EGP)')),
-                                    DataColumn(label: Text('القيمة الجمركية (CIF EGP)')),
-                                    DataColumn(label: Text('ضريبة الوارد (الإعفاء)')),
-                                    DataColumn(label: Text('VAT (القيمة المضافة)')),
-                                    DataColumn(label: Text('ض.جدول / تنمية / خدمات')),
-                                    DataColumn(label: Text('إجمالي الضرائب والرسوم')),
-                                    DataColumn(label: Text('الاشتراطات والعروض')),
+                                  columns: [
+                                    DataColumn(label: Text(l.customsTariffItemCol)),
+                                    DataColumn(label: Text(l.itemDescriptionAndOriginCol)),
+                                    DataColumn(label: Text(l.quantityAndUnitCol)),
+                                    DataColumn(label: Text(l.fobEgpCol)),
+                                    DataColumn(label: Text(l.cifEgpCol)),
+                                    DataColumn(label: Text(l.customsDutyCol)),
+                                    DataColumn(label: Text(l.vatCol)),
+                                    DataColumn(label: Text(l.otherTaxesCol)),
+                                    DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
+                                    DataColumn(label: Text(l.regulatoryRequirementsCol)),
                                   ],
                                   rows: calcLines.map((line) {
                                     return DataRow(
@@ -1941,7 +1944,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                       border: Border.all(color: Colors.blue.shade200),
                                                     ),
                                                     child: Text(
-                                                      'المنشأ: ${line.countryOfOrigin}',
+                                                      line.countryOfOrigin!,
                                                       style: TextStyle(fontSize: 10, color: Colors.blue.shade900, fontWeight: FontWeight.bold),
                                                     ),
                                                   ),
@@ -1981,7 +1984,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                     border: Border.all(color: Colors.green.shade300),
                                                   ),
                                                   child: Text(
-                                                    '✨ إعفاء: ${line.appliedAgreementName ?? "اتفاقية"}',
+                                                    line.appliedAgreementName ?? "Exemption",
                                                     style: TextStyle(fontSize: 9.5, color: Colors.green.shade900, fontWeight: FontWeight.bold),
                                                   ),
                                                 ),
@@ -2053,7 +2056,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
-                                              '⚠️ تنبيه إعفاء وشروط مستندية مطلوبة للمورد الخارجي (HS Code: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}):',
+                                              '⚠️ HS Code: ${line.hsCode}${line.countryOfOrigin != null ? " - ${line.countryOfOrigin}" : ""}',
                                               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.amber.shade900),
                                             ),
                                           ),
@@ -2066,35 +2069,30 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                                 border: Border.all(color: Colors.green.shade700),
                                               ),
                                               child: Text(
-                                                '✅ إعفاء جمركي مطبق: ${line.appliedAgreementName}',
+                                                line.appliedAgreementName ?? 'Exemption',
                                                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade900),
                                               ),
                                             ),
                                         ],
                                       ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        '• توجد اتفاقيات وشروط مستندية يجب طلب استيفائها من المورد الخارجي (مثل شهادة EUR.1 الأصلي أو منشأ الميركسور) قبل تطبيق الإعفاء الجمركي:',
-                                        style: TextStyle(fontSize: 11, color: Colors.amber.shade900, fontWeight: FontWeight.w600),
-                                      ),
                                       if (line.exemptionConditionsNote != null) ...[
                                         const SizedBox(height: 4),
                                         Text(
-                                          '  - الشروط والاتفاقية: ${line.exemptionConditionsNote!}',
+                                          line.exemptionConditionsNote!,
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                                         ),
                                       ],
                                       if (line.requiredDocument != null) ...[
                                         const SizedBox(height: 3),
                                         Text(
-                                          '  - المستند الإلزامي من المورد: ${line.requiredDocument!}',
+                                          line.requiredDocument!,
                                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade900),
                                         ),
                                       ],
                                       if (line.priorApprovalNote != null && line.priorApprovalNote!.isNotEmpty) ...[
                                         const SizedBox(height: 4),
                                         Text(
-                                          '  - شروط وموافقات مسبقة / إفراج جهات: ${line.priorApprovalNote!}',
+                                          line.priorApprovalNote!,
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal, height: 1.3),
                                         ),
                                       ],
@@ -2118,11 +2116,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                   alignment: WrapAlignment.spaceBetween,
                                   crossAxisAlignment: WrapCrossAlignment.center,
                                   children: [
-                                    ConsultationMetricBadge(title: 'إجمالي FOB بالجنيه', value: '${totalFobEgp.toStringAsFixed(2)} EGP', color: Colors.grey.shade800),
-                                    ConsultationMetricBadge(title: 'إجمالي القيمة الجمركية (CIF Base)', value: '${totalCifEgp.toStringAsFixed(2)} EGP', color: AppTheme.cobalt),
-                                    ConsultationMetricBadge(title: 'إجمالي ضريبة الوارد (Customs Duty)', value: '${totalDutyEgp.toStringAsFixed(2)} EGP', color: Colors.indigo),
-                                    ConsultationMetricBadge(title: 'إجمالي ضريبة القيمة المضافة (VAT)', value: '${totalVatEgp.toStringAsFixed(2)} EGP', color: Colors.teal),
-                                    ConsultationMetricBadge(title: 'إجمالي الرسوم والضرائب الجمركية', value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', color: AppTheme.crimson),
+                                    ConsultationMetricBadge(title: l.fobEgpCol, value: '${totalFobEgp.toStringAsFixed(2)} EGP', color: Colors.grey.shade800),
+                                    ConsultationMetricBadge(title: l.cifEgpCol, value: '${totalCifEgp.toStringAsFixed(2)} EGP', color: AppTheme.cobalt),
+                                    ConsultationMetricBadge(title: l.customsDutyCol, value: '${totalDutyEgp.toStringAsFixed(2)} EGP', color: Colors.indigo),
+                                    ConsultationMetricBadge(title: l.vatCol, value: '${totalVatEgp.toStringAsFixed(2)} EGP', color: Colors.teal),
+                                    ConsultationMetricBadge(title: l.totalTaxesAndDutiesCol, value: '${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP', color: AppTheme.crimson),
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12)),
                                       onPressed: () {
@@ -2130,11 +2128,11 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           _estimatedDutiesController.text = totalTaxesAndDutiesEgp.toStringAsFixed(2);
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('✅ تم تحديث وربط التقدير المالي للرسوم الجمركية: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP'), backgroundColor: AppTheme.emerald),
+                                          SnackBar(content: Text('✅ ${l.applyAndLinkFinancialEstimate}: ${totalTaxesAndDutiesEgp.toStringAsFixed(2)} EGP'), backgroundColor: AppTheme.emerald),
                                         );
                                       },
                                       icon: const Icon(Icons.done_all, color: Colors.white, size: 16),
-                                      label: const Text('اعتماد وربط التقدير المالي للدراسة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                      label: Text(l.applyAndLinkFinancialEstimate, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                     ),
                               const SizedBox(height: 16),
 
@@ -2180,13 +2178,13 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                         children: [
                           Row(
                             children: [
-                              const Text('قائمة فحص واشتراطات المستندات الجمركية (Customs Checklist)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              Text(l.customsChecklistTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                               const Spacer(),
                               ElevatedButton.icon(
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                                 onPressed: _addChecklistItem,
                                 icon: const Icon(Icons.add, color: Colors.white),
-                                label: const Text('إضافة بند جديد للفحص', style: TextStyle(color: Colors.white)),
+                                label: Text(l.addNewChecklistItem, style: const TextStyle(color: Colors.white)),
                               ),
                             ],
                           ),
@@ -2225,7 +2223,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           if (item.regulatoryAgency != null)
                                             Padding(
                                               padding: const EdgeInsets.only(top: 2.0),
-                                              child: Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                              child: Text('${l.responsiblePartyLabel}: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
                                             ),
                                           if (item.remarks != null && item.remarks!.isNotEmpty)
                                             Padding(
@@ -2238,7 +2236,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               Expanded(
                                                 child: SearchableDropdownField<String>(
                                                   value: item.responsibleParty,
-                                                  labelText: 'الجهة',
+                                                  labelText: l.responsiblePartyLabel,
                                                   items: const [
                                                     SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
                                                     SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
@@ -2258,7 +2256,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               Expanded(
                                                 child: SearchableDropdownField<String>(
                                                   value: item.status,
-                                                  labelText: 'الحالة',
+                                                  labelText: l.statusCol,
                                                   items: const [
                                                     SearchableDropdownItem(value: 'Pending', label: 'Pending'),
                                                     SearchableDropdownItem(value: 'Received', label: 'Received'),
@@ -2278,7 +2276,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               const SizedBox(width: 8),
                                               IconButton(
                                                 icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
-                                                tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
+                                                tooltip: item.isBlockingShipment ? l.blockingConditionTooltip : l.nonBlockingConditionTooltip,
                                                 onPressed: () {
                                                   setState(() {
                                                     _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);
@@ -2323,7 +2321,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                               if (item.regulatoryAgency != null)
                                                 Padding(
                                                   padding: const EdgeInsets.only(top: 2.0),
-                                                  child: Text('الجهة: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
+                                                  child: Text('${l.responsiblePartyLabel}: ${item.regulatoryAgency}', style: const TextStyle(fontSize: 11, color: Colors.purple, fontWeight: FontWeight.bold)),
                                                 ),
                                               if (item.remarks != null && item.remarks!.isNotEmpty)
                                                 Padding(
@@ -2338,7 +2336,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           width: 190,
                                           child: SearchableDropdownField<String>(
                                             value: item.responsibleParty,
-                                            labelText: 'الجهة',
+                                            labelText: l.responsiblePartyLabel,
                                             items: const [
                                               SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker'),
                                               SearchableDropdownItem(value: 'Supplier / Exporter', label: 'Supplier / Exporter'),
@@ -2359,7 +2357,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                           width: 160,
                                           child: SearchableDropdownField<String>(
                                             value: item.status,
-                                            labelText: 'الحالة',
+                                            labelText: l.statusCol,
                                             items: const [
                                               SearchableDropdownItem(value: 'Pending', label: 'Pending'),
                                               SearchableDropdownItem(value: 'Received', label: 'Received'),
@@ -2379,7 +2377,7 @@ class _CustomsConsultationScreenState extends ConsumerState<CustomsConsultationS
                                         const SizedBox(width: 8),
                                         IconButton(
                                           icon: Icon(item.isBlockingShipment ? Icons.block : Icons.check_circle_outline, color: item.isBlockingShipment ? Colors.red : Colors.grey, size: 20),
-                                          tooltip: item.isBlockingShipment ? 'بند يعطل الشحنة (Blocking)' : 'بند غير معطل',
+                                          tooltip: item.isBlockingShipment ? l.blockingConditionTooltip : l.nonBlockingConditionTooltip,
                                           onPressed: () {
                                             setState(() {
                                               _checklist[index] = item.copyWith(isBlockingShipment: !item.isBlockingShipment);

@@ -23,8 +23,11 @@ import '../models/shipping_scenario_model.dart';
 import '../providers/shipping_scenarios_provider.dart';
 import '../../currencies/models/currency_model.dart';
 import '../../currencies/providers/currencies_provider.dart';
+import '../../../core/localization/app_localizations.dart';
+
 
 class ShippingScenariosScreen extends ConsumerStatefulWidget {
+
   final int initialIndex;
   const ShippingScenariosScreen({super.key, this.initialIndex = 0});
 
@@ -373,6 +376,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final state = ref.watch(shippingScenariosProvider);
     final projectsState = ref.watch(projectsProvider);
     final poState = ref.watch(purchaseOrdersProvider);
@@ -396,6 +400,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         titleEn: 'Scenarios Evaluator',
         titleAr: 'دراسة وسيناريوهات الشحن',
       ),
+
       VerticalNavTabItem(
         icon: Icons.history_edu_outlined,
         titleEn: 'Saved Evaluations Log',
@@ -418,7 +423,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
 
     return VerticalStageScaffold(
       stageCode: '',
-      titleEn: 'Freight Shipping Scenarios & Carrier Quotes Evaluation',
+      titleEn: 'Freight Shipping Scenarios & Carrier Evaluation',
       titleAr: 'دراسات وسيناريوهات الشحن والمفاضلة',
       headerIcon: Icons.alt_route_outlined,
       headerColor: AppTheme.cobalt,
@@ -428,7 +433,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
       headerActions: [
         SmartUploadButton(
           module: SmartUploadModule.freightQuotation,
-          label: '🚀 استخراج عروض أسعار النولون',
+          label: '🚀 ${l.extractFreightQuotes}',
           onDataExtracted: (result) {
             _applySmartExtractedFreightQuotes(result.extractedFields);
           },
@@ -436,7 +441,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
         const SizedBox(width: 8),
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'Live Refresh (تحديث حي)',
+          tooltip: l.liveRefresh,
           onPressed: () => _refreshData(force: true),
         ),
       ],
@@ -450,6 +455,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     );
   }
 
+
   Widget _buildEvaluatorTab(
     ShippingScenariosState state,
     List<PurchaseOrderModel> poList,
@@ -461,8 +467,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     List<CurrencyModel> currenciesList,
   ) {
     final crd = _cargoReadyDate;
+    final l = context.l10n;
 
     // Calculate Scenario lead times
+
     final calculatedScenarios = _evalItems.asMap().entries.map((entry) {
       final idx = entry.key;
       final item = entry.value;
@@ -575,14 +583,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           const SizedBox(width: 12),
                           Expanded(
                             child: Text(
-                              '⚠️ وضع التعديل نشط: أنت تقوم الآن بتعديل الدراسة رقم $_editingSessionCode (${_title.isNotEmpty ? _title : "بدون اسم"}). سيتم حفظ التعديلات على نفس الدراسة والمسمى.',
+                              '⚠️ ${l.activeEditStudyBanner}: $_editingSessionCode (${_title.isNotEmpty ? _title : l.noDataFound}). ${l.activeEditStudyHint}',
                               style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13),
                             ),
                           ),
                           TextButton.icon(
                             style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
                             icon: const Icon(Icons.cancel_outlined, size: 18),
-                            label: const Text('إلغاء التعديل والبدء من جديد', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: Text(l.cancelEditAndStartNew, style: const TextStyle(fontWeight: FontWeight.bold)),
                             onPressed: () {
                               _resetFormForNewStudy();
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -603,7 +611,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                     children: [
                       Expanded(
                         child: _buildMetricCard(
-                          'متوسط موعد التوصيل للمخزن (Avg WH Date)',
+                          l.avgWarehouseArrivalMetric,
                           avgArrivalDate,
                           Icons.date_range,
                           AppTheme.emerald,
@@ -613,31 +621,31 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildMetricCard(
-                          'أسرع خط ملاحي وصولاً (Earliest Line)',
+                          l.earliestLineMetric,
                           earliestItemMap != null ? (earliestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
                           Icons.speed,
                           AppTheme.cobalt,
-                          subtitle: earliestItemMap != null ? 'تاريخ الوصول المتوقع: ${earliestItemMap["expectedWhDate"]}' : null,
+                          subtitle: earliestItemMap != null ? '${l.estimatedArrivalDateCol}: ${earliestItemMap["expectedWhDate"]}' : null,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildMetricCard(
-                          'أبطأ خط ملاحي وصولاً (Latest Line)',
+                          l.latestLineMetric,
                           latestItemMap != null ? (latestItemMap["item"] as ShippingScenarioItemModel).providerName : 'N/A',
                           Icons.warning_amber_rounded,
                           Colors.amber.shade900,
-                          subtitle: latestItemMap != null ? 'تاريخ الوصول المتوقع: ${latestItemMap["expectedWhDate"]}' : null,
+                          subtitle: latestItemMap != null ? '${l.estimatedArrivalDateCol}: ${latestItemMap["expectedWhDate"]}' : null,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: _buildMetricCard(
-                          'الخط الموصى به رسمياً (Recommended)',
-                          recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : 'لم يحدد بعد',
+                          l.recommendedLineMetric,
+                          recItem != null ? '${recItem.providerName} (${recItem.vesselName})' : l.unassigned,
                           Icons.stars_rounded,
                           Colors.purple,
-                          subtitle: recItemMap != null ? 'تاريخ التوصيل: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} يوم)' : null,
+                          subtitle: recItemMap != null ? '${l.avgWarehouseArrivalMetric}: ${recItemMap["expectedWhDate"]} (${recItemMap["totalDays"]} d)' : null,
                         ),
                       ),
                     ],
@@ -653,7 +661,13 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('⚙️ Study Setup & Parameters (إعدادات ومعلمات الجلسة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                          Row(
+                            children: [
+                              const Icon(Icons.tune, color: AppTheme.cobalt, size: 18),
+                              const SizedBox(width: 8),
+                              Text(l.studySetupAndParameters, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                            ],
+                          ),
                           const SizedBox(height: 12),
 
                           // Parameters Row 1
@@ -664,8 +678,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 child: TextFormField(
                                   key: ValueKey('title_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _title,
-                                  decoration: const InputDecoration(labelText: 'Study Title (مسمى دراسة خيارات الشحن) *', hintText: 'مثال: دراسة شحن خطوط الشرق الأقصى - يوليو', isDense: true),
-                                  validator: (v) => v == null || v.trim().isEmpty ? 'عنوان الدراسة مطلوب' : null,
+                                  decoration: InputDecoration(labelText: '${l.studyTitleLabel} *', hintText: 'مثال: دراسة شحن خطوط الشرق الأقصى', isDense: true),
+                                  validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
                                   onChanged: (v) => _title = v.trim(),
                                 ),
                               ),
@@ -686,7 +700,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     }
                                   },
                                   child: InputDecorator(
-                                    decoration: const InputDecoration(labelText: 'Cargo Ready Date (CRD) *', isDense: true),
+                                    decoration: InputDecoration(labelText: '${l.crdLabel} *', isDense: true),
                                     child: Text(_cargoReadyDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
                                   ),
                                 ),
@@ -695,9 +709,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedImportFileId,
-                                  labelText: 'Link Import File (ربط بملف استيراد)',
+                                  labelText: l.linkImportFile,
                                   items: [
-                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                     ...(ref.watch(importFilesProvider).value ?? []).map((f) => SearchableDropdownItem<int?>(
                                           value: f.importFileId,
                                           label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
@@ -726,10 +740,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           TextFormField(
                             key: ValueKey('pickup_addr_${_editingSessionId ?? "new"}_$_editFormVersion'),
                             initialValue: _pickUpAddress,
-                            decoration: const InputDecoration(
-                              labelText: 'Pick-up Address (عنوان استلام البضاعة / مكان التجميع المصنعي)',
-                              hintText: 'أدخل عنوان المصنع أو المدينة أو مكان استلام الشحنة في بلد المنشأ (e.g. Factory A, Industrial Zone, Shanghai)',
-                              prefixIcon: Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
+                            decoration: InputDecoration(
+                              labelText: l.pickupAddressLabel,
+                              hintText: 'Factory / Industrial Zone, Origin Country',
+                              prefixIcon: const Icon(Icons.location_on_outlined, color: AppTheme.cobalt),
                               isDense: true,
                             ),
                             onChanged: (v) => _pickUpAddress = v.trim(),
@@ -742,9 +756,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedPoId,
-                                  labelText: 'Link Purchase Order (PO)',
+                                  labelText: l.linkPurchaseOrder,
                                   items: [
-                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                     ...poList.map((po) => SearchableDropdownItem<int?>(
                                           value: po.poId,
                                           label: '${po.poNumber} (${po.supplierName ?? "Supplier"})',
@@ -757,9 +771,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                               Expanded(
                                 child: SearchableDropdownField<int?>(
                                   value: _selectedProjectId,
-                                  labelText: 'Link Project',
+                                  labelText: l.linkProject,
                                   items: [
-                                    const SearchableDropdownItem<int?>(value: null, label: 'None / Unbound'),
+                                    SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                     ...projectsList.map((p) => SearchableDropdownItem<int?>(
                                           value: p.projectId,
                                           label: '${p.projectCode} - ${p.projectName}',
@@ -774,7 +788,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   key: ValueKey('avg_form4_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _avgForm4Days.toString(),
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'Avg Form 4 Days (أيام نموذج 4)', isDense: true, suffixText: 'أيام'),
+                                  decoration: InputDecoration(labelText: l.avgForm4DaysLabel, isDense: true, suffixText: 'd'),
                                   onChanged: (v) => _avgForm4Days = int.tryParse(v) ?? 5,
                                 ),
                               ),
@@ -784,7 +798,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   key: ValueKey('avg_clearance_${_editingSessionId ?? "new"}_$_editFormVersion'),
                                   initialValue: _avgClearanceDays.toString(),
                                   keyboardType: TextInputType.number,
-                                  decoration: const InputDecoration(labelText: 'Avg Clearance Days (أيام التخليص)', isDense: true, suffixText: 'أيام'),
+                                  decoration: InputDecoration(labelText: l.avgClearanceDaysLabel, isDense: true, suffixText: 'd'),
                                   onChanged: (v) => _avgClearanceDays = int.tryParse(v) ?? 7,
                                 ),
                               ),
@@ -808,12 +822,12 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     children: [
                                       const Icon(Icons.inventory_2, color: Colors.purple, size: 20),
                                       const SizedBox(width: 8),
-                                      const Text(
-                                        '📦 إجمالي حمولة الملف المجمعة من قوائم التعبئة: ',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                      Text(
+                                        '${l.totalShipmentSummary}: ',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                       ),
                                       Text(
-                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg (${filteredPOs.length} أمر شراء | $linkedPlCount بند تعبئة)',
+                                        '${totalCargoCbm.toStringAsFixed(3)} m³ | ${totalCargoWeightKg.toStringAsFixed(0)} kg (${filteredPOs.length} POs | $linkedPlCount items)',
                                         style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple, fontSize: 13),
                                       ),
                                     ],
@@ -829,8 +843,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       ),
                                       child: Text(
                                         hasNonStackableItems
-                                            ? '⚠️ تعليمات قائمة التعبئة: تتضمن الشحنة طرود غير قابلة للرص (Non-Stackable Items Detected)'
-                                            : '✅ تعليمات قائمة التعبئة: جميع الطرود قابلة للرص (All Items Stackable)',
+                                            ? '⚠️ ${l.nonStackableOption}'
+                                            : '✅ ${l.stackableOption}',
                                         style: TextStyle(
                                           fontWeight: FontWeight.bold,
                                           fontSize: 11,
@@ -842,10 +856,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   const SizedBox(height: 8),
                                   Row(
                                     children: [
-                                      const Text('🚚 نوع التحميل والتخزين (Cargo Stacking): ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      Text('${l.cargoStackingType}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                       const SizedBox(width: 8),
                                       ChoiceChip(
-                                        label: const Text('📦 قابل للرص (Stackable)'),
+                                        label: Text('📦 ${l.stackableOption}'),
                                         selected: _isStackable,
                                         selectedColor: AppTheme.cobalt,
                                         labelStyle: TextStyle(color: _isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
@@ -853,7 +867,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       ),
                                       const SizedBox(width: 8),
                                       ChoiceChip(
-                                        label: const Text('🚫 غير قابل للرص (Non-Stackable)'),
+                                        label: Text('🚫 ${l.nonStackableOption}'),
                                         selected: !_isStackable,
                                         selectedColor: Colors.orange.shade800,
                                         labelStyle: TextStyle(color: !_isStackable ? Colors.white : AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 11),
@@ -867,7 +881,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     spacing: 8,
                                     runSpacing: 6,
                                     children: [
-                                      const Text('🚚 اقتراح الحاوية التلقائي: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                      Text('${l.approvedRecommendation}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                         decoration: BoxDecoration(
@@ -885,8 +899,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                         decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade400)),
                                         child: Text(
                                           _isStackable
-                                              ? 'بديل غير قابل للرص: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
-                                              : 'بديل قابل للرص: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
+                                              ? '${l.nonStackableOption}: ${dualRec.nonStackableResult.requiredContainersCount}x ${dualRec.nonStackableResult.recommendedContainerCode}'
+                                              : '${l.stackableOption}: ${dualRec.stackableResult.requiredContainersCount}x ${dualRec.stackableResult.recommendedContainerCode}',
                                           style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 11),
                                         ),
                                       ),
@@ -896,7 +910,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                           side: const BorderSide(color: AppTheme.cobalt),
                                         ),
                                         icon: const Icon(Icons.table_chart, size: 14, color: AppTheme.cobalt),
-                                        label: const Text('مقارنة الحالتين (Matrix)', style: TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                                        label: Text(l.compareContainersMatrix, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                                         onPressed: () => _showContainerComparisonDialog(context, dualRec, totalCargoCbm, totalCargoWeightKg),
                                       ),
                                       const SizedBox(width: 8),
@@ -906,9 +920,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         ),
                                         icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                                        label: const Text(
-                                          'مخطط رص الحاويات (Load Plan)',
-                                          style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                                        label: Text(
+                                          l.visualLoadPlanSimulator,
+                                          style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                                         ),
                                         onPressed: () => _showVisualLoadPlanDialog(context, filteredPOs, totalCargoCbm, totalCargoWeightKg),
                                       ),
@@ -928,11 +942,11 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('🚢 Shipping Carrier Options & Quotes (خيارات وعروض شحن الشركات مدمجة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
+                      Text(l.shippingCarrierOptions, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal)),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                         icon: const Icon(Icons.add, size: 18),
-                        label: const Text('إضافة خيار شحن جديد'),
+                        label: Text(l.addNewShippingOption),
                         onPressed: () {
                           setState(() {
                             final defaultLineName = shippingLines.isNotEmpty ? shippingLines.first.partnerName : 'COSCO Shipping';
@@ -950,6 +964,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 12),
 
                   // Carrier Option Cards List
@@ -993,9 +1008,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   flex: 2,
                                   child: SearchableDropdownField<int?>(
                                     value: item.providerId,
-                                    labelText: 'وكيل الشحن / الناقل (Freight Forwarder)',
+                                    labelText: l.freightForwarderCol,
                                     items: [
-                                      const SearchableDropdownItem<int?>(value: null, label: 'ادخال يدوياً / Custom'),
+                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...freightForwarders.map((p) => SearchableDropdownItem<int?>(
                                             value: p.providerId,
                                             label: p.partnerName,
@@ -1015,9 +1030,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   flex: 2,
                                   child: SearchableDropdownField<String>(
                                     value: shippingLines.any((p) => p.partnerName == item.providerName) ? item.providerName : '',
-                                    labelText: 'الخط الملاحي (Shipping Line) *',
+                                    labelText: '${l.shippingLineCol} *',
                                     items: [
-                                      const SearchableDropdownItem<String>(value: '', label: 'اختر الخط الملاحي (Select Line)'),
+                                      SearchableDropdownItem<String>(value: '', label: l.unassigned),
                                       ...shippingLines.map((p) => SearchableDropdownItem<String>(
                                             value: p.partnerName,
                                             label: p.partnerName,
@@ -1036,8 +1051,8 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   child: TextFormField(
                                     key: ValueKey('vessel_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.vesselName,
-                                    decoration: const InputDecoration(labelText: 'Vessel Name *', isDense: true),
-                                    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                    decoration: InputDecoration(labelText: '${l.vesselNameCol} *', isDense: true),
+                                    validator: (v) => v == null || v.trim().isEmpty ? l.requiredField : null,
                                     onChanged: (v) => _updateItem(idx, item.copyWith(vesselName: v.trim()), currenciesList),
                                   ),
                                 ),
@@ -1046,7 +1061,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   child: TextFormField(
                                     key: ValueKey('voyage_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.voyageNumber ?? '',
-                                    decoration: const InputDecoration(labelText: 'Voyage #', isDense: true),
+                                    decoration: InputDecoration(labelText: l.voyageCol, isDense: true),
                                     onChanged: (v) => _updateItem(idx, item.copyWith(voyageNumber: v.trim()), currenciesList),
                                   ),
                                 ),
@@ -1072,9 +1087,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
                                     value: item.portOfLoadingId,
-                                    labelText: 'ميناء السفر / التحميل (Port of Loading - POL)',
+                                    labelText: l.portOfLoadingCol,
                                     items: [
-                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر ميناء السفر/التحميل (Select POL)'),
+                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...portsList.map((p) => SearchableDropdownItem<int?>(
                                             value: p.locationId,
                                             label: '${p.unLocode} - ${p.locationName} (${p.country})',
@@ -1093,9 +1108,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
                                     value: item.portOfDischargeId,
-                                    labelText: 'ميناء الوصول / التفريغ (Port of Discharge - POD)',
+                                    labelText: l.portOfDischargeCol,
                                     items: [
-                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر ميناء الوصول/التفريغ (Select POD)'),
+                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...portsList.map((p) => SearchableDropdownItem<int?>(
                                             value: p.locationId,
                                             label: '${p.unLocode} - ${p.locationName} (${p.country})',
@@ -1114,9 +1129,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
                                     value: item.customsBrokerId,
-                                    labelText: 'المخلص الجمركي (Customs Broker)',
+                                    labelText: l.customsBrokerLabel,
                                     items: [
-                                      const SearchableDropdownItem<int?>(value: null, label: 'اختر المخلص الجمركي (Select Broker)'),
+                                      SearchableDropdownItem<int?>(value: null, label: l.unassigned),
                                       ...customsBrokers.map((p) => SearchableDropdownItem<int?>(
                                             value: p.providerId,
                                             label: p.partnerName,
@@ -1153,7 +1168,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       }
                                     },
                                     child: InputDecorator(
-                                      decoration: const InputDecoration(labelText: 'Sailing Date *', isDense: true),
+                                      decoration: InputDecoration(labelText: '${l.sailingDateCol} *', isDense: true),
                                       child: Text(item.sailingDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                     ),
                                   ),
@@ -1174,7 +1189,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       }
                                     },
                                     child: InputDecorator(
-                                      decoration: const InputDecoration(labelText: 'Estimated Arrival (ETA) *', isDense: true),
+                                      decoration: InputDecoration(labelText: '${l.estimatedArrivalDateCol} *', isDense: true),
                                       child: Text(item.estimatedArrivalDate, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                     ),
                                   ),
@@ -1185,7 +1200,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     key: ValueKey('delay_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                     initialValue: item.expectedLineDelayDays.toString(),
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'Expected Delay (Days)', isDense: true),
+                                    decoration: InputDecoration(labelText: l.expectedDelayCol, isDense: true),
                                     onChanged: (v) {
                                       final delay = int.tryParse(v) ?? 0;
                                       _updateItem(idx, item.copyWith(expectedLineDelayDays: delay), currenciesList);
@@ -1196,7 +1211,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: item.riskLevel,
-                                    labelText: 'Risk Level',
+                                    labelText: l.riskLevelCol,
                                     items: const [
                                       SearchableDropdownItem(value: 'Low', label: 'Low Risk 🟢'),
                                       SearchableDropdownItem(value: 'Medium', label: 'Medium Risk 🟠'),
@@ -1211,7 +1226,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 ),
                                 const SizedBox(width: 10),
                                 FilterChip(
-                                  label: Text(item.isExcludedFromAverage ? 'Excluded from Avg 🚫' : 'Include in Avg ✅', style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
+                                  label: Text(item.isExcludedFromAverage ? 'Excluded 🚫' : 'Included ✅', style: TextStyle(fontSize: 11, color: item.isExcludedFromAverage ? Colors.red.shade800 : AppTheme.cobalt)),
                                   selected: item.isExcludedFromAverage,
                                   onSelected: (val) {
                                     _updateItem(idx, item.copyWith(isExcludedFromAverage: val), currenciesList);
@@ -1231,7 +1246,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      '📍 POL: ${item.polName ?? "غير محدد"} ➔ POD: ${item.podName ?? "غير محدد"} | Lead Time: ${calc["vesselLeadTime"]}d | WH Days: ${calc["totalDays"]}d',
+                                      '📍 POL: ${item.polName ?? "-"} ➔ POD: ${item.podName ?? "-"} | Lead Time: ${calc["vesselLeadTime"]}d | WH Days: ${calc["totalDays"]}d',
                                       style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                     ),
                                     Row(
@@ -1241,13 +1256,13 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                           icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, size: 16, color: AppTheme.cobalt),
                                           label: Text(
                                             isExpanded 
-                                                ? 'إخفاء عرض السعر (Hide Quote)' 
-                                                : 'تفاصيل عرض السعر (Edit Quote) [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
+                                                ? l.hideQuote 
+                                                : '${l.quoteDetails} [${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}]',
                                             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                           ),
                                         ),
                                         const SizedBox(width: 10),
-                                        Text('Expected WH Arrival: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                        Text('${l.avgWarehouseArrivalMetric}: ${calc["expectedWhDate"]}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                       ],
                                     ),
                                   ],
@@ -1268,11 +1283,11 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(Icons.request_quote, color: AppTheme.cobalt, size: 18),
-                                        SizedBox(width: 6),
-                                        Text('💰 تفاصيل عرض سعر شحن الشركة والناقل الملحق (Freight Quote Details)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                        const Icon(Icons.request_quote, color: AppTheme.cobalt, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(l.quoteDetails, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                       ],
                                     ),
                                     const Divider(height: 16),
@@ -1285,7 +1300,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                             key: ValueKey('freetime_${_editingSessionId ?? "new"}_${idx}_$_editFormVersion'),
                                             initialValue: item.freeTimeDays.toString(),
                                             keyboardType: TextInputType.number,
-                                            decoration: const InputDecoration(labelText: 'Free Time days at destination (أيام الفري تايم في الوجهة)', isDense: true, suffixText: 'أيام'),
+                                            decoration: InputDecoration(labelText: l.freeTimeDaysCol, isDense: true, suffixText: 'd'),
                                             onChanged: (v) {
                                               final ft = int.tryParse(v) ?? 14;
                                               _updateItem(idx, item.copyWith(freeTimeDays: ft), currenciesList);
@@ -1296,7 +1311,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                         Expanded(
                                           child: SearchableDropdownField<String>(
                                             value: currenciesList.any((c) => c.currencyCode == item.quotationCurrency) ? item.quotationCurrency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
-                                            labelText: 'Main Quote Currency (عملة المقارنة الأساسية للعرض)',
+                                            labelText: l.quoteCurrencyCol,
                                             items: currenciesList.map((c) => SearchableDropdownItem(
                                                   value: c.currencyCode,
                                                   label: '${c.currencyCode} - ${c.currencySymbol}',
@@ -1315,7 +1330,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     // Table/Grid of Cost Items (Redesigned: inputs always visible, toggles at the right side)
                                     _buildCostRow(
                                       rowKey: 'container40ft_$idx',
-                                      title: '1. شحن حاوية 40 قدم (Container 40ft)',
+                                      title: '1. ${l.container40ftItem}',
                                       applicable: item.container40ftApplicable,
                                       price: item.container40ftPrice,
                                       currency: item.container40ftCurrency,
@@ -1330,7 +1345,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'container20ft_$idx',
-                                      title: '2. شحن حاوية 20 قدم (Container 20ft)',
+                                      title: '2. ${l.container20ftItem}',
                                       applicable: item.container20ftApplicable,
                                       price: item.container20ftPrice,
                                       currency: item.container20ftCurrency,
@@ -1345,7 +1360,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'lclCbm_$idx',
-                                      title: '3. شحن CBM لشحنة LCL (LCL CBM Cost)',
+                                      title: '3. ${l.lclCbmItem}',
                                       applicable: item.lclCbmApplicable,
                                       price: item.lclCbmPrice,
                                       currency: item.lclCbmCurrency,
@@ -1363,14 +1378,14 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     Padding(
                                       padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
                                       child: Text(
-                                        'إجمالي عدد الحاويات المطبقة للشحن = $currentContainersCount حاوية (تفصيل: 40ft: ${item.container40ftApplicable ? item.container40ftQty : 0} | 20ft: ${item.container20ftApplicable ? item.container20ftQty : 0})',
+                                        'إجمالي عدد الحاويات المطبقة = $currentContainersCount (40ft: ${item.container40ftApplicable ? item.container40ftQty : 0} | 20ft: ${item.container20ftApplicable ? item.container20ftQty : 0})',
                                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.purple.shade900),
                                       ),
                                     ),
 
                                     _buildCostRow(
                                       rowKey: 'expressCourier_$idx',
-                                      title: '4. البريد السريع للمستندات (Express Courier)',
+                                      title: '4. ${l.expressCourierItem}',
                                       applicable: item.expressCourierApplicable,
                                       price: item.expressCourierPrice,
                                       currency: item.expressCourierCurrency,
@@ -1381,7 +1396,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'eurAtr_$idx',
-                                      title: '5. شهادة المنشأ (EUR.1 / ATR Certificate)',
+                                      title: '5. ${l.eurAtrItem}',
                                       applicable: item.eurAtrApplicable,
                                       price: item.eurAtrPrice,
                                       currency: item.eurAtrCurrency,
@@ -1392,7 +1407,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'solasVgm_$idx',
-                                      title: '6. مصاريف التحقق من الوزن (SOLAS/VGM Fees)',
+                                      title: '6. ${l.solasVgmItem}',
                                       applicable: item.solasVgmApplicable,
                                       price: item.solasVgmPrice,
                                       currency: item.solasVgmCurrency,
@@ -1403,7 +1418,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'vgmNotification_$idx',
-                                      title: '7. إخطار إقرار الوزن (VGM Notification Fee)',
+                                      title: '7. ${l.vgmNotificationItem}',
                                       applicable: item.vgmNotificationApplicable,
                                       price: item.vgmNotificationPrice,
                                       currency: item.vgmNotificationCurrency,
@@ -1417,7 +1432,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'telexRelease_$idx',
-                                      title: '8. إطلاق الفاكس الملاحي (Telex Release)',
+                                      title: '8. ${l.telexReleaseItem}',
                                       applicable: item.telexReleaseApplicable,
                                       price: item.telexReleasePrice,
                                       currency: item.telexReleaseCurrency,
@@ -1428,7 +1443,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'insurance_$idx',
-                                      title: '9. بوليصة التأمين البحري (Insurance)',
+                                      title: '9. ${l.insuranceItem}',
                                       applicable: item.insuranceApplicable,
                                       price: item.insurancePrice,
                                       currency: item.insuranceCurrency,
@@ -1437,9 +1452,10 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       onCurrencyChanged: (v) => _updateItem(idx, item.copyWith(insuranceCurrency: v), currenciesList),
                                       currenciesList: currenciesList,
                                     ),
+
                                     _buildCostRow(
                                       rowKey: 'bookingCancellation_$idx',
-                                      title: '10. غرامة إلغاء الحجز (Booking Cancellation)',
+                                      title: '10. ${l.bookingCancellationItem}',
                                       applicable: item.bookingCancellationApplicable,
                                       price: item.bookingCancellationPrice,
                                       currency: item.bookingCancellationCurrency,
@@ -1452,7 +1468,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     // New Cost Rows
                                     _buildCostRow(
                                       rowKey: 'ics2FilingFee_$idx',
-                                      title: '11. رسوم إيداع بيان الحمول الرقمية (ICS2 Filing Fee)',
+                                      title: '11. ${l.ics2FilingFeeItem}',
                                       applicable: item.ics2FilingFeeApplicable,
                                       price: item.ics2FilingFeePrice,
                                       currency: item.ics2FilingFeeCurrency,
@@ -1463,7 +1479,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'documentFees_$idx',
-                                      title: '12. مصاريف المستندات الإضافية (Document Fees)',
+                                      title: '12. ${l.documentFeesItem}',
                                       applicable: item.documentFeesApplicable,
                                       price: item.documentFeesPrice,
                                       currency: item.documentFeesCurrency,
@@ -1474,7 +1490,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'waiverLetterFee_$idx',
-                                      title: '13. مصاريف خطاب التنازل (Waiver Letter / Transfer Fee)',
+                                      title: '13. ${l.waiverLetterFeeItem}',
                                       applicable: item.waiverLetterFeeApplicable,
                                       price: item.waiverLetterFeePrice,
                                       currency: item.waiverLetterFeeCurrency,
@@ -1485,7 +1501,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                     _buildCostRow(
                                       rowKey: 'othersFee_$idx',
-                                      title: '14. مصاريف ومصاريف أخرى (Others)',
+                                      title: '14. ${l.othersFeeItem}',
                                       applicable: item.othersFeeApplicable,
                                       price: item.othersFeePrice,
                                       currency: item.othersFeeCurrency,
@@ -1496,7 +1512,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     ),
                                      _buildCostRow(
                                        rowKey: 'dthc_$idx',
-                                       title: '15. تفريغ ومناولة ميناء الوصول (DTHC)',
+                                       title: '15. ${l.dthcItem}',
                                        applicable: item.dthcApplicable,
                                        price: item.dthcPrice,
                                        currency: item.dthcCurrency,
@@ -1507,7 +1523,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                      ),
                                      _buildCostRow(
                                        rowKey: 'storagePerWeek_$idx',
-                                       title: '16. أرضيات / تخزين لأول أسبوع (Storage per one week)',
+                                       title: '16. ${l.storagePerWeekItem}',
                                        applicable: item.storagePerWeekApplicable,
                                        price: item.storagePerWeekPrice,
                                        currency: item.storagePerWeekCurrency,
@@ -1518,7 +1534,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                      ),
                                      _buildCostRow(
                                        rowKey: 'extraDayStorage_$idx',
-                                       title: '17. أرضيات / تخزين لليوم الإضافي (Extra day storage)',
+                                       title: '17. ${l.extraDayStorageItem}',
                                        applicable: item.extraDayStorageApplicable,
                                        price: item.extraDayStoragePrice,
                                        currency: item.extraDayStorageCurrency,
@@ -1539,9 +1555,9 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                       child: Row(
                                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                         children: [
-                                          const Text(
-                                            '💰 إجمالي قيمة هذا العرض (إجمالي كل البنود المطبقة بالأرقام الصحيحة):',
-                                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                          Text(
+                                            '${l.totalQuoteValue}:',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                           ),
                                           Text(
                                             '${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}',
@@ -1570,29 +1586,29 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('📊 Side-by-Side Shipping Scenarios Comparison Matrix (جدول المقارنة التفصيلي مدمج النولون)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                          Text(l.sideBySideComparison, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                           const SizedBox(height: 10),
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                              columns: const [
-                                DataColumn(label: Text('#')),
-                                DataColumn(label: Text('Carrier Provider')),
-                                DataColumn(label: Text('Total Quote Cost')),
-                                DataColumn(label: Text('Expected WH Arrival')),
-                                DataColumn(label: Text('Total WH Days')),
-                                DataColumn(label: Text('Customs Broker')),
-                                DataColumn(label: Text('POL / POD')),
-                                DataColumn(label: Text('Vessel / Voyage')),
-                                DataColumn(label: Text('Sailing Date')),
-                                DataColumn(label: Text('ETA Port')),
-                                DataColumn(label: Text('Vessel Lead Time')),
-                                DataColumn(label: Text('Free Time')),
-                                DataColumn(label: Text('Delay Days')),
-                                DataColumn(label: Text('Risk Level')),
-                                DataColumn(label: Text('Avg Status')),
+                              columns: [
+                                const DataColumn(label: Text('#')),
+                                DataColumn(label: Text(l.shippingLineCol)),
+                                DataColumn(label: Text(l.totalQuoteValue)),
+                                DataColumn(label: Text(l.avgWarehouseArrivalMetric)),
+                                DataColumn(label: Text(l.avgTransitMetric)),
+                                DataColumn(label: Text(l.customsBrokerLabel)),
+                                DataColumn(label: Text('${l.portOfLoadingCol} / ${l.portOfDischargeCol}')),
+                                DataColumn(label: Text(l.vesselNameCol)),
+                                DataColumn(label: Text(l.sailingDateCol)),
+                                DataColumn(label: Text(l.estimatedArrivalDateCol)),
+                                const DataColumn(label: Text('Lead Time')),
+                                DataColumn(label: Text(l.freeTimeDaysCol)),
+                                DataColumn(label: Text(l.expectedDelayCol)),
+                                DataColumn(label: Text(l.riskLevelCol)),
+                                DataColumn(label: Text(l.statusCol)),
                               ],
                               rows: calculatedScenarios.map((c) {
                                 final idx = c['index'] as int;
@@ -1603,15 +1619,15 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                                     DataCell(Text(item.providerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                     DataCell(Text('${item.totalQuotationAmount.toStringAsFixed(0)} ${item.quotationCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))),
                                     DataCell(Text('${c["expectedWhDate"]}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                                    DataCell(Text('${c["totalDays"]} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
+                                    DataCell(Text('${c["totalDays"]} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                     DataCell(Text(item.customsBrokerName ?? '-')),
                                     DataCell(Text('${item.polName ?? "-"} ➔ ${item.podName ?? "-"}', style: const TextStyle(fontSize: 11))),
                                     DataCell(Text('${item.vesselName} (${item.voyageNumber ?? "-"})')),
                                     DataCell(Text(item.sailingDate)),
                                     DataCell(Text(item.estimatedArrivalDate)),
-                                    DataCell(Text('${c["vesselLeadTime"]} days')),
-                                    DataCell(Text('${item.freeTimeDays} days', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
-                                    DataCell(Text('${item.expectedLineDelayDays} days')),
+                                    DataCell(Text('${c["vesselLeadTime"]} d')),
+                                    DataCell(Text('${item.freeTimeDays} d', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue))),
+                                    DataCell(Text('${item.expectedLineDelayDays} d')),
                                     DataCell(
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -1659,7 +1675,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                     icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-                    label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text('${l.liveRefresh} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: () => _refreshData(force: true),
                   ),
                   const SizedBox(width: 8),
@@ -1672,7 +1688,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     ),
                     icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-                    label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text('${l.clearAndStartNew} 🔄', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: _resetFormForNewStudy,
                   ),
                   const SizedBox(width: 8),
@@ -1687,7 +1703,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-                    label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    label: Text('${l.saveDraftContinueLater} 💾', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                     onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
                   ),
                   const Spacer(),
@@ -1704,7 +1720,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.check_circle_outline, size: 20),
                     label: Text(
-                      _editingSessionId != null ? 'حفظ وتحديث دراسة الشحن 💾' : 'حفظ الدراسة والنتائج (Save Study) ✅',
+                      _editingSessionId != null ? '${l.saveChanges} 💾' : '${l.saveAndSubmitStudy} ✅',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                     ),
                     onPressed: _isSaving ? null : () => _saveEvaluationSession(context, currenciesList),
@@ -1734,6 +1750,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
     bool isIntegerQty = true,
     required List<CurrencyModel> currenciesList,
   }) {
+    final l = context.l10n;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
@@ -1755,7 +1772,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
               key: ValueKey('price_${rowKey}_${_editingSessionId ?? "new"}_$_editFormVersion'),
               initialValue: price == 0.0 ? '' : price.toString(),
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(labelText: 'سعر البند', isDense: true),
+              decoration: InputDecoration(labelText: l.itemPriceCol, isDense: true),
               onChanged: (v) {
                 final p = double.tryParse(v) ?? 0.0;
                 onPriceChanged(p);
@@ -1768,7 +1785,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
             flex: 2,
             child: SearchableDropdownField<String>(
               value: currenciesList.any((c) => c.currencyCode == currency) ? currency : (currenciesList.isNotEmpty ? currenciesList.first.currencyCode : 'USD'),
-              labelText: 'العملة',
+              labelText: l.currency,
               items: currenciesList.map((c) => SearchableDropdownItem(
                     value: c.currencyCode,
                     label: '${c.currencyCode} (${c.currencySymbol})',
@@ -1792,7 +1809,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 readOnly: qtyReadOnly,
                 initialValue: qty == 0.0 ? '' : (isIntegerQty ? qty.toInt().toString() : qty.toString()),
                 keyboardType: TextInputType.numberWithOptions(decimal: !isIntegerQty),
-                decoration: const InputDecoration(labelText: 'الكمية', isDense: true),
+                decoration: InputDecoration(labelText: l.quantity, isDense: true),
                 onChanged: qtyReadOnly ? null : (v) {
                   final q = double.tryParse(v) ?? 0.0;
                   if (onQtyChanged != null) {
@@ -1813,7 +1830,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                 onChanged: onApplicableChanged,
               ),
               Text(
-                applicable ? 'مطبق' : 'غير مطبق',
+                applicable ? l.applicable : l.notApplicable,
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.bold,

@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
@@ -323,6 +324,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final companies = ref.watch(importCompaniesProvider).value ?? [];
     final suppliers = ref.watch(suppliersProvider).value ?? [];
     final partners = ref.watch(partnersProvider).value ?? [];
@@ -339,12 +341,12 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
             children: [
               const Icon(Icons.folder, color: AppTheme.cobalt),
               const SizedBox(width: 8),
-              Text(widget.fileToEdit == null ? 'إضافة ملف استيراد شحنة جديد (New Import File)' : 'تعديل ملف الاستيراد: ${widget.fileToEdit!.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(widget.fileToEdit == null ? l.addNewImportFile : '${l.editImportFile}: ${widget.fileToEdit!.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           IconButton(
             icon: const Icon(Icons.close, color: Colors.grey),
-            tooltip: 'إغلاق النافذة',
+            tooltip: l.close,
             onPressed: () => Navigator.of(context).pop(),
           ),
         ],
@@ -363,16 +365,16 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _customFileIdController,
-                        decoration: const InputDecoration(labelText: 'Import File ID (رقم ملف الشحنة) *', border: OutlineInputBorder()),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل رقم ملف الاستيراد' : null,
+                        decoration: InputDecoration(labelText: '${l.importFileIdLabel} *', border: const OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.importFileIdLabel : null,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: SearchableDropdownField<int?>(
                         value: _selectedCompanyId,
-                        labelText: 'الشركة المستوردة المصرية *',
-                        searchHintText: 'ابحث عن الشركة المستوردة...',
+                        labelText: '${l.importingCompany} *',
+                        searchHintText: l.searchByShipmentOrCompany,
                         items: companies
                             .map((c) => SearchableDropdownItem<int?>(
                                   value: c.companyId,
@@ -400,8 +402,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<int?>(
                         value: _selectedSupplierId,
-                        labelText: 'المورد الأجنبي (Supplier) *',
-                        searchHintText: 'ابحث عن المورد الأجنبي...',
+                        labelText: '${l.foreignSupplier} *',
+                        searchHintText: l.searchByShipmentOrCompany,
                         items: suppliers
                             .map((s) => SearchableDropdownItem<int?>(
                                   value: s.supplierId,
@@ -426,10 +428,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<int?>(
                         value: _selectedBrokerId,
-                        labelText: 'المخلص الجمركي (Customs Broker)',
-                        searchHintText: 'ابحث عن المخلص الجمركي...',
+                        labelText: l.customsClearanceBroker,
+                        searchHintText: l.customsClearanceBroker,
                         items: [
-                          const SearchableDropdownItem<int?>(value: null, label: '-- اختيار المخلص الجمركي --'),
+                          SearchableDropdownItem<int?>(value: null, label: '-- ${l.customsClearanceBroker} --'),
                           ...partners
                               .where((p) => p.partnerType.toUpperCase().contains('BROKER') || p.partnerType.toUpperCase().contains('CUSTOMS'))
                               .map((b) => SearchableDropdownItem<int?>(
@@ -458,14 +460,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: TextFormField(
                         controller: _poNoController,
-                        decoration: const InputDecoration(labelText: 'PO No (رقم أمر الشراء) *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: '${l.purchaseOrder} *', border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _piNoController,
-                        decoration: const InputDecoration(labelText: 'PI No (رقم الفاتورة المبدئية) *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: '${l.poInvoiceLabel} *', border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -483,7 +485,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                         children: [
                           const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
                           const SizedBox(width: 8),
-                          Text('المستندات المرفقة بالشحنة (${_invoices.length} فواتير | ${_packingLists.length} قائمة تعبئة)', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                          Text('${l.invoicesCountAndNumbers} (${_invoices.length} ${l.invoicesUnit} | ${_packingLists.length} ${l.packingListsUnit})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                           const Spacer(),
                           TextButton.icon(
                             onPressed: () {
@@ -492,7 +494,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                               });
                             },
                             icon: const Icon(Icons.add, size: 16),
-                            label: const Text('+ إضافة فاتورة فرعية'),
+                            label: Text('+ ${l.poInvoiceLabel}'),
                           ),
                           TextButton.icon(
                             onPressed: () {
@@ -501,13 +503,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                               });
                             },
                             icon: const Icon(Icons.add, size: 16),
-                            label: const Text('+ إضافة قائمة تعبئة'),
+                            label: Text('+ ${l.packingListsUnit}'),
                           ),
                         ],
                       ),
                     ],
                   ),
                 ),
+
                 const SizedBox(height: 12),
 
                 Row(
@@ -515,12 +518,12 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<String>(
                         value: ['Sea FCL', 'Sea LCL', 'Air', 'Land'].contains(_shipmentMode) ? _shipmentMode : 'Sea FCL',
-                        labelText: 'وسيلة النقل (Shipment Mode) *',
+                        labelText: '${l.transportModeIncoterm} *',
                         items: const [
-                          SearchableDropdownItem(value: 'Sea FCL', label: 'Sea FCL (شحن بحري حاوية كاملة)'),
-                          SearchableDropdownItem(value: 'Sea LCL', label: 'Sea LCL (شحن بحري طرد/جزئي)'),
-                          SearchableDropdownItem(value: 'Air', label: 'Air (شحن جوي)'),
-                          SearchableDropdownItem(value: 'Land', label: 'Land (شحن بري)'),
+                          SearchableDropdownItem(value: 'Sea FCL', label: 'Sea FCL'),
+                          SearchableDropdownItem(value: 'Sea LCL', label: 'Sea LCL'),
+                          SearchableDropdownItem(value: 'Air', label: 'Air'),
+                          SearchableDropdownItem(value: 'Land', label: 'Land'),
                         ],
                         onChanged: (v) => setState(() => _shipmentMode = v!),
                       ),
@@ -529,8 +532,8 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<String>(
                         value: incoterms.any((i) => i.incotermCode == _incotermCode) ? _incotermCode : 'FOB',
-                        labelText: 'شرط التجارة (Incoterm) *',
-                        searchHintText: 'ابحث عن شرط التجارة...',
+                        labelText: '${l.incotermsRules} *',
+                        searchHintText: l.incotermsRules,
                         items: (incoterms.isNotEmpty ? incoterms.map((i) => i.incotermCode).toList() : ['FOB', 'CIF', 'CFR', 'EXW', 'FCA', 'CIP', 'DDP', 'DAP'])
                             .map((code) => SearchableDropdownItem<String>(value: code, label: code))
                             .toList(),
@@ -543,13 +546,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<String>(
                         value: _priority,
-                        labelText: 'الأولوية (Priority) *',
-                        searchHintText: 'ابحث عن مستوى الأولوية...',
+                        labelText: '${l.priorityType} *',
+                        searchHintText: l.priorityType,
                         items: const [
-                          SearchableDropdownItem(value: 'Low', label: 'Low (منخفضة)'),
-                          SearchableDropdownItem(value: 'Medium', label: 'Medium (متوسطة)'),
-                          SearchableDropdownItem(value: 'High', label: 'High (عالية)'),
-                          SearchableDropdownItem(value: 'Critical', label: 'Critical (حرجة)'),
+                          SearchableDropdownItem(value: 'Low', label: 'Low'),
+                          SearchableDropdownItem(value: 'Medium', label: 'Medium'),
+                          SearchableDropdownItem(value: 'High', label: 'High'),
+                          SearchableDropdownItem(value: 'Critical', label: 'Critical'),
                         ],
                         onChanged: (v) {
                           if (v != null) setState(() => _priority = v);
@@ -564,13 +567,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                     Expanded(
                       child: SearchableDropdownField<String>(
                         value: _shipmentCategory,
-                        labelText: 'تصنيف الشحنة (Category) *',
-                        searchHintText: 'ابحث عن التكليف / التصنيف...',
+                        labelText: '${l.shipmentCategoryLabel} *',
+                        searchHintText: l.shipmentCategoryLabel,
                         items: const [
-                          SearchableDropdownItem(value: 'New Purchase', label: 'New Purchase (شراء جديد)'),
-                          SearchableDropdownItem(value: 'Replacement', label: 'Replacement (استبدال)'),
-                          SearchableDropdownItem(value: 'Repair', label: 'Repair (إصلاح)'),
-                          SearchableDropdownItem(value: 'Sample', label: 'Sample (عينة)'),
+                          SearchableDropdownItem(value: 'New Purchase', label: 'New Purchase'),
+                          SearchableDropdownItem(value: 'Replacement', label: 'Replacement'),
+                          SearchableDropdownItem(value: 'Repair', label: 'Repair'),
+                          SearchableDropdownItem(value: 'Sample', label: 'Sample'),
                         ],
                         onChanged: (v) {
                           if (v != null) setState(() => _shipmentCategory = v);
@@ -585,7 +588,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           if (d != null) setState(() => _requiredEta = d);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(labelText: 'تاريخ الوصول المطلوبة (Required ETA) *', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: '${l.targetEta} *', border: const OutlineInputBorder()),
                           child: Text(_requiredEta.toString().substring(0, 10)),
                         ),
                       ),
@@ -603,7 +606,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           if (d != null) setState(() => _fileOpeningDate = d);
                         },
                         child: InputDecorator(
-                          decoration: const InputDecoration(labelText: 'تاريخ فتح الملف (File Opening Date) *', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: '${l.fileOpeningDateLabel} *', border: const OutlineInputBorder()),
                           child: Text(_fileOpeningDate.toString().substring(0, 10)),
                         ),
                       ),
@@ -627,21 +630,21 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       Expanded(
                         child: SearchableDropdownField<String>(
                           value: _initialStartingStep,
-                          labelText: 'نقطة ومرحلة بدء الشحنة في مسار العمل (Starting Phase / Step) *',
-                          searchHintText: 'ابحث عن مرحلة البداية...',
+                          labelText: '${l.currentPhaseStage} *',
+                          searchHintText: l.currentPhaseStage,
                           items: const [
-                            SearchableDropdownItem(value: 'STEP_01', label: 'المرحلة 1: التخطيط ودراسات النولون والجمرك (Pre-Planning)'),
-                            SearchableDropdownItem(value: 'STEP_04', label: 'المرحلة 2: بداية الشحنة واعتماد الميزانية (Finance Approvals)'),
-                            SearchableDropdownItem(value: 'STEP_05', label: 'المرحلة 2: إصدار ومتابعة ACID المبدئي (ACID Operations)'),
-                            SearchableDropdownItem(value: 'STEP_06', label: 'المرحلة 3: حجز النولون وتأكيد الخط الملاحي (Freight Booking)'),
-                            SearchableDropdownItem(value: 'STEP_08', label: 'المرحلة 3: تدقيق مسودات الشحن والبوليصة (Draft Docs Review)'),
-                            SearchableDropdownItem(value: 'STEP_10', label: 'المرحلة 4: رفع وتوثيق CargoX الرقمي (CargoX Upload)'),
-                            SearchableDropdownItem(value: 'STEP_12', label: 'المرحلة 4: استخراج نموذج 4 البنكي (Bank Form 4)'),
-                            SearchableDropdownItem(value: 'STEP_13', label: 'المرحلة 5: قيد إقرار 46 والتخليص الجمركي (Customs Declaration 46)'),
-                            SearchableDropdownItem(value: 'STEP_14', label: 'المرحلة 5: متابعة الكشف والتثمين والمعاينة (Clearance Follow-up)'),
-                            SearchableDropdownItem(value: 'STEP_17', label: 'المرحلة 5: الحساب والسداد الجمركي النهائي (Customs Duty Payment)'),
-                            SearchableDropdownItem(value: 'STEP_19', label: 'المرحلة 6: الاستلام المخزني وإذن الإضافة (Warehouse GRN)'),
-                            SearchableDropdownItem(value: 'STEP_20', label: 'المرحلة 6: تسوية التكلفة الاستيرادية الشاملة (Landed Cost Settlement)'),
+                            SearchableDropdownItem(value: 'STEP_01', label: 'STEP 1: Pre-Planning'),
+                            SearchableDropdownItem(value: 'STEP_04', label: 'STEP 2: Finance Approvals'),
+                            SearchableDropdownItem(value: 'STEP_05', label: 'STEP 2: ACID Operations'),
+                            SearchableDropdownItem(value: 'STEP_06', label: 'STEP 3: Freight Booking'),
+                            SearchableDropdownItem(value: 'STEP_08', label: 'STEP 3: Draft Docs Review'),
+                            SearchableDropdownItem(value: 'STEP_10', label: 'STEP 4: CargoX Upload'),
+                            SearchableDropdownItem(value: 'STEP_12', label: 'STEP 4: Bank Form 4'),
+                            SearchableDropdownItem(value: 'STEP_13', label: 'STEP 5: Customs Declaration 46'),
+                            SearchableDropdownItem(value: 'STEP_14', label: 'STEP 5: Clearance Follow-up'),
+                            SearchableDropdownItem(value: 'STEP_17', label: 'STEP 5: Customs Duty Payment'),
+                            SearchableDropdownItem(value: 'STEP_19', label: 'STEP 6: Warehouse GRN'),
+                            SearchableDropdownItem(value: 'STEP_20', label: 'STEP 6: Landed Cost Settlement'),
                           ],
                           onChanged: (v) {
                             if (v != null) setState(() => _initialStartingStep = v);
@@ -664,13 +667,13 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.local_shipping_outlined, color: AppTheme.emerald, size: 20),
-                          SizedBox(width: 8),
+                          const Icon(Icons.local_shipping_outlined, color: AppTheme.emerald, size: 20),
+                          const SizedBox(width: 8),
                           Text(
-                            '🚚 بيانات النقل وموانئ الشحن لطلب النولون (Logistics & Freight RFQ Details)',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF166534), fontSize: 13),
+                            l.logisticsAndPortsDetails,
+                            style: const TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF166534), fontSize: 13),
                           ),
                         ],
                       ),
@@ -680,10 +683,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           Expanded(
                             child: SearchableDropdownField<String>(
                               value: _polController.text.isNotEmpty ? _polController.text : null,
-                              labelText: 'ميناء الشحن (Port of Loading - POL)',
-                              searchHintText: 'ابحث في موانئ الشحن العالمية (Shanghai, Genoa, Hamburg)...',
+                              labelText: l.portOfLoadingLabel,
+                              searchHintText: l.portOfLoadingLabel,
                               items: [
-                                if (_polController.text.isNotEmpty && !locations.any((l) => l.locationName == _polController.text))
+                                if (_polController.text.isNotEmpty && !locations.any((loc) => loc.locationName == _polController.text))
                                   SearchableDropdownItem<String>(value: _polController.text, label: _polController.text),
                                 ...locations.map((loc) => SearchableDropdownItem<String>(
                                       value: loc.locationName,
@@ -700,14 +703,14 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           Expanded(
                             child: SearchableDropdownField<String>(
                               value: _podController.text.isNotEmpty ? _podController.text : 'El Dekheila Port (non TMT)',
-                              labelText: 'ميناء الوصول والتفريغ (Port of Discharge - POD)',
-                              searchHintText: 'ابحث في موانئ الوصول المصرية...',
+                              labelText: l.portOfDischargeLabel,
+                              searchHintText: l.portOfDischargeLabel,
                               items: [
-                                if (_podController.text.isNotEmpty && !locations.any((l) => l.locationName == _podController.text))
+                                if (_podController.text.isNotEmpty && !locations.any((loc) => loc.locationName == _podController.text))
                                   SearchableDropdownItem<String>(value: _podController.text, label: _podController.text),
                                 ...[
-                                  ...locations.where((l) => l.country == 'Egypt' || l.unLocode.startsWith('EG')),
-                                  ...locations.where((l) => l.country != 'Egypt' && !l.unLocode.startsWith('EG')),
+                                  ...locations.where((loc) => loc.country == 'Egypt' || loc.unLocode.startsWith('EG')),
+                                  ...locations.where((loc) => loc.country != 'Egypt' && !loc.unLocode.startsWith('EG')),
                                 ].map((loc) => SearchableDropdownItem<String>(
                                       value: loc.locationName,
                                       label: '${loc.locationName} (${loc.country}${loc.unLocode.isNotEmpty ? " - ${loc.unLocode}" : ""})',
@@ -732,9 +735,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                                 if (d != null) setState(() => _cargoReadyDate = d);
                               },
                               child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'تاريخ جاهزية البضاعة (Cargo Ready Date)',
-                                  border: OutlineInputBorder(),
+                                decoration: InputDecoration(
+                                  labelText: l.cargoReadyDateLabel,
+                                  border: const OutlineInputBorder(),
                                   filled: true,
                                   fillColor: Colors.white,
                                 ),
@@ -752,10 +755,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             child: TextFormField(
                               controller: _targetFreeDaysController,
                               keyboardType: TextInputType.number,
-                              decoration: const InputDecoration(
-                                labelText: 'أيام السماح المطلوبة (FT)',
-                                suffixText: 'يوم',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l.targetFreeDaysLabel,
+                                border: const OutlineInputBorder(),
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
@@ -765,10 +767,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           Expanded(
                             child: SearchableDropdownField<String>(
                               value: _serviceTypePreference,
-                              labelText: 'تفضيل مسار الخدمة (Service Preference)',
+                              labelText: l.serviceTypePreferenceLabel,
                               items: const [
-                                SearchableDropdownItem(value: 'Direct', label: 'Direct Service (خدمة وخط مباشر فقط)'),
-                                SearchableDropdownItem(value: 'Transshipment Acceptable', label: 'Transshipment Acceptable (يقبل الترانزيت)'),
+                                SearchableDropdownItem(value: 'Direct', label: 'Direct Service'),
+                                SearchableDropdownItem(value: 'Transshipment Acceptable', label: 'Transshipment Acceptable'),
                               ],
                               onChanged: (v) {
                                 if (v != null) setState(() => _serviceTypePreference = v);
@@ -780,10 +782,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                             flex: 2,
                             child: TextFormField(
                               controller: _pickupAddressController,
-                              decoration: const InputDecoration(
-                                labelText: 'عنوان الاستلام / المصنع (Pickup / Factory Address for EXW)',
-                                hintText: 'عنوان المصنع لتحميل بضاعة الـ EXW...',
-                                border: OutlineInputBorder(),
+                              decoration: InputDecoration(
+                                labelText: l.pickupAddressLabel,
+                                border: const OutlineInputBorder(),
                                 filled: true,
                                 fillColor: Colors.white,
                               ),
@@ -794,10 +795,9 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       const SizedBox(height: 10),
                       TextFormField(
                         controller: _shippingInstructionsNotesController,
-                        decoration: const InputDecoration(
-                          labelText: 'تعليمات واشتراطات الشحن الخاصة (Shipping Instructions & Exclusions)',
-                          hintText: 'مثال: Must avoid TMT Terminal, Earliest vessel required...',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: l.shippingInstructionsLabel,
+                          border: const OutlineInputBorder(),
                           filled: true,
                           fillColor: Colors.white,
                         ),
@@ -807,7 +807,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 ),
                 const SizedBox(height: 12),
 
-                // Multi-Project Selection Container (إسناد الشحنة إلى أكثر من مشروع)
+                // Multi-Project Selection Container
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
@@ -823,7 +823,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                           const Icon(Icons.assignment, color: Colors.amber, size: 20),
                           const SizedBox(width: 8),
                           Text(
-                            'إسناد الشحنة للمشاريع (Multi-Projects): ${_selectedProjectIds.length} مشروع مسند',
+                            '${l.multiProjectsTitle}: ${_selectedProjectIds.length}',
                             style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900, fontSize: 13),
                           ),
                         ],
@@ -857,10 +857,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       ],
                       SearchableDropdownField<int?>(
                         value: null,
-                        labelText: '+ إضافة إسناد إلى مشروع (اختر مشروعاً للإضافة إلى الشحنة)',
-                        searchHintText: 'ابحث عن المشروع بالاسم أو الكود...',
+                        labelText: '+ ${l.multiProjectsTitle}',
+                        searchHintText: l.searchByShipmentOrCompany,
                         items: [
-                          const SearchableDropdownItem<int?>(value: null, label: '-- اختر مشروعاً جديداً لإسناده للشحنة --'),
+                          SearchableDropdownItem<int?>(value: null, label: '-- ${l.multiProjectsTitle} --'),
                           ...projects.map((p) => SearchableDropdownItem<int?>(
                                 value: p.projectId,
                                 label: '${p.projectName} (${p.projectCode})',
@@ -887,7 +887,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                         value: currencies.any((c) => c.currencyCode == _estimatedCostCurrency)
                             ? _estimatedCostCurrency
                             : (_estimatedCostCurrency.isNotEmpty ? _estimatedCostCurrency : 'USD'),
-                        labelText: 'عملة التكلفة *',
+                        labelText: '${l.currency} *',
                         items: (currencies.isNotEmpty
                                 ? currencies.map((c) => c.currencyCode).toList()
                                 : ['USD', 'EUR', 'EGP', 'CNY', 'GBP', 'SAR', 'AED'])
@@ -905,10 +905,10 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                         controller: _estimatedCostController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
-                          labelText: 'التكلفة التقديرية ($_estimatedCostCurrency) *',
+                          labelText: '${l.totalCostMetric} ($_estimatedCostCurrency) *',
                           border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل التكلفة التقديرية' : null,
+                        validator: (v) => (v == null || v.trim().isEmpty) ? l.totalCostMetric : null,
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -916,7 +916,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       flex: 1,
                       child: TextFormField(
                         controller: _ownerController,
-                        decoration: const InputDecoration(labelText: 'المسؤول (Owner) *', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: '${l.owner} *', border: const OutlineInputBorder()),
                       ),
                     ),
                   ],
@@ -930,9 +930,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       child: TextFormField(
                         controller: _form4Controller,
                         decoration: const InputDecoration(
-                          labelText: 'رقم نموذج 4 البنكي (form 4 no)',
-                          helperText: '⚡ يستدعى تلقائياً عند اكتماله من مرحلة ACID',
-                          helperStyle: TextStyle(color: AppTheme.cobalt, fontSize: 10, fontWeight: FontWeight.bold),
+                          labelText: 'Form 4 No',
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -942,9 +940,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       child: TextFormField(
                         controller: _swiftController,
                         decoration: const InputDecoration(
-                          labelText: 'رقم التحويل السويفت (swift no)',
-                          helperText: '⚡ يستدعى تلقائياً من مرحلة الموافقات المالية',
-                          helperStyle: TextStyle(color: AppTheme.emerald, fontSize: 10, fontWeight: FontWeight.bold),
+                          labelText: 'Swift No',
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -954,9 +950,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                       child: TextFormField(
                         controller: _form46Controller,
                         decoration: const InputDecoration(
-                          labelText: 'رقم الإقرار الجمركي 46 (form 46 no)',
-                          helperText: '⚡ يستدعى تلقائياً من مرحلة التخليص الجمركي',
-                          helperStyle: TextStyle(color: Colors.purple, fontSize: 10, fontWeight: FontWeight.bold),
+                          labelText: 'Form 46 No',
                           border: OutlineInputBorder(),
                         ),
                       ),
@@ -967,7 +961,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
                 TextFormField(
                   controller: _notesController,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'ملاحظات الشحنة والعمليات', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.notes, border: const OutlineInputBorder()),
                 ),
               ],
             ),
@@ -984,7 +978,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
             ref.read(partnersProvider.notifier).fetchPartners();
           },
           icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(l.liveReload, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(
@@ -1001,7 +995,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
             });
           },
           icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(l.clearAndReset, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
         ElevatedButton.icon(
@@ -1013,7 +1007,7 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           ),
           onPressed: _isSaving ? null : _submit,
           icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
-          label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(l.saveDraft, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(
@@ -1023,15 +1017,16 @@ class ImportFileFormDialogState extends ConsumerState<ImportFileFormDialog> {
           ),
           onPressed: () => Navigator.pop(context),
           icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-          label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(l.cancel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12)),
           onPressed: _isSaving ? null : _submit,
           icon: _isSaving ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check, color: Colors.white),
-          label: Text(widget.fileToEdit != null ? 'تحديث وحفظ الملف 💾' : 'حفظ الشحنة بالكامل ✅', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: Text(widget.fileToEdit != null ? l.save : l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 }
+

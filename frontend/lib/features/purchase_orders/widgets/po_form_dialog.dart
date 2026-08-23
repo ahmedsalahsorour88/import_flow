@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/smart_upload_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
@@ -1133,33 +1135,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        widget.po == null ? 'Create New Purchase Order (أمر شراء جديد)' : 'Edit Purchase Order (${widget.po!.poNumber})',
+                        widget.po == null ? context.l10n.newPurchaseOrder : '${context.l10n.editPurchaseOrder} (${widget.po!.poNumber})',
                         style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppTheme.emerald.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: AppTheme.emerald),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.auto_awesome, color: AppTheme.emerald, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            'أدوات AI مخصصة داخل التبويبات',
-                            style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                          ),
-                        ],
                       ),
                     ),
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.close, color: Colors.white70),
-                      tooltip: 'إغلاق النافذة',
+                      tooltip: context.l10n.close,
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ],
@@ -1173,16 +1156,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 tabs: [
                   Tab(
                     icon: const Icon(Icons.list_alt, size: 18),
-                    text: 'Commercial Header & Items (${_dialogItems.length})',
+                    text: '${context.l10n.poLineItemsTab} (${_dialogItems.length})',
                   ),
                   Tab(
                     icon: const Icon(Icons.inventory_2_outlined, size: 18),
-                    text: 'Packing List (${_dialogPackingItems.length})',
+                    text: '${context.l10n.reviewPackingListTab} (${_dialogPackingItems.length})',
                   ),
                 ],
               ),
             ],
           ),
+
         ),
         content: SizedBox(
           width: 850,
@@ -2729,7 +2713,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
+            child: Text(context.l10n.cancel),
           ),
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(
@@ -2738,12 +2722,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             ),
             icon: const Icon(Icons.preview_rounded, size: 18),
-            label: const Text('استعراض التقرير قبل الحفظ (Report Preview)', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(context.l10n.summaryByHsCodeReport, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => _showPoComprehensiveReportPreview(context),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             onPressed: _isSubmitting
+
                 ? null
                 : () async {
                     if (!_formKey.currentState!.validate()) {
@@ -3148,8 +3133,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     height: 18,
                     child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
                   )
-                : Text(widget.po == null ? 'Create PO' : 'Save Changes'),
+                : Text(widget.po == null ? context.l10n.newPurchaseOrder : context.l10n.saveChanges),
           ),
+
         ],
       ),
     );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
@@ -11,6 +12,7 @@ class PostSaveStatusDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final approved =
         saved.checklistItems.where((i) => i.status == 'Approved').toList();
     final pending =
@@ -34,9 +36,9 @@ class PostSaveStatusDialog extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'تقرير حالة مستندات الاستشارة الجمركية',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                Text(
+                  l.customsDutyReviewTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
                   saved.consultationCode,
@@ -63,17 +65,17 @@ class PostSaveStatusDialog extends StatelessWidget {
                 runSpacing: 8,
                 children: [
                   ConsultationMetricBadge(
-                      title: '✅ معتمدة', value: '${approved.length} مستند', color: Colors.green),
+                      title: l.clearanceReadyStatus, value: '${approved.length}', color: Colors.green),
                   ConsultationMetricBadge(
-                      title: '⏳ قيد الانتظار',
-                      value: '${pending.length} مستند',
+                      title: l.allStatuses,
+                      value: '${pending.length}',
                       color: Colors.orange),
                   ConsultationMetricBadge(
-                      title: '🚫 عوائق التخليص',
-                      value: '${blocking.length} بند',
+                      title: l.openBlockingIssues,
+                      value: '${blocking.length}',
                       color: blocking.isNotEmpty ? Colors.red : Colors.green),
                   ConsultationMetricBadge(
-                      title: '📊 نسبة الجاهزية',
+                      title: l.avgReadinessMetric,
                       value: '${saved.readinessPercentage.toStringAsFixed(0)}%',
                       color: Colors.blue),
                 ],
@@ -91,9 +93,9 @@ class PostSaveStatusDialog extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '🚫 المستندات العائقة للتخليص الجمركي (Blocking Issues):',
-                        style: TextStyle(
+                      Text(
+                        l.blockingIssuesTitle,
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold, color: Colors.red),
                       ),
                       const SizedBox(height: 8),
@@ -119,7 +121,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                     if (item.hsCode != null &&
                                         item.hsCode!.isNotEmpty)
                                       Text(
-                                        'بنود: ${item.hsCode}',
+                                        item.hsCode!,
                                         style: const TextStyle(
                                             fontSize: 10,
                                             color: AppTheme.cobalt),
@@ -150,9 +152,9 @@ class PostSaveStatusDialog extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '⏳ المستندات قيد الانتظار:',
-                        style: TextStyle(
+                      Text(
+                        l.allStatuses,
+                        style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.orange),
                       ),
@@ -179,7 +181,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                                     if (item.hsCode != null &&
                                         item.hsCode!.isNotEmpty)
                                       Text(
-                                        'بنود: ${item.hsCode}',
+                                        item.hsCode!,
                                         style: const TextStyle(
                                             fontSize: 10, color: AppTheme.cobalt),
                                       ),
@@ -204,26 +206,21 @@ class PostSaveStatusDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.green.shade200),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.verified_rounded,
+                      const Icon(Icons.verified_rounded,
                           color: Colors.green, size: 32),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '🎉 الشحنة جاهزة للتخليص الجمركي!',
-                              style: TextStyle(
+                              l.clearanceReadyStatus,
+                              style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: Colors.green,
                                   fontSize: 14),
-                            ),
-                            Text(
-                              'جميع المستندات معتمدة ولا توجد عوائق للتخليص.',
-                              style: TextStyle(
-                                  fontSize: 12, color: Colors.green),
                             ),
                           ],
                         ),
@@ -239,9 +236,10 @@ class PostSaveStatusDialog extends StatelessWidget {
         TextButton.icon(
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.pop(context),
-          label: const Text('إغلاق والعودة لسجل الدراسات'),
+          label: Text(l.close),
         ),
       ],
     );
   }
 }
+

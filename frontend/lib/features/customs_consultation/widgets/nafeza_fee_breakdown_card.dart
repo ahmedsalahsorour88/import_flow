@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../services/customs_export_service.dart';
 import 'package:printing/printing.dart';
@@ -50,6 +51,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final nafezaResult = CustomsExportService.computeNafezaFeeBreakdown(
       totalDutyEgp: totalDutyEgp,
       totalVatEgp: totalVatEgp,
@@ -74,7 +76,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header Bar matching Image 2
+          // Header Bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
@@ -86,14 +88,14 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
               children: [
                 const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'تفاصيل بنود التحصيل والإقرارات الرسمية (Nafeza Statement Fee Breakdown)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                    l.nafezaDeclarationBreakdown,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                   ),
                 ),
                 Text(
-                  '${nafezaResult.grandTotal.toStringAsFixed(2)} EGP إجمالي البيان:',
+                  '${nafezaResult.grandTotal.toStringAsFixed(2)} EGP',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                 ),
                 const SizedBox(width: 12),
@@ -109,8 +111,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                       consultationId: editingConsultationId ?? 0,
                       consultationCode: editingConsultationCode ?? 'DRAFT-STMT',
                       brokerId: selectedBrokerId ?? 0,
-                      brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'مستخلص جمركي معتمد',
-                      title: title.isNotEmpty ? title : 'دراسة استشارة جمركية',
+                      brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'Customs Broker',
+                      title: title.isNotEmpty ? title : 'Customs Consultation',
                       overallStatus: 'Pending Review',
                       estimatedDutiesEgp: nafezaResult.grandTotal,
                       totalBrokerFeesEgp: brokerQuoteItems.fold(0.0, (s, i) => s + (i.isApplicable ? i.totalAmount : 0.0)),
@@ -125,7 +127,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                     );
                   },
                   icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
-                  label: const Text('📄 حفظ PDF', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(l.print, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
                 const SizedBox(width: 8),
                 // Excel Export Button
@@ -139,9 +141,9 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                     try {
                       final savedFile = await CustomsExportService.exportCustomsStudyToExcel(
                         context: context,
-                        title: title.isNotEmpty ? title : 'دراسة استشارة جمركية',
+                        title: title.isNotEmpty ? title : 'Customs Consultation',
                         importFileCode: selectedImportFileId != null ? 'IMP-$selectedImportFileId' : null,
-                        brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'غير محدد',
+                        brokerName: selectedBrokerName.isNotEmpty ? selectedBrokerName : 'Customs Broker',
                         currency: customsCurrency,
                         exchangeRate: exchangeRate,
                         totalFreightEgp: totalFreightEgp,
@@ -152,19 +154,19 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                       );
                       if (savedFile != null && context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('✅ تم تصدير وحفظ شيت الإكسيل بنجاح: $savedFile'), backgroundColor: AppTheme.emerald),
+                          SnackBar(content: Text('✅ $savedFile'), backgroundColor: AppTheme.emerald),
                         );
                       }
                     } catch (e) {
                       if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('❌ خطأ أثناء التصدير: $e'), backgroundColor: Colors.red),
+                          SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red),
                         );
                       }
                     }
                   },
                   icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
-                  label: const Text('📊 تصدير EXCEL', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(l.export, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

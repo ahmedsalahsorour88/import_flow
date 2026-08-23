@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 
@@ -19,8 +20,8 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
   final _nameCtrl = TextEditingController();
   final _priceCtrl = TextEditingController(text: '0.0');
   final _qtyCtrl = TextEditingController(text: '1.0');
-  String _selectedCategory = 'Other Fees (مصاريف أخرى)';
-  String _selectedUnit = 'Fixed (مبلغ ثابت)';
+  String _selectedCategory = 'Other Fees';
+  String _selectedUnit = 'Fixed';
   String _selectedCurrency = 'EGP';
 
   @override
@@ -33,12 +34,13 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.add_circle, color: AppTheme.cobalt),
-          SizedBox(width: 8),
-          Text('إضافة بند مصروف تخليص / نقل مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Icon(Icons.add_circle, color: AppTheme.cobalt),
+          const SizedBox(width: 8),
+          Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
       content: SizedBox(
@@ -48,21 +50,21 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
           children: [
             TextFormField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'اسم المصروف / البند *',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.itemDescriptionAndOriginCol,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
               value: _selectedCategory,
-              labelText: 'التصنيف',
+              labelText: l.categoryCol,
               items: const [
-                SearchableDropdownItem(value: 'Clearance Fees (أتعاب التخليص)', label: 'Clearance Fees (أتعاب التخليص)'),
-                SearchableDropdownItem(value: 'Port & Storage (رسوم الميناء والأرضيات)', label: 'Port & Storage (رسوم الميناء والأرضيات)'),
-                SearchableDropdownItem(value: 'Inspection & Lab (الفحص والمعامل)', label: 'Inspection & Lab (الفحص والمعامل)'),
-                SearchableDropdownItem(value: 'Inland Transport (النولون الداخلي والنقل)', label: 'Inland Transport (النولون الداخلي والنقل)'),
-                SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
+                SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees'),
+                SearchableDropdownItem(value: 'Port & Storage', label: 'Port & Storage'),
+                SearchableDropdownItem(value: 'Inspection & Lab', label: 'Inspection & Lab'),
+                SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport'),
+                SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees'),
               ],
               onChanged: (v) {
                 if (v != null) setState(() => _selectedCategory = v);
@@ -71,13 +73,13 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
               value: _selectedUnit,
-              labelText: 'وحدة الاحتساب',
+              labelText: l.quantityAndUnitCol,
               items: const [
-                SearchableDropdownItem(value: 'Fixed (مبلغ ثابت)', label: 'Fixed (مبلغ ثابت)'),
-                SearchableDropdownItem(value: 'Per Container (لكل حاوية)', label: 'Per Container (لكل حاوية)'),
-                SearchableDropdownItem(value: 'Per Ton (لكل طن)', label: 'Per Ton (لكل طن)'),
-                SearchableDropdownItem(value: 'Per Shipment (لكل إقرار / بوليصة)', label: 'Per Shipment (لكل إقرار / بوليصة)'),
-                SearchableDropdownItem(value: 'Per Truck (لكل سيارة نقل)', label: 'Per Truck (لكل سيارة نقل)'),
+                SearchableDropdownItem(value: 'Fixed', label: 'Fixed'),
+                SearchableDropdownItem(value: 'Per Container', label: 'Per Container'),
+                SearchableDropdownItem(value: 'Per Ton', label: 'Per Ton'),
+                SearchableDropdownItem(value: 'Per Shipment', label: 'Per Shipment'),
+                SearchableDropdownItem(value: 'Per Truck', label: 'Per Truck'),
               ],
               onChanged: (v) {
                 if (v != null) setState(() => _selectedUnit = v);
@@ -91,14 +93,14 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
                   child: TextFormField(
                     controller: _priceCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'سعر الوحدة', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l.itemPriceCol, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SearchableDropdownField<String>(
                     value: _selectedCurrency,
-                    labelText: 'العملة',
+                    labelText: l.currency,
                     items: const [
                       SearchableDropdownItem(value: 'EGP', label: 'EGP'),
                       SearchableDropdownItem(value: 'USD', label: 'USD'),
@@ -114,7 +116,7 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
                   child: TextFormField(
                     controller: _qtyCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l.quantityAndUnitCol, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -123,7 +125,7 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           onPressed: () {
@@ -143,9 +145,10 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
             ));
             Navigator.pop(context);
           },
-          child: const Text('إضافة البند للعرض', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: Text(l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 
 class RecalculationVarianceComparisonCard extends StatelessWidget {
@@ -16,6 +17,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final res = recalculationResult;
     final isIncrease = res.totalTaxesVarianceEgp > 0;
     final isDecrease = res.totalTaxesVarianceEgp < 0;
@@ -25,10 +27,10 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
         : (isDecrease ? AppTheme.emerald : AppTheme.cobalt);
 
     final statusText = isIncrease
-        ? 'زيادة في الرسوم والضرائب (+${res.totalTaxesVarianceEgp.toStringAsFixed(2)} EGP)'
+        ? '+${res.totalTaxesVarianceEgp.toStringAsFixed(2)} EGP'
         : (isDecrease
-            ? 'انخفاض في الرسوم والضرائب (${res.totalTaxesVarianceEgp.toStringAsFixed(2)} EGP)'
-            : 'تطابق تام في الرسوم والضرائب (0.00 EGP)');
+            ? '${res.totalTaxesVarianceEgp.toStringAsFixed(2)} EGP'
+            : '0.00 EGP');
 
     final statusIcon = isIncrease
         ? Icons.trending_up
@@ -61,9 +63,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'شاشة إعادة احتساب الجمارك ومقارنة الفروق وتوقع السيولة',
-                        style: TextStyle(
+                      Text(
+                        l.customsCalculationEngine,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.charcoal,
@@ -71,7 +73,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'المصدر: ${res.sourceDescription} | الفاتورة: ${res.finalInvoiceNumber ?? "N/A"} | تاريخ الدراسة: ${res.estimateDate} | سعر الصرف: ${res.exchangeRate.toStringAsFixed(4)} EGP',
+                        '${res.sourceDescription} | ${res.finalInvoiceNumber ?? "N/A"} | ${res.estimateDate} | ${res.exchangeRate.toStringAsFixed(4)} EGP',
                         style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                       ),
                     ],
@@ -103,7 +105,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.grey, size: 20),
-                  tooltip: 'إغلاق نافذة المقارنة',
+                  tooltip: l.close,
                   onPressed: onClose,
                 ),
               ],
@@ -115,28 +117,28 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
                 final kpi1 = _buildKpiCard(
-                  title: 'قيمة البضاعة (FOB)',
+                  title: l.fobEgpCol,
                   preliminaryVal: res.preliminaryFobEgp,
                   finalVal: res.finalFobEgp,
                   varianceVal: res.fobVarianceEgp,
                   color: AppTheme.charcoal,
                 );
                 final kpi2 = _buildKpiCard(
-                  title: 'الوعاء الجمركي (CIF Base)',
+                  title: l.cifEgpCol,
                   preliminaryVal: res.preliminaryCifEgp,
                   finalVal: res.finalCifEgp,
                   varianceVal: res.cifVarianceEgp,
                   color: AppTheme.cobalt,
                 );
                 final kpi3 = _buildKpiCard(
-                  title: 'ضريبة الوارد (Customs Duty)',
+                  title: l.customsDutyCol,
                   preliminaryVal: res.preliminaryDutyEgp,
                   finalVal: res.finalDutyEgp,
                   varianceVal: res.dutyVarianceEgp,
                   color: Colors.indigo,
                 );
                 final kpi4 = _buildKpiCard(
-                  title: 'إجمالي الضرائب والرسوم المتوقعة',
+                  title: l.totalTaxesAndDutiesCol,
                   preliminaryVal: res.preliminaryTotalTaxesEgp,
                   finalVal: res.finalTotalTaxesEgp,
                   varianceVal: res.totalTaxesVarianceEgp,
@@ -182,15 +184,6 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
             const SizedBox(height: 18),
 
             // ── LINE BY LINE COMPARISON TABLE ──────────────────────────────
-            const Text(
-              '📊 تفاصيل مقارنة البنود والكميات والأسعار (مبدئي ⟷ نهائي معتمد):',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: AppTheme.charcoal,
-              ),
-            ),
-            const SizedBox(height: 10),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
@@ -201,18 +194,19 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   color: AppTheme.charcoal,
                   fontSize: 12,
                 ),
-                columns: const [
-                  DataColumn(label: Text('بند التعريفة (HS Code)')),
-                  DataColumn(label: Text('بيان الصنف والمنشأ')),
-                  DataColumn(label: Text('الكمية (مبدئي ⟷ نهائي)')),
-                  DataColumn(label: Text('سعر الوحدة (مبدئي ⟷ نهائي)')),
-                  DataColumn(label: Text('القيمة FOB بالجنيه')),
-                  DataColumn(label: Text('الوعاء CIF بالجنيه')),
-                  DataColumn(label: Text('ضريبة الوارد')),
-                  DataColumn(label: Text('VAT (القيمة المضافة)')),
-                  DataColumn(label: Text('إجمالي الضرائب والرسوم')),
-                  DataColumn(label: Text('فارق الضريبة والرسوم')),
+                columns: [
+                  DataColumn(label: Text(l.customsTariffItemCol)),
+                  DataColumn(label: Text(l.itemDescriptionAndOriginCol)),
+                  DataColumn(label: Text(l.quantityAndUnitCol)),
+                  DataColumn(label: Text(l.itemPriceCol)),
+                  DataColumn(label: Text(l.fobEgpCol)),
+                  DataColumn(label: Text(l.cifEgpCol)),
+                  DataColumn(label: Text(l.customsDutyCol)),
+                  DataColumn(label: Text(l.vatCol)),
+                  DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
+                  DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
                 ],
+
                 rows: res.comparisonLines.map((line) {
                   final lineDiff = line.totalTaxesVarianceEgp;
                   final diffColor = lineDiff > 0
@@ -351,16 +345,16 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'اعتماد وحفظ الرسوم الجمركية الجديدة للدراسة',
-                          style: TextStyle(
+                        Text(
+                          l.saveCustomsStudy,
+                          style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
                             color: AppTheme.charcoal,
                           ),
                         ),
                         Text(
-                          'سيتم تطبيق إجمالي الرسوم الجديد (${res.finalTotalTaxesEgp.toStringAsFixed(2)} EGP) في حقل تقدير الرسوم المعتمد وتحديث توقع السيولة المالية.',
+                          '${res.finalTotalTaxesEgp.toStringAsFixed(2)} EGP',
                           style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
                         ),
                       ],
@@ -374,9 +368,9 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                     ),
                     onPressed: onApplyNewFees,
                     icon: const Icon(Icons.save_alt, color: Colors.white, size: 18),
-                    label: const Text(
-                      '💾 حفظ الرسوم الجديدة واعتماد دراسة الجمارك المحدثة',
-                      style: TextStyle(
+                    label: Text(
+                      l.saveCustomsStudy,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
                         fontSize: 13,

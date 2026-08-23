@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -26,6 +27,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     return _buildPriceListsAndCatalogTab();
   }
   Widget _buildPriceListsAndCatalogTab() {
+    final l = context.l10n;
     final priceListsAsync = ref.watch(brokerPriceListsProvider);
     final expenseTypesAsync = ref.watch(clearanceExpenseTypesProvider);
     final brokersList = (ref.watch(partnersProvider).value ?? [])
@@ -41,21 +43,21 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
           Row(
             children: [
               ChoiceChip(
-                label: const Text('📋 قوائم أسعار المخلصين (Broker Price Lists)', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(l.brokerPriceListsTab, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 0,
                 selectedColor: AppTheme.cobalt.withOpacity(0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 0),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
-                label: const Text('🏷️ دليل وتكويد بنود المصروفات (Clearance Expense Catalog)', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(l.clearanceQuotesTab, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 1,
                 selectedColor: AppTheme.cobalt.withOpacity(0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 1),
               ),
               const SizedBox(width: 12),
               ChoiceChip(
-                label: const Text('🤖 عروض التخليص والاستخراج الذكي (Clearance Quotes & AI Extractor)', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(l.smartClearanceQuoteExtractor, style: const TextStyle(fontWeight: FontWeight.bold)),
                 selected: _managementSubTabIndex == 2,
                 selectedColor: const Color(0xFF6C5CE7).withOpacity(0.18),
                 onSelected: (_) => setState(() => _managementSubTabIndex = 2),

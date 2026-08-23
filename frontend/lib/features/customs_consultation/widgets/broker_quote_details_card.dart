@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../../currencies/models/currency_model.dart';
 import 'broker_cost_row.dart';
@@ -38,6 +39,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     if (selectedBrokerId == null) {
       return Card(
         elevation: 2,
@@ -48,10 +50,10 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
             children: [
               Icon(Icons.info_outline, color: Colors.blue.shade700, size: 24),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '💡 يرجى تحديد المستخلص الجمركي أعلاه لاستدعاء قائمة أسعار التخليص والنقل الخاصة به تلقائياً وتفعيل بنود المصروفات.',
-                  style: TextStyle(fontSize: 13, color: AppTheme.charcoal),
+                  l.customsBrokerLabel,
+                  style: const TextStyle(fontSize: 13, color: AppTheme.charcoal),
                 ),
               ),
             ],
@@ -72,7 +74,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
               children: [
                 CircularProgressIndicator(strokeWidth: 2.5),
                 SizedBox(width: 14),
-                Text('جاري جلب قائمة أسعار التخليص والنقل للمستخلص...', style: TextStyle(fontWeight: FontWeight.bold)),
+                Text('...', style: TextStyle(fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -85,16 +87,16 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
 
     final categories = [
       'All',
-      'Clearance Fees (أتعاب ومصاريف تخليص)',
-      'Procedures & Approvals (إجراءات وموافقات وفحص)',
-      'Inland Transport (نقل بري وشاحنات)',
-      'Port & Handling (موانئ وتعتيق وتفريغ)',
-      'Other Fees (مصاريف أخرى)',
+      'Clearance Fees',
+      'Procedures & Approvals',
+      'Inland Transport',
+      'Port & Handling',
+      'Other Fees',
     ];
 
     final filteredItems = categoryFilter == 'All'
         ? brokerQuoteItems
-        : brokerQuoteItems.where((i) => i.category == categoryFilter).toList();
+        : brokerQuoteItems.where((i) => i.category.contains(categoryFilter)).toList();
 
     return Card(
       elevation: 3,
@@ -113,13 +115,13 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        '💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص (Customs Broker Quote Details)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                      Text(
+                        l.clearanceQuotesTab,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                       ),
                       if (brokerPriceListTitle != null)
                         Text(
-                          '📋 المصدر:  ( بنود مسعرة)',
+                          brokerPriceListTitle!,
                           style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade700),
                         ),
                     ],
@@ -129,12 +131,12 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
                   onPressed: onAddCustomExpense,
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('إضافة بند مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   icon: Icon(isExpanded ? Icons.expand_less : Icons.expand_more, color: AppTheme.charcoal),
-                  tooltip: isExpanded ? 'طي عرض الأسعار' : 'توسيع عرض الأسعار',
+                  tooltip: l.clearanceQuotesTab,
                   onPressed: onToggleExpanded,
                 ),
               ],
@@ -145,7 +147,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
               // Category Filter Bar & Bulk Actions
               Row(
                 children: [
-                  const Text('تصفية الفئات: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  Text('${l.statusFilterLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: SingleChildScrollView(
@@ -153,7 +155,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                       child: Row(
                         children: categories.map((cat) {
                           final isSelected = categoryFilter == cat;
-                          final label = cat == 'All' ? 'الكل ()' : cat.split('(').first.trim();
+                          final label = cat == 'All' ? l.allStatuses : cat;
                           return Padding(
                             padding: const EdgeInsets.only(left: 6),
                             child: ChoiceChip(
@@ -170,12 +172,12 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onApplyAll,
                     icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
-                    label: const Text('تطبيق الكل', style: TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                    label: Text(l.saveConsultationChanges, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
                   ),
                   TextButton.icon(
                     onPressed: onDisableAll,
                     icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
-                    label: const Text('تعطيل الكل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                    label: Text(l.delete, style: const TextStyle(fontSize: 11, color: Colors.red)),
                   ),
                 ],
               ),
@@ -187,7 +189,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   padding: const EdgeInsets.all(16),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6)),
-                  child: const Text('لا توجد بنود مصروفات في هذا التصنيف. يمكنك النقر على إضافة بند مخصص لإدراج مصروف جديد.'),
+                  child: Text(l.noResultsFound),
                 )
               else
                 ...filteredItems.map((item) {
@@ -218,7 +220,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                         const Icon(Icons.account_balance_wallet, color: AppTheme.cobalt, size: 20),
                         const SizedBox(width: 8),
                         Text(
-                          '💰 إجمالي عرض أسعار المخلص الجمركي والنقل المطبق ($appliedCount بند مطبق):',
+                          '${l.totalExpenses} ($appliedCount):',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                         ),
                       ],
@@ -237,3 +239,4 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
     );
   }
 }
+

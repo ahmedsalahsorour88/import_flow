@@ -1,0 +1,122 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations_ar.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
+
+void main() {
+  group('Customs Consultation & Tax Review Localization & Anti-Stacked Tests (Screen 6)', () {
+    test('Arabic AppLocalizationsAr returns pure Arabic for customs consultation keys', () {
+      const lAr = AppLocalizationsAr();
+      expect(lAr.customsStudiesTitle, equals('مركز الاستشارة والفحص ومراجعة الضرائب الجمركية'));
+      expect(lAr.customsWorkspaceTab, equals('مركز الاستشارة والفحص الجمركي'));
+      expect(lAr.consultationsLogTab, equals('سجل الدراسات المحفوظة'));
+      expect(lAr.brokerPriceListsTab, equals('قوائم الأسعار وتكويد المصروفات'));
+      expect(lAr.clearanceQuotesTab, equals('عروض التخليص والاستخراج الذكي'));
+      expect(lAr.taxReviewWorkspaceTab, equals('مركز احتساب ومراجعة الضرائب'));
+      expect(lAr.taxReviewLogTab, equals('سجل مراجعات الضرائب المحفوظة'));
+      expect(lAr.customsDutyReviewTitle, equals('مركز مراجعة واحتساب الضرائب والرسوم الجمركية'));
+      expect(lAr.customsInspectionReadiness, equals('جاهزية الفحص الجمركي'));
+      expect(lAr.itemsAndDocsCount, equals('عدد البنود والمستندات'));
+      expect(lAr.blockingIssuesCount, equals('عوائق التخليص'));
+      expect(lAr.clearanceReadyStatus, equals('جاهزة للتخليص'));
+      expect(lAr.avgReadinessMetric, equals('متوسط الجاهزية'));
+      expect(lAr.openBlockingIssues, equals('عوائق مفتوحة'));
+      expect(lAr.searchConsultationsHint, equals('بحث بالكود أو العنوان أو المستخلص...'));
+      expect(lAr.statusFilterLabel, equals('تصفية الحالة'));
+      expect(lAr.customsCalculationEngine, equals('محرك حساب الرسوم والضرائب الجمركية للشحنة'));
+      expect(lAr.fetchReconciledFinalInvoice, equals('استدعاء بنود وقيم الفاتورة والباكينج ليست النهائية المعتمدة'));
+      expect(lAr.syncHsRequirementsToChecklist, equals('مزامنة اشتراطات الـ HS Codes مع قائمة المستندات'));
+      expect(lAr.customsExchangeRate, equals('سعر الصرف الجمركي'));
+      expect(lAr.studyDateLabel, equals('تاريخ الدراسة الجمركية'));
+      expect(lAr.freightEgpLabel, equals('النولون البحري/الجوي'));
+      expect(lAr.insuranceEgpLabel, equals('التأمين البحري'));
+      expect(lAr.customsTariffItemCol, equals('بند التعريفة'));
+      expect(lAr.itemDescriptionAndOriginCol, equals('بيان الصنف والمنشأ'));
+      expect(lAr.quantityAndUnitCol, equals('الكمية والوحدة'));
+      expect(lAr.fobEgpCol, equals('القيمة FOB'));
+      expect(lAr.cifEgpCol, equals('القيمة الجمركية CIF'));
+      expect(lAr.customsDutyCol, equals('ضريبة الوارد'));
+      expect(lAr.vatCol, equals('ضريبة القيمة المضافة'));
+      expect(lAr.otherTaxesCol, equals('ض.جدول / تنمية / خدمات'));
+      expect(lAr.totalTaxesAndDutiesCol, equals('إجمالي الضرائب والرسوم'));
+      expect(lAr.regulatoryRequirementsCol, equals('الاشتراطات والعروض'));
+      expect(lAr.customsChecklistTitle, equals('قائمة فحص واشتراطات المستندات الجمركية'));
+      expect(lAr.addNewChecklistItem, equals('إضافة بند جديد للفحص'));
+      expect(lAr.responsiblePartyLabel, equals('الجهة المسؤولة'));
+      expect(lAr.blockingConditionTooltip, equals('بند يعطل الإفراج الجمركي'));
+      expect(lAr.nonBlockingConditionTooltip, equals('بند غير معطل للإفراج'));
+      expect(lAr.applyAndLinkFinancialEstimate, equals('اعتماد وربط التقدير المالي للدراسة'));
+      expect(lAr.smartClearanceQuoteExtractor, equals('استخراج ذكي لمقايسة تخليص'));
+      expect(lAr.saveCustomsStudy, equals('حفظ دراسة الاستشارة الجمركية'));
+      expect(lAr.saveTaxReviewSession, equals('حفظ جلسة مراجعة الضرائب الجمركية'));
+      expect(lAr.saveConsultationChanges, equals('حفظ تعديلات المراجعة الجمركية'));
+      expect(lAr.consultationDetailsTitle, equals('تفاصيل دراسة ومراجعة التخليص الجمركي'));
+      expect(lAr.blockingIssuesTitle, equals('تقرير عوائق واشتراطات التخليص الجمركي المفتوحة'));
+      expect(lAr.nafezaDeclarationBreakdown, equals('تفاصيل بنود التحصيل وإقرار نافذة الجمركي'));
+
+      // Verify no stacked bilingual strings in Arabic
+      expect(lAr.customsStudiesTitle.contains('Customs Studies'), isFalse);
+      expect(lAr.customsWorkspaceTab.contains('Customs Workspace'), isFalse);
+      expect(lAr.customsChecklistTitle.contains('Checklist'), isFalse);
+      expect(lAr.blockingIssuesTitle.contains('Blocking Issues'), isFalse);
+      expect(lAr.nafezaDeclarationBreakdown.contains('Nafeza Statement'), isFalse);
+    });
+
+    test('English AppLocalizationsEn returns pure English for customs consultation keys', () {
+      const lEn = AppLocalizationsEn();
+      expect(lEn.customsStudiesTitle, equals('Customs Consultation & Tax Review Workspace'));
+      expect(lEn.customsWorkspaceTab, equals('Customs Workspace'));
+      expect(lEn.consultationsLogTab, equals('Consultations Log'));
+      expect(lEn.brokerPriceListsTab, equals('Broker Price Lists & Catalog'));
+      expect(lEn.clearanceQuotesTab, equals('Clearance Quotes & AI Extractor'));
+      expect(lEn.taxReviewWorkspaceTab, equals('Customs Duty Workspace'));
+      expect(lEn.taxReviewLogTab, equals('Tax Review Log'));
+      expect(lEn.customsDutyReviewTitle, equals('Customs Duty Review & Tax Calculation Workspace'));
+      expect(lEn.customsInspectionReadiness, equals('Customs Inspection Readiness'));
+      expect(lEn.itemsAndDocsCount, equals('Items & Documents Count'));
+      expect(lEn.blockingIssuesCount, equals('Clearance Blocking Issues'));
+      expect(lEn.clearanceReadyStatus, equals('Clearance Ready'));
+      expect(lEn.avgReadinessMetric, equals('Avg Readiness'));
+      expect(lEn.openBlockingIssues, equals('Open Blockers'));
+      expect(lEn.searchConsultationsHint, equals('Search by code, title, or broker...'));
+      expect(lEn.statusFilterLabel, equals('Status Filter'));
+      expect(lEn.customsCalculationEngine, equals('Customs Duty & Tax Calculation Engine'));
+      expect(lEn.fetchReconciledFinalInvoice, equals('Fetch Final Reconciled Invoice & Packing List Items'));
+      expect(lEn.syncHsRequirementsToChecklist, equals('Sync HS Code Rules to Checklist'));
+      expect(lEn.customsExchangeRate, equals('Customs Exchange Rate'));
+      expect(lEn.studyDateLabel, equals('Customs Study Date'));
+      expect(lEn.freightEgpLabel, equals('Ocean/Air Freight'));
+      expect(lEn.insuranceEgpLabel, equals('Marine Insurance'));
+      expect(lEn.customsTariffItemCol, equals('HS Tariff Code'));
+      expect(lEn.itemDescriptionAndOriginCol, equals('Item Description & Origin'));
+      expect(lEn.quantityAndUnitCol, equals('Qty & Unit'));
+      expect(lEn.fobEgpCol, equals('FOB Value'));
+      expect(lEn.cifEgpCol, equals('CIF Base Value'));
+      expect(lEn.customsDutyCol, equals('Customs Duty'));
+      expect(lEn.vatCol, equals('VAT'));
+      expect(lEn.otherTaxesCol, equals('Schedule / Dev / Service'));
+      expect(lEn.totalTaxesAndDutiesCol, equals('Total Duties & Taxes'));
+      expect(lEn.regulatoryRequirementsCol, equals('Regulatory Requirements'));
+      expect(lEn.customsChecklistTitle, equals('Customs Documents & Regulatory Checklist'));
+      expect(lEn.addNewChecklistItem, equals('Add Checklist Item'));
+      expect(lEn.responsiblePartyLabel, equals('Responsible Party'));
+      expect(lEn.blockingConditionTooltip, equals('Blocking Item'));
+      expect(lEn.nonBlockingConditionTooltip, equals('Non-blocking Item'));
+      expect(lEn.applyAndLinkFinancialEstimate, equals('Apply & Link Financial Estimate'));
+      expect(lEn.smartClearanceQuoteExtractor, equals('Smart AI Clearance Quote Extractor'));
+      expect(lEn.saveCustomsStudy, equals('Save Customs Study'));
+      expect(lEn.saveTaxReviewSession, equals('Save Tax Review Session'));
+      expect(lEn.saveConsultationChanges, equals('Save Consultation Changes'));
+      expect(lEn.consultationDetailsTitle, equals('Customs Consultation & Review Details'));
+      expect(lEn.blockingIssuesTitle, equals('Open Customs Blocking Issues & Requirements'));
+      expect(lEn.nafezaDeclarationBreakdown, equals('Nafeza Customs Declaration & Fee Breakdown'));
+
+      // Verify no Arabic characters in English getters
+      final arabicRegex = RegExp(r'[\u0600-\u06FF]');
+      expect(arabicRegex.hasMatch(lEn.customsStudiesTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.customsCalculationEngine), isFalse);
+      expect(arabicRegex.hasMatch(lEn.customsChecklistTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.blockingIssuesTitle), isFalse);
+      expect(arabicRegex.hasMatch(lEn.nafezaDeclarationBreakdown), isFalse);
+    });
+  });
+}

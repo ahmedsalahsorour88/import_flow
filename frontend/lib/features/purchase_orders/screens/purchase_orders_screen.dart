@@ -3,8 +3,10 @@ import '../widgets/po_reconciliation_warning_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
+
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -55,6 +57,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final state = ref.watch(purchaseOrdersProvider);
     final projectsList = ref.watch(projectsProvider).value ?? [];
 
@@ -81,18 +84,18 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               children: [
                 const Icon(Icons.shopping_cart_outlined, color: Colors.white, size: 28),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Purchase Orders & Proforma Invoices (أوامر الشراء والفواتير المبدئية)',
-                        style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
+                        l.purchaseOrdersTitle,
+                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
-                        'المرحلة الأولى: إدارة وتسجيل أوامر الشراء، الفواتير المبدئية، وحساب الـ CBM والأوزان الإجمالية',
-                        style: TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
+                        l.purchaseOrdersSubtitle,
+                        style: const TextStyle(color: AppTheme.cloudWhite, fontSize: 11),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
@@ -103,13 +106,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 const SizedBox(width: 10),
                 SmartUploadButton(
                   module: SmartUploadModule.purchaseOrder,
-                  label: '🚀 استخراج الفاتورة والتعبئة الذكي',
+                  label: '🚀 ${l.smartInvoiceExtract}',
                   onDataExtracted: (result) {
                     final fields = result.extractedFields;
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(
-                          'تم استخراج بيانات أمر الشراء بنجاح (${fields['po_number'] ?? 'بدون رقم'}) — جاري تعبئة أمر الشراء تلقائياً...',
+                          '${fields['po_number'] ?? '-'}',
                         ),
                         backgroundColor: AppTheme.emerald,
                         duration: const Duration(seconds: 4),
@@ -126,7 +129,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                   icon: const Icon(Icons.add_shopping_cart, size: 18),
-                  label: const Text('New Purchase Order', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(l.newPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () => _showPODialog(context, null),
                 ),
               ],
@@ -138,13 +141,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                _buildSummaryMetric('Total POs', '$totalOrders Order(s)', Icons.receipt_long, Colors.blue),
+                _buildSummaryMetric(l.totalOrdersMetric, '$totalOrders', Icons.receipt_long, Colors.blue),
                 const SizedBox(width: 12),
-                _buildSummaryMetric('Total PI/PO Amount', '\$${totalFobSum.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
+                _buildSummaryMetric(l.totalFobMetric, '\$${totalFobSum.toStringAsFixed(2)}', Icons.attach_money, Colors.green),
                 const SizedBox(width: 12),
-                _buildSummaryMetric('Total Cargo CBM', '${totalCbmSum.toStringAsFixed(2)} CBM', Icons.view_in_ar, Colors.orange),
+                _buildSummaryMetric(l.totalCargoCbmMetric, '${totalCbmSum.toStringAsFixed(2)} m³', Icons.view_in_ar, Colors.orange),
                 const SizedBox(width: 12),
-                _buildSummaryMetric('Total Gross Weight', '${totalGrossSum.toStringAsFixed(1)} KG', Icons.scale, Colors.purple),
+                _buildSummaryMetric(l.totalGrossWeightMetric, '${totalGrossSum.toStringAsFixed(1)} kg', Icons.scale, Colors.purple),
               ],
             ),
           ),
@@ -175,7 +178,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       child: TextField(
                         controller: _searchController,
                         decoration: InputDecoration(
-                          hintText: 'Search by PO Number, PI Number, or Notes...',
+                          hintText: l.searchByPoHint,
                           prefixIcon: const Icon(Icons.search),
                           suffixIcon: _searchController.text.isNotEmpty
                               ? IconButton(
@@ -197,9 +200,9 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       flex: 2,
                       child: SearchableDropdownField<int?>(
                         value: state.projectFilter,
-                        labelText: 'Filter by Project',
+                        labelText: l.filterByProject,
                         items: [
-                          const SearchableDropdownItem<int?>(value: null, label: 'All Projects'),
+                          SearchableDropdownItem<int?>(value: null, label: l.allProjects),
                           ...projectsList.map((p) => SearchableDropdownItem<int?>(
                                 value: p.projectId,
                                 label: '${p.projectCode} - ${p.projectName}',
@@ -213,13 +216,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       flex: 2,
                       child: SearchableDropdownField<String?>(
                         value: state.statusFilter,
-                        labelText: 'Filter by Status',
-                        items: const [
-                          SearchableDropdownItem<String?>(value: null, label: 'All Statuses'),
-                          SearchableDropdownItem<String?>(value: 'Draft', label: 'Draft'),
-                          SearchableDropdownItem<String?>(value: 'Approved', label: 'Approved'),
-                          SearchableDropdownItem<String?>(value: 'In Transit', label: 'In Transit'),
-                          SearchableDropdownItem<String?>(value: 'Closed', label: 'Closed'),
+                        labelText: l.filterByStatus,
+                        items: [
+                          SearchableDropdownItem<String?>(value: null, label: l.allStatuses),
+                          const SearchableDropdownItem<String?>(value: 'Draft', label: 'Draft'),
+                          const SearchableDropdownItem<String?>(value: 'Approved', label: 'Approved'),
+                          const SearchableDropdownItem<String?>(value: 'In Transit', label: 'In Transit'),
+                          const SearchableDropdownItem<String?>(value: 'Closed', label: 'Closed'),
                         ],
                         onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).setStatusFilter(v),
                       ),
@@ -231,12 +234,12 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                           value: state.showInactive,
                           onChanged: (v) => ref.read(purchaseOrdersProvider.notifier).toggleShowInactive(v ?? false),
                         ),
-                        const Text('Show Inactive', style: TextStyle(fontSize: 12)),
+                        Text(l.showInactive, style: const TextStyle(fontSize: 12)),
                       ],
                     ),
                     IconButton(
                       icon: const Icon(Icons.refresh, color: AppTheme.cobalt),
-                      tooltip: 'Live Refresh',
+                      tooltip: l.liveReload,
                       onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
                     ),
                   ],
@@ -260,19 +263,19 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                             const SizedBox(height: 12),
                             ElevatedButton(
                               onPressed: () => ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders(),
-                              child: const Text('Retry'),
+                              child: Text(l.retry),
                             ),
                           ],
                         ),
                       )
                     : state.purchaseOrders.isEmpty
-                        ? const Center(
+                        ? Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
-                                SizedBox(height: 12),
-                                Text('No Purchase Orders Found', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                                const Icon(Icons.inventory_2_outlined, size: 56, color: Colors.grey),
+                                const SizedBox(height: 12),
+                                Text(l.noDataFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                               ],
                             ),
                           )
@@ -312,6 +315,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
   }
 
   Widget _buildPOTable(BuildContext context, List<PurchaseOrderModel> orders) {
+    final l = context.l10n;
     return SingleChildScrollView(
       scrollDirection: Axis.vertical,
       child: SingleChildScrollView(
@@ -324,19 +328,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
               headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
               dataRowMaxHeight: 52,
-              columns: const [
-                DataColumn(label: Text('PO Reference')),
-                DataColumn(label: Text('Invoice Date')),
-                DataColumn(label: Text('Import File')),
-                DataColumn(label: Text('PI Number')),
-                DataColumn(label: Text('Project')),
-                DataColumn(label: Text('Company')),
-                DataColumn(label: Text('Supplier')),
-                DataColumn(label: Text('PI/PO Amount')),
-                DataColumn(label: Text('CBM / Weight')),
-                DataColumn(label: Text('Status')),
-                DataColumn(label: Text('Actions')),
+              columns: [
+                DataColumn(label: Text(l.poReferenceCol)),
+                DataColumn(label: Text(l.invoiceDateCol)),
+                DataColumn(label: Text(l.importFileCol)),
+                DataColumn(label: Text(l.piNumberCol)),
+                DataColumn(label: Text(l.projectsAndCostCenters)),
+                DataColumn(label: Text(l.importingCompany)),
+                DataColumn(label: Text(l.foreignSupplier)),
+                DataColumn(label: Text(l.totalFobMetric)),
+                DataColumn(label: Text('${l.cbmVolumeMetric} / ${l.grossWeightMetric}')),
+                DataColumn(label: Text(l.lifecycleBoard)),
+                DataColumn(label: Text(l.actionsCol)),
               ],
+
               rows: orders.map((po) {
                 final statusColor = po.status == 'Approved'
                     ? AppTheme.emerald
@@ -540,103 +545,107 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
 
     showDialog(
       context: context,
-      builder: (dialogCtx) => DefaultTabController(
-        length: 2,
-        child: AlertDialog(
-          title: Row(
-            children: [
-              const Icon(Icons.inventory_2, color: AppTheme.cobalt),
-              const SizedBox(width: 8),
-              Text('PO & Packing List Details: ${po.poNumber} (${po.proformaInvoiceNumber ?? "No PI"})'),
-            ],
-          ),
-          content: SizedBox(
-            width: 850,
-            height: 550,
-            child: Column(
+      builder: (dialogCtx) {
+        final l = dialogCtx.l10n;
+        return DefaultTabController(
+          length: 2,
+          child: AlertDialog(
+            title: Row(
               children: [
-                Container(
-                  color: Colors.grey.shade100,
-                  child: const TabBar(
-                    labelColor: AppTheme.cobalt,
-                    unselectedLabelColor: Colors.grey,
-                    indicatorColor: AppTheme.cobalt,
-                    tabs: [
-                      Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'PO Line Items (الفاتورة المبدئية)'),
-                      Tab(icon: Icon(Icons.fact_check, size: 18), text: 'Review Packing List (بيان التعبئة والوزن)'),
-                    ],
+                const Icon(Icons.inventory_2, color: AppTheme.cobalt),
+                const SizedBox(width: 8),
+                Text('${l.purchaseOrdersTitle}: ${po.poNumber} (${po.proformaInvoiceNumber ?? "-"})'),
+              ],
+            ),
+            content: SizedBox(
+              width: 850,
+              height: 550,
+              child: Column(
+                children: [
+                  Container(
+                    color: Colors.grey.shade100,
+                    child: TabBar(
+                      labelColor: AppTheme.cobalt,
+                      unselectedLabelColor: Colors.grey,
+                      indicatorColor: AppTheme.cobalt,
+                      tabs: [
+                        Tab(icon: const Icon(Icons.receipt_long, size: 18), text: l.poLineItemsTab),
+                        Tab(icon: const Icon(Icons.fact_check, size: 18), text: l.reviewPackingListTab),
+                      ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      // Tab 1: Commercial PO Line Items
-                      SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: Builder(builder: (context) {
-                            final double palletPlanCbm = po.palletPlanItems.isNotEmpty
-                                ? po.palletPlanItems.fold<double>(
-                                    0.0,
-                                    (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount),
-                                  )
-                                : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
-                                    ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
-                                    : (po.palletCount > 0 && po.totalCbm > 0 ? po.totalCbm : 0.0));
-                            final double palletPlanGrossWeight = po.palletPlanItems.isNotEmpty
-                                ? po.palletPlanItems.fold<double>(
-                                    0.0,
-                                    (sum, p) => sum + (p.grossWeightPerPalletKg * p.palletCount),
-                                  )
-                                : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
-                            final int totalPalletCount = po.palletPlanItems.isNotEmpty
-                                ? po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)
-                                : po.palletCount;
+                  Expanded(
+                    child: TabBarView(
+                      children: [
+                        // Tab 1: Commercial PO Line Items
+                        SingleChildScrollView(
+                          padding: const EdgeInsets.all(12),
+                          child: Builder(builder: (context) {
+                              final double palletPlanCbm = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<double>(
+                                      0.0,
+                                      (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount),
+                                    )
+                                  : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                      ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                      : (po.palletCount > 0 && po.totalCbm > 0 ? po.totalCbm : 0.0));
+                              final double palletPlanGrossWeight = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<double>(
+                                      0.0,
+                                      (sum, p) => sum + (p.grossWeightPerPalletKg * p.palletCount),
+                                    )
+                                  : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                              final int totalPalletCount = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)
+                                  : po.palletCount;
 
-                            final double effectivePackingListCbm = palletPlanCbm > 0
-                                ? palletPlanCbm
-                                : (po.totalCbm > 0
-                                    ? po.totalCbm
-                                    : (po.packingListItems.isNotEmpty
-                                        ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm))
-                                        : 0.0));
-                            final double effectivePackingListGrossWeight = palletPlanGrossWeight > 0
-                                ? palletPlanGrossWeight
-                                : (po.totalGrossWeightKg > 0
-                                    ? po.totalGrossWeightKg
-                                    : (po.packingListItems.isNotEmpty
-                                        ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.grossWeightUnitKg * pl.qtyPkg) : pl.totalGrossWeightKg))
-                                        : 0.0));
-                            final double effectivePackingListNetWeight = po.totalNetWeightKg > 0
-                                ? po.totalNetWeightKg
-                                : (po.packingListItems.isNotEmpty
-                                    ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.netWeightUnitKg * pl.qtyPkg) : pl.totalNetWeightKg))
-                                    : 0.0);
+                              final double effectivePackingListCbm = palletPlanCbm > 0
+                                  ? palletPlanCbm
+                                  : (po.totalCbm > 0
+                                      ? po.totalCbm
+                                      : (po.packingListItems.isNotEmpty
+                                          ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm))
+                                          : 0.0));
+                              final double effectivePackingListGrossWeight = palletPlanGrossWeight > 0
+                                  ? palletPlanGrossWeight
+                                  : (po.totalGrossWeightKg > 0
+                                      ? po.totalGrossWeightKg
+                                      : (po.packingListItems.isNotEmpty
+                                          ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.grossWeightUnitKg * pl.qtyPkg) : pl.totalGrossWeightKg))
+                                          : 0.0));
+                              final double effectivePackingListNetWeight = po.totalNetWeightKg > 0
+                                  ? po.totalNetWeightKg
+                                  : (po.packingListItems.isNotEmpty
+                                      ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.netWeightUnitKg * pl.qtyPkg) : pl.totalNetWeightKg))
+                                      : 0.0);
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Wrap(
-                                  spacing: 20,
-                                  runSpacing: 10,
-                                  children: [
-                                    _buildDetailItem('Project', po.projectName ?? '-'),
-                                    _buildDetailItem('Company', po.companyName ?? '-'),
-                                    _buildDetailItem('Supplier', po.supplierName ?? '-'),
-                                    _buildDetailItem('Country of Origin (بلد المنشأ)', po.countryOfOrigin ?? '-'),
-                                    _buildDetailItem('Incoterm', po.incotermCode ?? '-'),
-                                    _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
-                                    _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
-                                    _buildDetailItem('Total PI/PO Amount', '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
-                                    _buildDetailItem(
-                                      (palletPlanCbm > 0 || totalPalletCount > 0) ? 'Total Cargo Volume (مخطط البالتات)' : 'Total Volume (Packing List)',
-                                      '${effectivePackingListCbm.toStringAsFixed(3)} CBM ${totalPalletCount > 0 ? "($totalPalletCount بالتة)" : ""}',
-                                    ),
-                                    _buildDetailItem(
-                                      (palletPlanGrossWeight > 0 || totalPalletCount > 0) ? 'Gross Wt (البالتات) / Net Wt' : 'Gross / Net Weight (Packing List)',
-                                      '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
-                                    ),
-                                  ],
-                                ),
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Wrap(
+                                    spacing: 20,
+                                    runSpacing: 10,
+                                    children: [
+                                      _buildDetailItem(l.projectsAndCostCenters, po.projectName ?? '-'),
+                                      _buildDetailItem(l.importingCompany, po.companyName ?? '-'),
+                                      _buildDetailItem(l.foreignSupplier, po.supplierName ?? '-'),
+                                      _buildDetailItem(l.countryOfOriginCol, po.countryOfOrigin ?? '-'),
+                                      _buildDetailItem(l.incotermsRules, po.incotermCode ?? '-'),
+                                      _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (Rate: ${po.exchangeRate})'),
+                                      _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
+                                      _buildDetailItem(l.totalFobMetric, '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
+                                      _buildDetailItem(
+                                        l.totalCargoCbmMetric,
+                                        '${effectivePackingListCbm.toStringAsFixed(3)} m³${totalPalletCount > 0 ? " ($totalPalletCount)" : ""}',
+                                      ),
+                                      _buildDetailItem(
+                                        '${l.grossWeightMetric} / ${l.netWeightMetric}',
+                                        '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
+                                      ),
+
+                                    ],
+                                  ),
+
                                 const SizedBox(height: 16),
                                 const Text('PO Line Items Breakdown (بنود الفاتورة المبدئية والأكواد الجمركية)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                 const SizedBox(height: 6),
@@ -1132,7 +1141,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                 foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.edit, size: 16),
-              label: const Text('تعديل أمر الشراء (Edit PO)', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: Text(l.editPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.pop(dialogCtx);
                 _showPODialog(context, po);
@@ -1140,13 +1149,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Close'),
+              child: Text(l.close),
             ),
           ],
         ),
-      ),
-    );
-  }
+      );
+    },
+  );
+}
+
 
   Widget _buildDetailItem(String label, String value) {
     return Column(

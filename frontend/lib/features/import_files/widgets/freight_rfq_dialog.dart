@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/freight_rfq_generator_service.dart';
 import '../../external_service_providers/models/partner_model.dart';
@@ -176,6 +177,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildDialogHeader() {
+    final l = context.l10n;
     final titleCode = widget.customFileNumber ?? widget.importFileCode;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
@@ -191,13 +193,13 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'طلب أسعار نولون الشحن الدولي (Freight RFQ Generator)',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                Text(
+                  l.freightRfqTitle,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  'ملف الشحنة: $titleCode | توليد رسائل الإيميل والواتساب ومستند الـ PDF الرسمي آلياً',
+                  '${l.importFileIdLabel}: $titleCode',
                   style: const TextStyle(color: Colors.white70, fontSize: 12),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -294,6 +296,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildMainContent() {
+    final l = context.l10n;
     final rfq = _rfqData!;
     return Column(
       children: [
@@ -306,13 +309,14 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
             unselectedLabelColor: Colors.grey.shade600,
             indicatorColor: AppTheme.cobalt,
             indicatorWeight: 3,
-            tabs: const [
-              Tab(icon: Icon(Icons.email_outlined), text: 'نموذج الإيميل الرسمي (Email Draft)'),
-              Tab(icon: Icon(Icons.chat_bubble_outline), text: 'رسالة الواتساب (WhatsApp Template)'),
-              Tab(icon: Icon(Icons.inventory_2_outlined), text: 'ملخص مواصفات الشحنة (Shipment Specs)'),
+            tabs: [
+              Tab(icon: const Icon(Icons.email_outlined), text: l.emailDraftTab),
+              Tab(icon: const Icon(Icons.chat_bubble_outline), text: l.whatsappTemplateTab),
+              Tab(icon: const Icon(Icons.inventory_2_outlined), text: l.shipmentSpecsTab),
             ],
           ),
         ),
+
         const Divider(height: 1),
 
         // Tab Views
@@ -469,6 +473,7 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
   }
 
   Widget _buildSpecsTab(FreightRfqDataModel rfq) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(16),
       color: const Color(0xFFF8FAFC),
@@ -481,16 +486,16 @@ class _FreightRfqDialogState extends ConsumerState<FreightRfqDialog> with Single
               spacing: 12,
               runSpacing: 12,
               children: [
-                _buildSpecCard('📦 اسم البضاعة', rfq.commodity, AppTheme.cobalt),
-                _buildSpecCard('🌐 شرط الشحن', rfq.incotermCode, AppTheme.orange),
-                _buildSpecCard('🚢 المعدات المقترحة', rfq.recommendedContainers, AppTheme.charcoal),
-                _buildSpecCard('📐 الحجم الإجمالي (CBM)', '${rfq.totalCbm.toStringAsFixed(2)} m³', AppTheme.emerald),
-                _buildSpecCard('⚖️ الوزن القائم (Gross)', '${rfq.grossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
-                _buildSpecCard('⚖️ الوزن الصافي (Net)', '${rfq.netWeightKg.toStringAsFixed(1)} kg', Colors.purple),
-                _buildSpecCard('📍 ميناء الشحن (POL)', rfq.portOfLoading, AppTheme.charcoal),
-                _buildSpecCard('🏁 ميناء الوصول (POD)', rfq.portOfDischarge, AppTheme.crimson),
-                _buildSpecCard('📅 تاريخ الجاهزية', rfq.cargoReadyDate, AppTheme.cobalt),
-                _buildSpecCard('⏳ فترة السماح المطلوبة', '${rfq.targetFreeDays} يوماً (FT)', AppTheme.emerald),
+                _buildSpecCard('📦 ${l.commodityTitle}', rfq.commodity, AppTheme.cobalt),
+                _buildSpecCard('🌐 ${l.incotermsRules}', rfq.incotermCode, AppTheme.orange),
+                _buildSpecCard('🚢 ${l.containerSpecType}', rfq.recommendedContainers, AppTheme.charcoal),
+                _buildSpecCard('📐 ${l.cbmVolumeMetric}', '${rfq.totalCbm.toStringAsFixed(2)} m³', AppTheme.emerald),
+                _buildSpecCard('⚖️ ${l.grossWeightMetric}', '${rfq.grossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
+                _buildSpecCard('⚖️ ${l.netWeightMetric}', '${rfq.netWeightKg.toStringAsFixed(1)} kg', Colors.purple),
+                _buildSpecCard('📍 ${l.portOfLoadingLabel}', rfq.portOfLoading, AppTheme.charcoal),
+                _buildSpecCard('🏁 ${l.portOfDischargeLabel}', rfq.portOfDischarge, AppTheme.crimson),
+                _buildSpecCard('📅 ${l.cargoReadyDateLabel}', rfq.cargoReadyDate, AppTheme.cobalt),
+                _buildSpecCard('⏳ ${l.targetFreeDaysLabel}', '${rfq.targetFreeDays} d', AppTheme.emerald),
               ],
             ),
             const SizedBox(height: 16),

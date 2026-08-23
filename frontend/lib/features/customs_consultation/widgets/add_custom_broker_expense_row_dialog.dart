@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_consultation_model.dart';
 
@@ -14,8 +15,8 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
   final nameCtrl = TextEditingController();
   final priceCtrl = TextEditingController(text: '0.0');
   final qtyCtrl = TextEditingController(text: '1.0');
-  String selectedCategory = 'Other Fees (مصاريف أخرى)';
-  String selectedUnit = 'Fixed (مبلغ ثابت)';
+  String selectedCategory = 'Other Fees';
+  String selectedUnit = 'Fixed';
   String selectedCurrency = 'EGP';
 
   @override
@@ -28,12 +29,13 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     return AlertDialog(
-      title: const Row(
+      title: Row(
         children: [
-          Icon(Icons.add_circle, color: AppTheme.cobalt),
-          SizedBox(width: 8),
-          Text('إضافة بند مصروف تخليص / نقل مخصص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Icon(Icons.add_circle, color: AppTheme.cobalt),
+          const SizedBox(width: 8),
+          Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
       content: SizedBox(
@@ -43,19 +45,18 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
           children: [
             TextFormField(
               controller: nameCtrl,
-              decoration: const InputDecoration(labelText: 'اسم البند / نوع المصروف *', border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l.itemDescriptionAndOriginCol, border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
               value: selectedCategory,
-              labelText: 'التصنيف',
-              searchHintText: 'ابحث عن التصنيف...',
+              labelText: l.categoryCol,
               items: const [
-                SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
-                SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
-                SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
-                SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
-                SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                SearchableDropdownItem(value: 'Clearance Fees', label: 'Clearance Fees'),
+                SearchableDropdownItem(value: 'Procedures & Approvals', label: 'Procedures & Approvals'),
+                SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport'),
+                SearchableDropdownItem(value: 'Port & Handling', label: 'Port & Handling'),
+                SearchableDropdownItem(value: 'Other Fees', label: 'Other Fees'),
               ],
               onChanged: (v) => setState(() => selectedCategory = v ?? selectedCategory),
             ),
@@ -66,15 +67,14 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
                   child: TextFormField(
                     controller: priceCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'السعر', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l.itemPriceCol, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SearchableDropdownField<String>(
                     value: selectedCurrency,
-                    labelText: 'العملة',
-                    searchHintText: 'ابحث عن العملة...',
+                    labelText: l.currency,
                     items: const [
                       SearchableDropdownItem(value: 'EGP', label: 'EGP'),
                       SearchableDropdownItem(value: 'USD', label: 'USD'),
@@ -88,7 +88,7 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
                   child: TextFormField(
                     controller: qtyCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l.quantityAndUnitCol, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -97,7 +97,7 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           onPressed: () {
@@ -117,9 +117,10 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
             );
             Navigator.pop(context, newItem);
           },
-          child: const Text('إضافة البند للعرض', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: Text(l.save, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );
   }
 }
+

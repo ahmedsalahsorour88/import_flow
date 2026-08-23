@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/import_file_po_linker.dart';
 import '../../purchase_orders/providers/purchase_orders_provider.dart';
@@ -39,6 +40,7 @@ class ImportFileDetailsDialog extends ConsumerStatefulWidget {
 
 class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog> {
   void _showVisualLoadPlanDialog(BuildContext context, List<PurchaseOrderModel> pos) {
+    final l = context.l10n;
     final file = widget.file;
     final baseCargoItems = ImportFilePoLinker.buildCargoItems(
       pos: pos,
@@ -85,10 +87,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      l.visualLoadPlannerTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -99,7 +101,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       border: Border.all(color: AppTheme.cobalt),
                     ),
                     child: Text(
-                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      '$fleetSummaryText (${plan.length})',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                     ),
                   ),
@@ -121,14 +123,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🔄 اختر سيناريو الرص للمعاينة:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          Text(
+                            '🔄 ${l.cargoStackingScenariosTitle}:',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                           Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                label: Text('📦 1. ${l.allStackableChip}'),
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
@@ -142,7 +144,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                label: Text('🚫 2. ${l.allNonStackableChip}'),
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
@@ -156,7 +158,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                label: Text('🔀 3. ${l.mixedStackingChip}'),
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
@@ -188,18 +190,18 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         children: [
                           Row(
                             children: [
-                              _buildFileMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              _buildFileMetricPill('📦', '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildFileMetricPill('⚖️', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildFileMetricPill('📐', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildFileMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              _buildFileMetricPill('✅ ${l.allStackableChip}', '$stackableInActive', Colors.green.shade800),
                               const SizedBox(width: 8),
-                              _buildFileMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                              _buildFileMetricPill('🚫 ${l.allNonStackableChip}', '$nonStackableInActive', Colors.red.shade800),
                             ],
                           ),
                         ],
@@ -220,12 +222,12 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       children: [
                         TableRow(
                           decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                          children: const [
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecType, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packingListItemsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.totalGrossWeightFromPl, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationPercent, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.currentPhaseStage, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                           ],
                         ),
                         ...plan.asMap().entries.map((entry) {
@@ -235,19 +237,20 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED') {
-                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                            statusText = l.containerLoadFailed;
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                              statusText = '${l.allNonStackableChip}: $nonStackInThis';
                             } else {
-                              statusText = 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                              statusText = '${l.containerGoodUtil} (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
                             }
                           }
 
                           final double spaceUtil = res.spec.internalVolumeCbm > 0 ? (res.totalVolume / res.spec.internalVolumeCbm) * 100 : 0.0;
 
                           return TableRow(
+
                             children: [
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
@@ -495,14 +498,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               4: FlexColumnWidth(1.5),
             },
             children: [
-              const TableRow(
-                decoration: BoxDecoration(color: AppTheme.charcoal),
+              TableRow(
+                decoration: const BoxDecoration(color: AppTheme.charcoal),
                 children: [
-                  Padding(padding: EdgeInsets.all(8), child: Text('نوع الحاوية (Container Spec)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('العدد المطلوب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('السعة الفعالة CBM', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('استغلال المساحة %', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8), child: Text('استغلال الوزن %', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.containerSpecType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.requiredCount, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.effectiveCapacityCbm, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.spaceUtilizationPercent, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.weightUtilizationPercent, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                 ],
               ),
               ...rec.comparisonDetails.map((detail) {
@@ -526,7 +529,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         ],
                       ),
                     ),
-                    Padding(padding: const EdgeInsets.all(8), child: Text('$reqCount حاوية', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal))),
+                    Padding(padding: const EdgeInsets.all(8), child: Text('$reqCount', style: TextStyle(fontWeight: isBest ? FontWeight.bold : FontWeight.normal))),
                     Padding(padding: const EdgeInsets.all(8), child: Text('${effVol.toStringAsFixed(1)} m³')),
                     Padding(padding: const EdgeInsets.all(8), child: Text('${spaceUtil.toStringAsFixed(1)}%', style: TextStyle(color: spaceUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
                     Padding(padding: const EdgeInsets.all(8), child: Text('${payloadUtil.toStringAsFixed(1)}%', style: TextStyle(color: payloadUtil > 80 ? Colors.green : Colors.black, fontWeight: FontWeight.bold))),
@@ -542,6 +545,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final file = widget.file;
     final allPOs = ref.watch(purchaseOrdersProvider).purchaseOrders;
     final liveLinkedPOs = ImportFilePoLinker.getLinkedPOs(file: file, allPOs: allPOs);
@@ -614,11 +618,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'تفاصيل ملف الشحنة: ${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
+                  '${file.customFileNumber ?? file.importFileCode} (${file.companyName})',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
                 Text(
-                  'كود الشحنة الرسمي: ${file.importFileCode} | المورد: ${file.supplierName} | الحالة: ${file.status}',
+                  '${l.importFileIdLabel}: ${file.importFileCode} | ${l.foreignSupplier}: ${file.supplierName} | ${l.status}: ${file.status}',
                   style: const TextStyle(fontSize: 12, color: Colors.grey),
                 ),
               ],
@@ -644,18 +648,18 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '📊 ملخص الفواتير وأحجام التعبئة المرتبطة بملف الاستيراد:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                    Text(
+                      '📊 ${l.cargoAndLinkedPosSection}:',
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
                           child: _buildMetricTile(
-                            'عدد الفواتير وأرقامها',
-                            '${invoiceNumbers.length} فواتير',
-                            subtitle: invoiceNumbers.isEmpty ? 'لا توجد فواتير' : invoiceNumbers.join(', '),
+                            l.invoicesCountAndNumbers,
+                            '${invoiceNumbers.length} ${l.invoicesUnit}',
+                            subtitle: invoiceNumbers.isEmpty ? '-' : invoiceNumbers.join(', '),
                             icon: Icons.receipt_long,
                             color: AppTheme.cobalt,
                           ),
@@ -663,9 +667,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         const SizedBox(width: 10),
                         Expanded(
                           child: _buildMetricTile(
-                            'إجمالي الـ CBM من الباكينج ليست',
+                            l.totalCbmFromPackingList,
                             '${totalPackingListCbm.toStringAsFixed(3)} m³',
-                            subtitle: 'مجموع الـ CBM من كافه الباكينج ليست',
+                            subtitle: l.cbmSumDescription,
                             icon: Icons.view_in_ar,
                             color: Colors.orange,
                           ),
@@ -673,9 +677,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         const SizedBox(width: 10),
                         Expanded(
                           child: _buildMetricTile(
-                            'إجمالي الوزن القائم (Gross Wt)',
+                            l.totalGrossWeightFromPl,
                             '${totalPackingListWeight.toStringAsFixed(0)} kg',
-                            subtitle: 'مجموع الوزن من كافه الباكينج ليست',
+                            subtitle: l.grossWeightSumDescription,
                             icon: Icons.fitness_center,
                             color: AppTheme.emerald,
                           ),
@@ -683,9 +687,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         const SizedBox(width: 10),
                         Expanded(
                           child: _buildMetricTile(
-                            'أوامر الشراء المرتبطة',
-                            '${linkedPOs.length} POs',
-                            subtitle: '$totalPackingListsCount قوائم تعبئة (Packing Lists)',
+                            l.linkedPurchaseOrdersTitle,
+                            '${linkedPOs.length} ${l.posUnit}',
+                            subtitle: '$totalPackingListsCount ${l.packingListsUnit}',
                             icon: Icons.shopping_bag,
                             color: Colors.purple,
                           ),
@@ -696,6 +700,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                 ),
               ),
               const SizedBox(height: 16),
+
 
               // ACID & Expiry Tracking Card
               Container(
@@ -738,7 +743,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text(
-                                '📌 بيانات القيد الجمركي المبدئي (ACID Status & Expiry):',
+                                '📌 ${l.acidStatusTitle}:',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 13,
@@ -754,9 +759,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                     color: AppTheme.emerald,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text(
-                                    '✅ صُرفت من الجمرك (معفى من التنبيهات)',
-                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  child: Text(
+                                    '✅ ${l.customsReleasedBadge}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                 )
                               else if (file.acidNumber != null)
@@ -766,9 +771,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                     color: Colors.orange.shade800,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text(
-                                    '⏳ قيد التخليص والصرف',
-                                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  child: Text(
+                                    '⏳ ${l.underClearanceBadge}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                             ],
@@ -782,7 +787,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('رقم الـ ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                    const Text('ACID: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                     SelectableText(
                                       file.acidNumber!,
                                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
@@ -793,7 +798,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Text('تاريخ الطلب: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       Text(file.acidRequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
@@ -801,7 +806,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Text('تاريخ الإصدار: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       Text(file.acidIssueDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
@@ -809,7 +814,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Text('تاريخ الصلاحية: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.targetEta}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       Text(
                                         file.acidExpiryDate!,
                                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.crimson),
@@ -830,7 +835,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                         const Icon(Icons.timer_outlined, size: 12, color: AppTheme.emerald),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'أيام التنفيذ: ${file.acidExecutionDays} يوم',
+                                          '${file.acidExecutionDays} d',
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald),
                                         ),
                                       ],
@@ -839,9 +844,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               ],
                             ),
                           ] else ...[
-                            const Text(
-                              'لم يتم استخراج رقم ACID بعد لهذا الملف. يمكنك بدء إجراءات طلب واستخراج الـ ACID من قسم نافذة والـ ACID.',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            Text(
+                              l.noImportFilesFound,
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
                             ),
                           ],
                           if (file.form4No != null && file.form4No!.isNotEmpty) ...[
@@ -853,7 +858,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Text('نموذج 4 البنكي: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                                    const Text('Form 4: ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                                     SelectableText(file.form4No!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                                   ],
                                 ),
@@ -861,7 +866,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Text('تاريخ الطلب: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       Text(file.form4RequestDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
                                     ],
                                   ),
@@ -869,7 +874,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                   Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Text('تاريخ الاستلام: ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                      Text('${l.date}: ', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                       Text(file.form4ReceivedDate!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.emerald)),
                                     ],
                                   ),
@@ -887,7 +892,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                         const Icon(Icons.speed, size: 12, color: AppTheme.cobalt),
                                         const SizedBox(width: 4),
                                         Text(
-                                          'أيام تنفيذ نموذج 4: ${file.form4ExecutionDays} يوم',
+                                          '${file.form4ExecutionDays} d',
                                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                         ),
                                       ],
@@ -905,9 +910,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               const SizedBox(height: 16),
 
               // Linked Purchase Orders Table
-              const Text(
-                '🛒 قائمة أوامر الشراء التفصيلية المرتبطة بهذا الملف (Linked Purchase Orders):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+              Text(
+                '🛒 ${l.linkedPurchaseOrdersTitle}:',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
               ),
               const SizedBox(height: 10),
               linkedPOs.isEmpty
@@ -916,7 +921,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                       width: double.infinity,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(8)),
-                      child: const Text('لا توجد أوامر شراء مرتبطة بهذا الملف حالياً.'),
+                      child: Text(l.noLinkedPosForFile),
                     )
                   : Table(
                       border: TableBorder.all(color: Colors.grey.shade300),
@@ -931,17 +936,17 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                         7: FlexColumnWidth(1.0),
                       },
                       children: [
-                        const TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal),
+                        TableRow(
+                          decoration: const BoxDecoration(color: AppTheme.charcoal),
                           children: [
-                            Padding(padding: EdgeInsets.all(8), child: Text('رقم أمر الشراء', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('رقم الفاتورة المبدئية PI', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('المورد الأجنبي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('طريقة وشروط السداد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('قيمة الفاتورة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('قوائم التعبئة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('CBM / الوزن', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.purchaseOrder, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.poInvoiceLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.foreignSupplier, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.paymentTermsLabel, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.totalCostMetric, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.packingListItemsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.weightCbmCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.status, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12))),
                           ],
                         ),
                         ...linkedPOs.map((po) {
@@ -974,8 +979,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                       : po.totalGrossWeightKg));
 
                           final plText = poPalletCount > 0
-                              ? '$poPalletCount بالتة (مخطط الشحن)'
-                              : '${po.packingListItems.length} بند تعبئة';
+                              ? '$poPalletCount ${l.palletsShippingPlan}'
+                              : '${po.packingListItems.length} ${l.packingItemsCount}';
 
                           return TableRow(
                             children: [
@@ -987,7 +992,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                  child: Text(po.paymentTerms ?? 'غير محدد', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
+                                  child: Text(po.paymentTerms ?? '-', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
                                 ),
                               ),
                               Padding(padding: const EdgeInsets.all(8), child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
@@ -1015,13 +1020,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.inventory_2, color: AppTheme.cobalt, size: 20),
+                            const SizedBox(width: 8),
                             Text(
-                              '🚚 نتائج احتمالات رص الحاويات وتوزيع الشحنة (Cargo Stacking Scenarios):',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                              '🚚 ${l.cargoStackingScenariosTitle}:',
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                             ),
                           ],
                         ),
@@ -1033,9 +1038,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               ),
                               icon: const Icon(Icons.table_chart, size: 14, color: Colors.white),
-                              label: const Text(
-                                'مقارنة الحالات (Matrix)',
-                                style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                              label: Text(
+                                l.scenariosMatrixButton,
+                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                               onPressed: () => _showContainerComparisonDialog(
                                 context,
@@ -1051,9 +1056,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               ),
                               icon: const Icon(Icons.view_in_ar, size: 14, color: Colors.white),
-                              label: const Text(
-                                'مخطط رص الحاويات (Load Plan)',
-                                style: TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
+                              label: Text(
+                                l.containerLoadPlanButton,
+                                style: const TextStyle(fontSize: 11, color: Colors.white, fontWeight: FontWeight.bold),
                               ),
                               onPressed: () => _showVisualLoadPlanDialog(context, linkedPOs),
                             ),
@@ -1066,40 +1071,40 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     // 3 Scenarios stacked under each other:
                     // 1. All Stackable
                     _buildScenarioResultCard(
-                      title: '📦 الاحتمال الأول: بضائع تقبل الرص بالكامل (All Stackable Cargo)',
+                      title: '📦 ${l.scenarioAllStackableTitle}',
                       fleet: stackableFleet,
-                      description: 'رص متعدد الطبقات (Multi-Layer Stacking) لكافة الطرود لاستغلال كامل ارتفاع وسعة الحاوية.',
+                      description: 'Multi-layer stacking',
                       badgeColor: AppTheme.emerald,
                       containerCount: planStackable.length,
                       spaceUtil: stackableSpaceUtil,
                       payloadUtil: stackablePayloadUtil,
-                      detailsText: 'الأسطول الموصى به: $stackableFleet',
+                      detailsText: stackableFleet,
                     ),
                     const SizedBox(height: 8),
 
                     // 2. All Non-Stackable
                     _buildScenarioResultCard(
-                      title: '🚫 الاحتمال الثاني: بضائع لا تقبل الرص (All Non-Stackable Cargo)',
+                      title: '🚫 ${l.scenarioAllNonStackableTitle}',
                       fleet: nonStackableFleet,
-                      description: 'إلزام وضع كافة الطرود على أرضية الحاوية فوق طبالي خشبية (z = 0) وحجز الفراغ الرأسي لمنع التلف.',
+                      description: 'Floor placement z=0',
                       badgeColor: Colors.orange.shade800,
                       containerCount: planNonStackable.length,
                       spaceUtil: nonStackableSpaceUtil,
                       payloadUtil: nonStackablePayloadUtil,
-                      detailsText: 'الأسطول الموصى به: $nonStackableFleet',
+                      detailsText: nonStackableFleet,
                     ),
                     const SizedBox(height: 8),
 
                     // 3. Mixed Stacking (Actual cargo composition)
                     _buildScenarioResultCard(
-                      title: '🔀 الاحتمال الثالث: مزيج يقبل ولا يقبل الرص (Mixed Stacking Cargo)',
+                      title: '🔀 ${l.scenarioMixedStackingTitle}',
                       fleet: mixedFleet,
-                      description: 'توزيع الشحنة الفعلي: $mixedNonStackCount طرد غير قابل للرص على الأرضية + $mixedStackCount طرد قابل للرص متعدد الطبقات.',
+                      description: '$mixedNonStackCount non-stackable + $mixedStackCount stackable',
                       badgeColor: AppTheme.cobalt,
                       containerCount: planMixed.length,
                       spaceUtil: mixedSpaceUtil,
                       payloadUtil: mixedPayloadUtil,
-                      detailsText: 'الأسطول الفعلي للشحنة: $mixedFleet',
+                      detailsText: mixedFleet,
                       isHighlighted: true,
                     ),
 
@@ -1120,13 +1125,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Row(
+                              Row(
                                 children: [
-                                  Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
-                                  SizedBox(width: 8),
+                                  const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 20),
+                                  const SizedBox(width: 8),
                                   Text(
-                                    '🚢 دراسات وسيناريوهات الشحن المسجلة للشحنة (Saved Shipping Evaluation Studies)',
-                                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                    '🚢 ${l.savedShippingStudiesTitle}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                   ),
                                 ],
                               ),
@@ -1135,7 +1140,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 const Padding(
                                   padding: EdgeInsets.symmetric(vertical: 6),
                                   child: Text(
-                                    'لا توجد دراسات تقييم شحن مسجلة لهذا الملف حالياً (يمكن إنشاؤها وربطها من شاشة سيناريوهات الشحن).',
+                                    '-',
                                     style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic, fontSize: 11.5),
                                   ),
                                 )
@@ -1155,13 +1160,13 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                         children: [
                                           Row(
                                             children: [
-                                              Text('كود الدراسة: ${s.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                                              Text(s.sessionCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
                                               const SizedBox(width: 10),
                                               Expanded(child: Text(s.title ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12), overflow: TextOverflow.ellipsis)),
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                                 decoration: BoxDecoration(color: AppTheme.emerald.withOpacity(0.15), borderRadius: BorderRadius.circular(4)),
-                                                child: Text('الخط الموصى به: ${s.recommendedScenarioProvider ?? "N/A"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                                                child: Text(s.recommendedScenarioProvider ?? "-", style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
                                               ),
                                             ],
                                           ),
@@ -1183,8 +1188,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('📅 موعد الوصول للمخزن المتوقع', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.avgExpectedWarehouseArrivalDate ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                          Text(l.targetEta, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.avgExpectedWarehouseArrivalDate ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                                         ],
                                                       ),
                                                     ),
@@ -1192,8 +1197,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('⏱️ عدد أيام الجاهزية', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text('${s.items.isNotEmpty ? s.items.first.readyForShippingDays : 0} يوم', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                                          Text(l.date, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text('${s.items.isNotEmpty ? s.items.first.readyForShippingDays : 0} d', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                                         ],
                                                       ),
                                                     ),
@@ -1206,9 +1211,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('⚡ أسرع خط وصولاً', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.earliestArrivalScenarioProvider ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                                          Text('وصول: ${s.earliestArrivalDate ?? ""}', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                          const Text('⚡ Earliest', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.earliestArrivalScenarioProvider ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                          Text(s.earliestArrivalDate ?? "", style: const TextStyle(fontSize: 9, color: Colors.grey)),
                                                         ],
                                                       ),
                                                     ),
@@ -1216,9 +1221,9 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                       child: Column(
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
-                                                          const Text('🐢 أبطأ خط وصولاً', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                                                          Text(s.latestArrivalScenarioProvider ?? 'غير محدد', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
-                                                          Text('وصول: ${s.latestArrivalDate ?? ""}', style: const TextStyle(fontSize: 9, color: Colors.grey)),
+                                                          const Text('🐢 Latest', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                          Text(s.latestArrivalScenarioProvider ?? '-', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.amber)),
+                                                          Text(s.latestArrivalDate ?? "", style: const TextStyle(fontSize: 9, color: Colors.grey)),
                                                         ],
                                                       ),
                                                     ),
@@ -1229,7 +1234,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                           ),
                                           const SizedBox(height: 8),
                                           Text(
-                                            'CRD: ${s.cargoReadyDate} | مكان الاستلام: ${s.pickUpAddress ?? "غير محدد"} | متوسط مدة الترانزيت: ${s.avgExpectedTransitDays} يوم',
+                                            'CRD: ${s.cargoReadyDate} | ${s.pickUpAddress ?? "-"} | Transit: ${s.avgExpectedTransitDays} d',
                                             style: const TextStyle(fontSize: 10.5, color: Colors.black87),
                                           ),
                                           if (s.items.isNotEmpty) ...[
@@ -1246,7 +1251,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                                     border: Border.all(color: opt.isRecommended ? Colors.green : Colors.grey.shade300),
                                                   ),
                                                   child: Text(
-                                                    '${opt.providerName} (${opt.vesselName}) | POL: ${opt.polName ?? "-"} ➔ POD: ${opt.podName ?? "-"} | إبحار: ${opt.sailingDate} | وصول: ${opt.expectedWarehouseArrivalDate}',
+                                                    '${opt.providerName} (${opt.vesselName}) | POL: ${opt.polName ?? "-"} ➔ POD: ${opt.podName ?? "-"} | ${opt.sailingDate} ➔ ${opt.expectedWarehouseArrivalDate}',
                                                     style: TextStyle(fontSize: 10.5, fontWeight: opt.isRecommended ? FontWeight.bold : FontWeight.normal, color: AppTheme.charcoal),
                                                   ),
                                                 );
@@ -1301,7 +1306,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  'الأسطول الموصى به للشحنة: $mixedFleet (${modeRec.recommendedModeAr})',
+                                  '$mixedFleet (${modeRec.recommendedModeAr})',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11.5),
                                 ),
                               ],
@@ -1324,7 +1329,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
             foregroundColor: Colors.white,
           ),
           icon: const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 16),
-          label: const Text('🚀 طلب أسعار نولون الشحن (Freight RFQ)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: Text('🚀 ${l.freightRfqTooltip}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: () {
             FreightRfqDialog.show(
               context,
@@ -1338,7 +1343,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.edit, color: Colors.white, size: 16),
-            label: const Text('تعديل ملف الاستيراد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(l.editImportFile, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.pop(context);
               widget.onEditPressed!();
@@ -1348,7 +1353,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
             icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
-            label: const Text('إغلاق وإيقاف الشحنة عند هذه المرحلة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(l.stopShipmentTooltip, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () async {
               Navigator.pop(context);
               showDialog(
@@ -1361,10 +1366,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
               );
             },
           ),
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
       ],
     );
   }
+
 
   Widget _buildScenarioResultCard({
     required String title,

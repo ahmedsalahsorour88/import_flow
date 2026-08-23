@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import 'consultation_metric_badge.dart';
 import 'consultation_status_badges.dart';
@@ -10,13 +11,14 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
   showDialog(
       context: context,
       builder: (context) {
+        final l = context.l10n;
         return AlertDialog(
           title: Row(
             children: [
               const Icon(Icons.verified_user, color: AppTheme.cobalt),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('تفاصيل الاستشارة الجمركية: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                child: Text('${l.consultationDetailsTitle}: ${session.consultationCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ),
               ConsultationStatusBadge(status: session.overallStatus),
             ],
@@ -34,14 +36,14 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('العنوان: ${session.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text('${l.titleField}: ${session.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                         const SizedBox(height: 6),
-                        Text('المستخلص الجمركي: ${session.brokerName} ${session.brokerContactPerson != null ? "(${session.brokerContactPerson})" : ""}'),
+                        Text('${l.customsBrokerLabel}: ${session.brokerName} ${session.brokerContactPerson != null ? "(${session.brokerContactPerson})" : ""}'),
                         const SizedBox(height: 6),
-                        Text('الرسوم الجمركية والضرائب التقديرية: ${session.estimatedDutiesEgp.toStringAsFixed(2)} EGP'),
+                        Text('${l.totalTaxesAndDutiesCol}: ${session.estimatedDutiesEgp.toStringAsFixed(2)} EGP'),
                         if (session.notes != null && session.notes!.isNotEmpty) ...[
                           const SizedBox(height: 6),
-                          Text('ملاحظات: ${session.notes}'),
+                          Text('${l.notes}: ${session.notes}'),
                         ],
                       ],
                     ),
@@ -49,13 +51,13 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   const SizedBox(height: 16),
                   Row(
                     children: [
-                      ConsultationMetricBadge(title: 'نسبة الجاهزية الجمركية', value: '${session.readinessPercentage}%', color: Colors.blue),
+                      ConsultationMetricBadge(title: l.customsInspectionReadiness, value: '${session.readinessPercentage}%', color: Colors.blue),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: 'إجمالي المستندات', value: '${session.totalDocumentsCount}', color: Colors.grey),
+                      ConsultationMetricBadge(title: l.itemsAndDocsCount, value: '${session.totalDocumentsCount}', color: Colors.grey),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: 'المستندات المعتمدة', value: '${session.approvedDocumentsCount}', color: Colors.green),
+                      ConsultationMetricBadge(title: l.clearanceReadyStatus, value: '${session.approvedDocumentsCount}', color: Colors.green),
                       const SizedBox(width: 8),
-                      ConsultationMetricBadge(title: 'عوائق شحن (Blocking)', value: '${session.blockingIssuesCount}', color: session.blockingIssuesCount > 0 ? Colors.red : Colors.green),
+                      ConsultationMetricBadge(title: l.blockingIssuesCount, value: '${session.blockingIssuesCount}', color: session.blockingIssuesCount > 0 ? Colors.red : Colors.green),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -65,11 +67,11 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('💰 تفاصيل عرض أسعار التخليص الجمركي والنقل للمستخلص:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                        Text(l.clearanceQuotesTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
-                          child: Text('إجمالي مصاريف المخلص: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
+                          child: Text('${l.totalExpenses}: ${session.totalBrokerFeesEgp.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 12)),
                         ),
                       ],
                     ),
@@ -86,12 +88,12 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                       children: [
                         TableRow(
                           decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
-                          children: const [
-                            Padding(padding: EdgeInsets.all(8), child: Text('نوع المصروف / الخدمة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('التصنيف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('سعر البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.itemDescriptionAndOriginCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.categoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.itemPriceCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.quantityAndUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.totalTaxesAndDutiesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                           ],
                         ),
                         ...session.brokerQuoteItems.where((q) => q.isApplicable).map((quote) {
@@ -112,7 +114,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     ),
                   ],
 
-                  const Text('قائمة فحص المستندات والاشتراطات الجمركية (Checklist):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text(l.customsChecklistTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
                   Table(
                     border: TableBorder.all(color: Colors.grey.shade300),
@@ -125,11 +127,11 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                     children: [
                       TableRow(
                         decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                        children: const [
-                          Padding(padding: EdgeInsets.all(8), child: Text('نوع المستند', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(8), child: Text('الجهة المسؤولة', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(8), child: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                          Padding(padding: EdgeInsets.all(8), child: Text('ملاحظات', style: TextStyle(fontWeight: FontWeight.bold))),
+                        children: [
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.itemDescriptionAndOriginCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.responsiblePartyLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.notes, style: const TextStyle(fontWeight: FontWeight.bold))),
                         ],
                       ),
                       ...session.checklistItems.map((doc) {
@@ -167,7 +169,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                 );
               },
               icon: const Icon(Icons.picture_as_pdf, color: Colors.white, size: 14),
-              label: const Text('📄 طباعة / حفظ PDF', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              label: Text(l.print, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             const SizedBox(width: 8),
             ElevatedButton.icon(
@@ -195,25 +197,25 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                   );
                   if (saved != null && context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('✅ تم تصدير دراسة الاستشارة بنجاح: $saved'), backgroundColor: AppTheme.emerald),
+                      SnackBar(content: Text('✅ $saved'), backgroundColor: AppTheme.emerald),
                     );
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ خطأ: $e'), backgroundColor: Colors.red));
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('❌ $e'), backgroundColor: Colors.red));
                   }
                 }
               },
               icon: const Icon(Icons.table_chart, color: Colors.white, size: 14),
-              label: const Text('📊 تصدير EXCEL', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+              label: Text(l.export, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
             ),
             const Spacer(),
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('إغلاق'),
+              child: Text(l.close),
             ),
           ],
         );
       },
     );
-  }
+}

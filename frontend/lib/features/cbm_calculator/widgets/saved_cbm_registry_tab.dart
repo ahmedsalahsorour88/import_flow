@@ -5,6 +5,7 @@ import '../../../core/utils/container_requirement_engine.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -52,6 +53,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     List projectsList,
     List poList,
   ) {
+    final l = context.l10n;
     final totalCalcs = state.calculations.length;
     final activeCalcs = state.calculations.where((c) => c.isActive).length;
     final totalCbmAll = state.calculations.fold<double>(0, (sum, c) => sum + c.totalCbm);
@@ -68,28 +70,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             children: [
               _histStatCard(
                 icon: Icons.folder_copy_rounded,
-                label: 'إجمالي الحسابات',
+                label: l.totalCalculationsMetric,
                 value: '$totalCalcs',
                 color: AppTheme.cobalt,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.check_circle_rounded,
-                label: 'جلسات نشطة',
+                label: l.activeSessionsMetric,
                 value: '$activeCalcs',
                 color: AppTheme.emerald,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.view_in_ar_rounded,
-                label: 'إجمالي CBM',
+                label: l.totalCbmVolumeMetric,
                 value: '${totalCbmAll.toStringAsFixed(2)} m³',
                 color: Colors.orange.shade300,
               ),
               const SizedBox(width: 10),
               _histStatCard(
                 icon: Icons.scale_rounded,
-                label: 'إجمالي الوزن القائم',
+                label: l.totalGrossWeightRegistryMetric,
                 value: '${totalWeightAll.toStringAsFixed(0)} kg',
                 color: Colors.purple.shade300,
               ),
@@ -102,7 +104,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 ),
                 icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('تحديث السجل', style: TextStyle(fontSize: 13)),
+                label: Text(l.refreshRegistry, style: const TextStyle(fontSize: 13)),
                 onPressed: () => ref.read(cbmCalculatorProvider.notifier).fetchCalculations(),
               ),
             ],
@@ -122,7 +124,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
-                    hintText: 'ابحث بكود الحساب، العنوان، ملف الشحنة، أو الملاحظات...',
+                    hintText: l.searchCalculationsHint,
                     prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.cobalt),
                     suffixIcon: _searchController.text.isNotEmpty
                         ? IconButton(
@@ -158,7 +160,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       color: state.showInactive ? AppTheme.crimson : Colors.grey,
                     ),
                     label: Text(
-                      state.showInactive ? 'إظهار الملغية' : 'إخفاء الملغية',
+                      state.showInactive ? l.showDeleted : l.hideDeleted,
                       style: TextStyle(
                         fontSize: 12,
                         color: state.showInactive ? AppTheme.crimson : Colors.grey.shade700,
@@ -181,7 +183,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  '${state.calculations.length} نتيجة',
+                  '${state.calculations.length}',
                   style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                 ),
               ),
@@ -192,13 +194,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
         // ─── Data Table ──────────────────────────────────────────────────────
         Expanded(
           child: state.isLoading
-              ? const Center(
+              ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      CircularProgressIndicator(color: AppTheme.cobalt),
-                      SizedBox(height: 16),
-                      Text('جارٍ تحميل سجل حسابات الأحجام والأوزان...', style: TextStyle(color: Colors.grey)),
+                      const CircularProgressIndicator(color: AppTheme.cobalt),
+                      const SizedBox(height: 16),
+                      Text(l.loading, style: const TextStyle(color: Colors.grey)),
                     ],
                   ),
                 )
@@ -210,15 +212,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade300),
                           const SizedBox(height: 16),
                           Text(
-                            _searchController.text.isNotEmpty
-                                ? 'لا توجد نتائج مطابقة للبحث'
-                                : 'لا توجد جلسات حساب محفوظة بعد',
+                            l.noDataFound,
                             style: TextStyle(fontSize: 16, color: Colors.grey.shade500, fontWeight: FontWeight.w500),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'قم بإنشاء وحفظ جلسة حساب جديدة من تبويب "CBM & Air Weight Quick Calculator"',
-                            style: TextStyle(fontSize: 13, color: Colors.grey.shade400),
                           ),
                         ],
                       ),
@@ -248,28 +243,28 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               fontSize: 12,
                               letterSpacing: 0.3,
                             ),
-                            columns: const [
+                            columns: [
                               DataColumn(label: SizedBox(
                                 width: 168,
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
-                                    SizedBox(width: 4),
-                                    Text('العمليات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                                    const Icon(Icons.bolt_rounded, size: 14, color: Colors.amber),
+                                    const SizedBox(width: 4),
+                                    Text(l.actionsCol, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                                   ],
                                 ),
                               )),
-                              DataColumn(label: Text('📋 كود الحساب')),
-                              DataColumn(label: Text('📁 ملف الاستيراد')),
-                              DataColumn(label: Text('📝 عنوان الجلسة')),
-                              DataColumn(label: Text('📐 الحجم (CBM)')),
-                              DataColumn(label: Text('✈️ الوزن الحجمي الجوي')),
-                              DataColumn(label: Text('⚖️ الوزن القائم')),
-                              DataColumn(label: Text('📦 حالة الرص')),
-                              DataColumn(label: Text('🚢 استراتيجية الشحن')),
-                              DataColumn(label: Text('🚚 الحاوية المقترحة')),
-                              DataColumn(label: Text('🔗 الارتباط (PO / Project)')),
+                              DataColumn(label: Text(l.calcCodeCol)),
+                              DataColumn(label: Text(l.importFileIdLabel)),
+                              DataColumn(label: Text(l.calculationSessionTitle)),
+                              DataColumn(label: Text(l.totalCbmVolumeMetric)),
+                              DataColumn(label: Text(l.volumetricWeight)),
+                              DataColumn(label: Text(l.grossWeightMetric)),
+                              DataColumn(label: Text(l.stackingCol)),
+                              DataColumn(label: Text(l.shippingStrategyCol)),
+                              DataColumn(label: Text(l.recommendedContainerCol)),
+                              DataColumn(label: Text(l.linkPoProjectCol)),
                             ],
                             rows: state.calculations.asMap().entries.map((entry) {
                               final idx = entry.key;
@@ -296,26 +291,26 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                           final confirm = await showDialog<bool>(
                                             context: context,
                                             builder: (ctx) => AlertDialog(
-                                              title: const Row(
+                                              title: Row(
                                                 children: [
-                                                  Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                  SizedBox(width: 8),
-                                                  Text('تأكيد الحذف المنطقي', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                  const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                  const SizedBox(width: 8),
+                                                  Text(l.confirmSoftDelete, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                 ],
                                               ),
                                               content: Text(
-                                                'هل أنت متأكد من حذف جلسة الحساب "${calc.calcCode} - ${calc.title}"؟\nيمكن استعادتها لاحقاً من قائمة "إظهار الملغية".',
+                                                '${l.confirmDeleteCalcMessage} "${calc.calcCode} - ${calc.title}"?',
                                                 style: const TextStyle(fontSize: 13),
                                               ),
                                               actions: [
                                                 TextButton(
                                                   onPressed: () => Navigator.pop(ctx, false),
-                                                  child: const Text('إلغاء'),
+                                                  child: Text(l.cancel),
                                                 ),
                                                 ElevatedButton.icon(
                                                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
                                                   icon: const Icon(Icons.delete_rounded, size: 16),
-                                                  label: const Text('حذف'),
+                                                  label: Text(l.delete),
                                                   onPressed: () => Navigator.pop(ctx, true),
                                                 ),
                                               ],
@@ -328,12 +323,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                           await ref.read(cbmCalculatorProvider.notifier).restoreCalculation(calc.calcId!);
                                         }
                                       },
-                                      viewTooltip: 'عرض تفاصيل الحساب (Calculation Details)',
-                                      editTooltip: 'إعادة فتح وتعديل في الحاسبة',
-                                      printTooltip: 'طباعة وتصدير التقرير',
-                                      deleteTooltip: calc.isActive ? 'حذف الجلسة (Soft Delete)' : 'استعادة الجلسة (Restore)',
+                                      viewTooltip: l.viewDetails,
+                                      editTooltip: l.edit,
+                                      printTooltip: l.exportPdf,
+                                      deleteTooltip: calc.isActive ? l.delete : l.restore,
                                     ),
                                   ),
+
 
                                   // 2. Calc Code
                                   DataCell(

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
+
 import '../../customs_tariff/models/customs_tariff_model.dart';
 import '../models/purchase_order_model.dart';
 
@@ -159,6 +161,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final report = widget.report;
 
     return AlertDialog(
@@ -169,23 +172,14 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
           color: Colors.amber.shade800,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
         ),
-        child: const Row(
+        child: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
-            SizedBox(width: 10),
+            const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 28),
+            const SizedBox(width: 10),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'تنبيه: عدم تطابق بين الفاتورة المبدئية وبيان التعبئة',
-                    style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  Text(
-                    'Packing List & Commercial Invoice Discrepancy Alert',
-                    style: TextStyle(color: Colors.white70, fontSize: 11),
-                  ),
-                ],
+              child: Text(
+                l.discrepancyWarningTitle,
+                style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
               ),
             ),
           ],
@@ -211,7 +205,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                       ),
                       child: Column(
                         children: [
-                          const Text('إجمالي قطع الفاتورة', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text('${l.poLineItemsTab} (${l.quantityMetric})', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text('${report.totalInvoiceQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                         ],
@@ -229,7 +223,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                       ),
                       child: Column(
                         children: [
-                          const Text('إجمالي قطع الباكينج', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text('${l.reviewPackingListTab} (${l.quantityMetric})', style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text('${report.totalPackingQty.toStringAsFixed(1)} PCS', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.deepOrange)),
                         ],
@@ -247,7 +241,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                       ),
                       child: Column(
                         children: [
-                          const Text('فارق الكمية الكلي', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          const Text('Diff', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text(
                             '${report.totalDifference > 0 ? "+" : ""}${report.totalDifference.toStringAsFixed(1)} PCS',
@@ -265,9 +259,9 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
               ),
               const SizedBox(height: 14),
 
-              const Text(
-                'جدول المقارنة التفصيلي حسب البند الجمركي (HS Code Breakdown):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              Text(
+                l.summaryByHsCodeReport,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
               ),
               const SizedBox(height: 8),
 
@@ -281,33 +275,33 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                   4: FlexColumnWidth(2.0),
                 },
                 children: [
-                  const TableRow(
-                    decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                  TableRow(
+                    decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                     children: [
-                      Padding(padding: EdgeInsets.all(8), child: Text('البند الجمركي (HS Code)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('الفاتورة (Qty)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('الباكينج (Qty)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('الفارق (Diff)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: EdgeInsets.all(8), child: Text('الحالة (Status)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poLineItemsTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.reviewPackingListTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      const Padding(padding: EdgeInsets.all(8), child: Text('Diff', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.lifecycleBoard, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                     ],
                   ),
                   ...report.items.map((item) {
                     Color rowBg = Colors.white;
                     Color statusColor = Colors.green;
-                    String statusText = 'متطابق (Matched)';
+                    String statusText = 'OK';
 
                     if (item.isMissingInPacking) {
                       rowBg = Colors.red.shade50.withOpacity(0.5);
                       statusColor = Colors.red.shade700;
-                      statusText = 'غير موجود بالباكينج';
+                      statusText = 'Missing in Packing';
                     } else if (item.isMissingInInvoice) {
                       rowBg = Colors.amber.shade50.withOpacity(0.5);
                       statusColor = Colors.amber.shade900;
-                      statusText = 'غير موجود بالفاتورة';
+                      statusText = 'Missing in Invoice';
                     } else if (!item.isMatched) {
                       rowBg = Colors.orange.shade50.withOpacity(0.5);
                       statusColor = Colors.deepOrange;
-                      statusText = 'اختلاف بالكمية';
+                      statusText = 'Qty Diff';
                     }
 
                     return TableRow(
@@ -362,63 +356,31 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
               ),
               const SizedBox(height: 16),
 
-              // Discrepancy Bullet points
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.amber.shade300),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Row(
-                      children: [
-                        Icon(Icons.info_outline, color: Colors.brown, size: 16),
-                        SizedBox(width: 6),
-                        Text('أسباب عدم التطابق المرصودة:', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown, fontSize: 12)),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    ...report.discrepancySummaryList.map(
-                      (msg) => Padding(
-                        padding: const EdgeInsets.only(top: 2, left: 16),
-                        child: Text('• $msg', style: const TextStyle(fontSize: 11, color: Colors.brown)),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
-
               // Mandatory Justification Form
               Form(
                 key: _formKey,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'لإتمام الحفظ، يجب توضيح سبب الاستمرار وتبرير الفروقات:',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red),
+                    Text(
+                      l.discrepancyJustificationLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.red),
                     ),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _reasonCtrl,
                       maxLines: 3,
                       decoration: InputDecoration(
-                        labelText: 'سبب الاستمرار وتبرير الاختلاف (Discrepancy Justification Reason) *',
-                        hintText: 'مثال: كل قطعة بالفاتورة تتكون من كرتونتين مكملتين في بيان التعبئة، أو شحنة مجزأة...',
+                        labelText: '${l.discrepancyJustificationLabel} *',
                         border: const OutlineInputBorder(),
                         focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.amber.shade800, width: 2)),
                       ),
                       validator: (val) {
                         if (val == null || val.trim().isEmpty) {
-                          return 'يجب إدخال سبب وتبرير استمرار الحفظ رغم وجود الاختلاف.';
+                          return l.requiredField;
                         }
                         if (val.trim().length < 5) {
-                          return 'الرجاء إدخال تبرير واضح ومفصل (5 أحرف على الأقل).';
+                          return l.requiredField;
                         }
                         return null;
                       },
@@ -433,13 +395,13 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
       actions: [
         OutlinedButton.icon(
           icon: const Icon(Icons.arrow_back, size: 16),
-          label: const Text('الرجوع للتعديل (Back to Edit)'),
+          label: Text(l.backToEdit),
           style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal),
           onPressed: () => Navigator.pop(context, null),
         ),
         ElevatedButton.icon(
           icon: const Icon(Icons.check_circle_outline, size: 16),
-          label: const Text('الاستمرار وحفظ أمر الشراء (Continue & Save)'),
+          label: Text(l.continueAndSave),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.amber.shade800,
             foregroundColor: Colors.white,
@@ -454,3 +416,4 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
     );
   }
 }
+

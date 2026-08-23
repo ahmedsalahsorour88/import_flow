@@ -12,6 +12,8 @@ import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/import_documentation_model.dart';
 import '../models/po_reconciliation_session_model.dart';
 import '../providers/import_documentation_provider.dart';
+import '../../warehouse_receiving/models/goods_in_transit_model.dart';
+import '../../warehouse_receiving/providers/goods_in_transit_provider.dart';
 
 class POReconciliationTab extends ConsumerStatefulWidget {
   final int? initialImportFileId;
@@ -957,6 +959,31 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       ref.invalidate(importFilesProvider);
       ref.invalidate(purchaseOrdersProvider);
+
+      // Auto-update Goods In Transit (GIT) Ledger
+      final gitItems = _invoiceItems.map((itm) {
+        return GitLineItemModel(
+          importFileId: _selectedImportFileId!,
+          importFileCode: 'IMP-$_selectedImportFileId',
+          poId: 101,
+          poNumber: 'PO-REC-$_selectedImportFileId',
+          itemCode: itm.itemCode,
+          itemName: itm.description,
+          invoicedQty: itm.finalQuantity > 0 ? itm.finalQuantity : itm.initialQuantity,
+          packagesCount: 50,
+          packageType: 'CT - Carton',
+          containersCount: 1,
+          containerType: '40ft High Cube',
+          certifiedDate: DateTime.now().toIso8601String().substring(0, 10),
+          isDeliveredToWarehouse: false,
+        );
+      }).toList();
+
+      ref.read(goodsInTransitProvider.notifier).addReconciledShipment(
+        importFileId: _selectedImportFileId!,
+        importFileCode: 'IMP-$_selectedImportFileId',
+        items: gitItems,
+      );
 
       // Also auto-save/update session in background
       await _saveReconciliationSession();

@@ -6,8 +6,11 @@ import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
+import '../../customs_clearance/providers/customs_clearance_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
 import '../models/warehouse_receiving_model.dart';
+import '../providers/goods_in_transit_provider.dart';
 import '../providers/warehouse_receiving_provider.dart';
 
 class WarehouseReceivingScreen extends ConsumerStatefulWidget {
@@ -27,6 +30,8 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     Future.microtask(() {
       ref.read(warehouseReceivingProvider.notifier).fetchRecords();
       ref.read(importFilesProvider.notifier).fetchImportFiles();
+      ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+      ref.read(customsClearanceProvider.notifier).fetchRecords();
     });
   }
 
@@ -52,6 +57,61 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     );
   }
 
+  Future<void> _confirmFinalReceipt(WarehouseReceivingModel record) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.check_circle, color: AppTheme.emerald),
+            SizedBox(width: 8),
+            Text('تأكيد الاستلام النهائي للمخزن'),
+          ],
+        ),
+        content: Text(
+          'هل تريد تأكيد الاستلام النهائي للشحنة رقم [${record.grnCode}] بالمخزن؟\n\n'
+          '⚠️ هذا الإجراء سيقوم بتثبيت الكميات الفعلية وإغلاق المحضر وخصم رصيد الشحنة من تقرير "البضاعة في الطريق (GIT)".',
+          style: const TextStyle(height: 1.5),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+          ElevatedButton.icon(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
+            icon: const Icon(Icons.verified, color: Colors.white, size: 16),
+            label: const Text('نعم، تأكيد الاستلام النهائي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(c, true),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        final payload = {
+          'status': 'Goods Received',
+          'discrepancy_notes': 'تم تأكيد الاستلام النهائي بالمخزن واعتماد الكميات الفعلية.',
+        };
+        await ref.read(warehouseReceivingProvider.notifier).updateRecord(record.receivingId, payload);
+        ref.read(goodsInTransitProvider.notifier).confirmWarehouseReceipt(record.importFileId);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('تم تأكيد الاستلام النهائي لـ ${record.grnCode} وخصم رصيد البضاعة بالطريق بنجاح ✅'),
+              backgroundColor: AppTheme.emerald,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('خطأ أثناء تأكيد الاستلام: $e'), backgroundColor: AppTheme.crimson),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final recordsState = ref.watch(warehouseReceivingProvider);
@@ -70,7 +130,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'GRN-01',
       titleEn: 'Warehouse Receiving & Inspection (GRN)',
       titleAr: 'استلام البضائع بالمخازن وفحص الجودة',
       headerIcon: Icons.inventory,
@@ -94,7 +154,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Data Actions Toolbar
+            // Master Data Toolbar
             MasterDataToolbarWidget(
               moduleEndpoint: 'warehouse-receiving',
               title: 'Warehouse_Receiving',
@@ -108,49 +168,53 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    ElevatedButton.icon(
-                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
-                      onPressed: () => _showAddEditDialog(),
-                      icon: const Icon(Icons.local_shipping, color: Colors.white),
-                      label: const Text('تسجيل وصول شاحنة واستلام محضر GRN جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    ),
-                    const Spacer(),
-                    SizedBox(
-                      width: 250,
-                      child: TextField(
-                        controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث برقم GRN، الشاحنة، السائق...',
-                          prefixIcon: Icon(Icons.search),
-                          isDense: true,
-                          border: OutlineInputBorder(),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
+                        onPressed: () => _showAddEditDialog(),
+                        icon: const Icon(Icons.local_shipping, color: Colors.white),
+                        label: const Text('تسجيل وصول شاحنة واستلام محضر GRN جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 250,
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: const InputDecoration(
+                            hintText: 'بحث برقم GRN، الشاحنة، السائق...',
+                            prefixIcon: Icon(Icons.search),
+                            isDense: true,
+                            border: OutlineInputBorder(),
+                          ),
+                          onChanged: (val) {
+                            ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
+                          },
                         ),
-                        onChanged: (val) {
-                          ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
-                        },
                       ),
-                    ),
-                    const SizedBox(width: 10),
-                    SizedBox(
-                      width: 250,
-                      child: SearchableDropdownField<String>(
-                        value: _selectedStatusFilter,
-                        items: const [
-                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
-                          SearchableDropdownItem(value: 'Goods Received', label: 'Goods Received (تم الوصول والأطقم)'),
-                          SearchableDropdownItem(value: 'Discrepancy Reported', label: 'Discrepancy Reported (مُثبت به عجز/تلف)'),
-                        ],
-                        onChanged: (val) {
-                          if (val != null) {
-                            setState(() => _selectedStatusFilter = val);
-                            ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
-                          }
-                        },
+                      const SizedBox(width: 10),
+                      SizedBox(
+                        width: 250,
+                        child: SearchableDropdownField<String>(
+                          value: _selectedStatusFilter,
+                          items: const [
+                            SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
+                            SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: '🟡 مسودة مؤقتة (بانتظار العد)'),
+                            SearchableDropdownItem(value: 'Goods Received', label: '🟢 تم الاستلام النهائي بالمخزن'),
+                            SearchableDropdownItem(value: 'Discrepancy Reported', label: '🟠 مُثبت به عجز/تلف جمركي'),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() => _selectedStatusFilter = val);
+                              ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: _searchController.text, status: val);
+                            }
+                          },
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -170,6 +234,8 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                     itemCount: records.length,
                     itemBuilder: (context, idx) {
                       final r = records[idx];
+                      final isDraft = r.status.contains('Draft') || r.status.contains('Pending');
+
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         elevation: 2,
@@ -178,18 +244,18 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Row(
+                              Wrap(
+                                spacing: 10,
+                                runSpacing: 6,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
                                     child: Text(r.grnCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                   ),
-                                  const SizedBox(width: 10),
                                   Text(r.warehouseName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                  const SizedBox(width: 12),
                                   _buildSealBadge(r.sealIntact, r.sealNumber),
-                                  const Spacer(),
                                   _buildStatusBadge(r.status),
                                 ],
                               ),
@@ -238,52 +304,65 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                               ),
 
                               const SizedBox(height: 12),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  if (r.discrepancyType == 'None' || !r.quarantineZoneAssigned) ...[
-                                    ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
-                                      icon: const Icon(Icons.warning_amber, size: 16, color: Colors.white),
-                                      label: const Text('إثبات عجز / تلف', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
-                                      onPressed: () => _showDiscrepancyDialog(r),
+                              Align(
+                                alignment: Alignment.centerLeft,
+                                child: Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  alignment: WrapAlignment.end,
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  children: [
+                                    if (isDraft) ...[
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
+                                        icon: const Icon(Icons.check_circle, size: 16),
+                                        label: const Text('تأكيد الاستلام النهائي للمخزن ✅', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        onPressed: () => _confirmFinalReceipt(r),
+                                      ),
+                                    ],
+                                    if (r.discrepancyType == 'None' || !r.quarantineZoneAssigned) ...[
+                                      ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
+                                        icon: const Icon(Icons.warning_amber, size: 16, color: Colors.white),
+                                        label: const Text('إثبات عجز / تلف', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        onPressed: () => _showDiscrepancyDialog(r),
+                                      ),
+                                    ],
+                                    RowActionsPill(
+                                      onView: () => _showAddEditDialog(r),
+                                      onEdit: () => _showAddEditDialog(r),
+                                      onPrint: () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('طباعة محضر استلام البضاعة GRN: ${r.grnCode} (${r.warehouseName})'),
+                                            backgroundColor: AppTheme.charcoal,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      onDelete: () async {
+                                        final confirm = await showDialog<bool>(
+                                          context: context,
+                                          builder: (c) => AlertDialog(
+                                            title: const Text('حذف محضر الاستلام'),
+                                            content: const Text('هل أنت متأكد من نقل محضر الاستلام للمحذوفات؟'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                              TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirm == true) {
+                                          ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
+                                        }
+                                      },
+                                      viewTooltip: 'عرض محضر الاستلام',
+                                      editTooltip: 'تعديل محضر الاستلام',
+                                      printTooltip: 'طباعة محضر GRN',
+                                      deleteTooltip: 'حذف محضر الاستلام (Soft Delete)',
                                     ),
-                                    const SizedBox(width: 8),
                                   ],
-                                  RowActionsPill(
-                                    onView: () => _showAddEditDialog(r),
-                                    onEdit: () => _showAddEditDialog(r),
-                                    onPrint: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('طباعة محضر استلام البضاعة GRN: ${r.grnCode} (${r.warehouseName})'),
-                                          backgroundColor: AppTheme.charcoal,
-                                          duration: const Duration(seconds: 2),
-                                        ),
-                                      );
-                                    },
-                                    onDelete: () async {
-                                      final confirm = await showDialog<bool>(
-                                        context: context,
-                                        builder: (c) => AlertDialog(
-                                          title: const Text('حذف محضر الاستلام'),
-                                          content: const Text('هل أنت متأكد من نقل محضر الاستلام للمحذوفات؟'),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
-                                          ],
-                                        ),
-                                      );
-                                      if (confirm == true) {
-                                        ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
-                                      }
-                                    },
-                                    viewTooltip: 'عرض محضر الاستلام',
-                                    editTooltip: 'تعديل محضر الاستلام',
-                                    printTooltip: 'طباعة محضر GRN',
-                                    deleteTooltip: 'حذف محضر الاستلام (Soft Delete)',
-                                  ),
-                                ],
+                                ),
                               ),
                             ],
                           ),
@@ -321,19 +400,28 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
   Widget _buildStatusBadge(String status) {
     Color color = AppTheme.cobalt;
-    if (status == 'Discrepancy Reported') color = AppTheme.orange;
-    if (status == 'Closed') color = AppTheme.emerald;
+    String label = status;
+    if (status.contains('Draft') || status.contains('Pending')) {
+      color = AppTheme.orange;
+      label = '🟡 مسودة مؤقتة (بانتظار العد)';
+    } else if (status == 'Discrepancy Reported') {
+      color = AppTheme.crimson;
+      label = '🟠 مُثبت به عجز/تلف';
+    } else if (status == 'Closed' || status == 'Goods Received') {
+      color = AppTheme.emerald;
+      label = '🟢 تم الاستلام النهائي ✅';
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(0.15), borderRadius: BorderRadius.circular(6), border: Border.all(color: color)),
-      child: Text(status, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 12)),
+      child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 12)),
     );
   }
 }
 
 // -----------------------------------------------------------------------------
-// FORM DIALOGS
+// FORM DIALOG WITH MULTI-PO BREAKDOWN & SMART WAREHOUSE ALERTS
 // -----------------------------------------------------------------------------
 
 class _WarehouseReceivingFormDialog extends ConsumerStatefulWidget {
@@ -353,14 +441,11 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
   late TextEditingController _sealCtrl;
   bool _sealIntact = true;
 
-  late TextEditingController _itemCodeCtrl;
-  late TextEditingController _itemNameCtrl;
-  late TextEditingController _invQtyCtrl;
-  late TextEditingController _accQtyCtrl;
-  late TextEditingController _shortQtyCtrl;
-  late TextEditingController _dmgQtyCtrl;
-
+  bool _alertSentToWarehouse = false;
   bool _isLoading = false;
+
+  // Multi-PO Line Items Data
+  final List<Map<String, dynamic>> _poItems = [];
 
   @override
   void initState() {
@@ -373,12 +458,96 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
     _sealCtrl = TextEditingController(text: r?.sealNumber ?? '');
     _sealIntact = r?.sealIntact ?? true;
 
-    _itemCodeCtrl = TextEditingController(text: 'ITM-001');
-    _itemNameCtrl = TextEditingController(text: 'Imported Cargo Items');
-    _invQtyCtrl = TextEditingController(text: '100');
-    _accQtyCtrl = TextEditingController(text: '100');
-    _shortQtyCtrl = TextEditingController(text: '0');
-    _dmgQtyCtrl = TextEditingController(text: '0');
+    if (r != null && r.grnItems.isNotEmpty) {
+      for (var item in r.grnItems) {
+        _poItems.add({
+          'po_number': 'PO-MAIN-${r.importFileId}',
+          'item_code_ctrl': TextEditingController(text: item.itemCode),
+          'item_name_ctrl': TextEditingController(text: item.itemName),
+          'inv_qty_ctrl': TextEditingController(text: item.invoicedQty.toString()),
+          'acc_qty_ctrl': TextEditingController(text: item.acceptedQty.toString()),
+          'short_qty_ctrl': TextEditingController(text: item.shortageQty.toString()),
+          'dmg_qty_ctrl': TextEditingController(text: item.damagedQty.toString()),
+          'samples_qty_ctrl': TextEditingController(text: '0'),
+        });
+      }
+    } else {
+      _loadDefaultItems();
+    }
+  }
+
+  void _loadDefaultItems() {
+    _poItems.clear();
+    _poItems.add({
+      'po_number': 'PO-2026-IT-001',
+      'item_code_ctrl': TextEditingController(text: 'ITM-SR-101'),
+      'item_name_ctrl': TextEditingController(text: 'خوادم رقمية صناعية (Enterprise Servers)'),
+      'inv_qty_ctrl': TextEditingController(text: '250'),
+      'acc_qty_ctrl': TextEditingController(text: '247'),
+      'short_qty_ctrl': TextEditingController(text: '0'),
+      'dmg_qty_ctrl': TextEditingController(text: '2'),
+      'samples_qty_ctrl': TextEditingController(text: '1'),
+    });
+    _poItems.add({
+      'po_number': 'PO-2026-IT-001',
+      'item_code_ctrl': TextEditingController(text: 'ITM-SR-102'),
+      'item_name_ctrl': TextEditingController(text: 'محولات شبكية ذكية (Smart Network Switches)'),
+      'inv_qty_ctrl': TextEditingController(text: '500'),
+      'acc_qty_ctrl': TextEditingController(text: '498'),
+      'short_qty_ctrl': TextEditingController(text: '0'),
+      'dmg_qty_ctrl': TextEditingController(text: '0'),
+      'samples_qty_ctrl': TextEditingController(text: '2'),
+    });
+  }
+
+  void _onImportFileSelected(int? fileId) {
+    if (fileId == null) return;
+    setState(() {
+      _selectedImportFileId = fileId;
+    });
+
+    final files = ref.read(importFilesProvider).value ?? [];
+    final selectedFile = files.firstWhere((f) => f.importFileId == fileId, orElse: () => files.first);
+
+    // Auto-detect shortage & damage from clearance records
+    final clearanceRecords = ref.read(customsClearanceProvider).value ?? [];
+    final matchingClearance = clearanceRecords.where((c) => c.importFileId == fileId).toList();
+    final hasDiscrepancy = matchingClearance.any((c) => c.status == 'Discrepancy Reported' || (c.dutyVarianceReason != null && c.dutyVarianceReason!.isNotEmpty));
+
+    // Auto populate items from PO
+    final poList = ref.read(purchaseOrdersProvider).purchaseOrders;
+    final linkedPos = poList.where((p) => selectedFile.poNumber?.contains(p.poNumber) ?? false).toList();
+
+    setState(() {
+      _poItems.clear();
+      if (linkedPos.isNotEmpty) {
+        for (var po in linkedPos) {
+          for (var item in po.items) {
+            _poItems.add({
+              'po_number': po.poNumber,
+              'item_code_ctrl': TextEditingController(text: item.itemCode ?? 'ITM-PO'),
+              'item_name_ctrl': TextEditingController(text: item.descriptionAr),
+              'inv_qty_ctrl': TextEditingController(text: item.quantity.toStringAsFixed(0)),
+              'acc_qty_ctrl': TextEditingController(text: item.quantity.toStringAsFixed(0)),
+              'short_qty_ctrl': TextEditingController(text: hasDiscrepancy ? '2' : '0'),
+              'dmg_qty_ctrl': TextEditingController(text: hasDiscrepancy ? '1' : '0'),
+              'samples_qty_ctrl': TextEditingController(text: '1'),
+            });
+          }
+        }
+      } else {
+        _poItems.add({
+          'po_number': selectedFile.poNumber ?? 'PO-2026-GEN',
+          'item_code_ctrl': TextEditingController(text: 'ITM-GEN-01'),
+          'item_name_ctrl': TextEditingController(text: 'بضائع ومنتجات استيرادية معتمدة بالفاتورة'),
+          'inv_qty_ctrl': TextEditingController(text: '100'),
+          'acc_qty_ctrl': TextEditingController(text: '100'),
+          'short_qty_ctrl': TextEditingController(text: hasDiscrepancy ? '1' : '0'),
+          'dmg_qty_ctrl': TextEditingController(text: '0'),
+          'samples_qty_ctrl': TextEditingController(text: '1'),
+        });
+      }
+    });
   }
 
   @override
@@ -387,13 +556,72 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
     _plateCtrl.dispose();
     _driverCtrl.dispose();
     _sealCtrl.dispose();
-    _itemCodeCtrl.dispose();
-    _itemNameCtrl.dispose();
-    _invQtyCtrl.dispose();
-    _accQtyCtrl.dispose();
-    _shortQtyCtrl.dispose();
-    _dmgQtyCtrl.dispose();
+    for (var item in _poItems) {
+      (item['item_code_ctrl'] as TextEditingController).dispose();
+      (item['item_name_ctrl'] as TextEditingController).dispose();
+      (item['inv_qty_ctrl'] as TextEditingController).dispose();
+      (item['acc_qty_ctrl'] as TextEditingController).dispose();
+      (item['short_qty_ctrl'] as TextEditingController).dispose();
+      (item['dmg_qty_ctrl'] as TextEditingController).dispose();
+      (item['samples_qty_ctrl'] as TextEditingController).dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _submitForm(bool isFinalConfirmation) async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _isLoading = true);
+
+    final nav = Navigator.of(context);
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final grnItemsPayload = _poItems.map((item) {
+        return {
+          'item_code': (item['item_code_ctrl'] as TextEditingController).text.trim(),
+          'item_name': (item['item_name_ctrl'] as TextEditingController).text.trim(),
+          'invoiced_qty': int.tryParse((item['inv_qty_ctrl'] as TextEditingController).text.trim()) ?? 0,
+          'accepted_qty': int.tryParse((item['acc_qty_ctrl'] as TextEditingController).text.trim()) ?? 0,
+          'shortage_qty': int.tryParse((item['short_qty_ctrl'] as TextEditingController).text.trim()) ?? 0,
+          'damaged_qty': int.tryParse((item['dmg_qty_ctrl'] as TextEditingController).text.trim()) ?? 0,
+        };
+      }).toList();
+
+      final payload = {
+        'import_file_id': _selectedImportFileId,
+        'warehouse_name': _whCtrl.text.trim(),
+        'truck_plate_number': _plateCtrl.text.trim(),
+        'driver_name': _driverCtrl.text.trim(),
+        'seal_number': _sealCtrl.text.trim(),
+        'seal_intact': _sealIntact,
+        'status': isFinalConfirmation ? 'Goods Received' : 'Draft / Pending Warehouse Count',
+        'grn_items': grnItemsPayload,
+      };
+
+      if (widget.recordToEdit != null) {
+        await ref.read(warehouseReceivingProvider.notifier).updateRecord(widget.recordToEdit!.receivingId, payload);
+      } else {
+        await ref.read(warehouseReceivingProvider.notifier).createRecord(payload);
+      }
+
+      if (isFinalConfirmation && _selectedImportFileId != null) {
+        ref.read(goodsInTransitProvider.notifier).confirmWarehouseReceipt(_selectedImportFileId!);
+      }
+
+      nav.pop();
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(isFinalConfirmation
+              ? 'تم تأكيد الاستلام النهائي للمخزن وخصم رصيد البضاعة بالطريق بنجاح ✅'
+              : 'تم حفظ المحضر كمسودة مؤقتة بانتظار العد الفعلي للمخزن ⏳'),
+          backgroundColor: isFinalConfirmation ? AppTheme.emerald : AppTheme.orange,
+        ),
+      );
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: AppTheme.crimson));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -401,34 +629,108 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     return AlertDialog(
-      title: Text(widget.recordToEdit == null ? 'تسجيل محضر استلام شحنة جديدة بالمخزن' : 'تعديل بيانات المحضر'),
+      title: Row(
+        children: [
+          const Icon(Icons.warehouse, color: AppTheme.cobalt),
+          const SizedBox(width: 8),
+          Text(widget.recordToEdit == null ? 'تسجيل محضر استلام شحنة جديدة بالمخزن' : 'تعديل بيانات المحضر وتأكيد الاستلام'),
+        ],
+      ),
       content: SizedBox(
-        width: 600,
+        width: 850,
         child: Form(
           key: _formKey,
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SearchableDropdownField<int?>(
-                  value: _selectedImportFileId,
-                  labelText: 'ملف الشحنة الاستيرادية *',
-                  items: importFiles
-                      .map((f) => SearchableDropdownItem<int?>(
-                            value: f.importFileId,
-                            label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
-                          ))
-                      .toList(),
-                  onChanged: (val) => setState(() => _selectedImportFileId = val),
-                  validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                // Smart Notice Banner for Warehouse Documents
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.shade400),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.mark_email_unread_outlined, color: Colors.orange, size: 24),
+                      const SizedBox(width: 10),
+                      const Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '⚠️ تنبيه إداري عاجل (Document Dispatch Alert):',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                            ),
+                            SizedBox(height: 2),
+                            Text(
+                              'يجب إرسال أوراق الشحنة المعتمدة (Packing List & Commercial Invoice) فوراً إلى مسؤولي المخزن لمطابقة البضائع عند وصول الشاحنة.',
+                              style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _alertSentToWarehouse ? AppTheme.emerald : AppTheme.orange,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        ),
+                        icon: Icon(_alertSentToWarehouse ? Icons.check : Icons.send, size: 14),
+                        label: Text(
+                          _alertSentToWarehouse ? 'تم الإرسال للمخزن ✅' : '📤 إرسال إشعار للمخزن وتوليد مهمة',
+                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                        onPressed: () {
+                          setState(() => _alertSentToWarehouse = true);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('تم إرسال إشعار المستندات وتوليد مهمة ذكية في الداش بورد لمسؤولي المخزن بنجاح ✅'),
+                              backgroundColor: AppTheme.emerald,
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 14),
+
+                // Shipment Selection & Location
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: SearchableDropdownField<int?>(
+                        value: _selectedImportFileId,
+                        labelText: 'ملف الشحنة الاستيرادية *',
+                        items: importFiles
+                            .map((f) => SearchableDropdownItem<int?>(
+                                  value: f.importFileId,
+                                  label: '[${f.importFileCode}] ${f.customFileNumber ?? f.poNumber ?? "File #${f.importFileId}"}',
+                                ))
+                            .toList(),
+                        onChanged: _onImportFileSelected,
+                        validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      flex: 2,
+                      child: TextFormField(
+                        controller: _whCtrl,
+                        decoration: const InputDecoration(labelText: 'اسم المخزن والفرع *', border: OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم المخزن' : null,
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                TextFormField(
-                  controller: _whCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المخزن والفرع *', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم المخزن' : null,
-                ),
-                const SizedBox(height: 12),
+
+                // Driver & Truck Plate & Seal Info
                 Row(
                   children: [
                     Expanded(
@@ -444,11 +746,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                         decoration: const InputDecoration(labelText: 'اسم السائق', border: OutlineInputBorder()),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
+                    const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: _sealCtrl,
@@ -458,74 +756,140 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                     const SizedBox(width: 8),
                     Expanded(
                       child: SwitchListTile(
-                        title: const Text('سلامة السيل (Seal Intact)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        title: const Text('سلامة السيل (Seal Intact)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                         value: _sealIntact,
                         onChanged: (val) => setState(() => _sealIntact = val),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 16),
 
-                // GRN Line Item Setup
-                const Align(
-                  alignment: Alignment.centerRight,
-                  child: Text('بيانات جرد واختبار كميات الصنف المستلم (GRN Audit):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
-                ),
-                const SizedBox(height: 8),
+                // Multi-PO Line Items Table Header
                 Row(
                   children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _itemCodeCtrl,
-                        decoration: const InputDecoration(labelText: 'كود الصنف', border: OutlineInputBorder()),
-                      ),
-                    ),
+                    const Icon(Icons.list_alt, color: AppTheme.cobalt, size: 20),
                     const SizedBox(width: 8),
-                    Expanded(
-                      flex: 2,
-                      child: TextFormField(
-                        controller: _itemNameCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم الصنف', border: OutlineInputBorder()),
-                      ),
+                    const Text(
+                      'بيانات جرد واختبار كميات الأصناف تفصيلياً بكل أمر شراء (Multi-PO Breakdown):',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                    ),
+                    const Spacer(),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
+                      icon: const Icon(Icons.add, size: 14),
+                      label: const Text('إضافة صنف', style: TextStyle(fontSize: 11)),
+                      onPressed: () {
+                        setState(() {
+                          _poItems.add({
+                            'po_number': 'PO-NEW',
+                            'item_code_ctrl': TextEditingController(text: 'ITM-NEW'),
+                            'item_name_ctrl': TextEditingController(text: 'صنف جديد'),
+                            'inv_qty_ctrl': TextEditingController(text: '0'),
+                            'acc_qty_ctrl': TextEditingController(text: '0'),
+                            'short_qty_ctrl': TextEditingController(text: '0'),
+                            'dmg_qty_ctrl': TextEditingController(text: '0'),
+                            'samples_qty_ctrl': TextEditingController(text: '0'),
+                          });
+                        });
+                      },
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextFormField(
-                        controller: _invQtyCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'الكمية بالفاتورة', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _accQtyCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'الكمية المقبولة', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _shortQtyCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'العجز', border: OutlineInputBorder()),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _dmgQtyCtrl,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(labelText: 'التلف', border: OutlineInputBorder()),
-                      ),
-                    ),
-                  ],
+
+                // Table of PO Line Items
+                Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _poItems.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, i) {
+                      final item = _poItems[i];
+                      return Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                  decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
+                                  child: Text('أمر الشراء: ${item["po_number"]}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blue.shade900)),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${(item["item_code_ctrl"] as TextEditingController).text} - ${(item["item_name_ctrl"] as TextEditingController).text}',
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: TextFormField(
+                                    controller: item['item_name_ctrl'] as TextEditingController,
+                                    decoration: const InputDecoration(labelText: 'اسم وبيان الصنف', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: item['inv_qty_ctrl'] as TextEditingController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'العدد بالفاتورة', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: item['acc_qty_ctrl'] as TextEditingController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'المستلم الفعلي', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: item['short_qty_ctrl'] as TextEditingController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'العجز', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: item['dmg_qty_ctrl'] as TextEditingController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'التلف', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: item['samples_qty_ctrl'] as TextEditingController,
+                                    keyboardType: TextInputType.number,
+                                    decoration: const InputDecoration(labelText: 'عينات مسحوبة', isDense: true, border: OutlineInputBorder()),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -533,75 +897,27 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         ),
       ),
       actions: [
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
-          onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
-          icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(width: 6),
-        OutlinedButton.icon(
-          style: OutlinedButton.styleFrom(foregroundColor: Colors.grey.shade800, side: BorderSide(color: Colors.grey.shade400)),
-          onPressed: () {
-            setState(() {
-              _itemCodeCtrl.clear();
-              _itemNameCtrl.clear();
-              _invQtyCtrl.clear();
-              _accQtyCtrl.clear();
-              _shortQtyCtrl.clear();
-              _dmgQtyCtrl.clear();
-            });
-          },
-          icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-        ),
-        const SizedBox(width: 6),
         TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(foregroundColor: AppTheme.orange, side: const BorderSide(color: AppTheme.orange)),
+          icon: const Icon(Icons.save_as_outlined, size: 16),
+          label: const Text('حفظ مؤقت (مسودة بانتظار العد) ⏳', style: TextStyle(fontWeight: FontWeight.bold)),
+          onPressed: _isLoading ? null : () => _submitForm(false),
+        ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
-          label: const Text('حفظ محضر الفحص والاستلام ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          onPressed: _isLoading
-              ? null
-              : () async {
-                  if (_formKey.currentState!.validate()) {
-                    setState(() => _isLoading = true);
-                    final nav = Navigator.of(context);
-                    final messenger = ScaffoldMessenger.of(context);
-                    try {
-                      final itemData = {
-                        'item_code': _itemCodeCtrl.text.trim(),
-                        'item_name': _itemNameCtrl.text.trim(),
-                        'invoiced_qty': int.tryParse(_invQtyCtrl.text.trim()) ?? 0,
-                        'accepted_qty': int.tryParse(_accQtyCtrl.text.trim()) ?? 0,
-                        'shortage_qty': int.tryParse(_shortQtyCtrl.text.trim()) ?? 0,
-                        'damaged_qty': int.tryParse(_dmgQtyCtrl.text.trim()) ?? 0,
-                      };
-
-                      final payload = {
-                        'import_file_id': _selectedImportFileId,
-                        'warehouse_name': _whCtrl.text.trim(),
-                        'truck_plate_number': _plateCtrl.text.trim(),
-                        'driver_name': _driverCtrl.text.trim(),
-                        'seal_number': _sealCtrl.text.trim(),
-                        'seal_intact': _sealIntact,
-                        'grn_items': [itemData],
-                      };
-
-                      await ref.read(warehouseReceivingProvider.notifier).createRecord(payload);
-                      nav.pop();
-                    } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: AppTheme.crimson));
-                    } finally {
-                      if (mounted) setState(() => _isLoading = false);
-                    }
-                  }
-                },
+          label: const Text('تأكيد الاستلام النهائي للمخزن ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          onPressed: _isLoading ? null : () => _submitForm(true),
         ),
       ],
     );
   }
 }
+
+// -----------------------------------------------------------------------------
+// DISCREPANCY & DAMAGE REPORT DIALOG
+// -----------------------------------------------------------------------------
 
 class _DiscrepancyReportDialog extends ConsumerStatefulWidget {
   final WarehouseReceivingModel record;
@@ -613,12 +929,19 @@ class _DiscrepancyReportDialog extends ConsumerStatefulWidget {
 
 class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDialog> {
   final _formKey = GlobalKey<FormState>();
-  String _discrepancyType = 'Shortage';
-  final TextEditingController _notesCtrl = TextEditingController();
-  final TextEditingController _claimRefCtrl = TextEditingController();
+  String _selectedDiscrepancyType = 'Shortage and Damage';
+  late TextEditingController _notesCtrl;
   bool _quarantineAssigned = true;
-  bool _insuranceClaimFiled = true;
+  bool _fileClaim = false;
+  late TextEditingController _claimRefCtrl;
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _notesCtrl = TextEditingController(text: widget.record.discrepancyNotes ?? 'عجز وتلف ملحوظ أثناء تفريغ الحاوية بمخزن الشركة.');
+    _claimRefCtrl = TextEditingController(text: widget.record.insuranceClaimRef ?? 'CLM-2026-WH-001');
+  }
 
   @override
   void dispose() {
@@ -630,48 +953,56 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text('إثبات عجز/تلفيات ومطالبة تأمين (${widget.record.grnCode})'),
+      title: Row(
+        children: [
+          const Icon(Icons.warning, color: AppTheme.orange),
+          const SizedBox(width: 8),
+          Text('إثبات عجز / تلف رسمي لمحضر: ${widget.record.grnCode}'),
+        ],
+      ),
       content: SizedBox(
-        width: 480,
+        width: 500,
         child: Form(
           key: _formKey,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               SearchableDropdownField<String>(
-                value: _discrepancyType,
-                labelText: 'نوع الاختلاف/المحضر *',
+                value: _selectedDiscrepancyType,
+                labelText: 'نوع التباين والعجز *',
                 items: const [
-                  SearchableDropdownItem(value: 'Shortage', label: 'Shortage (عجز بالكميات)'),
-                  SearchableDropdownItem(value: 'Damage', label: 'Damage (بضاعة تالفة)'),
-                  SearchableDropdownItem(value: 'Excess', label: 'Excess (زيادة غير مسجلة)'),
-                  SearchableDropdownItem(value: 'Wrong Item', label: 'Wrong Item (صنف مخالف)'),
+                  SearchableDropdownItem(value: 'Shortage and Damage', label: 'عجز وتلف كلي (Shortage and Damage)'),
+                  SearchableDropdownItem(value: 'Shortage Only', label: 'عجز طرود فقط (Shortage Only)'),
+                  SearchableDropdownItem(value: 'Damage Only', label: 'تلف وكسر بضائع فقط (Damage Only)'),
+                  SearchableDropdownItem(value: 'Broken Seal Discrepancy', label: 'كسر سيل وتباين مشمول (Broken Seal)'),
                 ],
-                onChanged: (v) => setState(() => _discrepancyType = v!),
+                onChanged: (val) {
+                  if (val != null) setState(() => _selectedDiscrepancyType = val);
+                },
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'تفاصيل وملاحظات المحضر والدليل *', border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال ملاحظات الفحص' : null,
+                decoration: const InputDecoration(labelText: 'ملاحظات وتفاصيل الفحص *', border: OutlineInputBorder()),
+                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة الملاحظات' : null,
               ),
               const SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('توجيه للمنطقة المعزولة (Quarantine Zone)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: const Text('عزل البضاعة في منطقة الحجر (Quarantine Zone)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _quarantineAssigned,
-                onChanged: (v) => setState(() => _quarantineAssigned = v),
+                onChanged: (val) => setState(() => _quarantineAssigned = val),
               ),
               SwitchListTile(
-                title: const Text('إصدار مطالبة شركة التأمين (Insurance Claim)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                value: _insuranceClaimFiled,
-                onChanged: (v) => setState(() => _insuranceClaimFiled = v),
+                title: const Text('رفع مطالبة تعويض تأمين بحري (Insurance Claim)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                value: _fileClaim,
+                onChanged: (val) => setState(() => _fileClaim = val),
               ),
-              if (_insuranceClaimFiled) ...[
+              if (_fileClaim) ...[
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _claimRefCtrl,
-                  decoration: const InputDecoration(labelText: 'رقم مرجع مطالبة التأمين', border: OutlineInputBorder()),
+                  decoration: const InputDecoration(labelText: 'رقم مرجع المطالبة التأمينية', border: OutlineInputBorder()),
                 ),
               ],
             ],
@@ -681,7 +1012,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
       actions: [
         TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
         ElevatedButton(
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
+          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
           onPressed: _isLoading
               ? null
               : () async {
@@ -691,22 +1022,24 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
                     final messenger = ScaffoldMessenger.of(context);
                     try {
                       final payload = {
-                        'discrepancy_type': _discrepancyType,
+                        'discrepancy_type': _selectedDiscrepancyType,
                         'discrepancy_notes': _notesCtrl.text.trim(),
                         'quarantine_zone_assigned': _quarantineAssigned,
-                        'insurance_claim_filed': _insuranceClaimFiled,
-                        'insurance_claim_ref': _claimRefCtrl.text.trim().isNotEmpty ? _claimRefCtrl.text.trim() : null,
+                        'insurance_claim_filed': _fileClaim,
+                        'insurance_claim_ref': _fileClaim ? _claimRefCtrl.text.trim() : null,
                       };
+
                       await ref.read(warehouseReceivingProvider.notifier).reportDiscrepancy(widget.record.receivingId, payload);
                       nav.pop();
+                      messenger.showSnackBar(const SnackBar(content: Text('تم توثيق محضر العجز والتلف بنجاح'), backgroundColor: AppTheme.emerald));
                     } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('خطأ في إثبات المحضر: $e'), backgroundColor: AppTheme.crimson));
+                      messenger.showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson));
                     } finally {
                       if (mounted) setState(() => _isLoading = false);
                     }
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('تأكيد المحضر والعزل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('اعتماد محضر العجز والتلف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

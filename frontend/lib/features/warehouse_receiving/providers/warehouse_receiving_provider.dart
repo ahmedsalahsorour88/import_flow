@@ -57,6 +57,20 @@ class WarehouseReceivingNotifier extends StateNotifier<AsyncValue<List<Warehouse
     }
   }
 
+  Future<WarehouseReceivingModel?> updateRecord(int recordId, Map<String, dynamic> payload) async {
+    try {
+      final response = await _dio.put(
+        '${ApiConstants.baseUrl}/warehouse-receiving/$recordId',
+        data: payload,
+      );
+      final updated = WarehouseReceivingModel.fromJson(response.data);
+      await fetchRecords();
+      return updated;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<WarehouseReceivingModel?> reportDiscrepancy(int recordId, Map<String, dynamic> payload) async {
     try {
       final response = await _dio.post(

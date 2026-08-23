@@ -5,9 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/customs_clearance/models/customs_clearance_model.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
 import 'package:frontend/features/customs_clearance/screens/customs_clearance_screen.dart';
-import 'package:frontend/features/external_service_providers/models/partner_model.dart';
 import 'package:frontend/features/external_service_providers/providers/partners_provider.dart';
-import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 
 class _MockClearanceNotifier extends CustomsClearanceNotifier {

@@ -44,6 +44,8 @@ import '../smart_tasks/screens/smart_tasks_screen.dart';
 import '../suppliers/screens/suppliers_screen.dart';
 import '../transport_locations/screens/transport_locations_screen.dart';
 import '../warehouse_receiving/screens/warehouse_receiving_screen.dart';
+import '../warehouse_receiving/screens/goods_in_transit_screen.dart';
+import '../warehouse_receiving/screens/warehouse_received_report_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
 
@@ -172,6 +174,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 62: Final Customs Payment (subTab 3)
         CustomsClearanceScreen(key: ValueKey('customs_clearance_tab_3'), initialSubTab: 3),
+
+        // 63: Goods In Transit (GIT) Inventory Ledger
+        GoodsInTransitScreen(),
+
+        // 64: Warehouse Received Shipments Detailed Report
+        WarehouseReceivedReportScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -469,6 +477,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
                   _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع (VGM)', 26, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 52, selectedIndex),
+                  _buildMenuItem(Icons.rule_folder_outlined, 'PO & Packing Reconciliation', 'مطابقة وتأكيد الفاتورة والباكينج ليست', 21, selectedIndex),
                   _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review (B/L)', 'مراجعة وتدقيق مسودات بوالص الشحن', 18, selectedIndex),
                   _buildMenuItem(Icons.flag_circle_outlined, 'Draft COO / EUR.1', 'مسودة وتوليد شهادة المنشأ الرسمية', 19, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, 'Draft Inspection / COC', 'مسودة وتوليد شهادة الفحص والمطابقة', 53, selectedIndex),
@@ -523,7 +532,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 color: AppTheme.emerald,
                 initiallyExpanded: false,
                 children: [
+                  _buildMenuItem(Icons.local_shipping_outlined, 'Goods In Transit (GIT) Ledger', 'رصيد ومطابقة البضاعة في الطريق', 63, selectedIndex),
                   _buildMenuItem(Icons.warehouse_outlined, 'Warehouse Receiving GRN', 'إذن إضافة المخزن واستلام الشحنة', 28, selectedIndex),
+                  _buildMenuItem(Icons.inventory_2_outlined, 'Received Shipments Report', 'تقرير الشحنات المستلمة بالمخزن تفصيلي', 64, selectedIndex),
                   _buildMenuItem(Icons.price_check_outlined, 'Landed Cost Settlement', 'حساب تكلفة الوصول النهائية للوحدة', 29, selectedIndex),
                   _buildMenuItem(Icons.analytics_outlined, 'Landed Cost Comparison', 'مقارنة تكاليف الوصول', 50, selectedIndex),
                   _buildMenuItem(Icons.task_alt_outlined, 'Import File Final Closure', 'الإغلاق المالي والإداري لملف الاستيراد', 30, selectedIndex),

@@ -164,8 +164,10 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
               ),
             ],
           ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               // 0. Live Refresh Button
               ElevatedButton.icon(
@@ -177,51 +179,36 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 ),
               ),
-              const SizedBox(width: 8),
 
-              // 1. Download Template
-              OutlinedButton.icon(
-                onPressed: widget.onDownloadTemplate ?? () => _downloadFile('excel-template', '${widget.title}_Template.xlsx'),
-                icon: const Icon(Icons.download, size: 16, color: AppTheme.charcoal),
-                label: const Text('Download Excel Template', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
-                style: OutlinedButton.styleFrom(
+              // 1. Export Excel Button
+              ElevatedButton.icon(
+                onPressed: widget.onExportExcel ?? () => _downloadFile('export-excel', '${widget.title}_Report.xlsx'),
+                icon: const Icon(Icons.description, size: 16, color: Colors.white),
+                label: const Text('Export Excel', style: TextStyle(fontSize: 12, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.emerald,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  side: BorderSide(color: Colors.grey.shade400),
                 ),
               ),
-              const SizedBox(width: 8),
 
-              // 2. Upload Excel
+              // 2. Export PDF Button
+              ElevatedButton.icon(
+                onPressed: widget.onExportPdf ?? () => _downloadFile('export-pdf', '${widget.title}_Report.pdf'),
+                icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
+                label: const Text('Export PDF', style: TextStyle(fontSize: 12, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.cobalt,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                ),
+              ),
+
+              // 3. Import Bulk Data Button
               ElevatedButton.icon(
                 onPressed: _isUploading ? null : (widget.onImportExcel ?? _handleImportExcel),
                 icon: _isUploading
                     ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.upload_file, size: 16, color: Colors.white),
                 label: Text(_isUploading ? 'Uploading...' : 'Import Excel', style: const TextStyle(fontSize: 12, color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 3. Export Excel
-              ElevatedButton.icon(
-                onPressed: widget.onExportExcel ?? () => _downloadFile('export-excel', '${widget.title}_Report.xlsx'),
-                icon: const Icon(Icons.description, size: 16, color: Colors.white),
-                label: const Text('Export Excel', style: TextStyle(fontSize: 12, color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
-              ),
-              const SizedBox(width: 8),
-
-              // 4. Export PDF
-              ElevatedButton.icon(
-                onPressed: widget.onExportPdf ?? () => _downloadFile('export-pdf', '${widget.title}_Report.pdf'),
-                icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-                label: const Text('Export PDF', style: TextStyle(fontSize: 12, color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.orange,
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

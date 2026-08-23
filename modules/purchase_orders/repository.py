@@ -185,6 +185,39 @@ class PurchaseOrderRepository:
             total_net = pkg_total_net if pkg_total_net > 0 else total_net
             total_pkgs = int(pkg_count) if pkg_count > 0 else total_pkgs
 
+        # Process Pallet Plan if provided
+        pallet_plan_raw = getattr(data, "pallet_plan", None)
+        pallet_total_cbm = 0.0
+        pallet_total_gross = 0.0
+        pallet_total_count = 0
+        if pallet_plan_raw:
+            for p in pallet_plan_raw:
+                p_cnt = int(getattr(p, "pallet_count", 0) or 0)
+                p_l = float(getattr(p, "length_cm", 0.0) or 0.0)
+                p_w = float(getattr(p, "width_cm", 0.0) or 0.0)
+                p_h = float(getattr(p, "height_cm", 0.0) or 0.0)
+                p_wt = float(getattr(p, "gross_weight_per_pallet_kg", 0.0) or 0.0)
+                if p_cnt > 0:
+                    pallet_total_count += p_cnt
+                    if p_l > 0 and p_w > 0 and p_h > 0:
+                        pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
+                    if p_wt > 0:
+                        pallet_total_gross += round(p_wt * p_cnt, 2)
+
+        # If Pallet Plan is specified, Pallets represent the master cargo shipping volume & units
+        if pallet_total_cbm > 0:
+            total_cbm = pallet_total_cbm
+        if pallet_total_gross > 0:
+            total_gross = pallet_total_gross
+        if pallet_total_count > 0:
+            total_pkgs = pallet_total_count
+            po.pallet_count = pallet_total_count
+        elif (po.pallet_count or 0) > 0 and (po.pallet_length_cm or 0) > 0 and (po.pallet_width_cm or 0) > 0 and (po.pallet_height_cm or 0) > 0:
+            pallet_fallback_cbm = round((float(po.pallet_length_cm) * float(po.pallet_width_cm) * float(po.pallet_height_cm) / 1_000_000.0) * int(po.pallet_count), 4)
+            if pallet_fallback_cbm > 0:
+                total_cbm = pallet_fallback_cbm
+                total_pkgs = int(po.pallet_count)
+
         po.total_amount_fob = total_fob
         po.total_cbm = total_cbm
         po.total_gross_weight_kg = total_gross
@@ -326,6 +359,44 @@ class PurchaseOrderRepository:
                 total_net = pkg_total_net
             if pkg_count > 0:
                 total_pkgs = int(pkg_count)
+
+        # Process Pallet Plan if provided or existing on PO
+        pallet_plan_source = pallet_plan_data
+        if pallet_plan_source is None and po.pallet_plan:
+            try:
+                pallet_plan_source = json.loads(po.pallet_plan) if isinstance(po.pallet_plan, str) else po.pallet_plan
+            except Exception:
+                pallet_plan_source = None
+
+        if pallet_plan_source:
+            pallet_total_cbm = 0.0
+            pallet_total_gross = 0.0
+            pallet_total_count = 0
+            for p in pallet_plan_source:
+                p_cnt = int(p.get("pallet_count", 0) if isinstance(p, dict) else getattr(p, "pallet_count", 0) or 0)
+                p_l = float(p.get("length_cm", 0.0) if isinstance(p, dict) else getattr(p, "length_cm", 0.0) or 0.0)
+                p_w = float(p.get("width_cm", 0.0) if isinstance(p, dict) else getattr(p, "width_cm", 0.0) or 0.0)
+                p_h = float(p.get("height_cm", 0.0) if isinstance(p, dict) else getattr(p, "height_cm", 0.0) or 0.0)
+                p_wt = float(p.get("gross_weight_per_pallet_kg", 0.0) if isinstance(p, dict) else getattr(p, "gross_weight_per_pallet_kg", 0.0) or 0.0)
+                if p_cnt > 0:
+                    pallet_total_count += p_cnt
+                    if p_l > 0 and p_w > 0 and p_h > 0:
+                        pallet_total_cbm += round((p_l * p_w * p_h / 1_000_000.0) * p_cnt, 4)
+                    if p_wt > 0:
+                        pallet_total_gross += round(p_wt * p_cnt, 2)
+
+            if pallet_total_cbm > 0:
+                total_cbm = pallet_total_cbm
+            if pallet_total_gross > 0:
+                total_gross = pallet_total_gross
+            if pallet_total_count > 0:
+                total_pkgs = pallet_total_count
+                po.pallet_count = pallet_total_count
+        elif (po.pallet_count or 0) > 0 and (po.pallet_length_cm or 0) > 0 and (po.pallet_width_cm or 0) > 0 and (po.pallet_height_cm or 0) > 0:
+            pallet_fallback_cbm = round((float(po.pallet_length_cm) * float(po.pallet_width_cm) * float(po.pallet_height_cm) / 1_000_000.0) * int(po.pallet_count), 4)
+            if pallet_fallback_cbm > 0:
+                total_cbm = pallet_fallback_cbm
+                total_pkgs = int(po.pallet_count)
 
         po.total_amount_fob = total_fob
         po.total_cbm = total_cbm

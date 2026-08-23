@@ -167,17 +167,15 @@ def extract_spatial_pdf_text_and_boxes(content_bytes: bytes) -> Tuple[str, dict]
                 except Exception as crop_err:
                     logger.debug(f"fitz spatial crop note: {crop_err}")
 
-            page_layout = page.get_text("layout") if hasattr(page, "get_text") else ""
-            if not page_layout:
-                page_layout = page.get_text("text") or ""
-            if page_layout and page_layout.strip():
-                parts.append(page_layout)
+            page_text = page.get_text("text", sort=True) or page.get_text("text") or ""
+            if page_text and page_text.strip():
+                parts.append(page_text)
 
         full_text = "\n\n".join(parts)
         if full_text and len(full_text.strip()) > 30:
             return full_text, spatial_boxes
     except Exception as fitz_err:
-        logger.debug(f"fitz extraction note: {fitz_err}. Trying pdfplumber...")
+        logger.warning(f"fitz extraction error: {fitz_err}. Trying pdfplumber...")
 
     try:
         import pdfplumber

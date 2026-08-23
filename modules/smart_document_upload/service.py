@@ -52,6 +52,8 @@ _EXTRACTOR_MAP: Dict[str, BaseExtractor] = {
     "master-data-entity": MasterDataEntityExtractor(),
     "supplier-entity": MasterDataEntityExtractor(),
     "importer-entity": MasterDataEntityExtractor(),
+    "partner-entity": MasterDataEntityExtractor(),
+    "bank-entity": MasterDataEntityExtractor(),
     # Aliases
     "customs-consultation": ImportFileExtractor(),   # extracts invoice fields
     "warehouse-receiving": ImportFileExtractor(),    # same as invoice extraction

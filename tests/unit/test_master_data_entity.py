@@ -67,3 +67,91 @@ def test_egyptian_importer_extraction():
     assert extracted["email"] == "info@alnoor-import.com"
     assert extracted["country_code"] == "EG"
 
+
+def test_shaw_europe_user_case():
+    raw_text = """
+    SHAW EUROPE LTD
+    BUILDING E
+    BLACKADDIE RD SANQUHAR
+    DG4 6DB. UNITED KINGDOM
+    SHIPPER REGISTRATION TYPE: VAT NUMBER
+    SHIPPER ID: GB428102677
+    SHIPPER COUNTRY: UNITED KINGDOM
+    SHIPPER COUNTRY CODE: GB
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="supplier-entity")
+
+    assert extracted["company_name"] == "SHAW EUROPE LTD"
+    assert extracted["country_code"] == "GB"
+    assert extracted["foreign_exporter_id"] == "GB428102677"
+    assert extracted["vat_tax_id"] == "GB428102677"
+    assert extracted["registration_type"] == "VAT Number"
+    assert extracted["postcode"] == "DG4 6DB"
+    assert "BUILDING E" in extracted["address"]
+    assert "BLACKADDIE RD SANQUHAR" in extracted["address"]
+    assert "SHIPPER REGISTRATION" not in extracted["address"]
+    assert "SHIPPER ID" not in extracted["address"]
+    assert "SHIPPER COUNTRY" not in extracted["address"]
+
+
+def test_narbutas_lithuania_case():
+    raw_text = """
+    NARBUTAS INTERNATIONAL, UAB
+    Ukmerges st. 308, LT-12110 Vilnius, Lithuania
+    Company code: 300591244
+    VAT code: LT100002821114
+    Tel. +370 5 210 5000
+    Email: info@narbutas.lt
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="supplier-entity")
+
+    assert extracted["company_name"] == "NARBUTAS INTERNATIONAL, UAB"
+    assert extracted["country_code"] == "LT"
+    assert extracted["commercial_register"] == "300591244"
+    assert extracted["vat_tax_id"] == "LT100002821114"
+    assert extracted["registration_type"] == "VAT Number"
+    assert extracted["phone_number"] == "+370 5 210 5000"
+    assert extracted["email"] == "info@narbutas.lt"
+    assert "Ukmerges st. 308" in extracted["address"]
+
+
+def test_bank_and_cargox_case():
+    raw_text = """
+    NATIONAL BANK OF EGYPT
+    SWIFT Code: NBEGEGCX001
+    IBAN: EG123456789012345678901234567
+    CargoX Blockchain ID: 0x71C66332e3D3D362aBC5B4F09a8570395c860000
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="bank-entity")
+
+    assert extracted["company_name"] == "NATIONAL BANK OF EGYPT"
+    assert extracted["swift_code"] == "NBEGEGCX001"
+    assert extracted["iban"] == "EG123456789012345678901234567"
+    assert extracted["cargox_id"] == "0x71C66332e3D3D362aBC5B4F09a8570395c860000"
+
+
+def test_archi_brands_egyptian_importer():
+    raw_text = """
+    ARCHI Brands for Corpet and Floor Trading
+    St.81 with st.18 building 44, 3rd floor
+    SARAYAT EL MAADI, Cairo- Egypt
+    VAT No: 759-552-827
+    EGYPTIAN IMPORTER TAX ID: 759552827
+    """
+    extractor = MasterDataEntityExtractor()
+    extracted = extractor.extract(raw_text, {}, module_name="importer-entity")
+
+    assert extracted["company_name"] == "ARCHI Brands for Corpet and Floor Trading"
+    assert extracted["country_code"] == "EG"
+    assert "St.81 with st.18 building 44" in extracted["address"]
+    assert "SARAYAT EL MAADI, Cairo- Egypt" in extracted["address"]
+    assert "EGYPTIAN IMPORTER TAX ID" not in extracted["address"]
+    assert "VAT No" not in extracted["address"]
+    assert extracted["importer_id"] in ["759552827", "759-552-827"]
+    assert extracted["vat_tax_id"] in ["759-552-827", "759552827"]
+
+
+

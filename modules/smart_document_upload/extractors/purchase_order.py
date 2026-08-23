@@ -419,33 +419,100 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _extract_line_items(self, text: str, default_hs: Optional[str] = None, default_cty: Optional[str] = None) -> List[Dict[str, Any]]:
         items: List[Dict[str, Any]] = []
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-        # 1. Italian G.I. Industrial invoice format (Multi-item: Item 1 with 84158200, Item 2 with QCR12026802R)
-        gi_pattern = re.compile(
-            r"^\s*(CYK[A-Z0-9]+|QCR[A-Z0-9]+|RTAX[A-Z0-9]+|[A-Z]{3,6}\d{4,14}[A-Z0-9]*)\s+([\s\S]*?)\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
-            re.MULTILINE | re.IGNORECASE,
-        )
-        for m in gi_pattern.finditer(text):
-            try:
-                code = m.group(1).strip()
-                desc = m.group(2).strip()
-                hs = m.group(3) if m.group(3) else ""
-                qty = float(m.group(4).replace(".", "").replace(",", "."))
-                price = BaseExtractor.parse_numeric_str(m.group(5))
-                total = BaseExtractor.parse_numeric_str(m.group(6))
-                if qty > 0 and price > 0:
-                    items.append({
-                        "item_code": code,
-                        "description": desc if desc and len(desc) > 3 else f"Industrial Unit ({code})",
-                        "hs_code": hs if hs else default_hs,
-                        "quantity": qty,
-                        "unit_price": price,
-                        "total_price": total,
-                    })
-            except (ValueError, IndexError):
+        # 1. Pipe-separated / Tab-separated Table Parsing (e.g. Item number | Configuration | Item name | Quantity | Unit | Sales price | Amount | VAT)
+        for line in lines:
+            lower_line = line.lower()
+            if lower_line.startswith(('item number', 'item no', 'pos', '#', 'description', 'sales order', 'customer requisition', 'subtotal', 'total', 'page', 'inv no', 'invoice no')):
+                continue
+            if 'total' in lower_line and any(w in lower_line for w in ('amount', 'invoice', 'fob', 'cif', 'grand')):
                 continue
 
-        # 2. Chinese Suzhou Yuheng Color-code format (YH-652, YH-644...)
+            if '|' in line or '\t' in line:
+                delimiter = '|' if '|' in line else '\t'
+                raw_cells = [c.strip() for c in line.split(delimiter)]
+                cells = [c for c in raw_cells if c]
+                if len(cells) >= 3:
+                    code = ''
+                    desc = ''
+                    qty = 0.0
+                    price = 0.0
+                    total = 0.0
+                    unit = 'PCS'
+
+                    start_idx = 0
+                    if cells[0].isdigit() and len(cells) > 3:
+                        start_idx = 1
+
+                    first_cell = cells[start_idx]
+                    # Check if first cell is item number / code (e.g. PSHD041, PCOM080, PDNA124-U, ART-102, 1001-A)
+                    if re.match(r'^[A-Z0-9\-_/.]{2,30}$', first_cell, re.IGNORECASE) and not first_cell.replace('.', '').isdigit():
+                        code = first_cell
+                        next_idx = start_idx + 1
+                        # Skip configuration / subcode if present (e.g. .PA01.MA03)
+                        if next_idx < len(cells) and re.match(r'^\.[A-Z0-9\._\-]+$', cells[next_idx]):
+                            next_idx += 1
+                        if next_idx < len(cells):
+                            desc = cells[next_idx]
+                            data_start_idx = next_idx + 1
+                        else:
+                            data_start_idx = next_idx
+                    else:
+                        desc = first_cell
+                        data_start_idx = start_idx + 1
+
+                    num_cells = []
+                    for c in cells[data_start_idx:]:
+                        c_clean = c.replace('EUR', '').replace('USD', '').replace('$', '').replace('€', '').replace('%', '').strip()
+                        try:
+                            val = float(c_clean.replace(',', '.'))
+                            num_cells.append(val)
+                        except ValueError:
+                            if c.upper().rstrip('.') in ('PCS', 'VNT', 'UNT', 'BOX', 'CTN', 'SET', 'KGM', 'MTR', 'TON', 'PCE', 'PACK'):
+                                unit = c.upper().rstrip('.')
+
+                    if len(num_cells) >= 2:
+                        qty = num_cells[0]
+                        price = num_cells[1]
+                        total = num_cells[2] if len(num_cells) >= 3 else qty * price
+                        if qty > 0 and price > 0:
+                            items.append({
+                                "item_code": code if code else f"ITEM-{len(items)+1:03d}",
+                                "description": desc if desc else f"Product {code or len(items)+1}",
+                                "quantity": qty,
+                                "unit": unit,
+                                "unit_price": price,
+                                "total_price": total,
+                            })
+
+        # 2. Italian G.I. Industrial invoice format (Multi-item: Item 1 with 84158200, Item 2 with QCR12026802R)
+        if not items:
+            gi_pattern = re.compile(
+                r"^\s*(CYK[A-Z0-9]+|QCR[A-Z0-9]+|RTAX[A-Z0-9]+|[A-Z]{3,6}\d{4,14}[A-Z0-9]*)\s+([\s\S]*?)\s+(?:(\d{8})\s+)?(\d+(?:[\.,]\d+)?)\s+NR\s+([0-9.,]+)\s+([0-9.,]+)",
+                re.MULTILINE | re.IGNORECASE,
+            )
+            for m in gi_pattern.finditer(text):
+                try:
+                    code = m.group(1).strip()
+                    desc = m.group(2).strip()
+                    hs = m.group(3) if m.group(3) else ""
+                    qty = float(m.group(4).replace(".", "").replace(",", "."))
+                    price = BaseExtractor.parse_numeric_str(m.group(5))
+                    total = BaseExtractor.parse_numeric_str(m.group(6))
+                    if qty > 0 and price > 0:
+                        items.append({
+                            "item_code": code,
+                            "description": desc if desc and len(desc) > 3 else f"Industrial Unit ({code})",
+                            "hs_code": hs if hs else default_hs,
+                            "quantity": qty,
+                            "unit_price": price,
+                            "total_price": total,
+                        })
+                except (ValueError, IndexError):
+                    continue
+
+        # 3. Chinese Suzhou Yuheng Color-code format (YH-652, YH-644...)
         if not items:
             global_unit_price = self.find_float([r"\b60\.7\b", r"Unit\s+price[^\n]*?(\d+(?:\.\d+)?)"], text)
             color_item_pattern = re.compile(
@@ -466,7 +533,7 @@ class PurchaseOrderExtractor(BaseExtractor):
                     "total_price": qty * price,
                 })
 
-        # 3. Narbutas / European Standard Invoice item row pattern
+        # 4. Narbutas / European Standard Invoice space-separated row pattern
         # Matches: PSHD041 [.PA01.MA03] Mobile table with metal base... 4.00 Pcs 124.00 496.00
         if not items:
             narbutas_pattern = re.compile(
@@ -491,26 +558,9 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except (ValueError, IndexError):
                     continue
 
-        # 4. Pipe-separated rows (e.g. Steel Pipes 2 inch | 500 | PCS | 45.00 | 22,500.00)
-        if not items:
-            pipe_pattern = re.compile(
-                r"([A-Za-z0-9][^|]{2,60})\s*\|\s*(\d+(?:\.\d+)?)\s*\|\s*([A-Za-z]{2,10})\s*\|\s*([0-9,]+\.?\d*)\s*\|\s*([0-9,]+\.?\d*)",
-                re.IGNORECASE,
-            )
-            for m in pipe_pattern.finditer(text):
-                try:
-                    items.append({
-                        "item_code": "ITEM-001",
-                        "description": m.group(1).strip(),
-                        "quantity": float(m.group(2).replace(",", "")),
-                        "unit": m.group(3).strip(),
-                        "unit_price": float(m.group(4).replace(",", "")),
-                        "total_price": float(m.group(5).replace(",", "")),
-                    })
-                except ValueError:
-                    continue
-
-        for item in items:
+        for idx, item in enumerate(items):
+            if not item.get("item_code") or str(item.get("item_code")).strip() == "":
+                item["item_code"] = f"ITEM-{idx+1:03d}"
             if not item.get("hs_code") and default_hs:
                 item["hs_code"] = default_hs
             if not item.get("country_of_origin") and default_cty:
@@ -529,12 +579,93 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
         packing: List[Dict[str, Any]] = []
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-        # 0. Narbutas / European Table with Item number, Item name, Delivered, Unit, Net Weight, Gross Weight, Volume
-        # Header: Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume
+        # 0. Pipe-separated / Tab-separated Packing List table format
+        # Matches: Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume
+        # Matches: PSHD041 | .PA01.MA03 | Mobile table with metal base... | 4.00 | Pcs | 46.000 | 51.950 | 0.086
+        for line in lines:
+            lower_line = line.lower()
+            if lower_line.startswith(('item number', 'item no', 'pos', '#', 'description', 'delivered', 'weight netto', 'weight brutto', 'subtotal', 'total', 'page')):
+                continue
+            if 'total' in lower_line and any(w in lower_line for w in ('gross', 'net', 'cbm', 'volume', 'weight')):
+                continue
+
+            if '|' in line or '\t' in line:
+                delimiter = '|' if '|' in line else '\t'
+                raw_cells = [c.strip() for c in line.split(delimiter)]
+                cells = [c for c in raw_cells if c]
+                if len(cells) >= 4:
+                    code = ''
+                    desc = ''
+                    start_idx = 0
+                    if cells[0].isdigit() and len(cells) > 4:
+                        start_idx = 1
+
+                    first_cell = cells[start_idx]
+                    if re.match(r'^[A-Z0-9\-_/.]{2,30}$', first_cell, re.IGNORECASE) and not first_cell.replace('.', '').isdigit():
+                        code = first_cell
+                        next_idx = start_idx + 1
+                        if next_idx < len(cells) and re.match(r'^\.[A-Z0-9\._\-]+$', cells[next_idx]):
+                            next_idx += 1
+                        if next_idx < len(cells):
+                            desc = cells[next_idx]
+                            data_start_idx = next_idx + 1
+                        else:
+                            data_start_idx = next_idx
+                    else:
+                        desc = first_cell
+                        data_start_idx = start_idx + 1
+
+                    num_cells = []
+                    pkg_type = 'Carton'
+                    unit = 'PCS'
+                    for c in cells[data_start_idx:]:
+                        c_clean = c.replace('KGS', '').replace('KG', '').replace('KGM', '').replace('CBM', '').replace('M3', '').replace('m³', '').strip()
+                        dim_m = re.search(r'^(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)\s*x\s*(\d+(?:\.\d+)?)$', c.strip(), re.IGNORECASE)
+                        if dim_m:
+                            num_cells.extend([float(dim_m.group(1)), float(dim_m.group(2)), float(dim_m.group(3))])
+                            continue
+                        try:
+                            val = float(c_clean.replace(',', '.'))
+                            num_cells.append(val)
+                        except ValueError:
+                            if c.upper().rstrip('.') in ('PCS', 'VNT', 'UNT', 'BOX', 'CTN', 'SET', 'KGM', 'MTR', 'TON'):
+                                unit = c.upper().rstrip('.')
+                            if 'PALLET' in c.upper():
+                                pkg_type = 'Pallet'
+                            elif 'BOX' in c.upper():
+                                pkg_type = 'Box'
+                            elif 'CRATE' in c.upper():
+                                pkg_type = 'Crate'
+
+                    # If format: [Qty] [NW] [GW] [CBM]
+                    if len(num_cells) >= 3 and not (len(num_cells) >= 6):
+                        qty = num_cells[0]
+                        nw = num_cells[1]
+                        gw = num_cells[2]
+                        cbm = num_cells[3] if len(num_cells) >= 4 else 0.0
+                        if qty > 0 and (gw > 0 or nw > 0 or cbm > 0):
+                            packing.append({
+                                "item_code": code if code else f"ITEM-{len(packing)+1:03d}",
+                                "description": desc,
+                                "package_type": pkg_type,
+                                "qty_pkg": qty,
+                                "qty_pcs": qty,
+                                "weight_unit": "KGM",
+                                "net_weight_unit_kg": round(nw / qty, 3) if qty > 0 else nw,
+                                "gross_weight_unit_kg": round(gw / qty, 3) if qty > 0 else gw,
+                                "total_net_weight_kg": nw,
+                                "total_gross_weight_kg": gw,
+                                "total_cbm": cbm,
+                                "is_stackable": True,
+                            })
+
+        if packing:
+            return packing
+
+        # 1. Narbutas / European Table space-separated (Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume)
         # Example: PSHD041 .PA01.MA03 Mobile table with metal base, W=400, D=500, H=620 MOBI 4.00 Pcs 46.000 51.950 0.086
-        # Example: G2A0913 .PA01.0 Desktop, 500x400x16 4.00 vnt 8.800 10.279 0.031
-        # Example: G3B0079 .MA03.0 Metal base, 450x300, H=604 4.00 vnt 37.200 41.671 0.056
         narbutas_pl_pattern = re.compile(
             r"^\s*([A-Z0-9\-]{3,25})\s+(\.[A-Z0-9\.]+)?\s+([^\n\r%]+?)\s+(\d+(?:[\.,]\d+)?)\s+(Pcs|PCS|vnt|UNT|Box|BOX|CTN|Set|SET)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)\s*$",
             re.MULTILINE | re.IGNORECASE,
@@ -572,7 +703,7 @@ class PurchaseOrderExtractor(BaseExtractor):
         if packing:
             return packing
 
-        # 1. Italian G.I. Industrial & European Packing List table row format
+        # 2. Italian G.I. Industrial & European Packing List table row format
         # Pattern: [Item Code / Description] [Qty Pcs] [L] [W] [H] [Net Wt] [Gross Wt] [Qty Pkg] [Pkg Type]
         # Example: RTAXT/K/EC/MS 182 IM/RFM/RFL/PF/NS 2 3950 2250 2250 2250 2270 2 PACKAGE
         # Example: QCR12026802R 1 275 265 160 4 4 2 BOX
@@ -613,7 +744,7 @@ class PurchaseOrderExtractor(BaseExtractor):
 
                 if pkgs > 0 and (gw > 0 or total_cbm > 0):
                     packing.append({
-                        "item_code": code if len(code) >= 3 else "ITEM-001",
+                        "item_code": code if len(code) >= 3 else f"ITEM-{len(packing)+1:03d}",
                         "package_type": pkg_type,
                         "qty_pkg": pkgs,
                         "qty_pcs": pcs if pcs > 0 else pkgs,
@@ -633,23 +764,25 @@ class PurchaseOrderExtractor(BaseExtractor):
         if packing:
             return packing
 
-        # 2. Multi-row tabular packing list patterns with dimensions (e.g. 10 Cartons 50x40x30 cm 120 kg 150 kg 0.6 CBM)
+        # 3. Multi-row tabular packing list patterns with dimensions (e.g. 10 Cartons 50x40x30 cm 120 kg 150 kg 0.6 CBM)
         row_dim_pattern = re.compile(
-            r"^\s*(?:(\d+)\s+)?(Carton|Pallet|Package|Box|CTN|PK|PKG|Crate)\s+(\d+(?:[\.,]\d+)?)\s+(?:pcs\s+)?([0-9.,]+)\s*x\s*([0-9.,]+)\s*x\s*([0-9.,]+)\s+(?:cm\s+)?([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)",
+            r"^\s*(?:([A-Z0-9\-_]{3,25})\s+)?(?:(\d+)\s+)?(Carton|Pallet|Package|Box|CTN|PK|PKG|Crate)\s+(\d+(?:[\.,]\d+)?)\s+(?:pcs\s+)?([0-9.,]+)\s*x\s*([0-9.,]+)\s*x\s*([0-9.,]+)\s+(?:cm\s+)?([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)",
             re.MULTILINE | re.IGNORECASE,
         )
         for m in row_dim_pattern.finditer(text):
             try:
-                pkg_type = m.group(2).strip().title()
-                pkgs = float(m.group(3).replace(",", ""))
-                l_cm = BaseExtractor.parse_numeric_str(m.group(4))
-                w_cm = BaseExtractor.parse_numeric_str(m.group(5))
-                h_cm = BaseExtractor.parse_numeric_str(m.group(6))
-                nw = BaseExtractor.parse_numeric_str(m.group(7))
-                gw = BaseExtractor.parse_numeric_str(m.group(8))
-                cbm = BaseExtractor.parse_numeric_str(m.group(9))
+                code_prefix = m.group(1).strip() if m.group(1) else f"ITEM-{len(packing)+1:03d}"
+                pkg_type = m.group(3).strip().title()
+                pkgs = float(m.group(4).replace(",", ""))
+                l_cm = BaseExtractor.parse_numeric_str(m.group(5))
+                w_cm = BaseExtractor.parse_numeric_str(m.group(6))
+                h_cm = BaseExtractor.parse_numeric_str(m.group(7))
+                nw = BaseExtractor.parse_numeric_str(m.group(8))
+                gw = BaseExtractor.parse_numeric_str(m.group(9))
+                cbm = BaseExtractor.parse_numeric_str(m.group(10))
                 if pkgs > 0 and (gw > 0 or cbm > 0):
                     packing.append({
+                        "item_code": code_prefix,
                         "package_type": pkg_type,
                         "qty_pkg": pkgs,
                         "qty_pcs": pkgs * 10,

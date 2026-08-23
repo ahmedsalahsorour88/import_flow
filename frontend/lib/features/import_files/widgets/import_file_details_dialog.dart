@@ -945,13 +945,37 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                           ],
                         ),
                         ...linkedPOs.map((po) {
-                          final poPlCbm = po.packingListItems.isNotEmpty
-                              ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
-                              : po.totalCbm;
-                          final poPlWeight = po.packingListItems.isNotEmpty
-                              ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
-                              : po.totalGrossWeightKg;
-                          final plCount = po.packingListItems.length;
+                          final double poPalletCbm = po.palletPlanItems.isNotEmpty
+                              ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount))
+                              : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                  ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                  : 0.0);
+                          final double poPalletGross = po.palletPlanItems.isNotEmpty
+                              ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.grossWeightPerPalletKg * p.palletCount))
+                              : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                          final int poPalletCount = po.palletPlanItems.isNotEmpty
+                              ? po.palletPlanItems.fold<int>(0, (s, p) => s + p.palletCount)
+                              : po.palletCount;
+
+                          final poPlCbm = poPalletCbm > 0
+                              ? poPalletCbm
+                              : (po.totalCbm > 0 && po.packingListItems.isEmpty
+                                  ? po.totalCbm
+                                  : (po.packingListItems.isNotEmpty
+                                      ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm))
+                                      : po.totalCbm));
+
+                          final poPlWeight = poPalletGross > 0
+                              ? poPalletGross
+                              : (po.totalGrossWeightKg > 0 && po.packingListItems.isEmpty
+                                  ? po.totalGrossWeightKg
+                                  : (po.packingListItems.isNotEmpty
+                                      ? po.packingListItems.fold(0.0, (s, pl) => s + (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg)))
+                                      : po.totalGrossWeightKg));
+
+                          final plText = poPalletCount > 0
+                              ? '$poPalletCount بالتة (مخطط الشحن)'
+                              : '${po.packingListItems.length} بند تعبئة';
 
                           return TableRow(
                             children: [
@@ -967,7 +991,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 ),
                               ),
                               Padding(padding: const EdgeInsets.all(8), child: Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                              Padding(padding: const EdgeInsets.all(8), child: Text('$plCount بند تعبئة', style: const TextStyle(fontWeight: FontWeight.w600))),
+                              Padding(padding: const EdgeInsets.all(8), child: Text(plText, style: const TextStyle(fontWeight: FontWeight.w600))),
                               Padding(padding: const EdgeInsets.all(8), child: Text('${poPlCbm.toStringAsFixed(3)} m³ / ${poPlWeight.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                               Padding(padding: const EdgeInsets.all(8), child: Text(po.status, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt))),
                             ],

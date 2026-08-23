@@ -157,3 +157,62 @@ def test_api_extract_and_compare_po_endpoint():
     assert data["extracted_invoice_data"]["acid_number"] == "2001830441013710010"
     assert data["extracted_packing_data"]["total_packages"] == 4
     assert len(data["reconciled_invoice_items"]) >= 2
+
+
+def test_purchase_order_extractor_narbutas_pipe_items():
+    from modules.smart_document_upload.extractors.purchase_order import PurchaseOrderExtractor
+    
+    raw_inv = """
+    NARBUTAS INTERNATIONAL, UAB
+    Ukmerges st. 308, LT-12110 Vilnius, Lithuania
+    COMMERCIAL INVOICE No. 6094737 Date: 2026-08-10
+    Currency: EUR Total: 1,301.50 EUR
+    
+    Item number | Configuration | Item name | Quantity | Unit | Sales price | Amount | VAT
+    PSHD041 | .PA01.MA03 | Mobile table with metal base, W=400, D=500, H=620 MOBI | 4.00 | Pcs | 124.00 | 496.00 | 0.00 %
+    PSHD041 | .PA01.MA03 | Mobile table with metal base, W=400, D=500, H=620 MOBI | 2.00 | Pcs | 124.00 | 248.00 | 0.00 %
+    PCOM080 | .PA01.MA03 | Meeting table (3 seats), Ø 800, H=740 FSC Mix 70% * FORUM | 2.00 | Pcs | 235.50 | 471.00 | 0.00 %
+    PDNA124-U | .PA01.MA03 | Desk, 1200x600, H=740 FSC Mix 70% * NOVA U | 1.00 | Pcs | 86.50 | 86.50 | 0.00 %
+    """
+    
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(raw_inv, {})
+    items = result.get("items", [])
+    assert len(items) == 4
+    assert items[0]["item_code"] == "PSHD041"
+    assert items[0]["quantity"] == 4.0
+    assert items[0]["unit_price"] == 124.0
+    assert items[0]["total_price"] == 496.0
+    assert items[1]["item_code"] == "PSHD041"
+    assert items[1]["quantity"] == 2.0
+    assert items[2]["item_code"] == "PCOM080"
+    assert items[2]["quantity"] == 2.0
+    assert items[2]["unit_price"] == 235.5
+    assert items[3]["item_code"] == "PDNA124-U"
+    assert items[3]["quantity"] == 1.0
+
+
+def test_purchase_order_extractor_narbutas_packing_list():
+    from modules.smart_document_upload.extractors.purchase_order import PurchaseOrderExtractor
+    
+    raw_pl = """
+    NARBUTAS INTERNATIONAL, UAB
+    PACKING LIST No. 6094737 Date: 2026-08-10
+    
+    Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume
+    PSHD041 | .PA01.MA03 | Mobile table with metal base, W=400, D=500, H=620 MOBI | 4.00 | Pcs | 46.000 | 51.950 | 0.086
+    G2A0913 | .PA01.0 | Desktop, 500x400x16 | 4.00 | vnt | 8.800 | 10.279 | 0.031
+    G3B0079 | .MA03.0 | Metal base, 450x300, H=604 | 4.00 | vnt | 37.200 | 41.671 | 0.056
+    """
+    
+    extractor = PurchaseOrderExtractor()
+    result = extractor.extract(raw_pl, {})
+    packing = result.get("packing_list_items", [])
+    assert len(packing) == 3
+    assert packing[0]["item_code"] == "PSHD041"
+    assert packing[0]["qty_pkg"] == 4.0
+    assert packing[0]["total_gross_weight_kg"] == 51.95
+    assert packing[0]["total_cbm"] == 0.086
+    assert packing[1]["item_code"] == "G2A0913"
+    assert packing[2]["item_code"] == "G3B0079"
+

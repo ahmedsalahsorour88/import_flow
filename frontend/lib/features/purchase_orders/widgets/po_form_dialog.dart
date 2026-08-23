@@ -14,6 +14,7 @@ import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_companies/models/import_company_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../incoterms/providers/incoterms_provider.dart';
+import '../../incoterms/models/incoterm_model.dart';
 import '../../projects/providers/projects_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
 import '../../suppliers/models/supplier_model.dart';
@@ -342,6 +343,144 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     return matchedSupp?.supplierId;
   }
 
+  int? _matchIncotermId(dynamic extOrRaw, List<IncotermModel> incoterms) {
+    if (incoterms.isEmpty) return null;
+    String raw = '';
+    if (extOrRaw is Map<String, dynamic>) {
+      final val = _getExt(extOrRaw, ['incoterms', 'incoterm', 'trade_terms', 'terms', 'delivery_terms', 'shipment_terms']);
+      if (val != null) raw = val.toString().trim().toUpperCase();
+    } else if (extOrRaw != null) {
+      raw = extOrRaw.toString().trim().toUpperCase();
+    }
+    if (raw.isEmpty) return null;
+
+    final numId = int.tryParse(raw);
+    if (numId != null && incoterms.any((i) => i.incotermId == numId)) {
+      return numId;
+    }
+
+    for (final i in incoterms) {
+      final code = i.incotermCode.toUpperCase().trim();
+      if (code == raw) return i.incotermId;
+    }
+
+    if (raw.contains('FOB') || raw.contains('FREE ON BOARD')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'FOB').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('EXW') || raw.contains('EX WORK') || raw.contains('EX-WORK') || raw.contains('EX WORKS')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'EXW').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('CIF') || raw.contains('COST INSURANCE')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'CIF').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('CFR') || raw.contains('C&F') || raw.contains('CNF') || raw.contains('COST AND FREIGHT')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'CFR').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('CIP') || raw.contains('CARRIAGE AND INSURANCE')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'CIP').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('CPT') || raw.contains('CARRIAGE PAID')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'CPT').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('DAP') || raw.contains('DELIVERED AT PLACE')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'DAP').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('DDP') || raw.contains('DELIVERED DUTY PAID')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'DDP').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('DPU') || raw.contains('DELIVERED AT PLACE UNLOADED')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'DPU').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('FCA') || raw.contains('FREE CARRIER')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'FCA').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+    if (raw.contains('FAS') || raw.contains('FREE ALONGSIDE')) {
+      final f = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'FAS').firstOrNull;
+      if (f != null) return f.incotermId;
+    }
+
+    for (final i in incoterms) {
+      final code = i.incotermCode.toUpperCase().trim();
+      if (raw.contains(code)) return i.incotermId;
+    }
+
+    return null;
+  }
+
+  int? _matchCurrencyId(dynamic extOrRaw, List<CurrencyModel> currencies) {
+    if (currencies.isEmpty) return null;
+    String raw = '';
+    if (extOrRaw is Map<String, dynamic>) {
+      final val = _getExt(extOrRaw, ['currency', 'currency_code', 'curr', 'currency_symbol', 'invoice_currency', 'price_currency']);
+      if (val != null) raw = val.toString().trim().toUpperCase();
+    } else if (extOrRaw != null) {
+      raw = extOrRaw.toString().trim().toUpperCase();
+    }
+    if (raw.isEmpty) return null;
+
+    final numId = int.tryParse(raw);
+    if (numId != null && currencies.any((c) => c.currencyId == numId)) {
+      return numId;
+    }
+
+    for (final c in currencies) {
+      final code = c.currencyCode.toUpperCase().trim();
+      if (code == raw) return c.currencyId;
+    }
+
+    if (raw == '\$' || raw.contains('USD') || raw.contains('DOLLAR') || raw.contains('US DOLLAR') || raw.contains('دولار')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'USD').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw == '€' || raw.contains('EUR') || raw.contains('EURO') || raw.contains('يورو')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'EUR').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw == 'LE' || raw == 'L.E' || raw == 'L.E.' || raw.contains('EGP') || raw.contains('POUND EGYPTIAN') || raw.contains('EGYPTIAN POUND') || raw.contains('جنيه') || raw.contains('ج.م')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'EGP').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw == '£' || raw.contains('GBP') || raw.contains('STERLING') || raw.contains('إسترليني')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'GBP').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw == '¥' || raw.contains('CNY') || raw.contains('RMB') || raw.contains('YUAN') || raw.contains('يوان')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'CNY').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw.contains('SAR') || raw.contains('RIYAL') || raw.contains('ريال')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'SAR').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    if (raw.contains('AED') || raw.contains('DIRHAM') || raw.contains('درهم')) {
+      final c = currencies.where((curr) => curr.currencyCode.toUpperCase().trim() == 'AED').firstOrNull;
+      if (c != null) return c.currencyId;
+    }
+
+    for (final c in currencies) {
+      final code = c.currencyCode.toUpperCase().trim();
+      if (raw.contains(code)) return c.currencyId;
+    }
+
+    return null;
+  }
+
   void _applyExtractedFieldsToState(Map<String, dynamic> ext, {String targetTab = 'all'}) {
     final companies = ref.read(importCompaniesProvider).value ?? [];
     final suppliers = ref.read(suppliersProvider).value ?? [];
@@ -373,25 +512,16 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         }
 
         // 3. Incoterm Matching (شروط التعاقد)
-        final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
-        if (rawInco != null && rawInco.isNotEmpty) {
-          final matchedInco = incoterms.where((i) {
-            final code = i.incotermCode.toUpperCase().trim();
-            return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
-          }).firstOrNull;
-          if (matchedInco != null) {
-            _selectedIncotermId = matchedInco.incotermId;
-          }
+        final matchedIncoId = _matchIncotermId(ext, incoterms);
+        if (matchedIncoId != null) {
+          _selectedIncotermId = matchedIncoId;
         }
 
         // 4. Currency Matching (العملة)
-        final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
-        if (rawCurr != null && rawCurr.isNotEmpty) {
-          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
-          if (matchedCurr != null) {
-            _selectedCurrencyId = matchedCurr.currencyId;
-            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
-          }
+        final matchedCurrId = _matchCurrencyId(ext, currencies);
+        if (matchedCurrId != null) {
+          _selectedCurrencyId = matchedCurrId;
+          _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
         }
 
         // 5. Country of Origin (بلد المنشأ)
@@ -436,12 +566,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
         if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
           final itemList = ext['items'] as List;
-          _dialogItems = itemList.map((raw) {
+          _dialogItems = itemList.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final raw = entry.value;
             final i = Map<String, dynamic>.from(raw as Map);
             final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
             final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-            final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
-            final code = i['item_code']?.toString() ?? 'ITEM-001';
+            final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? 'بند استيرادي رئيسي';
+            final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
+            final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
+                ? codeRaw.toString().trim()
+                : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
             final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
 
             String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
@@ -488,7 +623,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             : (ext['items'] is List ? ext['items'] as List : []);
 
         if (packingList.isNotEmpty) {
-          _dialogPackingItems = packingList.map((raw) {
+          _dialogPackingItems = packingList.asMap().entries.map((entry) {
+            final idx = entry.key;
+            final raw = entry.value;
             final p = Map<String, dynamic>.from(raw as Map);
             final qtyPcs = (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 10.0;
             final qtyPkg = (p['qty_pkg'] as num?)?.toDouble() ?? (qtyPcs > 0 ? (qtyPcs / 10).ceilToDouble() : 1.0);
@@ -496,9 +633,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
             final pUnit = p['unit']?.toString() ?? 'cm';
             final pWeightUnit = p['weight_unit']?.toString() ?? 'KGM';
+            final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
+            final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
+                ? pCodeRaw.toString().trim()
+                : (idx < _dialogItems.length && _dialogItems[idx].itemCode != null && _dialogItems[idx].itemCode!.isNotEmpty
+                    ? _dialogItems[idx].itemCode!
+                    : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}');
             return PackingListItemModel(
               hsCode: p['hs_code']?.toString() ?? '',
-              itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+              itemCode: pCode,
               description: pDesc,
               qtyPcs: qtyPcs,
               qtyPkg: qtyPkg,
@@ -570,18 +713,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       ];
       _isDirectVolumeMode = true;
     } else {
-      _dialogPalletItems = [
-        PalletPlanItemModel(
-          palletType: 'Euro Pallet (120x80)',
-          palletCount: 13,
-          lengthCm: 120.0,
-          widthCm: 80.0,
-          heightCm: 150.0,
-          grossWeightPerPalletKg: 137.5,
-          isStackable: false,
-          notes: 'بالتات قياسية غير قابلة للرص',
-        )
-      ];
+      _dialogPalletItems = [];
+      _isDirectVolumeMode = false;
     }
 
     final rawTerms = po?.paymentTerms ?? (ext != null ? ext['payment_terms']?.toString() : null);
@@ -617,12 +750,17 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           )).toList();
     } else if (ext != null && ext['items'] is List && (ext['items'] as List).isNotEmpty) {
       final itemList = ext['items'] as List;
-      _dialogItems = itemList.map((raw) {
+      _dialogItems = itemList.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final raw = entry.value;
         final i = Map<String, dynamic>.from(raw as Map);
         final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
         final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-        final desc = i['description']?.toString() ?? 'بند استيرادي رئيسي';
-        final code = i['item_code']?.toString() ?? 'ITEM-001';
+        final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? 'بند استيرادي رئيسي';
+        final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
+        final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
+            ? codeRaw.toString().trim()
+            : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
         final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
 
         String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
@@ -688,13 +826,21 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           )).toList();
     } else if (ext != null && ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
       final packingList = ext['packing_list_items'] as List;
-      _dialogPackingItems = packingList.map((raw) {
+      _dialogPackingItems = packingList.asMap().entries.map((entry) {
+        final idx = entry.key;
+        final raw = entry.value;
         final p = Map<String, dynamic>.from(raw as Map);
         final pDesc = p['description']?.toString() ?? p['item_name']?.toString();
         final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
+        final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
+        final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
+            ? pCodeRaw.toString().trim()
+            : (idx < _dialogItems.length && _dialogItems[idx].itemCode != null && _dialogItems[idx].itemCode!.isNotEmpty
+                ? _dialogItems[idx].itemCode!
+                : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}');
         return PackingListItemModel(
           hsCode: p['hs_code']?.toString() ?? '',
-          itemCode: p['item_code']?.toString() ?? 'ITEM-001',
+          itemCode: pCode,
           description: pDesc,
           qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
           qtyPkg: (p['qty_pkg'] as num?)?.toDouble() ?? 1.0,
@@ -718,7 +864,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final item = entry.value;
         return PackingListItemModel(
           hsCode: item.hsCode ?? '',
-          itemCode: item.itemCode ?? 'ITEM-${(idx + 1).toString().padLeft(3, '0')}',
+          itemCode: (item.itemCode != null && item.itemCode!.trim().isNotEmpty)
+              ? item.itemCode!.trim()
+              : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}',
           qtyPcs: item.quantity,
           qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
           packageType: 'Carton',
@@ -788,24 +936,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
     if (widget.po == null && ext != null) {
       _selectedCompanyId ??= _matchCompanyId(ext, companies);
       _selectedSupplierId ??= _matchSupplierId(ext, suppliers);
-      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
-        final rawInco = _getExt(ext, ['incoterms', 'incoterm', 'trade_terms', 'terms'])?.toString().trim().toUpperCase();
-        if (rawInco != null && rawInco.isNotEmpty) {
-          final matchedInco = incoterms.where((i) {
-            final code = i.incotermCode.toUpperCase().trim();
-            return code == rawInco || rawInco.contains(code) || (rawInco.contains('EX WORK') && code == 'EXW') || (rawInco.contains('FREE ON BOARD') && code == 'FOB');
-          }).firstOrNull;
-          if (matchedInco != null) _selectedIncotermId = matchedInco.incotermId;
-        }
-      }
-      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
-        final rawCurr = _getExt(ext, ['currency', 'currency_code', 'curr'])?.toString().trim().toUpperCase();
-        if (rawCurr != null && rawCurr.isNotEmpty) {
-          final matchedCurr = currencies.where((c) => c.currencyCode.toUpperCase().trim() == rawCurr).firstOrNull;
-          if (matchedCurr != null) {
-            _selectedCurrencyId = matchedCurr.currencyId;
-            _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
-          }
+      _selectedIncotermId ??= _matchIncotermId(ext, incoterms);
+      if (_selectedCurrencyId == null) {
+        final matchedCurrId = _matchCurrencyId(ext, currencies);
+        if (matchedCurrId != null) {
+          _selectedCurrencyId = matchedCurrId;
+          _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
         }
       }
       if (_selectedCountryOfOrigin == null) {
@@ -816,50 +952,62 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       }
     }
 
-    // Default fallback only if not matched
-    if (_selectedCompanyId == null && companies.isNotEmpty) {
-      if (ext != null) {
-        _selectedCompanyId = _matchCompanyId(ext, companies) ?? companies.first.companyId;
-      } else {
-        _selectedCompanyId = companies.first.companyId;
+    // When creating a NEW PO (widget.po == null): Default fallback only if not selected
+    if (widget.po == null) {
+      if (_selectedCompanyId == null && companies.isNotEmpty) {
+        _selectedCompanyId = (ext != null ? _matchCompanyId(ext, companies) : null) ?? companies.first.companyId;
       }
-    }
-    if (_selectedSupplierId == null && suppliers.isNotEmpty) {
-      if (ext != null) {
-        _selectedSupplierId = _matchSupplierId(ext, suppliers) ?? suppliers.first.supplierId;
-      } else {
-        _selectedSupplierId = suppliers.first.supplierId;
+      if (_selectedSupplierId == null && suppliers.isNotEmpty) {
+        _selectedSupplierId = (ext != null ? _matchSupplierId(ext, suppliers) : null) ?? suppliers.first.supplierId;
       }
-    }
+      if (_selectedProjectId == null && projects.isNotEmpty) {
+        _selectedProjectId = projects.first.projectId;
+      }
+      if (_selectedIncotermId == null && incoterms.isNotEmpty) {
+        final fob = incoterms.where((i) => i.incotermCode.toUpperCase().trim() == 'FOB').firstOrNull;
+        _selectedIncotermId = fob?.incotermId ?? incoterms.first.incotermId;
+      }
+      if (_selectedCurrencyId == null && currencies.isNotEmpty) {
+        final usd = currencies.where((c) => c.currencyCode.toUpperCase().trim() == 'USD').firstOrNull;
+        _selectedCurrencyId = usd?.currencyId ?? currencies.first.currencyId;
+        _updateExchangeRateFromCurrency(_selectedCurrencyId, currencies);
+      }
+    } else {
+      // When editing an EXISTING PO (widget.po != null): Match and preserve existing PO codes & IDs
+      final po = widget.po!;
+      if (_selectedIncotermId == null || !incoterms.any((i) => i.incotermId == _selectedIncotermId)) {
+        if (po.incotermId > 0 && incoterms.any((i) => i.incotermId == po.incotermId)) {
+          _selectedIncotermId = po.incotermId;
+        } else if (po.incotermCode != null && po.incotermCode!.isNotEmpty) {
+          _selectedIncotermId = _matchIncotermId(po.incotermCode, incoterms);
+        }
+      }
 
-    if (_selectedProjectId == null && projects.isNotEmpty) {
-      _selectedProjectId = projects.first.projectId;
-    } else if (_selectedProjectId != null && !projects.any((p) => p.projectId == _selectedProjectId)) {
-      _selectedProjectId = projects.isNotEmpty ? projects.first.projectId : null;
-    }
+      if (_selectedCurrencyId == null || !currencies.any((c) => c.currencyId == _selectedCurrencyId)) {
+        if (po.currencyId > 0 && currencies.any((c) => c.currencyId == po.currencyId)) {
+          _selectedCurrencyId = po.currencyId;
+        } else if (po.currencyCode != null && po.currencyCode!.isNotEmpty) {
+          _selectedCurrencyId = _matchCurrencyId(po.currencyCode, currencies);
+        }
+      }
 
-    if (_selectedCompanyId == null && companies.isNotEmpty) {
-      _selectedCompanyId = companies.first.companyId;
-    } else if (_selectedCompanyId != null && !companies.any((c) => c.companyId == _selectedCompanyId)) {
-      _selectedCompanyId = companies.isNotEmpty ? companies.first.companyId : null;
-    }
+      if (_selectedProjectId == null || !projects.any((p) => p.projectId == _selectedProjectId)) {
+        if (po.projectId > 0 && projects.any((p) => p.projectId == po.projectId)) {
+          _selectedProjectId = po.projectId;
+        }
+      }
 
-    if (_selectedSupplierId == null && suppliers.isNotEmpty) {
-      _selectedSupplierId = suppliers.first.supplierId;
-    } else if (_selectedSupplierId != null && !suppliers.any((s) => s.supplierId == _selectedSupplierId)) {
-      _selectedSupplierId = suppliers.isNotEmpty ? suppliers.first.supplierId : null;
-    }
+      if (_selectedCompanyId == null || !companies.any((c) => c.companyId == _selectedCompanyId)) {
+        if (po.companyId > 0 && companies.any((c) => c.companyId == po.companyId)) {
+          _selectedCompanyId = po.companyId;
+        }
+      }
 
-    if (_selectedIncotermId == null && incoterms.isNotEmpty) {
-      _selectedIncotermId = incoterms.first.incotermId;
-    } else if (_selectedIncotermId != null && !incoterms.any((i) => i.incotermId == _selectedIncotermId)) {
-      _selectedIncotermId = incoterms.isNotEmpty ? incoterms.first.incotermId : null;
-    }
-
-    if (_selectedCurrencyId == null && currencies.isNotEmpty) {
-      _selectedCurrencyId = currencies.first.currencyId;
-    } else if (_selectedCurrencyId != null && !currencies.any((c) => c.currencyId == _selectedCurrencyId)) {
-      _selectedCurrencyId = currencies.isNotEmpty ? currencies.first.currencyId : null;
+      if (_selectedSupplierId == null || !suppliers.any((s) => s.supplierId == _selectedSupplierId)) {
+        if (po.supplierId > 0 && suppliers.any((s) => s.supplierId == po.supplierId)) {
+          _selectedSupplierId = po.supplierId;
+        }
+      }
     }
 
     return DefaultTabController(
@@ -1163,6 +1311,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               children: [
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
+                                    key: ValueKey('incoterm_dropdown_${_selectedIncotermId}_${incoterms.length}'),
                                     value: _selectedIncotermId,
                                     labelText: 'Incoterm *',
                                     items: incoterms
@@ -1179,6 +1328,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
+                                    key: ValueKey('currency_dropdown_${_selectedCurrencyId}_${currencies.length}'),
                                     value: _selectedCurrencyId,
                                     labelText: 'Currency *',
                                     items: currencies
@@ -1656,7 +1806,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     label: const Text('📦 مسار الحجم المباشر CBM ومخطط البالتات'),
                                     selected: _isDirectVolumeMode,
                                     onSelected: (val) {
-                                      if (val) setState(() => _isDirectVolumeMode = true);
+                                      if (val) {
+                                        setState(() {
+                                          _isDirectVolumeMode = true;
+                                          if (_dialogPalletItems.isEmpty) {
+                                            _dialogPalletItems.add(PalletPlanItemModel(
+                                              palletType: 'Euro Pallet (120x80)',
+                                              palletCount: 1,
+                                              lengthCm: 120.0,
+                                              widthCm: 80.0,
+                                              heightCm: 150.0,
+                                              grossWeightPerPalletKg: 0.0,
+                                              isStackable: false,
+                                            ));
+                                          }
+                                        });
+                                      }
                                     },
                                     selectedColor: AppTheme.emerald.withOpacity(0.18),
                                   ),
@@ -1664,8 +1829,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               ),
                             ),
 
-                            // Multi-Row Palletization Board (Visible when Direct Volume Mode is active or Pallets > 0)
-                            if (_isDirectVolumeMode || _dialogPalletItems.isNotEmpty)
+                            // Multi-Row Palletization Board (Visible when Direct Volume Mode is active)
+                            if (_isDirectVolumeMode)
                               Container(
                                 padding: const EdgeInsets.all(12),
                                 margin: const EdgeInsets.only(bottom: 12),
@@ -1776,11 +1941,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                               setState(() {
                                                 _dialogPalletItems.add(PalletPlanItemModel(
                                                   palletType: 'Euro Pallet (120x80)',
-                                                  palletCount: 13,
+                                                  palletCount: 1,
                                                   lengthCm: 120.0,
                                                   widthCm: 80.0,
                                                   heightCm: 150.0,
-                                                  grossWeightPerPalletKg: 137.5,
+                                                  grossWeightPerPalletKg: 0.0,
                                                   isStackable: false,
                                                 ));
                                               });
@@ -2038,7 +2203,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             _dialogPackingItems.add(
                                               PackingListItemModel(
                                                 hsCode: itemHsCode,
-                                                itemCode: item.itemCode ?? 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
+                                                itemCode: (item.itemCode != null && item.itemCode!.trim().isNotEmpty)
+                                                    ? item.itemCode!.trim()
+                                                    : 'ITEM-${(i + 1).toString().padLeft(3, '0')}',
                                                 description: item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn,
                                                 qtyPcs: item.quantity > 0 ? item.quantity : 100.0,
                                                 qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
@@ -2087,7 +2254,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                           _dialogPackingItems.add(
                                             PackingListItemModel(
                                               hsCode: defaultHs,
-                                              itemCode: 'ITEM-00${_dialogPackingItems.length + 1}',
+                                              itemCode: 'ITEM-${(_dialogPackingItems.length + 1).toString().padLeft(3, "0")}',
                                               qtyPcs: 10,
                                               qtyPkg: 1,
                                               packageType: 'Carton',
@@ -2517,6 +2684,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     }
 
                     if (widget.po == null) {
+                      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
+                      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
+                      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
+                      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
+                      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
+                      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
+                      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
+                      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems : <PalletPlanItemModel>[];
+
                       final newPO = PurchaseOrderModel(
                         poNumber: '',
                         proformaInvoiceNumber: _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
@@ -2530,13 +2706,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         orderDate: _selectedOrderDate,
                         exchangeRate: rate,
                         paymentTerms: _selectedPaymentTerms,
-                        palletCount: _palletCount,
-                        palletType: _selectedPalletType,
-                        isPalletStackable: _isPalletStackable,
-                        palletLengthCm: _palletLengthCm,
-                        palletWidthCm: _palletWidthCm,
-                        palletHeightCm: _palletHeightCm,
-                        palletPlanItems: _dialogPalletItems,
+                        palletCount: effectivePalletCount,
+                        palletType: effectivePalletType,
+                        isPalletStackable: effectiveIsStackable,
+                        palletLengthCm: effectivePalletL,
+                        palletWidthCm: effectivePalletW,
+                        palletHeightCm: effectivePalletH,
+                        palletPlanItems: effectivePalletPlan,
                         status: _selectedStatus,
                         notes: effectiveNotes,
                         items: _dialogItems,
@@ -2783,6 +2959,15 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         }
                       }
 
+                      final int effectivePalletCount = _isDirectVolumeMode ? _dialogPalletItems.fold<int>(0, (sum, p) => sum + p.palletCount) : 0;
+                      final firstPallet = (_isDirectVolumeMode && _dialogPalletItems.isNotEmpty) ? _dialogPalletItems.first : null;
+                      final effectivePalletType = firstPallet?.palletType ?? _selectedPalletType;
+                      final effectiveIsStackable = firstPallet?.isStackable ?? _isPalletStackable;
+                      final effectivePalletL = firstPallet?.lengthCm ?? _palletLengthCm;
+                      final effectivePalletW = firstPallet?.widthCm ?? _palletWidthCm;
+                      final effectivePalletH = firstPallet?.heightCm ?? _palletHeightCm;
+                      final effectivePalletPlan = _isDirectVolumeMode ? _dialogPalletItems.map((p) => p.toJson()).toList() : <Map<String, dynamic>>[];
+
                       final updateData = {
                         'proforma_invoice_number': _piCtrl.text.trim().isEmpty ? null : _piCtrl.text.trim(),
                         'country_of_origin': _selectedCountryOfOrigin,
@@ -2795,13 +2980,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         'order_date': _selectedOrderDate.toIso8601String(),
                         'exchange_rate': rate,
                         'payment_terms': _selectedPaymentTerms,
-                        'pallet_count': _palletCount,
-                        'pallet_type': _selectedPalletType,
-                        'is_pallet_stackable': _isPalletStackable,
-                        'pallet_length_cm': _palletLengthCm,
-                        'pallet_width_cm': _palletWidthCm,
-                        'pallet_height_cm': _palletHeightCm,
-                        'pallet_plan': _dialogPalletItems.map((p) => p.toJson()).toList(),
+                        'pallet_count': effectivePalletCount,
+                        'pallet_type': effectivePalletType,
+                        'is_pallet_stackable': effectiveIsStackable,
+                        'pallet_length_cm': effectivePalletL,
+                        'pallet_width_cm': effectivePalletW,
+                        'pallet_height_cm': effectivePalletH,
+                        'pallet_plan': effectivePalletPlan,
                         'status': _selectedStatus,
                         'notes': effectiveNotes,
                         'items': _dialogItems.map((i) => i.toJson()).toList(),
@@ -2876,7 +3061,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       importFileCode: impF?.importFileCode ?? impF?.customFileNumber,
       items: _dialogItems,
       packingItems: _dialogPackingItems,
-      palletItems: _dialogPalletItems,
+      palletItems: _isDirectVolumeMode ? _dialogPalletItems : <PalletPlanItemModel>[],
       tariffs: tariffs,
       isDirectVolumeMode: _isDirectVolumeMode,
       notes: _notesCtrl.text.trim(),
@@ -2884,10 +3069,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
   }
 
   void _showPoVisualLoadPlannerDialog(BuildContext context, List<PackingListItemModel> packingItems) {
-    final hasPallets = _dialogPalletItems.isNotEmpty && _dialogPalletItems.any((p) => p.palletCount > 0);
+    final hasPallets = _isDirectVolumeMode && _dialogPalletItems.isNotEmpty && _dialogPalletItems.any((p) => p.palletCount > 0);
     List<CargoItem> cargoItems = [];
 
-    if (_isDirectVolumeMode || hasPallets) {
+    if (hasPallets) {
       final double totalGross = packingItems.fold<double>(
         0.0,
         (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
@@ -3024,7 +3209,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Controls & Stacking Filter Row
+                    // Controls & Stacking Filter Row (Horizontally scrollable to eliminate overflow)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
@@ -3032,42 +3217,45 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.grey.shade300),
                       ),
-                      child: Row(
-                        children: [
-                          const Text('نمط الرص بالمحاكاة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-                          const SizedBox(width: 10),
-                          SegmentedButton<int>(
-                            segments: const [
-                              ButtonSegment(value: 0, label: Text('⚖️ الرص الفعلي (Mixed)'), tooltip: 'استخدام إعدادات الرص المحددة لكل طرد/بالتة'),
-                              ButtonSegment(value: 1, label: Text('📦 قابل للرص (Stackable)'), tooltip: 'محاكاة افتراض أن جميع الطرود قابلة للتراص الرأسي'),
-                              ButtonSegment(value: 2, label: Text('🚫 أرضي فقط (Floor Only)'), tooltip: 'محاكاة افتراض أن جميع الطرود غير قابلة للتراص'),
-                            ],
-                            selected: {
-                              activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
-                            },
-                            onSelectionChanged: (val) {
-                              setDialogState(() {
-                                final sel = val.first;
-                                if (sel == 0) activeStackingMode = null;
-                                if (sel == 1) activeStackingMode = true;
-                                if (sel == 2) activeStackingMode = false;
-                              });
-                            },
-                          ),
-                          const Spacer(),
-                          const Text('المسقط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-                          const SizedBox(width: 8),
-                          SegmentedButton<bool>(
-                            segments: const [
-                              ButtonSegment(value: true, label: Text('🔝 مسقط علوي (Top View)')),
-                              ButtonSegment(value: false, label: Text('🔲 مسقط جانبي (Side View)')),
-                            ],
-                            selected: {isTopView},
-                            onSelectionChanged: (val) {
-                              setDialogState(() => isTopView = val.first);
-                            },
-                          ),
-                        ],
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            const Text('نمط الرص بالمحاكاة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                            const SizedBox(width: 10),
+                            SegmentedButton<int>(
+                              segments: const [
+                                ButtonSegment(value: 0, label: Text('⚖️ الرص الفعلي (Mixed)'), tooltip: 'استخدام إعدادات الرص المحددة لكل طرد/بالتة'),
+                                ButtonSegment(value: 1, label: Text('📦 قابل للرص (Stackable)'), tooltip: 'محاكاة افتراض أن جميع الطرود قابلة للتراص الرأسي'),
+                                ButtonSegment(value: 2, label: Text('🚫 أرضي فقط (Floor Only)'), tooltip: 'محاكاة افتراض أن جميع الطرود غير قابلة للتراص'),
+                              ],
+                              selected: {
+                                activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
+                              },
+                              onSelectionChanged: (val) {
+                                setDialogState(() {
+                                  final sel = val.first;
+                                  if (sel == 0) activeStackingMode = null;
+                                  if (sel == 1) activeStackingMode = true;
+                                  if (sel == 2) activeStackingMode = false;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 20),
+                            const Text('المسقط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                            const SizedBox(width: 8),
+                            SegmentedButton<bool>(
+                              segments: const [
+                                ButtonSegment(value: true, label: Text('🔝 مسقط علوي (Top View)')),
+                                ButtonSegment(value: false, label: Text('🔲 مسقط جانبي (Side View)')),
+                              ],
+                              selected: {isTopView},
+                              onSelectionChanged: (val) {
+                                setDialogState(() => isTopView = val.first);
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                     const SizedBox(height: 10),

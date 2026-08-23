@@ -45,6 +45,8 @@ SUPPORTED_MODULES = {
     "master-data-entity",
     "supplier-entity",
     "importer-entity",
+    "partner-entity",
+    "bank-entity",
 }
 
 

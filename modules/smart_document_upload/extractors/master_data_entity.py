@@ -21,17 +21,24 @@ class MasterDataEntityExtractor(BaseExtractor):
         text = raw_text or ""
         entity_type = "importer" if "importer" in module_name.lower() else ("supplier" if "supplier" in module_name.lower() else "generic")
 
+        company_name = self._extract_company_name(text, entity_type=entity_type)
+        reg_type = self._clean_val(self._extract_registration_type(text))
+        tax_id = self._clean_val(self._extract_tax_id(text))
+
         result: Dict[str, Any] = {
-            "company_name": self._extract_company_name(text, entity_type=entity_type),
+            "company_name": company_name,
             "arabic_name": self._extract_arabic_name(text),
+            "registration_type": reg_type,
+            "supplier_registration_type": reg_type,
             "contact_person": self._clean_val(self._extract_contact_person(text)),
             "mobile_number": self._clean_val(self._extract_mobile(text)),
             "phone_number": self._clean_val(self._extract_phone(text)),
             "fax_number": self._clean_val(self._extract_fax(text)),
             "website": self._clean_val(self._extract_website(text)),
             "email": self._clean_val(self._extract_email(text)),
-            "vat_tax_id": self._clean_val(self._extract_tax_id(text)),
-            "address": self._clean_val(self._extract_address(text)),
+            "vat_tax_id": tax_id,
+            "foreign_exporter_id": tax_id,
+            "address": self._clean_val(self._extract_address(text, company_name=company_name)),
             "country_code": self._clean_val(self._extract_country(text)),
             "postcode": self._clean_val(self._extract_postcode(text)),
             "industry_description": self._clean_val(self._extract_industry(text)),
@@ -53,9 +60,49 @@ class MasterDataEntityExtractor(BaseExtractor):
             return None
         cleaned = re.sub(r"[\r\n]+", " ", str(val)).strip()
         cleaned = re.sub(r"\s+", " ", cleaned)
-        if not cleaned or cleaned.upper() in ["NONE", "NULL", "PNG", "JPG", "PDF", "UNKNOWN", "SUPPLIER"]:
+        invalid_tokens = {
+            "NONE", "NULL", "PNG", "JPG", "JPEG", "PDF", "UNKNOWN",
+            "SUPPLIER", "SHIPPER", "EXPORTER", "IMPORTER", "CONSIGNEE",
+            "VENDOR", "BUYER", "SELLER"
+        }
+        if not cleaned or cleaned.upper() in invalid_tokens:
             return None
         return cleaned
+
+    def _extract_registration_type(self, text: str) -> Optional[str]:
+        # 1. Explicit labeled match
+        m = self.find_first([
+            r"(?:Shipper\s+Registration\s+Type|Registration\s+Type|Reg\s+Type|نوع\s+التسجيل|نوع\s+السجل)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]+)",
+        ], text)
+        if m:
+            val = m.strip().upper()
+            if "VAT" in val:
+                return "VAT Number"
+            if "TAX" in val:
+                return "Tax Number"
+            if "COMMERCIAL" in val or "CR" in val or "سجل" in val:
+                return "Commercial Register"
+            if "COMPANY" in val:
+                return "Company Registration Number"
+            if "FACTORY" in val or "مصنع" in val:
+                return "Factory Registration"
+            if "DUNS" in val:
+                return "DUNS Number"
+            if "NAFEZA" in val or "EXPORTER NUMBER" in val:
+                return "Foreign Exporter Number (Nafeza)"
+            return m.strip()
+
+        # 2. Contextual heuristic
+        upper = text.upper()
+        if "VAT NUMBER" in upper or "VAT NO" in upper or "VAT REG" in upper or "VAT CODE" in upper or "P.IVA" in upper:
+            return "VAT Number"
+        if "TAX ID" in upper or "TAX NUMBER" in upper or "TAX NO" in upper:
+            return "Tax Number"
+        if "COMMERCIAL REGISTER" in upper or "C.R." in upper or "ENTERPRISE CODE" in upper:
+            return "Commercial Register"
+        if "DUNS" in upper:
+            return "DUNS Number"
+        return None
 
     def _extract_importer_expiry(self, text: str) -> Optional[str]:
         for line in text.splitlines():
@@ -64,7 +111,7 @@ class MasterDataEntityExtractor(BaseExtractor):
                 if m:
                     return m.group(1)
         return self.find_first([
-            r"(?:Importer\s+Card\s+Expiry|Import\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الاستيرادية)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+            r"(?:Importer\s+Card\s+Expiry|Import\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الاستيرادية)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
         ], text)
 
     def _extract_vat_expiry(self, text: str) -> Optional[str]:
@@ -74,7 +121,7 @@ class MasterDataEntityExtractor(BaseExtractor):
                 if m:
                     return m.group(1)
         return self.find_first([
-            r"(?:VAT\s+Expiry|VAT\s+Registration\s+Expiry|Tax\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الضريبية)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+            r"(?:VAT\s+Expiry|VAT\s+Registration\s+Expiry|Tax\s+Card\s+Expiry|انتهاء\s+البطاقة\s+الضريبية)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
         ], text)
 
     def _extract_registration_expiry(self, text: str) -> Optional[str]:
@@ -84,25 +131,25 @@ class MasterDataEntityExtractor(BaseExtractor):
                 if m:
                     return m.group(1)
         return self.find_first([
-            r"(?:CR\s+Expiry|Commercial\s+Reg\s+Expiry|انتهاء\s+السجل\s+التجاري)[:\s]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
+            r"(?:CR\s+Expiry|Commercial\s+Reg\s+Expiry|انتهاء\s+السجل\s+التجاري)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9]{4}[-/][0-9]{1,2}[-/][0-9]{1,2}|[0-9]{1,2}[-/][0-9]{1,2}[-/][0-9]{4})",
         ], text)
 
     def _extract_cargox_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:CargoX\s+ID|CargoX|Blockchain\s+ID|CargoX\s+Account)[:\s]*([A-Za-z0-9\-_]{5,42})",
+            r"(?:CargoX\s+ID|CargoX\s+Blockchain\s+ID|CargoX|Blockchain\s+ID|CargoX\s+Account|معرف\s+كارجو\s+إكس|كارجو\s+إكس)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_]{5,42})",
             r"\b(0x[a-fA-F0-9]{40})\b",
             r"\b(CX-[A-Za-z0-9]{6,16})\b",
         ], text)
 
     def _extract_importer_id(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Importer\s+Card|Import\s+Card|البطاقة\s+الاستيرادية|بطاقة\s+استيرادية|كود\s+المستورد)[:\s]*([0-9]{4,15})",
+            r"(?:Importer\s+Card|Import\s+Card|Egyptian\s+Importer\s+Tax\s+ID|Egyptian\s+Importer\s+ID|Importer\s+Tax\s+ID|Importer\s+ID|البطاقة\s+الاستيرادية|بطاقة\s+استيرادية|كود\s+المستورد|رقم\s+المستورد)[^\S\r\n]*[:=]?[^\S\r\n]*([0-9\-_]{4,15})",
             r"\b(IMP-[0-9]{4,10})\b",
         ], text)
 
     def _extract_broker_license(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Broker\s+License|License\s+No\.?|رخصة\s+التخليص|رقم\s+القيد)[:\s]*([A-Za-z0-9\-_/]{3,20})",
+            r"(?:Broker\s+License|License\s+No\.?|رخصة\s+التخليص|رقم\s+القيد|رقم\s+الرخصة)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]{3,20})",
         ], text)
 
     def _extract_arabic_name(self, text: str) -> Optional[str]:
@@ -121,42 +168,53 @@ class MasterDataEntityExtractor(BaseExtractor):
             "RAW TEXT", "POWERED", "AUTO-REGISTRATION ENGINE", ".PNG", ".PDF", ".JPG"
         ]
 
+        meta_prefix_keywords = [
+            "SHIPPER REGISTRATION", "REGISTRATION TYPE", "SHIPPER ID", "EXPORTER ID", "SUPPLIER ID",
+            "SHIPPER COUNTRY", "EXPORTER COUNTRY", "COUNTRY CODE", "COUNTRY:", "ORIGIN:",
+            "VAT NUMBER", "VAT NO", "VAT REG", "TAX ID", "TAX NUMBER", "TAX NO", "P.IVA", "C.F.",
+            "EGYPTIAN IMPORTER TAX ID", "EGYPTIAN IMPORTER ID", "IMPORTER TAX ID", "IMPORTER ID",
+            "PHONE", "TEL:", "TEL.", "MOB:", "MOBILE:", "FAX:", "E-MAIL", "EMAIL:", "URL:", "WEB:", "WEBSITE:",
+            "CARGOX", "SWIFT", "IBAN", "ACCOUNT NO", "BANK ACCOUNT", "CONTACT PERSON", "ATTN:", "ATTENTION:",
+            "IMPORTER CARD", "COMMERCIAL REGISTER", "CR NO", "ENTERPRISE CODE", "COMPANY CODE", "VAT CODE"
+        ]
+
         for l in lines:
             upper = l.upper()
             if not any(stop in upper for stop in system_stop_words):
-                valid_lines.append(l)
+                if not any(upper.startswith(kw) or f"{kw}:" in upper or f"{kw} :" in upper for kw in meta_prefix_keywords):
+                    valid_lines.append(l)
 
         if not valid_lines:
             return None
 
-        # 1. Entity-specific labeled detection
+        # 1. Entity-specific labeled detection (require : or = and exclude metadata keys)
         if entity_type == "importer":
             consignee_match = self.find_first([
-                r"(?:Consignee|Importer|Buyer|Billed\s+to|Sold\s+to|Messrs|Client|اسم\s+المستورد|الشركة\s+المستوردة)[:\s]+([^\n]{3,80})",
+                r"(?:Consignee\s+Name|Consignee|Importer\s+Name|Importer|Buyer|Billed\s+to|Sold\s+to|Messrs|Client|اسم\s+المستورد|الشركة\s+المستوردة)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:REGISTRATION|ID|COUNTRY|CODE|ADDRESS|PHONE|TEL|CARD|TAX)\b)([^\r\n]{3,80})",
             ], text)
-            if consignee_match:
+            if consignee_match and not any(stop in consignee_match.upper() for stop in system_stop_words):
                 return self._clean_val(consignee_match)
 
         elif entity_type == "supplier":
             shipper_match = self.find_first([
-                r"(?:Shipper|Supplier|Exporter|Seller|Manufacturer|Vendor|المورد|الشاحن)[:\s]+([^\n]{3,80})",
+                r"(?:Shipper\s+Name|Shipper|Supplier\s+Name|Supplier|Exporter\s+Name|Exporter|Seller|Manufacturer|Vendor|المورد|الشاحن)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:REGISTRATION|ID|COUNTRY|CODE|ADDRESS|PHONE|TEL|TAX|VAT)\b)([^\r\n]{3,80})",
             ], text)
-            if shipper_match:
+            if shipper_match and not any(stop in shipper_match.upper() for stop in system_stop_words):
                 return self._clean_val(shipper_match)
 
         # 2. General labeled company detection
         labeled = self.find_first([
-            r"(?:Company\s+Name|Company|Consignee|Shipper|Supplier|Exporter|Name)[:\s]+([A-Za-z0-9\s&,.'-]{3,60}?)(?:\n|,|\|)",
+            r"(?:Company\s+Name|Company|Consignee\s+Name|Shipper\s+Name|Supplier\s+Name|Exporter\s+Name|اسم\s+الشركة)[^\S\r\n]*[:=][^\S\r\n]*(?!(?:CODE|REGISTRATION|ID|COUNTRY|ADDRESS|PHONE|TEL|TAX|VAT)\b)([A-Za-z0-9\s&,.'\-\u0600-\u06FF]{3,60})",
         ], text)
         if labeled and not any(stop in labeled.upper() for stop in system_stop_words):
             return self._clean_val(labeled)
 
         # 3. Look for explicit company lines with legal suffixes
-        suffixes = ["LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT", "S.A.E"]
+        suffixes = ["LIMITED", "LTD", "INC", "CORP", "CO.,LTD", "CO., LTD", "CO.,", "S.P.A", "GMBH", "LLC", "PLC", "HOLDING", "SHAWCONTRACT", "S.A.E", "UAB", "B.V.", "S.R.O", "OÜ", "S.L."]
         for idx, line in enumerate(valid_lines):
             upper = line.upper()
             if any(kw in upper for kw in suffixes):
-                if not any(stop in upper for stop in ["ADDRESS:", "VAT NUMBER", "PHONE", "TEL:", "FACTORY ADDRESS", "URL:"]):
+                if not any(stop in upper for stop in ["ADDRESS:", "VAT NUMBER", "PHONE", "TEL:", "FACTORY ADDRESS", "URL:", "BUILDING", "STREET", "ROAD"]):
                     # If line is just suffix alone (e.g. "Ltd."), merge with preceding lines
                     if len(line.strip("., ")) < 5 and idx > 0:
                         prev = valid_lines[idx - 1]
@@ -172,20 +230,20 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_contact_person(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Contact\s+Person|Contact|Owner|Factory\s+owner|Manager|Attn|Attention|المسؤول|المدير)[:\s]*([A-Za-z0-9\s.\u0600-\u06FF]{3,40})",
+            r"(?:Contact\s+Person|Contact|Owner|Factory\s+owner|Manager|Attn|Attention|المسؤول|المدير|مسؤول\s+التواصل)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\s.\u0600-\u06FF]{3,40})",
             r"\b(Factory\s+owner)\b",
         ], text)
 
     def _extract_mobile(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:M|Mob|Mobile|Cell|محمول|موبايل)[:\s]*(\+?[0-9\s\-]{8,20})",
+            r"(?:M|Mob|Mobile|Cell|محمول|موبايل|واتساب|WhatsApp)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-]{8,20})",
             r"(0086\s*1[3-9]\d{9}|\+86\s*1[3-9]\d{9})",
             r"(\+20\s*1[0-5]\d{8})",
         ], text)
 
     def _extract_phone(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
+            r"(?:Phone|Tel\.?|Telephone|الهاتف|هاتف|تليفون)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
             r"(\+44\s*1\d{3}\s*\d{5,6})",
             r"(\+39\s*0\d{2,4}\s*\d{5,8})",
             r"(\+86\s*\d{2,4}\s*\d{7,8})",
@@ -194,12 +252,12 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_fax(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Fax|فاكس)[:\s]*(\+?[0-9\s\-\(\)]{8,20})",
+            r"(?:Fax|فاكس)[^\S\r\n]*[:=]?[^\S\r\n]*(\+?[0-9\s\-\(\)]{8,20})",
         ], text)
 
     def _extract_website(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:W|Web|Website|الموقع)[:\s]*(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
+            r"(?:W|Web|Website|URL|الموقع|موقع)[^\S\r\n]*[:=]?[^\S\r\n]*(https?://[^\s]+|www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})",
             r"\b(www\.[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})\b",
         ], text)
 
@@ -208,57 +266,152 @@ class MasterDataEntityExtractor(BaseExtractor):
         return m.group(1) if m else None
 
     def _extract_tax_id(self, text: str) -> Optional[str]:
-        return self.find_first([
-            r"(?:VAT\s+Registration|VAT\s+Number|VAT\s+No\.?|VAT\s+ID|P\.IVA|Tax\s+ID|C\.F\.|Registration\s+No\.?|البطاقة\s+الضريبية|بطاقة\s+ضريبية|التسجيل\s+الضريبي|الرقم\s+الضريبي)[:\s]*([A-Za-z0-9\-]+)",
-            r"VAT\s+Number\s+([0-9]+)",
-            r"P\.IVA\s+([A-Za-z0-9]+)",
+        val = self.find_first([
+            # 1. Explicit Shipper / Exporter / Supplier / Importer Tax ID
+            r"(?:Shipper\s+ID|Supplier\s+ID|Foreign\s+Exporter\s+ID|Exporter\s+ID|Egyptian\s+Importer\s+Tax\s+ID|Importer\s+Tax\s+ID|Importer\s+ID|Vendor\s+ID|كود\s+المورد|رقم\s+المورد|رقم\s+المصدر|رقم\s+التسجيل\s+الأجنبي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]+)",
+            # 2. Explicit VAT / Tax / Registration Labels
+            r"(?:VAT\s+Registration\s+No\.?|VAT\s+Registration\s+Number|VAT\s+Registration|VAT\s+Number|VAT\s+No\.?|VAT\s+ID|VAT\s+Code|P\.IVA|Tax\s+ID|Tax\s+No\.?|Tax\s+Number|C\.F\.|Registration\s+No\.?|البطاقة\s+الضريبية|بطاقة\s+ضريبية|التسجيل\s+الضريبي|الرقم\s+الضريبي|رقم\s+القيمة\s+المضافة)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\-_/]+)",
+            # 3. Formats with space but no colon (e.g. VAT Number 428102677)
+            r"\bVAT\s+Number[^\S\r\n]+([A-Za-z0-9\-_/]+)",
+            r"\bP\.IVA[^\S\r\n]+([A-Za-z0-9]+)",
+            r"\bVAT\s+Code[^\S\r\n]+([A-Za-z0-9]+)",
+            # 4. Known International VAT / Tax number patterns
+            r"\b(GB\d{9,12})\b",           # UK VAT (e.g. GB428102677)
+            r"\b(IT\d{11})\b",              # Italian P.IVA (e.g. IT12345678901)
+            r"\b(LT\d{9,12})\b",           # Lithuanian VAT (e.g. LT100002821114)
+            r"\b(DE\d{9})\b",               # German USt-IdNr
+            r"\b(FR\d{11})\b",              # French TVA
+            r"\b(91\d{16}[A-Z0-9])\b",     # China Unified Social Credit Code (18 chars)
+            r"\b(\d{3}-\d{3}-\d{3})\b",     # Egyptian 9-digit Tax ID with dashes (e.g. 759-552-827)
+            r"\b(\d{9})\b",                 # Egyptian 9-digit Tax ID
         ], text)
+        return val
 
-    def _extract_address(self, text: str) -> Optional[str]:
+    def _extract_address(self, text: str, company_name: Optional[str] = None) -> Optional[str]:
+        # 1. Check explicit labeled address
         labeled = self.find_first([
-            r"(?:Factory\s+Address|Address|Location|العنوان|المقر)[:\s]*([^\n]{10,120})",
+            r"(?:Factory\s+Address|Company\s+Address|Plant\s+Address|Address|Location|العنوان|المقر|عنوان\s+المصنع|عنوان\s+الشركة)[^\S\r\n]*[:=]?[^\S\r\n]*([^\r\n]{5,150})",
         ], text)
         if labeled:
             return labeled.strip()
 
+        # 2. Unlabeled multi-line address recognition
         lines = [line.strip() for line in text.splitlines() if line.strip()]
+        if not lines:
+            return None
+
+        # Metadata patterns / prefixes to ignore and stop
+        meta_prefix_keywords = [
+            "SHIPPER REGISTRATION", "REGISTRATION TYPE", "SHIPPER ID", "EXPORTER ID", "SUPPLIER ID",
+            "SHIPPER COUNTRY", "EXPORTER COUNTRY", "COUNTRY CODE", "COUNTRY:", "ORIGIN:",
+            "VAT NUMBER", "VAT NO", "VAT REG", "TAX ID", "TAX NUMBER", "TAX NO", "P.IVA", "C.F.",
+            "EGYPTIAN IMPORTER TAX ID", "EGYPTIAN IMPORTER ID", "IMPORTER TAX ID", "IMPORTER ID",
+            "PHONE", "TEL:", "TEL.", "MOB:", "MOBILE:", "FAX:", "E-MAIL", "EMAIL:", "URL:", "WEB:", "WEBSITE:",
+            "CARGOX", "SWIFT", "IBAN", "ACCOUNT NO", "BANK ACCOUNT", "CONTACT PERSON", "ATTN:", "ATTENTION:",
+            "IMPORTER CARD", "COMMERCIAL REGISTER", "CR NO", "ENTERPRISE CODE", "POSTCODE:", "ZIP CODE:"
+        ]
+
+        address_tokens = [
+            "ROAD", "RD", "STREET", "ST.", "ST ", "AVENUE", "AVE", "BLVD", "BOULEVARD", "LANE", "LN", "WAY",
+            "DRIVE", "DR.", "PARK", "INDUSTRIAL", "ZONE", "BUILDING", "BLDG", "SUITE", "FLOOR", "UNIT",
+            "TOWN", "CITY", "PROVINCE", "COUNTY", "DISTRICT", "NO.", "N0.", "POSTCODE", "P.O.", "PO BOX",
+            "VIA ", "STRASSE", "RUE ", "CALLE ", "SANQUHAR", "CHANGSHU", "SUZHOU", "CAIRO", "ALEXANDRIA",
+            "MAADI", "SARAYAT", "ZAMALEK", "NASR CITY", "HELIOPOLIS", "GIZA", "6TH OF OCTOBER", "NEW CAIRO",
+            "TAGAMOA", "DOKKI", "MOHANDESSIN", "PORT SAID", "SUEZ", "DAMMETTA", "10TH OF RAMADAN",
+            "UNITED KINGDOM", "CHINA", "ITALY", "GERMANY", "LITHUANIA", "EGYPT",
+            "شارع", "طريق", "منطقة", "مدينة", "محافظة", "مبنى", "عمارة", "برج", "حي", "ميدان", "مجمع",
+            "المعادي", "سرايات المعادي", "مدينة نصر", "مصر الجديدة", "التجمع", "القاهرة", "الجيزة", "مصر"
+        ]
+
         addr_lines = []
         for line in lines:
             upper = line.upper()
-            if any(kw in upper for kw in ["ROAD", "STREET", "TOWN", "CITY", "PROVINCE", "KINGDOM", "ITALY", "CHINA", "GERMANY", "DISTRICT", "NO.16", "BLACKADDIE", "VIA G.", "شارع", "القاهرة", "الإسكندرية"]):
-                if not any(stop in upper for stop in ["PHONE", "VAT NUMBER", "OWNER", "WEBSITE", "FAX", "البطاقة"]):
-                    addr_lines.append(line)
+
+            # Skip company name line
+            if company_name and upper == company_name.upper():
+                continue
+
+            # Skip metadata lines
+            if any(upper.startswith(kw) or f"{kw}:" in upper or f"{kw} :" in upper for kw in meta_prefix_keywords):
+                continue
+            if any(kw in upper for kw in ["PHONE", "E-MAIL", "EMAIL", "WEBSITE", "FAX", "VAT REGISTRATION", "SHIPPER ID:", "EXPORTER ID:", "TAX ID:", "IMPORTER TAX ID"]):
+                continue
+
+            # Check if line looks like address
+            has_addr_token = any(token in upper for token in address_tokens)
+            has_postcode = bool(re.search(r"\b([A-Z]{1,2}\d[A-Z0-9]?\s*\d[A-Z]{2}|\d{5,6})\b", line))
+
+            if has_addr_token or has_postcode or (len(addr_lines) > 0 and len(line) < 60 and not line.endswith(":")):
+                addr_lines.append(line)
+
         return ", ".join(addr_lines) if addr_lines else None
 
     def _extract_country(self, text: str) -> Optional[str]:
-        found = self.find_first([
-            r"\b(China|United\s+Kingdom|UK|Italy|Lithuania|Germany|Egypt|USA|Spain|France|Jiangsu|United Kingdom|مصر)\b",
+        # 1. Check explicit labeled country code
+        code_match = self.find_first([
+            r"(?:Country\s+Code|Shipper\s+Country\s+Code|Exporter\s+Country\s+Code|Origin\s+Country\s+Code|كود\s+الدولة|رمز\s+الدولة)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z]{2})\b",
         ], text)
+        if code_match:
+            return code_match.upper()
+
+        # 2. Check explicit labeled country name (single line only)
+        country_match = self.find_first([
+            r"(?:Shipper\s+Country|Exporter\s+Country|Origin\s+Country|دولة\s+المصدر|بلد\s+المنشأ)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z\u0600-\u06FF ]{2,40})",
+            r"(?:Country|الدولة|المنشأ)[^\S\r\n]*[:=][^\S\r\n]*([A-Za-z\u0600-\u06FF ]{2,40})",
+        ], text)
+
+        found = country_match or self.find_first([
+            r"\b(China|United\s+Kingdom|Great\s+Britain|UK|England|Scotland|Italy|Italia|Lithuania|Germany|Deutschland|Egypt|USA|United\s+States|America|Spain|España|France|India|Japan|Korea|South\s+Korea|UAE|United\s+Arab\s+Emirates|Saudi\s+Arabia|Brazil|Russia|Vietnam|Netherlands|Holland|Switzerland|Belgium|Canada|Australia|Poland|Taiwan|Hong\s+Kong|Sweden|Portugal|Austria|Greece|Jordan|Jiangsu|Zhejiang|Guangdong|Shanghai|Beijing|مصر|السعودية|الإمارات|الصين|إيطاليا|ألمانيا|بريطانيا|إسبانيا|فرنسا|الهند|تركيا|Turkey|Turkiye)\b",
+        ], text)
+
         if not found:
             return None
+
         c = found.strip().upper()
-        if c in ["CHINA", "JIANGSU", "CN"]:
-            return "CN"
-        if c in ["UNITED KINGDOM", "UK", "GREAT BRITAIN"]:
-            return "GB"
-        if c in ["ITALY", "IT"]:
-            return "IT"
-        if c in ["LITHUANIA", "LT"]:
-            return "LT"
-        if c in ["EGYPT", "EG", "مصر"]:
-            return "EG"
-        if c in ["GERMANY", "DE"]:
-            return "DE"
-        if c in ["USA", "US"]:
-            return "US"
-        return c
+        # Clean up any trailing labels if present
+        c = re.split(r"[\r\n]|البطاقة|السجل|الضريبية|TEL|PHONE|VAT", c)[0].strip()
+
+        mapping = {
+            "CHINA": "CN", "JIANGSU": "CN", "ZHEJIANG": "CN", "GUANGDONG": "CN", "SHANGHAI": "CN", "BEIJING": "CN", "الصين": "CN", "CN": "CN",
+            "UNITED KINGDOM": "GB", "GREAT BRITAIN": "GB", "UK": "GB", "ENGLAND": "GB", "SCOTLAND": "GB", "بريطانيا": "GB", "المملكة المتحدة": "GB", "GB": "GB",
+            "ITALY": "IT", "ITALIA": "IT", "إيطاليا": "IT", "IT": "IT",
+            "LITHUANIA": "LT", "LT": "LT",
+            "EGYPT": "EG", "مصر": "EG", "جمهورية مصر العربية": "EG", "EG": "EG",
+            "GERMANY": "DE", "DEUTSCHLAND": "DE", "ألمانيا": "DE", "DE": "DE",
+            "USA": "US", "UNITED STATES": "US", "AMERICA": "US", "الولايات المتحدة": "US", "US": "US",
+            "TURKEY": "TR", "TURKIYE": "TR", "TÜRKIYE": "TR", "تركيا": "TR", "TR": "TR",
+            "SPAIN": "ES", "ESPAÑA": "ES", "إسبانيا": "ES", "ES": "ES",
+            "FRANCE": "FR", "فرنسا": "FR", "FR": "FR",
+            "INDIA": "IN", "الهند": "IN", "IN": "IN",
+            "JAPAN": "JP", "اليابان": "JP", "JP": "JP",
+            "SOUTH KOREA": "KR", "KOREA": "KR", "كوريا": "KR", "KR": "KR",
+            "UAE": "AE", "UNITED ARAB EMIRATES": "AE", "الإمارات": "AE", "AE": "AE",
+            "SAUDI ARABIA": "SA", "KSA": "SA", "السعودية": "SA", "المملكة العربية السعودية": "SA", "SA": "SA",
+            "BRAZIL": "BR", "البرازيل": "BR", "BR": "BR",
+            "RUSSIA": "RU", "روسيا": "RU", "RU": "RU",
+            "VIETNAM": "VN", "فيتنام": "VN", "VN": "VN",
+            "NETHERLANDS": "NL", "HOLLAND": "NL", "هولندا": "NL", "NL": "NL",
+            "SWITZERLAND": "CH", "سويسرا": "CH", "CH": "CH",
+            "BELGIUM": "BE", "بلجيكا": "BE", "BE": "BE",
+            "CANADA": "CA", "كندا": "CA", "CA": "CA",
+            "AUSTRALIA": "AU", "أستراليا": "AU", "AU": "AU",
+            "POLAND": "PL", "بولندا": "PL", "PL": "PL",
+            "TAIWAN": "TW", "تايوان": "TW", "TW": "TW",
+            "HONG KONG": "HK", "هونج كونج": "HK", "HK": "HK",
+            "SWEDEN": "SE", "السويد": "SE", "SE": "SE",
+            "PORTUGAL": "PT", "البرتغال": "PT", "PT": "PT",
+            "AUSTRIA": "AT", "النمسا": "AT", "AT": "AT",
+            "GREECE": "GR", "اليونان": "GR", "GR": "GR",
+            "JORDAN": "JO", "الأردن": "JO", "JO": "JO",
+        }
+        return mapping.get(c, c[:2] if len(c) == 2 else c)
 
     def _extract_postcode(self, text: str) -> Optional[str]:
         found = self.find_first([
-            r"(?:Postcode|Zip|Postal\s+Code)[:\s]*([A-Za-z0-9\s]{4,10})",
-            r"\b(\d{6})\b",
+            r"(?:Postcode|Zip|Postal\s+Code|الرمز\s+البريدي)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9\s\-]{4,10})",
             r"\b([A-Z]{1,2}\d[A-Z0-9]?\s*\d[A-Z]{2})\b",
-            r"\b(\d{5})\b",
+            r"\b(LT-\d{5})\b",
+            r"\b(\d{5,6})\b",
         ], text)
         if found:
             found = found.split("\n")[0].strip()
@@ -275,14 +428,15 @@ class MasterDataEntityExtractor(BaseExtractor):
 
     def _extract_commercial_register(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Sijil|Enterprise\s+code|السجل\s+التجاري|سجل\s+تجاري)[:\s]*([A-Za-z0-9]+)",
+            r"(?:Commercial\s+Register|C\.R\.|CR\s+No\.?|Company\s+Code|Enterprise\s+code|السجل\s+التجاري|سجل\s+تجاري|رقم\s+السجل)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Za-z0-9]+)",
             r"Enterprise\s+code\s+([0-9]+)",
+            r"Company\s+code\s*[:\s]*([0-9]+)",
             r"C\.R\.\s*([0-9]+)",
         ], text)
 
     def _extract_swift(self, text: str) -> Optional[str]:
         explicit = self.find_first([
-            r"(?:SWIFT|Swift\s+Code|BIC|SWIFT/BIC)[:\s]*([A-Z0-9]{8,11})",
+            r"(?:SWIFT\s+Code|SWIFT/BIC|SWIFT|BIC|كود\s+السويفت|سويفت)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Z0-9]{8,11})",
         ], text)
         if explicit:
             return explicit.strip()
@@ -291,12 +445,13 @@ class MasterDataEntityExtractor(BaseExtractor):
         m = re.search(r"\b([A-Z]{4}(?:EG|US|CN|GB|DE|IT|FR|TR|SA|AE|ES|JP|KR|BR|RU|VN|CH|NL|BE|CA|AU|SG|HK)[A-Z0-9]{2}(?:[A-Z0-9]{3})?)\b", text)
         if m:
             val = m.group(1).strip()
-            if val.upper() not in ["SUPPLIER", "CONTAINER", "REGISTER", "IMPORTFLOW"]:
+            if val.upper() not in ["SUPPLIER", "CONTAINER", "REGISTER", "IMPORTFLOW", "SHIPPER"]:
                 return val
         return None
 
     def _extract_iban(self, text: str) -> Optional[str]:
         return self.find_first([
-            r"(?:IBAN|Account\s+No\.?|Account|الآيبان|الحساب)[:\s]*([A-Z0-9\s]{10,34})",
+            r"(?:IBAN|Account\s+No\.?|Account\s+Number|Account|الآيبان|الحساب|رقم\s+الحساب)[^\S\r\n]*[:=]?[^\S\r\n]*([A-Z0-9\s]{10,34})",
             r"\b(EG\d{27})\b",
         ], text)
+

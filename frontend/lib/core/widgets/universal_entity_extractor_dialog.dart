@@ -144,6 +144,19 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     super.dispose();
   }
 
+  String _getModuleForTarget(EntityTarget t) {
+    switch (t) {
+      case EntityTarget.supplier:
+        return 'supplier-entity';
+      case EntityTarget.company:
+        return 'importer-entity';
+      case EntityTarget.partner:
+        return 'partner-entity';
+      case EntityTarget.bank:
+        return 'bank-entity';
+    }
+  }
+
   Future<void> _extractFromRawText() async {
     final text = _rawTextCtrl.text.trim();
     if (text.isEmpty) return;
@@ -172,8 +185,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
     try {
       final dio = Dio();
       final formData = FormData.fromMap({'raw_text': text});
+      final moduleName = _getModuleForTarget(_selectedTarget);
       final resp = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/parse-text/master-data-entity',
+        '${ApiConstants.baseUrl}/smart-upload/parse-text/$moduleName',
         data: formData,
       );
 
@@ -265,8 +279,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
       final multipartFile = MultipartFile.fromBytes(file.bytes!, filename: file.name);
 
       final formData = FormData.fromMap({'file': multipartFile});
+      final moduleName = _getModuleForTarget(_selectedTarget);
       final resp = await dio.post(
-        '${ApiConstants.baseUrl}/smart-upload/parse/master-data-entity',
+        '${ApiConstants.baseUrl}/smart-upload/parse/$moduleName',
         data: formData,
         onSendProgress: (sent, total) {
           if (total > 0) {
@@ -333,13 +348,40 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         }
       }
 
-      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
-      if (ext['vat_tax_id'] != null) {
-        _foreignTaxIdCtrl.text = ext['vat_tax_id'].toString();
-        _taxIdCtrl.text = ext['vat_tax_id'].toString();
+      if (ext['registration_type'] != null || ext['supplier_registration_type'] != null) {
+        final reg = (ext['registration_type'] ?? ext['supplier_registration_type']).toString().trim();
+        const validOptions = [
+          'Company Registration Number',
+          'Commercial Register',
+          'Foreign Exporter Number (Nafeza)',
+          'Factory Registration',
+          'VAT Number',
+          'Tax Number',
+          'DUNS Number',
+        ];
+        for (final opt in validOptions) {
+          if (opt.toLowerCase().replaceAll(' ', '') == reg.toLowerCase().replaceAll(' ', '') ||
+              opt.toLowerCase().contains(reg.toLowerCase()) ||
+              reg.toLowerCase().contains(opt.toLowerCase())) {
+            _supplierRegType = opt;
+            break;
+          }
+        }
       }
-      if (ext['commercial_register'] != null) _commercialRegisterCtrl.text = ext['commercial_register'].toString();
-      if (ext['importer_id'] != null) _importerCardCtrl.text = ext['importer_id'].toString();
+
+      if (ext['cargox_id'] != null) _cargoxIdCtrl.text = ext['cargox_id'].toString();
+      if (ext['vat_tax_id'] != null || ext['foreign_exporter_id'] != null) {
+        final taxVal = ext['vat_tax_id']?.toString() ?? ext['foreign_exporter_id']?.toString() ?? '';
+        _foreignTaxIdCtrl.text = taxVal;
+        final cleanTax = taxVal.replaceAll('-', '').replaceAll(' ', '');
+        _taxIdCtrl.text = cleanTax;
+        if (_importerCardCtrl.text.isEmpty) {
+          _importerCardCtrl.text = cleanTax;
+        }
+      }
+      if (ext['importer_id'] != null) {
+        _importerCardCtrl.text = ext['importer_id'].toString().replaceAll('-', '').replaceAll(' ', '');
+      }
       if (ext['license_number'] != null) _brokerLicenseCtrl.text = ext['license_number'].toString();
       if (ext['swift_code'] != null) _swiftCodeCtrl.text = ext['swift_code'].toString();
       if (ext['bank_account'] != null || ext['iban'] != null) {

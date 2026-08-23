@@ -66,7 +66,31 @@ class ImportFilePoLinker {
         invoices.add(po.poNumber);
       }
 
-      if (po.packingListItems.isNotEmpty) {
+      final double palletCbm = po.palletPlanItems.isNotEmpty
+          ? po.palletPlanItems.fold<double>(
+              0.0,
+              (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount),
+            )
+          : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+              ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+              : 0.0);
+
+      final double palletGross = po.palletPlanItems.isNotEmpty
+          ? po.palletPlanItems.fold<double>(
+              0.0,
+              (sum, p) => sum + (p.grossWeightPerPalletKg * p.palletCount),
+            )
+          : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+
+      final int palletCount = po.palletPlanItems.isNotEmpty
+          ? po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)
+          : po.palletCount;
+
+      if (palletCbm > 0) {
+        totalCbm += palletCbm;
+        totalWeight += palletGross > 0 ? palletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+        plCount += palletCount > 0 ? palletCount : (po.packingListItems.isNotEmpty ? po.packingListItems.length : 1);
+      } else if (po.packingListItems.isNotEmpty) {
         plCount += po.packingListItems.length;
         for (final pl in po.packingListItems) {
           totalCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
@@ -82,6 +106,10 @@ class ImportFilePoLinker {
         }
         totalCbm += (poLineCbm > 0 ? poLineCbm : po.totalCbm);
         totalWeight += (poLineWt > 0 ? poLineWt : po.totalGrossWeightKg);
+      } else if (po.totalCbm > 0) {
+        totalCbm += po.totalCbm;
+        totalWeight += po.totalGrossWeightKg;
+        plCount += po.totalPackagesCount > 0 ? po.totalPackagesCount : 1;
       } else {
         totalCbm += po.totalCbm;
         totalWeight += po.totalGrossWeightKg;
@@ -110,7 +138,51 @@ class ImportFilePoLinker {
     int itemCounter = 1;
 
     for (final po in pos) {
-      if (po.packingListItems.isNotEmpty) {
+      if (po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0)) {
+        final totalPallets = po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount);
+        final defaultPalletWeight = totalPallets > 0 && po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / totalPallets) : 137.5;
+
+        for (final plLine in po.palletPlanItems) {
+          final pL = plLine.lengthCm > 0 ? plLine.lengthCm : 120.0;
+          final pW = plLine.widthCm > 0 ? plLine.widthCm : 80.0;
+          final pH = plLine.heightCm > 0 ? plLine.heightCm : 150.0;
+          final pWt = plLine.grossWeightPerPalletKg > 0 ? plLine.grossWeightPerPalletKg : defaultPalletWeight;
+
+          for (int q = 0; q < plLine.palletCount; q++) {
+            baseCargoItems.add(CargoItem(
+              itemId: 'PLT-$itemCounter',
+              length: pL,
+              width: pW,
+              height: pH,
+              weight: pWt,
+              rotate: true,
+              isStackable: plLine.isStackable,
+              packageType: plLine.palletType,
+              description: 'بالتة #$itemCounter (${plLine.palletType})${plLine.isStackable ? "" : " [Floor Only]"}',
+            ));
+            itemCounter++;
+          }
+        }
+      } else if (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0) {
+        final pL = po.palletLengthCm;
+        final pW = po.palletWidthCm;
+        final pH = po.palletHeightCm;
+        final pWt = po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / po.palletCount) : 137.5;
+        for (int q = 0; q < po.palletCount; q++) {
+          baseCargoItems.add(CargoItem(
+            itemId: 'PLT-$itemCounter',
+            length: pL,
+            width: pW,
+            height: pH,
+            weight: pWt,
+            rotate: true,
+            isStackable: po.isPalletStackable,
+            packageType: po.palletType,
+            description: 'بالتة #$itemCounter (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
+          ));
+          itemCounter++;
+        }
+      } else if (po.packingListItems.isNotEmpty) {
         for (final pl in po.packingListItems) {
           for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
             double lCm = pl.lengthCm;

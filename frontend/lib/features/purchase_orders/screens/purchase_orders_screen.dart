@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/container_load_plan_painter.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -572,15 +574,43 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                       SingleChildScrollView(
                         padding: const EdgeInsets.all(12),
                         child: Builder(builder: (context) {
-                            final double effectivePackingListCbm = po.packingListItems.isNotEmpty
-                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm))
-                                : po.totalCbm;
-                            final double effectivePackingListGrossWeight = po.packingListItems.isNotEmpty
-                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.grossWeightUnitKg * pl.qtyPkg) : pl.totalGrossWeightKg))
-                                : po.totalGrossWeightKg;
-                            final double effectivePackingListNetWeight = po.packingListItems.isNotEmpty
-                                ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.netWeightUnitKg * pl.qtyPkg) : pl.totalNetWeightKg))
-                                : po.totalNetWeightKg;
+                            final double palletPlanCbm = po.palletPlanItems.isNotEmpty
+                                ? po.palletPlanItems.fold<double>(
+                                    0.0,
+                                    (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount),
+                                  )
+                                : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                    ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                    : (po.palletCount > 0 && po.totalCbm > 0 ? po.totalCbm : 0.0));
+                            final double palletPlanGrossWeight = po.palletPlanItems.isNotEmpty
+                                ? po.palletPlanItems.fold<double>(
+                                    0.0,
+                                    (sum, p) => sum + (p.grossWeightPerPalletKg * p.palletCount),
+                                  )
+                                : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                            final int totalPalletCount = po.palletPlanItems.isNotEmpty
+                                ? po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)
+                                : po.palletCount;
+
+                            final double effectivePackingListCbm = palletPlanCbm > 0
+                                ? palletPlanCbm
+                                : (po.totalCbm > 0
+                                    ? po.totalCbm
+                                    : (po.packingListItems.isNotEmpty
+                                        ? po.packingListItems.fold(0.0, (sum, pl) => sum + (pl.calculatedCbm > 0 ? pl.calculatedCbm : pl.totalCbm))
+                                        : 0.0));
+                            final double effectivePackingListGrossWeight = palletPlanGrossWeight > 0
+                                ? palletPlanGrossWeight
+                                : (po.totalGrossWeightKg > 0
+                                    ? po.totalGrossWeightKg
+                                    : (po.packingListItems.isNotEmpty
+                                        ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.grossWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.grossWeightUnitKg * pl.qtyPkg) : pl.totalGrossWeightKg))
+                                        : 0.0));
+                            final double effectivePackingListNetWeight = po.totalNetWeightKg > 0
+                                ? po.totalNetWeightKg
+                                : (po.packingListItems.isNotEmpty
+                                    ? po.packingListItems.fold(0.0, (sum, pl) => sum + ((pl.netWeightUnitKg > 0 && pl.qtyPkg > 0) ? (pl.netWeightUnitKg * pl.qtyPkg) : pl.totalNetWeightKg))
+                                    : 0.0);
 
                             return Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -597,8 +627,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     _buildDetailItem('Currency & Rate', '${po.currencyCode ?? "USD"} (Exchange: ${po.exchangeRate})'),
                                     _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
                                     _buildDetailItem('Total PI/PO Amount', '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
-                                    _buildDetailItem('Total Volume (Packing List)', '${effectivePackingListCbm.toStringAsFixed(3)} CBM'),
-                                    _buildDetailItem('Gross / Net Weight (Packing List)', '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg'),
+                                    _buildDetailItem(
+                                      (palletPlanCbm > 0 || totalPalletCount > 0) ? 'Total Cargo Volume (مخطط البالتات)' : 'Total Volume (Packing List)',
+                                      '${effectivePackingListCbm.toStringAsFixed(3)} CBM ${totalPalletCount > 0 ? "($totalPalletCount بالتة)" : ""}',
+                                    ),
+                                    _buildDetailItem(
+                                      (palletPlanGrossWeight > 0 || totalPalletCount > 0) ? 'Gross Wt (البالتات) / Net Wt' : 'Gross / Net Weight (Packing List)',
+                                      '${effectivePackingListGrossWeight.toStringAsFixed(1)} kg / ${effectivePackingListNetWeight.toStringAsFixed(1)} kg',
+                                    ),
                                   ],
                                 ),
                                 const SizedBox(height: 16),
@@ -841,6 +877,112 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                 ),
                               ),
 
+                            if (po.palletPlanItems.isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                margin: const EdgeInsets.only(bottom: 14),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF8FAFC),
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: const Color(0xFFCBD5E1), width: 1.2),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.pallet, color: AppTheme.cobalt, size: 20),
+                                        const SizedBox(width: 8),
+                                        const Text(
+                                          'لوحة مخطط وحدات الشحن والبالتات (Master Palletization Plan)',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        ),
+                                        const Spacer(),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.cobalt.withOpacity(0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                                          ),
+                                          child: Text(
+                                            '🔢 إجمالي البالتات: ${po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة',
+                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                          decoration: BoxDecoration(
+                                            color: Colors.orange.withOpacity(0.12),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(color: Colors.orange.withOpacity(0.4)),
+                                          ),
+                                          child: Text(
+                                            '📐 حجم البالتات: ${po.palletPlanItems.fold<double>(0.0, (sum, p) => sum + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount)).toStringAsFixed(3)} m³',
+                                            style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange.shade900),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.orange.shade700,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          ),
+                                          icon: const Icon(Icons.view_in_ar_rounded, size: 15),
+                                          label: Text(
+                                            'محاكاة ورص الحاويات 3D (${po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount)} بالتة)',
+                                            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold),
+                                          ),
+                                          onPressed: () => _showVisualLoadPlannerDialog(context, po),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Table(
+                                      border: TableBorder.all(color: Colors.grey.shade300),
+                                      children: [
+                                        const TableRow(
+                                          decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                          children: [
+                                            Padding(padding: EdgeInsets.all(6), child: Text('نوع ومقاس البالتة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('عدد البالتات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (L × W × H)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('وزن البالتة (Gross)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('حجم السطر CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: EdgeInsets.all(6), child: Text('تعليمات الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                          ],
+                                        ),
+                                        ...po.palletPlanItems.map((pal) {
+                                          final palCbm = pal.calculatedCbm > 0 ? pal.calculatedCbm : (pal.lengthCm * pal.widthCm * pal.heightCm / 1000000.0) * pal.palletCount;
+                                          final palTotalWt = pal.grossWeightPerPalletKg * pal.palletCount;
+                                          return TableRow(
+                                            children: [
+                                              Padding(padding: const EdgeInsets.all(6), child: Text(pal.palletType, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.palletCount}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.lengthCm.toStringAsFixed(0)} × ${pal.widthCm.toStringAsFixed(0)} × ${pal.heightCm.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 11))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${pal.grossWeightPerPalletKg.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palTotalWt.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                              Padding(padding: const EdgeInsets.all(6), child: Text('${palCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
+                                              Padding(
+                                                padding: const EdgeInsets.all(6),
+                                                child: Text(
+                                                  pal.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص (Floor Only)',
+                                                  style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pal.isStackable ? Colors.green.shade800 : Colors.orange.shade900),
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        }),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
                             const Text('Packing List Breakdown (تفاصيل طرود ومقاسات الشحنة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                             const SizedBox(height: 6),
 
@@ -1014,6 +1156,219 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
         const SizedBox(height: 2),
         Text(value, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
       ],
+    );
+  }
+
+  void _showVisualLoadPlannerDialog(BuildContext context, PurchaseOrderModel po) {
+    final hasPalletPlan = po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0);
+    final hasSinglePallet = po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0;
+    List<CargoItem> cargoItems = [];
+
+    if (hasPalletPlan) {
+      final double totalGross = po.packingListItems.fold<double>(
+        0.0,
+        (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+      );
+      final int totalPallets = po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount);
+      final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;
+
+      int globalIdx = 1;
+      for (final pLine in po.palletPlanItems) {
+        final pL = pLine.lengthCm > 0 ? pLine.lengthCm : 120.0;
+        final pW = pLine.widthCm > 0 ? pLine.widthCm : 80.0;
+        final pH = pLine.heightCm > 0 ? pLine.heightCm : 150.0;
+        final pWt = pLine.grossWeightPerPalletKg > 0 ? pLine.grossWeightPerPalletKg : defaultPalletWeight;
+
+        for (int i = 0; i < pLine.palletCount; i++) {
+          cargoItems.add(CargoItem(
+            itemId: 'PLT-$globalIdx',
+            length: pL,
+            width: pW,
+            height: pH,
+            weight: pWt,
+            isStackable: pLine.isStackable,
+            rotate: true,
+            packageType: pLine.palletType,
+            description: 'بالتة #$globalIdx (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
+          ));
+          globalIdx++;
+        }
+      }
+    } else if (hasSinglePallet) {
+      final double pWt = po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / po.palletCount) : 137.5;
+      for (int i = 0; i < po.palletCount; i++) {
+        cargoItems.add(CargoItem(
+          itemId: 'PLT-${i + 1}',
+          length: po.palletLengthCm,
+          width: po.palletWidthCm,
+          height: po.palletHeightCm,
+          weight: pWt,
+          isStackable: po.isPalletStackable,
+          rotate: true,
+          packageType: po.palletType,
+          description: 'بالتة #${i + 1} (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
+        ));
+      }
+    } else if (po.packingListItems.isNotEmpty) {
+      int globalIdx = 1;
+      for (final p in po.packingListItems) {
+        final lCm = p.unit == 'mm' ? p.lengthCm / 10.0 : (p.unit == 'm' ? p.lengthCm * 100.0 : p.lengthCm);
+        final wCm = p.unit == 'mm' ? p.widthCm / 10.0 : (p.unit == 'm' ? p.widthCm * 100.0 : p.widthCm);
+        final hCm = p.unit == 'mm' ? p.heightCm / 10.0 : (p.unit == 'm' ? p.heightCm * 100.0 : p.heightCm);
+        final int count = p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1;
+        final double unitGrossWt = p.grossWeightUnitKg > 0
+            ? p.grossWeightUnitKg
+            : (p.totalGrossWeightKg > 0 ? (p.totalGrossWeightKg / count) : 10.0);
+
+        for (int i = 0; i < count; i++) {
+          cargoItems.add(CargoItem(
+            itemId: '$globalIdx',
+            length: lCm > 0 ? lCm : 100.0,
+            width: wCm > 0 ? wCm : 80.0,
+            height: hCm > 0 ? hCm : 60.0,
+            weight: unitGrossWt,
+            isStackable: p.isStackable,
+            rotate: true,
+            packageType: p.packageType,
+            description: count > 1 ? '${p.itemCode} (طرد ${i + 1}/$count)' : p.itemCode,
+          ));
+          globalIdx++;
+        }
+      }
+    }
+
+    if (cargoItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد أصناف قائمة تعبئة أو بالتات للمحاكاة')),
+      );
+      return;
+    }
+
+    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
+    bool isTopView = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final plan = ContainerRequirementEngine.planShipment(
+              cargoItems,
+              forceStackable: activeStackingMode,
+            );
+
+            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+            final Map<String, int> containerCounts = {};
+            for (final p in plan) {
+              if (p.containerCode != 'FAILED') {
+                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+              }
+            }
+            final fleetSummary = containerCounts.isEmpty
+                ? 'لا توجد حاويات مناسبة'
+                : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+            return Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              child: Container(
+                width: 1180,
+                height: 780,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AppTheme.cobalt.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 22),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'مخطط الرص وتوزيع الحاويات 3D — ${po.poNumber}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                              ),
+                              Text(
+                                'حجم الشحنة: ${totalPlanVolume.toStringAsFixed(3)} m³ | الوزن: ${totalPlanWeight.toStringAsFixed(1)} kg | الحاويات المطلوبة: $fleetSummary',
+                                style: TextStyle(fontSize: 11.5, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment<bool>(value: true, label: Text('مسقط علوي (Top)')),
+                            ButtonSegment<bool>(value: false, label: Text('مسقط جانبي (Side)')),
+                          ],
+                          selected: {isTopView},
+                          onSelectionChanged: (set) => setDialogState(() => isTopView = set.first),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(dialogCtx),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.separated(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: plan.length,
+                        separatorBuilder: (_, __) => const SizedBox(width: 16),
+                        itemBuilder: (context, idx) {
+                          final cResult = plan[idx];
+                          return Container(
+                            width: 540,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.grey.shade300),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Text('حاوية #${idx + 1}: ${cResult.spec.name}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                                    const Spacer(),
+                                    Text('${cResult.placedItems.length} طرد / بالتة', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                Expanded(
+                                   child: CustomPaint(
+                                     size: Size.infinite,
+                                     painter: ContainerLoadPlanPainter(
+                                       plan: cResult,
+                                       isTopView: isTopView,
+                                     ),
+                                   ),
+                                 ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

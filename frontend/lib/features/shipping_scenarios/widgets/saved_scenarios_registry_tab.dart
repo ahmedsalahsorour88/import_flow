@@ -736,33 +736,108 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
     int itemCounter = 1;
 
     for (final po in pos) {
-      for (final pl in po.packingListItems) {
-        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
-          double lCm = pl.lengthCm;
-          double wCm = pl.widthCm;
-          double hCm = pl.heightCm;
-          if (pl.unit == 'mm') {
-            lCm /= 10;
-            wCm /= 10;
-            hCm /= 10;
-          } else if (pl.unit == 'm') {
-            lCm *= 100;
-            wCm *= 100;
-            hCm *= 100;
-          }
+      final hasPalletPlan = po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0);
+      final hasSinglePallet = po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0;
 
+      if (hasPalletPlan) {
+        final double totalGross = po.packingListItems.fold<double>(
+          0.0,
+          (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+        );
+        final int totalPallets = po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount);
+        final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;
+
+        for (final pLine in po.palletPlanItems) {
+          final pL = pLine.lengthCm > 0 ? pLine.lengthCm : 120.0;
+          final pW = pLine.widthCm > 0 ? pLine.widthCm : 80.0;
+          final pH = pLine.heightCm > 0 ? pLine.heightCm : 150.0;
+          final pWt = pLine.grossWeightPerPalletKg > 0 ? pLine.grossWeightPerPalletKg : defaultPalletWeight;
+
+          for (int i = 0; i < pLine.palletCount; i++) {
+            baseCargoItems.add(CargoItem(
+              itemId: 'PLT-$itemCounter',
+              length: pL,
+              width: pW,
+              height: pH,
+              weight: pWt,
+              isStackable: pLine.isStackable,
+              rotate: true,
+              packageType: pLine.palletType,
+              description: 'بالتة #$itemCounter (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
+            ));
+            itemCounter++;
+          }
+        }
+      } else if (hasSinglePallet) {
+        final double pWt = po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / po.palletCount) : 137.5;
+        for (int i = 0; i < po.palletCount; i++) {
           baseCargoItems.add(CargoItem(
-            itemId: '$itemCounter',
-            length: lCm,
-            width: wCm,
-            height: hCm,
-            weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
+            itemId: 'PLT-$itemCounter',
+            length: po.palletLengthCm,
+            width: po.palletWidthCm,
+            height: po.palletHeightCm,
+            weight: pWt,
+            isStackable: po.isPalletStackable,
             rotate: true,
-            isStackable: pl.isStackable,
-            packageType: pl.packageType,
+            packageType: po.palletType,
+            description: 'بالتة #$itemCounter (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
           ));
           itemCounter++;
         }
+      } else if (po.packingListItems.isNotEmpty) {
+        for (final pl in po.packingListItems) {
+          for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
+            double lCm = pl.lengthCm;
+            double wCm = pl.widthCm;
+            double hCm = pl.heightCm;
+            if (pl.unit == 'mm') {
+              lCm /= 10;
+              wCm /= 10;
+              hCm /= 10;
+            } else if (pl.unit == 'm') {
+              lCm *= 100;
+              wCm *= 100;
+              hCm *= 100;
+            }
+
+            baseCargoItems.add(CargoItem(
+              itemId: '$itemCounter',
+              length: lCm > 0 ? lCm : 100.0,
+              width: wCm > 0 ? wCm : 80.0,
+              height: hCm > 0 ? hCm : 60.0,
+              weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
+              rotate: true,
+              isStackable: pl.isStackable,
+              packageType: pl.packageType,
+            ));
+            itemCounter++;
+          }
+        }
+      }
+    }
+
+    if (baseCargoItems.isEmpty && totalCbm > 0) {
+      final double targetCbm = totalCbm;
+      final double targetWeight = totalWeight > 0 ? totalWeight : 1000.0;
+      final int numPallets = (targetCbm / 2.0).ceil().clamp(1, 50);
+      final double perPalletCbm = targetCbm / numPallets;
+      final double perPalletWeight = targetWeight / numPallets;
+
+      double palletHeightCm = (perPalletCbm * 1000000.0) / 12000.0;
+      if (palletHeightCm > 260) palletHeightCm = 260;
+
+      for (int i = 0; i < numPallets; i++) {
+        baseCargoItems.add(CargoItem(
+          itemId: 'PLT-$itemCounter',
+          length: 120,
+          width: 100,
+          height: palletHeightCm.clamp(30.0, 260.0),
+          weight: perPalletWeight,
+          rotate: true,
+          isStackable: true,
+          packageType: 'Pallet',
+        ));
+        itemCounter++;
       }
     }
 

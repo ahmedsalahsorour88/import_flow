@@ -39,31 +39,108 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
     int itemCounter = 1;
 
     for (final po in pos) {
-      for (final pl in po.packingListItems) {
-        for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
-          double lCm = pl.lengthCm;
-          double wCm = pl.widthCm;
-          double hCm = pl.heightCm;
-          if (pl.unit == 'mm') {
-            lCm /= 10;
-            wCm /= 10;
-            hCm /= 10;
-          } else if (pl.unit == 'm') {
-            lCm *= 100;
-            wCm *= 100;
-            hCm *= 100;
-          }
+      final hasPalletPlan = po.palletPlanItems.isNotEmpty && po.palletPlanItems.any((p) => p.palletCount > 0);
+      final hasSinglePallet = po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0;
 
+      if (hasPalletPlan) {
+        final double totalGross = po.packingListItems.fold<double>(
+          0.0,
+          (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+        );
+        final int totalPallets = po.palletPlanItems.fold<int>(0, (sum, p) => sum + p.palletCount);
+        final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;
+
+        for (final pLine in po.palletPlanItems) {
+          final pL = pLine.lengthCm > 0 ? pLine.lengthCm : 120.0;
+          final pW = pLine.widthCm > 0 ? pLine.widthCm : 80.0;
+          final pH = pLine.heightCm > 0 ? pLine.heightCm : 150.0;
+          final pWt = pLine.grossWeightPerPalletKg > 0 ? pLine.grossWeightPerPalletKg : defaultPalletWeight;
+
+          for (int i = 0; i < pLine.palletCount; i++) {
+            cargoItems.add(CargoItem(
+              itemId: 'PLT-$itemCounter',
+              length: pL,
+              width: pW,
+              height: pH,
+              weight: pWt,
+              isStackable: pLine.isStackable,
+              rotate: true,
+              packageType: pLine.palletType,
+              description: 'بالتة #$itemCounter (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
+            ));
+            itemCounter++;
+          }
+        }
+      } else if (hasSinglePallet) {
+        final double pWt = po.totalGrossWeightKg > 0 ? (po.totalGrossWeightKg / po.palletCount) : 137.5;
+        for (int i = 0; i < po.palletCount; i++) {
           cargoItems.add(CargoItem(
-            itemId: '$itemCounter',
-            length: lCm,
-            width: wCm,
-            height: hCm,
-            weight: pl.grossWeightUnitKg,
+            itemId: 'PLT-$itemCounter',
+            length: po.palletLengthCm,
+            width: po.palletWidthCm,
+            height: po.palletHeightCm,
+            weight: pWt,
+            isStackable: po.isPalletStackable,
             rotate: true,
+            packageType: po.palletType,
+            description: 'بالتة #$itemCounter (${po.palletType})${po.isPalletStackable ? "" : " [Floor Only]"}',
           ));
           itemCounter++;
         }
+      } else if (po.packingListItems.isNotEmpty) {
+        for (final pl in po.packingListItems) {
+          for (int q = 0; q < pl.qtyPkg.toInt(); q++) {
+            double lCm = pl.lengthCm;
+            double wCm = pl.widthCm;
+            double hCm = pl.heightCm;
+            if (pl.unit == 'mm') {
+              lCm /= 10;
+              wCm /= 10;
+              hCm /= 10;
+            } else if (pl.unit == 'm') {
+              lCm *= 100;
+              wCm *= 100;
+              hCm *= 100;
+            }
+
+            cargoItems.add(CargoItem(
+              itemId: '$itemCounter',
+              length: lCm > 0 ? lCm : 100.0,
+              width: wCm > 0 ? wCm : 80.0,
+              height: hCm > 0 ? hCm : 60.0,
+              weight: pl.grossWeightUnitKg > 0 ? pl.grossWeightUnitKg : (pl.totalGrossWeightKg / (pl.qtyPkg > 0 ? pl.qtyPkg : 1)),
+              rotate: true,
+              isStackable: pl.isStackable,
+              packageType: pl.packageType,
+            ));
+            itemCounter++;
+          }
+        }
+      }
+    }
+
+    if (cargoItems.isEmpty && totalCbm > 0) {
+      final double targetCbm = totalCbm;
+      final double targetWeight = totalWeight > 0 ? totalWeight : 1000.0;
+      final int numPallets = (targetCbm / 2.0).ceil().clamp(1, 50);
+      final double perPalletCbm = targetCbm / numPallets;
+      final double perPalletWeight = targetWeight / numPallets;
+
+      double palletHeightCm = (perPalletCbm * 1000000.0) / 12000.0;
+      if (palletHeightCm > 260) palletHeightCm = 260;
+
+      for (int i = 0; i < numPallets; i++) {
+        cargoItems.add(CargoItem(
+          itemId: 'PLT-$itemCounter',
+          length: 120,
+          width: 100,
+          height: palletHeightCm.clamp(30.0, 260.0),
+          weight: perPalletWeight,
+          rotate: true,
+          isStackable: true,
+          packageType: 'Pallet',
+        ));
+        itemCounter++;
       }
     }
 
@@ -424,7 +501,22 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                 double fileCbm = 0.0;
                                 double fileWt = 0.0;
                                 for (var po in linkedPOs) {
-                                  if (po.packingListItems.isNotEmpty) {
+                                  final double palletCbm = po.palletPlanItems.isNotEmpty
+                                      ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount))
+                                      : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                          ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                          : 0.0);
+                                  final double palletGross = po.palletPlanItems.isNotEmpty
+                                      ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.grossWeightPerPalletKg * p.palletCount))
+                                      : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+
+                                  if (palletCbm > 0) {
+                                    fileCbm += palletCbm;
+                                    fileWt += palletGross > 0 ? palletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                                  } else if (po.totalCbm > 0 && po.packingListItems.isEmpty) {
+                                    fileCbm += po.totalCbm;
+                                    fileWt += po.totalGrossWeightKg;
+                                  } else if (po.packingListItems.isNotEmpty) {
                                     for (var pl in po.packingListItems) {
                                       fileCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
                                       fileWt += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
@@ -654,7 +746,27 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                             int totalPlCount = 0;
 
                             for (var po in linkedPOs) {
-                              if (po.packingListItems.isNotEmpty) {
+                              final double poPalletCbm = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount))
+                                  : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                      ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                      : (po.palletCount > 0 && po.totalCbm > 0 ? po.totalCbm : 0.0));
+                              final double poPalletGross = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.grossWeightPerPalletKg * p.palletCount))
+                                  : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                              final int poPalletCount = po.palletPlanItems.isNotEmpty
+                                  ? po.palletPlanItems.fold<int>(0, (s, p) => s + p.palletCount)
+                                  : po.palletCount;
+
+                              if (poPalletCbm > 0) {
+                                fileTotalCbm += poPalletCbm;
+                                fileTotalWeight += poPalletGross > 0 ? poPalletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                                totalPlCount += poPalletCount > 0 ? poPalletCount : (po.packingListItems.isNotEmpty ? po.packingListItems.length : 1);
+                              } else if (po.totalCbm > 0 && po.packingListItems.isEmpty) {
+                                fileTotalCbm += po.totalCbm;
+                                fileTotalWeight += po.totalGrossWeightKg;
+                                totalPlCount += po.totalPackagesCount > 0 ? po.totalPackagesCount : 1;
+                              } else if (po.packingListItems.isNotEmpty) {
                                 totalPlCount += po.packingListItems.length;
                                 for (var pl in po.packingListItems) {
                                   fileTotalCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
@@ -785,9 +897,27 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                           DataColumn(label: Text('الحالة')),
                                         ],
                                         rows: linkedPOs.map((po) {
+                                          final double poPalletCbm = po.palletPlanItems.isNotEmpty
+                                              ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.calculatedCbm > 0 ? p.calculatedCbm : (p.lengthCm * p.widthCm * p.heightCm / 1000000.0) * p.palletCount))
+                                              : (po.palletCount > 0 && po.palletLengthCm > 0 && po.palletWidthCm > 0 && po.palletHeightCm > 0
+                                                  ? (po.palletLengthCm * po.palletWidthCm * po.palletHeightCm / 1000000.0) * po.palletCount
+                                                  : 0.0);
+                                          final double poPalletGross = po.palletPlanItems.isNotEmpty
+                                              ? po.palletPlanItems.fold<double>(0.0, (s, p) => s + (p.grossWeightPerPalletKg * p.palletCount))
+                                              : (po.palletCount > 0 && po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                                          final int poPalletCount = po.palletPlanItems.isNotEmpty
+                                              ? po.palletPlanItems.fold<int>(0, (s, p) => s + p.palletCount)
+                                              : po.palletCount;
+
                                           double poCbm = 0;
                                           double poWt = 0;
-                                          if (po.packingListItems.isNotEmpty) {
+                                          if (poPalletCbm > 0) {
+                                            poCbm = poPalletCbm;
+                                            poWt = poPalletGross > 0 ? poPalletGross : (po.totalGrossWeightKg > 0 ? po.totalGrossWeightKg : 0.0);
+                                          } else if (po.totalCbm > 0 && po.packingListItems.isEmpty) {
+                                            poCbm = po.totalCbm;
+                                            poWt = po.totalGrossWeightKg;
+                                          } else if (po.packingListItems.isNotEmpty) {
                                             for (var pl in po.packingListItems) {
                                               poCbm += (pl.totalCbm > 0 ? pl.totalCbm : pl.calculatedCbm);
                                               poWt += (pl.totalGrossWeightKg > 0 ? pl.totalGrossWeightKg : (pl.grossWeightUnitKg * pl.qtyPkg));
@@ -796,6 +926,10 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                             poCbm = po.totalCbm;
                                             poWt = po.totalGrossWeightKg;
                                           }
+
+                                          final String plText = poPalletCount > 0
+                                              ? '$poPalletCount بالتة (مخطط الشحن)'
+                                              : '${po.packingListItems.length} بند تعبئة';
 
                                           return DataRow(
                                             cells: [
@@ -807,8 +941,8 @@ class _ImportFilesScreenState extends ConsumerState<ImportFilesScreen> {
                                                 decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
                                                 child: Text(po.paymentTerms ?? 'غير محدد', style: TextStyle(fontSize: 11, color: Colors.brown.shade800, fontWeight: FontWeight.bold)),
                                               )),
-                                               DataCell(Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
-                                              DataCell(Text('${po.packingListItems.length} بند تعبئة')),
+                                              DataCell(Text('${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green))),
+                                              DataCell(Text(plText)),
                                               DataCell(Text('${poCbm.toStringAsFixed(3)} m³ / ${poWt.toStringAsFixed(0)} kg', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.purple))),
                                               DataCell(Text(po.status, style: TextStyle(color: po.status == 'Approved' ? AppTheme.emerald : Colors.blue, fontWeight: FontWeight.bold))),
                                             ],

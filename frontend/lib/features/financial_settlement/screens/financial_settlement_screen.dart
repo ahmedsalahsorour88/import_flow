@@ -90,8 +90,8 @@ class _FinancialSettlementScreenState extends ConsumerState<FinancialSettlementS
           onPressed: () => ref.read(financialSettlementProvider.notifier).fetchSettlements(),
         ),
       ],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

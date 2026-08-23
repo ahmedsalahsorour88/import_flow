@@ -80,8 +80,8 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
           onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
         ),
       ],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

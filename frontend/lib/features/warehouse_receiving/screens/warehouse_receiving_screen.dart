@@ -89,8 +89,8 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
           onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
         ),
       ],
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

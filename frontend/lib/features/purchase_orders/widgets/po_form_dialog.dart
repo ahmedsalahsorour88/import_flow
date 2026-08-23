@@ -564,6 +564,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           _isPalletStackable = ext['is_pallet_stackable'] as bool? ?? false;
         }
 
+        final extTopHs = (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim();
+
         if (ext['items'] is List && (ext['items'] as List).isNotEmpty) {
           final itemList = ext['items'] as List;
           _dialogItems = itemList.asMap().entries.map((entry) {
@@ -572,12 +574,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final i = Map<String, dynamic>.from(raw as Map);
             final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
             final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-            final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? 'بند استيرادي رئيسي';
+            final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
             final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
             final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
                 ? codeRaw.toString().trim()
                 : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
-            final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
+            final rawHs = (i['hs_code'] != null && i['hs_code'].toString().trim().isNotEmpty)
+                ? i['hs_code'].toString().trim()
+                : (extTopHs != null && extTopHs.isNotEmpty ? extTopHs : null);
 
             String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
             if (itemCty != null && itemCty.isNotEmpty) {
@@ -592,7 +596,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
               final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
               final matched = tariffs.where((t) {
                 final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-                return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+                return tClean == cleanHs ||
+                    (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
+                    (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
+                    (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
               }).firstOrNull;
               if (matched != null) {
                 matchedTariffId = matched.tariffId;
@@ -629,7 +636,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             final p = Map<String, dynamic>.from(raw as Map);
             final qtyPcs = (p['qty_pcs'] ?? p['quantity'] as num?)?.toDouble() ?? 10.0;
             final qtyPkg = (p['qty_pkg'] as num?)?.toDouble() ?? (qtyPcs > 0 ? (qtyPcs / 10).ceilToDouble() : 1.0);
-            final pDesc = p['description']?.toString() ?? p['item_name']?.toString() ?? p['name']?.toString();
+            String? pDesc = p['description']?.toString() ?? p['item_name']?.toString() ?? p['name']?.toString();
+            if ((pDesc == null || pDesc.trim().isEmpty) && idx < _dialogItems.length) {
+              pDesc = _dialogItems[idx].descriptionAr.isNotEmpty ? _dialogItems[idx].descriptionAr : _dialogItems[idx].descriptionEn;
+            }
             final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
             final pUnit = p['unit']?.toString() ?? 'cm';
             final pWeightUnit = p['weight_unit']?.toString() ?? 'KGM';
@@ -639,8 +649,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                 : (idx < _dialogItems.length && _dialogItems[idx].itemCode != null && _dialogItems[idx].itemCode!.isNotEmpty
                     ? _dialogItems[idx].itemCode!
                     : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}');
+
+            String pHs = (p['hs_code'] != null && p['hs_code'].toString().trim().isNotEmpty) ? p['hs_code'].toString().trim() : '';
+            if (pHs.isEmpty && idx < _dialogItems.length && _dialogItems[idx].hsCode != null && _dialogItems[idx].hsCode!.isNotEmpty) {
+              pHs = _dialogItems[idx].hsCode!;
+            } else if (pHs.isEmpty && idx < _dialogItems.length && _dialogItems[idx].tariffId != null) {
+              final match = tariffs.where((t) => t.tariffId == _dialogItems[idx].tariffId).firstOrNull;
+              if (match != null) pHs = match.hsCode;
+            } else if (pHs.isEmpty && ext['hs_code'] != null) {
+              pHs = ext['hs_code'].toString().trim();
+            }
+
             return PackingListItemModel(
-              hsCode: p['hs_code']?.toString() ?? '',
+              hsCode: pHs,
               itemCode: pCode,
               description: pDesc,
               qtyPcs: qtyPcs,
@@ -749,6 +770,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             netWeightKg: i.netWeightKg,
           )).toList();
     } else if (ext != null && ext['items'] is List && (ext['items'] as List).isNotEmpty) {
+      final extTopHs = (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim();
       final itemList = ext['items'] as List;
       _dialogItems = itemList.asMap().entries.map((entry) {
         final idx = entry.key;
@@ -756,12 +778,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final i = Map<String, dynamic>.from(raw as Map);
         final qty = (i['quantity'] as num?)?.toDouble() ?? 100.0;
         final price = (i['unit_price'] as num?)?.toDouble() ?? 10.0;
-        final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? 'بند استيرادي رئيسي';
+        final desc = i['description']?.toString() ?? i['item_name']?.toString() ?? i['name']?.toString() ?? i['description_ar']?.toString() ?? i['description_en']?.toString() ?? 'بند استيرادي رئيسي';
         final codeRaw = i['item_code'] ?? i['item_number'] ?? i['item_no'] ?? i['product_code'] ?? i['code'] ?? i['item'];
         final code = (codeRaw != null && codeRaw.toString().trim().isNotEmpty)
             ? codeRaw.toString().trim()
             : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}';
-        final rawHs = i['hs_code']?.toString() ?? ext['hs_code']?.toString();
+        final rawHs = (i['hs_code'] != null && i['hs_code'].toString().trim().isNotEmpty)
+            ? i['hs_code'].toString().trim()
+            : (extTopHs != null && extTopHs.isNotEmpty ? extTopHs : null);
 
         String? itemCty = i['country_of_origin']?.toString() ?? i['country']?.toString();
         if (itemCty != null && itemCty.isNotEmpty) {
@@ -777,7 +801,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
           final cleanHs = rawHs.replaceAll(RegExp(r'[^\d]'), '');
           final matched = tariffs.where((t) {
             final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
-            return tClean == cleanHs || (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean)));
+            return tClean == cleanHs ||
+                (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
+                (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
+                (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
           }).firstOrNull;
           if (matched != null) {
             matchedTariffId = matched.tariffId;
@@ -810,18 +837,26 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       ];
     }
 
+    final extTopHs = (ext != null) ? (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim() : null;
+
     if (po != null && po.packingListItems.isNotEmpty) {
       _dialogPackingItems = po.packingListItems.map((p) => PackingListItemModel(
             hsCode: p.hsCode,
             itemCode: p.itemCode,
+            description: p.description,
             qtyPcs: p.qtyPcs,
             qtyPkg: p.qtyPkg,
             packageType: p.packageType,
+            unit: p.unit,
+            weightUnit: p.weightUnit,
             lengthCm: p.lengthCm,
             widthCm: p.widthCm,
             heightCm: p.heightCm,
             netWeightUnitKg: p.netWeightUnitKg,
             grossWeightUnitKg: p.grossWeightUnitKg,
+            totalGrossWeightKg: p.totalGrossWeightKg,
+            totalNetWeightKg: p.totalNetWeightKg,
+            totalCbm: p.totalCbm,
             isStackable: p.isStackable,
           )).toList();
     } else if (ext != null && ext['packing_list_items'] is List && (ext['packing_list_items'] as List).isNotEmpty) {
@@ -830,7 +865,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         final idx = entry.key;
         final raw = entry.value;
         final p = Map<String, dynamic>.from(raw as Map);
-        final pDesc = p['description']?.toString() ?? p['item_name']?.toString();
+        String? pDesc = p['description']?.toString() ?? p['item_name']?.toString() ?? p['name']?.toString();
+        if ((pDesc == null || pDesc.trim().isEmpty) && idx < _dialogItems.length) {
+          pDesc = _dialogItems[idx].descriptionAr.isNotEmpty ? _dialogItems[idx].descriptionAr : _dialogItems[idx].descriptionEn;
+        }
         final pTotCbm = (p['total_cbm'] ?? p['volume'] ?? p['cbm'] as num?)?.toDouble() ?? 0.0;
         final pCodeRaw = p['item_code'] ?? p['item_number'] ?? p['item_no'] ?? p['product_code'] ?? p['code'] ?? p['item'];
         final pCode = (pCodeRaw != null && pCodeRaw.toString().trim().isNotEmpty)
@@ -838,8 +876,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
             : (idx < _dialogItems.length && _dialogItems[idx].itemCode != null && _dialogItems[idx].itemCode!.isNotEmpty
                 ? _dialogItems[idx].itemCode!
                 : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}');
+
+        String pHs = (p['hs_code'] != null && p['hs_code'].toString().trim().isNotEmpty) ? p['hs_code'].toString().trim() : '';
+        if (pHs.isEmpty && idx < _dialogItems.length && _dialogItems[idx].hsCode != null && _dialogItems[idx].hsCode!.isNotEmpty) {
+          pHs = _dialogItems[idx].hsCode!;
+        } else if (pHs.isEmpty && idx < _dialogItems.length && _dialogItems[idx].tariffId != null) {
+          final match = tariffs.where((t) => t.tariffId == _dialogItems[idx].tariffId).firstOrNull;
+          if (match != null) pHs = match.hsCode;
+        } else if (pHs.isEmpty && extTopHs != null && extTopHs.isNotEmpty) {
+          pHs = extTopHs;
+        }
+
         return PackingListItemModel(
-          hsCode: p['hs_code']?.toString() ?? '',
+          hsCode: pHs,
           itemCode: pCode,
           description: pDesc,
           qtyPcs: (p['qty_pcs'] as num?)?.toDouble() ?? 1.0,
@@ -862,11 +911,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
       _dialogPackingItems = _dialogItems.asMap().entries.map((entry) {
         final idx = entry.key;
         final item = entry.value;
+        final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
         return PackingListItemModel(
           hsCode: item.hsCode ?? '',
           itemCode: (item.itemCode != null && item.itemCode!.trim().isNotEmpty)
               ? item.itemCode!.trim()
               : 'ITEM-${(idx + 1).toString().padLeft(3, '0')}',
+          description: desc,
           qtyPcs: item.quantity,
           qtyPkg: (item.quantity > 0 ? (item.quantity / 10).ceilToDouble() : 10.0),
           packageType: 'Carton',
@@ -933,6 +984,59 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
         .toSet();
 
     final ext = widget.initialExtractedFields;
+    final extTopHs = (ext != null) ? (ext['hs_code'] ?? ext['customs_tariff'] ?? ext['hsCode'])?.toString().trim() : null;
+
+    // Reactively resolve and propagate HS codes and tariffs when provider data arrives
+    if (tariffs.isNotEmpty) {
+      for (int i = 0; i < _dialogItems.length; i++) {
+        final item = _dialogItems[i];
+        if (item.tariffId == null) {
+          final targetHs = (item.hsCode != null && item.hsCode!.isNotEmpty) ? item.hsCode! : (extTopHs ?? '');
+          if (targetHs.isNotEmpty) {
+            final cleanHs = targetHs.replaceAll(RegExp(r'[^\d]'), '');
+            final matched = tariffs.where((t) {
+              final tClean = t.hsCode.replaceAll(RegExp(r'[^\d]'), '');
+              return tClean == cleanHs ||
+                  (cleanHs.length >= 4 && (tClean.startsWith(cleanHs) || cleanHs.startsWith(tClean))) ||
+                  (cleanHs.length >= 6 && tClean.startsWith(cleanHs.substring(0, 6))) ||
+                  (cleanHs.length >= 4 && tClean.startsWith(cleanHs.substring(0, 4)));
+            }).firstOrNull;
+            if (matched != null) {
+              _dialogItems[i] = item.copyWith(tariffId: matched.tariffId, hsCode: matched.hsCode);
+            } else if (item.hsCode == null || item.hsCode!.isEmpty) {
+              _dialogItems[i] = item.copyWith(hsCode: targetHs);
+            }
+          }
+        }
+      }
+      for (int i = 0; i < _dialogPackingItems.length; i++) {
+        final p = _dialogPackingItems[i];
+        if (p.hsCode.isEmpty) {
+          String pHs = '';
+          if (i < _dialogItems.length && _dialogItems[i].hsCode != null && _dialogItems[i].hsCode!.isNotEmpty) {
+            pHs = _dialogItems[i].hsCode!;
+          } else if (i < _dialogItems.length && _dialogItems[i].tariffId != null) {
+            final match = tariffs.where((t) => t.tariffId == _dialogItems[i].tariffId).firstOrNull;
+            if (match != null) pHs = match.hsCode;
+          } else if (extTopHs != null && extTopHs.isNotEmpty) {
+            pHs = extTopHs;
+          }
+          if (pHs.isNotEmpty) {
+            _dialogPackingItems[i] = p.copyWith(hsCode: pHs);
+          }
+        }
+        if (p.description == null || p.description!.trim().isEmpty) {
+          if (i < _dialogItems.length) {
+            final item = _dialogItems[i];
+            final desc = item.descriptionAr.isNotEmpty ? item.descriptionAr : item.descriptionEn;
+            if (desc != null && desc.isNotEmpty) {
+              _dialogPackingItems[i] = _dialogPackingItems[i].copyWith(description: desc);
+            }
+          }
+        }
+      }
+    }
+
     if (widget.po == null && ext != null) {
       _selectedCompanyId ??= _matchCompanyId(ext, companies);
       _selectedSupplierId ??= _matchSupplierId(ext, suppliers);
@@ -2241,6 +2345,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                       label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
                                       onPressed: () {
                                         String defaultHs = '';
+                                        String? defaultDesc;
                                         if (_dialogItems.isNotEmpty) {
                                           final first = _dialogItems.first;
                                           if (first.hsCode != null && first.hsCode!.isNotEmpty) {
@@ -2249,12 +2354,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             final match = tariffs.cast<CustomsTariffModel?>().firstWhere((t) => t?.tariffId == first.tariffId, orElse: () => null);
                                             if (match != null) defaultHs = match.hsCode;
                                           }
+                                          defaultDesc = first.descriptionAr.isNotEmpty ? first.descriptionAr : first.descriptionEn;
                                         }
                                         setState(() {
                                           _dialogPackingItems.add(
                                             PackingListItemModel(
                                               hsCode: defaultHs,
                                               itemCode: 'ITEM-${(_dialogPackingItems.length + 1).toString().padLeft(3, "0")}',
+                                              description: defaultDesc,
                                               qtyPcs: 10,
                                               qtyPkg: 1,
                                               packageType: 'Carton',
@@ -2339,6 +2446,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                        ),
                                                        const SizedBox(width: 8),
                                                        Expanded(
+                                                         flex: 3,
                                                          child: InkWell(
                                                            onTap: () async {
                                                              final picked = await _showHsCodeSearchPicker(context, tariffs);
@@ -2356,6 +2464,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                              ),
                                                              child: Text(
                                                                p.hsCode.isNotEmpty ? p.hsCode : 'اختر بند جمركي',
+                                                               key: ValueKey('pkg_desc_${idx}_${p.description ?? ''}'),
                                                                style: TextStyle(
                                                                  fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
                                                                  color: isMismatched ? Colors.red.shade900 : (p.hsCode.isNotEmpty ? AppTheme.cobalt : Colors.grey.shade600),
@@ -2368,7 +2477,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                        ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
+                                                    flex: 2,
                                                     child: TextFormField(
+                                                      key: ValueKey('pkg_code_${idx}_${p.itemCode}'),
                                                       initialValue: p.itemCode,
                                                       decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
                                                       validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
@@ -2379,6 +2490,25 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                   ),
                                                   const SizedBox(width: 8),
                                                   Expanded(
+                                                    flex: 4,
+                                                    child: TextFormField(
+                                                       key: ValueKey('pkg_desc_${idx}_${p.description ?? ""}'),
+                                                      initialValue: p.description ?? '',
+                                                      decoration: const InputDecoration(
+                                                        labelText: 'Item Name / Description (الوصف)',
+                                                        hintText: 'اسم أو وصف الصنف',
+                                                        isDense: true,
+                                                      ),
+                                                      onChanged: (v) {
+                                                        _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(
+                                                          description: v.trim().isNotEmpty ? v.trim() : null,
+                                                        );
+                                                      },
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                   Expanded(
+                                                     flex: 3,
                                                     child: SearchableDropdownField<String>(
                                                       value: p.packageType,
                                                       labelText: 'Package Type / نوع الطرد',

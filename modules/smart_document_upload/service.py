@@ -83,13 +83,31 @@ def _fallback_text_extraction(filename: str, content_bytes: bytes) -> str:
     lower = filename.lower()
     try:
         if lower.endswith(".pdf"):
+            try:
+                import fitz
+                doc = fitz.open(stream=content_bytes, filetype="pdf")
+                parts = []
+                for p in doc:
+                    txt = p.get_text("text", sort=True) or p.get_text("text") or ""
+                    if txt.strip():
+                        parts.append(txt.strip())
+                if parts:
+                    return "\n\n".join(parts)
+            except Exception:
+                pass
             import pypdf
             reader = pypdf.PdfReader(io.BytesIO(content_bytes))
             return "\n".join(p.extract_text() or "" for p in reader.pages)
         elif lower.endswith((".docx", ".doc")):
             import docx
             doc = docx.Document(io.BytesIO(content_bytes))
-            return "\n".join(p.text for p in doc.paragraphs if p.text)
+            parts = [p.text.strip() for p in doc.paragraphs if p.text.strip()]
+            for tbl in doc.tables:
+                for row in tbl.rows:
+                    row_vals = [cell.text.strip().replace("\n", " ") for cell in row.cells if cell.text.strip()]
+                    if row_vals:
+                        parts.append(" | ".join(row_vals))
+            return "\n".join(parts)
         elif lower.endswith((".xlsx", ".xls")):
             import openpyxl
             wb = openpyxl.load_workbook(io.BytesIO(content_bytes), data_only=True)

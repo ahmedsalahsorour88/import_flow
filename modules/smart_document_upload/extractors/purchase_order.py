@@ -72,9 +72,23 @@ class PurchaseOrderExtractor(BaseExtractor):
             "pallet_count": self._extract_pallet_count(text),
             "pallet_type": "Euro Pallet (120x80)",
             "is_pallet_stackable": False,
-            "packing_list_items": self._extract_packing_list_items(text),
+            "packing_list_items": self._finalize_packing_items(self._extract_packing_list_items(text), extracted_items, top_hs),
         }
         return result
+
+    def _finalize_packing_items(self, packing_items: List[Dict[str, Any]], line_items: List[Dict[str, Any]], default_hs: Optional[str]) -> List[Dict[str, Any]]:
+        for idx, p in enumerate(packing_items):
+            if not p.get("hs_code") and default_hs:
+                p["hs_code"] = default_hs
+            if not p.get("description"):
+                matching = next((it for it in line_items if it.get("item_code") and it.get("item_code") == p.get("item_code")), None)
+                if not matching and idx < len(line_items):
+                    matching = line_items[idx]
+                if matching and matching.get("description"):
+                    p["description"] = matching.get("description")
+                if matching and not p.get("hs_code") and matching.get("hs_code"):
+                    p["hs_code"] = matching.get("hs_code")
+        return packing_items
 
     def _extract_po_number(self, text: str) -> Optional[str]:
         # 1. Italian format: V1/ 2562 or Vl/ 2562 or VI/ 2562

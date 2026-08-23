@@ -191,7 +191,7 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListen
       key: ValueKey(reloadKey),
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'ImportFlow ERP - Sorour Logistics (v1.0.1)',
+        title: 'ImportFlow ERP - Sorour Logistics (v1.0.2)',
         theme: AppTheme.lightTheme,
         scrollBehavior: AppCustomScrollBehavior(),
         home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),

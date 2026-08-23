@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "ImportFlow ERP"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "Sorour Logistics"
 #define MyAppURL "https://importflow.local"
 #define MyAppExeName "Launch_ImportFlow.vbs"

@@ -4,13 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
 import 'package:frontend/features/customs_tariff/providers/customs_tariff_provider.dart';
-import 'package:frontend/features/import_documentation/models/import_documentation_model.dart';
-import 'package:frontend/features/import_documentation/providers/import_documentation_provider.dart';
 import 'package:frontend/features/import_documentation/screens/customs_declaration46_screen.dart';
 import 'package:frontend/features/import_files/models/import_file_model.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
-import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
-import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 
 class _MockImportFilesNotifier extends ImportFilesNotifier {
   final List<ImportFileModel> initialFiles;
@@ -107,6 +103,13 @@ void main() {
         createdAt: DateTime(2026, 1, 1),
         updatedAt: DateTime(2026, 1, 1),
       );
+
+      tester.view.physicalSize = const Size(1280, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
 
       await tester.pumpWidget(
         ProviderScope(

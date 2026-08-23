@@ -163,6 +163,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 59: Production Sync & Deployment Hub (In-App Sync Utility)
         ProductionSyncScreen(),
+
+        // 60: Drawing Samples / Shortage (subTab 1)
+        CustomsClearanceScreen(key: ValueKey('customs_clearance_tab_1'), initialSubTab: 1),
+
+        // 61: Discrepancy / Damage (subTab 2)
+        CustomsClearanceScreen(key: ValueKey('customs_clearance_tab_2'), initialSubTab: 2),
+
+        // 62: Final Customs Payment (subTab 3)
+        CustomsClearanceScreen(key: ValueKey('customs_clearance_tab_3'), initialSubTab: 3),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -497,9 +506,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.description_outlined, 'Customs Declaration 46', 'شهادة الإجراءات الجمركية إقرار 46 ك.م', 23, selectedIndex),
                   _buildMenuItem(Icons.fact_check_outlined, 'Customs Clearance Follow-up', 'متابعة الكشف والتثمين والتفتيش الجمركي', 27, selectedIndex),
-                  _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وتحديد عجز البضائع', 27, selectedIndex),
-                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 27, selectedIndex),
-                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 27, selectedIndex),
+                  _buildMenuItem(Icons.science_outlined, 'Drawing Samples / Shortage', 'سحب العينات وتحديد عجز البضائع', 60, selectedIndex),
+                  _buildMenuItem(Icons.report_problem_outlined, 'Discrepancy / Damage', 'إثبات الفاقد والتلف الجمركي', 61, selectedIndex),
+                  _buildMenuItem(Icons.receipt_long_outlined, 'Final Customs Payment', 'سداد الرسوم والضرائب الجمركية النهائية', 62, selectedIndex),
                   _buildMenuItem(Icons.timer_outlined, 'Demurrage & Detention', 'تتبع غرامات الأرضيات وحراسات الحاويات', 44, selectedIndex),
                 ],
               ),

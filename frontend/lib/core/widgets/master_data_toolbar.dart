@@ -1,12 +1,22 @@
-// TODO: Refactor to ConsumerWidget to use dioProvider/uploadDioProvider
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/api_constants.dart';
+import '../localization/app_localizations.dart';
+import '../network/dio_client.dart';
 import '../theme/app_theme.dart';
+import 'buttons/app_button.dart';
 
-class MasterDataToolbarWidget extends StatefulWidget {
-  final String moduleEndpoint; // e.g. "import-companies", "suppliers", "external-service-providers", "projects"
+/// Reusable master data toolbar with Export/Import/Refresh actions.
+///
+/// Now uses:
+/// - [AppButton] for consistent button styling
+/// - [AppTheme.toolbarDecoration] for container style
+/// - [dioProvider] singleton instead of `Dio()` local instance
+/// - [context.l10n] for localized labels
+class MasterDataToolbarWidget extends ConsumerStatefulWidget {
+  final String moduleEndpoint;
   final String title;
   final VoidCallback onRefreshNeeded;
   final VoidCallback? onDownloadTemplate;
@@ -26,24 +36,30 @@ class MasterDataToolbarWidget extends StatefulWidget {
   });
 
   @override
-  State<MasterDataToolbarWidget> createState() => _MasterDataToolbarWidgetState();
+  ConsumerState<MasterDataToolbarWidget> createState() =>
+      _MasterDataToolbarWidgetState();
 }
 
-class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
+class _MasterDataToolbarWidgetState
+    extends ConsumerState<MasterDataToolbarWidget> {
   bool _isUploading = false;
 
-  Future<void> _downloadFile(String actionEndpoint, String defaultFileName) async {
-    final url = '${ApiConstants.baseUrl}/${widget.moduleEndpoint}/$actionEndpoint';
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Downloading $defaultFileName from: $url'),
-          backgroundColor: AppTheme.cobalt,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
+  Future<void> _downloadFile(
+      String actionEndpoint, String defaultFileName) async {
+    final url =
+        '${ApiConstants.baseUrl}/${widget.moduleEndpoint}/$actionEndpoint';
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${context.l10n.preparingExport} $defaultFileName'),
+        backgroundColor: AppTheme.cobalt,
+        duration: const Duration(seconds: 3),
+      ),
+    );
+    // TODO: implement actual file download via dioProvider
+    // final dio = ref.read(dioProvider);
+    // final response = await dio.get(url, options: Options(responseType: ResponseType.bytes));
+    debugPrint('Export URL: $url');
   }
 
   Future<void> _handleImportExcel() async {
@@ -54,13 +70,17 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
         withData: true,
       );
 
+
       if (result == null || result.files.isEmpty) return;
 
       final file = result.files.first;
       if (file.bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not read file bytes'), backgroundColor: AppTheme.crimson),
+            const SnackBar(
+              content: Text('Could not read file bytes'),
+              backgroundColor: AppTheme.crimson,
+            ),
           );
         }
         return;
@@ -68,151 +88,170 @@ class _MasterDataToolbarWidgetState extends State<MasterDataToolbarWidget> {
 
       setState(() => _isUploading = true);
 
-      final dio = Dio();
+      // Use upload Dio (multipart, no JSON content-type header)
+      final dio = ref.read(uploadDioProvider);
+
       final formData = FormData.fromMap({
-        'file': MultipartFile.fromBytes(file.bytes!, filename: file.name),
+        'file': MultipartFile.fromBytes(
+          file.bytes!,
+          filename: file.name,
+        ),
       });
 
       final response = await dio.post(
-        '${ApiConstants.baseUrl}/${widget.moduleEndpoint}/import-excel',
+        '/${widget.moduleEndpoint}/import-excel',
         data: formData,
       );
 
+      if (!mounted) return;
       setState(() => _isUploading = false);
 
-      if (mounted) {
-        final message = response.data['message'] ?? 'Import complete';
-        final List errors = response.data['errors'] ?? [];
+      final l = context.l10n;
+      final message = response.data['message'] ?? l.importSuccessful;
+      final List errors = response.data['errors'] ?? [];
 
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: Row(
-              children: [
-                Icon(errors.isEmpty ? Icons.check_circle : Icons.warning_amber,
-                    color: errors.isEmpty ? AppTheme.emerald : AppTheme.orange),
-                const SizedBox(width: 8),
-                Text(errors.isEmpty ? 'Import Successful' : 'Import Completed with Alerts'),
+      _showImportResultDialog(message, errors);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isUploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${context.l10n.error}: $e'),
+          backgroundColor: AppTheme.crimson,
+        ),
+      );
+    }
+  }
+
+
+  void _showImportResultDialog(String message, List errors) {
+    final l = context.l10n;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              errors.isEmpty ? Icons.check_circle : Icons.warning_amber,
+              color: errors.isEmpty ? AppTheme.emerald : AppTheme.orange,
+            ),
+            const SizedBox(width: 8),
+            Text(errors.isEmpty ? l.importSuccessful : l.importWithAlerts),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
+              if (errors.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  l.alertsErrors,
+                  style: const TextStyle(
+                      color: AppTheme.crimson, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                ...errors.map((err) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2.0),
+                      child: Text('• $err',
+                          style: const TextStyle(fontSize: 12)),
+                    )),
               ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
-                  if (errors.isNotEmpty) ...[
-                    const SizedBox(height: 12),
-                    const Text('Alerts / Errors:', style: TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 4),
-                    ...errors.map((err) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2.0),
-                          child: Text('• $err', style: const TextStyle(fontSize: 12)),
-                        )),
-                  ]
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(ctx);
-                  widget.onRefreshNeeded();
-                },
-                child: const Text('OK'),
-              ),
             ],
           ),
-        );
-      }
-    } catch (e) {
-      setState(() => _isUploading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Import failed: $e'), backgroundColor: AppTheme.crimson),
-        );
-      }
-    }
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              widget.onRefreshNeeded();
+            },
+            child: Text(l.ok),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2)),
-        ],
-      ),
+      decoration: AppTheme.toolbarDecoration,
       child: Wrap(
         spacing: 10,
         runSpacing: 10,
         alignment: WrapAlignment.spaceBetween,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          // Title
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.table_chart_outlined, color: AppTheme.cobalt, size: 20),
+              const Icon(Icons.table_chart_outlined,
+                  color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Text(
-                'Data Actions & Export/Import',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey.shade800),
+                l.dataActionsTitle,
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: Colors.grey.shade800),
               ),
             ],
           ),
+
+          // Action buttons
           Wrap(
             spacing: 8,
             runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // 0. Live Refresh Button
-              ElevatedButton.icon(
+              // Live Refresh
+              AppButton(
+                label: l.liveRefresh,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
+                icon: Icons.refresh,
                 onPressed: widget.onRefreshNeeded,
-                icon: const Icon(Icons.refresh, size: 16, color: Colors.white),
-                label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, color: Colors.white, fontWeight: FontWeight.bold)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.charcoal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
               ),
 
-              // 1. Export Excel Button
-              ElevatedButton.icon(
-                onPressed: widget.onExportExcel ?? () => _downloadFile('export-excel', '${widget.title}_Report.xlsx'),
-                icon: const Icon(Icons.description, size: 16, color: Colors.white),
-                label: const Text('Export Excel', style: TextStyle(fontSize: 12, color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
+              // Export Excel
+              AppButton(
+                label: l.exportExcel,
+                variant: AppButtonVariant.success,
+                size: AppButtonSize.small,
+                icon: Icons.description,
+                onPressed: widget.onExportExcel ??
+                    () => _downloadFile(
+                        'export-excel', '${widget.title}_Report.xlsx'),
               ),
 
-              // 2. Export PDF Button
-              ElevatedButton.icon(
-                onPressed: widget.onExportPdf ?? () => _downloadFile('export-pdf', '${widget.title}_Report.pdf'),
-                icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
-                label: const Text('Export PDF', style: TextStyle(fontSize: 12, color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.cobalt,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
+              // Export PDF
+              AppButton(
+                label: l.exportPdf,
+                variant: AppButtonVariant.primary,
+                size: AppButtonSize.small,
+                icon: Icons.picture_as_pdf,
+                onPressed: widget.onExportPdf ??
+                    () => _downloadFile(
+                        'export-pdf', '${widget.title}_Report.pdf'),
               ),
 
-              // 3. Import Bulk Data Button
-              ElevatedButton.icon(
-                onPressed: _isUploading ? null : (widget.onImportExcel ?? _handleImportExcel),
-                icon: _isUploading
-                    ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Icon(Icons.upload_file, size: 16, color: Colors.white),
-                label: Text(_isUploading ? 'Uploading...' : 'Import Excel', style: const TextStyle(fontSize: 12, color: Colors.white)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.orange,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                ),
+              // Import Excel
+              AppButton(
+                label: _isUploading ? l.uploading : l.importExcel,
+                variant: AppButtonVariant.warning,
+                size: AppButtonSize.small,
+                icon: Icons.upload_file,
+                isLoading: _isUploading,
+                onPressed: _isUploading
+                    ? null
+                    : (widget.onImportExcel ?? _handleImportExcel),
               ),
             ],
           ),

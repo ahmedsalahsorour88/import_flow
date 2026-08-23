@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/localization/app_localizations.dart';
+import '../../core/localization/locale_provider.dart';
 import '../../core/providers/navigation_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../audit_logs/screens/audit_logs_screen.dart';
@@ -48,6 +50,7 @@ import '../warehouse_receiving/screens/goods_in_transit_screen.dart';
 import '../warehouse_receiving/screens/warehouse_received_report_screen.dart';
 import '../production_sync/screens/production_sync_screen.dart';
 import '../production_sync/widgets/production_sync_hub_dialog.dart';
+
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -222,7 +225,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         const SizedBox(height: 8),
         IconButton(
           icon: const Icon(Icons.menu, color: Colors.white, size: 20),
-          tooltip: 'إظهار القائمة الجانبية الكاملة (Expand Sidebar)',
+          tooltip: context.l10n.expandSidebar,
           onPressed: () => setState(() => _isSidebarCollapsed = false),
         ),
         const Divider(color: Colors.white24, height: 10),
@@ -230,19 +233,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: ListView(
             padding: const EdgeInsets.symmetric(vertical: 4),
             children: [
-              _buildRailIcon(Icons.view_kanban_outlined, 'لوحة مراحل وتتبع الشحنات (Operations Board)', 48, selectedIndex, AppTheme.cobalt),
-              _buildRailIcon(Icons.dashboard_customize_outlined, 'لوحة التحكم ومؤشرات الأداء (Dashboard)', 0, selectedIndex, AppTheme.emerald),
+              _buildRailIcon(Icons.view_kanban_outlined, context.l10n.lifecycleBoard, 48, selectedIndex, AppTheme.cobalt),
+              _buildRailIcon(Icons.dashboard_customize_outlined, context.l10n.operationalDashboard, 0, selectedIndex, AppTheme.emerald),
               const Divider(color: Colors.white12, height: 8),
-              _buildRailIcon(Icons.analytics_outlined, 'المرحلة 1: التخطيط والدراسات المسبقة', 4, selectedIndex, Colors.amber.shade700),
-              _buildRailIcon(Icons.app_registration_outlined, 'المرحلة 2: بداية الشحنة وإصدار ACID', 8, selectedIndex, AppTheme.cobalt),
-              _buildRailIcon(Icons.assignment_turned_in_outlined, 'المرحلة 3: حجز وتدقيق الشحن المستندي', 11, selectedIndex, Colors.teal),
-              _buildRailIcon(Icons.verified_user_outlined, 'المرحلة 4: التوثيق الرقمي والاعتماد البنكي', 20, selectedIndex, AppTheme.crimson),
-              _buildRailIcon(Icons.anchor_outlined, 'المرحلة 5: عمليات الميناء والتخليص الجمركي', 24, selectedIndex, Colors.purple),
-              _buildRailIcon(Icons.inventory_outlined, 'المرحلة 6: الاستلام المخزني والتسوية المالية', 31, selectedIndex, AppTheme.emerald),
+              _buildRailIcon(Icons.analytics_outlined, context.l10n.phase1, 4, selectedIndex, Colors.amber.shade700),
+              _buildRailIcon(Icons.app_registration_outlined, context.l10n.phase2, 8, selectedIndex, AppTheme.cobalt),
+              _buildRailIcon(Icons.assignment_turned_in_outlined, context.l10n.phase3, 11, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.verified_user_outlined, context.l10n.phase4, 20, selectedIndex, AppTheme.crimson),
+              _buildRailIcon(Icons.anchor_outlined, context.l10n.phase5, 24, selectedIndex, Colors.purple),
+              _buildRailIcon(Icons.inventory_outlined, context.l10n.phase6, 31, selectedIndex, AppTheme.emerald),
               const Divider(color: Colors.white12, height: 8),
-              _buildRailIcon(Icons.folder_special_outlined, 'تخطيط الشحنة وأوامر الشراء', 1, selectedIndex, Colors.cyan),
-              _buildRailIcon(Icons.storage_outlined, 'البيانات والجداول الأساسية', 34, selectedIndex, Colors.teal),
-              _buildRailIcon(Icons.summarize_outlined, 'التقارير وسجلات التدقيق', 47, selectedIndex, Colors.indigo),
+              _buildRailIcon(Icons.folder_special_outlined, context.l10n.shipmentPlanning, 1, selectedIndex, Colors.cyan),
+              _buildRailIcon(Icons.storage_outlined, context.l10n.masterData, 34, selectedIndex, Colors.teal),
+              _buildRailIcon(Icons.summarize_outlined, context.l10n.dashboardAndReports, 47, selectedIndex, Colors.indigo),
             ],
           ),
         ),
@@ -252,7 +255,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(),
           icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
-          tooltip: 'معلومات الإصدار والنظام (System Info)',
+          tooltip: context.l10n.systemInfoTooltip,
           onPressed: () => _showSystemInfoDialog(context),
         ),
         const SizedBox(height: 6),
@@ -299,6 +302,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ─── Full Sidebar (235px width) ────────────────────────────────────────────
 
   Widget _buildFullSidebar(int selectedIndex, dynamic user) {
+    final l = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -313,53 +317,70 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: AppTheme.cobalt,
                   borderRadius: BorderRadius.circular(6),
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 16),
+                child: const Icon(Icons.local_shipping_rounded,
+                    color: Colors.white, size: 16),
               ),
               const SizedBox(width: 6),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Sorour Logistics',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12.5),
+                      l.appTitle,
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12.5),
                     ),
                     Text(
-                      'سرور للخدمات اللوجستية',
-                      style: TextStyle(color: Colors.white70, fontSize: 8.5),
+                      l.appSubtitle,
+                      style: const TextStyle(color: Colors.white70, fontSize: 8.5),
                     ),
                   ],
                 ),
               ),
+              // 🌐 Language Toggle Button
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(Icons.language, color: Colors.white70, size: 16),
+                tooltip: l.languageToggleTooltip,
+                onPressed: () =>
+                    ref.read(localeProvider.notifier).toggleLocale(),
+              ),
+              const SizedBox(width: 2),
               const NotificationBellWidget(),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.sync_rounded, color: AppTheme.emerald, size: 17),
-                tooltip: 'مركز مزامنة وتحديث الإنتاج (Production Sync Hub)',
+                icon: const Icon(Icons.sync_rounded,
+                    color: AppTheme.emerald, size: 17),
+                tooltip: l.syncHubTooltip,
                 onPressed: () => ProductionSyncHubDialog.show(context),
               ),
               const SizedBox(width: 4),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.info_outline_rounded, color: Colors.white70, size: 16),
-                tooltip: 'معلومات الإصدار والنظام (System Info)',
+                icon: const Icon(Icons.info_outline_rounded,
+                    color: Colors.white70, size: 16),
+                tooltip: l.systemInfoTooltip,
                 onPressed: () => _showSystemInfoDialog(context),
               ),
               const SizedBox(width: 4),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
-                icon: const Icon(Icons.keyboard_double_arrow_left, color: Colors.white70, size: 18),
-                tooltip: 'إخفاء القائمة لتوسيع الشاشة (Collapse Sidebar)',
+                icon: const Icon(Icons.keyboard_double_arrow_left,
+                    color: Colors.white70, size: 18),
+                tooltip: l.collapseSidebar,
                 onPressed: () => setState(() => _isSidebarCollapsed = true),
               ),
             ],
           ),
         ),
 
-        // Quick Search Bar in Sidebar
+        // Quick Search Bar
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           child: Container(
@@ -370,15 +391,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             child: TextField(
               style: const TextStyle(color: Colors.white, fontSize: 11),
-              onChanged: (val) => setState(() => _searchQuery = val.trim().toLowerCase()),
+              onChanged: (val) =>
+                  setState(() => _searchQuery = val.trim().toLowerCase()),
               decoration: InputDecoration(
-                hintText: 'بحث سريع / Search...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 10),
-                prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.5), size: 14),
+                hintText: l.quickSearch,
+                hintStyle: TextStyle(
+                    color: Colors.white.withOpacity(0.4), fontSize: 10),
+                prefixIcon: Icon(Icons.search,
+                    color: Colors.white.withOpacity(0.5), size: 14),
                 suffixIcon: _searchQuery.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: Colors.white54, size: 12),
-                        onPressed: () => setState(() => _searchQuery = ''),
+                        icon: const Icon(Icons.clear,
+                            color: Colors.white54, size: 12),
+                        onPressed: () =>
+                            setState(() => _searchQuery = ''),
                       )
                     : null,
                 border: InputBorder.none,
@@ -388,6 +414,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
         const Divider(color: Colors.white24, height: 1),
+
 
         // Navigation Hubs List (Organized strictly according to Shipment Workflow & Stages)
         Expanded(
@@ -697,18 +724,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     bool initiallyExpanded = false,
   }) {
     final isSearching = _searchQuery.isNotEmpty;
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final primary = isArabic ? titleAr : titleEn;
+    final secondary = isArabic ? titleEn : titleAr;
 
     return Theme(
       data: Theme.of(context).copyWith(
         dividerColor: Colors.transparent,
-        hoverColor: Colors.white.withOpacity(0.04),
+        hoverColor: const Color(0x0AFFFFFF),
       ),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 1.5),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.03),
+          color: const Color(0x08FFFFFF),
           borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white.withOpacity(0.05)),
+          border: Border.all(color: const Color(0x0DFFFFFF)),
         ),
         child: ExpansionTile(
           key: isSearching ? UniqueKey() : null,
@@ -718,7 +748,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           leading: Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: Color.fromRGBO(
+                  color.red, color.green, color.blue, 0.2),
               borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(icon, color: color, size: 14),
@@ -728,7 +759,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                titleEn,
+                primary,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
@@ -739,9 +770,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
               Text(
-                titleAr,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
+                secondary,
+                style: const TextStyle(
+                  color: Color(0x99FFFFFF),
                   fontSize: 9,
                 ),
                 maxLines: 1,
@@ -757,18 +788,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildMenuItem(IconData icon, String titleEn, String titleAr, int index, int selectedIndex) {
+  Widget _buildMenuItem(IconData icon, String titleEn, String titleAr,
+      int index, int selectedIndex) {
+    // Filter by search (both EN and AR)
     if (_searchQuery.isNotEmpty &&
         !titleEn.toLowerCase().contains(_searchQuery) &&
         !titleAr.toLowerCase().contains(_searchQuery)) {
       return const SizedBox.shrink();
     }
 
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final primary = isArabic ? titleAr : titleEn;
+    final secondary = isArabic ? titleEn : titleAr;
     final isSelected = selectedIndex == index;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color: isSelected ? AppTheme.cobalt.withOpacity(0.25) : Colors.transparent,
+        color: isSelected ? AppTheme.cobaltMedium : Colors.transparent,
         borderRadius: BorderRadius.circular(4),
         border: isSelected
             ? const Border(left: BorderSide(color: AppTheme.cobalt, width: 3))
@@ -782,10 +819,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         leading: Icon(
           icon,
           size: 13.5,
-          color: isSelected ? AppTheme.cobalt : AppTheme.cloudWhite.withOpacity(0.8),
+          color: isSelected
+              ? AppTheme.cobalt
+              : const Color(0xCCECF0F1), // cloudWhite 80%
         ),
         title: Text(
-          titleEn,
+          primary,
           style: TextStyle(
             color: isSelected ? Colors.white : AppTheme.cloudWhite,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
@@ -795,7 +834,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         subtitle: Text(
-          titleAr,
+          secondary,
           style: TextStyle(
             color: isSelected ? Colors.white70 : Colors.white54,
             fontSize: 9,
@@ -804,14 +843,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           overflow: TextOverflow.ellipsis,
         ),
         selected: isSelected,
-        onTap: () {
-          selectNavigationIndex(ref, index);
-        },
+        onTap: () => selectNavigationIndex(ref, index),
       ),
     );
   }
 
+
   void _showSystemInfoDialog(BuildContext context) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -831,20 +870,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   color: AppTheme.cobalt,
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Icon(Icons.local_shipping_rounded, color: Colors.white, size: 22),
+                child: const Icon(Icons.local_shipping_rounded,
+                    color: Colors.white, size: 22),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       'ImportFlow ERP',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                      style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16),
                     ),
                     Text(
-                      'سرور للخدمات اللوجستية وإدارة الاستيراد',
-                      style: TextStyle(color: Colors.white70, fontSize: 11),
+                      l.appSubtitle,
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
                     ),
                   ],
                 ),
@@ -861,21 +904,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildInfoRow(Icons.verified, 'إصدار المنظومة (Version)', 'v1.0.2 (Release)'),
+              _buildInfoRow(Icons.verified, l.systemVersion, 'v1.0.2 (Release)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.build_circle_outlined, 'رقم البناء (Build ID)', 'Build 2026.08.22+1'),
+              _buildInfoRow(Icons.build_circle_outlined, l.buildId, 'Build 2026.08.22+1'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.dns_outlined, 'الخادم المدمج (Backend Engine)', 'FastAPI (Port 28080)'),
+              _buildInfoRow(Icons.dns_outlined, l.backendEngine, 'FastAPI (Port 28080)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.storage_outlined, 'قاعدة البيانات (Database)', 'SQLite (sorour_logistics.db)'),
+              _buildInfoRow(Icons.storage_outlined, l.database, 'SQLite (sorour_logistics.db)'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.offline_pin_outlined, 'نمط التشغيل (Operating Mode)', 'Standalone Offline / Local Engine'),
+              _buildInfoRow(Icons.offline_pin_outlined, l.operatingMode,
+                  'Standalone Offline / Local Engine'),
               const Divider(height: 14),
-              _buildInfoRow(Icons.shield_outlined, 'الترخيص والحقوق', '© 2026 Sorour Logistics. All rights reserved.'),
+              _buildInfoRow(Icons.shield_outlined, l.licenseAndRights,
+                  '© 2026 Sorour Logistics. All rights reserved.'),
             ],
           ),
         ),
-        actionsPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        actionsPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         actions: [
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -885,7 +931,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             icon: const Icon(Icons.sync_rounded, size: 16),
-            label: const Text('مركز المزامنة والتحديث (Sync Hub)', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.syncHub,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.of(ctx).pop();
               ProductionSyncHubDialog.show(context);
@@ -899,12 +946,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إغلاق', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text(l.close,
+                style: const TextStyle(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
     );
   }
+
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
     return Row(

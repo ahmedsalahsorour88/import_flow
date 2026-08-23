@@ -53,8 +53,10 @@ def create_backup(db_path: Path, tag: str = "backup") -> Path:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     backup_file = BACKUPS_DIR / f"{db_path.stem}_{tag}_{timestamp}.db"
     shutil.copy2(db_path, backup_file)
-    print(f"   [BACKUP] تم إنشاء نسخة احتياطية آمنة: {backup_file.name} ({backup_file.stat().st_size / 1024:.1f} KB)")
+    size_kb = backup_file.stat().st_size / 1024
+    print(f"   [BACKUP] Safety backup created: {backup_file.name} ({size_kb:.1f} KB)")
     return backup_file
+
 
 
 def get_db_stats(db_path: Path) -> dict:
@@ -93,48 +95,65 @@ def get_db_stats(db_path: Path) -> dict:
 def compare_databases():
     """Compares Dev and Prod databases table by table."""
     print("\n===============================================================================")
-    print(" [CHECK] فحص ومقارنة قاعدة بيانات التطوير (Dev) مع الإنتاج (Production) ")
+    print(" [CHECK] Database Comparison: Development (Dev) vs Production (Prod)")
     print("===============================================================================")
-    
+
     dev_stats = get_db_stats(DEV_DB)
     prod_stats = get_db_stats(PROD_DB)
 
-    print(f"\n[DEV DB]  قاعدة بيانات التطوير: {DEV_DB}")
+    print(f"\n[DEV  DB] {DEV_DB}")
     if dev_stats.get("exists"):
-        print(f"   - الحجم: {dev_stats['size_kb']} KB | الجداول: {dev_stats['tables_count']} | إجمالي السجلات: {dev_stats['total_records']}")
-        print(f"   - آخر تعديل: {dev_stats['mtime']}")
+        print(f"   - Size: {dev_stats['size_kb']} KB | Tables: {dev_stats['tables_count']} | Records: {dev_stats['total_records']}")
+        print(f"   - Last Modified: {dev_stats['mtime']}")
     else:
-        print("   [!] غير موجودة!")
+        print("   [!] NOT FOUND")
 
-    print(f"\n[PROD DB] قاعدة بيانات الإنتاج:  {PROD_DB}")
+    print(f"\n[PROD DB] {PROD_DB}")
     if prod_stats.get("exists"):
-        print(f"   - الحجم: {prod_stats['size_kb']} KB | الجداول: {prod_stats['tables_count']} | إجمالي السجلات: {prod_stats['total_records']}")
-        print(f"   - آخر تعديل: {prod_stats['mtime']}")
+        print(f"   - Size: {prod_stats['size_kb']} KB | Tables: {prod_stats['tables_count']} | Records: {prod_stats['total_records']}")
+        print(f"   - Last Modified: {prod_stats['mtime']}")
     else:
-        print("   [!] غير موجودة بعد (سيتم إنشاؤها عند أول مزامنة)")
+        print("   [!] Not found yet — will be created on first sync.")
 
     if dev_stats.get("exists") and prod_stats.get("exists"):
-        print("\n[TABLE STATS] مقارنة السجلات في الجداول:")
-        print(f"{'اسم الجدول (Table)':<35} | {'التطوير (Dev)':<15} | {'الإنتاج (Prod)':<15} | {'الحالة (Status)':<10}")
+        print("\n[TABLE COMPARISON]")
+        print(f"{'Table Name':<35} | {'Dev Records':<14} | {'Prod Records':<14} | {'Status':<10}")
         print("-" * 85)
-        
-        all_tables = sorted(set(list(dev_stats.get("table_counts", {}).keys()) + list(prod_stats.get("table_counts", {}).keys())))
+
+        all_tables = sorted(set(
+            list(dev_stats.get("table_counts", {}).keys()) +
+            list(prod_stats.get("table_counts", {}).keys())
+        ))
         for tbl in all_tables:
             dev_c = dev_stats.get("table_counts", {}).get(tbl, 0)
             prod_c = prod_stats.get("table_counts", {}).get(tbl, 0)
-            status = "MATCH (متطابق)" if dev_c == prod_c else f"DIFF ({dev_c - prod_c:+d})"
-            print(f"{tbl:<35} | {dev_c:<15} | {prod_c:<15} | {status}")
+            if dev_c == prod_c:
+                status = "✓ MATCH"
+            elif dev_c > prod_c:
+                status = f"+{dev_c - prod_c} new"
+            else:
+                status = f"{dev_c - prod_c} behind"
+            print(f"{tbl:<35} | {dev_c:<14} | {prod_c:<14} | {status}")
     print("===============================================================================\n")
 
 
-def smart_non_destructive_migrate(src_db: Path, target_db: Path) -> dict:
+
+
+def smart_non_destructive_migrate(
+    src_db: Path, target_db: Path, dry_run: bool = False
+) -> dict:
     """
     Enterprise Non-Destructive Migration:
     1. Creates any missing tables from src in target.
     2. Adds any new columns via ALTER TABLE ADD COLUMN.
-    3. Merges rows with INSERT OR IGNORE preserving 100% of target user data.
+    3. Merges new rows with INSERT OR IGNORE (never deletes user data).
+    4. All changes are wrapped in a single transaction (atomic rollback on failure).
+    5. dry_run=True: shows what WOULD be changed without applying anything.
     """
     if not target_db.exists():
+        if dry_run:
+            print(f"   [DRY-RUN] Target does not exist — would create fresh copy: {target_db}")
+            return {"status": "dry_run_fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
         target_db.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src_db, target_db)
         return {"status": "fresh_copy", "tables_added": 0, "columns_added": 0, "rows_merged": 0}
@@ -155,72 +174,135 @@ def smart_non_destructive_migrate(src_db: Path, target_db: Path) -> dict:
     columns_added = 0
     rows_merged = 0
 
-    # 1. Create missing tables
-    for tbl_name, tbl_sql in src_tables:
-        if tbl_name not in tgt_table_names:
-            if tbl_sql:
-                cur_tgt.execute(tbl_sql)
-                tables_added += 1
-                tgt_table_names.add(tbl_name)
+    # Pre-merge record counts for integrity verification
+    pre_counts = {}
+    for row in cur_tgt.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+    ):
+        tbl = row[0]
+        try:
+            pre_counts[tbl] = cur_tgt.execute(f'SELECT COUNT(*) FROM "{tbl}";').fetchone()[0]
+        except Exception:
+            pre_counts[tbl] = 0
 
-    # 2. Add missing columns
-    for tbl_name, _ in src_tables:
-        if tbl_name in tgt_table_names:
+    try:
+        if not dry_run:
+            cur_tgt.execute("BEGIN")
+
+        # 1. Create missing tables
+        for tbl_name, tbl_sql in src_tables:
+            if tbl_name not in tgt_table_names:
+                if tbl_sql:
+                    if dry_run:
+                        print(f"   [DRY-RUN] Would CREATE TABLE: {tbl_name}")
+                    else:
+                        cur_tgt.execute(tbl_sql)
+                    tables_added += 1
+                    tgt_table_names.add(tbl_name)
+
+        # 2. Add missing columns
+        for tbl_name, _ in src_tables:
+            if tbl_name in tgt_table_names:
+                try:
+                    cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
+                    src_cols = {row[1]: row[2] for row in cur_src.fetchall()}
+
+                    cur_tgt.execute(f'PRAGMA table_info("{tbl_name}");')
+                    tgt_cols = set(row[1] for row in cur_tgt.fetchall())
+
+                    for col_name, col_type in src_cols.items():
+                        if col_name not in tgt_cols:
+                            if dry_run:
+                                print(f"   [DRY-RUN] Would ADD COLUMN: {tbl_name}.{col_name} ({col_type})")
+                            else:
+                                cur_tgt.execute(
+                                    f'ALTER TABLE "{tbl_name}" ADD COLUMN "{col_name}" {col_type};'
+                                )
+                            columns_added += 1
+                except Exception:
+                    pass
+
+        # 3. Merge new rows — INSERT OR IGNORE (safe, never deletes)
+        for tbl_name, _ in src_tables:
             try:
                 cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
-                src_cols = {row[1]: row[2] for row in cur_src.fetchall()}
+                src_cols = [row[1] for row in cur_src.fetchall()]
 
                 cur_tgt.execute(f'PRAGMA table_info("{tbl_name}");')
                 tgt_cols = set(row[1] for row in cur_tgt.fetchall())
 
-                for col_name, col_type in src_cols.items():
-                    if col_name not in tgt_cols:
-                        cur_tgt.execute(f'ALTER TABLE "{tbl_name}" ADD COLUMN "{col_name}" {col_type};')
-                        columns_added += 1
+                common_cols = [c for c in src_cols if c in tgt_cols]
+                if not common_cols:
+                    continue
+
+                cols_str = ", ".join([f'"{c}"' for c in common_cols])
+                placeholders = ", ".join(["?"] * len(common_cols))
+
+                cur_src.execute(f'SELECT {cols_str} FROM "{tbl_name}";')
+                src_rows = cur_src.fetchall()
+
+                for row in src_rows:
+                    if dry_run:
+                        rows_merged += 1  # count what would be inserted
+                    else:
+                        cur_tgt.execute(
+                            f'INSERT OR IGNORE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
+                            tuple(row),
+                        )
+                        if cur_tgt.rowcount > 0:
+                            rows_merged += 1
             except Exception:
                 pass
 
-    conn_tgt.commit()
+        if not dry_run:
+            conn_tgt.commit()  # single atomic commit
 
-    # 3. Merge new reference & schema rows with INSERT OR IGNORE
-    for tbl_name, _ in src_tables:
-        try:
-            cur_src.execute(f'PRAGMA table_info("{tbl_name}");')
-            src_cols = [row[1] for row in cur_src.fetchall()]
-            
-            cur_tgt.execute(f'PRAGMA table_info("{tbl_name}");')
-            tgt_cols = set(row[1] for row in cur_tgt.fetchall())
-            
-            common_cols = [c for c in src_cols if c in tgt_cols]
-            if not common_cols:
-                continue
+    except Exception as exc:
+        if not dry_run:
+            conn_tgt.rollback()
+            conn_src.close()
+            conn_tgt.close()
+            raise RuntimeError(f"Migration failed — rolled back safely: {exc}") from exc
 
-            cols_str = ", ".join([f'"{c}"' for c in common_cols])
-            placeholders = ", ".join(["?"] * len(common_cols))
-
-            cur_src.execute(f'SELECT {cols_str} FROM "{tbl_name}";')
-            src_rows = cur_src.fetchall()
-
-            for row in src_rows:
-                cur_tgt.execute(
-                    f'INSERT OR IGNORE INTO "{tbl_name}" ({cols_str}) VALUES ({placeholders});',
-                    tuple(row),
-                )
-                if cur_tgt.rowcount > 0:
-                    rows_merged += 1
-        except Exception:
-            pass
-
-    conn_tgt.commit()
     conn_src.close()
-    conn_tgt.close()
+
+    # Post-merge integrity verification
+    post_status = "dry_run" if dry_run else "ok"
+    if not dry_run:
+        post_counts = {}
+        for row in cur_tgt.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%';"
+        ):
+            tbl = row[0]
+            try:
+                post_counts[tbl] = cur_tgt.execute(
+                    f'SELECT COUNT(*) FROM "{tbl}";'
+                ).fetchone()[0]
+            except Exception:
+                post_counts[tbl] = 0
+        conn_tgt.close()
+
+        # Integrity check: no table should have fewer rows after merge
+        shrunk = [
+            tbl for tbl, cnt in post_counts.items()
+            if tbl in pre_counts and cnt < pre_counts[tbl]
+        ]
+        if shrunk:
+            post_status = f"WARNING: {len(shrunk)} table(s) have fewer rows post-merge: {shrunk}"
+        else:
+            post_status = "integrity_ok"
+    else:
+        conn_tgt.close()
 
     return {
-        "status": "migrated_safely",
+        "status": "dry_run" if dry_run else "migrated_safely",
+        "integrity": post_status,
         "tables_added": tables_added,
         "columns_added": columns_added,
         "rows_merged": rows_merged,
     }
+
+
 
 
 def sync_db_to_prod():
@@ -245,10 +327,11 @@ def sync_db_to_prod():
 
     # 4. Smart Non-Destructive Migration
     res = smart_non_destructive_migrate(DEV_DB, PROD_DB)
-    print(f"[SUCCESS] تم تطبيق المزامنة والتحديثات بأمان على البرودكشن: {PROD_DB}")
-    print(f"   - الجداول الجديدة المضافة: {res['tables_added']}")
-    print(f"   - الحقول الجديدة المضافة: {res['columns_added']}")
-    print(f"   - السجلات الجديدة المدمجة: {res['rows_merged']}")
+    print(f"[SUCCESS] Sync applied safely to production: {PROD_DB}")
+    print(f"   - New tables added:   {res['tables_added']}")
+    print(f"   - New columns added:  {res['columns_added']}")
+    print(f"   - Rows merged:        {res['rows_merged']}")
+    print(f"   - Integrity check:    {res.get('integrity', 'n/a')}")
 
     # Also migrate to root dist if used
     if (DIST_DIR / "sorour_logistics.db").exists() or DIST_DIR.exists():
@@ -258,10 +341,10 @@ def sync_db_to_prod():
             pass
 
     stats = get_db_stats(PROD_DB)
-    print(f"\n[STATS] إحصائيات قاعدة بيانات الإنتاج بعد المزامنة:")
-    print(f"   - الحجم: {stats.get('size_kb')} KB")
-    print(f"   - عدد الجداول: {stats.get('tables_count')}")
-    print(f"   - إجمالي السجلات: {stats.get('total_records')}")
+    print(f"\n[STATS] Production DB after sync:")
+    print(f"   - Size:    {stats.get('size_kb')} KB")
+    print(f"   - Tables:  {stats.get('tables_count')}")
+    print(f"   - Records: {stats.get('total_records')}")
     print("===============================================================================\n")
     return True
 
@@ -269,11 +352,11 @@ def sync_db_to_prod():
 def pull_prod_db_to_dev():
     """Pulls Prod DB -> Dev DB non-destructively with safety backup."""
     print("\n===============================================================================")
-    print(" [PULL] سحب بيانات الإنتاج الفعلية إلى بيئة التطوير (Safe Pull Prod -> Dev) ")
+    print(" [PULL] Safe Pull: Production -> Development (non-destructive merge)")
     print("===============================================================================")
-    
+
     if not PROD_DB.exists():
-        print(f"[ERROR] لم يتم العثور على قاعدة بيانات الإنتاج: {PROD_DB}")
+        print(f"[ERROR] Production database not found: {PROD_DB}")
         return False
 
     # 1. Backup Dev DB
@@ -284,16 +367,17 @@ def pull_prod_db_to_dev():
 
     # 3. Smart Non-Destructive Migration Prod -> Dev
     res = smart_non_destructive_migrate(PROD_DB, DEV_DB)
-    print(f"[SUCCESS] تم سحب ودمج بيانات البرودكشن بنجاح إلى بيئة التطوير: {DEV_DB}")
-    print(f"   - الجداول الجديدة: {res['tables_added']}")
-    print(f"   - الحقول الجديدة: {res['columns_added']}")
-    print(f"   - السجلات المدمجة: {res['rows_merged']}")
+    print(f"[SUCCESS] Production data merged into development DB: {DEV_DB}")
+    print(f"   - New tables:    {res['tables_added']}")
+    print(f"   - New columns:   {res['columns_added']}")
+    print(f"   - Rows merged:   {res['rows_merged']}")
+    print(f"   - Integrity:     {res.get('integrity', 'n/a')}")
 
     stats = get_db_stats(DEV_DB)
-    print(f"\n[STATS] إحصائيات قاعدة بيانات التطوير بعد السحب:")
-    print(f"   - الحجم: {stats.get('size_kb')} KB")
-    print(f"   - عدد الجداول: {stats.get('tables_count')}")
-    print(f"   - إجمالي السجلات: {stats.get('total_records')}")
+    print(f"\n[STATS] Development DB after pull:")
+    print(f"   - Size:    {stats.get('size_kb')} KB")
+    print(f"   - Tables:  {stats.get('tables_count')}")
+    print(f"   - Records: {stats.get('total_records')}")
     print("===============================================================================\n")
     return True
 

@@ -1,13 +1,56 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Flat Color Palette
+  // ── Flat Color Palette ────────────────────────────────────────────────────
   static const Color charcoal = Color(0xFF2C3E50);
   static const Color cobalt = Color(0xFF3498DB);
   static const Color emerald = Color(0xFF27AE60);
   static const Color orange = Color(0xFFE67E22);
   static const Color crimson = Color(0xFFC0392B);
   static const Color cloudWhite = Color(0xFFECF0F1);
+
+  // ── Opacity Color Constants ───────────────────────────────────────────────
+  // Pre-computed to avoid withOpacity() allocations on every build.
+  static const Color cobaltLight = Color(0x143498DB);   // cobalt ~8%
+  static const Color cobaltMedium = Color(0x263498DB);  // cobalt ~15%
+  static const Color cobaltBorder = Color(0x663498DB);  // cobalt ~40%
+  static const Color emeraldLight = Color(0x2E27AE60);  // emerald ~18%
+  static const Color emeraldBorder = Color(0x6627AE60); // emerald ~40%
+  static const Color orangeLight = Color(0x1AE67E22);   // orange ~10%
+  static const Color crimsonLight = Color(0x14C0392B);  // crimson ~8%
+  static const Color charcoalSurface = Color(0x0A2C3E50); // charcoal ~4%
+
+  // ── Shared BoxDecorations ─────────────────────────────────────────────────
+
+  /// Standard card/panel decoration — used in toolbars and form sections.
+  static BoxDecoration get cardDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x0A000000), blurRadius: 5, offset: Offset(0, 2)),
+        ],
+      );
+
+  /// Lighter decoration for toolbar containers.
+  static BoxDecoration get toolbarDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x08000000), blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      );
+
+  /// Decoration for action pill containers (row action buttons).
+  static BoxDecoration get pillDecoration => BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
+        boxShadow: const [
+          BoxShadow(color: Color(0x05000000), blurRadius: 3, offset: Offset(0, 1)),
+        ],
+      );
 
   static ThemeData get lightTheme {
     return ThemeData(

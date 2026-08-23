@@ -1,21 +1,30 @@
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
+import 'buttons/icon_action_button.dart';
 
-/// Standard 4-Action Row Pill Widget for ImportFlow ERP tables.
-/// Provides:
-/// 1. 👁️ View / Details (عرض)
-/// 2. ✏️ Edit (تعديل)
-/// 3. 🖨️ Print / Single PDF Export (طباعة)
-/// 4. 🗑️ Delete / Soft-Delete (حذف)
+/// Standard 4-Action Row Pill Widget for ImportFlow ERP data tables.
+///
+/// Uses [IconActionButton] factory subclasses for consistent styling.
+/// Labels pulled from [AppLocalizations] (context.l10n).
+///
+/// Actions:
+///   1. 👁️ View Details
+///   2. ✏️ Edit
+///   3. 🖨️ Print / Export
+///   4. 🗑️ Delete
 class RowActionsPill extends StatelessWidget {
   final VoidCallback? onView;
   final VoidCallback? onEdit;
   final VoidCallback? onPrint;
   final VoidCallback? onDelete;
-  final String viewTooltip;
-  final String editTooltip;
-  final String printTooltip;
-  final String deleteTooltip;
+
+  /// Override tooltips for domain-specific labels (optional).
+  final String? viewTooltip;
+  final String? editTooltip;
+  final String? printTooltip;
+  final String? deleteTooltip;
+
   final double iconSize;
 
   const RowActionsPill({
@@ -24,109 +33,61 @@ class RowActionsPill extends StatelessWidget {
     this.onEdit,
     this.onPrint,
     this.onDelete,
-    this.viewTooltip = 'عرض التفاصيل (View Details)',
-    this.editTooltip = 'تعديل السجل (Edit)',
-    this.printTooltip = 'طباعة وتصدير (Print / Export)',
-    this.deleteTooltip = 'حذف / إيقاف التفعيل (Delete)',
+    this.viewTooltip,
+    this.editTooltip,
+    this.printTooltip,
+    this.deleteTooltip,
     this.iconSize = 16.0,
   });
 
-  Widget _actionBtn({
-    required IconData icon,
-    required Color color,
-    required Color bgColor,
-    required String tooltip,
-    required VoidCallback? onTap,
-  }) {
-    return Tooltip(
-      message: tooltip,
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
-          child: Container(
-            padding: const EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: onTap != null ? bgColor : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Icon(
-              icon,
-              size: iconSize,
-              color: onTap != null ? color : Colors.grey.shade400,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
+      decoration: AppTheme.pillDecoration,
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 1. View / Details (👁️)
-          _actionBtn(
-            icon: Icons.visibility,
-            color: AppTheme.cobalt,
-            bgColor: AppTheme.cobalt.withOpacity(0.08),
-            tooltip: viewTooltip,
+          // 1. View
+          ViewActionButton(
+            tooltip: viewTooltip ?? l.viewDetailsTooltip,
             onTap: onView,
+            iconSize: iconSize,
           ),
           const SizedBox(width: 4),
 
-          // 2. Edit (✏️)
-          _actionBtn(
-            icon: Icons.edit,
-            color: AppTheme.orange,
-            bgColor: AppTheme.orange.withOpacity(0.1),
-            tooltip: editTooltip,
+          // 2. Edit
+          EditActionButton(
+            tooltip: editTooltip ?? l.editTooltip,
             onTap: onEdit,
+            iconSize: iconSize,
           ),
           const SizedBox(width: 4),
 
-          // 3. Print / Export (🖨️)
-          _actionBtn(
-            icon: Icons.print,
-            color: AppTheme.charcoal,
-            bgColor: Colors.grey.shade100,
-            tooltip: printTooltip,
+          // 3. Print / Export
+          PrintActionButton(
+            tooltip: printTooltip ?? l.printTooltip,
             onTap: onPrint ??
                 () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Preparing document print/export...'),
+                    SnackBar(
+                      content: Text(l.preparingExport),
                       backgroundColor: AppTheme.charcoal,
-                      duration: Duration(seconds: 2),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
+            iconSize: iconSize,
           ),
           const SizedBox(width: 4),
 
-          // 4. Delete (🗑️)
-          _actionBtn(
-            icon: Icons.delete_outline,
-            color: AppTheme.crimson,
-            bgColor: AppTheme.crimson.withOpacity(0.08),
-            tooltip: deleteTooltip,
+          // 4. Delete
+          DeleteActionButton(
+            tooltip: deleteTooltip ?? l.deleteTooltip,
             onTap: onDelete,
+            iconSize: iconSize,
           ),
         ],
       ),

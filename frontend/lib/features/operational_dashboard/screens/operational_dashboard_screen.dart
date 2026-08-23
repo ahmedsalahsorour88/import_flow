@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/localization/locale_provider.dart';
+import '../../../core/providers/navigation_provider.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../../core/widgets/universal_entity_extractor_dialog.dart';
-import '../../../core/providers/navigation_provider.dart';
 import '../../import_files/models/import_file_model.dart';
-
 import '../../import_files/widgets/close_shipment_dialog.dart';
 import '../../import_files/widgets/shipment_milestone_tracker.dart';
-import '../../smart_tasks/providers/smart_tasks_provider.dart';
+import '../../lifecycle_board/models/lifecycle_board_model.dart';
+import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
 import '../../shipment_updates/providers/shipment_updates_provider.dart';
 import '../../shipment_updates/widgets/shipment_update_dialog.dart';
+import '../../smart_tasks/providers/smart_tasks_provider.dart';
 import '../providers/operational_dashboard_provider.dart';
-import '../../lifecycle_board/providers/lifecycle_board_provider.dart';
-import '../../lifecycle_board/models/lifecycle_board_model.dart';
 
 class OperationalDashboardScreen extends ConsumerStatefulWidget {
   const OperationalDashboardScreen({super.key});
@@ -34,9 +35,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 1: Planning & Studies',
       'color': Color(0xFF2980B9),
       'steps': [
-        {'code': 'STEP_01', 'name': '1. دراسات النولون'},
-        {'code': 'STEP_02', 'name': '2. الدراسات الجمركية'},
-        {'code': 'STEP_03', 'name': '3. اشتراطات الاستيراد'},
+        {'code': 'STEP_01', 'name_ar': '1. دراسات النولون', 'name_en': '1. Freight Studies'},
+        {'code': 'STEP_02', 'name_ar': '2. الدراسات الجمركية', 'name_en': '2. Customs Studies'},
+        {'code': 'STEP_03', 'name_ar': '3. اشتراطات الاستيراد', 'name_en': '3. Import Requirements'},
       ],
     },
     {
@@ -45,8 +46,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 2: Approvals & ACID',
       'color': Color(0xFF27AE60),
       'steps': [
-        {'code': 'STEP_04', 'name': '4. اعتماد الميزانية'},
-        {'code': 'STEP_05', 'name': '5. إصدار ACID نافذة'},
+        {'code': 'STEP_04', 'name_ar': '4. اعتماد الميزانية', 'name_en': '4. Budget Approval'},
+        {'code': 'STEP_05', 'name_ar': '5. إصدار ACID نافذة', 'name_en': '5. Nafeza ACID Issue'},
       ],
     },
     {
@@ -55,10 +56,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 3: Booking & Docs',
       'color': Color(0xFFE67E22),
       'steps': [
-        {'code': 'STEP_06', 'name': '6. تأكيد الحجز الملاحي'},
-        {'code': 'STEP_07', 'name': '7. تخصيص الحاويات'},
-        {'code': 'STEP_08', 'name': '8. مراجعة المسودات'},
-        {'code': 'STEP_09', 'name': '9. الاعتماد النهائي'},
+        {'code': 'STEP_06', 'name_ar': '6. تأكيد الحجز الملاحي', 'name_en': '6. Booking Confirmation'},
+        {'code': 'STEP_07', 'name_ar': '7. تخصيص الحاويات', 'name_en': '7. Container Alloc.'},
+        {'code': 'STEP_08', 'name_ar': '8. مراجعة المسودات', 'name_en': '8. Draft Review'},
+        {'code': 'STEP_09', 'name_ar': '9. الاعتماد النهائي', 'name_en': '9. Final Approval'},
       ],
     },
     {
@@ -67,9 +68,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 4: CargoX & Banking',
       'color': Color(0xFF8E44AD),
       'steps': [
-        {'code': 'STEP_10', 'name': '10. رفع CargoX'},
-        {'code': 'STEP_11', 'name': '11. أصول المستندات'},
-        {'code': 'STEP_12', 'name': '12. نموذج 4 البنكي'},
+        {'code': 'STEP_10', 'name_ar': '10. رفع CargoX', 'name_en': '10. CargoX Upload'},
+        {'code': 'STEP_11', 'name_ar': '11. أصول المستندات', 'name_en': '11. Original Docs'},
+        {'code': 'STEP_12', 'name_ar': '12. نموذج 4 البنكي', 'name_en': '12. Bank Form 4'},
       ],
     },
     {
@@ -78,12 +79,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 5: Clearance & Release',
       'color': Color(0xFFC0392B),
       'steps': [
-        {'code': 'STEP_13', 'name': '13. إقرار 46 ك.م'},
-        {'code': 'STEP_14', 'name': '14. الكشف والتثمين'},
-        {'code': 'STEP_15', 'name': '15. سحب العينات'},
-        {'code': 'STEP_16', 'name': '16. محضر المعاينة'},
-        {'code': 'STEP_17', 'name': '17. سداد الرسوم'},
-        {'code': 'STEP_18', 'name': '18. الأرضيات والحراسات'},
+        {'code': 'STEP_13', 'name_ar': '13. إقرار 46 ك.م', 'name_en': '13. Form 46 KM'},
+        {'code': 'STEP_14', 'name_ar': '14. الكشف والتثمين', 'name_en': '14. Inspection & Val.'},
+        {'code': 'STEP_15', 'name_ar': '15. سحب العينات', 'name_en': '15. Sample Drawing'},
+        {'code': 'STEP_16', 'name_ar': '16. محضر المعاينة', 'name_en': '16. Inspection Report'},
+        {'code': 'STEP_17', 'name_ar': '17. سداد الرسوم', 'name_en': '17. Duty Payment'},
+        {'code': 'STEP_18', 'name_ar': '18. الأرضيات والحراسات', 'name_en': '18. Demurrage & Guard'},
       ],
     },
     {
@@ -92,14 +93,15 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       'name_en': 'Phase 6: Storage & Settlement',
       'color': Color(0xFF16A085),
       'steps': [
-        {'code': 'STEP_19', 'name': '19. إذن إضافة المخازن'},
-        {'code': 'STEP_20', 'name': '20. تسوية التكلفة Landed'},
-        {'code': 'STEP_21', 'name': '21. إغلاق وأرشفة الملف'},
+        {'code': 'STEP_19', 'name_ar': '19. إذن إضافة المخازن', 'name_en': '19. Warehouse GRN'},
+        {'code': 'STEP_20', 'name_ar': '20. تسوية التكلفة Landed', 'name_en': '20. Landed Cost Settlement'},
+        {'code': 'STEP_21', 'name_ar': '21. إغلاق وأرشفة الملف', 'name_en': '21. File Archive & Close'},
       ],
     },
   ];
 
   static const List<String> _priorities = ['All', 'Low', 'Medium', 'High', 'Critical'];
+
 
   @override
   void initState() {
@@ -117,21 +119,39 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     super.dispose();
   }
 
+  String _getPriorityLabel(String p, AppLocalizations l) {
+    switch (p) {
+      case 'All':
+        return l.priorityAll;
+      case 'Low':
+        return l.priorityLow;
+      case 'Medium':
+        return l.priorityMedium;
+      case 'High':
+        return l.priorityHigh;
+      case 'Critical':
+        return l.priorityCritical;
+      default:
+        return p;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final dashboardState = ref.watch(operationalDashboardProvider);
     final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
     final notifier = ref.read(operationalDashboardProvider.notifier);
+    final l = context.l10n;
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.dashboard_customize, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('Operational Workspace Dashboard (2.9)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+            const Icon(Icons.dashboard_customize, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(l.operationalDashboardTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
           ],
         ),
         actions: [
@@ -186,7 +206,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('الأولوية (Priority):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                        Text(l.priority, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                         const SizedBox(height: 6),
                         ToggleButtons(
                           isSelected: _priorities.map((p) => dashboardState.selectedPriority == p).toList(),
@@ -195,7 +215,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           selectedColor: Colors.white,
                           fillColor: AppTheme.cobalt,
                           constraints: const BoxConstraints(minHeight: 36, minWidth: 60),
-                          children: _priorities.map((p) => Text(p == 'All' ? 'الكل' : p, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))).toList(),
+                          children: _priorities.map((p) => Text(_getPriorityLabel(p, l), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold))).toList(),
                         ),
                       ],
                     ),
@@ -209,7 +229,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('المخلص الجمركي (Customs Broker):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                            Text(l.customsBrokerLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                             const SizedBox(height: 6),
                             SizedBox(
                               width: 240,
@@ -217,7 +237,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                 value: dashboardState.selectedBrokerName ?? 'All',
                                 labelText: '',
                                 items: [
-                                  const SearchableDropdownItem(value: 'All', label: 'جميع المخلصين (All Brokers)'),
+                                  SearchableDropdownItem(value: 'All', label: l.allBrokers),
                                   ...brokers.map((b) => SearchableDropdownItem(value: b.brokerName, label: b.brokerName)),
                                 ],
                                 onChanged: (val) => notifier.setBroker(val),
@@ -232,19 +252,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('بحث سريع (Search):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                        Text(l.quickSearchLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                         const SizedBox(height: 6),
                         SizedBox(
                           width: 260,
                           height: 38,
                           child: TextField(
                             controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: 'كود الشحنة، PO، المورد...',
-                              prefixIcon: Icon(Icons.search, size: 18),
+                            decoration: InputDecoration(
+                              hintText: l.dashboardSearchHint,
+                              prefixIcon: const Icon(Icons.search, size: 18),
                               isDense: true,
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(vertical: 8),
+                              border: const OutlineInputBorder(),
+                              contentPadding: const EdgeInsets.symmetric(vertical: 8),
                             ),
                             onChanged: (val) => notifier.setSearchQuery(val),
                           ),
@@ -260,7 +280,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         notifier.resetFilters();
                       },
                       icon: const Icon(Icons.restart_alt, size: 16, color: Colors.white),
-                      label: const Text('إعادة ضبط الفلاتر', style: TextStyle(color: Colors.white, fontSize: 12)),
+                      label: Text(l.resetFilters, style: const TextStyle(color: Colors.white, fontSize: 12)),
                     ),
                   ],
                 ),
@@ -285,9 +305,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('تعذر الاتصال بسيرفر الخادم (${ApiConstants.serverUrl})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 14)),
+                            Text('${l.serverConnectionError} (${ApiConstants.serverUrl})', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 14)),
                             const SizedBox(height: 2),
-                            Text('يرجى التأكد من تشغيل خادم الباك إند أو الضغط على زر إعادة المحاولة.', style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
+                            Text(l.serverConnectionHint, style: TextStyle(fontSize: 12, color: Colors.grey.shade800)),
                           ],
                         ),
                       ),
@@ -295,7 +315,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
                         onPressed: () => notifier.fetchDashboard(),
                         icon: const Icon(Icons.refresh, size: 16, color: Colors.white),
-                        label: const Text('إعادة المحاولة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: Text(l.retry, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
                   ),
@@ -314,11 +334,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'عدد الشحنات المطابقة: $count شحنة',
+                          '${l.matchingShipments}: $count ${l.shipmentCountUnit}',
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                         ),
                         Text(
-                          'آخر تحديث للبيانات: $lastUpdated',
+                          '${l.lastUpdated}: $lastUpdated',
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                         ),
                       ],
@@ -338,9 +358,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                             children: [
                               Icon(Icons.search_off, size: 56, color: Colors.grey.shade400),
                               const SizedBox(height: 16),
-                              const Text('لا توجد شحنات مطابقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
+                              Text(l.noMatchingShipments, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
                               const SizedBox(height: 6),
-                              Text('لم يتم العثور على أي شحنات تطابق خيارات التصفية الحالية (AND combination).', style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                              Text(l.noMatchingShipmentsDesc, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
                               const SizedBox(height: 16),
                               ElevatedButton(
                                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -348,7 +368,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                                   _searchController.clear();
                                   notifier.resetFilters();
                                 },
-                                child: const Text('إلغاء الفلاتر وعرض الكل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                child: Text(l.clearFiltersShowAll, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                               ),
                             ],
                           ),
@@ -375,6 +395,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildShipmentCard(ImportFileModel s) {
+    final l = context.l10n;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       elevation: 2,
@@ -405,8 +427,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('المرحلة الحالية: ${s.currentModule}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      Text('الخطوة التشغيلية: ${s.currentStage}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      Text('${l.currentPhase}: ${s.currentModule}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      Text('${l.operationalStep}: ${s.currentStage}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                     ],
                   ),
                 ),
@@ -414,11 +436,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('المخلص الجمركي: ${s.brokerName ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                      Text('أمر الشراء: ${s.poNumber ?? "غير محدد"}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                      Text('${l.customsBrokerLabel} ${s.brokerName ?? l.unassigned}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      Text('${l.purchaseOrder} ${s.poNumber ?? l.unassigned}', style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
                     ],
                   ),
                 ),
+
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
@@ -457,7 +480,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        '🚫 شحنة مغلقة [مرحلة الإيقاف: ${s.closedAtPhase ?? s.currentModule}] — السبب: ${s.closureReason ?? s.currentStage}',
+                        '🚫 ${l.closedShipment} [${s.closedAtPhase ?? s.currentModule}] — ${s.closureReason ?? s.currentStage}',
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.crimson, fontSize: 12),
                       ),
                     ),
@@ -476,7 +499,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                   icon: const Icon(Icons.post_add_rounded, size: 14),
-                  label: const Text('تسجيل تحديث يومي', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(l.recordDailyUpdate, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   onPressed: () => ShipmentUpdateDialog.show(
                     context,
                     initialFileId: s.importFileId,
@@ -489,7 +512,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                     icon: const Icon(Icons.cancel_outlined, size: 14, color: Colors.white),
-                    label: const Text('إغلاق وإيقاف الشحنة', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: Text(l.closeStopShipment, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                     onPressed: () async {
                       final closed = await showDialog<bool>(
                         context: context,
@@ -515,65 +538,69 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   Widget _buildNextStepCard(ImportFileModel s) {
     if (s.status == 'Closed') return const SizedBox.shrink();
 
-    String nextStepTitle = 'متابعة الإجراءات التشغيلية';
-    String nextStepDesc = 'استكمال متطلبات المرحلة الحالية';
-    String responsible = 'فريق الاستيراد';
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final l = context.l10n;
+
+
+    String nextStepTitle = isArabic ? 'متابعة الإجراءات التشغيلية' : 'Follow up operational procedures';
+    String nextStepDesc = isArabic ? 'استكمال متطلبات المرحلة الحالية' : 'Complete requirements for the current phase';
+    String responsible = isArabic ? 'فريق الاستيراد' : 'Import Team';
     int targetNavIndex = 1;
     IconData actionIcon = Icons.arrow_forward;
 
     final mod = s.currentModule.toString();
     if (mod.contains('Phase 1') || mod.contains('BP-001') || mod.contains('BP-007')) {
-      nextStepTitle = 'P2: الاعتماد المالي وصرف الدفعة';
-      nextStepDesc = 'مراجعة الميزانية وإصدار طلب الصرف والتحويل البنكي للمورد';
-      responsible = 'المدير المالي / الإدارة المالية';
+      nextStepTitle = isArabic ? 'P2: الاعتماد المالي وصرف الدفعة' : 'P2: Financial Approval & Payment';
+      nextStepDesc = isArabic ? 'مراجعة الميزانية وإصدار طلب الصرف والتحويل البنكي للمورد' : 'Review budget, issue payment request and bank transfer to supplier';
+      responsible = isArabic ? 'المدير المالي / الإدارة المالية' : 'Financial Manager';
       targetNavIndex = 8;
       actionIcon = Icons.monetization_on_outlined;
     } else if (mod.contains('Phase 2') || mod.contains('BP-012')) {
-      nextStepTitle = 'P3: استخراج رقم ACID وتوثيق مستندات CargoX';
-      nextStepDesc = 'تسجيل الشحنة على نافذة واستخراج الـ ACID المكون من 19 رقماً';
-      responsible = 'أخصائي الاستيراد / نافذة';
+      nextStepTitle = isArabic ? 'P3: استخراج رقم ACID وتوثيق مستندات CargoX' : 'P3: Nafeza ACID & CargoX Docs';
+      nextStepDesc = isArabic ? 'تسجيل الشحنة على نافذة واستخراج الـ ACID المكون من 19 رقماً' : 'Register shipment on Nafeza and obtain 19-digit ACID number';
+      responsible = isArabic ? 'أخصائي الاستيراد / نافذة' : 'Import Specialist / Nafeza';
       targetNavIndex = 11;
       actionIcon = Icons.description_outlined;
     } else if (mod.contains('Phase 3') || mod.contains('BP-015') || mod.contains('BP-019')) {
-      nextStepTitle = 'P4: حجز الشحن وتأكيد رص الحاويات B/L';
-      nextStepDesc = 'تأكيد حجز الباخرة مع الخط الملاحي وإصدار مسودة البوليصة وتأكيد الشحن';
-      responsible = 'شركة الشحن / Freight Forwarder';
+      nextStepTitle = isArabic ? 'P4: حجز الشحن وتأكيد رص الحاويات B/L' : 'P4: Freight Booking & Container Alloc.';
+      nextStepDesc = isArabic ? 'تأكيد حجز الباخرة مع الخط الملاحي وإصدار مسودة البوليصة وتأكيد الشحن' : 'Confirm vessel booking with carrier, issue draft B/L and confirm shipment';
+      responsible = isArabic ? 'شركة الشحن / Freight Forwarder' : 'Freight Forwarder';
       targetNavIndex = 25;
       actionIcon = Icons.directions_boat_outlined;
     } else if (mod.contains('Phase 4')) {
-      nextStepTitle = 'P5: تتبع الإبحار وتوثيق CargoX ومراقبة الوصول';
-      nextStepDesc = 'متابعة إبحار السفينة وتاريخ الـ ETA المتوقع واستلام مستندات الشاحن';
-      responsible = 'الناقل / المورد الأجنبي';
+      nextStepTitle = isArabic ? 'P5: تتبع الإبحار وتوثيق CargoX ومراقبة الوصول' : 'P5: Transit Tracking & CargoX';
+      nextStepDesc = isArabic ? 'متابعة إبحار السفينة وتاريخ الـ ETA المتوقع واستلام مستندات الشاحن' : 'Monitor vessel transit, tracking ETA and receiving shipper documents';
+      responsible = isArabic ? 'الناقل / المورد الأجنبي' : 'Carrier / Foreign Supplier';
       targetNavIndex = 26;
       actionIcon = Icons.sailing_outlined;
     } else if (mod.contains('Phase 5')) {
-      nextStepTitle = 'P6: وصول التنويه Arrival Notice وقيد إقرار 46 جمارك';
-      nextStepDesc = 'استلام إخطار الوصول وتكليف المخلص الجمركي بفتح ملف الكشف الجمركي';
-      responsible = 'المستخلص الجمركي (Customs Broker)';
+      nextStepTitle = isArabic ? 'P6: وصول التنويه Arrival Notice وقيد إقرار 46 جمارك' : 'P6: Arrival Notice & Declaration 46';
+      nextStepDesc = isArabic ? 'استلام إخطار الوصول وتكليف المخلص الجمركي بفتح ملف الكشف الجمركي' : 'Receive arrival notice and assign broker for customs inspection file';
+      responsible = isArabic ? 'المستخلص الجمركي (Customs Broker)' : 'Customs Broker';
       targetNavIndex = 23;
       actionIcon = Icons.receipt_long_outlined;
     } else if (mod.contains('Phase 6')) {
-      nextStepTitle = 'P7: استكمال الكشف وسداد الرسوم وإصدار إذن الإفراج';
-      nextStepDesc = 'متابعة المعاينة الجمركية وسحب العينات وسداد الضرائب والرسوم';
-      responsible = 'المستخلص الجمركي (Customs Broker)';
+      nextStepTitle = isArabic ? 'P7: استكمال الكشف وسداد الرسوم وإصدار إذن الإفراج' : 'P7: Inspection & Duty Payment';
+      nextStepDesc = isArabic ? 'متابعة المعاينة الجمركية وسحب العينات وسداد الضرائب والرسوم' : 'Follow up customs inspection, sampling and duty/tax payment';
+      responsible = isArabic ? 'المستخلص الجمركي (Customs Broker)' : 'Customs Broker';
       targetNavIndex = 27;
       actionIcon = Icons.verified_user_outlined;
     } else if (mod.contains('Phase 7')) {
-      nextStepTitle = 'P8: النقل الداخلي واستلام المخازن وتوليد إذن GRN';
-      nextStepDesc = 'تنسيق سيارات النقل واستلام البضاعة في المخازن وفحص الكميات والجودة';
-      responsible = 'أمين المخزن / إدارة المخازن';
+      nextStepTitle = isArabic ? 'P8: النقل الداخلي واستلام المخازن وتوليد إذن GRN' : 'P8: Inland Transport & GRN';
+      nextStepDesc = isArabic ? 'تنسيق سيارات النقل واستلام البضاعة في المخازن وفحص الكميات والجودة' : 'Coordinate inland transport, receive goods in warehouse and verify quantities';
+      responsible = isArabic ? 'أمين المخزن / إدارة المخازن' : 'Warehouse Custodian';
       targetNavIndex = 28;
       actionIcon = Icons.warehouse_outlined;
     } else if (mod.contains('Phase 8')) {
-      nextStepTitle = 'P9: تسوية تكلفة الوصول الشاملة Landed Cost';
-      nextStepDesc = 'تجميع كافة الفواتير ومصاريف النولون والجمارك واحتساب التكلفة الفعلية';
-      responsible = 'الحسابات والمراجعة المالية';
+      nextStepTitle = isArabic ? 'P9: تسوية تكلفة الوصول الشاملة Landed Cost' : 'P9: Landed Cost Settlement';
+      nextStepDesc = isArabic ? 'تجميع كافة الفواتير ومصاريف النولون والجمارك واحتساب التكلفة الفعلية' : 'Aggregate all invoices, freight and customs fees to calculate true landed cost';
+      responsible = isArabic ? 'الحسابات والمراجعة المالية' : 'Finance & Auditing';
       targetNavIndex = 29;
       actionIcon = Icons.calculate_outlined;
     } else if (mod.contains('Phase 9')) {
-      nextStepTitle = 'P10: مراجعة شروط الأرشفة وإغلاق الملف التاريخي';
-      nextStepDesc = 'التحقق من اكتمال كافة الفواتير والمستندات وإغلاق الملف نهائياً';
-      responsible = 'مدير الاستيراد (Import Manager)';
+      nextStepTitle = isArabic ? 'P10: مراجعة شروط الأرشفة وإغلاق الملف التاريخي' : 'P10: File Archive & Final Closure';
+      nextStepDesc = isArabic ? 'التحقق من اكتمال كافة الفواتير والمستندات وإغلاق الملف نهائياً' : 'Verify completion of all documents and invoices, and permanently archive file';
+      responsible = isArabic ? 'مدير الاستيراد (Import Manager)' : 'Import Manager';
       targetNavIndex = 30;
       actionIcon = Icons.archive_outlined;
     }
@@ -603,12 +630,12 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 Row(
                   children: [
-                    const Text('🎯 النقطة التالية والإجراء القادم:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt)),
+                    Text(l.nextStepAction, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt)),
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(color: Colors.amber.shade100, borderRadius: BorderRadius.circular(4)),
-                      child: Text('المسؤول: $responsible', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown.shade800)),
+                      child: Text('${l.responsiblePerson}: $responsible', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.brown.shade800)),
                     ),
                   ],
                 ),
@@ -626,7 +653,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             ),
             onPressed: () => selectNavigationIndex(ref, targetNavIndex),
             icon: const Icon(Icons.bolt, size: 14, color: Colors.white),
-            label: const Text('تنفيذ الخطوة الآن', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+            label: Text(l.executeStepNow, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -634,6 +661,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildLinkedTasksSection(ImportFileModel s) {
+    final l = context.l10n;
     final tasksState = ref.watch(smartTasksProvider);
     final linkedTasks = tasksState.tasks.where((t) => t.importFileId == s.importFileId && t.status != 'Completed').toList();
     if (linkedTasks.isEmpty) return const SizedBox.shrink();
@@ -653,13 +681,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             children: [
               const Icon(Icons.checklist_rounded, color: AppTheme.charcoal, size: 16),
               const SizedBox(width: 6),
-              Text('مهام الـ TO-DO المفتوحة للشحنة (${linkedTasks.length} مهام):',
+              Text('${l.openShipmentTasks} (${linkedTasks.length} ${l.tasksCountUnit}):',
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5, color: AppTheme.charcoal)),
               const Spacer(),
               TextButton.icon(
                 onPressed: () => selectNavigationIndex(ref, 40),
                 icon: const Icon(Icons.open_in_new, size: 12),
-                label: const Text('إدارة كل المهام', style: TextStyle(fontSize: 11)),
+                label: Text(l.manageAllTasks, style: const TextStyle(fontSize: 11)),
               ),
             ],
           ),
@@ -679,7 +707,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('✅ تم إنجاز المهمة بنجاح: ${t.title}'),
+                              content: Text('${l.taskCompletedSuccessfully}: ${t.title}'),
                               backgroundColor: AppTheme.emerald,
                               duration: const Duration(seconds: 2),
                             ),
@@ -715,6 +743,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildKpiCardsBar(dynamic data) {
+    final l = context.l10n;
     final tasksState = ref.watch(smartTasksProvider);
     final m = tasksState.metrics;
 
@@ -732,15 +761,15 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       spacing: 12,
       runSpacing: 12,
       children: [
-        _buildKpiCard("Today's Tasks", '$todaysTasksCount مهام', 'المهام المطلوب تنفيذها اليوم', Icons.today, AppTheme.cobalt),
-        _buildKpiCard("Pending Tasks", '$pendingTasksCount مهام', 'المهام التي لم يتم الانتهاء منها', Icons.pending_actions, AppTheme.orange),
-        _buildKpiCard("Upcoming Shipments", '$upcomingShipmentsCount شحنات', 'متوقع وصولها القادم', Icons.near_me, AppTheme.emerald),
-        _buildKpiCard("Arriving This Week", '$arrivingThisWeekCount شحنات', 'وصول بالأسبوع الحالي', Icons.directions_boat, AppTheme.cobalt),
-        _buildKpiCard("ETA Changes", '$etaChangesCount تعديلات', 'تم تعديل موعد وصولها', Icons.edit_calendar, Colors.purple),
-        _buildKpiCard("Waiting For Payment", '$waitingForPaymentCount متوقفة', 'موافقات مالية معلقة (Phase 2)', Icons.monetization_on, AppTheme.crimson),
-        _buildKpiCard("Waiting For Form 4", '$waitingForForm4Count شحنات', 'إجراءات نموذج 4 بنك مصر', Icons.account_balance, AppTheme.orange),
-        _buildKpiCard("Pending Requirements", '$pendingRequirementsCount شحنات', 'مستندات وموافقات غير مكتملة', Icons.rule, AppTheme.crimson),
-        _buildKpiCard("High Priority Alerts", '$highPriorityAlertsCount تنبيهات', 'أولوية عالي / حرج (Critical)', Icons.warning_amber, Colors.red.shade900),
+        _buildKpiCard(l.kpiTodaysTasks, '$todaysTasksCount ${l.tasksCountUnit}', l.kpiTodaysTasksSub, Icons.today, AppTheme.cobalt),
+        _buildKpiCard(l.kpiPendingTasks, '$pendingTasksCount ${l.tasksCountUnit}', l.kpiPendingTasksSub, Icons.pending_actions, AppTheme.orange),
+        _buildKpiCard(l.kpiUpcomingShipments, '$upcomingShipmentsCount ${l.shipmentCountUnit}', l.kpiUpcomingShipmentsSub, Icons.near_me, AppTheme.emerald),
+        _buildKpiCard(l.kpiArrivingThisWeek, '$arrivingThisWeekCount ${l.shipmentCountUnit}', l.kpiArrivingThisWeekSub, Icons.directions_boat, AppTheme.cobalt),
+        _buildKpiCard(l.kpiEtaChanges, '$etaChangesCount', l.kpiEtaChangesSub, Icons.edit_calendar, Colors.purple),
+        _buildKpiCard(l.kpiWaitingPayment, '$waitingForPaymentCount', l.kpiWaitingPaymentSub, Icons.monetization_on, AppTheme.crimson),
+        _buildKpiCard(l.kpiWaitingForm4, '$waitingForForm4Count ${l.shipmentCountUnit}', l.kpiWaitingForm4Sub, Icons.account_balance, AppTheme.orange),
+        _buildKpiCard(l.kpiPendingRequirements, '$pendingRequirementsCount ${l.shipmentCountUnit}', l.kpiPendingRequirementsSub, Icons.rule, AppTheme.crimson),
+        _buildKpiCard(l.kpiHighPriorityAlerts, '$highPriorityAlertsCount', l.kpiHighPriorityAlertsSub, Icons.warning_amber, Colors.red.shade900),
       ],
     );
   }
@@ -759,7 +788,15 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(title, style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
@@ -767,6 +804,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   ),
                 ],
               ),
+
               const SizedBox(height: 8),
               Text(mainValue, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
               const SizedBox(height: 4),
@@ -779,6 +817,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildRiskAlertsBanner(List<dynamic> shipments) {
+    final l = context.l10n;
     final criticals = shipments.where((s) => s.priority == 'Critical' || s.priority == 'High').toList();
     if (criticals.isEmpty) return const SizedBox.shrink();
 
@@ -791,11 +830,11 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
-                SizedBox(width: 8),
-                Text('مركز التنبيهات والمخاطر التشغيلية (Risk & Escalation Center):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                const Icon(Icons.shield_outlined, color: AppTheme.orange, size: 22),
+                const SizedBox(width: 8),
+                Text(l.riskAlertsCenter, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               ],
             ),
             const SizedBox(height: 10),
@@ -839,6 +878,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   }
 
   Widget _buildDailyCheckinsCard() {
+    final l = context.l10n;
     final updatesState = ref.watch(shipmentUpdatesProvider);
     final logs = updatesState.logs;
 
@@ -854,19 +894,19 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               children: [
                 const Icon(Icons.published_with_changes, color: AppTheme.cobalt, size: 22),
                 const SizedBox(width: 8),
-                const Text('سجل التحديثات التشغيلية واليومية المباشرة (Daily Check-ins & Live Log):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l.dailyCheckinsLog, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                 const Spacer(),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6)),
                   onPressed: () => ShipmentUpdateDialog.show(context),
                   icon: const Icon(Icons.add, size: 14, color: Colors.white),
-                  label: const Text('إضافة تحديث يومي', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(l.addDailyUpdate, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),
             const SizedBox(height: 10),
             if (logs.isEmpty)
-              const Text('لا توجد تحديثات يومية مسجلة اليوم.', style: TextStyle(fontSize: 12, color: Colors.grey))
+              Text(l.noDailyUpdates, style: const TextStyle(fontSize: 12, color: Colors.grey))
             else
               Wrap(
                 spacing: 10,
@@ -904,6 +944,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
   // ─── Quick Actions & Registration Shortcuts Bar ───────────────────────────
 
   Widget _buildQuickActionsBar() {
+    final l = context.l10n;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -923,13 +965,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
-                      SizedBox(width: 8),
+                      const Icon(Icons.auto_awesome, color: Colors.amber, size: 20),
+                      const SizedBox(width: 8),
                       Text(
-                        'أداة التكويد والاستخراج الذكي بالذكاء الاصطناعي (AI Master Data Smart Extractor):',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        l.aiSmartExtractorTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                       ),
                     ],
                   ),
@@ -941,25 +983,25 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
                         icon: const Icon(Icons.public, size: 16),
-                        label: const Text('تكويد مورد أجنبي ذكي 🌍'),
+                        label: Text(l.smartExtractSupplier),
                         onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.supplier),
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                         icon: const Icon(Icons.domain, size: 16),
-                        label: const Text('تكويد شركة مستوردة ذكي 🏢'),
+                        label: Text(l.smartExtractCompany),
                         onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.company),
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.purple.shade700, foregroundColor: Colors.white),
                         icon: const Icon(Icons.handshake, size: 16),
-                        label: const Text('تكويد شريك / مخلص ذكي 🤝'),
+                        label: Text(l.smartExtractPartner),
                         onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.partner),
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                         icon: const Icon(Icons.account_balance, size: 16),
-                        label: const Text('تكويد بنك معتمد ذكي 🏦'),
+                        label: Text(l.smartExtractBank),
                         onPressed: () => UniversalEntityExtractorDialog.show(context, initialTarget: EntityTarget.bank),
                       ),
                     ],
@@ -969,13 +1011,13 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
             ),
             const SizedBox(height: 14),
 
-            const Row(
+            Row(
               children: [
-                Icon(Icons.bolt, color: AppTheme.cobalt, size: 22),
-                SizedBox(width: 8),
+                const Icon(Icons.bolt, color: AppTheme.cobalt, size: 22),
+                const SizedBox(width: 8),
                 Text(
-                  'روابط الاختصارات السريعة لإنشاء وإدخال السجلات (Quick Create & Register Shortcuts):',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                  l.quickShortcutsTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
               ],
             ),
@@ -985,55 +1027,55 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               runSpacing: 10,
               children: [
                 _buildQuickActionButton(
-                  'إنشاء مشروع جديد',
+                  l.createNewProject,
                   Icons.assignment_outlined,
                   AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 31), // Projects
                 ),
                 _buildQuickActionButton(
-                  'إنشاء ملف استيرادي',
+                  l.createNewImportFile,
                   Icons.folder_special_outlined,
                   AppTheme.emerald,
                   () => selectNavigationIndex(ref, 1), // Import Files
                 ),
                 _buildQuickActionButton(
-                  'إنشاء شركة مستوردة',
+                  l.createNewImportCompany,
                   Icons.domain_outlined,
                   AppTheme.orange,
                   () => selectNavigationIndex(ref, 32), // Import Companies
                 ),
                 _buildQuickActionButton(
-                  'إنشاء مورد خارجي',
+                  l.createNewSupplier,
                   Icons.business_outlined,
                   AppTheme.charcoal,
                   () => selectNavigationIndex(ref, 33), // Foreign Suppliers
                 ),
                 _buildQuickActionButton(
-                  'إنشاء بنك / شريك',
+                  l.createNewPartnerBank,
                   Icons.account_balance_outlined,
                   AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 34), // Partners & Banks
                 ),
                 _buildQuickActionButton(
-                  'إدخال تعريفة جمركية',
+                  l.createNewCustomsTariff,
                   Icons.description_outlined,
                   AppTheme.orange,
                   () => selectNavigationIndex(ref, 36), // Customs Tariff
                 ),
                 _buildQuickActionButton(
-                  'إدخال موانئ ومواقع',
+                  l.createNewLocation,
                   Icons.location_on_outlined,
                   AppTheme.emerald,
                   () => selectNavigationIndex(ref, 37), // Ports & Locations
                 ),
                 _buildQuickActionButton(
-                  'إدخال عملة جديدة',
+                  l.createNewCurrency,
                   Icons.currency_exchange_outlined,
                   AppTheme.charcoal,
                   () => selectNavigationIndex(ref, 38), // Currencies
                 ),
                 _buildQuickActionButton(
-                  'تعديل سعر صرف جديد',
+                  l.createNewExchangeRate,
                   Icons.rate_review_outlined,
                   AppTheme.cobalt,
                   () => selectNavigationIndex(ref, 38), // Exchange Rates
@@ -1074,8 +1116,10 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     );
   }
 
-  // ─── Streamlit Operations Board Interactive Banner ────────────────────────
+  // ─── Operations Board Interactive Banner ────────────────────────
   Widget _buildStreamlitLauncherBanner() {
+    final l = context.l10n;
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1101,27 +1145,27 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               child: const Icon(Icons.dashboard_customize_outlined, color: AppTheme.cobalt, size: 28),
             ),
             const SizedBox(width: 16),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
                       Text(
-                        'لوحة تتبع ومراحل الشحنات التفاعلية (Native 6-Phase Operations Board)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+                        l.interactiveOperationsBoardTitle,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
                       ),
-                      SizedBox(width: 8),
-                      Text(
+                      const SizedBox(width: 8),
+                      const Text(
                         'NEW',
                         style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 10),
                       ),
                     ],
                   ),
-                  SizedBox(height: 3),
+                  const SizedBox(height: 3),
                   Text(
-                    'لوحة بصرية متكاملة مدمجة داخل البرنامج (6 مراحل كبرى — 21 خطوة تشغيلية) تدعم تتبع وتعدد المراحل النشطة ونقل الشحنات لحظياً.',
-                    style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                    l.interactiveOperationsBoardDesc,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11.5),
                   ),
                 ],
               ),
@@ -1135,9 +1179,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
               ),
               onPressed: () => selectNavigationIndex(ref, 48), // Native Lifecycle Board Screen
               icon: const Icon(Icons.launch, size: 16, color: Colors.white),
-              label: const Text(
-                'فتح لوحة المراحل التفاعلية',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+              label: Text(
+                l.openInteractiveBoard,
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
               ),
             ),
           ],
@@ -1156,6 +1200,8 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     OperationalDashboardState dashboardState,
     OperationalDashboardNotifier notifier,
   ) {
+    final l = context.l10n;
+
     return Card(
       elevation: 2.5,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -1176,17 +1222,17 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                   child: const Icon(Icons.view_kanban_outlined, color: AppTheme.cobalt, size: 22),
                 ),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'ملخص مسار عمليات الشحنات (Shipment Lifecycle Operations Board — 21 خطوة تشغيلية)',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.charcoal),
+                        l.lifecycleBoardSummaryTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: AppTheme.charcoal),
                       ),
                       Text(
-                        'متابعة حية لتوزيع ملفات الشحنات عبر 6 مراحل رئيسية و 21 خطوة تشغيلية تفصيلية',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
+                        l.lifecycleBoardSummaryDesc,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
                       ),
                     ],
                   ),
@@ -1197,7 +1243,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     child: OutlinedButton.icon(
                       onPressed: () => notifier.togglePhase(dashboardState.selectedPhase!),
                       icon: const Icon(Icons.clear, size: 14, color: AppTheme.crimson),
-                      label: Text('إلغاء التصفية (${dashboardState.selectedPhase})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
+                      label: Text('${l.clearFilter} (${dashboardState.selectedPhase})', style: const TextStyle(color: AppTheme.crimson, fontSize: 11.5)),
                       style: OutlinedButton.styleFrom(
                         side: const BorderSide(color: AppTheme.crimson),
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -1209,7 +1255,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     selectNavigationIndex(ref, 48);
                   },
                   icon: const Icon(Icons.open_in_new, size: 15, color: Colors.white),
-                  label: const Text('لوحة مسار العمليات الكاملة (21 Steps) ↗️', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: Text(l.fullOperationsBoardButton, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.charcoal,
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -1244,6 +1290,9 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
     OperationalDashboardState dashboardState,
     OperationalDashboardNotifier notifier,
   ) {
+    final isArabic = ref.watch(localeProvider).languageCode == 'ar';
+    final l = context.l10n;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth > 1000;
@@ -1254,7 +1303,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
           runSpacing: 12,
           children: _lifecyclePhases.map((phaseMeta) {
             final int phaseId = phaseMeta['phase_id'];
-            final String nameAr = phaseMeta['name_ar'];
+            final String phaseName = isArabic ? phaseMeta['name_ar'] : phaseMeta['name_en'];
             final Color phaseColor = phaseMeta['color'];
             final List<Map<String, String>> steps = List<Map<String, String>>.from(phaseMeta['steps']);
 
@@ -1294,27 +1343,33 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Row(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: phaseColor,
-                                  shape: BoxShape.circle,
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: phaseColor,
+                                    shape: BoxShape.circle,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                nameAr,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12.5,
-                                  color: isPhaseSelected ? phaseColor : AppTheme.charcoal,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    phaseName,
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12.5,
+                                      color: isPhaseSelected ? phaseColor : AppTheme.charcoal,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
+                          const SizedBox(width: 6),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(
@@ -1322,7 +1377,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              '$phaseActiveCount شحنة',
+                              '$phaseActiveCount ${l.shipmentCountUnit}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -1331,6 +1386,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                             ),
                           ),
                         ],
+
                       ),
                     ),
                   ),
@@ -1344,7 +1400,7 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                     runSpacing: 6,
                     children: steps.map((step) {
                       final String stepCode = step['code']!;
-                      final String stepName = step['name']!;
+                      final String stepName = isArabic ? (step['name_ar'] ?? step['name'] ?? '') : (step['name_en'] ?? step['name'] ?? '');
                       final int count = stepCounts[stepCode] ?? 0;
                       final bool isStepSelected = dashboardState.selectedPhase == stepCode;
 
@@ -1410,5 +1466,5 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
       },
     );
   }
-
 }
+

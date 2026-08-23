@@ -5,11 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:window_manager/window_manager.dart';
-import 'core/theme/app_theme.dart';
 import 'core/constants/api_constants.dart';
-import 'features/home/home_screen.dart';
+import 'core/localization/app_localizations.dart';
+import 'core/localization/locale_provider.dart';
+import 'core/network/dio_client.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/providers/auth_provider.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/home/home_screen.dart';
 
 final appReloadKeyProvider = StateProvider<int>((ref) => 0);
 
@@ -27,8 +30,9 @@ void main() async {
     } catch (_) {}
   }
 
-  // Custom friendly error widget preventing red screen of death
+  // Custom friendly error widget — prevents red screen of death
   ErrorWidget.builder = (FlutterErrorDetails details) {
+    // Cannot use context.l10n here (no BuildContext) — use static English strings
     return Material(
       color: Colors.grey.shade100,
       child: Center(
@@ -36,27 +40,23 @@ void main() async {
           constraints: const BoxConstraints(maxWidth: 550),
           padding: const EdgeInsets.all(24),
           margin: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade300),
-            boxShadow: [
-              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
-            ],
-          ),
+          decoration: AppTheme.cardDecoration,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.cloud_off_rounded, size: 54, color: AppTheme.crimson),
               const SizedBox(height: 14),
               const Text(
-                'تنبيه: تعذر الاتصال بسيرفر النظام أو جلب البيانات',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                'Server Connection Error',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.charcoal),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
               Text(
-                'تأكد من تشغيل سيرفر الباك إند على ${ApiConstants.serverUrl} ثم اضغط على زر إعادة المحاولة أدناه.',
+                'Make sure the backend server is running on ${ApiConstants.serverUrl} then press Retry.',
                 style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                 textAlign: TextAlign.center,
               ),
@@ -69,8 +69,11 @@ void main() async {
                   border: Border.all(color: Colors.red.shade200),
                 ),
                 child: SelectableText(
-                  'تفاصيل الخطأ:\n${details.exceptionAsString()}',
-                  style: const TextStyle(fontSize: 11, color: AppTheme.crimson, fontFamily: 'monospace'),
+                  'Error details:\n${details.exceptionAsString()}',
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: AppTheme.crimson,
+                      fontFamily: 'monospace'),
                   textAlign: TextAlign.start,
                 ),
               ),
@@ -80,13 +83,18 @@ void main() async {
                   return ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.cobalt,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 24, vertical: 12),
                     ),
                     onPressed: () {
                       ref.read(appReloadKeyProvider.notifier).state++;
                     },
                     icon: const Icon(Icons.refresh, color: Colors.white),
-                    label: const Text('إعادة المحاولة وتحديث البيانات', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    label: const Text(
+                      'Retry Connection',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
                   );
                 },
               ),
@@ -104,6 +112,10 @@ void main() async {
   );
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Custom scroll behavior: enables mouse drag scrolling on desktop
+// ─────────────────────────────────────────────────────────────────────────────
+
 class AppCustomScrollBehavior extends MaterialScrollBehavior {
   @override
   Set<PointerDeviceKind> get dragDevices => {
@@ -114,7 +126,8 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
       };
 
   @override
-  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) {
+  Widget buildScrollbar(
+      BuildContext context, Widget child, ScrollableDetails details) {
     return Scrollbar(
       controller: details.controller,
       thumbVisibility: true,
@@ -124,6 +137,10 @@ class AppCustomScrollBehavior extends MaterialScrollBehavior {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Root application widget
+// ─────────────────────────────────────────────────────────────────────────────
+
 class ImportFlowApp extends ConsumerStatefulWidget {
   const ImportFlowApp({super.key});
 
@@ -131,7 +148,8 @@ class ImportFlowApp extends ConsumerStatefulWidget {
   ConsumerState<ImportFlowApp> createState() => _ImportFlowAppState();
 }
 
-class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListener {
+class _ImportFlowAppState extends ConsumerState<ImportFlowApp>
+    with WindowListener {
   @override
   void initState() {
     super.initState();
@@ -151,25 +169,27 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListen
   @override
   void onWindowClose() async {
     if (!kIsWeb && Platform.isWindows) {
-      // 1. Auto-backup dev DB on every close (runs silently — 5s timeout)
+      // 1. Auto-backup dev DB on every close (5s timeout, silent)
       try {
-        final dio = Dio();
+        final dio = ref.read(dioProvider);
         await dio
             .post(
               '${ApiConstants.productionSync}/backup',
               queryParameters: {'target': 'dev'},
             )
             .timeout(const Duration(seconds: 5))
-            .catchError((_) => Response(requestOptions: RequestOptions(path: '')));
+            .catchError(
+                (_) => Response(requestOptions: RequestOptions(path: '')));
       } catch (_) {}
 
       // 2. Graceful backend shutdown
       try {
-        final dio = Dio();
+        final dio = ref.read(dioProvider);
         await dio
             .post('${ApiConstants.serverUrl}/shutdown')
             .timeout(const Duration(milliseconds: 400))
-            .catchError((_) => Response(requestOptions: RequestOptions(path: '')));
+            .catchError(
+                (_) => Response(requestOptions: RequestOptions(path: '')));
       } catch (_) {}
 
       // 3. Kill backend process
@@ -181,20 +201,30 @@ class _ImportFlowAppState extends ConsumerState<ImportFlowApp> with WindowListen
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     final reloadKey = ref.watch(appReloadKeyProvider);
     final authState = ref.watch(authProvider);
+    final locale = ref.watch(localeProvider);
+    final isRtl = locale.languageCode == 'ar';
 
     return KeyedSubtree(
       key: ValueKey(reloadKey),
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'ImportFlow ERP - Sorour Logistics (v1.0.2)',
-        theme: AppTheme.lightTheme,
-        scrollBehavior: AppCustomScrollBehavior(),
-        home: authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+      child: AppLocalizationsProvider(
+        locale: locale,
+        child: Directionality(
+          // Auto RTL for Arabic, LTR for English
+          textDirection: isRtl ? TextDirection.rtl : TextDirection.ltr,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'ImportFlow ERP - Sorour Logistics (v1.0.2)',
+            theme: AppTheme.lightTheme,
+            scrollBehavior: AppCustomScrollBehavior(),
+            locale: locale,
+            home:
+                authState.isAuthenticated ? const HomeScreen() : const LoginScreen(),
+          ),
+        ),
       ),
     );
   }

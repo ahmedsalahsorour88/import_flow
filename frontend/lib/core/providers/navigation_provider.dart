@@ -81,9 +81,17 @@ import '../../features/warehouse_receiving/providers/warehouse_receiving_provide
 //  56 = CustomsConsultationScreen (tax review mode)
 //  57 = OriginalDocsAndCargoXScreen (subTab 0 = Original Docs)
 //  58 = OriginalDocsAndCargoXScreen (default)
+//  59 = ProductionSyncScreen
+//  60 = CustomsClearanceScreen (subTab 1 — Drawing Samples)
+//  61 = CustomsClearanceScreen (subTab 2 — Discrepancy/Damage)
+//  62 = CustomsClearanceScreen (subTab 3 — Final Customs Payment)
+//  63 = GoodsInTransitScreen
+//  64 = WarehouseReceivedReportScreen
 // ============================================================
 
-const int _totalScreens = 59;
+
+const int _totalScreens = 65; // matches home_screen._screens list (indices 0–64)
+
 
 final navigationIndexProvider = StateProvider<int>((ref) => 0);
 

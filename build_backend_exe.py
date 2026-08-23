@@ -46,6 +46,8 @@ def build_backend():
         "pandas",
         "pdfplumber",
         "pypdf",
+        "fitz",
+        "pymupdf",
         "docx",
         "httpx",
         "requests",
@@ -53,6 +55,16 @@ def build_backend():
         "seed",
         "seed_clearance_expenses",
         "main",
+        "modules.smart_document_upload.extractors.purchase_order",
+        "modules.smart_document_upload.extractors.import_file",
+        "modules.smart_document_upload.extractors.cargo_shipping",
+        "modules.smart_document_upload.extractors.customs_clearance",
+        "modules.smart_document_upload.extractors.customs_broker_quotation",
+        "modules.smart_document_upload.extractors.freight_quotation",
+        "modules.smart_document_upload.extractors.freight_booking",
+        "modules.smart_document_upload.extractors.other_extractors",
+        "modules.smart_document_upload.extractors.master_data_entity",
+        "modules.smart_document_upload.extractors.base_extractor",
     ]
 
     # Collect all modules

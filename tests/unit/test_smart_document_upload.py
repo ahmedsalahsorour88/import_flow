@@ -126,6 +126,101 @@ class TestPurchaseOrderExtractor:
         assert row2["total_gross_weight_kg"] == 4.0
         assert row2["total_net_weight_kg"] == 4.0
 
+    def test_steelcase_invoice_and_packing_list_extraction(self):
+        sample_steelcase_invoice = """
+        Steelcase - Steelcase S.A.S. - Société par Actions Simplifiée
+        Page 1 / 7
+        Invoice No 2316135 of 19.08.2026
+        Client/Dealer 79064
+        Archi Brands For Corpet and Floor Trading
+        Payment and invoicing currency EUR
+        Shipment number 1737751 / CUSTOMER PICK UP
+        Delivery terms : FCA Free Carrier
+        ACID: 7595528271019310011
+
+        Page 2 / 7
+        1 466160MTC 5E S7 01 B7 00 05 01 00 73 91 01
+        Reply Task Chair Reply Air Color (Mesh version)
+        Gross weight=1262,569 KG Net weight=1043,754 KG Unit net weight=14,298 KG
+        V=18,980 M3
+        HTS 94013900 Country of Origin France
+        Item N°: 000100
+         73 203,10 14.826,30 15.078,35
+
+        Page 3 / 7
+        1 LARSPINE80 01
+        Lares Desk Cable Management Vertical Cable Spine H800
+        Gross weight=79,253 KG Net weight=76,923 KG
+        HTS 39263000 Country of Origin Germany
+        Item N°: 000100
+         77 26,20 2.017,40 2.051,70
+
+        Page 7 / 7
+        Delivery terms : FCA Free Carrier 
+        Total net 41.762,39 42.472,35
+        Total net incl. surcharge excl. VAT 42.472,35 42.472,35
+        Net to pay EUR 42.472,35 42.472,35
+        Nb of parcel : 250 Gross weight : 4.036,500 KG Gross volume : 62,026 M3
+        N°of container : CSNU 5954505 / R114238
+        """
+
+        sample_steelcase_pl = """
+        Packing List 1737751-1
+        Container ID: CSNU 5954505
+        Identification: R114238
+        Parcel-No. Parcel Volume: m3 Gross weight: kg Your PO no.: Our Order:
+        Qty: Material Code: Description Your Pos. Our Pos. Code:
+        1733676639 0,400 41,170 0000060 1704611
+        40 TN97800069 Cable spine H800 1 200 LARSPINE80
+        2019765652 0,226 17,295 0000059 1704609
+        1 P466_WORK_1 REPLY PARCEL 1 200 466160MTC
+        """
+
+        combined = sample_steelcase_invoice + "\n\n" + sample_steelcase_pl
+        result = self.extractor.extract(combined, {})
+
+        assert result["supplier_name"] == "Steelcase S.A.S."
+        assert "Archi Brands" in result["importer_name"]
+        assert result["po_number"] == "2316135"
+        assert result["currency"] == "EUR"
+        assert result["incoterms"] == "FCA"
+        assert result["total_amount"] == 42472.35
+        assert result["acid_number"] == "7595528271019310011"
+        assert "CSNU" in result["container_number"]
+        assert result["seal_number"] == "R114238"
+
+        # Check line items
+        items = result.get("items", [])
+        assert len(items) == 2
+        assert items[0]["item_code"] == "466160MTC"
+        assert items[0]["quantity"] == 73.0
+        assert items[0]["unit_price"] == 203.10
+        assert items[0]["total_price"] == 14826.30
+        assert items[0]["hs_code"] == "94013900"
+        assert items[0]["country_of_origin"] == "France"
+
+        assert items[1]["item_code"] == "LARSPINE80"
+        assert items[1]["quantity"] == 77.0
+        assert items[1]["unit_price"] == 26.20
+        assert items[1]["total_price"] == 2017.40
+        assert items[1]["hs_code"] == "39263000"
+        assert items[1]["country_of_origin"] == "Germany"
+
+        # Check packing items
+        packing = result.get("packing_list_items", [])
+        assert len(packing) == 2
+        assert packing[0]["item_code"] == "LARSPINE80"
+        assert packing[0]["qty_pcs"] == 40.0
+        assert packing[0]["total_gross_weight_kg"] == 41.17
+        assert packing[0]["total_cbm"] == 0.4
+        assert packing[0]["hs_code"] == "39263000"
+
+        assert packing[1]["item_code"] == "466160MTC"
+        assert packing[1]["qty_pcs"] == 1.0
+        assert packing[1]["total_gross_weight_kg"] == 17.295
+        assert packing[1]["total_cbm"] == 0.226
+        assert packing[1]["hs_code"] == "94013900"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cargo Shipping Extractor Tests

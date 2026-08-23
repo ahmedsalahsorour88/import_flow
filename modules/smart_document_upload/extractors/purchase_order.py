@@ -54,14 +54,24 @@ class PurchaseOrderExtractor(BaseExtractor):
             "hs_code": top_hs,
             "delivery_port": self._extract_port(text),
             "payment_terms": self._extract_payment_terms(text),
-            "total_amount": self.find_float([
-                r"(?:Total\s+INVOICE\s+AMOUNT|Total\s+Invoice\s+Amount)[\s\S]*?([0-9.,]+)",
-                r"(?:Invoice\s+amount|Order\s+Total|Line\s+Total|grand\s+total|total\s+value|amount\s+due|net\s+amount)[:\s]+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)",
-                r"(?:TOTAL)\s+\d+\s+(\d{4,8}(?:\.\d{2})?)\b",
-                r"(?:total\s+amount)[:\s]+([0-9.,]+)",
-                r"(?:TOTAL)[:\s]+(?:[0-9]+\s+){1,3}([0-9,]+\.?\d*)",
-                r"(?:total)[:\s]+(?:[A-Z]{3}\s*|\$\s*)?([0-9.,]+)",
-                r"[A-Z]{3}\s+([0-9.,]+)\s*$",
+            "total_amount": self._extract_total_amount(text),
+            "container_number": self.find_first([
+                r"Container\s+ID[:\s]*([A-Z]{3,4}\s*\d{6,8})",
+                r"N°\s*of\s*container\s*[:\s]*([A-Z]{3,4}\s*\d{6,8})",
+                r"\b([A-Z]{4}\s*\d{7})\b",
+            ], text),
+            "seal_number": self.find_first([
+                r"Identification[:\s]*([A-Z0-9]+)",
+                r"Seal\s*(?:No\.?|#)?[:\s]*([A-Z0-9]+)",
+                r"CSNU\s*\d{7}\s*/\s*([A-Z0-9]+)",
+            ], text),
+            "gross_volume_cbm": self.find_float([
+                r"Gross\s+volume\s*[:\s]*([0-9.,]+)\s*M3",
+                r"Loading\s+volume\s*[:\s]*([0-9.,]+)\s*m3",
+                r"Parcel-Volume\s*[:\s]*([0-9.,]+)\s*m3",
+            ], text),
+            "total_gross_weight_kg": self.find_float([
+                r"Gross\s+weight\s*[:\s]*([0-9.,]+)\s*(?:KG|kg)",
             ], text),
             "items": extracted_items,
             "unregistered_hs_items_count": unregistered_hs_items_count,
@@ -78,17 +88,49 @@ class PurchaseOrderExtractor(BaseExtractor):
 
     def _finalize_packing_items(self, packing_items: List[Dict[str, Any]], line_items: List[Dict[str, Any]], default_hs: Optional[str]) -> List[Dict[str, Any]]:
         for idx, p in enumerate(packing_items):
-            if not p.get("hs_code") and default_hs:
+            matching = next((it for it in line_items if it.get("item_code") and it.get("item_code") == p.get("item_code")), None)
+            if not matching and idx < len(line_items):
+                matching = line_items[idx]
+
+            if matching and not p.get("hs_code") and matching.get("hs_code"):
+                p["hs_code"] = matching.get("hs_code")
+            elif not p.get("hs_code") and default_hs:
                 p["hs_code"] = default_hs
+
             if not p.get("description"):
-                matching = next((it for it in line_items if it.get("item_code") and it.get("item_code") == p.get("item_code")), None)
-                if not matching and idx < len(line_items):
-                    matching = line_items[idx]
                 if matching and matching.get("description"):
                     p["description"] = matching.get("description")
-                if matching and not p.get("hs_code") and matching.get("hs_code"):
-                    p["hs_code"] = matching.get("hs_code")
+
         return packing_items
+
+    def _extract_total_amount(self, text: str) -> Optional[float]:
+        # 1. Net to pay EUR 42.472,35 / Total net incl. surcharge (French/Steelcase/EU multi-page invoices)
+        net_to_pay_matches = re.findall(r"Net\s+to\s+pay\s+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)(?:\s+([0-9.,]+))?", text, re.IGNORECASE)
+        if net_to_pay_matches:
+            last_m = net_to_pay_matches[-1]
+            val_str = last_m[1] if last_m[1] else last_m[0]
+            val = BaseExtractor.parse_numeric_str(val_str)
+            if val > 0:
+                return val
+
+        surch_matches = re.findall(r"Total\s+net\s+incl\.\s+surcharge[^\n]*?([0-9.,]+)(?:\s+([0-9.,]+))?", text, re.IGNORECASE)
+        if surch_matches:
+            last_m = surch_matches[-1]
+            val_str = last_m[1] if last_m[1] else last_m[0]
+            val = BaseExtractor.parse_numeric_str(val_str)
+            if val > 0:
+                return val
+
+        # 2. Standard totals
+        return self.find_float([
+            r"(?:Total\s+INVOICE\s+AMOUNT|Total\s+Invoice\s+Amount)[\s\S]*?([0-9.,]+)",
+            r"(?:Invoice\s+amount|Order\s+Total|Line\s+Total|grand\s+total|total\s+value|amount\s+due|net\s+amount)[:\s]+(?:[A-Z]{3}\s*|\$\s*|€\s*)?([0-9.,]+)",
+            r"(?:TOTAL)\s+\d+\s+(\d{4,8}(?:\.\d{2})?)\b",
+            r"(?:total\s+amount)[:\s]+([0-9.,]+)",
+            r"(?:TOTAL)[:\s]+(?:[0-9]+\s+){1,3}([0-9,]+\.?\d*)",
+            r"(?:total)[:\s]+(?:[A-Z]{3}\s*|\$\s*)?([0-9.,]+)",
+            r"[A-Z]{3}\s+([0-9.,]+)\s*$",
+        ], text)
 
     def _extract_po_number(self, text: str) -> Optional[str]:
         # 1. Italian format: V1/ 2562 or Vl/ 2562 or VI/ 2562
@@ -137,6 +179,8 @@ class PurchaseOrderExtractor(BaseExtractor):
         # 1. Known company names
         for line in lines[:25]:
             upper = line.upper()
+            if "STEELCASE" in upper:
+                return "Steelcase S.A.S."
             if "SUZHOU YUHENG TEXTILE" in upper or "YUHENG TEXTILE" in upper:
                 return "Suzhou Yuheng Textile Co., Ltd."
             if "G.I. INDUSTRIAL" in upper or "G.I.INDUSTRIAL" in upper:
@@ -154,6 +198,8 @@ class PurchaseOrderExtractor(BaseExtractor):
         for i in range(min(12, len(lines))):
             curr = lines[i]
             upper = curr.upper()
+            if "STEELCASE" in upper:
+                return "Steelcase S.A.S."
             if "NARBUTAS" in upper:
                 if i + 1 < len(lines) and "INTERNATIONAL" in lines[i + 1].upper():
                     return f"{curr} {lines[i + 1]}".strip()
@@ -166,19 +212,21 @@ class PurchaseOrderExtractor(BaseExtractor):
         ], text)
         if labeled:
             clean = labeled.strip()
-            if not any(disclaimer in clean.lower() for disclaimer in ["buyer", "processed", "suspended", "payment", "via "]):
+            if not any(disclaimer in clean.lower() for disclaimer in ["buyer", "processed", "suspended", "payment", "via ", "archi brands", "scas", "eco asso"]):
                 return clean
 
-        # 5. Generic company line in top 20 lines (excluding addresses)
+        # 5. Generic company line in top 20 lines (excluding addresses and importers)
         disallowed_keywords = [
             "COMMERCIAL INVOICE", "PACKING LIST", "PURCHASE ORDER", "ORDER DATE",
             "BILL TO", "SHIP TO", "TAX ID", "VAT NUMBER", "PLEASE PROVIDE",
             "BUYER", "SUSPENDED", "PROCESSED", "TERMS", "INVOICE NR",
-            "VIA ", "NO.", "STREET", "ROAD", "POSTCODE",
+            "VIA ", "NO.", "STREET", "ROAD", "POSTCODE", "ARCHI BRANDS",
+            "SCAS", "ECO ASSOCIATES", "CLIENT/DEALER", "PARTNER", "SHIPMENT NUMBER",
+            "CARPET", "CORPET", "CONSIGNEE",
         ]
         for line in lines[:20]:
             upper = line.upper()
-            if any(kw in upper for kw in ["CO., LTD", "LTD", "INC", "CORP", "GMBH", "S.P.A", "LLC", "INTERNATIONAL", "HOLDING"]):
+            if any(kw in upper for kw in ["CO., LTD", "LTD", "INC", "CORP", "GMBH", "S.P.A", "LLC", "INTERNATIONAL", "HOLDING", "S.A.S", "SAS"]):
                 if not any(dis in upper for dis in disallowed_keywords):
                     return line
 
@@ -432,6 +480,26 @@ class PurchaseOrderExtractor(BaseExtractor):
         return None
 
     def _extract_line_items(self, text: str, default_hs: Optional[str] = None, default_cty: Optional[str] = None) -> List[Dict[str, Any]]:
+        # 0. Steelcase & Multi-Line European Invoice pattern
+        steelcase_items = self._extract_steelcase_invoice_items(text)
+        if steelcase_items:
+            for idx, item in enumerate(steelcase_items):
+                if not item.get("item_code") or str(item.get("item_code")).strip() == "":
+                    item["item_code"] = f"ITEM-{idx+1:03d}"
+                if not item.get("hs_code") and default_hs:
+                    item["hs_code"] = default_hs
+                if not item.get("country_of_origin") and default_cty:
+                    item["country_of_origin"] = default_cty
+
+                curr_hs = item.get("hs_code")
+                if not curr_hs or str(curr_hs).strip() == "":
+                    item["hs_code_status"] = "missing"
+                    item["hs_code_warning"] = "⚠️ بند التعريفة الجمركية (HS Code) غير محدد. يجب اختياره لتطبيق الرسوم الجمركية بدقة."
+                else:
+                    item["hs_code_status"] = "registered"
+                    item["hs_code_warning"] = None
+            return steelcase_items[:50]
+
         items: List[Dict[str, Any]] = []
         lines = [l.strip() for l in text.splitlines() if l.strip()]
 
@@ -572,6 +640,39 @@ class PurchaseOrderExtractor(BaseExtractor):
                 except (ValueError, IndexError):
                     continue
 
+        # 5. Steelcase & Multi-Line European Invoice pattern
+        if not items:
+            steelcase_items = self._extract_steelcase_invoice_items(text)
+            if steelcase_items:
+                items.extend(steelcase_items)
+
+        # 6. Fallback: Invoice Items Summary table (e.g. Steelcase Summary by HTS / Country)
+        if not items and "Invoice items summary" in text:
+            summary_pattern = re.compile(
+                r"^\s*(\d{8,10})\s+([A-Za-z]+)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)\s*KG\s+([0-9.,]+)\s*KG",
+                re.MULTILINE | re.IGNORECASE
+            )
+            for m in summary_pattern.finditer(text):
+                hs = m.group(1).strip()
+                cty = m.group(2).strip()
+                net_p = BaseExtractor.parse_numeric_str(m.group(3))
+                customs_p = BaseExtractor.parse_numeric_str(m.group(4))
+                gw = BaseExtractor.parse_numeric_str(m.group(5))
+                nw = BaseExtractor.parse_numeric_str(m.group(6))
+                items.append({
+                    "item_code": f"HTS-{hs}",
+                    "description": f"Imported Goods (HTS {hs} - {cty})",
+                    "hs_code": hs,
+                    "country_of_origin": cty,
+                    "quantity": 1.0,
+                    "unit": "SET",
+                    "unit_price": net_p,
+                    "total_price": net_p,
+                    "customs_value": customs_p,
+                    "gross_weight_kg": gw,
+                    "net_weight_kg": nw,
+                })
+
         for idx, item in enumerate(items):
             if not item.get("item_code") or str(item.get("item_code")).strip() == "":
                 item["item_code"] = f"ITEM-{idx+1:03d}"
@@ -591,11 +692,160 @@ class PurchaseOrderExtractor(BaseExtractor):
 
         return items[:50]
 
+    def _clean_steelcase_item_desc(self, block: str, code: str) -> str:
+        lines = [l.strip() for l in block.splitlines() if l.strip()]
+        desc_candidates = []
+        start_collecting = False
+        for line in lines:
+            if line.startswith(("Total net", "Net to pay", "Surcharge", "VAT", "Your ref", "...")):
+                continue
+            if any(stop in line.lower() for stop in ["gross weight", "net weight", "v=", "parcels", "hts ", "country of origin", "item n°"]):
+                break
+            if re.match(r"^\d{1,2}\s+" + re.escape(code), line):
+                start_collecting = True
+                continue
+            if start_collecting:
+                is_noise = (
+                    re.match(r"^[0-9A-Z\s\._\-]{1,6}$", line) or
+                    re.match(r"^[\d\.\s,]+mm[\s\S]*", line, re.I) or
+                    (re.match(r"^[0-9A-Z\s]{10,}$", line) and not any(w in line.lower() for w in ["chair", "bench", "desk", "table", "laress", "spine", "task", "meeting", "top", "leg", "plus", "air", "headrest"]))
+                )
+                if not is_noise:
+                    desc_candidates.append(line)
+        if desc_candidates:
+            return " - ".join(desc_candidates)
+        return f"Steelcase {code}"
+
+    def _extract_steelcase_invoice_items(self, text: str) -> List[Dict[str, Any]]:
+        items = []
+        item_blocks = re.split(r"\n(?=\s*\d{1,2}\s+[A-Z0-9\-_]{4,25}\b)", text)
+        for block in item_blocks:
+            m_head = re.match(r"^\s*(\d{1,2})\s+([A-Z0-9\-_]{4,25})", block)
+            if not m_head:
+                continue
+            code = m_head.group(2).strip()
+
+            m_hts = re.search(r"HTS\s*(\d{4,10})\s+Country\s+of\s+Origin\s+([A-Za-z\s]+?)(?:\n|Item|$)", block, re.IGNORECASE)
+            hs_code = m_hts.group(1).strip() if m_hts else None
+            origin = m_hts.group(2).strip() if m_hts else None
+
+            # Must have Item N°: or HTS to be a genuine invoice line item block
+            has_item_no = "item n°:" in block.lower() or "item no:" in block.lower() or "item nr:" in block.lower()
+            if not m_hts and not has_item_no:
+                continue
+
+            m_nums = re.search(r"Item\s+N°:\s*\d+\s*\n\s*(\d+(?:[\.,]\d+)?)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)", block, re.IGNORECASE)
+            if not m_nums:
+                m_nums = re.search(r"(\d+(?:[\.,]\d+)?)\s+([0-9.,]+)\s+([0-9.,]+)\s+([0-9.,]+)\s*(?:\n|$)", block)
+            if not m_nums:
+                continue
+
+            qty = float(m_nums.group(1).replace(".", "").replace(",", "."))
+            unit_price = float(m_nums.group(2).replace(".", "").replace(",", "."))
+            net_price = float(m_nums.group(3).replace(".", "").replace(",", "."))
+            customs_val = float(m_nums.group(4).replace(".", "").replace(",", "."))
+
+            desc = self._clean_steelcase_item_desc(block, code)
+
+            gw = 0.0
+            nw = 0.0
+            cbm = 0.0
+            gw_m = re.search(r"Gross\s+weight\s*=\s*([0-9.,]+)", block, re.IGNORECASE)
+            if gw_m:
+                gw = float(gw_m.group(1).replace(".", "").replace(",", "."))
+            nw_m = re.search(r"Net\s+weight\s*=\s*([0-9.,]+)", block, re.IGNORECASE)
+            if nw_m:
+                nw = float(nw_m.group(1).replace(".", "").replace(",", "."))
+            v_m = re.search(r"V\s*=\s*([0-9.,]+)\s*M3", block, re.IGNORECASE)
+            if v_m:
+                cbm = float(v_m.group(1).replace(",", "."))
+
+            if qty > 0 and (unit_price > 0 or net_price > 0):
+                items.append({
+                    "item_code": code,
+                    "description": desc,
+                    "hs_code": hs_code,
+                    "country_of_origin": origin,
+                    "quantity": qty,
+                    "unit": "PCS",
+                    "unit_price": unit_price,
+                    "total_price": net_price,
+                    "customs_value": customs_val,
+                    "gross_weight_kg": gw,
+                    "net_weight_kg": nw,
+                    "cbm_per_unit": round(cbm / qty, 3) if qty > 0 else cbm,
+                })
+        return items
+
+    def _extract_steelcase_packing_list(self, text: str) -> List[Dict[str, Any]]:
+        packing = []
+        lines = [l.strip() for l in text.splitlines() if l.strip()]
+        i = 0
+        while i < len(lines):
+            line1 = lines[i]
+            m1 = re.match(r"^(\d{10})\s+([0-9.,]+)\s+([0-9.,]+)(?:\s+\d+)?(?:\s+\d+)?", line1)
+            if m1:
+                parcel_no = m1.group(1)
+                vol = float(m1.group(2).replace(".", "").replace(",", ".")) if "." in m1.group(2) and "," in m1.group(2) else float(m1.group(2).replace(",", "."))
+                gw = float(m1.group(3).replace(".", "").replace(",", ".")) if "." in m1.group(3) and "," in m1.group(3) else float(m1.group(3).replace(",", "."))
+
+                if i + 1 < len(lines):
+                    line2 = lines[i + 1]
+                    m2 = re.match(r"^(\d+(?:[\.,]\d+)?)\s+([A-Z0-9\-_.]+)\s+([\s\S]+?)(?:\s+\d+)?(?:\s+\d+)?\s+([A-Z0-9\-_]{4,25})$", line2, re.IGNORECASE)
+                    if m2:
+                        qty = float(m2.group(1).replace(",", "."))
+                        desc = m2.group(3).strip()
+                        item_code = m2.group(4).strip()
+                        packing.append({
+                            "item_code": item_code,
+                            "description": f"{desc} (Parcel #{parcel_no})",
+                            "package_type": "Carton",
+                            "qty_pkg": 1.0,
+                            "qty_pcs": qty,
+                            "weight_unit": "KGM",
+                            "gross_weight_unit_kg": gw,
+                            "total_gross_weight_kg": gw,
+                            "total_cbm": vol,
+                            "is_stackable": True,
+                        })
+                        i += 2
+                        continue
+                    else:
+                        parts = line2.split()
+                        if len(parts) >= 3:
+                            try:
+                                qty = float(parts[0].replace(",", "."))
+                                item_code = parts[-1] if len(parts[-1]) >= 4 else parts[1]
+                                desc = " ".join(parts[1:-1])
+                                packing.append({
+                                    "item_code": item_code,
+                                    "description": f"{desc} (Parcel #{parcel_no})",
+                                    "package_type": "Carton",
+                                    "qty_pkg": 1.0,
+                                    "qty_pcs": qty,
+                                    "weight_unit": "KGM",
+                                    "gross_weight_unit_kg": gw,
+                                    "total_gross_weight_kg": gw,
+                                    "total_cbm": vol,
+                                    "is_stackable": True,
+                                })
+                                i += 2
+                                continue
+                            except ValueError:
+                                pass
+            i += 1
+        return packing
+
     def _extract_packing_list_items(self, text: str) -> List[Dict[str, Any]]:
+        # 0. Steelcase 2-Line Multi-Page Packing List format
+        steelcase_packing = self._extract_steelcase_packing_list(text)
+        if steelcase_packing:
+            return steelcase_packing
+
         packing: List[Dict[str, Any]] = []
         lines = [l.strip() for l in text.splitlines() if l.strip()]
 
-        # 0. Pipe-separated / Tab-separated Packing List table format
+        # 1. Pipe-separated / Tab-separated Packing List table format
         # Matches: Item number | Configuration | Item name | Delivered | Unit | Weight netto | Weight brutto | Volume
         # Matches: PSHD041 | .PA01.MA03 | Mobile table with metal base... | 4.00 | Pcs | 46.000 | 51.950 | 0.086
         for line in lines:

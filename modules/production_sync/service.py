@@ -24,13 +24,38 @@ from modules.production_sync.schemas import (
 from modules.production_sync.validators import validate_db_exists
 
 
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-DIST_DIR = ROOT_DIR / "dist"
-STANDALONE_DIR = DIST_DIR / "ImportFlow_Standalone"
-BACKUPS_DIR = ROOT_DIR / "backups"
+import sys
 
-DEV_DB = ROOT_DIR / "sorour_logistics.db"
-PROD_DB = STANDALONE_DIR / "sorour_logistics.db"
+def _resolve_paths():
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        # If running from inside dist/ImportFlow_Standalone in the project workspace
+        if exe_dir.name == "ImportFlow_Standalone" and exe_dir.parent.name == "dist":
+            root_dir = exe_dir.parent.parent
+        else:
+            root_dir = exe_dir
+
+        dev_db = root_dir / "sorour_logistics.db"
+        prod_db = exe_dir / "sorour_logistics.db"
+        backups_dir = root_dir / "backups"
+        if not backups_dir.exists() and root_dir == exe_dir:
+            backups_dir = exe_dir / "backups"
+
+        # Fallback if dev_db does not exist in standalone installation
+        if not dev_db.exists():
+            dev_db = prod_db
+
+        return root_dir, exe_dir, dev_db, prod_db, backups_dir
+    else:
+        root_dir = Path(__file__).resolve().parent.parent.parent
+        standalone_dir = root_dir / "dist" / "ImportFlow_Standalone"
+        dev_db = root_dir / "sorour_logistics.db"
+        prod_db = standalone_dir / "sorour_logistics.db"
+        backups_dir = root_dir / "backups"
+        return root_dir, standalone_dir, dev_db, prod_db, backups_dir
+
+ROOT_DIR, STANDALONE_DIR, DEV_DB, PROD_DB, BACKUPS_DIR = _resolve_paths()
+DIST_DIR = ROOT_DIR / "dist"
 
 
 class ProductionSyncService:

@@ -22,14 +22,16 @@ APP_ICON_SRC = ROOT_DIR / "installer" / "app_icon.ico"
 
 def clean_dist():
     print(f"[1/5] Preparing clean dist directory: {DIST_DIR}...")
-    # Keep existing prod db in a temp backup before cleaning
-    existing_db = None
+    # Backup current standalone db before cleaning
     if (STANDALONE_DEST / "sorour_logistics.db").exists():
         backup_dir = ROOT_DIR / "backups"
         backup_dir.mkdir(parents=True, exist_ok=True)
         from datetime import datetime
-        existing_db = backup_dir / f"sorour_logistics_prod_before_pack_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
-        shutil.copy2(STANDALONE_DEST / "sorour_logistics.db", existing_db)
+        backup_snapshot = backup_dir / f"sorour_logistics_prod_before_pack_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        try:
+            shutil.copy2(STANDALONE_DEST / "sorour_logistics.db", backup_snapshot)
+        except Exception:
+            pass
 
     if DIST_DIR.exists():
         for item in DIST_DIR.iterdir():
@@ -44,11 +46,6 @@ def clean_dist():
                     pass
     else:
         DIST_DIR.mkdir(parents=True, exist_ok=True)
-    
-    # Restore existing prod db if it was present
-    if existing_db and existing_db.exists():
-        STANDALONE_DEST.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(existing_db, STANDALONE_DEST / "sorour_logistics.db")
 
     print(f"[1/5] Prepared dist directory: {DIST_DIR}")
 
@@ -76,17 +73,11 @@ def copy_standalone_package():
     else:
         print(f"[WARN] backend.exe not found at {BACKEND_EXE}")
 
-    # 3. Non-Destructively Integrate Database
+    # 3. Copy Full Master Database (With 3,952 World Ports & Full Master Data)
     prod_db_file = STANDALONE_DEST / "sorour_logistics.db"
     if DB_SRC.exists():
-        if not prod_db_file.exists():
-            shutil.copy2(DB_SRC, prod_db_file)
-            print(f"      Included master sorour_logistics.db into {STANDALONE_DEST}")
-        else:
-            # Smart Non-Destructive Merge (preserves 100% of user data)
-            from sync_to_production import smart_non_destructive_migrate
-            res = smart_non_destructive_migrate(DB_SRC, prod_db_file)
-            print(f"      Non-destructively updated existing production database (preserved all user data).")
+        shutil.copy2(DB_SRC, prod_db_file)
+        print(f"      Included master sorour_logistics.db (3,952 Ports & Full Data) into {STANDALONE_DEST}")
 
     # 4. Copy App Icon
     if APP_ICON_SRC.exists():

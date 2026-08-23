@@ -52,6 +52,7 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
 
   bool _isLoading = false;
   bool _isUploadingFile = false;
+  String _registrySearchQuery = '';
   String? _uploadedFileName;
   int? _uploadedFileSize;
   String? _extractionStatus;
@@ -172,7 +173,10 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   }
 
   void _syncExtractedFieldsToControllers(Map<String, dynamic> d) {
-    if (d.containsKey('draft_bl_number') && d['draft_bl_number'] != null) _draftBlNumberCtrl.text = d['draft_bl_number'].toString();
+    final extractedBl = d['draft_bl_number'] ?? d['bl_number'] ?? d['bl_no'] ?? d['bill_of_lading_no'] ?? d['bill_of_lading_number'] ?? d['b_l_number'] ?? d['bol_number'];
+    if (extractedBl != null && extractedBl.toString().trim().isNotEmpty) {
+      _draftBlNumberCtrl.text = extractedBl.toString().trim();
+    }
     if (d.containsKey('booking_no') && d['booking_no'] != null) _bookingNoCtrl.text = d['booking_no'].toString();
     if (d.containsKey('shipper') && d['shipper'] != null) _shipperCtrl.text = d['shipper'].toString();
     if (d.containsKey('consignee') && d['consignee'] != null) _consigneeCtrl.text = d['consignee'].toString();
@@ -813,7 +817,94 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
                       ),
                   ],
                 ),
-                // Safety Guardrail Warning Banner
+                // Extracted B/L Number Quick Display Card
+                if (_draftBlNumberCtrl.text.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cobalt.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AppTheme.cobalt.withOpacity(0.35)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.confirmation_number_outlined, color: AppTheme.cobalt, size: 22),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'رقم البوليصة المستخرج (Extracted B/L No.):',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(color: AppTheme.cobalt.withOpacity(0.4)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                _draftBlNumberCtrl.text,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.cobalt, fontFamily: 'monospace'),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: () {
+                                  Clipboard.setData(ClipboardData(text: _draftBlNumberCtrl.text));
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('✔ تم نسخ رقم البوليصة (${_draftBlNumberCtrl.text}) إلى الحافظة')),
+                                  );
+                                },
+                                child: const Tooltip(
+                                  message: 'نسخ رقم البوليصة',
+                                  child: Icon(Icons.copy, size: 16, color: AppTheme.cobalt),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const Spacer(),
+                        TextButton.icon(
+                          style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                          icon: const Icon(Icons.edit, size: 14, color: AppTheme.charcoal),
+                          label: const Text('تعديل', style: TextStyle(fontSize: 12, color: AppTheme.charcoal)),
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (dCtx) {
+                                final editCtrl = TextEditingController(text: _draftBlNumberCtrl.text);
+                                return AlertDialog(
+                                  title: const Text('تعديل رقم بوليصة الشحن (B/L Number)'),
+                                  content: TextField(
+                                    controller: editCtrl,
+                                    decoration: const InputDecoration(labelText: 'رقم البوليصة', border: OutlineInputBorder()),
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(dCtx), child: const Text('إلغاء')),
+                                    ElevatedButton(
+                                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
+                                      onPressed: () {
+                                        setState(() {
+                                          _draftBlNumberCtrl.text = editCtrl.text.trim();
+                                        });
+                                        Navigator.pop(dCtx);
+                                      },
+                                      child: const Text('حفظ', style: TextStyle(color: Colors.white)),
+                                    ),
+                                  ],
+                                );
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                                // Safety Guardrail Warning Banner
                 if (_missingCriticalFields.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -1887,6 +1978,16 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
   // STAGE 5: FINAL REGISTRY
   // ===========================================================================
   Widget _buildStage5FinalRegistryView(List<DraftBLReviewModel> allReviews) {
+    final filteredReviews = allReviews.where((r) {
+      if (_registrySearchQuery.trim().isEmpty) return true;
+      final q = _registrySearchQuery.trim().toLowerCase();
+      final blNo = (r.draftExtractedData?['draft_bl_number'] ?? r.draftExtractedData?['bl_number'] ?? r.draftBlNumber).toString().toLowerCase();
+      final line = (r.shippingLine ?? '').toLowerCase();
+      final stage = r.stage.toLowerCase();
+      final code = r.blReviewCode.toLowerCase();
+      return blNo.contains(q) || line.contains(q) || stage.contains(q) || code.contains(q) || r.blReviewId.toString().contains(q);
+    }).toList();
+
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -1895,121 +1996,265 @@ class _DraftBLReviewTabState extends ConsumerState<DraftBLReviewTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.verified, color: Colors.green, size: 24),
-                SizedBox(width: 8),
-                Text('سجل مسودات البوليصة المعتمدة نهائياً (Final Certified Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                const Row(
+                  children: [
+                    Icon(Icons.verified, color: Colors.green, size: 24),
+                    SizedBox(width: 8),
+                    Text('سجل مسودات البوليصة المعتمدة نهائياً (Final Certified Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.cobalt,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  ),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  label: const Text('تحديث السجل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    ref.invalidate(draftBLReviewsProvider);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('تم تحديث قائمة السجل النهائي المعتمد بنجاح')),
+                    );
+                  },
+                ),
               ],
             ),
             const SizedBox(height: 6),
             const Text('النسخ المعتمدة هنا أصبحت غير قابلة للتعديل وتعتبر الوثيقة الحاكمة لإصدار البوليصة الأصلية والإفراج الجمركي.', style: TextStyle(color: Colors.grey, fontSize: 13)),
             const Divider(height: 24),
-            if (allReviews.isEmpty)
-              const Center(
+
+            // Search Bar for B/L Number
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.search, color: AppTheme.cobalt, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: TextField(
+                      decoration: const InputDecoration(
+                        hintText: 'ابحث برقم البوليصة (B/L Number)، رقم الجلسة، الخط الملاحي، أو المرحلة...',
+                        border: InputBorder.none,
+                        isDense: true,
+                      ),
+                      onChanged: (val) {
+                        setState(() => _registrySearchQuery = val);
+                      },
+                    ),
+                  ),
+                  if (_registrySearchQuery.isNotEmpty)
+                    IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () => setState(() => _registrySearchQuery = ''),
+                    ),
+                ],
+              ),
+            ),
+
+            if (filteredReviews.isEmpty)
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(30),
-                  child: Text('لا توجد جلسات مراجعة مسجلة حتى الآن', style: TextStyle(color: Colors.grey)),
+                  padding: const EdgeInsets.all(30),
+                  child: Column(
+                    children: [
+                      Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
+                      const SizedBox(height: 10),
+                      Text(
+                        _registrySearchQuery.isNotEmpty ? 'لا توجد نتائج مطابقة لبحثك' : 'لا توجد جلسات مراجعة مسجلة حتى الآن',
+                        style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _registrySearchQuery.isNotEmpty ? 'جرّب البحث برقم بوليصة آخر' : 'قم باستخراج واعتماد مسودة بوليصة جديدة من التاب الأول',
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                      ),
+                    ],
+                  ),
                 ),
               )
             else
-              DataTable(
-                columnSpacing: 20,
-                columns: const [
-                  DataColumn(label: Text('رقم الجلسة')),
-                  DataColumn(label: Text('رقم الدرافت')),
-                  DataColumn(label: Text('الخط الملاحي')),
-                  DataColumn(label: Text('المرحلة (Stage)')),
-                  DataColumn(label: Text('اعتماد المستورد')),
-                  DataColumn(label: Text('اعتماد المخلص')),
-                  DataColumn(label: Text('الحالة')),
-                  DataColumn(label: Text('الإجراءات')),
-                ],
-                rows: allReviews.map((r) {
-                  return DataRow(cells: [
-                    DataCell(Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataCell(Text(r.draftBlNumber)),
-                    DataCell(Text(r.shippingLine ?? '-')),
-                    DataCell(Text(r.stage)),
-                    DataCell(Text(r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
-                    DataCell(Text(r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
-                    DataCell(Text(r.status, style: const TextStyle(fontWeight: FontWeight.bold))),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Tooltip(
-                            message: 'معاينة البوليصة',
-                            child: IconButton(
-                              icon: const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
-                              onPressed: () {
-                                setState(() {
-                                  _activeSession = r;
-                                  _activeStep = 3; // Jump to Dual Approval view of this session
-                                });
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('معاينة الجلسة #${r.blReviewId}: ${r.draftBlNumber}')),
-                                );
-                              },
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              padding: EdgeInsets.zero,
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columnSpacing: 22,
+                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                  columns: const [
+                    DataColumn(label: Text('رقم الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('رقم البوليصة (B/L No.)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                    DataColumn(label: Text('الخط الملاحي', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('السفينة / الرحلة', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('المرحلة (Stage)', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('اعتماد المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('اعتماد المخلص', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                  ],
+                  rows: filteredReviews.map((r) {
+                    final blNumber = (r.draftExtractedData?['draft_bl_number'] ??
+                            r.draftExtractedData?['bl_number'] ??
+                            r.systemDataSnapshot?['draft_bl_number'] ??
+                            r.draftBlNumber)
+                        .toString();
+
+                    final vesselVoyage = '${r.vesselName ?? "-"} / ${r.voyageNumber ?? "-"}';
+
+                    return DataRow(cells: [
+                      DataCell(Text('#${r.blReviewId}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                      DataCell(
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: blNumber));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('✔ تم نسخ رقم البوليصة: $blNumber')),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.cobalt.withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.confirmation_number_outlined, size: 14, color: AppTheme.cobalt),
+                                const SizedBox(width: 6),
+                                Text(
+                                  blNumber,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.cobalt,
+                                    fontFamily: 'monospace',
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                const Tooltip(
+                                  message: 'نسخ رقم البوليصة',
+                                  child: Icon(Icons.copy, size: 12, color: AppTheme.cobalt),
+                                ),
+                              ],
                             ),
                           ),
-                          Tooltip(
-                            message: 'طباعة البوليصة',
-                            child: IconButton(
-                              icon: const Icon(Icons.print, size: 18, color: AppTheme.charcoal),
-                              onPressed: () async {
-                                try {
-                                  final sysData = r.systemDataSnapshot ?? {};
-                                  final draftData = r.draftExtractedData ?? {};
-                                  await DraftBLExportService.printDraftBL(
-                                    systemData: sysData,
-                                    draftData: draftData,
-                                    draftBlNumber: r.draftBlNumber,
-                                  );
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('خطأ في الطباعة: $e'), backgroundColor: Colors.red),
-                                    );
-                                  }
-                                }
-                              },
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
-                          Tooltip(
-                            message: 'تنزيل PDF',
-                            child: IconButton(
-                              icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
-                              onPressed: () async {
-                                try {
-                                  final sysData = r.systemDataSnapshot ?? {};
-                                  final draftData = r.draftExtractedData ?? {};
-                                  await DraftBLExportService.exportDraftBLToPdf(
-                                    systemData: sysData,
-                                    draftData: draftData,
-                                    draftBlNumber: r.draftBlNumber,
-                                  );
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('خطأ في التصدير: $e'), backgroundColor: Colors.red),
-                                    );
-                                  }
-                                }
-                              },
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                              padding: EdgeInsets.zero,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ]);
-                }).toList(),
+                      DataCell(Text(r.shippingLine ?? '-', style: const TextStyle(fontWeight: FontWeight.w600))),
+                      DataCell(Text(vesselVoyage, style: const TextStyle(fontSize: 11.5))),
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.blueGrey.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: Colors.blueGrey.shade200),
+                        ),
+                        child: Text(r.stage, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blueGrey.shade800)),
+                      )),
+                      DataCell(Text(r.importerApprovalStatus, style: TextStyle(color: r.importerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
+                      DataCell(Text(r.brokerApprovalStatus, style: TextStyle(color: r.brokerApprovalStatus == 'Approved' ? Colors.green : Colors.orange, fontWeight: FontWeight.bold))),
+                      DataCell(Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade50 : Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade300 : Colors.blue.shade300),
+                        ),
+                        child: Text(
+                          r.status,
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                            color: r.status == 'Final Approved' || r.status == 'Approved' ? Colors.green.shade900 : Colors.blue.shade900,
+                          ),
+                        ),
+                      )),
+                      DataCell(
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Tooltip(
+                              message: 'معاينة البوليصة',
+                              child: IconButton(
+                                icon: const Icon(Icons.visibility, size: 18, color: AppTheme.cobalt),
+                                onPressed: () {
+                                  setState(() {
+                                    _activeSession = r;
+                                    _activeStep = 3; // Jump to Dual Approval view of this session
+                                  });
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(content: Text('معاينة الجلسة #${r.blReviewId}: $blNumber')),
+                                  );
+                                },
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'طباعة البوليصة',
+                              child: IconButton(
+                                icon: const Icon(Icons.print, size: 18, color: AppTheme.charcoal),
+                                onPressed: () async {
+                                  try {
+                                    final sysData = r.systemDataSnapshot ?? {};
+                                    final draftData = r.draftExtractedData ?? {};
+                                    await DraftBLExportService.printDraftBL(
+                                      systemData: sysData,
+                                      draftData: draftData,
+                                      draftBlNumber: blNumber,
+                                    );
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('خطأ في الطباعة: $e'), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  }
+                                },
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                            Tooltip(
+                              message: 'تنزيل PDF',
+                              child: IconButton(
+                                icon: const Icon(Icons.picture_as_pdf, size: 18, color: AppTheme.crimson),
+                                onPressed: () async {
+                                  try {
+                                    final sysData = r.systemDataSnapshot ?? {};
+                                    final draftData = r.draftExtractedData ?? {};
+                                    await DraftBLExportService.exportDraftBLToPdf(
+                                      systemData: sysData,
+                                      draftData: draftData,
+                                      draftBlNumber: blNumber,
+                                    );
+                                  } catch (e) {
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(content: Text('خطأ في التصدير: $e'), backgroundColor: Colors.red),
+                                      );
+                                    }
+                                  }
+                                },
+                                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]);
+                  }).toList(),
+                ),
               ),
           ],
         ),

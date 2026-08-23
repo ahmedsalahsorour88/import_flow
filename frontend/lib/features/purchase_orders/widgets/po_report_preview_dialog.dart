@@ -1,3 +1,5 @@
+import 'package:frontend/core/utils/container_requirement_engine.dart';
+import 'package:frontend/core/widgets/container_load_plan_painter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:frontend/core/theme/app_theme.dart';
@@ -186,6 +188,18 @@ class POReportPreviewDialog extends StatelessWidget {
                       ],
                     ),
                   ),
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: AppTheme.cobalt),
+                      backgroundColor: AppTheme.cobalt.withOpacity(0.3),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    ),
+                    icon: const Icon(Icons.view_in_ar_rounded, size: 16, color: Colors.white),
+                    label: const Text('محاكاة الرص 3D', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold, color: Colors.white)),
+                    onPressed: () => _showPoVisualLoadPlannerDialog(context),
+                  ),
+                  const SizedBox(width: 8),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
@@ -844,6 +858,379 @@ class POReportPreviewDialog extends StatelessWidget {
       ),
     );
   }
+
+
+  void _showPoVisualLoadPlannerDialog(BuildContext context) {
+    if (packingItems.isEmpty && palletItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('الرجاء إضافة بنود تعبئة أو بالتات أولاً لمعاينة محاكاة الرص.')),
+      );
+      return;
+    }
+
+    final hasPallets = palletItems.isNotEmpty && palletItems.any((p) => p.palletCount > 0);
+    List<CargoItem> cargoItems = [];
+
+    if (isDirectVolumeMode || hasPallets) {
+      final double totalGross = packingItems.fold<double>(
+        0.0,
+        (sum, p) => sum + (p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)),
+      );
+      final int totalPallets = palletItems.fold<int>(0, (sum, p) => sum + p.palletCount);
+      final double defaultPalletWeight = totalPallets > 0 && totalGross > 0 ? (totalGross / totalPallets) : 137.5;
+
+      int globalIdx = 1;
+      for (final pLine in palletItems) {
+        final pL = pLine.lengthCm > 0 ? pLine.lengthCm : 120.0;
+        final pW = pLine.widthCm > 0 ? pLine.widthCm : 80.0;
+        final pH = pLine.heightCm > 0 ? pLine.heightCm : 150.0;
+        final pWt = pLine.grossWeightPerPalletKg > 0 ? pLine.grossWeightPerPalletKg : defaultPalletWeight;
+
+        for (int i = 0; i < pLine.palletCount; i++) {
+          cargoItems.add(CargoItem(
+            itemId: 'PLT-$globalIdx',
+            length: pL,
+            width: pW,
+            height: pH,
+            weight: pWt,
+            isStackable: pLine.isStackable,
+            rotate: true,
+            packageType: pLine.palletType,
+            description: 'بالتة #$globalIdx (${pLine.palletType})${pLine.isStackable ? "" : " [Floor Only]"}',
+          ));
+          globalIdx++;
+        }
+      }
+    } else {
+      int globalIdx = 1;
+      for (final p in packingItems) {
+        final lCm = p.unit == 'mm' ? p.lengthCm / 10.0 : (p.unit == 'm' ? p.lengthCm * 100.0 : p.lengthCm);
+        final wCm = p.unit == 'mm' ? p.widthCm / 10.0 : (p.unit == 'm' ? p.widthCm * 100.0 : p.widthCm);
+        final hCm = p.unit == 'mm' ? p.heightCm / 10.0 : (p.unit == 'm' ? p.heightCm * 100.0 : p.heightCm);
+        final int count = p.qtyPkg > 0 ? p.qtyPkg.toInt() : 1;
+        final double unitGrossWt = p.grossWeightUnitKg > 0
+            ? p.grossWeightUnitKg
+            : (p.totalGrossWeightKg > 0 ? (p.totalGrossWeightKg / count) : 10.0);
+
+        for (int i = 0; i < count; i++) {
+          cargoItems.add(CargoItem(
+            itemId: '$globalIdx',
+            length: lCm > 0 ? lCm : 100.0,
+            width: wCm > 0 ? wCm : 80.0,
+            height: hCm > 0 ? hCm : 60.0,
+            weight: unitGrossWt,
+            isStackable: p.isStackable,
+            rotate: true,
+            packageType: p.packageType,
+            description: count > 1 ? '${p.itemCode} (طرد ${i + 1}/$count)' : p.itemCode,
+          ));
+          globalIdx++;
+        }
+      }
+    }
+
+    if (cargoItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('يرجى إدخال أصناف قائمة التعبئة أو البالتات أولاً للمحاكاة')),
+      );
+      return;
+    }
+
+    bool? activeStackingMode = cargoItems.any((i) => !i.isStackable) ? null : true;
+    bool isTopView = true;
+
+    showDialog(
+      context: context,
+      builder: (dialogCtx) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final plan = ContainerRequirementEngine.planShipment(
+              cargoItems,
+              forceStackable: activeStackingMode,
+            );
+
+            final totalPkgs = cargoItems.length;
+            final stackableInActive = activeStackingMode == true
+                ? totalPkgs
+                : (activeStackingMode == false ? 0 : cargoItems.where((c) => c.isStackable).length);
+            final nonStackableInActive = totalPkgs - stackableInActive;
+
+            final totalPlanWeight = plan.fold(0.0, (s, p) => s + p.totalWeight);
+            final totalPlanVolume = plan.fold(0.0, (s, p) => s + p.totalVolume);
+
+            final Map<String, int> containerCounts = {};
+            for (final p in plan) {
+              if (p.containerCode != 'FAILED') {
+                containerCounts[p.containerCode] = (containerCounts[p.containerCode] ?? 0) + 1;
+              }
+            }
+            final fleetSummary = containerCounts.isEmpty
+                ? 'لا توجد حاويات مناسبة'
+                : containerCounts.entries.map((e) => '${e.value} x ${e.key}').join(' + ');
+
+            return Dialog(
+              insetPadding: const EdgeInsets.all(16),
+              child: Container(
+                width: 1180,
+                height: 780,
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(Icons.view_in_ar_rounded, color: AppTheme.cobalt, size: 26),
+                            const SizedBox(width: 8),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'مخطط ومحاكاة رص الحاويات 3D (Purchase Order Load Planner)',
+                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                                ),
+                                Text(
+                                  'محاكاة خوارزمية الرص ثلاثية الأبعاد للحاويات البحرية بناءً على قائمة التعبئة وأبعاد الطرود',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Text('نمط الرص بالمحاكاة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                          const SizedBox(width: 10),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 0, label: Text('⚖️ الرص الفعلي (Mixed)'), tooltip: 'استخدام إعدادات الرص المحددة لكل طرد/بالتة'),
+                              ButtonSegment(value: 1, label: Text('📦 قابل للرص (Stackable)'), tooltip: 'محاكاة افتراض أن جميع الطرود قابلة للتراص الرأسي'),
+                              ButtonSegment(value: 2, label: Text('🚫 أرضي فقط (Floor Only)'), tooltip: 'محاكاة افتراض أن جميع الطرود غير قابلة للتراص'),
+                            ],
+                            selected: {
+                              activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
+                            },
+                            onSelectionChanged: (val) {
+                              setDialogState(() {
+                                final sel = val.first;
+                                if (sel == 0) activeStackingMode = null;
+                                if (sel == 1) activeStackingMode = true;
+                                if (sel == 2) activeStackingMode = false;
+                              });
+                            },
+                          ),
+                          const Spacer(),
+                          const Text('المسقط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                          const SizedBox(width: 8),
+                          SegmentedButton<bool>(
+                            segments: const [
+                              ButtonSegment(value: true, label: Text('🔝 مسقط علوي (Top View)')),
+                              ButtonSegment(value: false, label: Text('🔲 مسقط جانبي (Side View)')),
+                            ],
+                            selected: {isTopView},
+                            onSelectionChanged: (val) {
+                              setDialogState(() => isTopView = val.first);
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.charcoal.withOpacity(0.04),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.directions_boat_rounded, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 6),
+                              Text('الحاويات المطلوبة: $fleetSummary', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.inventory_2_outlined, color: AppTheme.charcoal, size: 18),
+                              const SizedBox(width: 6),
+                              Text('عدد الطرود: $totalPkgs طرد ($stackableInActive قابل للرص | $nonStackableInActive أرضي)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
+                              const SizedBox(width: 6),
+                              Text('إجمالي الوزن: ${totalPlanWeight.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              const Icon(Icons.view_in_ar, color: AppTheme.orange, size: 18),
+                              const SizedBox(width: 6),
+                              Text('إجمالي الحجم: ${totalPlanVolume.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: plan.length,
+                        itemBuilder: (ctx, pIdx) {
+                          final res = plan[pIdx];
+                          if (res.containerCode == 'FAILED') {
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              margin: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.red.shade50,
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.red.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 28),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      res.failureReason ?? 'فشل الرص: تجاوز أبعاد الطرد أو الوزن الأبعاد القياسية المسموح بها داخل الحاوية',
+                                      style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
+
+                          final spacePct = (res.totalVolume / res.spec.internalVolumeCbm * 100);
+                          final weightPct = (res.totalWeight / res.spec.maxPayloadKg * 100);
+
+                          return Card(
+                            margin: const EdgeInsets.only(bottom: 16),
+                            elevation: 3,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "حاوية #${pIdx + 1}: ${res.spec.code} — (${res.placedItems.length} طرد) — استغلال المساحة: ${spacePct.toStringAsFixed(1)}% | استغلال الحمولة: ${weightPct.toStringAsFixed(1)}%",
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.cobalt),
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                        decoration: BoxDecoration(
+                                          color: AppTheme.cobalt.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(4),
+                                        ),
+                                        child: Text(
+                                          'أبعاد داخلية: ${res.spec.internalLength.toStringAsFixed(0)} × ${res.spec.internalWidth.toStringAsFixed(0)} × ${res.spec.internalHeight.toStringAsFixed(0)} سم',
+                                          style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  SizedBox(
+                                    height: 380,
+                                    child: CustomPaint(
+                                      size: const Size(double.infinity, 380),
+                                      painter: ContainerLoadPlanPainter(
+                                        plan: res,
+                                        isTopView: isTopView,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  Theme(
+                                    data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                                    child: ExpansionTile(
+                                      tilePadding: EdgeInsets.zero,
+                                      title: Text(
+                                        '📋 تفاصيل ومواقع الطرود المرصوصة داخل الحاوية (${res.placedItems.length} طرد)',
+                                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                      ),
+                                      children: [
+                                        Table(
+                                          border: TableBorder.all(color: Colors.grey.shade300),
+                                          columnWidths: const {
+                                            0: FlexColumnWidth(0.8),
+                                            1: FlexColumnWidth(2.2),
+                                            2: FlexColumnWidth(1.8),
+                                            3: FlexColumnWidth(1.2),
+                                            4: FlexColumnWidth(2.0),
+                                            5: FlexColumnWidth(1.2),
+                                          },
+                                          children: [
+                                            TableRow(
+                                              decoration: BoxDecoration(color: Colors.grey.shade200),
+                                              children: const [
+                                                Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text('كود الطرد / الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                                Padding(padding: EdgeInsets.all(6), child: Text('الأبعاد (L×W×H سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text('الوزن (kg)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text('إحداثيات الموضع (X, Y, Z سم)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                                Padding(padding: EdgeInsets.all(6), child: Text('الرص', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11), textAlign: TextAlign.center)),
+                                              ],
+                                            ),
+                                            ...res.placedItems.asMap().entries.map((entry) {
+                                              final idx = entry.key + 1;
+                                              final item = entry.value;
+                                              return TableRow(
+                                                children: [
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text('$idx', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.description ?? item.item.itemId, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text('${item.length.toStringAsFixed(0)} × ${item.width.toStringAsFixed(0)} × ${item.height.toStringAsFixed(0)}', style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.weight.toStringAsFixed(1), style: const TextStyle(fontSize: 11), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text('X: ${item.x.toStringAsFixed(0)} | Y: ${item.y.toStringAsFixed(0)} | Z: ${item.z.toStringAsFixed(0)}', style: const TextStyle(fontSize: 10.5, fontFamily: 'monospace'), textAlign: TextAlign.center)),
+                                                  Padding(padding: const EdgeInsets.all(6), child: Text(item.item.isStackable ? '📦 نعم' : '🚫 أرضي', style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: item.item.isStackable ? AppTheme.emerald : AppTheme.crimson), textAlign: TextAlign.center)),
+                                                ],
+                                              );
+                                            }),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
 }
 
 class _HeaderCell extends StatelessWidget {
@@ -856,7 +1243,12 @@ class _HeaderCell extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       child: Text(
         text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+          color: AppTheme.charcoal,
+        ),
       ),
     );
   }

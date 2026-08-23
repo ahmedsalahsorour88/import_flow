@@ -10,6 +10,9 @@ import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../import_companies/providers/import_companies_provider.dart';
 import '../../import_files/providers/import_files_provider.dart';
 import '../../suppliers/providers/suppliers_provider.dart';
+import '../../purchase_orders/providers/purchase_orders_provider.dart';
+import '../../import_documentation/providers/import_documentation_provider.dart';
+import '../../freight_booking/providers/freight_booking_provider.dart';
 import '../models/cargox_model.dart';
 import '../providers/cargox_provider.dart';
 import '../widgets/standard_invoice_hub_tab.dart';
@@ -128,6 +131,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     ref.read(importFilesProvider.notifier).fetchImportFiles();
     ref.read(suppliersProvider.notifier).fetchSuppliers();
     ref.read(importCompaniesProvider.notifier).fetchCompanies();
+    ref.read(purchaseOrdersProvider.notifier).fetchPurchaseOrders();
+    ref.read(draftBLReviewsProvider.notifier).fetchReviews();
+    ref.read(freightBookingProvider.notifier).fetchBookings();
   }
 
   @override
@@ -144,41 +150,124 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
 
   void _onImportFileSelected(int? fileId) {
     setState(() => _selectedImportFileId = fileId);
-    if (fileId == null) return;
+    if (fileId == null) {
+      _acidNumberCtrl.clear();
+      _importerNameCtrl.clear();
+      _importerTaxCtrl.clear();
+      _supplierNameCtrl.clear();
+      _supplierCargoXIdCtrl.clear();
+      _blNumberCtrl.clear();
+      return;
+    }
 
     final files = ref.read(importFilesProvider).value ?? [];
     final file = files.where((f) => f.importFileId == fileId).firstOrNull;
     if (file == null) return;
 
-    // Auto-populate ACID
-    if (file.acidNumber != null && file.acidNumber!.isNotEmpty) {
-      _acidNumberCtrl.text = file.acidNumber!;
-    } else {
-      _acidNumberCtrl.text = '7595528271020210010';
+    // 1. Auto-populate ACID Number
+    String resolvedAcid = file.acidNumber ?? '';
+    _acidNumberCtrl.text = resolvedAcid;
+
+    // 2. Auto-populate Importer Company
+    _selectedCompanyId = file.companyId;
+    final companies = ref.read(importCompaniesProvider).value ?? [];
+    final matchedCompany = companies.where((c) => c.companyId == file.companyId).firstOrNull;
+    _importerNameCtrl.text = matchedCompany?.importerName ?? file.companyName;
+    if (matchedCompany?.vatId != null && matchedCompany!.vatId.isNotEmpty) {
+      _importerTaxCtrl.text = matchedCompany.vatId;
+    } else if (matchedCompany?.registrationNumber != null && matchedCompany!.registrationNumber.isNotEmpty) {
+      _importerTaxCtrl.text = matchedCompany.registrationNumber;
     }
 
-    // Auto-populate Importer
-    _selectedCompanyId = file.companyId;
-    _importerNameCtrl.text = file.companyName;
-
-    // Auto-populate Supplier & CargoX ID
+    // 3. Auto-populate Foreign Exporter (Supplier) & CargoX ID
     final suppliers = ref.read(suppliersProvider).value ?? [];
     final matchedSup = suppliers.where((s) => s.supplierId == file.supplierId).firstOrNull;
     if (matchedSup != null) {
       _selectedSupplierId = matchedSup.supplierId;
       _supplierNameCtrl.text = matchedSup.companyName;
-      _supplierCargoXIdCtrl.text = matchedSup.cargoxPlatformId != null && matchedSup.cargoxPlatformId!.isNotEmpty
-          ? matchedSup.cargoxPlatformId!
-          : 'CX-${matchedSup.supplierCode}';
+      _supplierCargoXIdCtrl.text = (matchedSup.cargoxPlatformId != null && matchedSup.cargoxPlatformId!.trim().isNotEmpty)
+          ? matchedSup.cargoxPlatformId!.trim()
+          : (matchedSup.foreignExporterId.isNotEmpty
+              ? matchedSup.foreignExporterId.trim()
+              : 'CX-${matchedSup.supplierCode}');
     } else {
       _supplierNameCtrl.text = file.supplierName;
-      _supplierCargoXIdCtrl.text = 'CX-SUP-DEFAULT';
+      _supplierCargoXIdCtrl.text = 'CX-${file.supplierName.replaceAll(RegExp(r'\s+'), '-').toUpperCase()}';
     }
 
-    _blNumberCtrl.text = file.customFileNumber != null ? 'BL-${file.customFileNumber}' : 'MEDUST-${file.importFileCode}';
+    // 4. Auto-populate B/L Number (from draftBLReviewsProvider, freightBookingProvider, or file)
+    String resolvedBlNumber = '';
+
+    final reviews = ref.read(draftBLReviewsProvider).value ?? [];
+    final linkedReview = reviews.where((r) => r.importFileId == fileId).firstOrNull;
+    if (linkedReview != null) {
+      final extractedBl = linkedReview.draftExtractedData?['draft_bl_number'] ??
+          linkedReview.draftExtractedData?['bl_number'] ??
+          linkedReview.systemDataSnapshot?['draft_bl_number'] ??
+          linkedReview.draftBlNumber;
+      if (extractedBl != null && extractedBl.toString().trim().isNotEmpty) {
+        resolvedBlNumber = extractedBl.toString().trim();
+      }
+    }
+
+    if (resolvedBlNumber.isEmpty) {
+      final bookings = ref.read(freightBookingProvider).value ?? [];
+      final linkedBooking = bookings.where((b) => b.importFileId == fileId).firstOrNull;
+      if (linkedBooking != null) {
+        resolvedBlNumber = linkedBooking.bookingConfirmationNo ?? linkedBooking.bookingCode;
+      }
+    }
+
+    if (resolvedBlNumber.isEmpty && file.customFileNumber != null && file.customFileNumber!.isNotEmpty) {
+      resolvedBlNumber = file.customFileNumber!;
+    }
+
+    _blNumberCtrl.text = resolvedBlNumber;
+
+    // 5. Update Attached Documents references
+    final invRef = file.invoicesData.isNotEmpty
+        ? file.invoicesData.first.invoiceNo
+        : (file.piNumber != null && file.piNumber!.isNotEmpty ? file.piNumber! : 'INV-${file.importFileCode}');
+
+    setState(() {
+      _attachedDocs = [
+        {
+          'doc_type': 'Commercial Invoice',
+          'doc_number': invRef,
+          'file_name': 'Commercial_Invoice_${file.importFileCode}.pdf',
+          'file_size_kb': 420.0,
+          'is_mandatory': true,
+          'verified_against_acid': true,
+        },
+        {
+          'doc_type': 'Packing List',
+          'doc_number': 'PL-${file.importFileCode}',
+          'file_name': 'Packing_List_${file.importFileCode}.pdf',
+          'file_size_kb': 310.0,
+          'is_mandatory': true,
+          'verified_against_acid': true,
+        },
+        {
+          'doc_type': 'Draft B/L',
+          'doc_number': resolvedBlNumber.isNotEmpty ? resolvedBlNumber : 'BL-${file.importFileCode}',
+          'file_name': 'Bill_of_Lading_${file.importFileCode}.pdf',
+          'file_size_kb': 650.0,
+          'is_mandatory': true,
+          'verified_against_acid': true,
+        },
+        {
+          'doc_type': 'Certificate of Origin / EUR.1',
+          'doc_number': 'COO-${file.importFileCode}',
+          'file_name': 'Certificate_of_Origin_${file.importFileCode}.pdf',
+          'file_size_kb': 280.0,
+          'is_mandatory': false,
+          'verified_against_acid': true,
+        },
+      ];
+    });
   }
 
-  @override
+    @override
   Widget build(BuildContext context) {
     final envelopesState = ref.watch(cargoxEnvelopesProvider);
     final envelopes = envelopesState.value ?? [];

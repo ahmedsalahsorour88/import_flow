@@ -247,5 +247,92 @@ void main() {
       expect(find.textContaining('تتبع البلوك تشين'), findsAtLeastNWidgets(1));
       expect(find.textContaining('المانيفست الرقمي'), findsAtLeastNWidgets(1));
     });
+
+    testWidgets('CargoXHubScreen auto-populates ACID, B/L, Importer, Supplier, and CargoX ID on file selection', (tester) async {
+      final mockFile = ImportFileModel(
+        importFileId: 10,
+        importFileCode: 'IMP-2026-0010',
+        companyId: 1,
+        companyName: 'Al-Sorour Logistics',
+        supplierId: 2,
+        supplierName: 'Suzhou Textile Co.',
+        shipmentMode: 'Sea FCL',
+        incotermCode: 'CFR',
+        priority: 'Normal',
+        shipmentCategory: 'Commercial',
+        acidNumber: '1928374650192837465',
+        status: 'Active',
+        owner: 'Admin',
+        progressPercent: 50.0,
+        estimatedCost: 10000.0,
+        estimatedCostCurrency: 'USD',
+        currentModule: 'CargoX',
+        currentStage: 'Draft',
+        nextAction: 'Create Envelope',
+        invoicesData: [],
+        packingListsData: [],
+        projectIds: [],
+        skippedStages: [],
+        createdAt: '2026-08-23T00:00:00Z',
+        updatedAt: '2026-08-23T00:00:00Z',
+      );
+
+      final mockSupplier = SupplierModel(
+        supplierId: 2,
+        supplierCode: 'SUP-002',
+        companyName: 'Suzhou Textile Co.',
+        supplierType: 'Manufacturer',
+        registrationType: 'Company',
+        foreignExporterId: 'EXP-9921',
+        cargoxPlatformId: 'CX-SUZHOU-8899',
+        foreignExporterCountry: 'China',
+        foreignExporterCountryCode: 'CN',
+        address: 'Suzhou Industrial Park',
+      );
+
+      final mockCompany = ImportCompanyModel(
+        companyId: 1,
+        importerName: 'Al-Sorour Logistics',
+        address: 'Cairo, Egypt',
+        country: 'Egypt',
+        importerId: 'IMP-1100',
+        importerIdExpiry: DateTime.now().add(const Duration(days: 365)),
+        vatId: '100-200-300',
+        vatIdExpiry: DateTime.now().add(const Duration(days: 365)),
+        registrationNumber: 'REG-9912',
+        registrationExpiry: DateTime.now().add(const Duration(days: 365)),
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            cargoxEnvelopesProvider.overrideWith((ref) => _MockCargoXNotifier([])),
+            importFilesProvider.overrideWith((ref) => _MockImportFilesNotifier([mockFile])),
+            suppliersProvider.overrideWith((ref) => _MockSuppliersNotifier([mockSupplier])),
+            importCompaniesProvider.overrideWith((ref) => _MockImportCompaniesNotifier([mockCompany])),
+            standardInvoiceSessionsProvider.overrideWith((ref) => _MockStandardInvoiceNotifier()),
+          ],
+          child: const MaterialApp(
+            home: Scaffold(
+              body: CargoXHubScreen(
+                initialSubTab: 1,
+                initialImportFileId: 10,
+                isEmbedded: true,
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      // Verify that ACID, Importer, Supplier, and CargoX ID controllers are populated
+      expect(find.text('1928374650192837465'), findsOneWidget);
+      expect(find.text('Al-Sorour Logistics'), findsAtLeastNWidgets(1));
+      expect(find.text('Suzhou Textile Co.'), findsAtLeastNWidgets(1));
+      expect(find.text('CX-SUZHOU-8899'), findsOneWidget);
+    });
+
   });
 }

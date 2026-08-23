@@ -196,19 +196,102 @@ exit /b 1
     return True
 
 
+import zipfile
+import hashlib
+import json
+import subprocess
+from datetime import datetime
+
+
+def get_current_version() -> str:
+    version_file = ROOT_DIR / "version.json"
+    if version_file.exists():
+        try:
+            with open(version_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                return data.get("version", "1.0.1")
+        except Exception:
+            pass
+    return "1.0.1"
+
+
+def compile_installer_and_zip(version: str):
+    releases_dir = DIST_DIR / "releases"
+    releases_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 1. Compile Inno Setup if ISCC is available
+    iscc_paths = [
+        r"C:\Users\Hp\AppData\Local\Programs\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+        r"C:\Program Files\Inno Setup 6\ISCC.exe",
+    ]
+    iscc = next((p for p in iscc_paths if Path(p).exists()), None)
+    setup_name = f"ImportFlow_Setup_v{version}.exe"
+    if iscc:
+        iss_file = ROOT_DIR / "installer" / "importflow_setup.iss"
+        print(f"[6/6] Compiling Setup Installer ({setup_name}) with Inno Setup...")
+        res = subprocess.run([iscc, str(iss_file)], capture_output=True, text=True)
+        if res.returncode == 0:
+            print(f"      [SUCCESS] Generated: {releases_dir / setup_name}")
+        else:
+            print(f"      [WARN] ISCC: {res.stderr}")
+            
+    # 2. Compile Portable ZIP
+    zip_name = f"ImportFlow_v{version}_Windows_Portable.zip"
+    zip_dest = releases_dir / zip_name
+    print(f"[6/6] Compiling Portable ZIP ({zip_name})...")
+    with zipfile.ZipFile(zip_dest, "w", zipfile.ZIP_DEFLATED) as zipf:
+        for file_path in STANDALONE_DEST.rglob("*"):
+            if file_path.is_file():
+                arcname = file_path.relative_to(STANDALONE_DEST.parent)
+                zipf.write(file_path, arcname)
+    size_mb = round(zip_dest.stat().st_size / (1024 * 1024), 2)
+    print(f"      [SUCCESS] Generated: {zip_dest} ({size_mb} MB)")
+    
+    # 3. Update latest_release.json
+    with open(zip_dest, "rb") as f:
+        sha256_hash = hashlib.sha256(f.read()).hexdigest()
+    release_info = {
+        "version": version,
+        "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "app_name": "ImportFlow ERP",
+        "packages": {
+            "setup_exe": {
+                "filename": setup_name,
+                "path": str(releases_dir / setup_name)
+            },
+            "portable_zip": {
+                "filename": zip_name,
+                "size_mb": size_mb,
+                "sha256": sha256_hash,
+                "path": str(zip_dest)
+            },
+            "standalone_folder": {
+                "path": str(STANDALONE_DEST),
+                "launcher": str(STANDALONE_DEST / "Launch_ImportFlow.vbs")
+            }
+        }
+    }
+    with open(releases_dir / "latest_release.json", "w", encoding="utf-8") as f:
+        json.dump(release_info, f, indent=2, ensure_ascii=False)
+    print(f"      [SUCCESS] Updated {releases_dir / 'latest_release.json'}")
+
+
 def main():
+    version = get_current_version()
     print("================================================================================")
-    print("           ImportFlow ERP - Production Standalone Release Packaging            ")
+    print(f"       ImportFlow ERP (v{version}) - Production Standalone Packaging            ")
     print("================================================================================")
     clean_dist()
     s1 = copy_standalone_package()
     s2 = copy_desktop_release()
     s3 = copy_web_release()
     s4 = create_production_launchers()
+    compile_installer_and_zip(version)
 
     if s1 and s2 and s4:
         print("================================================================================")
-        print(f"[SUCCESS] Standalone production packages successfully created at: {DIST_DIR}")
+        print(f"[SUCCESS] Production release v{version} packages created at: {DIST_DIR}")
         print("================================================================================")
         return True
     else:

@@ -643,7 +643,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
                     SizedBox(width: 4),
                     Text(
-                      'v1.0.0 (Build 2026.08)',
+                      'v1.0.1 (Build 2026.08)',
                       style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -861,7 +861,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildInfoRow(Icons.verified, 'إصدار المنظومة (Version)', 'v1.0.0 (Release)'),
+              _buildInfoRow(Icons.verified, 'إصدار المنظومة (Version)', 'v1.0.1 (Release)'),
               const Divider(height: 14),
               _buildInfoRow(Icons.build_circle_outlined, 'رقم البناء (Build ID)', 'Build 2026.08.22+1'),
               const Divider(height: 14),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -63,7 +64,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('⛔ تم إيقاف وإغلاق الشحنة (${widget.importFile.importFileCode}) وترحيلها بنجاح للارشيف (Phase 10)!'),
+            content: Text('⛔ ${context.l10n.stopShipmentAtThisStageBtn} (${widget.importFile.importFileCode}) - Phase 10!'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -73,7 +74,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ حدث خطأ أثناء إيقاف الشحنة: $e'),
+            content: Text('❌ Error: $e'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -85,6 +86,9 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       titlePadding: EdgeInsets.zero,
@@ -104,7 +108,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'إيقاف وإغلاق الشحنة (${widget.importFile.importFileCode})',
+                '${l.stopShipmentAtThisStageBtn} (${widget.importFile.importFileCode})',
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -136,7 +140,7 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'مرحلة الإيقاف الحالية: ${widget.currentPhaseName}',
+                      '${isAr ? "مرحلة الإيقاف الحالية" : "Current Phase"}: ${widget.currentPhaseName}',
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.crimson,
@@ -144,9 +148,11 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      '- ملاحظة: عند إيقاف وإغلاق الشحنة، سيتم تغيير حالتها تلقائياً إلى "Closed" وترحيلها إلى "Phase 10 - Import File Closure & Archive" وتسجيل سبب الإيقاف بشكل دائم في الأرشيف.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
+                    Text(
+                      isAr
+                          ? '- ملاحظة: عند إيقاف وإغلاق الشحنة، سيتم تغيير حالتها تلقائياً إلى "Closed" وترحيلها إلى "Phase 10 - Import File Closure & Archive" وتسجيل سبب الإيقاف بشكل دائم في الأرشيف.'
+                          : '- Note: Upon stopping and closing the shipment, its status will automatically be set to "Closed" and transitioned to "Phase 10 - Import File Closure & Archive".',
+                      style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
                     ),
                   ],
                 ),
@@ -158,17 +164,17 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
                 controller: _reasonController,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  labelText: '* سبب إيقاف وإغلاق الشحنة والملاحظات التفصيلية',
-                  hintText: 'اكتب هنا تفاصيل سبب الإيقاف المبكر للشحنة والتعليمات الإدارية...',
+                  labelText: '${l.holdDialogReasonLabel} *',
+                  hintText: isAr ? 'اكتب هنا تفاصيل سبب الإيقاف المبكر للشحنة والتعليمات الإدارية...' : 'Enter details regarding the early hold/closure reasons...',
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   alignLabelWithHint: true,
                 ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'يرجى إدخال سبب الإيقاف قبل الاستمرار.';
+                    return l.fieldRequired;
                   }
                   if (val.trim().length < 3) {
-                    return 'يجب ألا يقل سبب الإيقاف عن 3 حروف.';
+                    return isAr ? 'يجب ألا يقل سبب الإيقاف عن 3 حروف.' : 'Reason must be at least 3 characters.';
                   }
                   return null;
                 },
@@ -181,14 +187,14 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('إلغاء'),
+          child: Text(l.cancel),
         ),
         ElevatedButton.icon(
           onPressed: _isSubmitting ? null : _handleStopShipment,
           icon: _isSubmitting
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.cancel_outlined, size: 18),
-          label: const Text('(Phase 10) تأكيد الإيقاف والترحيل للأرشيف'),
+          label: Text(l.confirmHoldActionBtn),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.crimson,
             foregroundColor: Colors.white,
@@ -200,3 +206,4 @@ class _StopShipmentDialogState extends ConsumerState<StopShipmentDialog> {
     );
   }
 }
+

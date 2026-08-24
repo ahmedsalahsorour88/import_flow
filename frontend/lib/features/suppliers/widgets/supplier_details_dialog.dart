@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../models/supplier_model.dart';
@@ -28,6 +29,7 @@ class SupplierDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isActive = supplier.isActive;
 
     return Dialog(
@@ -112,7 +114,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                isActive ? 'Active' : 'Inactive',
+                                isActive ? l10n.statusActive : l10n.statusInactive,
                                 style: TextStyle(
                                   color: isActive ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C),
                                   fontSize: 11,
@@ -124,7 +126,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'بطاقة تعريف المورد الأجنبي والتسجيل الرقابي (Foreign Exporter Profile)',
+                          l10n.supplierProfileSubtitle,
                           style: TextStyle(color: Colors.grey.shade300, fontSize: 12),
                         ),
                       ],
@@ -133,7 +135,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white70),
                     onPressed: () => Navigator.pop(context),
-                    tooltip: 'إغلاق',
+                    tooltip: l10n.close,
                   ),
                 ],
               ),
@@ -147,7 +149,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Section 1: Nafeza & CargoX & Exporter Identifiers
-                    _buildSectionHeader(Icons.hub_outlined, 'بيانات التسجيل في نافذة وكارجو إكس والامتثال'),
+                    _buildSectionHeader(Icons.hub_outlined, l10n.nafezaCargoXComplianceHeader),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -163,7 +165,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'معرّف المصدر الأجنبي (Foreign Exporter ID)',
+                                  label: l10n.foreignExporterIdFieldLabel,
                                   value: supplier.foreignExporterId,
                                   icon: Icons.fingerprint_rounded,
                                 ),
@@ -172,8 +174,8 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'معرّف منصة كارجو إكس (CargoX Platform ID)',
-                                  value: supplier.cargoxPlatformId ?? 'غير مسجل',
+                                  label: l10n.cargoxPlatformIdFieldLabel,
+                                  value: supplier.cargoxPlatformId ?? l10n.notRegisteredCargoX,
                                   icon: Icons.cloud_done_outlined,
                                 ),
                               ),
@@ -184,7 +186,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                             children: [
                               Expanded(
                                 child: _buildSimpleInfoField(
-                                  label: 'نوع المورد',
+                                  label: l10n.supplierTypeFieldLabel,
                                   value: '${supplier.supplierType} (${supplier.registrationType})',
                                   icon: Icons.category_outlined,
                                 ),
@@ -192,7 +194,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               const SizedBox(width: 12),
                               Expanded(
                                 child: _buildSimpleInfoField(
-                                  label: 'الدولة والمنشأ',
+                                  label: l10n.supplierOriginCountryFieldLabel,
                                   value: '${supplier.foreignExporterCountry} (${supplier.foreignExporterCountryCode.toUpperCase()})',
                                   icon: Icons.public,
                                 ),
@@ -206,10 +208,10 @@ class SupplierDetailsDialog extends StatelessWidget {
                             spacing: 6,
                             runSpacing: 6,
                             children: [
-                              const Text('شهادات الامتثال: ', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                              _buildComplianceTag('ISO Certified', supplier.hasIso, Icons.verified_outlined),
-                              _buildComplianceTag('قرار 43', supplier.registeredDecree43, Icons.policy_outlined),
-                              _buildComplianceTag('القائمة البيضاء', supplier.whiteListRegistered, Icons.shield_outlined),
+                              Text(l10n.complianceCertificatesLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                              _buildComplianceTag(l10n.isoCertifiedTag, supplier.hasIso, Icons.verified_outlined),
+                              _buildComplianceTag(l10n.decree43Tag, supplier.registeredDecree43, Icons.policy_outlined),
+                              _buildComplianceTag(l10n.whiteListTag, supplier.whiteListRegistered, Icons.shield_outlined),
                             ],
                           ),
                         ],
@@ -218,7 +220,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // Section 2: Beneficiary Banking & SWIFT Details
-                    _buildSectionHeader(Icons.account_balance_rounded, 'بيانات التحويل البنكي والسويفت (Bank Details)'),
+                    _buildSectionHeader(Icons.account_balance_rounded, l10n.bankingSwiftSectionHeader),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -234,7 +236,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'اسم البنك المستفيد (Beneficiary Bank)',
+                                  label: l10n.beneficiaryBankFieldLabel,
                                   value: supplier.bankName ?? '-',
                                   icon: Icons.account_balance,
                                 ),
@@ -243,7 +245,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'كود السويفت (SWIFT Code)',
+                                  label: l10n.swiftCodeFieldLabel,
                                   value: supplier.swiftCode ?? '-',
                                   icon: Icons.flash_on_rounded,
                                   highlightColor: AppTheme.cobalt,
@@ -257,7 +259,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'رقم الحساب البنكي (Account Number)',
+                                  label: l10n.accountNumberFieldLabel,
                                   value: supplier.accountNumber ?? '-',
                                   icon: Icons.pin_outlined,
                                 ),
@@ -266,7 +268,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'رقم الآيبان (IBAN)',
+                                  label: l10n.ibanFieldLabel,
                                   value: supplier.iban ?? '-',
                                   icon: Icons.credit_card_outlined,
                                 ),
@@ -279,7 +281,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // Section 3: Contact & Address & Brands
-                    _buildSectionHeader(Icons.contact_mail_outlined, 'العنوان ووسائل الاتصال والعلامات التجارية'),
+                    _buildSectionHeader(Icons.contact_mail_outlined, l10n.contactAddressBrandsHeader),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -292,7 +294,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                         children: [
                           _buildCopyableInfoField(
                             context: context,
-                            label: 'العنوان الكامل (Full Address)',
+                            label: l10n.fullAddressFieldLabel,
                             value: supplier.address,
                             icon: Icons.location_on_outlined,
                           ),
@@ -302,7 +304,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'الهاتف (Phone / Mobile)',
+                                  label: l10n.phoneFieldLabel,
                                   value: supplier.phone ?? supplier.mobile ?? '-',
                                   icon: Icons.phone_outlined,
                                 ),
@@ -311,7 +313,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                               Expanded(
                                 child: _buildCopyableInfoField(
                                   context: context,
-                                  label: 'البريد الإلكتروني (Email)',
+                                  label: l10n.emailFieldLabel,
                                   value: supplier.email ?? '-',
                                   icon: Icons.email_outlined,
                                 ),
@@ -322,7 +324,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                             const Divider(height: 14),
                             _buildCopyableInfoField(
                               context: context,
-                              label: 'الموقع الإلكتروني (Website)',
+                              label: l10n.websiteFieldLabel,
                               value: supplier.website!,
                               icon: Icons.language_outlined,
                             ),
@@ -331,7 +333,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                             const Divider(height: 14),
                             _buildCopyableInfoField(
                               context: context,
-                              label: 'العلامات التجارية والمنتجات (Brands)',
+                              label: l10n.brandsFieldLabel,
                               value: supplier.brands!,
                               icon: Icons.sell_outlined,
                               highlightColor: AppTheme.orange,
@@ -343,7 +345,7 @@ class SupplierDetailsDialog extends StatelessWidget {
 
                     if (supplier.notes != null && supplier.notes!.isNotEmpty) ...[
                       const SizedBox(height: 18),
-                      _buildSectionHeader(Icons.notes_rounded, 'ملاحظات إضافية'),
+                      _buildSectionHeader(Icons.notes_rounded, l10n.additionalNotesHeader),
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
@@ -391,7 +393,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.print_rounded, size: 16),
-                        label: const Text('طباعة / حفظ PDF 🖨️', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
                           await MasterDataExportService.printOrSaveSupplierPdf(supplier);
                         },
@@ -405,13 +407,13 @@ class SupplierDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.table_view_rounded, size: 16),
-                        label: const Text('تنزيل EXCEL 📊', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
                           final path = await MasterDataExportService.exportSupplierToExcel(context, supplier);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✅ تم حفظ ملف الإكسل بنجاح: $path'),
+                                content: Text(l10n.excelSavedSuccess(path)),
                                 backgroundColor: AppTheme.emerald,
                               ),
                             );
@@ -427,7 +429,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                        label: const Text('نسخة واتس 💬', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.whatsappShareBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () => _showWhatsAppPreviewModal(context),
                       ),
 
@@ -439,7 +441,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.mail_outline_rounded, size: 16),
-                        label: const Text('إيميل ✉️', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.emailShareBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () => _showEmailPreviewModal(context),
                       ),
                     ],
@@ -457,7 +459,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
                           icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('تعديل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(l10n.edit, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             Navigator.pop(context);
                             onEdit!();
@@ -466,7 +468,7 @@ class SupplierDetailsDialog extends StatelessWidget {
                       const SizedBox(width: 8),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('إغلاق', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        child: Text(l10n.close, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -529,6 +531,7 @@ class SupplierDetailsDialog extends StatelessWidget {
     required IconData icon,
     Color? highlightColor,
   }) {
+    final l10n = context.l10n;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -552,12 +555,12 @@ class SupplierDetailsDialog extends StatelessWidget {
                       ),
                     ),
                   ),
-                  if (value != '-' && value != 'غير مسجل')
+                  if (value != '-' && value != l10n.notRegisteredCargoX)
                     InkWell(
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: value));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('تم نسخ $value إلى الحافظة'), duration: const Duration(seconds: 1)),
+                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
                         );
                       },
                       child: const Icon(Icons.copy, size: 13, color: Colors.grey),
@@ -598,15 +601,16 @@ class SupplierDetailsDialog extends StatelessWidget {
   }
 
   void _showWhatsAppPreviewModal(BuildContext context) {
+    final l10n = context.l10n;
     final text = MasterDataExportService.generateSupplierWhatsAppText(supplier);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
-            SizedBox(width: 8),
-            Text('نص مشاركة الواتساب (WhatsApp Summary)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
+            const SizedBox(width: 8),
+            Text(l10n.whatsappPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -630,16 +634,16 @@ class SupplierDetailsDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: const Text('نسخ نص الواتس 📋', style: TextStyle(color: Colors.white)),
+            label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: text));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ تم نسخ نص الواتساب للحافظة بنجاح!'), backgroundColor: AppTheme.emerald),
+                SnackBar(content: Text(l10n.whatsappCopiedSuccess), backgroundColor: AppTheme.emerald),
               );
             },
           ),
@@ -649,17 +653,18 @@ class SupplierDetailsDialog extends StatelessWidget {
   }
 
   void _showEmailPreviewModal(BuildContext context) {
+    final l10n = context.l10n;
     final subject = MasterDataExportService.generateSupplierEmailSubject(supplier);
     final body = MasterDataExportService.generateSupplierEmailBody(supplier);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
-            SizedBox(width: 8),
-            Text('نموذج البريد الإلكتروني (Email Template)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text(l10n.emailPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -668,7 +673,7 @@ class SupplierDetailsDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l10n.emailSubjectPrefix(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -686,16 +691,16 @@ class SupplierDetailsDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: const Text('نسخ نص الإيميل والموضوع 📋', style: TextStyle(color: Colors.white)),
+            label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: 'الموضوع: $subject\n\n$body'));
+              Clipboard.setData(ClipboardData(text: '${l10n.emailSubjectPrefix(subject)}\n\n$body'));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ تم نسخ نص وموضوع الإيميل للحافظة بنجاح!'), backgroundColor: AppTheme.emerald),
+                SnackBar(content: Text(l10n.emailCopiedSuccess), backgroundColor: AppTheme.emerald),
               );
             },
           ),

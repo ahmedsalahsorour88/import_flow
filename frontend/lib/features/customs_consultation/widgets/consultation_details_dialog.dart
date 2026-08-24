@@ -89,11 +89,11 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                         TableRow(
                           decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.08)),
                           children: [
-                            Padding(padding: const EdgeInsets.all(8), child: Text(l.itemDescriptionAndOriginCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.expenseItemNameCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.categoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                             Padding(padding: const EdgeInsets.all(8), child: Text(l.itemPriceCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text(l.quantityAndUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                            Padding(padding: const EdgeInsets.all(8), child: Text(l.totalTaxesAndDutiesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.quoteItemQuantity, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(l.totalExpenses, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                           ],
                         ),
                         ...session.brokerQuoteItems.where((q) => q.isApplicable).map((quote) {
@@ -128,7 +128,7 @@ void showConsultationDetailsDialog(BuildContext context, CustomsConsultationMode
                       TableRow(
                         decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
                         children: [
-                          Padding(padding: const EdgeInsets.all(8), child: Text(l.itemDescriptionAndOriginCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                          Padding(padding: const EdgeInsets.all(8), child: Text(l.requiredDocCheckbox, style: const TextStyle(fontWeight: FontWeight.bold))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.responsiblePartyLabel, style: const TextStyle(fontWeight: FontWeight.bold))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.statusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
                           Padding(padding: const EdgeInsets.all(8), child: Text(l.notes, style: const TextStyle(fontWeight: FontWeight.bold))),

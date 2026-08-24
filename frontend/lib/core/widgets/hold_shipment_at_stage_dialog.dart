@@ -1,5 +1,6 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -47,7 +48,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
   final TextEditingController _notesController = TextEditingController();
   bool _isSubmitting = false;
 
-  final List<String> _commonReasons = [
+  final List<String> _commonReasonsAr = [
     'في انتظار رد وموافقة المورد الخارجي',
     'طلب تعديل على مسودة بوليصة الشحن',
     'في انتظار موافقة البنك وإصدار نموذج 4',
@@ -56,6 +57,17 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
     'مراجعة وتدقيق أسعار بنود التعريفة الجمركية',
     'طلب فحص ومعاينة إضافية للبضاعة',
     'تعليق إداري مؤقت للشحنة',
+  ];
+
+  final List<String> _commonReasonsEn = [
+    'Awaiting foreign supplier approval',
+    'Requested amendment on draft B/L',
+    'Awaiting bank Form 4 issuance',
+    'Pending regulatory authority approval',
+    'Shipping line booking delayed',
+    'Customs tariff valuation review',
+    'Additional physical inspection required',
+    'Temporary administrative hold',
   ];
 
   @override
@@ -92,7 +104,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '⚠️ تم إيقاف وتجميد الشحنة (${widget.importFile.importFileCode}) بنجاح عند مرحلة: ${widget.stageName}',
+              context.l10n.holdSuccessNotification(widget.importFile.importFileCode, widget.stageName),
             ),
             backgroundColor: Colors.amber.shade900,
             duration: const Duration(seconds: 4),
@@ -104,7 +116,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ تعذر إيقاف الشحنة: $e'),
+            content: Text('❌ Error: $e'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -116,6 +128,9 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
+    final commonReasons = isAr ? _commonReasonsAr : _commonReasonsEn;
     final file = widget.importFile;
 
     return AlertDialog(
@@ -148,7 +163,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'إيقاف وتجميد الشحنة عند هذه المرحلة',
+                    l.stopShipmentAtThisStageBtn,
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -192,7 +207,7 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'المرحلة الحالية للإيقاف: ${widget.stageName}',
+                              '${l.fieldCurrentStage}: ${widget.stageName}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 color: AppTheme.charcoal,
@@ -200,9 +215,11 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                               ),
                             ),
                             const SizedBox(height: 2),
-                            const Text(
-                              'سيتم تعليق الشحنة مؤقتاً عند هذه المرحلة، مع إمكانية استئنافها فوراً في أي وقت بنقرة واحدة.',
-                              style: TextStyle(fontSize: 11, color: Colors.black87),
+                            Text(
+                              isAr
+                                  ? 'سيتم تعليق الشحنة مؤقتاً عند هذه المرحلة، مع إمكانية استئنافها فوراً في أي وقت بنقرة واحدة.'
+                                  : 'Shipment will be held temporarily at this stage and can be resumed anytime with one click.',
+                              style: const TextStyle(fontSize: 11, color: Colors.black87),
                             ),
                           ],
                         ),
@@ -213,15 +230,15 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                 const SizedBox(height: 16),
 
                 // Common Reasons Chips
-                const Text(
-                  'أسباب الإيقاف الشائعة (انقر للاختيار السريع):',
-                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                Text(
+                  isAr ? 'أسباب الإيقاف الشائعة (انقر للاختيار السريع):' : 'Common Hold Reasons (Click to pick):',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 6,
                   runSpacing: 6,
-                  children: _commonReasons.map((r) {
+                  children: commonReasons.map((r) {
                     final isSelected = _reasonController.text == r;
                     return ChoiceChip(
                       label: Text(r, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : AppTheme.charcoal)),
@@ -242,18 +259,18 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                 TextFormField(
                   controller: _reasonController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'سبب إيقاف وتعليق الشحنة *',
-                    hintText: 'اكتب سبب الإيقاف أو اختر من الأسباب بالأعلى...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.edit_note, color: Colors.orange),
+                  decoration: InputDecoration(
+                    labelText: '${l.holdDialogReasonLabel} *',
+                    hintText: isAr ? 'اكتب سبب الإيقاف أو اختر من الأسباب بالأعلى...' : 'Enter hold reason or select from above...',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.edit_note, color: Colors.orange),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) {
-                      return 'يرجى إدخال سبب الإيقاف قبل الاستمرار.';
+                      return l.fieldRequired;
                     }
                     if (v.trim().length < 3) {
-                      return 'يجب ألا يقل سبب الإيقاف عن 3 أحرف.';
+                      return isAr ? 'يجب ألا يقل سبب الإيقاف عن 3 أحرف.' : 'Reason must be at least 3 characters.';
                     }
                     return null;
                   },
@@ -264,11 +281,11 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
                 TextFormField(
                   controller: _notesController,
                   maxLines: 2,
-                  decoration: const InputDecoration(
-                    labelText: 'ملاحظات وتوجيهات إضافية (اختياري)',
-                    hintText: 'أي توجيهات لفريق العمل أو المخلص أثناء فترة التوقف...',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.notes, color: Colors.grey),
+                  decoration: InputDecoration(
+                    labelText: isAr ? 'ملاحظات وتوجيهات إضافية (اختياري)' : 'Additional Notes (Optional)',
+                    hintText: isAr ? 'أي توجيهات لفريق العمل أو المخلص أثناء فترة التوقف...' : 'Instructions for operations team / broker during hold...',
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.notes, color: Colors.grey),
                   ),
                 ),
               ],
@@ -280,22 +297,23 @@ class _HoldShipmentAtStageDialogState extends ConsumerState<HoldShipmentAtStageD
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
-          child: const Text('إلغاء التراجع'),
+          child: Text(l.cancel),
         ),
         ElevatedButton.icon(
           onPressed: _isSubmitting ? null : _handleHold,
           icon: _isSubmitting
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.pause_circle_filled, size: 18),
-          label: const Text('تأكيد إيقاف وتجميد الشحنة عند هذه المرحلة'),
+          label: Text(l.confirmHoldActionBtn),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber.shade800,
+            backgroundColor: AppTheme.crimson,
             foregroundColor: Colors.white,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
           ),
         ),
       ],
     );
   }
 }
+

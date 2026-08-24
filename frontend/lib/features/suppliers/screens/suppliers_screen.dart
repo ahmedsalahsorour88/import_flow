@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
@@ -35,8 +36,45 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
     });
   }
 
+  String _getSupplierTypeLabel(BuildContext context, String type) {
+    final l10n = context.l10n;
+    switch (type) {
+      case 'Manufacturer':
+        return l10n.supplierTypeManufacturer;
+      case 'Foreign Supplier / Trader':
+        return l10n.supplierTypeTrader;
+      case 'Authorized Agent / Distributor':
+        return l10n.supplierTypeAgent;
+      case 'Exporter':
+        return l10n.supplierTypeExporter;
+      default:
+        return type;
+    }
+  }
+
+  String _getRegTypeLabel(BuildContext context, String type) {
+    final l10n = context.l10n;
+    switch (type) {
+      case 'Factory Registration':
+        return l10n.regTypeFactory;
+      case 'Foreign Exporter Number (Nafeza)':
+        return l10n.regTypeNafezaExporter;
+      case 'Company Registration Number':
+        return l10n.regTypeCompanyReg;
+      case 'VAT Number':
+        return l10n.regTypeVat;
+      case 'Tax Number':
+        return l10n.regTypeTax;
+      case 'Commercial Register':
+        return l10n.regTypeCommercial;
+      default:
+        return type;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final suppliersAsync = ref.watch(suppliersProvider);
     final showInactive = ref.watch(showInactiveSuppliersProvider);
 
@@ -51,22 +89,22 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Foreign Suppliers Directory',
-                        style: TextStyle(
+                        l10n.suppliersScreenTitle,
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.charcoal,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Manage Exporter Profile, Foreign Registration ID, CargoX / Nafeza ID & Origin Country',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        l10n.suppliersScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -77,7 +115,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.auto_awesome_rounded, size: 18),
-                      label: const Text('⚡ AI Extractor & Coding'),
+                      label: Text(l10n.aiExtractorAndCodingBtn),
                       onPressed: () => UniversalEntityExtractorDialog.show(
                         context,
                         initialTarget: EntityTarget.supplier,
@@ -93,7 +131,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add Foreign Supplier'),
+                      label: Text(l10n.addForeignSupplierBtn),
                       onPressed: () => _showSupplierDialog(context),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
@@ -138,7 +176,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                       style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                        hintText: 'Search by Supplier Name, Code, CargoX ID, Registration #, or Country...',
+                        hintText: l10n.searchSuppliersHint,
                         filled: false,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -173,9 +211,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Text(
-                        'Show Inactive:',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      Text(
+                        l10n.showInactiveSuppliersLabel,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                       Switch(
                         value: showInactive,
@@ -204,7 +242,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Text(
-                          'تعذر الاتصال بالسيرفر (DioException / Connection Error)\n$err',
+                          l10n.suppliersFetchError(err.toString()),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
@@ -217,7 +255,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('إعادة المحاولة (Retry Connection)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                         onPressed: () {
                           ref.read(suppliersProvider.notifier).fetchSuppliers();
                         },
@@ -237,8 +275,8 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return const Center(
-                      child: Text('No foreign suppliers found.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    return Center(
+                      child: Text(l10n.noSuppliersFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                     );
                   }
 
@@ -274,6 +312,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   }
 
   Widget _buildSupplierRow(SupplierModel supplier) {
+    final l10n = context.l10n;
     final isActive = supplier.isActive;
 
     return GestureDetector(
@@ -352,7 +391,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            isActive ? 'Active' : 'Inactive',
+                            isActive ? l10n.statusActive : l10n.statusInactive,
                             style: TextStyle(
                               color: isActive ? AppTheme.emerald : AppTheme.crimson,
                               fontSize: 11,
@@ -364,7 +403,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Exporter ID: ${supplier.foreignExporterId}${supplier.cargoxPlatformId != null && supplier.cargoxPlatformId!.isNotEmpty ? " | CargoX ID: ${supplier.cargoxPlatformId}" : ""} | Address: ${supplier.address} | Brands: ${supplier.brands ?? "N/A"}',
+                      l10n.supplierRowMeta(supplier.foreignExporterId, supplier.cargoxPlatformId, supplier.address, supplier.brands),
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -395,7 +434,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-                    Text('Type: ${supplier.supplierType} (${supplier.registrationType})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    Text(
+                      l10n.supplierTypeAndReg(_getSupplierTypeLabel(context, supplier.supplierType), _getRegTypeLabel(context, supplier.registrationType)),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                   ],
                 ),
               ),
@@ -413,16 +455,16 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('تأكيد الإجراء'),
+                      title: Text(l10n.confirmActionTitle),
                       content: Text(isActive
-                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل المورد (${supplier.companyName})؟'
-                          : 'هل أنت متأكد من إعادة تفعيل المورد (${supplier.companyName})؟'),
+                          ? l10n.confirmDeactivateSupplier(supplier.companyName)
+                          : l10n.confirmActivateSupplier(supplier.companyName)),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -431,7 +473,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                     ref.read(suppliersProvider.notifier).toggleActiveStatus(supplier.supplierId!, isActive);
                   }
                 },
-                deleteTooltip: isActive ? 'إيقاف تفعيل المورد (Deactivate)' : 'إعادة تفعيل المورد (Activate)',
+                deleteTooltip: isActive ? l10n.deactivateSupplierTooltip : l10n.activateSupplierTooltip,
               ),
             ],
           ),
@@ -441,6 +483,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
   }
 
   void _showSupplierDialog(BuildContext context, {SupplierModel? supplierToEdit}) {
+    final l10n = context.l10n;
     final isEditing = supplierToEdit != null;
     final formKey = GlobalKey<FormState>();
 
@@ -513,14 +556,14 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               Icon(isEditing ? Icons.edit : Icons.public, color: Colors.white, size: 22),
                               const SizedBox(width: 12),
                               Text(
-                                isEditing ? 'Edit Foreign Exporter & Supplier' : 'Add Foreign Exporter & Supplier',
+                                isEditing ? l10n.editSupplierDialogTitle : l10n.addSupplierDialogTitle,
                                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.white70),
-                            tooltip: 'إغلاق النافذة',
+                            tooltip: l10n.closeDialogTooltip,
                             onPressed: () => Navigator.pop(dialogCtx),
                           ),
                         ],
@@ -538,10 +581,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                             children: [
                               CustomTextField(
                                 controller: nameCtrl,
-                                label: 'Company Name',
+                                label: l10n.supplierCompanyNameLabel,
                                 icon: Icons.business,
                                 isRequired: true,
-                                hint: 'e.g. G.I. Industrial Holding S.p.A.',
+                                hint: l10n.supplierCompanyNameHint,
                               ),
                               const SizedBox(height: 16),
                               Row(
@@ -550,11 +593,11 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: SearchableDropdownField<String>(
                                       value: supplierTypeOptions.contains(selectedSupplierType) ? selectedSupplierType : supplierTypeOptions.first,
-                                      labelText: 'Supplier Type *',
+                                      labelText: l10n.supplierTypeLabel,
                                       items: supplierTypeOptions
                                           .map((type) => SearchableDropdownItem<String>(
                                                 value: type,
-                                                label: type,
+                                                label: _getSupplierTypeLabel(context, type),
                                               ))
                                           .toList(),
                                       onChanged: (val) {
@@ -569,11 +612,11 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: SearchableDropdownField<String>(
                                       value: regTypeOptions.contains(selectedRegType) ? selectedRegType : regTypeOptions.first,
-                                      labelText: 'Registration Type *',
+                                      labelText: l10n.supplierRegTypeLabel,
                                       items: regTypeOptions
                                           .map((type) => SearchableDropdownItem<String>(
                                                 value: type,
-                                                label: type,
+                                                label: _getRegTypeLabel(context, type),
                                               ))
                                           .toList(),
                                       onChanged: (val) {
@@ -591,19 +634,19 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: expIdCtrl,
-                                      label: 'Foreign Exporter ID (Nafeza)',
+                                      label: l10n.supplierForeignExporterIdLabel,
                                       icon: Icons.badge,
                                       isRequired: true,
-                                      hint: 'e.g. EXP-CN-998877',
+                                      hint: l10n.foreignExporterIdHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: cargoxPlatformIdCtrl,
-                                      label: 'CargoX Platform Registered ID',
+                                      label: l10n.cargoxIdLabel,
                                       icon: Icons.verified_user_outlined,
-                                      hint: 'e.g. CX-9988776655',
+                                      hint: l10n.cargoxIdHint,
                                     ),
                                   ),
                                 ],
@@ -614,20 +657,20 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCtrl,
-                                      label: 'Country',
+                                      label: l10n.supplierCountryLabel,
                                       icon: Icons.flag,
                                       isRequired: true,
-                                      hint: 'Italy, China, Germany, etc.',
+                                      hint: l10n.supplierCountryHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCodeCtrl,
-                                      label: 'Country Code (ISO 2-letter)',
+                                      label: l10n.supplierCountryCodeLabel,
                                       icon: Icons.code,
                                       isRequired: true,
-                                      hint: 'IT, CN, DE, US, etc.',
+                                      hint: l10n.supplierCountryCodeHint,
                                     ),
                                   ),
                                 ],
@@ -635,10 +678,10 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: addressCtrl,
-                                label: 'Full Address',
+                                label: l10n.supplierAddressLabel,
                                 icon: Icons.location_on,
                                 isRequired: true,
-                                hint: 'Via G. Agnelli, 7 - 33053 Latisana (UD) - Italy',
+                                hint: l10n.supplierAddressHint,
                               ),
                               const SizedBox(height: 16),
                               Row(
@@ -646,18 +689,18 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: emailCtrl,
-                                      label: 'Primary Email',
+                                      label: l10n.supplierEmailLabel,
                                       icon: Icons.email,
-                                      hint: 'export@supplier.com',
+                                      hint: l10n.supplierEmailHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: secondaryEmailCtrl,
-                                      label: 'Secondary / Additional Email',
+                                      label: l10n.supplierSecondaryEmailLabel,
                                       icon: Icons.mark_email_read_outlined,
-                                      hint: 'sales@supplier.com',
+                                      hint: l10n.supplierSecondaryEmailHint,
                                     ),
                                   ),
                                 ],
@@ -668,27 +711,27 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: phoneCtrl,
-                                      label: 'Telephone Number',
+                                      label: l10n.supplierPhoneLabel,
                                       icon: Icons.phone,
-                                      hint: '+39 0432 823011',
+                                      hint: l10n.supplierPhoneHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: mobileCtrl,
-                                      label: 'Mobile Number',
+                                      label: l10n.supplierMobileLabel,
                                       icon: Icons.smartphone,
-                                      hint: '+39 335 1234567',
+                                      hint: l10n.supplierMobileHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: faxCtrl,
-                                      label: 'Fax Number',
+                                      label: l10n.supplierFaxLabel,
                                       icon: Icons.print,
-                                      hint: '+39 0432 773855',
+                                      hint: l10n.supplierFaxHint,
                                     ),
                                   ),
                                 ],
@@ -696,9 +739,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: websiteCtrl,
-                                label: 'Website URL',
+                                label: l10n.supplierWebsiteLabel,
                                 icon: Icons.language,
-                                hint: 'www.gind.it',
+                                hint: l10n.supplierWebsiteHint,
                               ),
                               const SizedBox(height: 16),
                               // Beneficiary Bank & SWIFT Information
@@ -712,19 +755,19 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(Icons.account_balance, size: 16, color: AppTheme.charcoal),
-                                        SizedBox(width: 6),
-                                        Text('Beneficiary Bank & SWIFT Details (بيانات البنك والسويفت):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                        const Icon(Icons.account_balance, size: 16, color: AppTheme.charcoal),
+                                        const SizedBox(width: 6),
+                                        Text(l10n.beneficiaryBankDetailsHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                       ],
                                     ),
                                     const SizedBox(height: 12),
                                     CustomTextField(
                                       controller: bankNameCtrl,
-                                      label: 'Bank Name (اسم البنك)',
+                                      label: l10n.beneficiaryBankNameLabel,
                                       icon: Icons.business,
-                                      hint: 'e.g. Bank of China, Deutsche Bank',
+                                      hint: l10n.beneficiaryBankNameHint,
                                     ),
                                     const SizedBox(height: 12),
                                     Row(
@@ -732,18 +775,18 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                         Expanded(
                                           child: CustomTextField(
                                             controller: swiftCodeCtrl,
-                                            label: 'SWIFT Code (كود السويفت)',
+                                            label: l10n.beneficiarySwiftCodeLabel,
                                             icon: Icons.code,
-                                            hint: 'e.g. BKCHCN2SXXX',
+                                            hint: l10n.beneficiarySwiftCodeHint,
                                           ),
                                         ),
                                         const SizedBox(width: 12),
                                         Expanded(
                                           child: CustomTextField(
                                             controller: accountNumberCtrl,
-                                            label: 'Account No. / رقم الحساب',
+                                            label: l10n.beneficiaryAccountNumberLabel,
                                             icon: Icons.numbers,
-                                            hint: 'e.g. 1234567890',
+                                            hint: l10n.beneficiaryAccountNumberHint,
                                           ),
                                         ),
                                       ],
@@ -751,9 +794,9 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                     const SizedBox(height: 12),
                                     CustomTextField(
                                       controller: ibanCtrl,
-                                      label: 'IBAN / رقم الحساب الدولي',
+                                      label: l10n.beneficiaryIbanLabel,
                                       icon: Icons.credit_card,
-                                      hint: 'e.g. CN980100987654321 / IT28W...',
+                                      hint: l10n.beneficiaryIbanHint,
                                     ),
                                   ],
                                 ),
@@ -770,12 +813,12 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Text('Compliance & Certifications:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                    Text(l10n.complianceAndCertsHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                     const SizedBox(height: 8),
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('ISO Certified (لديه شهادة ISO)'),
+                                      title: Text(l10n.isoCertifiedCheck),
                                       value: hasIso,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => hasIso = val ?? false),
@@ -783,7 +826,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('Registered under Decree 43 / GOEIC (مسجل بقرار 43 للهيئة العامة للرقابة)'),
+                                      title: Text(l10n.decree43Check),
                                       value: registeredDecree43,
                                       activeColor: AppTheme.cobalt,
                                       onChanged: (val) => setDialogState(() => registeredDecree43 = val ?? false),
@@ -791,7 +834,7 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                                     CheckboxListTile(
                                       dense: true,
                                       contentPadding: EdgeInsets.zero,
-                                      title: const Text('White List Registered Exporter (مسجل بالقائمة الاستيرادية البيضاء)'),
+                                      title: Text(l10n.whiteListCheck),
                                       value: whiteListRegistered,
                                       activeColor: AppTheme.emerald,
                                       onChanged: (val) => setDialogState(() => whiteListRegistered = val ?? false),
@@ -802,16 +845,16 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: brandsCtrl,
-                                label: 'Brands / Product Lines',
+                                label: l10n.brandsProductLinesLabel,
                                 icon: Icons.branding_watermark,
-                                hint: 'e.g. Clint, Novair, ProPower',
+                                hint: l10n.brandsProductLinesHint,
                               ),
                               const SizedBox(height: 16),
                               CustomTextField(
                                 controller: notesCtrl,
-                                label: 'Notes',
+                                label: l10n.supplierNotesLabel,
                                 icon: Icons.notes,
-                                hint: 'Any additional supplier details...',
+                                hint: l10n.supplierNotesHint,
                               ),
                             ],
                           ),
@@ -836,12 +879,12 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                             ),
                             onPressed: () => Navigator.pop(dialogCtx),
                             icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-                            label: const Text('إلغاء وإغلاق ✕', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: Text(l10n.cancelAndCloseBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             icon: const Icon(Icons.check, size: 18),
-                            label: Text(isEditing ? 'Update Supplier' : 'Save Foreign Supplier'),
+                            label: Text(isEditing ? l10n.updateSupplierBtn : l10n.saveSupplierBtn),
                             onPressed: () async {
                               if (!formKey.currentState!.validate()) {
                                 return;
@@ -881,34 +924,34 @@ class _SuppliersScreenState extends ConsumerState<SuppliersScreen> {
                               if (isEditing && supplierToEdit.supplierId != null) {
                                 final List<FieldChangeItem> changes = [];
                                 if (FieldChangeItem.isDifferent(supplierToEdit.companyName, supplier.companyName)) {
-                                  changes.add(FieldChangeItem(fieldName: 'اسم شركة المورد', oldValue: supplierToEdit.companyName, newValue: supplier.companyName));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierCompanyName, oldValue: supplierToEdit.companyName, newValue: supplier.companyName));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.supplierType, supplier.supplierType)) {
-                                  changes.add(FieldChangeItem(fieldName: 'نوع المورد', oldValue: supplierToEdit.supplierType, newValue: supplier.supplierType));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierType, oldValue: supplierToEdit.supplierType, newValue: supplier.supplierType));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.registrationType, supplier.registrationType)) {
-                                  changes.add(FieldChangeItem(fieldName: 'نوع التسجيل', oldValue: supplierToEdit.registrationType, newValue: supplier.registrationType));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierRegType, oldValue: supplierToEdit.registrationType, newValue: supplier.registrationType));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterId, supplier.foreignExporterId)) {
-                                  changes.add(FieldChangeItem(fieldName: 'معرف المصدر الأجنبي (Exporter ID)', oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffForeignExporterId, oldValue: supplierToEdit.foreignExporterId, newValue: supplier.foreignExporterId));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.cargoxPlatformId, supplier.cargoxPlatformId)) {
-                                  changes.add(FieldChangeItem(fieldName: 'CargoX Platform Registered ID', oldValue: supplierToEdit.cargoxPlatformId ?? '', newValue: supplier.cargoxPlatformId ?? ''));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffCargoXId, oldValue: supplierToEdit.cargoxPlatformId ?? '', newValue: supplier.cargoxPlatformId ?? ''));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.foreignExporterCountry, supplier.foreignExporterCountry)) {
-                                  changes.add(FieldChangeItem(fieldName: 'دولة المورد', oldValue: supplierToEdit.foreignExporterCountry, newValue: supplier.foreignExporterCountry));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierCountry, oldValue: supplierToEdit.foreignExporterCountry, newValue: supplier.foreignExporterCountry));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.email, supplier.email)) {
-                                  changes.add(FieldChangeItem(fieldName: 'البريد الإلكتروني', oldValue: supplierToEdit.email, newValue: supplier.email));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierEmail, oldValue: supplierToEdit.email, newValue: supplier.email));
                                 }
                                 if (FieldChangeItem.isDifferent(supplierToEdit.phone, supplier.phone)) {
-                                  changes.add(FieldChangeItem(fieldName: 'الهاتف', oldValue: supplierToEdit.phone, newValue: supplier.phone));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffSupplierPhone, oldValue: supplierToEdit.phone, newValue: supplier.phone));
                                 }
 
                                 if (changes.isNotEmpty) {
                                   final confirmed = await showChangeDiffConfirmationDialog(
                                     context,
-                                    title: 'مراجعة وتأكيد تعديلات المورد الأجنبي',
+                                    title: l10n.diffConfirmSupplierTitle,
                                     itemReference: '${supplierToEdit.supplierCode} (${supplierToEdit.companyName})',
                                     changes: changes,
                                   );

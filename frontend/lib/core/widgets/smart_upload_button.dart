@@ -1,4 +1,3 @@
-// TODO: Refactor to ConsumerWidget to use dioProvider/uploadDioProvider
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
@@ -6,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/api_constants.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import 'universal_entity_extractor_dialog.dart';
 import 'extraction_progress_dialog.dart';
@@ -17,22 +17,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum SmartUploadModule {
-  purchaseOrder('purchase-order', 'أمر الشراء'),
-  importFile('import-file', 'ملف الاستيراد'),
-  cargoShipping('cargo-shipping', 'بيانات الشحنة (B/L)'),
-  customsClearance('customs-clearance', 'الإقرار الجمركي'),
-  freightQuotation('freight-quotation', 'عرض سعر الشحن'),
-  freightBooking('freight-booking', 'تأكيد الحجز'),
-  customsConsultation('customs-consultation', 'الاستشارة الجمركية'),
-  cooCertificate('coo-certificate', 'شهادة المنشأ'),
-  inspectionCertificate('inspection-certificate', 'شهادة الفحص'),
-  financialDocument('financial-document', 'مستند مالي'),
-  warehouseReceiving('warehouse-receiving', 'استلام المستودع'),
-  demurrage('demurrage', 'رسوم الوقوف');
+  purchaseOrder('purchase-order', 'أمر الشراء', 'Purchase Order'),
+  importFile('import-file', 'ملف الاستيراد', 'Import File'),
+  cargoShipping('cargo-shipping', 'بيانات الشحنة (B/L)', 'Cargo Shipping (B/L)'),
+  customsClearance('customs-clearance', 'الإقرار الجمركي', 'Customs Clearance'),
+  freightQuotation('freight-quotation', 'عرض سعر الشحن', 'Freight Quotation'),
+  freightBooking('freight-booking', 'تأكيد الحجز', 'Freight Booking'),
+  customsConsultation('customs-consultation', 'الاستشارة الجمركية', 'Customs Consultation'),
+  cooCertificate('coo-certificate', 'شهادة المنشأ', 'Certificate of Origin'),
+  inspectionCertificate('inspection-certificate', 'شهادة الفحص', 'Inspection Certificate'),
+  financialDocument('financial-document', 'مستند مالي', 'Financial Document'),
+  warehouseReceiving('warehouse-receiving', 'استلام المستودع', 'Warehouse Receiving'),
+  demurrage('demurrage', 'رسوم الوقوف', 'Demurrage');
 
-  const SmartUploadModule(this.apiValue, this.arabicLabel);
+  const SmartUploadModule(this.apiValue, this.arabicLabel, this.englishLabel);
   final String apiValue;
   final String arabicLabel;
+  final String englishLabel;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -224,9 +225,12 @@ class _SmartUploadButtonState extends State<SmartUploadButton> {
 
     // Show full extraction progress dialog with cancel support
     if (mounted) {
+      final isAr = Localizations.localeOf(context).languageCode == 'ar';
       ExtractionProgressDialog.show(
         context: context,
-        title: 'جاري استخراج بيانات ${widget.label ?? widget.module.arabicLabel}',
+        title: isAr
+            ? 'جاري استخراج بيانات ${widget.module.arabicLabel}'
+            : 'Extracting Data: ${widget.module.englishLabel}',
         fileName: fileDisplayName,
         fileSize: fileSizeFormatted,
         controller: progressCtrl,
@@ -697,6 +701,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = context.l10n;
     final result = widget.result;
 
     Color statusColor;
@@ -706,17 +711,17 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
       case 'SUCCESS':
         statusColor = AppTheme.emerald;
         statusIcon = Icons.check_circle_rounded;
-        statusLabel = 'استخراج كامل';
+        statusLabel = l.fullExtraction;
         break;
       case 'PARTIAL':
         statusColor = AppTheme.orange;
         statusIcon = Icons.warning_amber_rounded;
-        statusLabel = 'استخراج جزئي';
+        statusLabel = l.partialExtraction;
         break;
       default:
         statusColor = AppTheme.crimson;
         statusIcon = Icons.error_rounded;
-        statusLabel = 'فشل الاستخراج';
+        statusLabel = l.extractionFailedStatus;
     }
 
     final nonNullFields = _currentFields.entries
@@ -750,14 +755,14 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'نتيجة الاستخراج — $statusLabel',
+                          '${l.extractionResultHeader} — $statusLabel',
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: statusColor,
                           ),
                         ),
                         Text(
-                          '${result.filename} · دقة الاستخراج: ${result.confidencePercent}%',
+                          '${result.filename} · ${l.extractionConfidenceLabel}: ${result.confidencePercent}%',
                           style: theme.textTheme.bodySmall?.copyWith(color: AppTheme.charcoal.withOpacity(0.6)),
                         ),
                       ],
@@ -795,7 +800,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'الحقول المستخرجة والبيانات المعتمدة (${nonNullFields.length})',
+                          '${l.extractedFieldsTitle} (${nonNullFields.length})',
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: AppTheme.charcoal,
                             fontWeight: FontWeight.bold,
@@ -809,7 +814,7 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                             visualDensity: VisualDensity.compact,
                           ),
                           icon: const Icon(Icons.add, size: 15),
-                          label: const Text('➕ إضافة بيان / حقل إضافي يدوياً', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                          label: Text(l.addManualFieldBtn, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                           onPressed: _showAddCustomFieldModal,
                         ),
                       ],
@@ -829,13 +834,13 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Row(
+                            Row(
                               children: [
-                                Icon(Icons.verified_user_rounded, size: 15, color: AppTheme.charcoal),
-                                SizedBox(width: 6),
+                                const Icon(Icons.verified_user_rounded, size: 15, color: AppTheme.charcoal),
+                                const SizedBox(width: 6),
                                 Text(
-                                  'التحقق من تسجيل الأطراف في قاعدة البيانات',
-                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                  l.verifyPartiesInDb,
+                                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                 ),
                               ],
                             ),
@@ -1020,57 +1025,74 @@ class _SmartUploadPreviewDialogState extends State<SmartUploadPreviewDialog> {
     );
   }
 
-  String _formatFieldName(String key) {
+  String _formatFieldName(String rawKey) {
+    final l = context.l10n;
+    final key = rawKey.replaceAll('★', '').replaceAll('*', '').trim().toLowerCase().replaceAll(' ', '_');
     final labels = {
-      'po_number': 'رقم أمر الشراء / الفاتورة',
-      'order_date': 'تاريخ أمر الشراء / الفاتورة',
-      'supplier_name': 'اسم المورد / الشركة',
-      'currency': 'العملة',
-      'total_amount': 'الإجمالي الفعلي',
-      'bl_number': 'رقم سند الشحن',
-      'vessel_name': 'اسم السفينة',
-      'voyage_number': 'رقم الرحلة',
-      'loading_port': 'ميناء الشحن',
-      'discharge_port': 'ميناء التفريغ',
-      'acid_number': 'رقم إقرار الشحنة (ACID)',
-      'country_of_origin': 'بلد المنشأ',
-      'payment_terms': 'شروط الدفع والتعاقد',
-      'items': 'جدول البنود المالية والكميات',
-      'packing_list_items': 'بيانات طرود التعبئة والأبعاد (Packing List)',
-      'delivery_port': 'ميناء الشحن / التوصيل',
-      'eta': 'تاريخ الوصول',
-      'total_gross_weight_kg': 'الوزن الإجمالي (كجم)',
-      'total_cbm': 'الحجم (م³)',
-      'containers': 'الحاويات',
-      'shipper': 'الشاحن',
-      'consignee': 'المرسل إليه',
-      'declaration_no': 'رقم الإقرار الجمركي',
-      'declaration_date': 'تاريخ الإقرار',
-      'hs_code': 'بند التعريفة',
-      'commodity_description': 'وصف البضاعة',
-      'origin_country': 'بلد المنشأ',
-      'customs_value_egp': 'القيمة الجمركية (ج.م)',
-      'exchange_rate': 'سعر الصرف',
-      'import_duty': 'ضريبة الوارد',
-      'vat_amount': 'ضريبة القيمة المضافة',
-      'total_taxes': 'إجمالي الضرائب',
-      'invoice_number': 'رقم الفاتورة',
-      'invoice_date': 'تاريخ الفاتورة',
-      'invoice_value': 'قيمة الفاتورة',
-      'certificate_number': 'رقم الشهادة',
-      'issue_date': 'تاريخ الإصدار',
-      'carrier_name': 'اسم الناقل البحرى / الجوي',
-      'freight_rate': 'سعر الشحن',
-      'transit_days': 'أيام العبور',
-      'validity_date': 'تاريخ الصلاحية',
-      'booking_number': 'رقم الحجز',
-      'si_cutoff': 'موعد إغلاق SI',
-      'amount': 'المبلغ',
-      'bank_name': 'اسم البنك',
-      'swift_code': 'SWIFT',
-      'result': 'نتيجة الفحص',
+      'supplier_address': l.fieldSupplierAddress,
+      'supplier_phone': l.fieldSupplierPhone,
+      'supplier_tax_id': l.fieldSupplierTaxId,
+      'supplier_country': l.fieldSupplierCountry,
+      'supplier_city': l.fieldSupplierCity,
+      'supplier_email': l.fieldSupplierEmail,
+      'customer_name': l.fieldCustomerName,
+      'customer_address': l.fieldCustomerAddress,
+      'customer_tax_id': l.fieldCustomerTaxId,
+      'importer_name': l.fieldCustomerName,
+      'importer_address': l.fieldCustomerAddress,
+      'importer_tax_id': l.fieldCustomerTaxId,
+      'po_number': l.fieldPoNumber,
+      'order_date': l.fieldInvoiceDate,
+      'supplier_name': l.supplier,
+      'currency': l.fieldCurrency,
+      'total_amount': l.fieldTotalAmount,
+      'bl_number': l.fieldBlNumber,
+      'vessel_name': l.fieldCarrierName,
+      'voyage_number': l.fieldCarrierName,
+      'loading_port': l.fieldPolPort,
+      'discharge_port': l.fieldPodPort,
+      'delivery_port': l.fieldPolPort,
+      'acid_number': l.fieldAcidNumber,
+      'country_of_origin': l.fieldOriginCountry,
+      'origin_country': l.fieldOriginCountry,
+      'payment_terms': l.fieldPaymentTerms,
+      'items': l.poLineItemsTabCount(0),
+      'packing_list_items': l.poPackingListTabCount(0),
+      'eta': l.targetEta,
+      'total_gross_weight_kg': l.fieldGrossWeight,
+      'gross_weight': l.fieldGrossWeight,
+      'net_weight': l.fieldNetWeight,
+      'total_cbm': l.fieldTotalCbm,
+      'containers': l.fieldContainerNumbers,
+      'shipper': l.supplier,
+      'consignee': l.fieldCustomerName,
+      'declaration_no': l.acidStatusTitle,
+      'declaration_date': l.fieldIssueDate,
+      'hs_code': l.hsCode,
+      'commodity_description': l.fieldCommodityDescription,
+      'customs_value_egp': l.fieldCustomsValueEgp,
+      'exchange_rate': l.fieldExchangeRate,
+      'import_duty': l.fieldImportDuty,
+      'vat_amount': l.fieldVatAmount,
+      'total_taxes': l.fieldTotalTaxes,
+      'invoice_number': l.fieldInvoiceNumber,
+      'invoice_date': l.fieldInvoiceDate,
+      'invoice_value': l.fieldInvoiceValue,
+      'certificate_number': l.fieldCertificateNumber,
+      'issue_date': l.fieldIssueDate,
+      'carrier_name': l.fieldCarrierName,
+      'freight_rate': l.fieldFreightRate,
+      'transit_days': l.fieldTransitDays,
+      'validity_date': l.fieldValidityDate,
+      'booking_number': l.fieldBookingNumber,
+      'si_cutoff': l.fieldSiCutoff,
+      'amount': l.fieldAmount,
+      'bank_name': l.fieldBankName,
+      'swift_code': l.fieldSwiftCode,
+      'result': l.fieldInspectionResult,
+      'packages_count': l.fieldPackagesCount,
     };
-    return labels[key] ?? key.replaceAll('_', ' ');
+    return labels[key] ?? rawKey.replaceAll('★', '').replaceAll('*', '').trim().replaceAll('_', ' ');
   }
 
   String _formatValue(dynamic value) {
@@ -1108,9 +1130,10 @@ class _EntityVerificationRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final badgeColor = isVerified ? AppTheme.emerald : AppTheme.crimson;
     final badgeIcon = isVerified ? Icons.check_circle_rounded : Icons.cancel_rounded;
-    final badgeLabel = isVerified ? 'مؤكد' : 'غير مؤكد';
+    final badgeLabel = isVerified ? l.partyConfirmed : l.partyUnconfirmed;
     final tooltip = isVerified ? verifiedTooltip : unverifiedTooltip;
 
     return Tooltip(

@@ -278,12 +278,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                               return DataRow(
                                 color: WidgetStateProperty.all(rowColor),
-                                onSelectChanged: (_) => _showCalcDetailsDialog(context, calc),
+                                onSelectChanged: (_) => _showDetailDialog(context, calc),
                                 cells: [
                                   // ⚡ 1. ACTIONS — أول عمود دائماً مرئي بواسطة RowActionsPill
                                   DataCell(
                                     RowActionsPill(
-                                      onView: () => _showCalcDetailsDialog(context, calc),
+                                      onView: () => _showDetailDialog(context, calc),
                                       onEdit: () => widget.onLoadSession(calc),
                                       onPrint: () => _showPrintReportDialog(context, calc),
                                       onDelete: () async {
@@ -334,7 +334,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   // 2. Calc Code
                                   DataCell(
                                     InkWell(
-                                      onTap: () => _showCalcDetailsDialog(context, calc),
+                                      onTap: () => _showDetailDialog(context, calc),
                                       borderRadius: BorderRadius.circular(6),
                                       child: Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -530,12 +530,18 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   // ---------------------------------------------------------------------------
   // SAVE CALCULATION DIALOG
   // ---------------------------------------------------------------------------
-  void _showCalcDetailsDialog(BuildContext context, CBMCalculationModel calc) {
+  void _showDetailDialog(BuildContext context, CBMCalculationModel calc) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final containerRec = ContainerRequirementEngine.calculate(
+      totalCbm: calc.totalCbm,
+      totalWeightKg: calc.totalGrossWeightKg,
+      isStackable: calc.isStackable,
+    );
     final dualRec = ContainerRequirementEngine.calculateBoth(
       totalCbm: calc.totalCbm,
       totalWeightKg: calc.totalGrossWeightKg,
     );
-    final containerRec = calc.isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
 
     showDialog(
       context: context,
@@ -546,7 +552,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                '🏆 سجل وتفاصيل دراسة الأحجام والأوزان (${calc.calcCode})',
+                l.cbmSessionDetailsTitle(calc.calcCode),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
               ),
             ),
@@ -558,7 +564,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 border: Border.all(color: calc.isActive ? AppTheme.emerald : AppTheme.crimson),
               ),
               child: Text(
-                calc.isActive ? '🟢 جلسة نشطة' : '🔴 جلسة ملغاة',
+                calc.isActive ? l.cbmSessionActiveBadge : l.cbmSessionCancelledBadge,
                 style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: calc.isActive ? AppTheme.emerald : AppTheme.crimson),
               ),
             ),
@@ -572,8 +578,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               ),
               child: Text(
                 calc.poNumber != null
-                    ? 'Linked PO: ${calc.poNumber}'
-                    : (calc.importFileCode != null ? 'ملف: ${calc.importFileCode}' : 'Standalone Session'),
+                    ? l.cbmSessionLinkedPo(calc.poNumber!)
+                    : (calc.importFileCode != null ? l.cbmSessionImportFile(calc.importFileCode!) : l.cbmSessionStandalone),
                 style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
               ),
             ),
@@ -603,16 +609,16 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              calc.title ?? 'جلسة احتساب قياسات الشحنة',
+                              calc.title ?? l.calculationSessionTitle,
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                             ),
                             if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Text('📝 ملاحظات الشحنة: ${calc.notes}', style: TextStyle(color: Colors.grey.shade800, fontSize: 12)),
+                              Text(l.cbmCargoNotes(calc.notes!), style: TextStyle(color: Colors.grey.shade800, fontSize: 12)),
                             ],
                             const SizedBox(height: 6),
                             Text(
-                              '📅 تاريخ الإنشاء: ${calc.createdAt != null ? calc.createdAt.toString().substring(0, 16) : "N/A"}',
+                              l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 16) : "—"),
                               style: const TextStyle(color: Colors.grey, fontSize: 11),
                             ),
                           ],
@@ -628,14 +634,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                 decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-                                child: Text('📁 ملف استيراد: ${calc.importFileCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal)),
+                                child: Text(l.cbmSessionImportFile(calc.importFileCode!), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal)),
                               ),
                             if (calc.poNumber != null) ...[
                               const SizedBox(height: 4),
-                              Text('🔗 أمر شراء: ${calc.poNumber}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
+                              Text(l.cbmSessionLinkedPo(calc.poNumber!), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11)),
                             ],
                             const SizedBox(height: 4),
-                            Text('🚢 الاستراتيجية: ${calc.recommendedShippingMethod ?? "غير محدد"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
+                            Text(l.cbmStrategy(calc.recommendedShippingMethod ?? "—"), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
                           ],
                         ),
                       ),
@@ -645,18 +651,18 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 const SizedBox(height: 16),
 
                 // 2. Metrics Strip Cards Row
-                const Text('📊 المؤشرات القياسية ومحددات الشحن:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l.cbmStandardMetricsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _buildDetailCardBadge('Total CBM Volume', '${calc.totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar_rounded, Colors.orange.shade800),
-                    _buildDetailCardBadge('Air Chargeable Weight', '${calc.airChargeableWeightKg.toStringAsFixed(1)} KG', Icons.airplanemode_active, Colors.purple.shade700),
-                    _buildDetailCardBadge('Total Gross Weight', '${calc.totalGrossWeightKg.toStringAsFixed(1)} KG', Icons.scale_rounded, AppTheme.cobalt),
-                    _buildDetailCardBadge('تعليمات الرص (Stacking)', calc.isStackable ? '📦 يقبل الرص (Stackable)' : '🚫 لا يقبل الرص (Non-Stackable)', Icons.inventory_2_rounded, calc.isStackable ? AppTheme.emerald : Colors.orange.shade900),
-                    _buildDetailCardBadge('استراتيجية الشحن (Method)', calc.recommendedShippingMethod ?? '-', Icons.directions_boat_rounded, Colors.blue.shade700),
-                    _buildDetailCardBadge('توصية الحاوية (Container)', containerRec.recommendationSummary, Icons.local_shipping_rounded, Colors.brown.shade700),
+                    _buildDetailCardBadge(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Icons.view_in_ar_rounded, Colors.orange.shade800),
+                    _buildDetailCardBadge(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} KG', Icons.airplanemode_active, Colors.purple.shade700),
+                    _buildDetailCardBadge(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} KG', Icons.scale_rounded, AppTheme.cobalt),
+                    _buildDetailCardBadge(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Icons.inventory_2_rounded, calc.isStackable ? AppTheme.emerald : Colors.orange.shade900),
+                    _buildDetailCardBadge(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Icons.directions_boat_rounded, Colors.blue.shade700),
+                    _buildDetailCardBadge(l.recommendedContainerCol, isArabic ? containerRec.recommendationSummary : containerRec.recommendationSummaryEn, Icons.local_shipping_rounded, Colors.brown.shade700),
                   ],
                 ),
 
@@ -676,18 +682,18 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.compare_arrows_rounded, color: AppTheme.cobalt, size: 20),
-                              SizedBox(width: 6),
-                              Text('🚚 مقارنة سيناريوهات الحاويات (Stackable vs Non-Stackable):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
+                              const Icon(Icons.compare_arrows_rounded, color: AppTheme.cobalt, size: 20),
+                              const SizedBox(width: 6),
+                              Text(l.cbmContainerComparisonTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal)),
                             ],
                           ),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                             decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
                             child: Text(
-                              calc.isStackable ? 'المعتمد: سيناريو القابل للرص' : 'المعتمد: سيناريو غير القابل للرص',
+                              calc.isStackable ? l.cbmScenarioApprovedStackable : l.cbmScenarioApprovedNonStackable,
                               style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
                             ),
                           ),
@@ -699,22 +705,22 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.06)),
-                            children: const [
-                              Padding(padding: EdgeInsets.all(6), child: Text('السيناريو / الفرضية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                              Padding(padding: EdgeInsets.all(6), child: Text('📦 سيناريو يقبل الرص (Stackable)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
-                              Padding(padding: EdgeInsets.all(6), child: Text('🚫 سيناريو لا يقبل الرص (Non-Stackable)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.orange))),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioHypothesisCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioStackableCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.emerald))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmScenarioNonStackableCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.orange))),
                             ],
                           ),
                           TableRow(
                             children: [
-                              const Padding(padding: EdgeInsets.all(6), child: Text('الحاوية والعدد المطلوب', style: TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmRequiredContainerCount, style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.stackableResult.requiredContainersCount} x ${dualRec.stackableResult.recommendedContainerCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.nonStackableResult.requiredContainersCount} x ${dualRec.nonStackableResult.recommendedContainerCode}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange, fontSize: 11))),
                             ],
                           ),
                           TableRow(
                             children: [
-                              const Padding(padding: EdgeInsets.all(6), child: Text('نسبة استغلال المساحة %', style: TextStyle(fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmSpaceUtilizationPercent, style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.stackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${dualRec.nonStackableResult.spaceUtilizationPercent.toStringAsFixed(1)}%', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                             ],
@@ -731,7 +737,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('📦 جدول تفاصيل ومقاسات طرود الشحنة (Package Measurements Breakdown):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                    Text(l.packageMeasurementsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
@@ -739,7 +745,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       icon: const Icon(Icons.view_in_ar, size: 16),
-                      label: const Text('مخطط ومحاكاة الرص (Load Plan Planner)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                      label: Text(l.visualLoadPlanSimulator, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       onPressed: () {
                         _showVisualLoadPlanDialog(context, calc.items);
                       },
@@ -764,15 +770,15 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   children: [
                     TableRow(
                       decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('نوع الطرد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('الأبعاد L x W x H (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('وزن الوحدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('إجمالي الوزن', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('الرص (Stacking)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                        Padding(padding: EdgeInsets.all(8), child: Text('حجم البند CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      children: [
+                        const Padding(padding: EdgeInsets.all(8), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmPackageDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.totalGrossWeightRegistryMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.stackingCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                        Padding(padding: const EdgeInsets.all(8), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                       ],
                     ),
                     ...calc.items.asMap().entries.map(
@@ -798,7 +804,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   border: Border.all(color: item.isStackable ? Colors.green.shade300 : Colors.red.shade300),
                                 ),
                                 child: Text(
-                                  item.isStackable ? '📦 يقبل الرص' : '🚫 لا يقبل',
+                                  item.isStackable ? l.stackableOption : l.nonStackableOption,
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 10,
@@ -823,7 +829,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.edit_note, size: 16),
-            label: const Text('إعادة فتح وتعديل في الحاسبة', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.cbmReopenInCalcBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
               Navigator.pop(dialogCtx);
               widget.onLoadSession(calc);
@@ -832,7 +838,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade800, foregroundColor: Colors.white),
             icon: const Icon(Icons.edit, size: 16),
-            label: const Text('تعديل البيانات (Edit Metadata)'),
+            label: Text(l.cbmEditMetadataBtn),
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showEditCalcDialog(context, calc);
@@ -841,7 +847,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal, foregroundColor: Colors.white),
             icon: const Icon(Icons.link, size: 16),
-            label: const Text('ربط بأمر شراء / مشروع'),
+            label: Text(l.cbmLinkToPoProjectBtn),
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showLinkToPODialog(
@@ -855,13 +861,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
             icon: const Icon(Icons.print, size: 16),
-            label: const Text('طباعة / تصدير التقرير'),
+            label: Text(l.cbmPrintExportReportBtn),
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showPrintReportDialog(context, calc);
             },
           ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
         ],
       ),
     );
@@ -895,6 +901,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   void _showEditCalcDialog(BuildContext context, CBMCalculationModel calc) {
+    final l = context.l10n;
     final formKey = GlobalKey<FormState>();
     final titleCtrl = TextEditingController(text: calc.title ?? '');
     final notesCtrl = TextEditingController(text: calc.notes ?? '');
@@ -902,7 +909,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text('Edit Session Details: ${calc.calcCode}'),
+        title: Text(l.cbmEditMetadataDialogTitle(calc.calcCode)),
         content: SizedBox(
           width: 500,
           child: Form(
@@ -912,21 +919,21 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               children: [
                 TextFormField(
                   controller: titleCtrl,
-                  decoration: const InputDecoration(labelText: 'Calculation Title *'),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  decoration: InputDecoration(labelText: l.cbmMetadataTitleLabel),
+                  validator: (v) => v == null || v.trim().isEmpty ? l.requiredFieldValidation : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: notesCtrl,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Notes & Remarks'),
+                  decoration: InputDecoration(labelText: l.cbmMetadataNotesLabel),
                 ),
               ],
             ),
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             onPressed: () async {
@@ -941,12 +948,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 if (ok && context.mounted) {
                   Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Calculation metadata updated successfully.')),
+                    SnackBar(content: Text(l.cbmMetadataSavedSuccess)),
                   );
                 }
               }
             },
-            child: const Text('Save Changes'),
+            child: Text(l.save),
           ),
         ],
       ),
@@ -954,6 +961,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   void _showPrintReportDialog(BuildContext context, CBMCalculationModel calc) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -961,7 +969,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           children: [
             const Icon(Icons.print_outlined, color: AppTheme.emerald),
             const SizedBox(width: 8),
-            Text('Printable Cargo Measurement Report (${calc.calcCode})'),
+            Text(l.cbmPrintableReportTitle(calc.calcCode)),
           ],
         ),
         content: SizedBox(
@@ -985,9 +993,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text('Sorour Logistics ERP', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.charcoal)),
-                          const Text('Cargo Measurement & Volume Calculation Report', style: TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
+                          Text(l.cbmCalculatorTitle, style: const TextStyle(color: AppTheme.cobalt, fontSize: 12, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 2),
-                          Text('تقرير احتساب حجوم وأوزان الشحنات', style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
+                          Text(l.cbmCalculatorSubtitle, style: TextStyle(color: Colors.grey.shade600, fontSize: 11)),
                         ],
                       ),
                       Column(
@@ -999,7 +1007,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                             child: Text(calc.calcCode, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
                           const SizedBox(height: 4),
-                          Text('Generated: ${calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                          Text(l.cbmCreationDate(calc.createdAt != null ? calc.createdAt.toString().substring(0, 10) : DateTime.now().toString().substring(0, 10)), style: const TextStyle(fontSize: 11, color: Colors.grey)),
                         ],
                       ),
                     ],
@@ -1009,14 +1017,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   // Session Metadata
                   Row(
                     children: [
-                      Expanded(child: Text('Title: ${calc.title ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
+                      Expanded(child: Text('${l.calculationSessionTitle}: ${calc.title ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13))),
                       if (calc.poNumber != null)
-                        Text('Linked PO: ${calc.poNumber}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12)),
+                        Text(l.cbmSessionLinkedPo(calc.poNumber!), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 12)),
                     ],
                   ),
                   if (calc.notes != null && calc.notes!.isNotEmpty) ...[
                     const SizedBox(height: 4),
-                    Text('Notes: ${calc.notes}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(l.cbmCargoNotes(calc.notes!), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                   const SizedBox(height: 16),
 
@@ -1027,34 +1035,34 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildReportStat('Total Volume', '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange),
-                        _buildReportStat('Air Chargeable Wt', '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple),
-                        _buildReportStat('Total Gross Wt', '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
-                        _buildReportStat('Cargo Stacking', calc.isStackable ? 'Stackable (يقبل الرص)' : 'Non-Stackable (لا يقبل)', Colors.teal),
-                        _buildReportStat('Shipping Mode', calc.recommendedShippingMethod ?? '-', Colors.blue),
-                        _buildReportStat('Container Type', calc.recommendedContainerType ?? '-', Colors.brown),
+                        _buildReportStat(l.totalCbmVolumeMetric, '${calc.totalCbm.toStringAsFixed(4)} m³', Colors.orange),
+                        _buildReportStat(l.airChargeableWtMetric, '${calc.airChargeableWeightKg.toStringAsFixed(1)} kg', Colors.purple),
+                        _buildReportStat(l.totalGrossWeightRegistryMetric, '${calc.totalGrossWeightKg.toStringAsFixed(1)} kg', AppTheme.cobalt),
+                        _buildReportStat(l.cargoStackingInstructions, calc.isStackable ? l.stackableOption : l.nonStackableOption, Colors.teal),
+                        _buildReportStat(l.shippingStrategyCol, calc.recommendedShippingMethod ?? '-', Colors.blue),
+                        _buildReportStat(l.recommendedContainerCol, calc.recommendedContainerType ?? '-', Colors.brown),
                       ],
                     ),
                   ),
                   const SizedBox(height: 20),
 
                   // Package Details Table
-                  const Text('Package Breakdown Table (جدول تفاصيل الطرود والقياسات)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(l.packageMeasurementsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Table(
                     border: TableBorder.all(color: Colors.grey.shade400),
                     children: [
-                      const TableRow(
-                        decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                      TableRow(
+                        decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                         children: [
-                          Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Package Type', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Qty', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('L x W x H (cm)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Gross Wt/Unit', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Stacking', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Total Gross Wt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('Line CBM', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          const Padding(padding: EdgeInsets.all(6), child: Text('#', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmPackageDimensionsCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.stackingCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.totalGrossWeightRegistryMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.cbmVolumeMetric, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                         ],
                       ),
                       ...calc.items.asMap().entries.map(
@@ -1069,7 +1077,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.quantity}', style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.lengthCm}x${item.widthCm}x${item.heightCm}', style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.grossWeightPerUnitKg} kg', style: const TextStyle(fontSize: 11))),
-                              Padding(padding: const EdgeInsets.all(6), child: Text(item.isStackable ? '📦 يقبل' : '🚫 لا يقبل', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.isStackable ? Colors.green.shade800 : Colors.red.shade800))),
+                              Padding(padding: const EdgeInsets.all(6), child: Text(item.isStackable ? l.stackableOption : l.nonStackableOption, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: item.isStackable ? Colors.green.shade800 : Colors.red.shade800))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${lineGross.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 11))),
                               Padding(padding: const EdgeInsets.all(6), child: Text('${item.totalCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange))),
                             ],
@@ -1087,7 +1095,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
             icon: const Icon(Icons.download, size: 16),
-            label: const Text('تنزيل ملف CSV Data'),
+            label: Text(l.cbmPrintDownloadCsvBtn),
             onPressed: () {
               _downloadCalcCSV(context, calc);
             },
@@ -1095,12 +1103,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.print, size: 16),
-            label: const Text('طباعة التقرير (Print Report)'),
+            label: Text(l.cbmPrintReportBtn),
             onPressed: () {
               _triggerReportPrint(context, calc);
             },
           ),
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Close')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
         ],
       ),
     );
@@ -1159,6 +1167,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     List poList,
     List projectsList,
   ) {
+    final l = context.l10n;
     int? selectedPoId = calc.poId;
     int? selectedProjectId = calc.projectId;
 
@@ -1166,7 +1175,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('Link Calculation (${calc.calcCode}) to Shipment / PO'),
+          title: Text(l.cbmLinkPoDialogTitle(calc.calcCode)),
           content: SizedBox(
             width: 450,
             child: Column(
@@ -1174,10 +1183,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               children: [
                 SearchableDropdownField<int?>(
                   value: selectedPoId,
-                  labelText: 'Select Purchase Order (PO)',
-                  searchHintText: 'ابحث عن أمر الشراء...',
+                  labelText: l.cbmLinkSelectPoLabel,
+                  searchHintText: l.cbmLinkSelectPoSearchHint,
                   items: [
-                    const SearchableDropdownItem<int?>(value: null, label: 'None / Standalone'),
+                    SearchableDropdownItem<int?>(value: null, label: l.cbmSessionStandalone),
                     ...poList.map((po) => SearchableDropdownItem<int?>(
                           value: po.poId,
                           label: '${po.poNumber} (${po.projectName ?? "Project"})',
@@ -1189,10 +1198,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 const SizedBox(height: 12),
                 SearchableDropdownField<int?>(
                   value: selectedProjectId,
-                  labelText: 'Select Project',
-                  searchHintText: 'ابحث عن المشروع...',
+                  labelText: l.cbmLinkSelectProjectLabel,
+                  searchHintText: l.cbmLinkSelectProjectSearchHint,
                   items: [
-                    const SearchableDropdownItem<int?>(value: null, label: 'None / Unbound'),
+                    SearchableDropdownItem<int?>(value: null, label: l.cbmSessionStandalone),
                     ...projectsList.map((p) => SearchableDropdownItem<int?>(
                           value: p.projectId,
                           label: '${p.projectCode} - ${p.projectName}',
@@ -1204,7 +1213,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.cancel)),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
               onPressed: () async {
@@ -1214,11 +1223,11 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 if (ok && context.mounted) {
                   Navigator.pop(dialogCtx);
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Calculation record linked successfully.')),
+                    SnackBar(content: Text(l.cbmLinkSavedSuccess)),
                   );
                 }
               },
-              child: const Text('Save Link'),
+              child: Text(l.save),
             ),
           ],
         ),
@@ -1228,9 +1237,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
   // ignore: unused_element
   void _showContainerComparisonDialog(BuildContext context, ContainerDualRecommendationResult dualRec, double totalCbm, double totalWeightKg) {
+    final l = context.l10n;
     showDialog(
       context: context,
-      builder: (context) {
+      builder: (dialogCtx) {
         return DefaultTabController(
           length: 2,
           child: AlertDialog(
@@ -1242,8 +1252,8 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('تحليل خيارات الحاويات وسيناريوهات التحميل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                      Text('إجمالي الشحنة: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                      Text(l.cbmContainerComparisonTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('${l.totalCbmVolumeMetric}: ${totalCbm.toStringAsFixed(2)} m³ | ${totalWeightKg.toStringAsFixed(0)} kg', style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                     ],
                   ),
                 ),
@@ -1256,21 +1266,21 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 children: [
                   Container(
                     color: AppTheme.charcoal,
-                    child: const TabBar(
+                    child: TabBar(
                       indicatorColor: AppTheme.cobalt,
                       labelColor: Colors.white,
                       unselectedLabelColor: Colors.white70,
                       tabs: [
-                        Tab(icon: Icon(Icons.layers), text: '📦 قابل للرص (Stackable)'),
-                        Tab(icon: Icon(Icons.view_array), text: '🚫 غير قابل للرص - طبقة واحدة (Non-Stackable)'),
+                        Tab(icon: const Icon(Icons.layers), text: l.allStackableOption),
+                        Tab(icon: const Icon(Icons.view_array), text: l.allNonStackableOption),
                       ],
                     ),
                   ),
                   Expanded(
                     child: TabBarView(
                       children: [
-                        _buildComparisonTable(dualRec.stackableResult),
-                        _buildComparisonTable(dualRec.nonStackableResult),
+                        _buildComparisonTable(context, dualRec.stackableResult),
+                        _buildComparisonTable(context, dualRec.nonStackableResult),
                       ],
                     ),
                   ),
@@ -1278,7 +1288,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+              TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
             ],
           ),
         );
@@ -1286,7 +1296,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 
-  Widget _buildComparisonTable(ContainerRecommendationResult rec) {
+  Widget _buildComparisonTable(BuildContext context, ContainerRecommendationResult rec) {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1299,7 +1311,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
             ),
-            child: Text('التوصية المعتمدة: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+            child: Text('${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
           ),
           const SizedBox(height: 12),
           Table(
@@ -1314,12 +1326,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
             children: [
               TableRow(
                 decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                children: const [
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('نوع الحاوية (Spec)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('العدد المطلوبة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال المساحة %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('استغلال الوزن %', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                  Padding(padding: EdgeInsets.all(8.0), child: Text('التوصية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                children: [
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmRequiredContainerCount, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.cbmSpaceUtilizationPercent, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.weightUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                  Padding(padding: const EdgeInsets.all(8.0), child: Text(l.recommendationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                 ],
               ),
               ...rec.comparisonDetails.map((detail) {
@@ -1338,7 +1350,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(spec.name, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isBest ? AppTheme.emerald : AppTheme.charcoal)),
-                          Text('السعة: ${spec.internalVolumeCbm} CBM | الحمولة: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                          Text('${l.cbmVolumeMetric}: ${spec.internalVolumeCbm} CBM | ${l.grossWtPerUnitCol}: ${spec.maxPayloadKg} kg', style: const TextStyle(fontSize: 10, color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -1360,9 +1372,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                           ? Container(
                               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(color: AppTheme.emerald, borderRadius: BorderRadius.circular(4)),
-                              child: const Text('🌟 الخيار الأنسب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                              child: Text(l.bestOptionBadge, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
                             )
-                          : const Text('بديل قابل للتطبيق', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                          : Text(l.viableAlternative, style: const TextStyle(fontSize: 11, color: Colors.grey)),
                     ),
                   ],
                 );
@@ -1375,6 +1387,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
   }
 
   void _showVisualLoadPlanDialog(BuildContext context, List<CBMItemModel> quickItems) {
+    final l = context.l10n;
     // 1. Convert CBMItemModel list to CargoItem list with individual stackability
     final List<CargoItem> cargoItems = [];
     int itemCounter = 1;
@@ -1416,10 +1429,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('تنبيه'),
-          content: const Text('الرجاء إضافة أصناف شحنة أولاً لحساب خطة الرص.'),
+          title: Text(l.warning),
+          content: Text(l.noDataFound),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('موافق')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.ok)),
           ],
         ),
       );
@@ -1464,10 +1477,10 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      l.cbmVisualPlannerTitle,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -1478,7 +1491,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       border: Border.all(color: AppTheme.cobalt),
                     ),
                     child: Text(
-                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      '${l.requiredFleet}: $fleetSummaryText (${plan.length})',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                     ),
                   ),
@@ -1500,14 +1513,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🔄 اختر سيناريو الرص للمعاينة:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          Text(
+                            l.chooseStackingScenario,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                           Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                label: Text(l.allStackableOption),
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
@@ -1521,7 +1534,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
@@ -1535,7 +1548,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                label: Text(l.mixedStackingOption),
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
@@ -1567,18 +1580,18 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                         children: [
                           Row(
                             children: [
-                              _buildMetricPill('📦 إجمالي الطرود', '$totalPkgs طرد', AppTheme.cobalt),
+                              _buildMetricPill(l.packageMeasurementsTitle, '$totalPkgs', AppTheme.cobalt),
                               const SizedBox(width: 8),
-                              _buildMetricPill('⚖️ إجمالي الوزن', '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
+                              _buildMetricPill(l.totalGrossWeightRegistryMetric, '${totalPlanWeight.toStringAsFixed(0)} kg', AppTheme.charcoal),
                               const SizedBox(width: 8),
-                              _buildMetricPill('📐 إجمالي الحجم', '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
+                              _buildMetricPill(l.totalCbmVolumeMetric, '${totalPlanVolume.toStringAsFixed(3)} m³', Colors.orange.shade900),
                             ],
                           ),
                           Row(
                             children: [
-                              _buildMetricPill('✅ يقبل الرص', '$stackableInActive طرد', Colors.green.shade800),
+                              _buildMetricPill(l.stackableOption, '$stackableInActive', Colors.green.shade800),
                               const SizedBox(width: 8),
-                              _buildMetricPill('🚫 لا يقبل الرص', '$nonStackableInActive طرد', Colors.red.shade800),
+                              _buildMetricPill(l.nonStackableOption, '$nonStackableInActive', Colors.red.shade800),
                             ],
                           ),
                         ],
@@ -1599,12 +1612,12 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                       children: [
                         TableRow(
                           decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                          children: const [
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                          children: [
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.containerSpecCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.packageTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.grossWtPerUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.spaceUtilizationCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(6.0), child: Text(l.cbmFloorAreaUtilization, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                           ],
                         ),
                         ...plan.asMap().entries.map((entry) {
@@ -1623,13 +1636,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED' || !res.fits) {
-                            statusText = res.failureReason ?? 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                            statusText = res.failureReason ?? l.operationFailed;
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص (استغلال أرضية: ${floorUtil.toStringAsFixed(1)}%)';
+                              statusText = '${l.nonStackableOption}: $nonStackInThis (${floorUtil.toStringAsFixed(1)}%)';
                             } else {
-                              statusText = 'رص 3D متعدد الطبقات متوافق ($totalPlacedCount طرد)';
+                              statusText = '${l.stackableOption} ($totalPlacedCount)';
                             }
                           }
 
@@ -1638,14 +1651,14 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
-                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                  res.containerCode == 'FAILED' ? l.operationFailed : '$idx: ${res.spec.code}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
                                 ),
                               ),
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
-                                  placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount طرد)',
+                                  placedIds.isEmpty ? '-' : '$placedIds ($totalPlacedCount)',
                                   style: const TextStyle(fontSize: 11),
                                 ),
                               ),
@@ -1667,9 +1680,9 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل')
+                                    color: statusText.contains('فشل') || statusText.contains('Failed')
                                         ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        : (statusText.contains('غير قابل') || statusText.contains('Non-') ? Colors.brown.shade800 : Colors.green.shade800),
                                   ),
                                 ),
                               ),
@@ -1700,13 +1713,13 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          res.failureReason ?? 'فشل الرص: تجاوز الطول والعرض الأبعاد القياسية الداخلية للحاوية',
+                                          res.failureReason ?? l.operationFailed,
                                           style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                                         ),
                                         if (res.unplacedItems.isNotEmpty) ...[
                                           const SizedBox(height: 4),
                                           Text(
-                                            'أرقام الطرود غير المحمّلة: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                            '${l.packageMeasurementsTitle}: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
                                             style: TextStyle(color: Colors.red.shade700, fontSize: 11),
                                           ),
                                         ],
@@ -1730,17 +1743,17 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                        '#${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                       ),
                                       Row(
                                         children: [
-                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(l.cbmWoodenPalletsFloor, style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                            child: Text('${l.cbmInternalDimensionsLabel} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
                                           ),
                                         ],
                                       ),
@@ -1791,7 +1804,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
                 TextButton.icon(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  label: const Text('إغلاق المخطط'),
+                  label: Text(l.closePlan),
                 ),
               ],
             );
@@ -1820,6 +1833,7 @@ class _SavedCbmRegistryTabState extends ConsumerState<SavedCbmRegistryTab> {
     );
   }
 }
+
 
 
 

@@ -1,15 +1,10 @@
 import 'package:frontend/core/utils/container_requirement_engine.dart';
-
 import 'package:frontend/core/widgets/container_load_plan_painter.dart';
-
 import 'package:flutter/material.dart';
-
 import 'package:flutter/services.dart';
-
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/core/theme/app_theme.dart';
-
 import 'package:frontend/features/customs_tariff/models/customs_tariff_model.dart';
-
 import 'package:frontend/features/purchase_orders/models/purchase_order_model.dart';
 
 class POReportPreviewDialog extends StatelessWidget {
@@ -1893,182 +1888,96 @@ class POReportPreviewDialog extends StatelessWidget {
 
                               children: [
 
-                                const Text(
-
-                                  'مخطط ومحاكاة رص الحاويات 3D (Purchase Order Load Planner)',
-
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
-
-                                ),
-
                                 Text(
-
-                                  'محاكاة خوارزمية الرص ثلاثية الأبعاد للحاويات البحرية بناءً على قائمة التعبئة وأبعاد الطرود',
-
-                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
-
+                                  context.l10n.containerLoadPlan3dTitle,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                                 ),
-
+                                Text(
+                                  context.l10n.containerLoadPlan3dSubtitle,
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
+                                ),
                               ],
-
                             ),
-
                           ],
-
                         ),
-
                         IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(dialogCtx)),
-
                       ],
-
                     ),
-
                     const SizedBox(height: 10),
 
                     Container(
-
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-
                       decoration: BoxDecoration(
-
                         color: Colors.grey.shade100,
-
                         borderRadius: BorderRadius.circular(8),
-
                         border: Border.all(color: Colors.grey.shade300),
-
                       ),
-
                       child: SingleChildScrollView(
-
                         scrollDirection: Axis.horizontal,
-
                         child: Row(
-
                           children: [
-
-                            const Text('نمط الرص بالمحاكاة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-
+                            Text(context.l10n.stackingSimulationModeLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
                             const SizedBox(width: 10),
-
                             SegmentedButton<int>(
-
-                              segments: const [
-
-                                ButtonSegment(value: 0, label: Text('⚖️ الرص الفعلي (Mixed)'), tooltip: 'استخدام إعدادات الرص المحددة لكل طرد/بالتة'),
-
-                                ButtonSegment(value: 1, label: Text('📦 قابل للرص (Stackable)'), tooltip: 'محاكاة افتراض أن جميع الطرود قابلة للتراص الرأسي'),
-
-                                ButtonSegment(value: 2, label: Text('🚫 أرضي فقط (Floor Only)'), tooltip: 'محاكاة افتراض أن جميع الطرود غير قابلة للتراص'),
-
+                              segments: [
+                                ButtonSegment(value: 0, label: Text(context.l10n.simulationModeActualMixed)),
+                                ButtonSegment(value: 1, label: Text(context.l10n.simulationModeStackable)),
+                                ButtonSegment(value: 2, label: Text(context.l10n.simulationModeFloorOnly)),
                               ],
-
                               selected: {
-
                                 activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
-
                               },
-
                               onSelectionChanged: (val) {
-
                                 setDialogState(() {
-
                                   final sel = val.first;
-
                                   if (sel == 0) activeStackingMode = null;
-
                                   if (sel == 1) activeStackingMode = true;
-
                                   if (sel == 2) activeStackingMode = false;
-
                                 });
-
                               },
-
                             ),
-
                             const SizedBox(width: 20),
-
-                            const Text('المسقط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
-
+                            Text(context.l10n.projectionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
                             const SizedBox(width: 8),
-
                             SegmentedButton<bool>(
-
-                              segments: const [
-
-                                ButtonSegment(value: true, label: Text('🔝 مسقط علوي (Top View)')),
-
-                                ButtonSegment(value: false, label: Text('🔲 مسقط جانبي (Side View)')),
-
+                              segments: [
+                                ButtonSegment(value: true, label: Text(context.l10n.topViewProjection)),
+                                ButtonSegment(value: false, label: Text(context.l10n.sideViewProjection)),
                               ],
-
                               selected: {isTopView},
-
                               onSelectionChanged: (val) {
-
                                 setDialogState(() => isTopView = val.first);
-
                               },
-
                             ),
-
                           ],
-
                         ),
-
                       ),
-
                     ),
-
                     const SizedBox(height: 10),
 
                     Container(
-
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-
                       decoration: BoxDecoration(
-
                         color: AppTheme.charcoal.withOpacity(0.04),
-
                         borderRadius: BorderRadius.circular(8),
-
                         border: Border.all(color: AppTheme.charcoal.withOpacity(0.12)),
-
                       ),
-
                       child: Row(
-
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
-
                         children: [
-
                           Row(
-
                             children: [
-
                               const Icon(Icons.directions_boat_rounded, color: AppTheme.cobalt, size: 20),
-
                               const SizedBox(width: 6),
-
-                              Text('الحاويات المطلوبة: $fleetSummary', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
-
+                              Text(context.l10n.requiredContainersSummary(fleetSummary), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                             ],
-
                           ),
-
                           Row(
-
                             children: [
-
                               const Icon(Icons.inventory_2_outlined, color: AppTheme.charcoal, size: 18),
-
                               const SizedBox(width: 6),
-
-                              Text('عدد الطرود: $totalPkgs طرد ($stackableInActive قابل للرص | $nonStackableInActive أرضي)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-
+                              Text(context.l10n.totalPackagesSummary(totalPkgs, stackableInActive, nonStackableInActive), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ],
-
                           ),
 
                           Row(

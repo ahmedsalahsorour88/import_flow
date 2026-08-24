@@ -861,6 +861,8 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
       builder: (context) {
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
+            final l = dialogCtx.l10n;
+            final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
             // Compute plan dynamically based on the selected mode
             final plan = ContainerRequirementEngine.planShipment(
               baseCargoItems,
@@ -891,10 +893,10 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 children: [
                   const Icon(Icons.view_in_ar, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 8),
-                  const Expanded(
+                  Expanded(
                     child: Text(
-                      'مخطط ومحاكاة رص الحاويات (Visual 2.5D/3D Container Load Planner)',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                      l.visualLoadPlanSimulator,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                     ),
                   ),
                   Container(
@@ -905,7 +907,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       border: Border.all(color: AppTheme.cobalt),
                     ),
                     child: Text(
-                      'الأسطول المطلوب: $fleetSummaryText (${plan.length} حاوية)',
+                      '${isArabic ? "الأسطول المطلوب:" : "Required Fleet:"} $fleetSummaryText (${plan.length} ${isArabic ? "حاوية" : "Container(s)"})',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                     ),
                   ),
@@ -927,14 +929,14 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text(
-                            '🔄 اختر سيناريو الرص للمعاينة:',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                          Text(
+                            isArabic ? '🔄 اختر سيناريو الرص للمعاينة:' : '🔄 Select Stacking Scenario for Preview:',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                           Row(
                             children: [
                               ChoiceChip(
-                                label: const Text('📦 1. بضائع تقبل الرص (All Stackable)'),
+                                label: Text(l.allStackableOption),
                                 selected: activeStackingMode == true,
                                 selectedColor: AppTheme.emerald,
                                 labelStyle: TextStyle(
@@ -948,7 +950,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🚫 2. بضائع لا تقبل الرص (All Non-Stackable)'),
+                                label: Text(l.allNonStackableOption),
                                 selected: activeStackingMode == false,
                                 selectedColor: Colors.orange.shade800,
                                 labelStyle: TextStyle(
@@ -962,7 +964,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               ),
                               const SizedBox(width: 8),
                               ChoiceChip(
-                                label: const Text('🔀 3. مزيج يقبل ولا يقبل الرص (Mixed Stacking)'),
+                                label: Text(l.mixedStackingOption),
                                 selected: activeStackingMode == null,
                                 selectedColor: AppTheme.cobalt,
                                 labelStyle: TextStyle(
@@ -1024,16 +1026,16 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                         4: FlexColumnWidth(2.4),
                       },
                       children: [
-                        TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                          children: const [
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الحاوية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الأصناف والطرود', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('الوزن المحمّل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('استغلال المساحة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(6.0), child: Text('توزيع الرص والسلامة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                          ],
-                        ),
+                          TableRow(
+                            decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الحاوية' : 'Container', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الأصناف والطرود' : 'Items & Packages', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'الوزن المحمّل' : 'Loaded Weight', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'استغلال المساحة %' : 'Space Util %', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                              Padding(padding: const EdgeInsets.all(6.0), child: Text(isArabic ? 'توزيع الرص والسلامة' : 'Safety & Distribution', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                            ],
+                          ),
                         ...plan.asMap().entries.map((entry) {
                           final idx = entry.key + 1;
                           final res = entry.value;
@@ -1041,13 +1043,17 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
 
                           String statusText = '';
                           if (res.containerCode == 'FAILED') {
-                            statusText = 'فشل التحميل (طرود كبيرة الحجم/الوزن)';
+                            statusText = isArabic ? 'فشل التحميل (طرود كبيرة الحجم/الوزن)' : 'Loading Failed (Oversized/Overweight)';
                           } else {
                             final nonStackInThis = res.placedItems.where((p) => !p.item.isStackable).length;
                             if (nonStackInThis > 0) {
-                              statusText = 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية';
+                              statusText = isArabic
+                                  ? 'تحتوي على $nonStackInThis طرد غير قابل للرص مثبت على الأرضية'
+                                  : 'Contains $nonStackInThis floor-placed non-stackable package(s)';
                             } else {
-                              statusText = 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
+                              statusText = isArabic
+                                  ? 'رص متعدد الطبقات متوافق (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)'
+                                  : 'Multi-layer stacking compliant (${(res.totalVolume / res.spec.internalVolumeCbm * 100).toStringAsFixed(1)}%)';
                             }
                           }
 
@@ -1058,7 +1064,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               Padding(
                                 padding: const EdgeInsets.all(6.0),
                                 child: Text(
-                                  res.containerCode == 'FAILED' ? 'فشل الرص' : '$idx: ${res.spec.code}',
+                                  res.containerCode == 'FAILED' ? (isArabic ? 'فشل الرص' : 'Failed') : '$idx: ${res.spec.code}',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11),
                                 ),
                               ),
@@ -1081,9 +1087,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                   style: TextStyle(
                                     fontSize: 10,
                                     fontWeight: FontWeight.w600,
-                                    color: statusText.contains('فشل')
+                                    color: statusText.contains('فشل') || statusText.contains('Failed')
                                         ? Colors.red.shade800
-                                        : (statusText.contains('غير قابل') ? Colors.brown.shade800 : Colors.green.shade800),
+                                        : (statusText.contains('غير قابل') || statusText.contains('non-stackable') ? Colors.brown.shade800 : Colors.green.shade800),
                                   ),
                                 ),
                               ),
@@ -1106,7 +1112,9 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                               margin: const EdgeInsets.all(12),
                               decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red.shade300)),
                               child: Text(
-                                'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(', ')}',
+                                isArabic
+                                    ? 'الأصناف التالية تفوق سعة حاويات الشحن: ${res.unplacedItems.map((u) => u.itemId).join(", ")}'
+                                    : 'The following items exceed container capacity: ${res.unplacedItems.map((u) => u.itemId).join(", ")}',
                                 style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                               ),
                             );
@@ -1124,17 +1132,22 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
-                                        'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})',
+                                        isArabic
+                                            ? 'مخطط الحاوية #${pIdx + 1}: ${res.spec.name} (${res.spec.code})'
+                                            : 'Container #${pIdx + 1} Layout: ${res.spec.name} (${res.spec.code})',
                                         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                       ),
                                       Row(
                                         children: [
-                                          const Text('🪵 طبالي خشبية أرضية', style: TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
+                                          Text(isArabic ? '🪵 طبالي خشبية أرضية' : '🪵 Wooden Floor Pallets', style: const TextStyle(fontSize: 10, color: Colors.brown, fontWeight: FontWeight.bold)),
                                           const SizedBox(width: 10),
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                             decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4)),
-                                            child: Text('الأبعاد الداخلية: ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm', style: const TextStyle(fontSize: 10, color: AppTheme.cobalt)),
+                                            child: Text(
+                                              '${isArabic ? "الأبعاد الداخلية:" : "Internal Dims:"} ${res.spec.internalLength.toStringAsFixed(0)} x ${res.spec.internalWidth.toStringAsFixed(0)} x ${res.spec.internalHeight.toStringAsFixed(0)} cm',
+                                              style: const TextStyle(fontSize: 10, color: AppTheme.cobalt),
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -1185,7 +1198,7 @@ class _SavedScenariosRegistryTabState extends ConsumerState<SavedScenariosRegist
                 TextButton.icon(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.pop(context),
-                  label: const Text('إغلاق المخطط'),
+                  label: Text(isArabic ? 'إغلاق المخطط' : 'Close Plan'),
                 ),
               ],
             );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -60,6 +62,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     final content = SingleChildScrollView(
@@ -89,15 +92,15 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.inventory_2_outlined, color: Colors.white),
-            SizedBox(width: 10),
+            const Icon(Icons.inventory_2_outlined, color: Colors.white),
+            const SizedBox(width: 10),
             Flexible(
               child: Text(
-                'الأرشيف المركزي لمستندات وتعديلات الشحنة (Central Archive & Rectifications)',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+                l10n.centralDocsArchiveTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -107,7 +110,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         elevation: 2,
         actions: [
           IconButton(
-            tooltip: 'إغلاق والعودة',
+            tooltip: l10n.closeAndReturn,
             icon: const Icon(Icons.close, color: Colors.white),
             onPressed: () => Navigator.of(context).maybePop(),
           ),
@@ -119,6 +122,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildSelectionBar(List<dynamic> importFiles) {
+    final l10n = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -130,8 +134,8 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               flex: 4,
               child: SearchableDropdownField<int>(
                 value: _selectedImportFileId,
-                labelText: 'اختر ملف الشحنة للاستعراض المركزي *',
-                searchHintText: 'ابحث برقم الملف أو اسم المستورد أو المورد...',
+                labelText: l10n.selectCentralArchiveFileLabel,
+                searchHintText: l10n.selectCentralArchiveFileHint,
                 items: importFiles
                     .map((f) => SearchableDropdownItem<int>(
                           value: f.importFileId,
@@ -152,7 +156,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.refresh, color: Colors.white),
-                label: const Text('تحديث الأرشيف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                label: Text(l10n.refreshArchiveBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 onPressed: () {
                   ref.invalidate(centralArchiveProvider(_selectedImportFileId!));
                 },
@@ -164,6 +168,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildEmptyPlaceholder() {
+    final l10n = context.l10n;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
@@ -173,12 +178,12 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           Icon(Icons.folder_special_outlined, size: 80, color: Colors.grey.shade400),
           const SizedBox(height: 16),
           Text(
-            'يرجى اختيار ملف شحنة من القائمة أعلاه',
+            l10n.selectShipmentFilePrompt,
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
           ),
           const SizedBox(height: 8),
           Text(
-            'سيتم استعراض الفاتورة النهائية، الباكينج ليست، درافت البوليصة، درافت المنشأ، درافت الفحص، وملخص التعديلات الصريحة فوراً.',
+            l10n.centralArchivePlaceholderDesc,
             style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
             textAlign: TextAlign.center,
           ),
@@ -188,17 +193,18 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildArchiveContent(int fileId) {
+    final l10n = context.l10n;
     final archiveAsync = ref.watch(centralArchiveProvider(fileId));
 
     return archiveAsync.when(
-      loading: () => const Center(
+      loading: () => Center(
         child: Padding(
-          padding: EdgeInsets.all(60.0),
+          padding: const EdgeInsets.all(60.0),
           child: Column(
             children: [
-              CircularProgressIndicator(color: AppTheme.cobalt),
-              SizedBox(height: 16),
-              Text('جارٍ جلب وتجميع الأرشيف المركزي ومطابقة المستندات...', style: TextStyle(fontWeight: FontWeight.bold)),
+              const CircularProgressIndicator(color: AppTheme.cobalt),
+              const SizedBox(height: 16),
+              Text(l10n.centralArchiveLoadingPrompt, style: const TextStyle(fontWeight: FontWeight.bold)),
             ],
           ),
         ),
@@ -213,7 +219,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               const Icon(Icons.error, color: Colors.red, size: 36),
               const SizedBox(width: 12),
               Expanded(
-                child: Text('خطأ أثناء جلب بيانات الأرشيف: $err',
+                child: Text(l10n.centralArchiveLoadError(err.toString()),
                     style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -225,6 +231,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildArchiveView(Map<String, dynamic> data) {
+    final l10n = context.l10n;
     final readiness = data['readiness_status']?.toString() ?? 'IN_REVIEW';
     final score = (data['readiness_score'] as num?)?.toDouble() ?? 0.0;
     final totalCritical = data['total_critical_discrepancies'] as int? ?? 0;
@@ -253,14 +260,14 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
         const SizedBox(height: 20),
 
         // 4. Section Title
-        const Row(
+        Row(
           children: [
-            Icon(Icons.library_books, color: AppTheme.cobalt),
-            SizedBox(width: 8),
+            const Icon(Icons.library_books, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
-                'أرشيف المستندات الـ 5 المعتمدة وتفاصيل التعديلات لكل وثيقة:',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                l10n.fiveCoreDocsSectionTitle,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
               ),
             ),
           ],
@@ -272,7 +279,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           doc: finalInv,
           icon: Icons.receipt_long,
           color: Colors.indigo,
-          defaultTitle: '1. الفاتورة التجارية النهائية المعتمدة (Final Commercial Invoice)',
+          defaultTitle: l10n.docTitleCommercialInvoice,
           isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
@@ -280,7 +287,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           doc: finalPkg,
           icon: Icons.inventory_2,
           color: Colors.teal,
-          defaultTitle: '2. قائمة التعبئة النهائية المعتمدة (Final Packing List)',
+          defaultTitle: l10n.docTitlePackingList,
           isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
@@ -288,7 +295,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           doc: draftBl,
           icon: Icons.directions_boat,
           color: Colors.blue.shade800,
-          defaultTitle: '3. مسودة بوليصة الشحن البحرية (Draft Bill of Lading)',
+          defaultTitle: l10n.docTitleBillOfLading,
           isMandatoryCore: true,
         ),
         const SizedBox(height: 12),
@@ -296,7 +303,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           doc: draftCoo,
           icon: Icons.public,
           color: Colors.purple.shade700,
-          defaultTitle: '4. درافت شهادة المنشأ / يورو 1 (Draft Certificate of Origin / EUR.1)',
+          defaultTitle: l10n.docTitleCertificateOfOrigin,
           isMandatoryCore: false,
         ),
         const SizedBox(height: 12),
@@ -304,7 +311,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
           doc: draftInsp,
           icon: Icons.verified_user,
           color: Colors.orange.shade800,
-          defaultTitle: '5. درافت شهادة الفحص والمطابقة النوعية (Draft Inspection / VoC / COC)',
+          defaultTitle: l10n.docTitleInspectionCertificate,
           isMandatoryCore: false,
         ),
         const SizedBox(height: 30),
@@ -320,7 +327,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
               ),
               icon: const Icon(Icons.close),
-              label: const Text('إغلاق والعودة ✕', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: Text(l10n.closeAndReturn, style: const TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.of(context).maybePop(),
             ),
           ],
@@ -330,14 +337,15 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildImportRequirementsComplianceCard(Map<String, dynamic> data) {
+    final l10n = context.l10n;
     final reqSummary = data['import_requirements_summary'] as Map<String, dynamic>? ?? {};
     final tariffAlert = data['tariff_exemption_alert']?.toString();
     final goeicAlert = data['goeic_inspection_alert']?.toString();
     final decreeAlert = data['decree_43_alert']?.toString();
 
     final hsCode = reqSummary['hs_code']?.toString() ?? 'N/A';
-    final commodity = reqSummary['commodity_description']?.toString() ?? 'بضائع تجارية مستوردة';
-    final origin = reqSummary['country_of_origin']?.toString() ?? 'غير محدد';
+    final commodity = reqSummary['commodity_description']?.toString() ?? '';
+    final origin = reqSummary['country_of_origin']?.toString() ?? '';
     final cooRequired = reqSummary['coo_required'] as bool? ?? false;
     final cooType = reqSummary['coo_type']?.toString() ?? 'Standard COO';
     final inspRequired = reqSummary['inspection_required'] as bool? ?? false;
@@ -375,9 +383,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       ),
                       child: const Icon(Icons.rule_folder, color: AppTheme.cobalt, size: 20),
                     ),
-                    const Text(
-                      '📋 تقرير مطابقة متطلبات الاستيراد والرقابة (BP-011 Compliance)',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    Text(
+                      l10n.complianceReportHeader,
+                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                     ),
                   ],
                 ),
@@ -389,7 +397,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     border: Border.all(color: Colors.teal.shade300),
                   ),
                   child: Text(
-                    'المنشأ: $origin | HS: $hsCode | $commodity',
+                    l10n.complianceSummaryTag(origin.isNotEmpty ? origin : 'N/A', hsCode, commodity.isNotEmpty ? commodity : 'N/A'),
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.teal.shade800),
                   ),
                 ),
@@ -474,20 +482,20 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               runSpacing: 8,
               children: [
                 _buildComplianceChip(
-                  label: 'شهادة المنشأ / EUR.1',
-                  statusText: cooRequired ? 'مطلوبة ($cooType)' : 'معفاة / غير مطلوبة',
+                  label: l10n.chipCooLabel,
+                  statusText: cooRequired ? l10n.cooRequiredText(cooType) : l10n.cooNotRequiredText,
                   isRequired: cooRequired,
                   icon: Icons.public,
                 ),
                 _buildComplianceChip(
-                  label: 'فحص ما قبل الشحن (VoC)',
-                  statusText: inspRequired ? 'مطلوب ($inspAgency)' : 'غير خاضع للرقابة',
+                  label: l10n.chipVocLabel,
+                  statusText: inspRequired ? l10n.inspRequiredText(inspAgency) : l10n.inspNotRequiredText,
                   isRequired: inspRequired,
                   icon: Icons.security,
                 ),
                 _buildComplianceChip(
-                  label: 'قرار 43 / تسجيل المصنع',
-                  statusText: decree43 ? (whiteList ? 'مسجل بالقائمة البيضاء' : 'يلزم قيد المصنع') : 'غير خاضع',
+                  label: l10n.chipDecree43Label,
+                  statusText: decree43 ? (whiteList ? l10n.decree43WhiteListed : l10n.decree43RegistrationRequired) : l10n.decree43NotApplicable,
                   isRequired: decree43 && !whiteList,
                   icon: Icons.factory,
                 ),
@@ -529,21 +537,22 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildOverviewHeaderCard(Map<String, dynamic> data, String readiness, double score, int critical, int warning) {
+    final l10n = context.l10n;
     Color readinessColor;
     String readinessText;
     IconData readinessIcon;
 
     if (readiness == 'READY_FOR_RELEASE') {
       readinessColor = AppTheme.emerald;
-      readinessText = 'جاهز تماماً للإفراج والرفع على كارجو إكس (100% Ready)';
+      readinessText = l10n.readinessReadyForRelease;
       readinessIcon = Icons.check_circle;
     } else if (readiness == 'ACTION_REQUIRED') {
       readinessColor = AppTheme.crimson;
-      readinessText = 'يتطلب تصحيحات وتعديلات حاسمة قبل إصدار الأصول';
+      readinessText = l10n.readinessActionRequired;
       readinessIcon = Icons.warning_amber_rounded;
     } else {
       readinessColor = AppTheme.orange;
-      readinessText = 'قيد استكمال ومراجعة مسودات المستندات';
+      readinessText = l10n.readinessInReview;
       readinessIcon = Icons.pending_actions;
     }
 
@@ -573,7 +582,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                       ),
                       child: Text(
-                        'كود الملف: ${data['import_file_code']}',
+                        l10n.fileCodeLabel(data['import_file_code'] ?? ''),
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14),
                       ),
                     ),
@@ -586,7 +595,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                           border: Border.all(color: Colors.grey.shade400),
                         ),
                         child: Text(
-                          'رقم الملف الجمركي: ${data['custom_file_number']}',
+                          l10n.customsFileNumberLabel(data['custom_file_number']),
                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey.shade800, fontSize: 13),
                         ),
                       ),
@@ -620,21 +629,25 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
             LayoutBuilder(
               builder: (context, constraints) {
                 final isNarrow = constraints.maxWidth < 600;
+                final pkgsCount = data['total_packages'] ?? 0;
+                final weightCount = (data['total_gross_weight_kg'] as num?)?.toStringAsFixed(2) ?? '0.00';
+                final totalFormatted = '${(data['fob_or_cif_amount'] as num?)?.toStringAsFixed(2) ?? '0.00'} ${data['currency'] ?? 'EUR'}';
+
                 if (isNarrow) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _buildHeaderInfoRow('🏢 الشركة المستوردة:', data['importer_name'] ?? 'N/A'),
+                      _buildHeaderInfoRow(l10n.importerCompanyLabel, data['importer_name'] ?? 'N/A'),
                       const SizedBox(height: 8),
-                      _buildHeaderInfoRow('🏭 المصدر / المورد الأجنبي:', data['supplier_name'] ?? 'N/A'),
+                      _buildHeaderInfoRow(l10n.exporterSupplierLabel, data['supplier_name'] ?? 'N/A'),
                       const SizedBox(height: 8),
-                      _buildHeaderInfoRow('🔢 رقم القيد (ACID):', data['acid_number'] ?? 'N/A', isBold: true),
+                      _buildHeaderInfoRow(l10n.acidNumberLabel, data['acid_number'] ?? 'N/A', isBold: true),
                       const SizedBox(height: 8),
-                      _buildHeaderInfoRow('⚓ مسار الشحن:', '${data['port_of_loading'] ?? 'N/A'} ➔ ${data['port_of_discharge'] ?? 'Alexandria'}'),
+                      _buildHeaderInfoRow(l10n.shippingRouteLabel, '${data['port_of_loading'] ?? 'N/A'} ➔ ${data['port_of_discharge'] ?? 'Alexandria'}'),
                       const SizedBox(height: 8),
-                      _buildHeaderInfoRow('📦 الطرود والوزن:', '${data['total_packages'] ?? 0} طرد | ${(data['total_gross_weight_kg'] as num?)?.toStringAsFixed(2) ?? '0.00'} KG'),
+                      _buildHeaderInfoRow(l10n.totalPackagesAndWeightLabel, l10n.packagesCountText(pkgsCount, weightCount)),
                       const SizedBox(height: 8),
-                      _buildHeaderInfoRow('💰 القيمة الإجمالية:', '${(data['fob_or_cif_amount'] as num?)?.toStringAsFixed(2) ?? '0.00'} ${data['currency'] ?? 'EUR'}'),
+                      _buildHeaderInfoRow(l10n.totalInvoiceValueLabel, totalFormatted),
                     ],
                   );
                 }
@@ -646,11 +659,11 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildHeaderInfoRow('🏢 الشركة المستوردة:', data['importer_name'] ?? 'N/A'),
+                          _buildHeaderInfoRow(l10n.importerCompanyLabel, data['importer_name'] ?? 'N/A'),
                           const SizedBox(height: 8),
-                          _buildHeaderInfoRow('🏭 المصدر / المورد الأجنبي:', data['supplier_name'] ?? 'N/A'),
+                          _buildHeaderInfoRow(l10n.exporterSupplierLabel, data['supplier_name'] ?? 'N/A'),
                           const SizedBox(height: 8),
-                          _buildHeaderInfoRow('🔢 رقم القيد (ACID):', data['acid_number'] ?? 'N/A', isBold: true),
+                          _buildHeaderInfoRow(l10n.acidNumberLabel, data['acid_number'] ?? 'N/A', isBold: true),
                         ],
                       ),
                     ),
@@ -660,11 +673,11 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildHeaderInfoRow('⚓ مسار الشحن (POL ➔ POD):', '${data['port_of_loading'] ?? 'N/A'} ➔ ${data['port_of_discharge'] ?? 'Alexandria'}'),
+                          _buildHeaderInfoRow(l10n.shippingRouteLabel, '${data['port_of_loading'] ?? 'N/A'} ➔ ${data['port_of_discharge'] ?? 'Alexandria'}'),
                           const SizedBox(height: 8),
-                          _buildHeaderInfoRow('📦 إجمالي الطرود والوزن:', '${data['total_packages'] ?? 0} طرد | ${(data['total_gross_weight_kg'] as num?)?.toStringAsFixed(2) ?? '0.00'} KG'),
+                          _buildHeaderInfoRow(l10n.totalPackagesAndWeightLabel, l10n.packagesCountText(pkgsCount, weightCount)),
                           const SizedBox(height: 8),
-                          _buildHeaderInfoRow('💰 القيمة الإجمالية:', '${(data['fob_or_cif_amount'] as num?)?.toStringAsFixed(2) ?? '0.00'} ${data['currency'] ?? 'EUR'}'),
+                          _buildHeaderInfoRow(l10n.totalInvoiceValueLabel, totalFormatted),
                         ],
                       ),
                     ),
@@ -698,6 +711,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
   }
 
   Widget _buildMasterRectificationsCard(Map<String, dynamic> data, List<dynamic> checklist, int critical, int warning) {
+    final l10n = context.l10n;
     final emailText = data['supplier_email_rectification_text']?.toString() ?? '';
     final waText = data['supplier_whatsapp_rectification_text']?.toString() ?? '';
 
@@ -726,9 +740,9 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       color: critical > 0 ? AppTheme.crimson : (warning > 0 ? AppTheme.orange : AppTheme.emerald),
                     ),
                     const SizedBox(width: 8),
-                    const Text(
-                      '⚡ ملخص التعديلات والفروق المطلوبة الصريحة:',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                    Text(
+                      l10n.masterRectificationsHeader,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -742,8 +756,8 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.email, color: Colors.white, size: 16),
-                      label: const Text('📋 نسخ إيميل التعديلات للمورد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                      onPressed: () => _copyToClipboard(emailText, 'تم نسخ إيميل التعديلات الإنجليزي للمورد بنجاح!'),
+                      label: Text(l10n.copySupplierEmailBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () => _copyToClipboard(emailText, l10n.copySupplierEmailSuccess),
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -751,8 +765,8 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.chat, color: Colors.white, size: 16),
-                      label: const Text('📱 نسخ رسالة واتساب', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                      onPressed: () => _copyToClipboard(waText, 'تم نسخ رسالة واتساب السريعة بنجاح!'),
+                      label: Text(l10n.copyWhatsAppBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+                      onPressed: () => _copyToClipboard(waText, l10n.copyWhatsAppSuccess),
                     ),
                   ],
                 ),
@@ -767,14 +781,14 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.green.shade200),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.check_circle, color: AppTheme.emerald),
-                    SizedBox(width: 10),
+                    const Icon(Icons.check_circle, color: AppTheme.emerald),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '✔ مبروك! لا توجد أي فروق أو تعديلات مطلوبة. كافة المسودات مطابقة تماماً وجاهزة لرفعها على نافذة وكارجو إكس.',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                        l10n.noDiscrepanciesSuccessMessage,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
                       ),
                     ),
                   ],
@@ -817,16 +831,16 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: Text(
-                                      isCrit ? 'حرج مانع للإفراج' : 'تنبيه تحذيري',
+                                      isCrit ? l10n.severityCritical : l10n.severityWarning,
                                       style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isCrit ? Colors.red.shade900 : Colors.brown.shade900),
                                     ),
                                   ),
                                 ],
                               ),
                               const SizedBox(height: 4),
-                              Text('الملاحظة: ${item['issue']}', style: TextStyle(fontSize: 13, color: Colors.grey.shade800)),
+                              Text(l10n.discrepancyIssueLabel(item['issue'] ?? ''), style: TextStyle(fontSize: 13, color: Colors.grey.shade800)),
                               const SizedBox(height: 4),
-                              Text('📌 التعديل المطلوب: ${item['rectification']}', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isCrit ? Colors.red.shade900 : Colors.brown.shade900)),
+                              Text(l10n.discrepancyRectificationLabel(item['rectification'] ?? ''), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: isCrit ? Colors.red.shade900 : Colors.brown.shade900)),
                             ],
                           ),
                         ),
@@ -848,13 +862,14 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     required String defaultTitle,
     bool isMandatoryCore = false,
   }) {
+    final l10n = context.l10n;
     final title = doc['title_ar']?.toString() ?? defaultTitle;
     final isAvail = doc['is_available'] as bool? ?? false;
     final isWaived = doc['is_waived'] as bool? ?? false;
     final waiveReason = doc['waive_reason']?.toString();
     final legalNote = doc['legal_requirement_note']?.toString();
     final status = doc['status']?.toString() ?? 'NOT_STARTED';
-    final refNo = doc['document_reference']?.toString() ?? 'غير متوفر';
+    final refNo = doc['document_reference']?.toString() ?? 'N/A';
     final details = doc['details'] as Map<String, dynamic>? ?? {};
     final discrepancies = doc['discrepancies'] as List<dynamic>? ?? [];
 
@@ -862,19 +877,19 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
     String badgeText;
     if (isWaived || status == 'WAIVED') {
       badgeColor = Colors.teal;
-      badgeText = 'معفاة / غير مطلوبة 🟢';
+      badgeText = l10n.docStatusWaived;
     } else if (status == 'APPROVED') {
       badgeColor = AppTheme.emerald;
-      badgeText = 'معتمد بنجاح ✔';
+      badgeText = l10n.docStatusApproved;
     } else if (status == 'MODIFICATIONS_REQUESTED') {
       badgeColor = AppTheme.crimson;
-      badgeText = 'مطلوب تعديلات ✕';
+      badgeText = l10n.docStatusModificationsRequested;
     } else if (status == 'REVIEW_PENDING') {
       badgeColor = AppTheme.orange;
-      badgeText = 'قيد التدقيق ⏳';
+      badgeText = l10n.docStatusReviewPending;
     } else {
       badgeColor = Colors.grey;
-      badgeText = 'غير مدرج بعد ⚪';
+      badgeText = l10n.docStatusNotStarted;
     }
 
     return Card(
@@ -905,7 +920,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                     border: Border.all(color: isMandatoryCore ? Colors.red.shade200 : Colors.blue.shade200),
                   ),
                   child: Text(
-                    isMandatoryCore ? 'إلزامي حتمي' : 'شرطي / حسب البند',
+                    isMandatoryCore ? l10n.docMandatoryCore : l10n.docConditional,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
@@ -921,7 +936,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
               runSpacing: 4,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text('المرجع: $refNo', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                Text(l10n.docReferenceLabel(refNo), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
@@ -987,7 +1002,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
 
                 // Document Discrepancies
                 if (discrepancies.isNotEmpty) ...[
-                  const Text('التعديلات المطلوبة لهذا المستند:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.crimson)),
+                  Text(l10n.docModificationsRequestedTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.crimson)),
                   const SizedBox(height: 6),
                   ...discrepancies.map((d) => Container(
                         margin: const EdgeInsets.only(bottom: 6),
@@ -1002,7 +1017,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                             const Icon(Icons.arrow_left, color: AppTheme.crimson, size: 18),
                             Expanded(
                               child: Text(
-                                '${d['field']}: ${d['issue']} ➔ المطلوب: ${d['rectification']}',
+                                '${d['field']}: ${d['issue']} ➔ ${d['rectification']}',
                                 style: TextStyle(fontSize: 12, color: Colors.red.shade900, fontWeight: FontWeight.bold),
                               ),
                             ),
@@ -1016,7 +1031,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          waiveReason ?? 'هذا المستند غير مطلوب / معفى قانونياً ولا يؤثر على جاهزية الإفراج 100%.',
+                          waiveReason ?? l10n.docWaivedDefaultDesc,
                           style: TextStyle(fontSize: 12, color: Colors.teal.shade800, fontWeight: FontWeight.w600),
                         ),
                       ),
@@ -1029,7 +1044,7 @@ class _CentralDocsArchiveScreenState extends ConsumerState<CentralDocsArchiveScr
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          'هذا المستند لا يحتوي على أي ملاحظات أو فروق.',
+                          l10n.docNoDiscrepanciesDesc,
                           style: TextStyle(fontSize: 12, color: Colors.green.shade800),
                         ),
                       ),

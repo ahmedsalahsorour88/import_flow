@@ -144,30 +144,29 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                             items: [
                               SearchableDropdownItem(
                                   value: 'All', label: l.allStatuses),
-                              const SearchableDropdownItem(
+                              SearchableDropdownItem(
                                   value: 'Pending Review',
-                                  label: 'Pending Review'),
-                              const SearchableDropdownItem(
+                                  label: l.statusPendingReview),
+                              SearchableDropdownItem(
                                   value: 'In Progress',
-                                  label: 'In Progress'),
-                              const SearchableDropdownItem(
+                                  label: l.statusInProgress),
+                              SearchableDropdownItem(
                                   value: 'Action Required',
-                                  label: 'Action Required'),
-                              const SearchableDropdownItem(
+                                  label: l.statusActionRequired),
+                              SearchableDropdownItem(
                                   value: 'Clearance Ready',
-                                  label: 'Clearance Ready'),
-                              const SearchableDropdownItem(
-                                  value: 'Blocked', label: 'Blocked'),
+                                  label: l.statusClearanceReady),
+                              SearchableDropdownItem(
+                                  value: 'Blocked', label: l.statusBlocked),
                             ],
                             onChanged: (v) =>
                                 setState(() => _statusFilter = v!),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        const SizedBox(width: 10),
                         FilterChip(
                           avatar: Icon(_showInactive ? Icons.visibility_off : Icons.visibility, size: 16),
-                          label: Text(_showInactive ? 'إخفاء المؤرشفة' : 'إظهار المؤرشفة'),
+                          label: Text(_showInactive ? l.hideArchivedChip : l.showArchivedChip),
                           selected: _showInactive,
                           selectedColor: Colors.red.shade100,
                           onSelected: (val) {
@@ -314,26 +313,26 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                  final confirm = await showDialog<bool>(
                                                    context: context,
                                                    builder: (ctx) => AlertDialog(
-                                                     title: const Row(
+                                                     title: Row(
                                                        children: [
-                                                         Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
-                                                         SizedBox(width: 8),
-                                                         Text('استعادة دراسة الاستشارة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                         const Icon(Icons.restore_from_trash_rounded, color: Colors.green, size: 22),
+                                                         const SizedBox(width: 8),
+                                                         Text(l.restoreConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                        ],
                                                      ),
                                                      content: Text(
-                                                       'هل ترغب في استعادة وتفعيل دراسة الاستشارة الجمركية "${session.consultationCode} - ${session.title}"؟',
+                                                       l.restoreConsultationMsg(session.consultationCode, session.title),
                                                        style: const TextStyle(fontSize: 13),
                                                      ),
                                                      actions: [
                                                        TextButton(
                                                          onPressed: () => Navigator.pop(ctx, false),
-                                                         child: const Text('إلغاء'),
+                                                         child: Text(l.cancel),
                                                        ),
                                                        ElevatedButton.icon(
                                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                                                          icon: const Icon(Icons.restore_rounded, size: 16),
-                                                         label: const Text('استعادة وتفعيل'),
+                                                         label: Text(l.restoreAndActivateBtn),
                                                          onPressed: () => Navigator.pop(ctx, true),
                                                        ),
                                                      ],
@@ -345,7 +344,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                      if (mounted) {
                                                        messenger.showSnackBar(
                                                          SnackBar(
-                                                           content: Text('♻️ تم استعادة وتفعيل دراسة الاستشارة (${session.consultationCode}) بنجاح'),
+                                                           content: Text('♻️ ${l.restoreConsultationSuccess(session.consultationCode)}'),
                                                            backgroundColor: AppTheme.emerald,
                                                          ),
                                                        );
@@ -354,7 +353,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                      if (mounted) {
                                                        messenger.showSnackBar(
                                                          SnackBar(
-                                                           content: Text('❌ خطأ أثناء الاستعادة: $e'),
+                                                           content: Text('❌ $e'),
                                                            backgroundColor: AppTheme.crimson,
                                                          ),
                                                        );
@@ -365,21 +364,21 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                  final confirm = await showDialog<bool>(
                                                    context: context,
                                                    builder: (ctx) => AlertDialog(
-                                                     title: const Row(
+                                                     title: Row(
                                                        children: [
-                                                         Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
-                                                         SizedBox(width: 8),
-                                                         Text('تأكيد حذف الدراسة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                                         const Icon(Icons.warning_rounded, color: Colors.orange, size: 22),
+                                                         const SizedBox(width: 8),
+                                                         Text(l.deleteConsultationTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                                        ],
                                                      ),
                                                      content: Text(
-                                                       'هل أنت متأكد من حذف دراسة الاستشارة الجمركية "${session.consultationCode} - ${session.title}"؟\n\nسيتم أرشفة الدراسة مع إمكانية استعادتها لاحقاً.',
+                                                       l.deleteConsultationMsg(session.consultationCode, session.title),
                                                        style: const TextStyle(fontSize: 13),
                                                      ),
                                                      actions: [
                                                        TextButton(
                                                          onPressed: () => Navigator.pop(ctx, false),
-                                                         child: const Text('إلغاء'),
+                                                         child: Text(l.cancel),
                                                        ),
                                                        ElevatedButton.icon(
                                                          style: ElevatedButton.styleFrom(
@@ -387,7 +386,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                            foregroundColor: Colors.white,
                                                          ),
                                                          icon: const Icon(Icons.delete_rounded, size: 16),
-                                                         label: const Text('حذف وأرشفة'),
+                                                         label: Text(l.deleteAndArchiveBtn),
                                                          onPressed: () => Navigator.pop(ctx, true),
                                                        ),
                                                      ],
@@ -399,7 +398,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                      if (mounted) {
                                                        messenger.showSnackBar(
                                                          SnackBar(
-                                                           content: Text('🗑️ تم حذف وأرشفة دراسة الاستشارة (${session.consultationCode}) بنجاح'),
+                                                           content: Text('🗑️ ${l.deleteConsultationSuccess(session.consultationCode)}'),
                                                            backgroundColor: AppTheme.emerald,
                                                          ),
                                                        );
@@ -408,7 +407,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                      if (mounted) {
                                                        messenger.showSnackBar(
                                                          SnackBar(
-                                                           content: Text('❌ خطأ أثناء الحذف: $e'),
+                                                           content: Text('❌ $e'),
                                                            backgroundColor: AppTheme.crimson,
                                                          ),
                                                        );
@@ -417,7 +416,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                  }
                                                }
                                              },
-                                             deleteTooltip: session.isActive == false ? 'استعادة الدراسة المحذوفة' : 'حذف الدراسة (Soft Delete)',
+                                             deleteTooltip: session.isActive == false ? l.restoreDeletedTooltip : l.deleteStudyTooltip,
                                           ),
                                         ),
 
@@ -585,7 +584,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                                   .circular(4),
                                                         ),
                                                         child: Text(
-                                                          '${session.blockingIssuesCount} عائق',
+                                                          l.blockingIssuesBadge(session.blockingIssuesCount),
                                                           style: const TextStyle(
                                                               color: AppTheme
                                                                   .crimson,
@@ -622,7 +621,7 @@ class _SavedConsultationsTabState extends ConsumerState<SavedConsultationsTab> {
                                                 ),
                                                 const SizedBox(height: 3),
                                                 Text(
-                                                  '${session.approvedDocumentsCount}/${session.totalDocumentsCount} مستند معتمد',
+                                                  l.approvedDocsCountBadge(session.approvedDocumentsCount, session.totalDocumentsCount),
                                                   style: TextStyle(
                                                       fontSize: 10,
                                                       color:

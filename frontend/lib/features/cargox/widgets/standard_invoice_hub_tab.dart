@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -113,7 +114,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handleDownloadTemplate() async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
       );
       return;
     }
@@ -126,14 +127,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم توليد الفاتورة بنجاح: ${_selectedImportFile!.importFileCode} (${bytes.length} bytes)'),
+          content: Text(context.l10n.standardInvoiceGeneratedSuccess(_selectedImportFile!.importFileCode, bytes.length)),
           backgroundColor: const Color(0xFF27AE60),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في توليد النموذج: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isDownloading = false);
@@ -143,7 +144,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handlePickAndParseExcel() async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
       );
       return;
     }
@@ -171,7 +172,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('تم استخراج الفاتورة بنجاح: ${parsed.invoiceNumber ?? parsed.invoiceType} (${parsed.items.length} بنود)'),
+            content: Text(context.l10n.standardInvoiceExtractedSuccess(parsed.invoiceNumber ?? parsed.invoiceType, parsed.items.length)),
             backgroundColor: const Color(0xFF27AE60),
           ),
         );
@@ -182,7 +183,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         if (!mounted) return;
         setState(() => _isParsing = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء قراءة الفاتورة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -204,7 +205,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ أثناء المطابقة: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -212,7 +213,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   Future<void> _handleSaveSession() async {
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.standardInvoiceSelectFileFirstError), backgroundColor: Colors.red),
       );
       return;
     }
@@ -222,10 +223,10 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       if (_overrideReasonController.text.trim().isEmpty) {
         _formKey.currentState?.validate();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ يجب كتابة سبب ومبرر اعتماد الفاتورة مع وجود فروق جمركية (Discrepancy Override Justification).'),
+          SnackBar(
+            content: Text(context.l10n.standardInvoiceMustProvideOverrideJustification),
             backgroundColor: Colors.red,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
           ),
         );
         return;
@@ -277,7 +278,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم حفظ واعتماد جلسة مراجعة الفاتورة المعيارية بنجاح [${saved.sessionCode}]'),
+          content: Text(context.l10n.standardInvoiceSessionSavedSuccess(saved.sessionCode)),
           backgroundColor: const Color(0xFF27AE60),
         ),
       );
@@ -285,7 +286,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في حفظ الجلسة: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('${context.l10n.errorPrefix}: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -293,7 +294,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   void _copyToClipboard(String text, String label) {
     Clipboard.setData(ClipboardData(text: text));
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('تم نسخ $label إلى الحافظة بنجاح'), backgroundColor: const Color(0xFF27AE60)),
+      SnackBar(content: Text(context.l10n.standardInvoiceCopiedToClipboard(label)), backgroundColor: const Color(0xFF27AE60)),
     );
   }
 
@@ -360,13 +361,13 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'مركز إدارة وتوليد الفاتورة التجارية المعيارية (Standard Commercial Invoice Hub)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
+                Text(
+                  context.l10n.standardInvoiceHubTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'توليد نموذج إكسيل الموحد ذو النطاقات المسمّاة (Named Ranges & Structured Tables)، مطابقة بيانات المورد آلياً، واكتشاف الفروق الجمركية قبل إرسال المظروف لـ CargoX ونافذة.',
+                  context.l10n.standardInvoiceHubDesc,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                 ),
               ],
@@ -393,8 +394,8 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             children: [
               Expanded(
                 child: SearchableDropdownField<int>(
-                  labelText: 'اختيار ملف الشحنة الاستيرادية (Import File)',
-                  hintText: 'ابحث برقم الملف، ACID، اسم المورد أو الشركة...',
+                  labelText: context.l10n.standardInvoiceFileSelectorLabel,
+                  hintText: context.l10n.standardInvoiceFileSelectorHint,
                   value: _selectedImportFile?.importFileId,
                   items: files
                       .map((f) => SearchableDropdownItem<int>(
@@ -418,7 +419,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
                   ref.read(standardInvoiceSessionsProvider.notifier).fetchSessions();
                 },
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('تحديث'),
+                label: Text(context.l10n.refresh),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2C3E50),
                   foregroundColor: Colors.white,
@@ -430,7 +431,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('خطأ في تحميل ملفات الشحن: $e', style: const TextStyle(color: Colors.red)),
+      error: (e, _) => Text('${context.l10n.standardInvoiceFetchError} $e', style: const TextStyle(color: Colors.red)),
     );
   }
 
@@ -452,12 +453,18 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '⚠️ تم العثور على دراسة ومطابقة سابقة محفوظة لهذه الشحنة برقم: [${s.sessionCode}]',
+                  context.l10n.standardInvoiceExistingSessionTitle(s.sessionCode),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Color(0xFF7D6608)),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'تاريخ الحفظ: ${_formatDateTime(s.updatedAt)} | الحالة: ${s.status} | إجمالي الفاتورة: ${s.totalAmount.toStringAsFixed(2)} ${s.currencyCode} (${s.lineItemsCount} بنود)',
+                  context.l10n.standardInvoiceExistingSessionSubtitle(
+                    _formatDateTime(s.updatedAt),
+                    s.status,
+                    s.totalAmount.toStringAsFixed(2),
+                    s.currencyCode,
+                    s.lineItemsCount,
+                  ),
                   style: const TextStyle(fontSize: 12, color: Color(0xFF7D6608)),
                 ),
               ],
@@ -466,14 +473,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           ElevatedButton(
             onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('تم استدعاء بيانات الجلسة ${s.sessionCode}')),
+                SnackBar(content: Text(context.l10n.standardInvoiceSessionLoadedToast(s.sessionCode))),
               );
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFFD68910),
               foregroundColor: Colors.white,
             ),
-            child: const Text('عرض التفاصيل'),
+            child: Text(context.l10n.standardInvoiceViewSessionBtn),
           ),
         ],
       ),
@@ -485,11 +492,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       children: [
         Expanded(
           child: _buildToolActionCard(
-            title: '1. توليد نموذج الإكسيل المعياري',
-            subtitle: 'تجهيز ملف .xlsx بنطاقات مسمّاة لإرساله للمورد',
+            title: context.l10n.standardInvoiceTool1Title,
+            subtitle: context.l10n.standardInvoiceTool1Subtitle,
             icon: Icons.download_for_offline,
             color: const Color(0xFF27AE60),
-            buttonLabel: 'تحميل نموذج Excel الموحد',
+            buttonLabel: context.l10n.standardInvoiceTool1Btn,
             isLoading: _isDownloading,
             onTap: _handleDownloadTemplate,
           ),
@@ -497,11 +504,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         const SizedBox(width: 16),
         Expanded(
           child: _buildToolActionCard(
-            title: '2. قراءة واستخراج فاتورة المورد',
-            subtitle: 'رفع ملف الإكسيل المكتمل واستخراجه آلياً',
+            title: context.l10n.standardInvoiceTool2Title,
+            subtitle: context.l10n.standardInvoiceTool2Subtitle,
             icon: Icons.upload_file,
             color: const Color(0xFF3498DB),
-            buttonLabel: 'رفع وقراءة فاتورة المورد (.xlsx)',
+            buttonLabel: context.l10n.standardInvoiceTool2Btn,
             isLoading: _isParsing,
             onTap: _handlePickAndParseExcel,
           ),
@@ -589,11 +596,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         unselectedLabelColor: Colors.grey,
         indicatorColor: const Color(0xFF27AE60),
         indicatorWeight: 3,
-        tabs: const [
-          Tab(icon: Icon(Icons.visibility), text: 'بيانات الفاتورة المستخرجة'),
-          Tab(icon: Icon(Icons.compare_arrows), text: 'مصفوفة المطابقة والفروق'),
-          Tab(icon: Icon(Icons.gavel), text: 'الاعتماد والتحكم الجمركي'),
-          Tab(icon: Icon(Icons.history), text: 'سجل الفواتير المعيارية'),
+        tabs: [
+          Tab(icon: const Icon(Icons.visibility), text: context.l10n.standardInvoiceTabExtracted),
+          Tab(icon: const Icon(Icons.compare_arrows), text: context.l10n.standardInvoiceTabComparison),
+          Tab(icon: const Icon(Icons.gavel), text: context.l10n.standardInvoiceTabGovernance),
+          Tab(icon: const Icon(Icons.history), text: context.l10n.standardInvoiceTabRegistry),
         ],
       ),
     );
@@ -632,9 +639,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           children: [
             Icon(Icons.file_copy_outlined, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            const Text('لم يتم رفع وقراءة ملف فاتورة المورد بعد.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(context.l10n.standardInvoiceNoExtractedData, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text('قم بتحميل النموذج أولاً ثم ارفعه بعد قيام المورد بملء البيانات.', style: TextStyle(color: Colors.grey.shade600)),
+            Text(context.l10n.standardInvoiceNoExtractedDataSub, style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
       );
@@ -651,7 +658,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'تفاصيل الفاتورة: ${p.invoiceNumber ?? p.invoiceType} (${p.invoiceDate ?? "N/A"})',
+                context.l10n.standardInvoiceDetailsHeader(p.invoiceNumber ?? p.invoiceType, p.invoiceDate ?? 'N/A'),
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF2C3E50)),
               ),
               Chip(
@@ -666,26 +673,26 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildInfoCard('بيانات المصدّر (Seller)', [
-                  'الشركة: ${p.sellerName ?? "N/A"}',
-                  'الرقم الضريبي: ${p.sellerTaxId ?? "N/A"}',
-                  'الدولة: ${p.sellerCountryCode ?? "N/A"}',
-                  'العنوان: ${p.sellerAddress ?? "N/A"}',
+                child: _buildInfoCard(context.l10n.standardInvoiceSellerCardTitle, [
+                  context.l10n.sellerCompanyLabel(p.sellerName ?? 'N/A'),
+                  context.l10n.sellerTaxIdLabel(p.sellerTaxId ?? 'N/A'),
+                  context.l10n.sellerCountryLabel(p.sellerCountryCode ?? 'N/A'),
+                  context.l10n.sellerAddressLabel(p.sellerAddress ?? 'N/A'),
                 ]),
               ),
               const SizedBox(width: 16),
               Expanded(
-                child: _buildInfoCard('بيانات المستورد (Buyer)', [
-                  'الشركة: ${p.buyerName ?? "N/A"}',
-                  'الرقم الضريبي (Egypt Tax Code): ${p.buyerTaxId ?? "N/A"}',
-                  'رقم القيد الجمركي (ACID #): ${p.acidNumber ?? "N/A"}',
-                  'شرط التسليم: ${p.incoterm ?? "N/A"} | العملة: ${p.currencyCode}',
+                child: _buildInfoCard(context.l10n.standardInvoiceBuyerCardTitle, [
+                  context.l10n.buyerCompanyLabel(p.buyerName ?? 'N/A'),
+                  context.l10n.buyerTaxIdLabel(p.buyerTaxId ?? 'N/A'),
+                  context.l10n.buyerAcidNumberLabel(p.acidNumber ?? 'N/A'),
+                  context.l10n.buyerIncotermAndCurrencyLabel(p.incoterm ?? 'N/A', p.currencyCode),
                 ]),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          const Text('جدول البنود المستخرجة (Extracted Line Items)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          Text(context.l10n.standardInvoiceExtractedItemsHeader, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           _buildItemsTable(p.items),
         ],
@@ -721,16 +728,16 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: DataTable(
         headingRowColor: WidgetStateProperty.all(const Color(0xFF34495E)),
         headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-        columns: const [
-          DataColumn(label: Text('#')),
-          DataColumn(label: Text('كود الصنف')),
-          DataColumn(label: Text('بند التعريفة (HS Code)')),
-          DataColumn(label: Text('الوصف')),
-          DataColumn(label: Text('الكمية')),
-          DataColumn(label: Text('الوحدة')),
-          DataColumn(label: Text('سعر الوحدة')),
-          DataColumn(label: Text('الإجمالي')),
-          DataColumn(label: Text('الوزن القائم (كجم)')),
+        columns: [
+          const DataColumn(label: Text('#')),
+          DataColumn(label: Text(context.l10n.colProductCode)),
+          DataColumn(label: Text(context.l10n.colHsCode)),
+          DataColumn(label: Text(context.l10n.colDescription)),
+          DataColumn(label: Text(context.l10n.colQuantity)),
+          DataColumn(label: Text(context.l10n.colUnit)),
+          DataColumn(label: Text(context.l10n.colUnitPrice)),
+          DataColumn(label: Text(context.l10n.colTotalAmount)),
+          DataColumn(label: Text(context.l10n.colGrossWeight)),
         ],
         rows: items.map((item) {
           return DataRow(
@@ -761,9 +768,9 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           children: [
             Icon(Icons.compare_arrows, size: 48, color: Colors.grey.shade400),
             const SizedBox(height: 12),
-            const Text('لم يتم إجراء المطابقة بعد.', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            Text(context.l10n.standardInvoiceNoComparisonData, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const SizedBox(height: 6),
-            Text('قم برفع فاتورة المورد لتشغيل محرك المطابقة واكتشاف الفروق تلقائياً.', style: TextStyle(color: Colors.grey.shade600)),
+            Text(context.l10n.standardInvoiceNoComparisonDataSub, style: TextStyle(color: Colors.grey.shade600)),
           ],
         ),
       );
@@ -778,15 +785,15 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
         children: [
           _buildComparisonStatsBanner(c),
           const SizedBox(height: 20),
-          const Text('1. مطابقة الترويسة والبيانات الأساسية (Headers & Compliance)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          Text(context.l10n.standardInvoiceCompHeadersSection, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           _buildComparisonTable(c.headerComparisons),
           const SizedBox(height: 20),
-          const Text('2. مطابقة القيم المالية والضرائب (Financials Reconciliation)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          Text(context.l10n.standardInvoiceCompFinancialsSection, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           _buildComparisonTable(c.financialComparisons),
           const SizedBox(height: 20),
-          const Text('3. مطابقة بنود الأصناف (Line Items Discrepancy Matrix)', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+          Text(context.l10n.standardInvoiceCompItemsSection, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           const SizedBox(height: 10),
           _buildLineItemsComparisonTable(c.lineItemComparisons),
           if (c.hasDiscrepancies) ...[
@@ -802,18 +809,18 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
     Color bg = const Color(0xFFE8F8F5);
     Color border = const Color(0xFF27AE60);
     IconData icon = Icons.check_circle;
-    String title = 'مطابقة تامة 100% — لا توجد أي فروق جمركية أو مالية';
+    String title = context.l10n.standardInvoiceMatch100Banner;
 
     if (c.hasCriticalMismatch) {
       bg = const Color(0xFFFDEDEC);
       border = const Color(0xFFC0392B);
       icon = Icons.cancel;
-      title = '⚠️ تحذير جمركي حرج: يوجد ${c.criticalMismatchesCount} عدم تطابق حرج (ACID / الرقم الضريبي / HS Code)';
+      title = context.l10n.standardInvoiceCriticalMismatchBanner(c.criticalMismatchesCount);
     } else if (c.hasDiscrepancies) {
       bg = const Color(0xFFFEF9E7);
       border = const Color(0xFFF39C12);
       icon = Icons.warning;
-      title = 'تنبيه: يوجد ${c.totalDiscrepanciesCount} اختلافات بسيطة تحتاج مراجعة قبل الاعتماد';
+      title = context.l10n.standardInvoiceDiscrepanciesBanner(c.totalDiscrepanciesCount);
     }
 
     return Container(
@@ -836,22 +843,24 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
   }
 
   Widget _buildComparisonTable(List<StandardInvoiceComparisonRowModel> rows) {
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: DataTable(
         headingRowColor: WidgetStateProperty.all(const Color(0xFF2C3E50)),
         headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-        columns: const [
-          DataColumn(label: Text('الحقل المقارن')),
-          DataColumn(label: Text('القيمة المعتمدة بالنظام')),
-          DataColumn(label: Text('القيمة بفاتورة المورد')),
-          DataColumn(label: Text('حالة التطابق')),
-          DataColumn(label: Text('الفروق والملاحظات')),
+        columns: [
+          DataColumn(label: Text(context.l10n.standardInvoiceColComparedField)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColSystemValue)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColSupplierValue)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColMatchStatus)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColDiffAndNotes)),
         ],
         rows: rows.map((r) {
+          final label = isAr ? r.fieldLabelAr : r.fieldLabelEn;
           return DataRow(
             cells: [
-              DataCell(Text('${r.fieldLabelAr}\n${r.fieldLabelEn}', style: const TextStyle(fontSize: 11))),
+              DataCell(Text(label, style: const TextStyle(fontSize: 11))),
               DataCell(Text(r.systemValue ?? '—', style: const TextStyle(fontWeight: FontWeight.bold))),
               DataCell(Text(r.supplierValue ?? '—')),
               DataCell(_buildStatusBadge(r.status)),
@@ -869,17 +878,17 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: DataTable(
         headingRowColor: WidgetStateProperty.all(const Color(0xFF2C3E50)),
         headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-        columns: const [
-          DataColumn(label: Text('#')),
-          DataColumn(label: Text('كود الصنف')),
-          DataColumn(label: Text('HS Code (النظام)')),
-          DataColumn(label: Text('HS Code (المورد)')),
-          DataColumn(label: Text('الكمية (النظام)')),
-          DataColumn(label: Text('الكمية (المورد)')),
-          DataColumn(label: Text('السعر (النظام)')),
-          DataColumn(label: Text('السعر (المورد)')),
-          DataColumn(label: Text('الحالة')),
-          DataColumn(label: Text('الملاحظات')),
+        columns: [
+          const DataColumn(label: Text('#')),
+          DataColumn(label: Text(context.l10n.colProductCode)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColHsSystem)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColHsSupplier)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColQtySystem)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColQtySupplier)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColPriceSystem)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColPriceSupplier)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColMatchStatus)),
+          DataColumn(label: Text(context.l10n.standardInvoiceColDiffAndNotes)),
         ],
         rows: rows.map((r) {
           return DataRow(
@@ -912,28 +921,28 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('إخطارات تصحيح الفاتورة الجاهزة للمورد (Rectification Notices)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+          Text(context.l10n.standardInvoiceRectificationSectionTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
           const SizedBox(height: 12),
           if (c.rectificationNoticeEn != null)
             ListTile(
-              title: const Text('English Email Rectification Notice', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              title: Text(context.l10n.standardInvoiceRectificationEnTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               subtitle: Text(c.rectificationNoticeEn!, maxLines: 3, overflow: TextOverflow.ellipsis),
               trailing: ElevatedButton.icon(
-                onPressed: () => _copyToClipboard(c.rectificationNoticeEn!, 'إخطار الإيميل الإنجليزي'),
+                onPressed: () => _copyToClipboard(c.rectificationNoticeEn!, context.l10n.standardInvoiceRectificationEnTitle),
                 icon: const Icon(Icons.copy, size: 16),
-                label: const Text('نسخ'),
+                label: Text(context.l10n.copy),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF3498DB), foregroundColor: Colors.white),
               ),
             ),
           const Divider(),
           if (c.rectificationNoticeAr != null)
             ListTile(
-              title: const Text('إخطار التصحيح بالعربية (واتساب / إيميل)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+              title: Text(context.l10n.standardInvoiceRectificationArTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               subtitle: Text(c.rectificationNoticeAr!, maxLines: 3, overflow: TextOverflow.ellipsis),
               trailing: ElevatedButton.icon(
-                onPressed: () => _copyToClipboard(c.rectificationNoticeAr!, 'إخطار الواتساب العربي'),
+                onPressed: () => _copyToClipboard(c.rectificationNoticeAr!, context.l10n.standardInvoiceRectificationArTitle),
                 icon: const Icon(Icons.copy, size: 16),
-                label: const Text('نسخ'),
+                label: Text(context.l10n.copy),
                 style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF27AE60), foregroundColor: Colors.white),
               ),
             ),
@@ -951,17 +960,17 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('حالة اعتماد الفاتورة المعيارية (Invoice Governance Status)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+          Text(context.l10n.standardInvoiceGovernanceTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildStatusRadio('DRAFT', 'مسودة (Draft)', Colors.grey),
+              _buildStatusRadio('DRAFT', context.l10n.standardInvoiceStatusDraft, Colors.grey),
               const SizedBox(width: 12),
-              _buildStatusRadio('UNDER_REVIEW', 'قيد المراجعة (Under Review)', const Color(0xFFF39C12)),
+              _buildStatusRadio('UNDER_REVIEW', context.l10n.standardInvoiceStatusUnderReview, const Color(0xFFF39C12)),
               const SizedBox(width: 12),
-              _buildStatusRadio('APPROVED', 'معتمدة ومطابقة (Approved)', const Color(0xFF27AE60)),
+              _buildStatusRadio('APPROVED', context.l10n.standardInvoiceStatusApproved, const Color(0xFF27AE60)),
               const SizedBox(width: 12),
-              _buildStatusRadio('REJECTED_NEEDS_MODIFICATION', 'مرفوضة / تحتاج تعديل المورد', const Color(0xFFC0392B)),
+              _buildStatusRadio('REJECTED_NEEDS_MODIFICATION', context.l10n.standardInvoiceStatusRejected, const Color(0xFFC0392B)),
             ],
           ),
           const SizedBox(height: 20),
@@ -970,14 +979,14 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               padding: const EdgeInsets.all(12),
               margin: const EdgeInsets.only(bottom: 12),
               decoration: BoxDecoration(color: const Color(0xFFFDEDEC), borderRadius: BorderRadius.circular(8), border: Border.all(color: Colors.red)),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.lock_clock, color: Colors.red),
-                  SizedBox(width: 8),
+                  const Icon(Icons.lock_clock, color: Colors.red),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '⚡ تنبيه أمني وإجرائي إلزامي: تم رصد فروق في الفاتورة. يُشترط كتابة مبرر وسبب التجاوز والاعتماد قبل الحفظ.',
-                      style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
+                      context.l10n.standardInvoiceOverrideWarningBanner,
+                      style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12),
                     ),
                   ),
                 ],
@@ -985,16 +994,16 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
             ),
             TextFormField(
               controller: _overrideReasonController,
-              decoration: const InputDecoration(
-                labelText: 'مبرر وسبب الموافقة على الاختلافات الجمركية (Discrepancy Override Justification) *',
-                hintText: 'اكتب المبرر الإداري أو المالي للموافقة على الفروق...',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.gavel, color: Colors.red),
+              decoration: InputDecoration(
+                labelText: context.l10n.standardInvoiceOverrideReasonLabel,
+                hintText: context.l10n.standardInvoiceOverrideReasonHint,
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.gavel, color: Colors.red),
               ),
               maxLines: 3,
               validator: (v) {
                 if (_selectedStatus == 'APPROVED' && hasIssues && (v == null || v.trim().isEmpty)) {
-                  return 'حقل إلزامي: لا يمكن اعتماد الفاتورة مع وجود فروق بدون توضيح السبب والمبرر.';
+                  return context.l10n.standardInvoiceOverrideRequiredError;
                 }
                 return null;
               },
@@ -1003,10 +1012,10 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           ],
           TextFormField(
             controller: _notesController,
-            decoration: const InputDecoration(
-              labelText: 'ملاحظات إضافية (Internal Audit Notes)',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.note_alt),
+            decoration: InputDecoration(
+              labelText: context.l10n.standardInvoiceInternalNotesLabel,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.note_alt),
             ),
             maxLines: 2,
           ),
@@ -1018,7 +1027,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               icon: _isSaving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.save),
-              label: const Text('حفظ واعتماد جلسة مراجعة الفاتورة المعيارية'),
+              label: Text(context.l10n.standardInvoiceSaveSessionBtn),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF27AE60),
                 foregroundColor: Colors.white,
@@ -1072,10 +1081,10 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               Expanded(
                 child: TextField(
                   controller: _searchController,
-                  decoration: const InputDecoration(
-                    hintText: 'بحث في سجل الفواتير برقم الجلسة، ACID، المورد...',
-                    prefixIcon: Icon(Icons.search),
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    hintText: context.l10n.standardInvoiceRegistrySearchHint,
+                    prefixIcon: const Icon(Icons.search),
+                    border: const OutlineInputBorder(),
                     isDense: true,
                   ),
                   onChanged: (v) => ref.read(standardInvoiceSessionsProvider.notifier).fetchSessions(search: v, status: _filterStatus),
@@ -1084,11 +1093,11 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               const SizedBox(width: 12),
               DropdownButton<String>(
                 value: _filterStatus,
-                items: const [
-                  DropdownMenuItem(value: 'All', child: Text('كل الحالات')),
-                  DropdownMenuItem(value: 'APPROVED', child: Text('معتمدة (APPROVED)')),
-                  DropdownMenuItem(value: 'UNDER_REVIEW', child: Text('قيد المراجعة')),
-                  DropdownMenuItem(value: 'REJECTED_NEEDS_MODIFICATION', child: Text('مرفوضة')),
+                items: [
+                  DropdownMenuItem(value: 'All', child: Text(context.l10n.standardInvoiceFilterAll)),
+                  DropdownMenuItem(value: 'APPROVED', child: Text(context.l10n.standardInvoiceStatusApproved)),
+                  DropdownMenuItem(value: 'UNDER_REVIEW', child: Text(context.l10n.standardInvoiceStatusUnderReview)),
+                  DropdownMenuItem(value: 'REJECTED_NEEDS_MODIFICATION', child: Text(context.l10n.standardInvoiceStatusRejected)),
                 ],
                 onChanged: (v) {
                   if (v != null) {
@@ -1103,23 +1112,23 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
           sessionsAsync.when(
             data: (sessions) {
               if (sessions.isEmpty) {
-                return const Center(child: Padding(padding: EdgeInsets.all(30), child: Text('لا توجد جلسات فواتير مسجلة.')));
+                return Center(child: Padding(padding: const EdgeInsets.all(30), child: Text(context.l10n.standardInvoiceNoSessionsFound)));
               }
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(const Color(0xFF2C3E50)),
                   headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
-                  columns: const [
-                    DataColumn(label: Text('كود الجلسة')),
-                    DataColumn(label: Text('ملف الشحنة')),
-                    DataColumn(label: Text('رقم ACID')),
-                    DataColumn(label: Text('رقم الفاتورة')),
-                    DataColumn(label: Text('المصدر الأجنبي')),
-                    DataColumn(label: Text('الإجمالي')),
-                    DataColumn(label: Text('البنود')),
-                    DataColumn(label: Text('الحالة')),
-                    DataColumn(label: Text('تاريخ التحديث')),
+                  columns: [
+                    DataColumn(label: Text(context.l10n.standardInvoiceColSessionCode)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColFileCode)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColAcid)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColInvoiceNum)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColSupplier)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColTotal)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColItemsCount)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColStatus)),
+                    DataColumn(label: Text(context.l10n.standardInvoiceColUpdatedAt)),
                   ],
                   rows: sessions.map((s) {
                     return DataRow(
@@ -1140,7 +1149,7 @@ class _StandardInvoiceHubTabState extends ConsumerState<StandardInvoiceHubTab> w
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('خطأ: $e', style: const TextStyle(color: Colors.red)),
+            error: (e, _) => Text('${context.l10n.errorPrefix}: $e', style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),

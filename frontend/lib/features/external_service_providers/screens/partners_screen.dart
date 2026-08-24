@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
@@ -34,6 +35,28 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
     'Inspection Agency',
   ];
 
+  String _getCategoryLabel(BuildContext context, String cat) {
+    final l10n = context.l10n;
+    switch (cat) {
+      case 'All':
+        return l10n.partnerCatAll;
+      case 'Bank':
+        return l10n.partnerCatBank;
+      case 'Shipping Line':
+        return l10n.partnerCatShippingLine;
+      case 'Customs Broker':
+        return l10n.partnerCatCustomsBroker;
+      case 'Freight Forwarder':
+        return l10n.partnerCatFreightForwarder;
+      case 'Inland Transport':
+        return l10n.partnerCatInlandTransport;
+      case 'Inspection Agency':
+        return l10n.partnerCatInspectionAgency;
+      default:
+        return cat;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +67,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final partnersAsync = ref.watch(partnersProvider);
     final selectedCategory = ref.watch(selectedPartnerCategoryProvider);
     final showInactive = ref.watch(showInactivePartnersProvider);
@@ -59,22 +83,22 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'External Partners & Service Providers',
-                        style: TextStyle(
+                        l10n.partnersScreenTitle,
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.charcoal,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Manage Commercial Banks, Shipping Lines, Customs Brokers, Freight Forwarders & Logistics Partners',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        l10n.partnersScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -85,7 +109,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add External Partner'),
+                      label: Text(l10n.addExternalPartnerBtn),
                       onPressed: () => _showPartnerDialog(context),
                     ),
                   ],
@@ -114,7 +138,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                     padding: const EdgeInsets.only(right: 8.0),
                     child: ChoiceChip(
                       label: Text(
-                        cat,
+                        _getCategoryLabel(context, cat),
                         style: TextStyle(
                           color: isSelected ? Colors.white : AppTheme.charcoal,
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -156,7 +180,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       style: const TextStyle(fontSize: 14),
                       decoration: InputDecoration(
                         prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                        hintText: 'Search by partner name, code, SWIFT, license #, tax ID, or country...',
+                        hintText: l10n.searchPartnersHint,
                         filled: false,
                         border: InputBorder.none,
                         enabledBorder: InputBorder.none,
@@ -191,9 +215,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Text(
-                        'Show Inactive:',
-                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      Text(
+                        l10n.showInactivePartnersLabel,
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                       Switch(
                         value: showInactive,
@@ -222,7 +246,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Text(
-                          'تعذر الاتصال بالسيرفر (DioException / Connection Error)\n$err',
+                          l10n.partnersFetchError.replaceAll('\$error', err.toString()),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
@@ -235,7 +259,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('إعادة المحاولة (Retry Connection)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                         onPressed: () {
                           ref.read(partnersProvider.notifier).fetchPartners();
                         },
@@ -256,8 +280,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return const Center(
-                      child: Text('No partners found for selected filters.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    return Center(
+                      child: Text(l10n.noPartnersFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                     );
                   }
 
@@ -299,12 +323,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 TableRow(
                                   decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
-                                    'Code',
-                                    'Partner Name & Category',
-                                    'Registration & License',
-                                    'Contact Details',
-                                    'Status',
-                                    'Actions'
+                                    l10n.partnerCodeCol,
+                                    l10n.partnerNameAndCategoryCol,
+                                    l10n.registrationAndLicenseCol,
+                                    l10n.contactDetailsCol,
+                                    l10n.partnerStatusCol,
+                                    l10n.partnerActionsCol,
                                   ]
                                       .map((h) => Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -371,7 +395,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                             Wrap(
                                               spacing: 4,
                                               runSpacing: 4,
-                                              children: categories.map((cat) => _buildCategoryBadge(cat)).toList(),
+                                              children: categories.map((cat) => _buildCategoryBadge(context, cat)).toList(),
                                             ),
                                           ],
                                         ),
@@ -383,14 +407,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
                                             if (partner.swiftCode != null && partner.swiftCode!.isNotEmpty)
-                                              Text('SWIFT: ${partner.swiftCode}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                              Text(l10n.partnerSwiftLabel(partner.swiftCode!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                             if (partner.scacCode != null && partner.scacCode!.isNotEmpty)
-                                              Text('SCAC: ${partner.scacCode}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                              Text(l10n.partnerScacLabel(partner.scacCode!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                             if (partner.clearanceLicenseNumber != null && partner.clearanceLicenseNumber!.isNotEmpty)
-                                              Text('License: ${partner.clearanceLicenseNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              Text(l10n.partnerLicenseLabel(partner.clearanceLicenseNumber!), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.orange), maxLines: 1, overflow: TextOverflow.ellipsis),
                                             if (partner.commercialRegister != null && partner.commercialRegister!.isNotEmpty)
-                                              Text('Reg: ${partner.commercialRegister}', style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text('Country: ${partner.country}', style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                              Text(l10n.partnerRegLabel(partner.commercialRegister!), style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text(l10n.partnerCountryLabel(partner.country), style: const TextStyle(fontSize: 10, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
                                           ],
                                         ),
                                       ),
@@ -400,8 +424,8 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                         child: Column(
                                           crossAxisAlignment: CrossAxisAlignment.start,
                                           children: [
-                                            Text(partner.email ?? 'No email', style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
-                                            Text(partner.phone ?? 'No phone', style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text(partner.email ?? l10n.noEmailLabel, style: const TextStyle(fontSize: 11), maxLines: 1, overflow: TextOverflow.ellipsis),
+                                            Text(partner.phone ?? l10n.noPhoneLabel, style: const TextStyle(fontSize: 11, color: Colors.grey), maxLines: 1, overflow: TextOverflow.ellipsis),
                                           ],
                                         ),
                                       ),
@@ -415,7 +439,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                             borderRadius: BorderRadius.circular(20),
                                           ),
                                           child: Text(
-                                            isActive ? 'Active' : 'Inactive',
+                                            isActive ? l10n.statusActive : l10n.statusInactive,
                                             style: TextStyle(
                                               color: isActive ? AppTheme.emerald : AppTheme.crimson,
                                               fontSize: 11,
@@ -431,7 +455,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Tooltip(
-                                                message: 'كشف حساب الشريك والأرصدة بالعملات (Statement of Account)',
+                                                message: l10n.partnerStatementOfAccountTooltip,
                                                 child: InkWell(
                                                   onTap: () => PartnerStatementOfAccountDialog.show(context, partner),
                                                   borderRadius: BorderRadius.circular(4),
@@ -443,12 +467,12 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                       borderRadius: BorderRadius.circular(4),
                                                       border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                                                     ),
-                                                    child: const Row(
+                                                    child: Row(
                                                       mainAxisSize: MainAxisSize.min,
                                                       children: [
-                                                        Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
-                                                        SizedBox(width: 3),
-                                                        Text('كشف حساب', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                                        const Icon(Icons.receipt_long, size: 14, color: AppTheme.cobalt),
+                                                        const SizedBox(width: 3),
+                                                        Text(l10n.partnerStatementOfAccountBtn, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                                       ],
                                                     ),
                                                   ),
@@ -466,16 +490,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                   final confirm = await showDialog<bool>(
                                                     context: context,
                                                     builder: (ctx) => AlertDialog(
-                                                      title: const Text('تأكيد الإجراء'),
+                                                      title: Text(l10n.confirmActionTitle),
                                                       content: Text(isActive
-                                                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشريك (${partner.partnerName})؟'
-                                                          : 'هل أنت متأكد من إعادة تفعيل الشريك (${partner.partnerName})؟'),
+                                                          ? l10n.confirmDeactivatePartner(partner.partnerName)
+                                                          : l10n.confirmActivatePartner(partner.partnerName)),
                                                       actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.closeBtn)),
                                                         ElevatedButton(
                                                           onPressed: () => Navigator.pop(ctx, true),
                                                           style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                                                         ),
                                                       ],
                                                     ),
@@ -484,7 +508,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                                     ref.read(partnersProvider.notifier).toggleActiveStatus(partner.providerId!, isActive);
                                                   }
                                                 },
-                                                deleteTooltip: isActive ? 'إيقاف تفعيل الشريك (Deactivate)' : 'إعادة تفعيل الشريك (Activate)',
+                                                deleteTooltip: isActive ? l10n.deactivatePartnerTooltip : l10n.activatePartnerTooltip,
                                               ),
                                             ],
                                           ),
@@ -513,7 +537,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
         child: Align(alignment: Alignment.centerLeft, child: child),
       );
 
-  Widget _buildCategoryBadge(String cat) {
+  Widget _buildCategoryBadge(BuildContext context, String cat) {
     Color color;
     switch (cat) {
       case 'Bank':
@@ -540,7 +564,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
         border: Border.all(color: color.withOpacity(0.3), width: 0.5),
       ),
       child: Text(
-        cat,
+        _getCategoryLabel(context, cat),
         style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
@@ -549,6 +573,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
 
   void _showPartnerDialog(BuildContext context, [PartnerModel? partnerToEdit]) {
+    final l10n = context.l10n;
     final isEditing = partnerToEdit != null;
     final formKey = GlobalKey<FormState>();
 
@@ -616,14 +641,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                               Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
                               const SizedBox(width: 12),
                               Text(
-                                isEditing ? 'Edit External Partner & Bank' : 'Add External Partner & Bank',
+                                isEditing ? l10n.editPartnerDialogTitle : l10n.addPartnerDialogTitle,
                                 style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                               ),
                             ],
                           ),
                           IconButton(
                             icon: const Icon(Icons.close, color: Colors.white70),
-                            tooltip: 'إغلاق النافذة',
+                            tooltip: l10n.closeDialogTooltip,
                             onPressed: () => Navigator.pop(dialogCtx),
                           ),
                         ],
@@ -640,11 +665,11 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Multi-Select Partner Categories
-                              const Row(
+                              Row(
                                 children: [
                                   Text(
-                                    'Partner Categories (Select one or multiple) *',
-                                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal),
+                                    l10n.partnerCategoriesLabel,
+                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.charcoal),
                                   ),
                                 ],
                               ),
@@ -655,7 +680,7 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                 children: availableCategories.map((cat) {
                                   final isChecked = selectedCategories.contains(cat);
                                   return FilterChip(
-                                    label: Text(cat),
+                                    label: Text(_getCategoryLabel(context, cat)),
                                     selected: isChecked,
                                     selectedColor: AppTheme.cobalt.withOpacity(0.2),
                                     checkmarkColor: AppTheme.cobalt,
@@ -681,10 +706,10 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                               CustomTextField(
                                 controller: nameCtrl,
-                                label: 'Partner / Company Name',
+                                label: l10n.partnerNameLabel,
                                 icon: Icons.business,
                                 isRequired: true,
-                                hint: 'e.g. National Bank of Egypt / Maersk Line / Cargo Logistics LLC',
+                                hint: l10n.partnerNameHint,
                               ),
                               const SizedBox(height: 16),
 
@@ -700,26 +725,26 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('🏦 Banking Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                                      Text('🏦 ${l10n.bankingDetailsHeader}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                       const SizedBox(height: 10),
                                       Row(
                                         children: [
                                           Expanded(
                                             child: CustomTextField(
                                               controller: swiftCtrl,
-                                              label: 'SWIFT Code',
+                                              label: l10n.bankSwiftCodeLabel,
                                               icon: Icons.code,
                                               isRequired: true,
-                                              hint: 'NBEGEGXCAXXX',
+                                              hint: l10n.bankSwiftCodeHint,
                                             ),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: CustomTextField(
                                               controller: bankCodeCtrl,
-                                              label: 'Bank Code',
+                                              label: l10n.bankCodeLabel,
                                               icon: Icons.account_balance,
-                                              hint: 'NBE',
+                                              hint: l10n.bankCodeHint,
                                             ),
                                           ),
                                         ],
@@ -727,9 +752,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                       const SizedBox(height: 10),
                                       CustomTextField(
                                         controller: branchCtrl,
-                                        label: 'Branch Name',
+                                        label: l10n.branchNameLabel,
                                         icon: Icons.location_city,
-                                        hint: 'Main Branch, Cairo',
+                                        hint: l10n.branchNameHint,
                                       ),
                                     ],
                                   ),
@@ -748,26 +773,26 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('🚢 Shipping Line Details', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                      Text('🚢 ${l10n.shippingLineDetailsHeader}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                                       const SizedBox(height: 10),
                                       Row(
                                         children: [
                                           Expanded(
                                             child: CustomTextField(
                                               controller: scacCtrl,
-                                              label: 'SCAC / Carrier Code',
+                                              label: l10n.scacCarrierCodeLabel,
                                               icon: Icons.code,
                                               isRequired: true,
-                                              hint: 'MAEU / MSKU',
+                                              hint: l10n.scacCarrierCodeHint,
                                             ),
                                           ),
                                           const SizedBox(width: 12),
                                           Expanded(
                                             child: CustomTextField(
                                               controller: trackingCtrl,
-                                              label: 'Tracking Web URL',
+                                              label: l10n.trackingWebUrlLabel,
                                               icon: Icons.link,
-                                              hint: 'https://www.maersk.com/tracking/',
+                                              hint: l10n.trackingWebUrlHint,
                                             ),
                                           ),
                                         ],
@@ -789,14 +814,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text('🛂 Customs Broker License', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                                      Text('🛂 ${l10n.customsBrokerLicenseHeader}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange)),
                                       const SizedBox(height: 10),
                                       CustomTextField(
                                         controller: licenseCtrl,
-                                        label: 'Customs Clearance License #',
+                                        label: l10n.customsClearanceLicenseNumLabel,
                                         icon: Icons.assignment_ind,
                                         isRequired: true,
-                                        hint: 'LIC-CAI-9988',
+                                        hint: l10n.customsClearanceLicenseNumHint,
                                       ),
                                     ],
                                   ),
@@ -809,18 +834,18 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: taxIdCtrl,
-                                      label: 'Tax Registration ID',
+                                      label: l10n.partnerTaxIdLabel,
                                       icon: Icons.receipt_long,
-                                      hint: 'TAX-100200',
+                                      hint: l10n.partnerTaxIdHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: regCtrl,
-                                      label: 'Commercial Reg #',
+                                      label: l10n.partnerCommercialRegLabel,
                                       icon: Icons.app_registration,
-                                      hint: 'REG-554433',
+                                      hint: l10n.partnerCommercialRegHint,
                                     ),
                                   ),
                                 ],
@@ -832,18 +857,18 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: emailCtrl,
-                                      label: 'Primary Email',
+                                      label: l10n.partnerPrimaryEmailLabel,
                                       icon: Icons.email,
-                                      hint: 'contact@partner.com',
+                                      hint: l10n.partnerPrimaryEmailHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: secondaryEmailCtrl,
-                                      label: 'Secondary / Additional Email',
+                                      label: l10n.partnerSecondaryEmailLabel,
                                       icon: Icons.mark_email_read_outlined,
-                                      hint: 'trade@partner.com',
+                                      hint: l10n.partnerSecondaryEmailHint,
                                     ),
                                   ),
                                 ],
@@ -855,27 +880,27 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: phoneCtrl,
-                                      label: 'Phone Number',
+                                      label: l10n.partnerPhoneLabel,
                                       icon: Icons.phone,
-                                      hint: '+20 2 2555 5555',
+                                      hint: l10n.partnerPhoneHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: mobileCtrl,
-                                      label: 'Mobile Number',
+                                      label: l10n.partnerMobileLabel,
                                       icon: Icons.smartphone,
-                                      hint: '+20 100 1234567',
+                                      hint: l10n.partnerMobileHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: faxCtrl,
-                                      label: 'Fax Number',
+                                      label: l10n.partnerFaxLabel,
                                       icon: Icons.print,
-                                      hint: '+20 2 2577 0000',
+                                      hint: l10n.partnerFaxHint,
                                     ),
                                   ),
                                 ],
@@ -884,9 +909,9 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
 
                               CustomTextField(
                                 controller: websiteCtrl,
-                                label: 'Website URL',
+                                label: l10n.partnerWebsiteUrlLabel,
                                 icon: Icons.language,
-                                hint: 'www.partner.com',
+                                hint: l10n.partnerWebsiteUrlHint,
                               ),
                               const SizedBox(height: 16),
 
@@ -895,16 +920,16 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                                   Expanded(
                                     child: CustomTextField(
                                       controller: addressCtrl,
-                                      label: 'Address',
+                                      label: l10n.partnerAddressLabel,
                                       icon: Icons.location_on,
-                                      hint: 'Downtown, Cairo',
+                                      hint: l10n.partnerAddressHint,
                                     ),
                                   ),
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: CustomTextField(
                                       controller: countryCtrl,
-                                      label: 'Country',
+                                      label: l10n.partnerCountryLabelField,
                                       icon: Icons.flag,
                                       isRequired: true,
                                     ),
@@ -934,14 +959,14 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                             ),
                             onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
                             icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-                            label: const Text('إلغاء وإغلاق ✕', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: Text(l10n.cancelAndCloseBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             icon: isSubmitting
                                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                                 : const Icon(Icons.check, size: 18),
-                            label: Text(isSubmitting ? 'Saving Changes...' : (isEditing ? 'Update Partner' : 'Save External Partner')),
+                            label: Text(isSubmitting ? l10n.savingChanges : (isEditing ? l10n.updatePartnerBtn : l10n.savePartnerBtn)),
                             onPressed: isSubmitting ? null : () async {
                               if (!formKey.currentState!.validate() || selectedCategories.isEmpty) {
                                 return;
@@ -981,28 +1006,28 @@ class _PartnersScreenState extends ConsumerState<PartnersScreen> {
                               if (isEditing && partnerToEdit.providerId != null) {
                                 final List<FieldChangeItem> changes = [];
                                 if (FieldChangeItem.isDifferent(partnerToEdit.partnerName, partner.partnerName)) {
-                                  changes.add(FieldChangeItem(fieldName: 'اسم مقدم الخدمة / الشريك', oldValue: partnerToEdit.partnerName, newValue: partner.partnerName));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerName, oldValue: partnerToEdit.partnerName, newValue: partner.partnerName));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.partnerType, partner.partnerType)) {
-                                  changes.add(FieldChangeItem(fieldName: 'نوع الشريك (Partner Type)', oldValue: partnerToEdit.partnerType, newValue: partner.partnerType));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerType, oldValue: partnerToEdit.partnerType, newValue: partner.partnerType));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.email, partner.email)) {
-                                  changes.add(FieldChangeItem(fieldName: 'البريد الإلكتروني', oldValue: partnerToEdit.email, newValue: partner.email));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerEmail, oldValue: partnerToEdit.email, newValue: partner.email));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.phone, partner.phone)) {
-                                  changes.add(FieldChangeItem(fieldName: 'الهاتف', oldValue: partnerToEdit.phone, newValue: partner.phone));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerPhone, oldValue: partnerToEdit.phone, newValue: partner.phone));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.address, partner.address)) {
-                                  changes.add(FieldChangeItem(fieldName: 'العنوان', oldValue: partnerToEdit.address, newValue: partner.address));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerAddress, oldValue: partnerToEdit.address, newValue: partner.address));
                                 }
                                 if (FieldChangeItem.isDifferent(partnerToEdit.country, partner.country)) {
-                                  changes.add(FieldChangeItem(fieldName: 'الدولة', oldValue: partnerToEdit.country, newValue: partner.country));
+                                  changes.add(FieldChangeItem(fieldName: l10n.diffPartnerCountry, oldValue: partnerToEdit.country, newValue: partner.country));
                                 }
 
                                 if (changes.isNotEmpty) {
                                   final confirmed = await showChangeDiffConfirmationDialog(
                                     context,
-                                    title: 'مراجعة وتأكيد تعديلات مقدم الخدمة / الشريك',
+                                    title: l10n.diffConfirmPartnerTitle,
                                     itemReference: '${partnerToEdit.partnerCode} (${partnerToEdit.partnerName})',
                                     changes: changes,
                                   );

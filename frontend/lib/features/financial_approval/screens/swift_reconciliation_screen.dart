@@ -120,22 +120,39 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             }
           });
 
+          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('📄 تم استخراج بيانات السويفت بنجاح من ملف "$filename" (${_detectedFileType ?? "مستند"}) ⚡'),
+              content: Text(
+                isArabic
+                    ? '📄 تم استخراج بيانات السويفت بنجاح من ملف "$filename" (${_detectedFileType ?? "مستند"}) ⚡'
+                    : '📄 SWIFT data extracted successfully from "$filename" (${_detectedFileType ?? "Document"}) ⚡',
+              ),
               backgroundColor: AppTheme.emerald,
             ),
           );
         } else {
+          final isArabic = Localizations.localeOf(context).languageCode == 'ar';
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر استخراج السويفت من الملف: ${res['error']}'), backgroundColor: AppTheme.crimson),
+            SnackBar(
+              content: Text(
+                isArabic
+                    ? '❌ تعذر استخراج السويفت من الملف: ${res['error']}'
+                    : '❌ Failed to extract SWIFT from file: ${res['error']}',
+              ),
+              backgroundColor: AppTheme.crimson,
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ أثناء استخراج الملف: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? '❌ خطأ أثناء استخراج الملف: $e' : '❌ Error extracting file: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     } finally {
@@ -144,10 +161,18 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   }
 
   Future<void> _runSmartSwiftExtraction({int? targetPaymentId}) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final text = _rawSwiftTextController.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى لصق أو إدخال نص رسالة السويفت أو إشعار البنك أولاً'), backgroundColor: AppTheme.orange),
+        SnackBar(
+          content: Text(
+            isArabic
+                ? '⚠️ يرجى لصق أو إدخال نص رسالة السويفت أو إشعار البنك أولاً'
+                : '⚠️ Please paste or enter SWIFT message or bank advice text first',
+          ),
+          backgroundColor: AppTheme.orange,
+        ),
       );
       return;
     }
@@ -169,21 +194,35 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             }
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚡ تم استخراج بيانات السويفت وتحديد طلب السداد المطابق بنجاح'),
+            SnackBar(
+              content: Text(
+                isArabic
+                    ? '⚡ تم استخراج بيانات السويفت وتحديد طلب السداد المطابق بنجاح'
+                    : '⚡ SWIFT data extracted and matched with payment request successfully',
+              ),
               backgroundColor: AppTheme.emerald,
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ تعذر تحليل السويفت: ${res['error']}'), backgroundColor: AppTheme.crimson),
+            SnackBar(
+              content: Text(
+                isArabic
+                    ? '❌ تعذر تحليل السويفت: ${res['error']}'
+                    : '❌ Failed to parse SWIFT: ${res['error']}',
+              ),
+              backgroundColor: AppTheme.crimson,
+            ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ في الاتصال: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? '❌ خطأ في الاتصال: $e' : '❌ Connection error: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     } finally {
@@ -193,6 +232,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   Future<void> _executeSmartReconciliation(PaymentRequestModel pay) async {
     if (_extractedSwift == null) return;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     final swiftRef = _extractedSwift!['transaction_reference'] ?? 'SWIFT-${DateTime.now().millisecondsSinceEpoch}';
     final rawDate = _extractedSwift!['value_date'] ?? DateTime.now().toString().substring(0, 10);
@@ -212,7 +252,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         swiftTransferredCurrency: curr,
         swiftCode: swiftCode,
         ibanAccountNo: iban,
-        swiftReconciliationNotes: 'تمت المطابقة والتأكيد الذكي بواسطة محرك استخراج السويفت (Smart AI SWIFT Reconciliation)',
+        swiftReconciliationNotes: isArabic
+            ? 'تمت المطابقة والتأكيد الذكي بواسطة محرك استخراج السويفت'
+            : 'Smart reconciliation and confirmation executed via Smart AI SWIFT Engine',
         autoExecute: true,
       );
 
@@ -221,7 +263,11 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       if (mounted && updated != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('🎉 تم تأكيد مطابقة السويفت ($swiftRef) واعتماد سداد الطلب (${updated.paymentCode}) وتحديث ملف الاستيراد بنجاح!'),
+            content: Text(
+              isArabic
+                  ? '🎉 تم تأكيد مطابقة السويفت ($swiftRef) واعتماد سداد الطلب (${updated.paymentCode}) وتحديث ملف الاستيراد بنجاح!'
+                  : '🎉 SWIFT ($swiftRef) matched, payment (${updated.paymentCode}) approved, and Import File updated successfully!',
+            ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 4),
           ),
@@ -230,7 +276,10 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ خطأ أثناء تأكيد المطابقة: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(
+            content: Text(isArabic ? '❌ خطأ أثناء تأكيد المطابقة: $e' : '❌ Error during match confirmation: $e'),
+            backgroundColor: AppTheme.crimson,
+          ),
         );
       }
     } finally {
@@ -269,6 +318,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       context: context,
       barrierDismissible: false,
       builder: (ctx) {
+        final isArabic = Localizations.localeOf(context).languageCode == 'ar';
         return StatefulBuilder(
           builder: (dialogCtx, setDialogState) {
             final transferredAmt = double.tryParse(transferredAmountController.text.trim()) ?? 0.0;
@@ -283,19 +333,23 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
             if (transferredAmt <= 0) {
               varianceColor = Colors.grey;
               varianceIcon = Icons.hourglass_empty;
-              varianceText = 'بانتظار إدخال المبلغ';
+              varianceText = isArabic ? 'بانتظار إدخال المبلغ' : 'Waiting for amount entry';
             } else if (variance.abs() < 0.001) {
               varianceColor = AppTheme.emerald;
               varianceIcon = Icons.check_circle;
-              varianceText = 'مطابق تماماً (100% Matched - بدون فروقات)';
+              varianceText = isArabic ? 'مطابق تماماً (بدون فروقات)' : '100% Matched (No Variances)';
             } else if (variance < 0) {
               varianceColor = AppTheme.crimson;
               varianceIcon = Icons.arrow_downward;
-              varianceText = 'عجز / نقص في قيمة السويفت بمقدار ${variance.abs().toStringAsFixed(2)} ${pay.currencyCode}';
+              varianceText = isArabic
+                  ? 'عجز / نقص في قيمة السويفت بمقدار ${variance.abs().toStringAsFixed(2)} ${pay.currencyCode}'
+                  : 'Deficit in SWIFT by ${variance.abs().toStringAsFixed(2)} ${pay.currencyCode}';
             } else {
               varianceColor = AppTheme.orange;
               varianceIcon = Icons.arrow_upward;
-              varianceText = 'زيادة في قيمة السويفت بمقدار ${variance.toStringAsFixed(2)} ${pay.currencyCode}';
+              varianceText = isArabic
+                  ? 'زيادة في قيمة السويفت بمقدار ${variance.toStringAsFixed(2)} ${pay.currencyCode}'
+                  : 'Surplus in SWIFT by ${variance.toStringAsFixed(2)} ${pay.currencyCode}';
             }
 
             return AlertDialog(
@@ -305,7 +359,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'تسجيل ومطابقة السويفت البنكي: ${pay.paymentCode}',
+                      '${isArabic ? "تسجيل ومطابقة السويفت البنكي:" : "Register & Reconcile Bank SWIFT:"} ${pay.paymentCode}',
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                   ),
@@ -333,7 +387,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('عنوان الطلب: ${pay.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text('${isArabic ? "عنوان الطلب:" : "Request Title:"} ${pay.title}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                   if (pay.importFileCode != null)
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -345,15 +399,15 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               const SizedBox(height: 6),
                               Row(
                                 children: [
-                                  Expanded(child: Text('المورد المستفيد: ${pay.beneficiaryName ?? pay.supplierName}', style: const TextStyle(fontSize: 12))),
-                                  Expanded(child: Text('البنك: ${pay.bankName ?? "-"} (${pay.swiftCode ?? "-"})', style: const TextStyle(fontSize: 12))),
+                                  Expanded(child: Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${pay.beneficiaryName ?? pay.supplierName}', style: const TextStyle(fontSize: 12))),
+                                  Expanded(child: Text('${isArabic ? "البنك:" : "Bank:"} ${pay.bankName ?? "-"} (${pay.swiftCode ?? "-"})', style: const TextStyle(fontSize: 12))),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  Expanded(child: Text('تاريخ تقديم الطلب: ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal))),
-                                  Expanded(child: Text('المبلغ المطلوب: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                  Expanded(child: Text('${isArabic ? "تاريخ تقديم الطلب:" : "Request Date:"} ${pay.requestDate.isNotEmpty ? pay.requestDate : "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal))),
+                                  Expanded(child: Text('${isArabic ? "المبلغ المطلوب:" : "Requested Amount:"} ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                 ],
                               ),
                             ],
@@ -379,7 +433,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               TextButton.icon(
                                 style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
                                 icon: const Icon(Icons.description, size: 14),
-                                label: const Text('نموذج تجريبي', style: TextStyle(fontSize: 11)),
+                                label: Text(isArabic ? 'نموذج تجريبي' : 'Sample MT103', style: const TextStyle(fontSize: 11)),
                                 onPressed: () async {
                                   final res = await ref.read(paymentRequestsProvider.notifier).smartExtractSwift(
                                     rawText: kSampleSwiftMT103,
@@ -405,7 +459,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 icon: const Icon(Icons.paste, color: Colors.white, size: 14),
-                                label: const Text('لصق واستخراج ⚡', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                label: Text(isArabic ? 'لصق واستخراج ⚡' : 'Paste & Extract ⚡', style: const TextStyle(color: Colors.white, fontSize: 11)),
                                 onPressed: () async {
                                   final data = await Clipboard.getData(Clipboard.kTextPlain);
                                   if (data != null && data.text != null && data.text!.isNotEmpty) {
@@ -434,7 +488,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 icon: const Icon(Icons.upload_file, color: Colors.white, size: 14),
-                                label: const Text('رفع مستند 📁', style: TextStyle(color: Colors.white, fontSize: 11)),
+                                label: Text(isArabic ? 'رفع مستند 📁' : 'Upload File 📁', style: const TextStyle(color: Colors.white, fontSize: 11)),
                                 onPressed: () async {
                                   final result = await FilePicker.pickFiles(
                                     type: FileType.custom,
@@ -487,10 +541,10 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   }
                                 },
                                 child: InputDecorator(
-                                  decoration: const InputDecoration(
-                                    labelText: 'تاريخ استلام السويفت من البنك *',
-                                    border: OutlineInputBorder(),
-                                    prefixIcon: Icon(Icons.calendar_today, color: AppTheme.cobalt),
+                                  decoration: InputDecoration(
+                                    labelText: isArabic ? 'تاريخ استلام السويفت من البنك *' : 'Bank SWIFT Receipt Date *',
+                                    border: const OutlineInputBorder(),
+                                    prefixIcon: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
                                   ),
                                   child: Text(receiptDate.toString().substring(0, 10), style: const TextStyle(fontWeight: FontWeight.bold)),
                                 ),
@@ -501,12 +555,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                             Expanded(
                               child: TextFormField(
                                 controller: swiftRefController,
-                                decoration: const InputDecoration(
-                                  labelText: 'رقم السويفت البنكي (SWIFT / MT103 Ref) *',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.tag, color: AppTheme.cobalt),
+                                decoration: InputDecoration(
+                                  labelText: isArabic ? 'رقم السويفت البنكي (SWIFT Ref) *' : 'SWIFT Reference (MT103) *',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.tag, color: AppTheme.cobalt),
                                 ),
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال رقم السويفت' : null,
+                                validator: (v) => (v == null || v.trim().isEmpty) ? (isArabic ? 'يرجى إدخال رقم السويفت' : 'Please enter SWIFT reference') : null,
                               ),
                             ),
                           ],
@@ -521,16 +575,16 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               child: TextFormField(
                                 controller: transferredAmountController,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                decoration: const InputDecoration(
-                                  labelText: 'القيمة المصدرة من السويفت *',
-                                  border: OutlineInputBorder(),
-                                  prefixIcon: Icon(Icons.attach_money, color: AppTheme.emerald),
+                                decoration: InputDecoration(
+                                  labelText: isArabic ? 'القيمة المصدرة من السويفت *' : 'SWIFT Transferred Amount *',
+                                  border: const OutlineInputBorder(),
+                                  prefixIcon: const Icon(Icons.attach_money, color: AppTheme.emerald),
                                 ),
                                 onChanged: (v) => setDialogState(() {}),
                                 validator: (v) {
-                                  if (v == null || v.trim().isEmpty) return 'يرجى إدخال المبلغ';
+                                  if (v == null || v.trim().isEmpty) return isArabic ? 'يرجى إدخال المبلغ' : 'Please enter amount';
                                   final num = double.tryParse(v.trim());
-                                  if (num == null || num <= 0) return 'المبلغ يجب أن يكون أكبر من 0';
+                                  if (num == null || num <= 0) return isArabic ? 'المبلغ يجب أن يكون أكبر من 0' : 'Amount must be > 0';
                                   return null;
                                 },
                               ),
@@ -541,9 +595,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               flex: 1,
                               child: TextFormField(
                                 controller: currencyController,
-                                decoration: const InputDecoration(
-                                  labelText: 'العملة *',
-                                  border: OutlineInputBorder(),
+                                decoration: InputDecoration(
+                                  labelText: isArabic ? 'العملة *' : 'Currency *',
+                                  border: const OutlineInputBorder(),
                                 ),
                               ),
                             ),
@@ -566,14 +620,17 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 children: [
                                   Icon(varianceIcon, color: varianceColor, size: 20),
                                   const SizedBox(width: 8),
-                                  Text('نتيجة المقارنة والمطابقة الفورية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: varianceColor)),
+                                  Text(isArabic ? 'نتيجة المقارنة والمطابقة الفورية:' : 'Instant Reconciliation Result:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: varianceColor)),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('مدة التنفيذ: $safeDays يوم ما بين تاريخ الطلب وتاريخ السويفت', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                  Text(
+                                    '${isArabic ? "مدة التنفيذ:" : "Processing Time:"} $safeDays ${isArabic ? "يوم ما بين تاريخ الطلب وتاريخ السويفت" : "days between request and SWIFT"}',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                  ),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
@@ -581,7 +638,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      safeDays <= 3 ? '⚡ تنفيذ فوري ($safeDays أيام)' : (safeDays <= 7 ? '⏱️ مدة معقولة ($safeDays أيام)' : '⚠️ تأخير ($safeDays أيام)'),
+                                      safeDays <= 3
+                                          ? (isArabic ? '⚡ تنفيذ فوري ($safeDays أيام)' : '⚡ Instant ($safeDays days)')
+                                          : (safeDays <= 7 ? (isArabic ? '⏱️ مدة معقولة ($safeDays أيام)' : '⏱️ Reasonable ($safeDays days)') : (isArabic ? '⚠️ تأخير ($safeDays أيام)' : '⚠️ Delayed ($safeDays days)')),
                                       style: TextStyle(
                                         fontSize: 11,
                                         fontWeight: FontWeight.bold,
@@ -595,8 +654,8 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('المبلغ المطلوب: ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12)),
-                                  Text('المبلغ المنفذ: ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: varianceColor)),
+                                  Text('${isArabic ? "المبلغ المطلوب:" : "Requested Amount:"} ${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontSize: 12)),
+                                  Text('${isArabic ? "المبلغ المنفذ:" : "Transferred Amount:"} ${transferredAmt.toStringAsFixed(2)} ${pay.currencyCode}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: varianceColor)),
                                 ],
                               ),
                               const Divider(),
@@ -606,7 +665,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   Text(varianceText, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: varianceColor)),
                                   if (variance != 0)
                                     Text(
-                                      'الفارق: ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
+                                      '${isArabic ? "الفارق:" : "Variance:"} ${variance >= 0 ? "+" : ""}${variance.toStringAsFixed(2)} ${pay.currencyCode}',
                                       style: TextStyle(fontWeight: FontWeight.bold, color: varianceColor, fontSize: 13),
                                     ),
                                 ],
@@ -624,14 +683,16 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(color: Colors.amber.shade300),
                           ),
-                          child: const Row(
+                          child: Row(
                             children: [
-                              Icon(Icons.bolt, color: Colors.orange, size: 20),
-                              SizedBox(width: 8),
+                              const Icon(Icons.bolt, color: Colors.orange, size: 20),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
-                                  '⚡ سيتم تلقائياً تحديث رقم السويفت (swift no) في ملف الاستيراد المربوط بمجرد الحفظ والاعتماد.',
-                                  style: TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.w600),
+                                  isArabic
+                                      ? '⚡ سيتم تلقائياً تحديث رقم السويفت (swift no) في ملف الاستيراد المربوط بمجرد الحفظ والاعتماد.'
+                                      : '⚡ Linked Import File SWIFT number will be automatically updated upon confirmation.',
+                                  style: const TextStyle(fontSize: 11, color: Colors.brown, fontWeight: FontWeight.w600),
                                 ),
                               ),
                             ],
@@ -643,9 +704,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                         TextFormField(
                           controller: notesController,
                           maxLines: 2,
-                          decoration: const InputDecoration(
-                            labelText: 'ملاحظات المطابقة والفروقات البنكية (إن وجدت)',
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: isArabic ? 'ملاحظات المطابقة والفروقات البنكية (إن وجدت)' : 'Reconciliation Notes & Bank Variances (if any)',
+                            border: const OutlineInputBorder(),
                           ),
                         ),
                       ],
@@ -656,12 +717,15 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(dialogCtx),
-                  child: const Text('إلغاء'),
+                  child: Text(isArabic ? 'إلغاء' : 'Cancel'),
                 ),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
                   icon: const Icon(Icons.check, color: Colors.white, size: 18),
-                  label: const Text('حفظ واعتماد السويفت وتحديث ملف الشحنة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  label: Text(
+                    isArabic ? 'حفظ واعتماد السويفت وتحديث ملف الشحنة' : 'Save, Approve SWIFT & Sync Shipment',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                   onPressed: () async {
                     if (!formKey.currentState!.validate()) return;
                     Navigator.pop(dialogCtx);
@@ -683,7 +747,11 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                       if (mounted && updated != null) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('✅ تم مطابقة السويفت بنجاح (${updated.swiftReferenceNo}) وتحديث ملف الاستيراد آلياً ⚡'),
+                            content: Text(
+                              isArabic
+                                  ? '✅ تم مطابقة السويفت بنجاح (${updated.swiftReferenceNo}) وتحديث ملف الاستيراد آلياً ⚡'
+                                  : '✅ SWIFT matched successfully (${updated.swiftReferenceNo}) & Import File synced ⚡',
+                            ),
                             backgroundColor: AppTheme.emerald,
                           ),
                         );
@@ -691,7 +759,10 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                     } catch (e) {
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('❌ خطأ أثناء المطابقة: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(
+                            content: Text(isArabic ? '❌ خطأ أثناء المطابقة: $e' : '❌ Error during reconciliation: $e'),
+                            backgroundColor: AppTheme.crimson,
+                          ),
                         );
                       }
                     } finally {
@@ -708,14 +779,15 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
   }
 
   void _showSwiftDetailsDialog(PaymentRequestModel pay) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('تفاصيل السويفت البنكي: ${pay.paymentCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-            _buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode),
+            Text('${isArabic ? "تفاصيل السويفت البنكي:" : "Bank SWIFT Details:"} ${pay.paymentCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            _buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode, isArabic: isArabic),
           ],
         ),
         content: SizedBox(
@@ -726,26 +798,26 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
               children: [
                 Text(pay.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                 const SizedBox(height: 6),
-                Text('المورد المستفيد: ${pay.beneficiaryName ?? pay.supplierName}'),
-                Text('البنك: ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | الحساب: ${pay.ibanAccountNo ?? "-"}'),
+                Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${pay.beneficiaryName ?? pay.supplierName}'),
+                Text('${isArabic ? "البنك:" : "Bank:"} ${pay.bankName ?? "-"} | SWIFT: ${pay.swiftCode ?? "-"} | ${isArabic ? "الحساب:" : "Account:"} ${pay.ibanAccountNo ?? "-"}'),
                 const Divider(),
                 Row(
                   children: [
-                    _buildStatPill('تاريخ تقديم الطلب', pay.requestDate.isNotEmpty ? pay.requestDate : '-', AppTheme.charcoal),
+                    _buildStatPill(isArabic ? 'تاريخ تقديم الطلب' : 'Request Date', pay.requestDate.isNotEmpty ? pay.requestDate : '-', AppTheme.charcoal),
                     const SizedBox(width: 8),
-                    _buildStatPill('تاريخ استلام السويفت', pay.swiftReceiptDate ?? 'بانتظار السويفت', AppTheme.cobalt),
+                    _buildStatPill(isArabic ? 'تاريخ استلام السويفت' : 'SWIFT Receipt Date', pay.swiftReceiptDate ?? (isArabic ? 'بانتظار السويفت' : 'Pending SWIFT'), AppTheme.cobalt),
                     const SizedBox(width: 8),
-                    _buildStatPill('مدة التنفيذ', pay.swiftProcessingDays != null ? '${pay.swiftProcessingDays} يوم' : '-', Colors.teal),
+                    _buildStatPill(isArabic ? 'مدة التنفيذ' : 'Processing Time', pay.swiftProcessingDays != null ? '${pay.swiftProcessingDays} ${isArabic ? "يوم" : "Days"}' : '-', Colors.teal),
                   ],
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    _buildStatPill('المبلغ المطلوب', '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', AppTheme.cobalt),
+                    _buildStatPill(isArabic ? 'المبلغ المطلوب' : 'Requested Amount', '${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', AppTheme.cobalt),
                     const SizedBox(width: 8),
-                    _buildStatPill('المبلغ المنفذ بالسويفت', pay.swiftTransferredAmount != null ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}' : '-', AppTheme.emerald),
+                    _buildStatPill(isArabic ? 'المبلغ المنفذ بالسويفت' : 'Transferred Amount', pay.swiftTransferredAmount != null ? '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}' : '-', AppTheme.emerald),
                     const SizedBox(width: 8),
-                    _buildStatPill('الفارق', pay.swiftVarianceAmount != null ? '${pay.swiftVarianceAmount!.toStringAsFixed(2)} ${pay.currencyCode}' : '-', Colors.orange),
+                    _buildStatPill(isArabic ? 'الفارق' : 'Variance', pay.swiftVarianceAmount != null ? '${pay.swiftVarianceAmount!.toStringAsFixed(2)} ${pay.currencyCode}' : '-', Colors.orange),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -765,12 +837,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                           const SizedBox(width: 6),
                           Text('${context.l10n.swiftCodeLabel}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(width: 8),
-                          Text(pay.swiftReferenceNo ?? 'غير مسجل', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14)),
+                          Text(pay.swiftReferenceNo ?? (isArabic ? 'غير مسجل' : 'Unregistered'), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 14)),
                         ],
                       ),
                       if (pay.swiftReconciliationNotes != null && pay.swiftReconciliationNotes!.isNotEmpty) ...[
                         const SizedBox(height: 6),
-                        Text('ملاحظات المطابقة: ${pay.swiftReconciliationNotes}'),
+                        Text('${isArabic ? "ملاحظات المطابقة:" : "Reconciliation Notes:"} ${pay.swiftReconciliationNotes}'),
                       ],
                     ],
                   ),
@@ -780,11 +852,11 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(isArabic ? 'إغلاق' : 'Close')),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             icon: const Icon(Icons.edit, color: Colors.white, size: 16),
-            label: const Text('تعديل المطابقة', style: TextStyle(color: Colors.white)),
+            label: Text(isArabic ? 'تعديل المطابقة' : 'Edit Reconciliation', style: const TextStyle(color: Colors.white)),
             onPressed: () {
               Navigator.pop(ctx);
               _showSwiftReconciliationDialog(pay);
@@ -816,17 +888,17 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildVarianceBadge(String? status, double? variance, String currency) {
+  Widget _buildVarianceBadge(String? status, double? variance, String currency, {bool isArabic = true}) {
     if (status == 'Matched' || (variance != null && variance.abs() < 0.001)) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: Colors.green.shade100, borderRadius: BorderRadius.circular(12)),
-        child: const Row(
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 14),
-            SizedBox(width: 4),
-            Text('مطابق تماماً', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+            const Icon(Icons.check_circle, color: Colors.green, size: 14),
+            const SizedBox(width: 4),
+            Text(isArabic ? 'مطابق تماماً' : '100% Matched', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -839,7 +911,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             const Icon(Icons.arrow_downward, color: Colors.red, size: 14),
             const SizedBox(width: 4),
-            Text('عجز (${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text('${isArabic ? "عجز" : "Deficit"} (${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -852,7 +924,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           children: [
             const Icon(Icons.arrow_upward, color: Colors.orange, size: 14),
             const SizedBox(width: 4),
-            Text('زيادة (+${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
+            Text('${isArabic ? "زيادة" : "Surplus"} (+${variance?.toStringAsFixed(2)} $currency)', style: const TextStyle(color: Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
           ],
         ),
       );
@@ -860,7 +932,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(12)),
-        child: const Text('بانتظار السويفت', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
+        child: Text(isArabic ? 'بانتظار السويفت' : 'Pending SWIFT', style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11)),
       );
     }
   }
@@ -895,7 +967,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildMatchingMatrixBox(List<PaymentRequestModel> paymentsList) {
+  Widget _buildMatchingMatrixBox(List<PaymentRequestModel> paymentsList, {bool isArabic = true}) {
     PaymentRequestModel? matchedPay;
     if (_selectedPaymentIdForReconcile != null) {
       matchedPay = paymentsList.firstWhere(
@@ -910,7 +982,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     }
 
     if (matchedPay == null) {
-      return const Center(child: Text('لا توجد طلبات سداد مسجلة للمطابقة'));
+      return Center(child: Text(isArabic ? 'لا توجد طلبات سداد مسجلة للمطابقة' : 'No payment requests registered for matching'));
     }
 
     final score = _matchedPayment?['confidence_score'] ?? 100;
@@ -924,11 +996,14 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Row(
+            Row(
               children: [
-                Icon(Icons.compare_arrows, color: AppTheme.emerald, size: 18),
-                SizedBox(width: 6),
-                Text('2. المطابقة مع طلب السداد المسجل في النظام', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                const Icon(Icons.compare_arrows, color: AppTheme.emerald, size: 18),
+                const SizedBox(width: 6),
+                Text(
+                  isArabic ? '2. المطابقة مع طلب السداد المسجل في النظام' : '2. Match with System Registered Payment Request',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                ),
               ],
             ),
             Container(
@@ -944,7 +1019,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                   Icon(score >= 80 ? Icons.check_circle : Icons.warning_amber, size: 13, color: score >= 80 ? Colors.green : Colors.orange),
                   const SizedBox(width: 4),
                   Text(
-                    score >= 80 ? 'تطابق ممتاز ($score%)' : 'تطابق جزئي ($score%)',
+                    score >= 80
+                        ? (isArabic ? 'تطابق ممتاز ($score%)' : 'Excellent Match ($score%)')
+                        : (isArabic ? 'تطابق جزئي ($score%)' : 'Partial Match ($score%)'),
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
@@ -960,7 +1037,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
         // Dropdown to change or select Payment Request
         SearchableDropdownField<int>(
-          labelText: 'طلب السداد المستهدف',
+          labelText: isArabic ? 'طلب السداد المستهدف' : 'Target Payment Request',
           items: paymentsList.where((p) => p.isActive).map((p) {
             return SearchableDropdownItem<int>(
               value: p.paymentId,
@@ -989,35 +1066,35 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
           child: Column(
             children: [
               _buildCompareRow(
-                'المبلغ والعملة:',
-                'المطلوب: ${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
-                'السويفت: ${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
+                isArabic ? 'المبلغ والعملة:' : 'Amount & CCY:',
+                '${isArabic ? "المطلوب:" : "Req:"} ${matchedPay.requestedAmount.toStringAsFixed(2)} ${matchedPay.currencyCode}',
+                '${isArabic ? "السويفت:" : "SWIFT:"} ${_extractedSwift!['amount']} ${_extractedSwift!['currency']}',
                 isAmtMatched,
-                variance == 0.0 ? 'مطابق 100%' : 'فارق: ${variance.toStringAsFixed(2)}',
+                variance == 0.0 ? (isArabic ? 'مطابق 100%' : '100% Match') : '${isArabic ? "فارق:" : "Var:"} ${variance.toStringAsFixed(2)}',
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                'المورد المستفيد:',
+                isArabic ? 'المورد المستفيد:' : 'Beneficiary:',
                 matchedPay.beneficiaryName ?? matchedPay.supplierName,
                 _extractedSwift!['beneficiary_name'] ?? '-',
                 true,
-                'مطابق',
+                isArabic ? 'مطابق' : 'Matched',
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                'كود السويفت البنكي:',
+                isArabic ? 'كود السويفت البنكي:' : 'Bank SWIFT Code:',
                 matchedPay.swiftCode ?? '-',
                 _extractedSwift!['beneficiary_bank_swift'] ?? '-',
                 matchedPay.swiftCode == null || matchedPay.swiftCode == _extractedSwift!['beneficiary_bank_swift'],
-                'مؤكد',
+                isArabic ? 'مؤكد' : 'Verified',
               ),
               const Divider(height: 12),
               _buildCompareRow(
-                'رقم الحساب / IBAN:',
+                isArabic ? 'رقم الحساب / IBAN:' : 'Account / IBAN:',
                 matchedPay.ibanAccountNo ?? '-',
                 _extractedSwift!['beneficiary_account_or_iban'] ?? '-',
                 true,
-                'مؤكد',
+                isArabic ? 'مؤكد' : 'Verified',
               ),
             ],
           ),
@@ -1037,7 +1114,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.verified, color: Colors.white, size: 20),
             label: Text(
-              'تأكيد المطابقة، اعتماد سداد ${matchedPay.paymentCode} وتحديث ملف الشحنة آلياً ⚡',
+              isArabic
+                  ? 'تأكيد المطابقة، اعتماد سداد ${matchedPay.paymentCode} وتحديث ملف الشحنة آلياً ⚡'
+                  : 'Confirm Match, Approve ${matchedPay.paymentCode} & Auto-Sync Shipment ⚡',
               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
             ),
             onPressed: _isSmartReconciling ? null : () => _executeSmartReconciliation(matchedPay!),
@@ -1084,7 +1163,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
     );
   }
 
-  Widget _buildSmartSwiftSection(List<PaymentRequestModel> paymentsList) {
+  Widget _buildSmartSwiftSection(List<PaymentRequestModel> paymentsList, {bool isArabic = true}) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1116,10 +1195,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
               children: [
                 const Icon(Icons.auto_awesome, color: Colors.amber, size: 22),
                 const SizedBox(width: 10),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    '⚡ محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت (Smart AI SWIFT MT103 Extractor & Auto-Reconciler)',
-                    style: TextStyle(
+                    isArabic
+                        ? '⚡ محرك الاستخراج الذكي والمطابقة الفورية لبيانات السويفت'
+                        : '⚡ Smart AI SWIFT MT103 Extractor & Auto-Reconciler',
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
@@ -1132,7 +1213,10 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                     foregroundColor: Colors.white,
                   ),
                   icon: const Icon(Icons.description, size: 16),
-                  label: const Text('تحميل نموذج سويفت تجريبي 📄', style: TextStyle(fontSize: 11)),
+                  label: Text(
+                    isArabic ? 'تحميل نموذج سويفت تجريبي 📄' : 'Load Sample SWIFT 📄',
+                    style: const TextStyle(fontSize: 11),
+                  ),
                   onPressed: () {
                     _rawSwiftTextController.text = kSampleSwiftMT103;
                     _runSmartSwiftExtraction();
@@ -1140,7 +1224,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: _isSmartSectionExpanded ? 'طي الأداة' : 'توسيع الأداة',
+                  tooltip: isArabic
+                      ? (_isSmartSectionExpanded ? 'طي الأداة' : 'توسيع الأداة')
+                      : (_isSmartSectionExpanded ? 'Collapse' : 'Expand'),
                   icon: Icon(
                     _isSmartSectionExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                     color: Colors.white,
@@ -1188,7 +1274,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 Row(
                                   children: [
                                     Text(
-                                      'المستند المستخرج: ',
+                                      isArabic ? 'المستند المستخرج: ' : 'Extracted Document: ',
                                       style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple.shade900),
                                     ),
                                     Text(
@@ -1199,7 +1285,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'النوع: ${_detectedFileType ?? "مستند"} ${_uploadedFileSize != null ? "• الحجم: ${(_uploadedFileSize! / 1024).toStringAsFixed(1)} KB" : ""}',
+                                  '${isArabic ? "النوع:" : "Type:"} ${_detectedFileType ?? (isArabic ? "مستند" : "Document")} ${_uploadedFileSize != null ? "• ${isArabic ? "الحجم:" : "Size:"} ${(_uploadedFileSize! / 1024).toStringAsFixed(1)} KB" : ""}',
                                   style: TextStyle(fontSize: 11, color: Colors.purple.shade700),
                                 ),
                               ],
@@ -1212,13 +1298,13 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                             ),
                             icon: const Icon(Icons.refresh, size: 14),
-                            label: const Text('تغيير الملف', style: TextStyle(fontSize: 11)),
+                            label: Text(isArabic ? 'تغيير الملف' : 'Change File', style: const TextStyle(fontSize: 11)),
                             onPressed: () => _pickAndExtractFile(),
                           ),
                           const SizedBox(width: 6),
                           IconButton(
                             icon: const Icon(Icons.close, size: 16, color: Colors.purple),
-                            tooltip: 'إزالة الملف',
+                            tooltip: isArabic ? 'إزالة الملف' : 'Remove File',
                             onPressed: () {
                               setState(() {
                                 _uploadedFileName = null;
@@ -1241,7 +1327,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                           maxLines: 5,
                           style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                           decoration: InputDecoration(
-                            hintText: 'الصق نص رسالة السويفت البنكي (MT103) أو ارفع ملف المستند (Word / Excel / PDF / صورة)...\nمثال: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD',
+                            hintText: isArabic
+                                ? 'الصق نص رسالة السويفت البنكي (MT103) أو ارفع ملف المستند (Word / Excel / PDF / صورة)...\nمثال: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD'
+                                : 'Paste SWIFT MT103 message text or upload document (Word / Excel / PDF / Image)...\nExample: {1:F01ARAIECXXXXX...} :20/TRANSACTION REFERENCE NUMBER : FT/26228/KZ70Q\n:32A/Value Date, CCY, Amount : 260818USD43704,00\n:59/Beneficiary Customer : SUZHOU YUHENG TEXTILE CO., LTD',
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                             filled: true,
                             fillColor: Colors.grey.shade50,
@@ -1261,10 +1349,12 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                             icon: _isExtracting
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.upload_file, color: Colors.white, size: 18),
-                            label: const Text(
-                              '📁 رفع واستخراج من ملف\n(Word / Excel / PDF / صورة)',
+                            label: Text(
+                              isArabic
+                                  ? '📁 رفع واستخراج من ملف\n(Word / Excel / PDF / صورة)'
+                                  : '📁 Upload & Extract File\n(Word / Excel / PDF / Image)',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11),
                             ),
                             onPressed: _isExtracting ? null : () => _pickAndExtractFile(),
                           ),
@@ -1278,9 +1368,9 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                             icon: _isExtracting
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.bolt, color: Colors.white, size: 18),
-                            label: const Text(
-                              'استخراج ومطابقة النص ⚡',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                            label: Text(
+                              isArabic ? 'استخراج ومطابقة النص ⚡' : 'Extract & Reconcile ⚡',
+                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                             ),
                             onPressed: _isExtracting ? null : () => _runSmartSwiftExtraction(),
                           ),
@@ -1293,7 +1383,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                 ),
                                 icon: const Icon(Icons.paste, size: 14),
-                                label: const Text('لصق', style: TextStyle(fontSize: 11)),
+                                label: Text(isArabic ? 'لصق' : 'Paste', style: const TextStyle(fontSize: 11)),
                                 onPressed: () async {
                                   final data = await Clipboard.getData(Clipboard.kTextPlain);
                                   if (data != null && data.text != null && data.text!.isNotEmpty) {
@@ -1305,7 +1395,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               const SizedBox(width: 4),
                               TextButton.icon(
                                 icon: const Icon(Icons.clear, size: 14, color: Colors.grey),
-                                label: const Text('تفريغ', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                label: Text(isArabic ? 'تفريغ' : 'Clear', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                 onPressed: () {
                                   _rawSwiftTextController.clear();
                                   setState(() {
@@ -1349,18 +1439,21 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(Icons.account_balance, color: AppTheme.cobalt, size: 18),
-                                        SizedBox(width: 6),
-                                        Text('1. بيانات السويفت المستخرجة (MT103)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                        const Icon(Icons.account_balance, color: AppTheme.cobalt, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          isArabic ? '1. بيانات السويفت المستخرجة (MT103)' : '1. Extracted SWIFT Details (MT103)',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        ),
                                       ],
                                     ),
                                     Container(
                                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(color: AppTheme.cobalt, borderRadius: BorderRadius.circular(4)),
                                       child: Text(
-                                        'Ref: ${_extractedSwift!['transaction_reference'] ?? "غير محدد"}',
+                                        'Ref: ${_extractedSwift!['transaction_reference'] ?? (isArabic ? "غير محدد" : "Unspecified")}',
                                         style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                                       ),
                                     ),
@@ -1369,27 +1462,27 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [
-                                    _buildInfoField('المبلغ المنفذ', '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}', AppTheme.emerald, isBold: true),
+                                    _buildInfoField(isArabic ? 'المبلغ المنفذ' : 'Transferred Amt', '${_extractedSwift!['amount']} ${_extractedSwift!['currency']}', AppTheme.emerald, isBold: true),
                                     const SizedBox(width: 8),
-                                    _buildInfoField('تاريخ التحويل', _extractedSwift!['value_date_formatted'] ?? _extractedSwift!['value_date'] ?? '-', AppTheme.charcoal),
+                                    _buildInfoField(isArabic ? 'تاريخ التحويل' : 'Value Date', _extractedSwift!['value_date_formatted'] ?? _extractedSwift!['value_date'] ?? '-', AppTheme.charcoal),
                                     const SizedBox(width: 8),
-                                    _buildInfoField('العمولات', _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
+                                    _buildInfoField(isArabic ? 'العمولات' : 'Charges', _extractedSwift!['charge_details'] ?? 'SHA', Colors.teal),
                                   ],
                                 ),
                                 const SizedBox(height: 8),
-                                Text('المورد المستفيد: ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                Text('${isArabic ? "المورد المستفيد:" : "Beneficiary:"} ${_extractedSwift!['beneficiary_name'] ?? "-"}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                                 const SizedBox(height: 4),
                                 Row(
                                   children: [
-                                    Expanded(child: Text('كود السويفت: ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
-                                    Expanded(child: Text('رقم الحساب / IBAN: ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
+                                    Expanded(child: Text('${isArabic ? "كود السويفت:" : "SWIFT Code:"} ${_extractedSwift!['beneficiary_bank_swift'] ?? "-"}', style: const TextStyle(fontSize: 11))),
+                                    Expanded(child: Text('${isArabic ? "رقم الحساب / IBAN:" : "Account / IBAN:"} ${_extractedSwift!['beneficiary_account_or_iban'] ?? "-"}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold))),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                Text('الآمر بالتحويل: ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
+                                Text('${isArabic ? "الآمر بالتحويل:" : "Ordering Customer:"} ${_extractedSwift!['ordering_customer_name'] ?? "-"} (${_extractedSwift!['ordering_account_or_iban'] ?? "-"})', style: TextStyle(fontSize: 11, color: Colors.grey.shade800)),
                                 if (_extractedSwift!['pi_number'] != null || _extractedSwift!['payment_details'] != null) ...[
                                   const SizedBox(height: 4),
-                                  Text('الفاتورة / التفاصيل: ${_extractedSwift!['pi_number'] ?? _extractedSwift!['payment_details']}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
+                                  Text('${isArabic ? "الفاتورة / التفاصيل:" : "Invoice / Details:"} ${_extractedSwift!['pi_number'] ?? _extractedSwift!['payment_details']}', style: const TextStyle(fontSize: 11, color: AppTheme.cobalt, fontWeight: FontWeight.w600)),
                                 ],
                               ],
                             ),
@@ -1407,7 +1500,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(color: Colors.green.shade300),
                             ),
-                            child: _buildMatchingMatrixBox(paymentsList),
+                            child: _buildMatchingMatrixBox(paymentsList, isArabic: isArabic),
                           ),
                         ),
                       ],
@@ -1423,6 +1516,7 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
 
   @override
   Widget build(BuildContext context) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final paymentsState = ref.watch(paymentRequestsProvider);
     final paymentsList = paymentsState.value ?? [];
 
@@ -1470,236 +1564,247 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // KPI Metric Cards
-                  Row(
+                Row(
+                  children: [
+                    _buildKPICard(isArabic ? 'إجمالي طلبات السداد' : 'Total Requests', totalRequests.toString(), Icons.receipt_long, AppTheme.cobalt),
+                    const SizedBox(width: 12),
+                    _buildKPICard(isArabic ? 'بانتظار السويفت' : 'Pending SWIFT', pendingSwift.toString(), Icons.hourglass_top, Colors.orange),
+                    const SizedBox(width: 12),
+                    _buildKPICard(isArabic ? 'سويفت مطابق 100%' : '100% Matched', matchedSwift.toString(), Icons.check_circle_outline, AppTheme.emerald),
+                    const SizedBox(width: 12),
+                    _buildKPICard(isArabic ? 'فروقات (عجز / زيادة)' : 'Variances', discrepancySwift.toString(), Icons.compare_arrows, AppTheme.crimson),
+                    const SizedBox(width: 12),
+                    _buildKPICard(isArabic ? 'متوسط مدة التنفيذ' : 'Avg Processing Time', '$avgDays ${isArabic ? "يوم" : "Days"}', Icons.speed, Colors.teal),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Smart AI SWIFT MT103 Extractor & Auto-Reconciler Tool
+                _buildSmartSwiftSection(paymentsList, isArabic: isArabic),
+                const SizedBox(height: 16),
+
+                // Filter & Search Toolbar
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+                  ),
+                  child: Row(
                     children: [
-                      _buildKPICard('إجمالي طلبات السداد', totalRequests.toString(), Icons.receipt_long, AppTheme.cobalt),
-                      const SizedBox(width: 12),
-                      _buildKPICard('بانتظار السويفت', pendingSwift.toString(), Icons.hourglass_top, Colors.orange),
-                      const SizedBox(width: 12),
-                      _buildKPICard('سويفت مطابق 100%', matchedSwift.toString(), Icons.check_circle_outline, AppTheme.emerald),
-                      const SizedBox(width: 12),
-                      _buildKPICard('فروقات (عجز / زيادة)', discrepancySwift.toString(), Icons.compare_arrows, AppTheme.crimson),
-                      const SizedBox(width: 12),
-                      _buildKPICard('متوسط مدة التنفيذ', '$avgDays يوم', Icons.speed, Colors.teal),
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: isArabic ? 'بحث بكود الطلب، ملف الشحنة، المورد، رقم السويفت...' : 'Search by payment code, shipment file, supplier, SWIFT ref...',
+                            prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          onChanged: (v) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      // Filter Chips
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          _buildFilterChip(isArabic ? 'الكل ($totalRequests)' : 'All ($totalRequests)', 'ALL'),
+                          _buildFilterChip(isArabic ? 'بانتظار السويفت ($pendingSwift)' : 'Pending SWIFT ($pendingSwift)', 'PENDING'),
+                          _buildFilterChip(isArabic ? 'مطابق ($matchedSwift)' : 'Matched ($matchedSwift)', 'MATCHED'),
+                          _buildFilterChip(isArabic ? 'فروقات ($discrepancySwift)' : 'Variances ($discrepancySwift)', 'DEFICIT'),
+                        ],
+                      ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                ),
+                const SizedBox(height: 16),
 
-                  // Smart AI SWIFT MT103 Extractor & Auto-Reconciler Tool
-                  _buildSmartSwiftSection(paymentsList),
-                  const SizedBox(height: 16),
-
-                  // Filter & Search Toolbar
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextField(
-                            controller: _searchController,
-                            decoration: const InputDecoration(
-                              hintText: 'بحث بكود الطلب، ملف الشحنة، المورد، رقم السويفت...',
-                              prefixIcon: Icon(Icons.search, color: AppTheme.cobalt),
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                            onChanged: (v) => setState(() {}),
-                          ),
+                // Table of Payment Requests & SWIFTs
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade50,
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
+                          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
                         ),
-                        const SizedBox(width: 16),
-                        // Filter Chips
-                        Wrap(
-                          spacing: 8,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            _buildFilterChip('الكل ($totalRequests)', 'ALL'),
-                            _buildFilterChip('بانتظار السويفت ($pendingSwift)', 'PENDING'),
-                            _buildFilterChip('مطابق ($matchedSwift)', 'MATCHED'),
-                            _buildFilterChip('فروقات ($discrepancySwift)', 'DEFICIT'),
+                            Row(
+                              children: [
+                                const Icon(Icons.table_chart, color: AppTheme.charcoal, size: 20),
+                                const SizedBox(width: 8),
+                                Text(
+                                  '${isArabic ? "سجل طلبات السداد ومطابقة السويفت" : "Payment Requests & SWIFT Reconciliation"} (${filtered.length})',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                ),
+                              ],
+                            ),
+                            Row(
+                              children: [
+                                const Icon(Icons.bolt, color: Colors.orange, size: 16),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isArabic ? 'التحديث التلقائي لملفات الشحنة مفعل ⚡' : 'Shipment Files Live Auto-Sync Active ⚡',
+                                  style: const TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
+                      ),
 
-                  // Table of Payment Requests & SWIFTs
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 4, offset: const Offset(0, 2))],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
-                            border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  const Icon(Icons.table_chart, color: AppTheme.charcoal, size: 20),
-                                  const SizedBox(width: 8),
-                                  Text('سجل طلبات السداد ومطابقة السويفت (${filtered.length})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                ],
-                              ),
-                              const Row(
-                                children: [
-                                  Icon(Icons.bolt, color: Colors.orange, size: 16),
-                                  SizedBox(width: 4),
-                                  Text('التحديث التلقائي لملفات الشحنة مفعل ⚡', style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        if (filtered.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Center(child: Text('لا توجد طلبات سداد تطابق معايير البحث الحالية.', style: TextStyle(color: Colors.grey))),
-                          )
-                        else
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: DataTable(
-                              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                              columns: const [
-                                DataColumn(label: Text('كود الطلب / الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('المورد المستفيد والبنك', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('تاريخ تقديم الطلب', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('تاريخ استلام السويفت', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('مدة التنفيذ', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('المبلغ المطلوب', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('المبلغ المنفذ بالسويفت', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('حالة المطابقة والفارق', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('رقم السويفت (MT103)', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('⚡ العمليات', style: TextStyle(fontWeight: FontWeight.bold))),
-                              ],
-                              rows: filtered.map((pay) {
-                                final isReconciled = pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty;
-                                return DataRow(
-                                  cells: [
-                                    DataCell(
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
-                                          if (pay.importFileCode != null)
-                                            Text(pay.importFileCode!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
-                                        ],
-                                      ),
-                                    ),
-                                    DataCell(
-                                      Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        mainAxisAlignment: MainAxisAlignment.center,
-                                        children: [
-                                          Text(pay.beneficiaryName ?? pay.supplierName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
-                                          Text(pay.bankName ?? 'بنك غير محدد', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
-                                        ],
-                                      ),
-                                    ),
-                                    DataCell(Text(pay.requestDate.isNotEmpty ? pay.requestDate : '-')),
-                                    DataCell(
-                                      Text(
-                                        pay.swiftReceiptDate ?? 'بانتظار السويفت',
-                                        style: TextStyle(
-                                          fontWeight: isReconciled ? FontWeight.bold : FontWeight.normal,
-                                          color: isReconciled ? AppTheme.charcoal : Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                    DataCell(
-                                      pay.swiftProcessingDays != null
-                                          ? Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(
-                                                color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade50 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade50 : Colors.red.shade50),
-                                                borderRadius: BorderRadius.circular(4),
-                                                border: Border.all(
-                                                  color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade300 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade300 : Colors.red.shade300),
-                                                ),
-                                              ),
-                                              child: Text(
-                                                '⚡ ${pay.swiftProcessingDays} يوم',
-                                                style: TextStyle(
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade800 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
-                                                ),
-                                              ),
-                                            )
-                                          : const Text('⏳ معلق', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                    ),
-                                    DataCell(Text('${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontWeight: FontWeight.w600))),
-                                    DataCell(
-                                      pay.swiftTransferredAmount != null
-                                          ? Text(
-                                              '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
-                                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
-                                            )
-                                          : const Text('-', style: TextStyle(color: Colors.grey)),
-                                    ),
-                                    DataCell(_buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode)),
-                                    DataCell(
-                                      pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
-                                          ? Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                              decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
-                                              child: Text(pay.swiftReferenceNo!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
-                                            )
-                                          : const Text('غير مسجل', style: TextStyle(color: Colors.grey, fontSize: 11)),
-                                    ),
-                                    DataCell(
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          ElevatedButton.icon(
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                            ),
-                                            icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
-                                            label: Text(
-                                              isReconciled ? 'تعديل السويفت' : 'تسجيل السويفت',
-                                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
-                                            ),
-                                            onPressed: () => _showSwiftReconciliationDialog(pay),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          IconButton(
-                                            icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                            tooltip: 'عرض التفاصيل',
-                                            onPressed: () => _showSwiftDetailsDialog(pay),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                );
-                              }).toList(),
+                      if (filtered.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Center(
+                            child: Text(
+                              isArabic ? 'لا توجد طلبات سداد تطابق معايير البحث الحالية.' : 'No payment requests match current search criteria.',
+                              style: const TextStyle(color: Colors.grey),
                             ),
                           ),
-                      ],
-                    ),
+                        )
+                      else
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                            columns: [
+                              DataColumn(label: Text(isArabic ? 'كود الطلب / الملف' : 'Payment Code / File', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'المورد المستفيد والبنك' : 'Beneficiary & Bank', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'تاريخ تقديم الطلب' : 'Request Date', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'تاريخ استلام السويفت' : 'SWIFT Receipt Date', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'مدة التنفيذ' : 'Processing Time', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'المبلغ المطلوب' : 'Requested Amount', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'المبلغ المنفذ بالسويفت' : 'Transferred Amount', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'حالة المطابقة والفارق' : 'Variance & Status', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? 'رقم السويفت (MT103)' : 'SWIFT Ref (MT103)', style: const TextStyle(fontWeight: FontWeight.bold))),
+                              DataColumn(label: Text(isArabic ? '⚡ العمليات' : '⚡ Actions', style: const TextStyle(fontWeight: FontWeight.bold))),
+                            ],
+                            rows: filtered.map((pay) {
+                              final isReconciled = pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty;
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(pay.paymentCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                        if (pay.importFileCode != null)
+                                          Text(pay.importFileCode!, style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                      ],
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(pay.beneficiaryName ?? pay.supplierName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                        Text(pay.bankName ?? (isArabic ? 'بنك غير محدد' : 'Unspecified Bank'), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                      ],
+                                    ),
+                                  ),
+                                  DataCell(Text(pay.requestDate.isNotEmpty ? pay.requestDate : '-')),
+                                  DataCell(
+                                    Text(
+                                      pay.swiftReceiptDate ?? (isArabic ? 'بانتظار السويفت' : 'Pending SWIFT'),
+                                      style: TextStyle(
+                                        fontWeight: isReconciled ? FontWeight.bold : FontWeight.normal,
+                                        color: isReconciled ? AppTheme.charcoal : Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    pay.swiftProcessingDays != null
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(
+                                              color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade50 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade50 : Colors.red.shade50),
+                                              borderRadius: BorderRadius.circular(4),
+                                              border: Border.all(
+                                                color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade300 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade300 : Colors.red.shade300),
+                                              ),
+                                            ),
+                                            child: Text(
+                                              '⚡ ${pay.swiftProcessingDays} ${isArabic ? "يوم" : "Days"}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: pay.swiftProcessingDays! <= 3 ? Colors.green.shade800 : (pay.swiftProcessingDays! <= 7 ? Colors.orange.shade900 : Colors.red.shade900),
+                                              ),
+                                            ),
+                                          )
+                                        : Text(isArabic ? '⏳ معلق' : '⏳ Pending', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                  ),
+                                  DataCell(Text('${pay.requestedAmount.toStringAsFixed(2)} ${pay.currencyCode}', style: const TextStyle(fontWeight: FontWeight.w600))),
+                                  DataCell(
+                                    pay.swiftTransferredAmount != null
+                                        ? Text(
+                                            '${pay.swiftTransferredAmount!.toStringAsFixed(2)} ${pay.swiftTransferredCurrency ?? pay.currencyCode}',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald),
+                                          )
+                                        : const Text('-', style: TextStyle(color: Colors.grey)),
+                                  ),
+                                  DataCell(_buildVarianceBadge(pay.swiftVarianceStatus, pay.swiftVarianceAmount, pay.currencyCode, isArabic: isArabic)),
+                                  DataCell(
+                                    pay.swiftReferenceNo != null && pay.swiftReferenceNo!.isNotEmpty
+                                        ? Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                            decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
+                                            child: Text(pay.swiftReferenceNo!, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11)),
+                                          )
+                                        : Text(isArabic ? 'غير مسجل' : 'Unregistered', style: const TextStyle(color: Colors.grey, fontSize: 11)),
+                                  ),
+                                  DataCell(
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        ElevatedButton.icon(
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: isReconciled ? AppTheme.cobalt : AppTheme.emerald,
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          ),
+                                          icon: Icon(isReconciled ? Icons.edit : Icons.account_balance, color: Colors.white, size: 14),
+                                          label: Text(
+                                            isReconciled ? (isArabic ? 'تعديل السويفت' : 'Edit SWIFT') : (isArabic ? 'تسجيل السويفت' : 'Register SWIFT'),
+                                            style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                          ),
+                                          onPressed: () => _showSwiftReconciliationDialog(pay),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        IconButton(
+                                          icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
+                                          tooltip: isArabic ? 'عرض التفاصيل' : 'View Details',
+                                          onPressed: () => _showSwiftDetailsDialog(pay),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                    ],
                   ),
-                ],
-              ),
-            );
+                ),
+              ],
+            ),
+          );
 
     if (widget.isEmbedded) {
       return Container(
@@ -1712,17 +1817,20 @@ class _SwiftReconciliationScreenState extends ConsumerState<SwiftReconciliationS
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.account_balance, color: AppTheme.cobalt),
-            SizedBox(width: 10),
-            Text('مركز مطابقة وتأكيد السويفت البنكي (Bank SWIFT Tracking & Reconciliation Engine)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Icon(Icons.account_balance, color: AppTheme.cobalt),
+            const SizedBox(width: 10),
+            Text(
+              isArabic ? 'مركز مطابقة وتأكيد السويفت البنكي' : 'Bank SWIFT Tracking & Reconciliation Engine',
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            tooltip: 'تحديث البيانات',
+            tooltip: isArabic ? 'تحديث البيانات' : 'Refresh Data',
             onPressed: () {
               ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
               ref.read(importFilesProvider.notifier).fetchImportFiles();

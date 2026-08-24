@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/customs_tariff_provider.dart';
 
   void showAddAgreementDialog(
       BuildContext context, WidgetRef ref, String hsCode) {
+    final l10n = context.l10n;
     final nameCtrl = TextEditingController();
     final countriesCtrl = TextEditingController(text: 'EG,EU,TR,JO,TN,MA,GB');
     final pctCtrl = TextEditingController(text: '100');
@@ -17,7 +19,7 @@ import '../providers/customs_tariff_provider.dart';
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('إضافة اتفاقية تفضيلية للبند $hsCode'),
+          title: Text(l10n.addAgreementDialogTitle(hsCode)),
           content: Form(
             key: formKey,
             child: SizedBox(
@@ -27,43 +29,43 @@ import '../providers/customs_tariff_provider.dart';
                 children: [
                   TextFormField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'اسم الاتفاقية *',
-                      hintText: 'مثال: اتفاقية الشراكة المصرية الأوروبية EU',
+                    decoration: InputDecoration(
+                      labelText: l10n.agreementNameLabel,
+                      hintText: l10n.agreementNameHint,
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'مطلوب إدخال اسم الاتفاقية'
+                        ? l10n.agreementNameRequired
                         : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: countriesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'دول المنشأ المعنية *',
-                      hintText: 'رموز الدول بالفواصل e.g. JO,TN,MA,EU',
+                    decoration: InputDecoration(
+                      labelText: l10n.agreementCountriesLabel,
+                      hintText: l10n.agreementCountriesHint,
                     ),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'مطلوب إدخال دول المنشأ'
+                        ? l10n.agreementCountriesRequired
                         : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: pctCtrl,
                     keyboardType: TextInputType.number,
-                    decoration: const InputDecoration(
-                      labelText: 'نسبة التخفيض الجمركي % *',
-                      hintText: '100 للإعفاء الكامل، 10 للتخفيض 10%',
+                    decoration: InputDecoration(
+                      labelText: l10n.dutyReductionPctLabel,
+                      hintText: l10n.dutyReductionPctHint,
                     ),
                     validator: (v) => (v == null || double.tryParse(v) == null)
-                        ? 'رقم غير صحيح'
+                        ? l10n.invalidNumberError
                         : null,
                   ),
                   const SizedBox(height: 10),
                   TextFormField(
                     controller: notesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'شروط وملاحظات الإفراج التفضيلية',
-                      hintText: 'مثال: مصحوبة بفرام 1 أو شهادة EUR.1',
+                    decoration: InputDecoration(
+                      labelText: l10n.agreementConditionsLabel,
+                      hintText: l10n.agreementConditionsHint,
                     ),
                     maxLines: 2,
                   ),
@@ -74,7 +76,7 @@ import '../providers/customs_tariff_provider.dart';
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -107,14 +109,13 @@ import '../providers/customs_tariff_provider.dart';
                         if (error != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text(error),
+                                content: Text(l10n.agreementAddFailed(error)),
                                 backgroundColor: AppTheme.crimson),
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content:
-                                  Text('تمت إضافة الاتفاقية التفضيلية بنجاح!'),
+                            SnackBar(
+                              content: Text(l10n.agreementAddedSuccess),
                               backgroundColor: AppTheme.emerald,
                             ),
                           );
@@ -129,7 +130,7 @@ import '../providers/customs_tariff_provider.dart';
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white),
                     )
-                  : const Text('حفظ الاتفاقية'),
+                  : Text(l10n.saveAgreementBtn),
             ),
           ],
         ),

@@ -68,22 +68,22 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
               SearchableDropdownField<String>(
                 value: _responsibleParty,
                 labelText: l.responsiblePartyLabel,
-                items: const [
+                items: [
                   SearchableDropdownItem(
                     value: 'Customs Broker',
-                    label: 'Customs Broker',
+                    label: l.responsibleCustomsBroker,
                   ),
                   SearchableDropdownItem(
                     value: 'Supplier / Exporter',
-                    label: 'Supplier / Exporter',
+                    label: l.responsibleSupplierExporter,
                   ),
                   SearchableDropdownItem(
                     value: 'Importer Team',
-                    label: 'Importer Team',
+                    label: l.responsibleImporterTeam,
                   ),
                   SearchableDropdownItem(
                     value: 'Freight Forwarder',
-                    label: 'Freight Forwarder',
+                    label: l.responsibleFreightForwarder,
                   ),
                 ],
                 onChanged: (v) {
@@ -102,26 +102,26 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
               SearchableDropdownField<String>(
                 value: _itemStatus,
                 labelText: l.statusCol,
-                items: const [
+                items: [
                   SearchableDropdownItem(
                     value: 'Pending',
-                    label: 'Pending',
+                    label: l.statusPending,
                   ),
                   SearchableDropdownItem(
                     value: 'Received',
-                    label: 'Received',
+                    label: l.statusReceived,
                   ),
                   SearchableDropdownItem(
                     value: 'Verified',
-                    label: 'Verified',
+                    label: l.statusVerified,
                   ),
                   SearchableDropdownItem(
                     value: 'Approved',
-                    label: 'Approved',
+                    label: l.statusApproved,
                   ),
                   SearchableDropdownItem(
                     value: 'Rejected',
-                    label: 'Rejected',
+                    label: l.statusRejected,
                   ),
                 ],
                 onChanged: (v) {
@@ -135,13 +135,13 @@ class _AddChecklistItemDialogState extends State<AddChecklistItemDialog> {
                     value: _isRequired,
                     onChanged: (v) => setState(() => _isRequired = v ?? true),
                   ),
-                  Text(l.applyAndLinkFinancialEstimate),
+                  Text(l.requiredDocCheckbox),
                   const Spacer(),
                   Checkbox(
                     value: _isBlocking,
                     onChanged: (v) => setState(() => _isBlocking = v ?? true),
                   ),
-                  Text(l.blockingIssuesCount),
+                  Text(l.blockingShipmentCheckbox),
                 ],
               ),
               const SizedBox(height: 12),

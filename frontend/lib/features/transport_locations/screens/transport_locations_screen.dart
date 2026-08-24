@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -33,8 +34,30 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     });
   }
 
+  String _getLocationTypeLabel(String type, AppLocalizations l10n) {
+    switch (type) {
+      case 'All':
+        return l10n.locationTypeAll;
+      case 'Sea Port':
+        return l10n.locationTypeSeaPort;
+      case 'Airport':
+        return l10n.locationTypeAirport;
+      case 'Dry Port':
+        return l10n.locationTypeDryPort;
+      case 'Land Border':
+        return l10n.locationTypeLandBorder;
+      case 'ICD':
+        return l10n.locationTypeIcd;
+      case 'Rail Terminal':
+        return l10n.locationTypeRailTerminal;
+      default:
+        return type;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final locationsAsync = ref.watch(transportLocationsProvider);
 
     return Scaffold(
@@ -48,21 +71,21 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Ports & Transport Locations',
-                      style: TextStyle(
+                      l10n.transportLocationsScreenTitle,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.charcoal,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Master reference for Sea Ports, Airports, Dry Ports & Land Borders (UN/LOCODE)',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                      l10n.transportLocationsScreenSubtitle,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -73,7 +96,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                     ElevatedButton.icon(
                       onPressed: () => _showLocationDialog(context),
                       icon: const Icon(Icons.add_location_alt, size: 18),
-                      label: const Text('Add Transport Location'),
+                      label: Text(l10n.addTransportLocationBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
@@ -106,7 +129,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   children: _locationTypes.map((type) {
                     final isSelected = _selectedType == type;
                     return ChoiceChip(
-                      label: Text(type),
+                      label: Text(_getLocationTypeLabel(type, l10n)),
                       selected: isSelected,
                       selectedColor: AppTheme.cobalt,
                       labelStyle: TextStyle(
@@ -135,7 +158,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Search by UN/LOCODE, name, city...',
+                      hintText: l10n.searchTransportLocationsHint,
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -186,12 +209,12 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
               child: locationsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Text('Error loading locations: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  child: Text(l10n.locationsFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                 ),
                 data: (locations) {
                   if (locations.isEmpty) {
-                    return const Center(
-                      child: Text('No transport locations found.', style: TextStyle(color: Colors.grey, fontSize: 15)),
+                    return Center(
+                      child: Text(l10n.noTransportLocationsFound, style: const TextStyle(color: Colors.grey, fontSize: 15)),
                     );
                   }
 
@@ -246,13 +269,13 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                 TableRow(
                                   decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
-                                    'UN/LOCODE',
-                                    'Location Name',
-                                    'Type',
-                                    'Country',
-                                    'City',
-                                    'Status',
-                                    'Actions'
+                                    l10n.unLocodeCol,
+                                    l10n.locationNameCol,
+                                    l10n.locationTypeCol,
+                                    l10n.countryCol,
+                                    l10n.cityCol,
+                                    l10n.statusCol,
+                                    l10n.actionsCol,
                                   ]
                                       .map((h) => Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -327,7 +350,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
                                       // Type Badge
                                       _cell(
-                                        child: _typeBadge(loc.locationType),
+                                        child: _typeBadge(loc.locationType, l10n),
                                       ),
 
                                       // Country
@@ -355,7 +378,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                             borderRadius: BorderRadius.circular(20),
                                           ),
                                           child: Text(
-                                            isActive ? 'Active' : 'Inactive',
+                                            isActive ? l10n.statusActive : l10n.statusInactive,
                                             style: TextStyle(
                                               color: isActive ? AppTheme.emerald : AppTheme.crimson,
                                               fontSize: 11,
@@ -373,7 +396,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                           onPrint: () {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
-                                                content: Text('طباعة بيانات المنفذ/الميناء: ${loc.locationName} (${loc.unLocode})'),
+                                                content: Text(l10n.printLocationSnack(loc.locationName, loc.unLocode)),
                                                 backgroundColor: AppTheme.charcoal,
                                                 duration: const Duration(seconds: 2),
                                               ),
@@ -383,16 +406,16 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                             final confirm = await showDialog<bool>(
                                               context: context,
                                               builder: (ctx) => AlertDialog(
-                                                title: const Text('تأكيد الإجراء'),
+                                                title: Text(l10n.confirmActionTitle),
                                                 content: Text(isActive
-                                                    ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الميناء/المنفذ (${loc.locationName})؟'
-                                                    : 'هل أنت متأكد من إعادة تفعيل الميناء/المنفذ (${loc.locationName})؟'),
+                                                    ? l10n.confirmDeactivateLocation(loc.locationName)
+                                                    : l10n.confirmActivateLocation(loc.locationName)),
                                                 actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                                                   ElevatedButton(
                                                     onPressed: () => Navigator.pop(ctx, true),
                                                     style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                    child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                    child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                                                   ),
                                                 ],
                                               ),
@@ -401,7 +424,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                                               ref.read(transportLocationsProvider.notifier).toggleActive(loc.locationId!, isActive);
                                             }
                                           },
-                                          deleteTooltip: isActive ? 'إيقاف تفعيل المنفذ (Deactivate)' : 'إعادة تفعيل المنفذ (Activate)',
+                                          deleteTooltip: isActive ? l10n.deactivateLocationTooltip : l10n.activateLocationTooltip,
                                         ),
                                       ),
                                     ],
@@ -431,12 +454,12 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Showing ${totalItems == 0 ? 0 : startIndex + 1}–$endIndex of $totalItems locations ($_selectedType)',
+                          l10n.showingLocationsCount(totalItems == 0 ? 0 : startIndex + 1, endIndex, totalItems, _getLocationTypeLabel(_selectedType, l10n)),
                           style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
                         ),
                         Row(
                           children: [
-                            const Text('Rows per page: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            Text(l10n.rowsPerPageLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                             DropdownButton<int>(
                               value: _pageSize,
                               underline: const SizedBox(),
@@ -457,29 +480,29 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                             IconButton(
                               icon: const Icon(Icons.first_page, size: 20),
                               onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = 1) : null,
-                              tooltip: 'First Page',
+                              tooltip: l10n.firstPageTooltip,
                             ),
                             IconButton(
                               icon: const Icon(Icons.chevron_left, size: 20),
                               onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = safeCurrentPage - 1) : null,
-                              tooltip: 'Previous Page',
+                              tooltip: l10n.previousPageTooltip,
                             ),
                             Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 8),
                               child: Text(
-                                'Page $safeCurrentPage of ${totalPages == 0 ? 1 : totalPages}',
+                                l10n.pageOfTotal(safeCurrentPage, totalPages == 0 ? 1 : totalPages),
                                 style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                               ),
                             ),
                             IconButton(
                               icon: const Icon(Icons.chevron_right, size: 20),
                               onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = safeCurrentPage + 1) : null,
-                              tooltip: 'Next Page',
+                              tooltip: l10n.nextPageTooltip,
                             ),
                             IconButton(
                               icon: const Icon(Icons.last_page, size: 20),
                               onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = totalPages) : null,
-                              tooltip: 'Last Page',
+                              tooltip: l10n.lastPageTooltip,
                             ),
                           ],
                         ),
@@ -497,7 +520,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     );
   }
 
-  Widget _typeBadge(String type) {
+  Widget _typeBadge(String type, AppLocalizations l10n) {
     Color bg;
     Color fg;
     IconData icon;
@@ -538,7 +561,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
           Icon(icon, size: 14, color: fg),
           const SizedBox(width: 4),
           Text(
-            type,
+            _getLocationTypeLabel(type, l10n),
             style: TextStyle(color: fg, fontWeight: FontWeight.bold, fontSize: 11),
           ),
         ],
@@ -552,6 +575,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
       );
 
   void _showLocationDialog(BuildContext context, {TransportLocationModel? location}) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final locodeCtrl = TextEditingController(text: location?.unLocode ?? '');
     final nameCtrl = TextEditingController(text: location?.locationName ?? '');
@@ -563,7 +587,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text(location == null ? 'Add Transport Location' : 'Edit Location (${location.unLocode})'),
+        title: Text(location == null ? l10n.addLocationDialogTitle : l10n.editLocationDialogTitle(location.unLocode)),
         content: SizedBox(
           width: 500,
           child: Form(
@@ -578,20 +602,20 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                         child: TextFormField(
                           controller: locodeCtrl,
                           enabled: location == null,
-                          decoration: const InputDecoration(
-                            labelText: 'UN/LOCODE *',
-                            hintText: 'e.g. EGALY, EGCAI',
+                          decoration: InputDecoration(
+                            labelText: l10n.unLocodeLabel,
+                            hintText: l10n.unLocodeHint,
                           ),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: SearchableDropdownField<String>(
                           value: selectedType,
-                          labelText: 'Location Type *',
+                          labelText: l10n.locationTypeLabel,
                           items: ['Sea Port', 'Airport', 'Dry Port', 'Land Border', 'ICD', 'Rail Terminal']
-                              .map((t) => SearchableDropdownItem<String>(value: t, label: t))
+                              .map((t) => SearchableDropdownItem<String>(value: t, label: _getLocationTypeLabel(t, l10n)))
                               .toList(),
                           onChanged: (v) => selectedType = v ?? 'Sea Port',
                         ),
@@ -601,11 +625,11 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Location Name *',
-                      hintText: 'e.g. Alexandria Port',
+                    decoration: InputDecoration(
+                      labelText: l10n.locationNameLabel,
+                      hintText: l10n.locationNameHint,
                     ),
-                    validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                    validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                   ),
                   const SizedBox(height: 12),
                   Row(
@@ -613,22 +637,22 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                       Expanded(
                         child: TextFormField(
                           controller: countryCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'Country *',
-                            hintText: 'e.g. Egypt',
+                          decoration: InputDecoration(
+                            labelText: l10n.countryLabelRequired,
+                            hintText: l10n.countryHint,
                           ),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                         ),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
                           controller: cityCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'City *',
-                            hintText: 'e.g. Alexandria',
+                          decoration: InputDecoration(
+                            labelText: l10n.cityLabelRequired,
+                            hintText: l10n.cityHint,
                           ),
-                          validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                          validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                         ),
                       ),
                     ],
@@ -637,8 +661,8 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                   TextFormField(
                     controller: notesCtrl,
                     maxLines: 2,
-                    decoration: const InputDecoration(
-                      labelText: 'Notes / Details',
+                    decoration: InputDecoration(
+                      labelText: l10n.locationNotesLabel,
                     ),
                   ),
                 ],
@@ -649,7 +673,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
@@ -681,7 +705,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                 }
               }
             },
-            child: Text(location == null ? 'Create Location' : 'Save Changes'),
+            child: Text(location == null ? l10n.createLocationSubmitBtn : l10n.saveChangesSubmitBtn),
           ),
         ],
       ),
@@ -689,6 +713,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
   }
 
   Future<void> _handleExcelImport(BuildContext context, WidgetRef ref) async {
+    final l10n = context.l10n;
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx', 'xls', 'csv'],
@@ -701,7 +726,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
 
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Importing transport locations from Excel/CSV...'), backgroundColor: AppTheme.cobalt),
+      SnackBar(content: Text(l10n.importingLocationsDataset), backgroundColor: AppTheme.cobalt),
     );
 
     try {
@@ -712,7 +737,7 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Text('Import Warnings'),
+            title: Text(l10n.importWarningsTitle),
             content: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -720,12 +745,12 @@ class _TransportLocationsScreenState extends ConsumerState<TransportLocationsScr
                 children: errors.map((e) => Text('• $e', style: const TextStyle(color: AppTheme.crimson, fontSize: 13))).toList(),
               ),
             ),
-            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))],
+            actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.ok))],
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(res?['message'] ?? 'Successfully imported transport locations!'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text(res?['message'] ?? l10n.locationsImportSuccess), backgroundColor: AppTheme.emerald),
         );
       }
     } catch (err) {

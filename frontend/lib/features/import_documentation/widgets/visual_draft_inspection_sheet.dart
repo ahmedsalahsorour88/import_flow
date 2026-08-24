@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/inspection_export_service.dart';
 
@@ -30,6 +32,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final t = widget.templateData;
     final cocNo = (t['coc_number'] ?? 'DRAFT-COC').toString();
     final importer = (t['importer_name_and_address'] ?? 'IMPORTER INFO').toString();
@@ -60,20 +63,20 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                 const Icon(Icons.security, color: AppTheme.cobalt, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'مسودة شهادة الفحص والمطابقة: ${widget.agency} (${widget.certType})',
+                  l10n.visualDraftInspectionToolbarTitle(widget.agency, widget.certType),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
                 const SizedBox(width: 16),
                 if (widget.onRefresh != null)
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-                    tooltip: 'تحديث حي للبيانات المستدعاة',
+                    tooltip: l10n.liveRefreshTooltip,
                     onPressed: widget.onRefresh,
                   ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('نسخ البيانات 📋', style: TextStyle(fontSize: 11)),
+                  label: Text(l10n.copyInspectionDataBtn, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     final text = InspectionExportService.exportInspectionCsv(
                       templateData: t,
@@ -84,7 +87,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                     );
                     Clipboard.setData(ClipboardData(text: text));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📋 تم نسخ بيانات شهادة الفحص إلى الحافظة'), duration: Duration(seconds: 1)),
+                      SnackBar(content: Text(l10n.copiedInspectionDataSuccess), duration: const Duration(seconds: 1)),
                     );
                   },
                 ),
@@ -96,7 +99,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                     side: BorderSide(color: Colors.green.shade600),
                   ),
                   icon: const Icon(Icons.table_chart_outlined, size: 14, color: Colors.green),
-                  label: const Text('حفظ إكسل (Excel / CSV) 📊', style: TextStyle(fontSize: 11)),
+                  label: Text(l10n.saveExcelCsvBtn, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     final csv = InspectionExportService.exportInspectionCsv(
                       templateData: t,
@@ -107,7 +110,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                     );
                     Clipboard.setData(ClipboardData(text: csv));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📊 تم تجهيز بيانات الإكسل لشهادة الفحص بنجاح'), backgroundColor: Colors.green),
+                      SnackBar(content: Text('📊 ${l10n.excelReadySuccess}'), backgroundColor: Colors.green),
                     );
                   },
                 ),
@@ -121,7 +124,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   icon: _isExporting
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.picture_as_pdf, size: 14, color: Colors.white),
-                  label: const Text('حفظ وطباعة PDF 🖨️', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(l10n.savePrintPdfBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   onPressed: _isExporting
                       ? null
                       : () async {
@@ -175,9 +178,9 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: Colors.black),
                           ),
                           const SizedBox(height: 2),
-                          const Text(
-                            'EGYPT MANDATORY VERIFICATION OF CONFORMITY (GOEIC / NFSA)',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.cobalt),
+                          Text(
+                            l10n.egyptVerificationOfConformityHeader,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 10, color: AppTheme.cobalt),
                           ),
                         ],
                       ),
@@ -199,14 +202,14 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                 children: [
                   Expanded(
                     child: _buildBoxCell(
-                      'Importer (Name, Address & Tax ID):',
+                      l10n.importerCellLabel,
                       importer,
                       hasRightBorder: true,
                     ),
                   ),
                   Expanded(
                     child: _buildBoxCell(
-                      'Exporter & Producer (Name & Address):',
+                      l10n.exporterCellLabel,
                       exporter,
                     ),
                   ),
@@ -225,7 +228,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Country / Countries of Origin (بلاد المنشأ المستدعاة):', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
+                          Text(l10n.countryOfOriginHeader, style: const TextStyle(fontSize: 9.5, color: Colors.black54)),
                           const SizedBox(height: 3),
                           Wrap(
                             spacing: 6,
@@ -245,7 +248,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('H.S. Codes (بنود التعريفة بدون تكرار):', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
+                          Text(l10n.hsCodesHeader, style: const TextStyle(fontSize: 9.5, color: Colors.black54)),
                           const SizedBox(height: 3),
                           Wrap(
                             spacing: 6,
@@ -273,9 +276,9 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Commercial Invoices / الفواتير التجارية المرفقة الخاضعة للفحص:',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                      Text(
+                        l10n.commercialInvoicesHeader,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                       const SizedBox(height: 4),
                       Table(
@@ -289,11 +292,11 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: Colors.grey.shade200),
-                            children: const [
-                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice Amount / Currency', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice No. / رقم الفاتورة', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(4), child: Text('Invoice Date / تاريخها', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(4), child: Text('Incoterm / الشرط', style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colInvoiceAmountCurrency, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colInvoiceNo, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colInvoiceDate, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(4), child: Text(l10n.colIncoterm, style: const TextStyle(fontSize: 9.5, fontWeight: FontWeight.bold))),
                             ],
                           ),
                           ...((t['commercial_invoices'] as List<dynamic>).map((inv) {
@@ -330,10 +333,10 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('Method of Shipment: ${t['method_of_shipment'] ?? 'Sea'}', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    Text('Country of Shipment: $origin', style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
-                    Text('Point of Entry: $portOfEntry', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
-                    Text('Total Declared Value: $totalValue', style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                    Text(l10n.methodOfShipmentLabel(t['method_of_shipment'] ?? 'Sea'), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text(l10n.countryOfShipmentLabel(origin), style: const TextStyle(fontSize: 10.5, color: Colors.black87)),
+                    Text(l10n.pointOfEntryLabel(portOfEntry), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text(l10n.totalDeclaredValueLabel(totalValue), style: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                   ],
                 ),
               ),
@@ -345,9 +348,9 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Goods Description, Quantities & Adopted Standards / بنود البضائع والمواصفات المعتمدة:',
-                        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
+                      Text(
+                        l10n.inspectedItemsHeader,
+                        style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87),
                       ),
                       const SizedBox(height: 4),
                       Table(
@@ -363,13 +366,13 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                         children: [
                           TableRow(
                             decoration: BoxDecoration(color: Colors.grey.shade200),
-                            children: const [
-                              Padding(padding: EdgeInsets.all(3), child: Text('#', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(3), child: Text('Quantity', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(3), child: Text('Origin', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(3), child: Text('Product Type', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(3), child: Text('Description (Brand/Model)', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
-                              Padding(padding: EdgeInsets.all(3), child: Text('Adopted Standard', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                            children: [
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colItemNo, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colQuantity, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colOrigin, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colProductType, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colDescriptionBrandModel, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
+                              Padding(padding: const EdgeInsets.all(3), child: Text(l10n.colAdoptedStandard, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold))),
                             ],
                           ),
                           ...((t['inspected_items'] as List<dynamic>).map((item) {
@@ -403,9 +406,9 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   spacing: 16,
                   runSpacing: 4,
                   children: [
-                    Text('Place of Inspection: ${t['place_of_inspection'] ?? origin}', style: const TextStyle(fontSize: 10, color: Colors.black87)),
-                    Text('Date of Inspection: $dateInsp', style: const TextStyle(fontSize: 10, color: Colors.black87)),
-                    Text('Issuing Office: ${t['issuing_office'] ?? '${widget.agency} Office'}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text(l10n.placeOfInspectionLabel(t['place_of_inspection'] ?? origin), style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                    Text(l10n.dateOfInspectionLabel(dateInsp), style: const TextStyle(fontSize: 10, color: Colors.black87)),
+                    Text(l10n.issuingOfficeLabel(t['issuing_office'] ?? '${widget.agency} Office'), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
                   ],
                 ),
               ),
@@ -419,7 +422,7 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Egyptian Mandatory Standards & Test Protocols (ES Standards Tested):', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    Text(l10n.egyptianMandatoryStandardsHeader, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
                     const SizedBox(height: 6),
                     ...widget.standards.map((s) => Padding(
                           padding: const EdgeInsets.only(bottom: 4),
@@ -435,11 +438,13 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green.shade600)),
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.verified, color: Colors.green, size: 16),
-                          SizedBox(width: 6),
-                          Text('CONFORMITY ASSESSMENT RESULT: CONFORMING & SAFE FOR RELEASE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+                          const Icon(Icons.verified, color: Colors.green, size: 16),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(l10n.conformityAssessmentResultConforming, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
                         ],
                       ),
                     ),
@@ -455,8 +460,8 @@ class _VisualDraftInspectionSheetState extends State<VisualDraftInspectionSheet>
                   spacing: 16,
                   runSpacing: 4,
                   children: [
-                    Text('Authorized Agency: ${widget.agency}', style: const TextStyle(fontSize: 10, color: Colors.black54)),
-                    const Text('Egyptian Customs Compliance (GOEIC / NFSA)', style: TextStyle(fontSize: 10, color: Colors.black54)),
+                    Text(l10n.authorizedAgencyLabel(widget.agency), style: const TextStyle(fontSize: 10, color: Colors.black54)),
+                    Text(l10n.egyptianCustomsComplianceHeader, style: const TextStyle(fontSize: 10, color: Colors.black54)),
                   ],
                 ),
               ),

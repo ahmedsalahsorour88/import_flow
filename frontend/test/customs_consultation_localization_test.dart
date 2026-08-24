@@ -3,7 +3,7 @@ import 'package:frontend/core/localization/app_localizations_ar.dart';
 import 'package:frontend/core/localization/app_localizations_en.dart';
 
 void main() {
-  group('Customs Consultation & Tax Review Localization & Anti-Stacked Tests (Screen 6)', () {
+  group('Customs Consultation & Tax Review Localization & Anti-Stacked Tests (Screen 56)', () {
     test('Arabic AppLocalizationsAr returns pure Arabic for customs consultation keys', () {
       const lAr = AppLocalizationsAr();
       expect(lAr.customsStudiesTitle, equals('مركز الاستشارة والفحص ومراجعة الضرائب الجمركية'));
@@ -53,12 +53,41 @@ void main() {
       expect(lAr.blockingIssuesTitle, equals('تقرير عوائق واشتراطات التخليص الجمركي المفتوحة'));
       expect(lAr.nafezaDeclarationBreakdown, equals('تفاصيل بنود التحصيل وإقرار نافذة الجمركي'));
 
+      // New Screen 56 Getters
+      expect(lAr.quoteItemPrice, equals('سعر البند'));
+      expect(lAr.quoteItemQuantity, equals('الكمية'));
+      expect(lAr.quoteItemCurrency, equals('العملة'));
+      expect(lAr.quoteItemApplicable, equals('مطبق'));
+      expect(lAr.quoteItemNotApplicable, equals('غير مطبق'));
+      expect(lAr.selectBrokerFirstMsg, equals('يرجى اختيار المستخلص الجمركي لعرض وتطبيق قائمة أسعاره المعتمدة.'));
+      expect(lAr.filterByBroker, equals('تصفية حسب المخلص الجمركي'));
+      expect(lAr.createBrokerPriceListBtn, equals('إنشاء قائمة أسعار جديدة لمخلص'));
+      expect(lAr.activePriceListStatus, equals('سارية'));
+      expect(lAr.archivedPriceListStatus, equals('مؤرشفة'));
+      expect(lAr.expenseItemNameCol, equals('اسم المصروف / البند'));
+      expect(lAr.standardPriceCol, equals('السعر المعتمد'));
+      expect(lAr.addNewExpenseTypeBtn, equals('تكويد نوع مصروف جديد'));
+      expect(lAr.agreementEur1, equals('اتفاقية الشراكة المصرية الأوروبية'));
+      expect(lAr.agreementMercosur, equals('اتفاقية التجارة الحرة مع دول الميركسور'));
+      expect(lAr.agreementGafta, equals('منطقة التجارة الحرة العربية الكبرى'));
+      expect(lAr.agreementTurkey, equals('اتفاقية التجارة الحرة مع تركيا'));
+      expect(lAr.agreementUk, equals('اتفاقية المشاركة المصرية البريطانية'));
+      expect(lAr.nafezaCalculationFlat, equals('قطعي'));
+      expect(lAr.nafezaCalculationReference, equals('مرجعي'));
+      expect(lAr.nafezaCalculationDerived, equals('مشتق'));
+      expect(lAr.statusClearanceReady, equals('جاهز للإفراج'));
+      expect(lAr.statusBlocked, equals('معطل / موانع إفراج'));
+      expect(lAr.saveAsNewCopy, equals('حفظ كنسخة جديدة'));
+      expect(lAr.customsStudySavedSuccess, equals('تم حفظ مراجعة الضرائب والرسوم الجمركية بنجاح!'));
+      expect(lAr.customsStudyUpdatedSuccess, equals('تم تحديث مراجعة الضرائب الجمركية بنجاح!'));
+
       // Verify no stacked bilingual strings in Arabic
       expect(lAr.customsStudiesTitle.contains('Customs Studies'), isFalse);
       expect(lAr.customsWorkspaceTab.contains('Customs Workspace'), isFalse);
       expect(lAr.customsChecklistTitle.contains('Checklist'), isFalse);
       expect(lAr.blockingIssuesTitle.contains('Blocking Issues'), isFalse);
       expect(lAr.nafezaDeclarationBreakdown.contains('Nafeza Statement'), isFalse);
+      expect(lAr.agreementEur1.contains('Agreement'), isFalse);
     });
 
     test('English AppLocalizationsEn returns pure English for customs consultation keys', () {
@@ -109,6 +138,34 @@ void main() {
       expect(lEn.consultationDetailsTitle, equals('Customs Consultation & Review Details'));
       expect(lEn.blockingIssuesTitle, equals('Open Customs Blocking Issues & Requirements'));
       expect(lEn.nafezaDeclarationBreakdown, equals('Nafeza Customs Declaration & Fee Breakdown'));
+
+      // New Screen 56 Getters
+      expect(lEn.quoteItemPrice, equals('Item Price'));
+      expect(lEn.quoteItemQuantity, equals('Quantity'));
+      expect(lEn.quoteItemCurrency, equals('Currency'));
+      expect(lEn.quoteItemApplicable, equals('Applied'));
+      expect(lEn.quoteItemNotApplicable, equals('Not Applied'));
+      expect(lEn.selectBrokerFirstMsg, equals('Please select a customs broker to view and apply their approved price list.'));
+      expect(lEn.filterByBroker, equals('Filter by Broker'));
+      expect(lEn.createBrokerPriceListBtn, equals('Create New Broker Price List'));
+      expect(lEn.activePriceListStatus, equals('Active'));
+      expect(lEn.archivedPriceListStatus, equals('Archived'));
+      expect(lEn.expenseItemNameCol, equals('Expense Item Name'));
+      expect(lEn.standardPriceCol, equals('Approved Standard Price'));
+      expect(lEn.addNewExpenseTypeBtn, equals('Add New Expense Type'));
+      expect(lEn.agreementEur1, equals('EU-Egypt Association Agreement (EUR.1)'));
+      expect(lEn.agreementMercosur, equals('Mercosur Free Trade Agreement'));
+      expect(lEn.agreementGafta, equals('Greater Arab Free Trade Area (GAFTA)'));
+      expect(lEn.agreementTurkey, equals('Turkey Free Trade Agreement'));
+      expect(lEn.agreementUk, equals('UK-Egypt Association Agreement'));
+      expect(lEn.nafezaCalculationFlat, equals('Flat'));
+      expect(lEn.nafezaCalculationReference, equals('Reference'));
+      expect(lEn.nafezaCalculationDerived, equals('Derived'));
+      expect(lEn.statusClearanceReady, equals('Clearance Ready'));
+      expect(lEn.statusBlocked, equals('Blocked'));
+      expect(lEn.saveAsNewCopy, equals('Save as New Copy'));
+      expect(lEn.customsStudySavedSuccess, equals('Customs duty and tax review saved successfully!'));
+      expect(lEn.customsStudyUpdatedSuccess, equals('Customs duty review updated successfully!'));
 
       // Verify no Arabic characters in English getters
       final arabicRegex = RegExp(r'[\u0600-\u06FF]');

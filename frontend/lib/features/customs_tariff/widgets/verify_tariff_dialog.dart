@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../models/customs_tariff_model.dart';
@@ -7,6 +8,7 @@ import '../providers/customs_tariff_provider.dart';
 
   void showVerifyTariffDialog(
       BuildContext context, WidgetRef ref, CustomsTariffModel tariff) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final verifiedByController =
         TextEditingController(text: tariff.verifiedBy ?? 'System Admin');
@@ -35,7 +37,7 @@ import '../providers/customs_tariff_provider.dart';
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Verify HS Code & Audit Metadata (${tariff.hsCode})',
+                  l10n.verifyTariffDialogTitle(tariff.hsCode),
                   style: const TextStyle(
                       fontSize: 18, fontWeight: FontWeight.bold),
                 ),
@@ -59,23 +61,21 @@ import '../providers/customs_tariff_provider.dart';
                         border:
                             Border.all(color: AppTheme.cobalt.withOpacity(0.2)),
                       ),
-                      child: const Column(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Addendum 3 Manual Verification Protocol:',
-                            style: TextStyle(
+                            l10n.verificationProtocolHeader,
+                            style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
                                 color: AppTheme.charcoal),
                           ),
-                          SizedBox(height: 4),
+                          const SizedBox(height: 4),
                           Text(
-                            '• Live web queries forbidden. All data stored internally.\n'
-                            '• Modifying tax rates archives the current version today and creates a new active version.\n'
-                            '• Historical estimates keep their exact snapshot rate.',
+                            l10n.verificationProtocolText,
                             style:
-                                TextStyle(fontSize: 12, color: Colors.black87),
+                                const TextStyle(fontSize: 12, color: Colors.black87),
                           ),
                         ],
                       ),
@@ -83,20 +83,20 @@ import '../providers/customs_tariff_provider.dart';
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: verifiedByController,
-                      decoration: const InputDecoration(
-                        labelText: 'Verified By (Auditor Name) *',
-                        prefixIcon: Icon(Icons.person_outline),
+                      decoration: InputDecoration(
+                        labelText: l10n.verifiedByAuditorLabel,
+                        prefixIcon: const Icon(Icons.person_outline),
                       ),
                       validator: (val) => val == null || val.trim().isEmpty
-                          ? 'Auditor name is required'
+                          ? l10n.auditorNameRequired
                           : null,
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: sourceUrlController,
-                      decoration: const InputDecoration(
-                        labelText: 'Nafeza Source URL Reference',
-                        prefixIcon: Icon(Icons.link),
+                      decoration: InputDecoration(
+                        labelText: l10n.sourceUrlLabel,
+                        prefixIcon: const Icon(Icons.link),
                         hintText:
                             'https://www.nafeza.gov.eg/ar/tarrif?code=...',
                       ),
@@ -104,17 +104,17 @@ import '../providers/customs_tariff_provider.dart';
                     const SizedBox(height: 12),
                     SearchableDropdownField<String>(
                       value: confidence,
-                      labelText: 'Confidence Level',
-                      searchHintText: 'ابحث عن حالة التوثيق...',
-                      items: const [
+                      labelText: l10n.confidenceLevelLabel,
+                      searchHintText: l10n.searchHint,
+                      items: [
                         SearchableDropdownItem(
                             value: 'verified_manual',
-                            label: 'Manual Audit (Verified)'),
+                            label: l10n.confidenceManualAudit),
                         SearchableDropdownItem(
                             value: 'verified_official_gazette',
-                            label: 'Official Gazette Decree'),
+                            label: l10n.confidenceOfficialGazette),
                         SearchableDropdownItem(
-                            value: 'draft', label: 'Draft / Unverified'),
+                            value: 'draft', label: l10n.confidenceDraft),
                       ],
                       onChanged: (val) {
                         if (val != null) setState(() => confidence = val);
@@ -124,14 +124,14 @@ import '../providers/customs_tariff_provider.dart';
                     TextFormField(
                       controller: priorApprovalNoteController,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'Prior Approval / Special Conditions Note',
-                        prefixIcon: Icon(Icons.notes),
+                      decoration: InputDecoration(
+                        labelText: l10n.priorApprovalSpecialConditionsLabel,
+                        prefixIcon: const Icon(Icons.notes),
                       ),
                     ),
                     const SizedBox(height: 16),
-                    const Text('Tax Rates Verification:',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    Text(l10n.taxRatesVerificationHeader,
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -140,10 +140,10 @@ import '../providers/customs_tariff_provider.dart';
                             controller: dutyRateController,
                             keyboardType: TextInputType.number,
                             decoration:
-                                const InputDecoration(labelText: 'Duty Rate %'),
+                                InputDecoration(labelText: l10n.dutyRateLabel),
                             validator: (val) =>
                                 val == null || double.tryParse(val) == null
-                                    ? 'Invalid'
+                                    ? l10n.invalidNumberError
                                     : null,
                           ),
                         ),
@@ -153,10 +153,10 @@ import '../providers/customs_tariff_provider.dart';
                             controller: vatRateController,
                             keyboardType: TextInputType.number,
                             decoration:
-                                const InputDecoration(labelText: 'VAT Rate %'),
+                                InputDecoration(labelText: l10n.vatRateLabel),
                             validator: (val) =>
                                 val == null || double.tryParse(val) == null
-                                    ? 'Invalid'
+                                    ? l10n.invalidNumberError
                                     : null,
                           ),
                         ),
@@ -165,11 +165,11 @@ import '../providers/customs_tariff_provider.dart';
                           child: TextFormField(
                             controller: scheduleTaxRateController,
                             keyboardType: TextInputType.number,
-                            decoration: const InputDecoration(
-                                labelText: 'Schedule Tax %'),
+                            decoration: InputDecoration(
+                                labelText: l10n.scheduleTaxRateLabel),
                             validator: (val) =>
                                 val == null || double.tryParse(val) == null
-                                    ? 'Invalid'
+                                    ? l10n.invalidNumberError
                                     : null,
                           ),
                         ),
@@ -183,7 +183,7 @@ import '../providers/customs_tariff_provider.dart';
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -194,7 +194,7 @@ import '../providers/customs_tariff_provider.dart';
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
                   : const Icon(Icons.check, size: 18),
-              label: const Text('Confirm Verification'),
+              label: Text(l10n.confirmVerificationBtn),
               onPressed: isLoading
                   ? null
                   : () async {
@@ -226,7 +226,7 @@ import '../providers/customs_tariff_provider.dart';
                         if (error != null) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                                content: Text(error),
+                                content: Text(l10n.verificationFailedSnack(error)),
                                 backgroundColor: AppTheme.crimson),
                           );
                         } else {
@@ -234,7 +234,7 @@ import '../providers/customs_tariff_provider.dart';
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                  'HS Code ${tariff.hsCode} successfully verified!'),
+                                  l10n.tariffVerifiedSuccess(tariff.hsCode)),
                               backgroundColor: AppTheme.emerald,
                             ),
                           );

@@ -1653,6 +1653,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
   @override
   Widget build(BuildContext context) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final suppliersState = ref.watch(suppliersProvider);
     final paymentsState = ref.watch(paymentRequestsProvider);
     final budgetsState = ref.watch(importBudgetsProvider);
@@ -1725,7 +1726,7 @@ class _FinancialApprovalScreenState extends ConsumerState<FinancialApprovalScree
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'Live Refresh (تحديث حي)',
+          tooltip: isArabic ? 'تحديث حي' : 'Live Refresh',
           onPressed: () {
             ref.read(paymentRequestsProvider.notifier).fetchPaymentRequests();
             ref.read(importBudgetsProvider.notifier).fetchImportBudgets();

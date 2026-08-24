@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -132,15 +133,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   bool _whiteListVerified = false;
 
   bool _cooRequired = false;
-  String _cooType = 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+  String _cooType = 'EUR.1';
   String _cooStatus = 'Not Required';
 
   bool _inspectionRequired = false;
-  String _inspectionBody = 'SGS (الشركة العامة للمعاينة)';
+  String _inspectionBody = 'SGS';
   String _inspectionStatus = 'Not Required';
 
   bool _importPermitRequired = false;
-  String _permitIssuingAuthority = 'جهاز شئون البيئة (EEAA)';
+  String _permitIssuingAuthority = 'EEAA';
   String _permitStatus = 'Not Required';
 
   bool _msdsRequired = false;
@@ -237,13 +238,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _whiteListRequired = false;
       _whiteListVerified = false;
       _cooRequired = false;
-      _cooType = 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+      _cooType = 'EUR.1';
       _cooStatus = 'Not Required';
       _inspectionRequired = false;
-      _inspectionBody = 'SGS (الشركة العامة للمعاينة)';
+      _inspectionBody = 'SGS';
       _inspectionStatus = 'Not Required';
       _importPermitRequired = false;
-      _permitIssuingAuthority = 'جهاز شئون البيئة (EEAA)';
+      _permitIssuingAuthority = 'EEAA';
       _permitStatus = 'Not Required';
       _msdsRequired = false;
       _msdsStatus = 'Not Required';
@@ -268,6 +269,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
     final prefill = await ref.read(importRequirementsProvider.notifier).fetchPrefillData(fileId);
     if (!mounted) return;
+
+    final l10n = context.l10n;
 
     if (prefill != null) {
       setState(() {
@@ -301,17 +304,17 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         _whiteListVerified = prefill.whiteListVerified;
 
         _cooRequired = prefill.cooRequired;
-        _cooType = prefill.cooType ?? 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+        _cooType = prefill.cooType ?? 'EUR.1';
         _cooStatus = prefill.cooStatus;
         _cooNotesCtrl.text = prefill.cooNotes ?? '';
 
         _inspectionRequired = prefill.inspectionRequired;
-        _inspectionBody = prefill.inspectionBody ?? 'SGS (الشركة العامة للمعاينة)';
+        _inspectionBody = prefill.inspectionBody ?? 'SGS';
         _inspectionStatus = prefill.inspectionStatus;
         _inspNotesCtrl.text = prefill.inspectionNotes ?? '';
 
         _importPermitRequired = prefill.importPermitRequired;
-        _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'جهاز شئون البيئة (EEAA)';
+        _permitIssuingAuthority = prefill.permitIssuingAuthority ?? 'EEAA';
         _permitStatus = prefill.permitStatus;
         _permitNotesCtrl.text = prefill.permitNotes ?? '';
 
@@ -326,7 +329,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('⚡ تم استدعاء بنود التعريفة (${prefill.hsCodeItems.length} بند) والمتطلبات تلقائياً للملف ${prefill.importFileCode}'),
+          content: Text(l10n.prefillImportRequirementSuccess(prefill.hsCodeItems.length, prefill.importFileCode)),
           backgroundColor: AppTheme.cobalt,
           duration: const Duration(seconds: 3),
         ),
@@ -393,15 +396,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       _whiteListVerified = item.whiteListVerified;
 
       _cooRequired = item.cooRequired;
-      _cooType = item.cooType ?? 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)';
+      _cooType = item.cooType ?? 'EUR.1';
       _cooStatus = item.cooStatus;
 
       _inspectionRequired = item.inspectionRequired;
-      _inspectionBody = item.inspectionBody ?? 'SGS (الشركة العامة للمعاينة)';
+      _inspectionBody = item.inspectionBody ?? 'SGS';
       _inspectionStatus = item.inspectionStatus;
 
       _importPermitRequired = item.importPermitRequired;
-      _permitIssuingAuthority = item.permitIssuingAuthority ?? 'جهاز شئون البيئة (EEAA)';
+      _permitIssuingAuthority = item.permitIssuingAuthority ?? 'EEAA';
       _permitStatus = item.permitStatus;
 
       _msdsRequired = item.msdsRequired;
@@ -419,9 +422,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
     });
 
     _mainTabController.animateTo(0);
+    final l10n = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('📂 تم تحميل التقييم (${item.assessmentCode}) وجاهز للتعديل والمطابقة!'),
+        content: Text(l10n.loadedRequirementForEditingSnack(item.assessmentCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -445,25 +449,27 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
       if (_inspReportNoCtrl.text.isEmpty) _inspReportNoCtrl.text = 'ILAC-SGS-99201';
       if (_permitNumberCtrl.text.isEmpty) _permitNumberCtrl.text = 'PERMIT-GOEIC-8871';
     });
+    final l10n = context.l10n;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('⚡ تم استيفاء وتأكيد جاهزية كافة المحاور وتجهيز الشحنة للإبحار!'),
+      SnackBar(
+        content: Text(l10n.completeAllPillarsSuccessSnack),
         backgroundColor: AppTheme.emerald,
       ),
     );
   }
 
   Future<void> _saveAssessment() async {
+    final l10n = context.l10n;
     if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('الرجاء التأكد من تعبئة جميع الحقول المطلوبة.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.fillRequiredFieldsError), backgroundColor: Colors.red),
       );
       return;
     }
 
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة الاستيرادية المربوط أولاً.'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(l10n.pleaseSelectImportFileError), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -530,7 +536,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✅ تم تعديل وحفظ تقييم المتطلبات ($_editingAssessmentCode) بنجاح!'),
+              content: Text(l10n.updateRequirementSuccessSnack(_editingAssessmentCode ?? '')),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -539,8 +545,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         await ref.read(importRequirementsProvider.notifier).addRequirement(payload);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✅ تم إنشاء وحفظ تقييم المتطلبات التنظيمية والمطابقة بنجاح!'),
+            SnackBar(
+              content: Text(l10n.createRequirementSuccessSnack),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -555,18 +561,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         showDialog(
           context: context,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-                SizedBox(width: 8),
-                Text('تنبيه عدم التكرار / خطأ بالحفظ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                const SizedBox(width: 8),
+                Text(l10n.saveRequirementErrorTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             content: Text(errorMsg, style: const TextStyle(fontSize: 13, height: 1.5)),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('إغلاق'),
+                child: Text(l10n.close),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
@@ -574,7 +580,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   Navigator.pop(ctx);
                   _mainTabController.animateTo(1);
                 },
-                child: const Text('الانتقال للسجلات المحفوظة والتعديل عليها', style: TextStyle(color: Colors.white)),
+                child: Text(l10n.goToSavedRequirementsBtn, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -587,16 +593,17 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 24),
-            SizedBox(width: 10),
+            const Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 24),
+            const SizedBox(width: 10),
             Text(
-              'تقييم متطلبات ومستندات الاستيراد والموافقات التنظيمية',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
+              l10n.importRequirementsScreenTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white),
             ),
           ],
         ),
@@ -608,16 +615,16 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white60,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          tabs: const [
-            Tab(icon: Icon(Icons.assignment_outlined, size: 18), text: '📋 تقييم ومطابقة المتطلبات التنظيمية (Interactive Form)'),
-            Tab(icon: Icon(Icons.folder_shared_outlined, size: 18), text: '📑 سجل دراسات المتطلبات المحفوظة (Saved Registry)'),
+          tabs: [
+            Tab(icon: const Icon(Icons.assignment_outlined, size: 18), text: l10n.importRequirementsFormTab),
+            Tab(icon: const Icon(Icons.folder_shared_outlined, size: 18), text: l10n.importRequirementsRegistryTab),
           ],
         ),
         actions: [
           const BackToDashboardButton(),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'إعادة تحميل حية',
+            tooltip: l10n.refresh,
             onPressed: _refreshAllData,
           ),
         ],
@@ -636,6 +643,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   // TAB 1: INTERACTIVE 5-PILLARS ASSESSMENT FORM
   // ===========================================================================
   Widget _buildInteractiveAssessmentFormTab() {
+    final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
     final suppliers = ref.watch(suppliersProvider).value ?? [];
 
@@ -662,14 +670,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        'أنت الآن في وضع تعديل واستكمال التقييم: ($_editingAssessmentCode) — سيتم تحديث السجل وإعادة تفعيله فور الحفظ.',
+                        l10n.editingRequirementBanner(_editingAssessmentCode ?? ''),
                         style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal, fontSize: 13),
                       ),
                     ),
                     TextButton.icon(
                       onPressed: _resetForm,
                       icon: const Icon(Icons.close, size: 16, color: Colors.red),
-                      label: const Text('إلغاء التعديل والبدء من جديد', style: TextStyle(color: Colors.red, fontSize: 12)),
+                      label: Text(l10n.cancelEditingAndStartNewBtn, style: const TextStyle(color: Colors.red, fontSize: 12)),
                     ),
                   ],
                 ),
@@ -700,6 +708,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _buildLifecycleProgressCard() {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -715,9 +724,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             children: [
               const Icon(Icons.timeline, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
-              const Text(
-                'نطاق ومسار المتطلبات (من إصدار ACID حتى الإبحار والشحن الفعلي):',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+              Text(
+                l10n.requirementsLifecycleCardTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
               ),
               const Spacer(),
               Container(
@@ -728,7 +737,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   border: Border.all(color: _getStatusColor(_sailingStatus)),
                 ),
                 child: Text(
-                  'حالة الإبحار: $_sailingStatus',
+                  l10n.sailingStatusBadge(_sailingStatus),
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: _getStatusColor(_sailingStatus)),
                 ),
               ),
@@ -739,31 +748,31 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             children: [
               _buildStepNode(
                 step: '1',
-                title: 'إصدار الـ ACID',
-                subtitle: _acidNumberCtrl.text.isNotEmpty ? _acidNumberCtrl.text : 'قيد الانتظار',
+                title: l10n.acidIssuanceStep,
+                subtitle: _acidNumberCtrl.text.isNotEmpty ? _acidNumberCtrl.text : l10n.pending,
                 isCompleted: _acidNumberCtrl.text.isNotEmpty,
                 isActive: true,
               ),
               _buildStepConnector(isCompleted: _acidNumberCtrl.text.isNotEmpty),
               _buildStepNode(
                 step: '2',
-                title: 'فحص ومطابقة ما قبل الشحن',
-                subtitle: _inspectionStatus == 'Completed' ? 'تمت المطابقة' : 'قيد الفحص والتنسيق',
+                title: l10n.preShipmentInspectionStep,
+                subtitle: _inspectionStatus == 'Completed' ? l10n.completedAndPassedInspection : l10n.pendingInspectionCoordination,
                 isCompleted: _inspectionStatus == 'Completed',
                 isActive: true,
               ),
               _buildStepConnector(isCompleted: _inspectionStatus == 'Completed'),
               _buildStepNode(
                 step: '3',
-                title: 'الموافقات والشهادات',
-                subtitle: _cooStatus == 'Obtained' && _whiteListVerified ? 'مستوفاة 100%' : 'قيد الاعتماد',
+                title: l10n.approvalsAndCertsStep,
+                subtitle: _cooStatus == 'Obtained' && _whiteListVerified ? l10n.allCertsFulfilled100 : l10n.pendingApprovals,
                 isCompleted: _cooStatus == 'Obtained' && _whiteListVerified,
                 isActive: true,
               ),
               _buildStepConnector(isCompleted: _sailingStatus == 'Cleared for Sailing' || _sailingStatus == 'Sailed'),
               _buildStepNode(
                 step: '4',
-                title: 'التصريح بالإبحار والشحن',
+                title: l10n.sailingClearanceStep,
                 subtitle: _sailingStatus,
                 isCompleted: _sailingStatus == 'Cleared for Sailing' || _sailingStatus == 'Sailed',
                 isActive: true,
@@ -826,6 +835,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _buildImportFileSelectorCard(List<dynamic> importFiles, List<dynamic> suppliers) {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -841,7 +851,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             children: [
               const Icon(Icons.link, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
-              const Text('ربط ملف الشحنة الاستيرادية والاستشارة الجمركية:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l10n.linkImportFileAndConsultationHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const Spacer(),
               if (_selectedConsultationCode != null)
                 Container(
@@ -851,7 +861,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AppTheme.cobalt),
                   ),
-                  child: Text('دراسة الاستشارة: $_selectedConsultationCode (جاهزية ${_consultationReadiness.toInt()}%)', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                  child: Text(l10n.consultationStudyBadge(_selectedConsultationCode, _consultationReadiness.toInt()), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                 ),
             ],
           ),
@@ -861,18 +871,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Expanded(
                 flex: 3,
                 child: SearchableDropdownField<int?>(
-                  labelText: 'ملف الشحنة المربوط (Import File) *',
-                  hintText: 'اختر ملف الشحنة الاستيرادية...',
+                  labelText: l10n.linkedImportFileFieldLabel,
+                  hintText: l10n.selectImportFileHint,
                   value: _selectedImportFileId,
                   items: [
-                    const SearchableDropdownItem<int?>(value: null, label: '-- اختر ملف الشحنة --'),
+                    SearchableDropdownItem<int?>(value: null, label: l10n.selectImportFileOption),
                     ...importFiles.map((f) => SearchableDropdownItem<int?>(
                           value: f.importFileId,
-                          label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? "لم يصدر"}',
+                          label: '[${f.importFileCode}] ${f.companyName} | ACID: ${f.acidNumber ?? l10n.acidNotIssued}',
                         )),
                   ],
                   onChanged: _onImportFileChanged,
-                  validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                  validator: (v) => v == null ? l10n.pleaseSelectImportFileError : null,
                 ),
               ),
               const SizedBox(width: 12),
@@ -880,23 +890,23 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _acidNumberCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'رقم القيد الجمركي المسبق (ACID) *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
+                  decoration: InputDecoration(
+                    labelText: l10n.acidNumberFieldLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.numbers, color: AppTheme.cobalt, size: 18),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال رقم ACID' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.acidNumberRequiredError : null,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
                 child: SearchableDropdownField<int?>(
-                  labelText: 'المورد الخارجي / المصنع (Supplier)',
-                  hintText: 'المورد الأجنبي...',
+                  labelText: l10n.foreignSupplierFieldLabel,
+                  hintText: l10n.foreignSupplierHint,
                   value: _selectedSupplierId,
                   items: [
-                    const SearchableDropdownItem<int?>(value: null, label: '-- غير محدد --'),
+                    SearchableDropdownItem<int?>(value: null, label: l10n.notSpecifiedOption),
                     ...suppliers.map((s) => SearchableDropdownItem<int?>(
                           value: s.supplierId,
                           label: '${s.companyName} (${s.foreignExporterCountry ?? "N/A"})',
@@ -923,6 +933,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _buildHsCodesSelectorCard() {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -939,7 +950,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               const Icon(Icons.category, color: AppTheme.cobalt, size: 20),
               const SizedBox(width: 8),
               Text(
-                'بنود التعريفة الجمركية المرتبطة بالشحنة (Linked HS Codes & Values) — ${_hsCodeItems.length} بنود مسجلة:',
+                l10n.hsCodesSelectorCardTitle(_hsCodeItems.length),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
               ),
               const Spacer(),
@@ -951,7 +962,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   border: Border.all(color: AppTheme.emerald),
                 ),
                 child: Text(
-                  'إجمالي القيمة: ${_valueCtrl.text} ${_currencyCtrl.text}',
+                  l10n.totalHsValueBadge(_valueCtrl.text, _currencyCtrl.text),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.emerald),
                 ),
               ),
@@ -1005,11 +1016,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Text(
-                                '${itm.hsCode} (${itm.itemCode ?? "Item"})',
+                                l10n.hsItemCodeLabel(itm.hsCode, itm.itemCode ?? 'Item'),
                                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: isSelected ? AppTheme.cobalt : AppTheme.charcoal),
                               ),
                               Text(
-                                '${itm.commodityDescription ?? "صنف"} | ${itm.itemValue.toStringAsFixed(2)} ${itm.currency}',
+                                l10n.hsItemDescLabel(itm.commodityDescription ?? '', itm.itemValue.toStringAsFixed(2), itm.currency),
                                 style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
                               ),
                             ],
@@ -1029,12 +1040,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _hsCodeCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'بند التعريفة الجمركية (HS Code) *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 18),
+                  decoration: InputDecoration(
+                    labelText: l10n.hsCodeFieldLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.qr_code_2, color: AppTheme.cobalt, size: 18),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال HS Code' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.hsCodeRequiredError : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1042,12 +1053,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 3,
                 child: TextFormField(
                   controller: _descCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'وصف السلعة / الصنف التجاري *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.description, color: AppTheme.cobalt, size: 18),
+                  decoration: InputDecoration(
+                    labelText: l10n.commodityDescFieldLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.description, color: AppTheme.cobalt, size: 18),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال وصف الصنف' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.commodityDescRequiredError : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1055,12 +1066,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _originCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'بلد المنشأ والتصدير (Origin) *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.public, color: AppTheme.cobalt, size: 18),
+                  decoration: InputDecoration(
+                    labelText: l10n.countryOfOriginFieldLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.public, color: AppTheme.cobalt, size: 18),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب إدخال بلد المنشأ' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.countryOfOriginRequiredError : null,
                 ),
               ),
               const SizedBox(width: 10),
@@ -1068,9 +1079,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 1,
                 child: TextFormField(
                   controller: _currencyCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'العملة *',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.currencyFieldLabel,
+                    border: const OutlineInputBorder(),
                   ),
                 ),
               ),
@@ -1079,10 +1090,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _valueCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'القيمة بالعملة *',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.monetization_on, color: AppTheme.emerald, size: 18),
+                  decoration: InputDecoration(
+                    labelText: l10n.valueInCurrencyFieldLabel,
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.monetization_on, color: AppTheme.emerald, size: 18),
                   ),
                   keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 ),
@@ -1095,6 +1106,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _build5PillarsWorkspaceCard() {
+    final l10n = context.l10n;
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1117,11 +1129,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildPillarTabButton(0, '1. قرار 43 وتسجيل المصانع', Icons.factory_outlined, _whiteListVerified),
-                  _buildPillarTabButton(1, '2. شهادة المنشأ والاتفاقيات', Icons.public, _cooStatus == 'Obtained'),
-                  _buildPillarTabButton(2, '3. فحص ما قبل الشحن', Icons.fact_check_outlined, _inspectionStatus == 'Completed'),
-                  _buildPillarTabButton(3, '4. موافقات وتصاريح جهات العرض', Icons.account_balance_outlined, _permitStatus == 'Approved'),
-                  _buildPillarTabButton(4, '5. الشهادات الفنية وتأكيد الإبحار', Icons.science_outlined, _isPostAcidConfirmed),
+                  _buildPillarTabButton(0, l10n.pillar1Decree43Tab, Icons.factory_outlined, _whiteListVerified),
+                  _buildPillarTabButton(1, l10n.pillar2CooTab, Icons.public, _cooStatus == 'Obtained'),
+                  _buildPillarTabButton(2, l10n.pillar3InspectionTab, Icons.fact_check_outlined, _inspectionStatus == 'Completed'),
+                  _buildPillarTabButton(3, l10n.pillar4PermitsTab, Icons.account_balance_outlined, _permitStatus == 'Approved'),
+                  _buildPillarTabButton(4, l10n.pillar5TechCertsTab, Icons.science_outlined, _isPostAcidConfirmed),
                 ],
               ),
             ),
@@ -1186,17 +1198,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   // Pillar 1: Decree 43
   Widget _buildPillar1Content() {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('المحور 1: قرار 43 لسنة 2016 وتسجيل المصانع المؤهلة بالهيئة (GOEIC)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        Text(l10n.pillar1Header, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: CheckboxListTile(
-                title: const Text('يخضع الصنف لقرار 43 لسنة 2016 (تسجيل مصانع)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: const Text('السلع تامة الصنع والمنتجات الاستهلاكية الواجب قيد مصنعها'),
+                title: Text(l10n.decree43ApplicableCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: Text(l10n.decree43ApplicableSub),
                 value: _decree43Applicable,
                 onChanged: (v) => setState(() => _decree43Applicable = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1204,8 +1217,8 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             Expanded(
               child: CheckboxListTile(
-                title: const Text('المصنع مسجل بالقائمة البيضاء (White List Verified)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                subtitle: const Text('تم التحقق من قيد المصنع بالهيئة العامة للرقابة على الصادرات والواردات'),
+                title: Text(l10n.whiteListVerifiedCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                subtitle: Text(l10n.whiteListVerifiedSub),
                 value: _whiteListVerified,
                 onChanged: (v) => setState(() => _whiteListVerified = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1216,11 +1229,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         const SizedBox(height: 10),
         TextFormField(
           controller: _factoryRegCtrl,
-          decoration: const InputDecoration(
-            labelText: 'رقم قيد المصنع بالهيئة / Foreign Factory Registration No.',
-            hintText: 'مثال: GOEIC-REG-77821 أو رقم القيد بالهيئة',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.badge, color: AppTheme.cobalt),
+          decoration: InputDecoration(
+            labelText: l10n.factoryRegNumFieldLabel,
+            hintText: l10n.factoryRegNumHint,
+            border: const OutlineInputBorder(),
+            prefixIcon: const Icon(Icons.badge, color: AppTheme.cobalt),
           ),
         ),
       ],
@@ -1229,17 +1242,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   // Pillar 2: Certificate of Origin
   Widget _buildPillar2Content() {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('المحور 2: شهادة المنشأ والاتفاقيات التفضيلية (COO & Preferential Agreements)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        Text(l10n.pillar2Header, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               flex: 1,
               child: CheckboxListTile(
-                title: const Text('شهادة المنشأ إلزامية (COO Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                title: Text(l10n.cooRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _cooRequired,
                 onChanged: (v) => setState(() => _cooRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1248,14 +1262,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'نوع شهادة المنشأ (COO Type)',
+                labelText: l10n.cooTypeFieldLabel,
                 value: _cooType,
-                items: const [
-                  SearchableDropdownItem(value: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)', label: 'EUR.1 (الشراكة الأوروبية / إفتا / تركيا)'),
-                  SearchableDropdownItem(value: 'Form A (النظام المعمم للمزايا GSP)', label: 'Form A (النظام المعمم للمزايا GSP)'),
-                  SearchableDropdownItem(value: 'Arab League COO (منطقة التجارة العربية الكبرى GAFTA)', label: 'Arab League COO (منطقة التجارة العربية الكبرى GAFTA)'),
-                  SearchableDropdownItem(value: 'COMESA (السوق المشتركة لشرق وجنوب إفريقيا)', label: 'COMESA (السوق المشتركة لشرق وجنوب إفريقيا)'),
-                  SearchableDropdownItem(value: 'شهادة منشأ عادية معتمدة وموثقة من الغرفة التجارية', label: 'شهادة منشأ عادية معتمدة وموثقة من الغرفة التجارية'),
+                items: [
+                  SearchableDropdownItem(value: 'EUR.1', label: l10n.cooTypeEur1Option),
+                  SearchableDropdownItem(value: 'Form A', label: l10n.cooTypeFormAOption),
+                  SearchableDropdownItem(value: 'Arab League COO', label: l10n.cooTypeGaftaOption),
+                  SearchableDropdownItem(value: 'COMESA', label: l10n.cooTypeComesaOption),
+                  SearchableDropdownItem(value: 'Standard COO', label: l10n.cooTypeStandardChamberOption),
                 ],
                 onChanged: (v) => setState(() => _cooType = v ?? _cooType),
               ),
@@ -1264,13 +1278,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'حالة الاستيفاء (COO Status)',
+                labelText: l10n.cooStatusFieldLabel,
                 value: _cooStatus,
-                items: const [
-                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
-                  SearchableDropdownItem(value: 'Pending', label: 'قيد الاستيفاء من المصنع (Pending)'),
-                  SearchableDropdownItem(value: 'Obtained', label: 'تم الاستلام والتحقق (Obtained)'),
-                  SearchableDropdownItem(value: 'Waived', label: 'معفاة / مستثناة (Waived)'),
+                items: [
+                  SearchableDropdownItem(value: 'Not Required', label: l10n.statusInactive),
+                  SearchableDropdownItem(value: 'Pending', label: l10n.cooStatusPendingOption),
+                  SearchableDropdownItem(value: 'Obtained', label: l10n.cooStatusObtainedOption),
+                  SearchableDropdownItem(value: 'Waived', label: l10n.cooStatusWaivedOption),
                 ],
                 onChanged: (v) => setState(() => _cooStatus = v ?? _cooStatus),
               ),
@@ -1280,10 +1294,10 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
         const SizedBox(height: 10),
         TextFormField(
           controller: _cooNotesCtrl,
-          decoration: const InputDecoration(
-            labelText: 'ملاحظات المنشأ والاتفاقيات التفضيلية والإعفاءات',
-            hintText: 'مثال: إعفاء جمركي بنسبة 100% طبقاً لاتفاقية الشراكة الأوروبية',
-            border: OutlineInputBorder(),
+          decoration: InputDecoration(
+            labelText: l10n.cooNotesFieldLabel,
+            hintText: l10n.cooNotesHint,
+            border: const OutlineInputBorder(),
           ),
         ),
       ],
@@ -1292,17 +1306,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   // Pillar 3: Pre-Shipment Inspection
   Widget _buildPillar3Content() {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('المحور 3: فحص ما قبل الشحن والشهادات المعملية (Pre-Shipment Inspection & ILAC)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        Text(l10n.pillar3Header, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               flex: 1,
               child: CheckboxListTile(
-                title: const Text('شهادة الفحص إلزامية (Inspection Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                title: Text(l10n.inspectionRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _inspectionRequired,
                 onChanged: (v) => setState(() => _inspectionRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1311,15 +1326,15 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'جهة الفحص الدولية المعتمدة (Inspection Body)',
+                labelText: l10n.inspectionBodyFieldLabel,
                 value: _inspectionBody,
-                items: const [
-                  SearchableDropdownItem(value: 'SGS (الشركة العامة للمعاينة)', label: 'SGS (الشركة العامة للمعاينة)'),
-                  SearchableDropdownItem(value: 'Bureau Veritas (Bureau Veritas)', label: 'Bureau Veritas (Bureau Veritas)'),
-                  SearchableDropdownItem(value: 'TÜV Rheinland / TÜV SÜD', label: 'TÜV Rheinland / TÜV SÜD'),
-                  SearchableDropdownItem(value: 'Intertek International', label: 'Intertek International'),
-                  SearchableDropdownItem(value: 'QIMA Inspection Services', label: 'QIMA Inspection Services'),
-                  SearchableDropdownItem(value: 'معمل دولي معتمد ILAC / ISO 17025', label: 'معمل دولي معتمد ILAC / ISO 17025'),
+                items: [
+                  SearchableDropdownItem(value: 'SGS', label: l10n.inspectionBodySgsOption),
+                  SearchableDropdownItem(value: 'Bureau Veritas', label: l10n.inspectionBodyBvOption),
+                  SearchableDropdownItem(value: 'TÜV', label: l10n.inspectionBodyTuvOption),
+                  SearchableDropdownItem(value: 'Intertek', label: l10n.inspectionBodyIntertekOption),
+                  SearchableDropdownItem(value: 'QIMA', label: l10n.inspectionBodyQimaOption),
+                  SearchableDropdownItem(value: 'ILAC ISO 17025', label: l10n.inspectionBodyIlacOption),
                 ],
                 onChanged: (v) => setState(() => _inspectionBody = v ?? _inspectionBody),
               ),
@@ -1328,14 +1343,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'حالة الفحص (Inspection Status)',
+                labelText: l10n.inspectionStatusFieldLabel,
                 value: _inspectionStatus,
-                items: const [
-                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
-                  SearchableDropdownItem(value: 'Pending', label: 'قيد التنسيق والطلب (Pending)'),
-                  SearchableDropdownItem(value: 'Scheduled', label: 'تم تحديد موعد المعاينة (Scheduled)'),
-                  SearchableDropdownItem(value: 'Completed', label: 'تم الفحص واجتياز المطابقة (Completed)'),
-                  SearchableDropdownItem(value: 'Rejected', label: 'غير مطابق للمواصفات (Rejected)'),
+                items: [
+                  SearchableDropdownItem(value: 'Not Required', label: l10n.statusInactive),
+                  SearchableDropdownItem(value: 'Pending', label: l10n.inspectionStatusPendingOption),
+                  SearchableDropdownItem(value: 'Scheduled', label: l10n.inspectionStatusScheduledOption),
+                  SearchableDropdownItem(value: 'Completed', label: l10n.inspectionStatusCompletedOption),
+                  SearchableDropdownItem(value: 'Rejected', label: l10n.inspectionStatusRejectedOption),
                 ],
                 onChanged: (v) => setState(() => _inspectionStatus = v ?? _inspectionStatus),
               ),
@@ -1348,9 +1363,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               child: TextFormField(
                 controller: _inspReportNoCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'رقم شهادة / تقرير الفحص (Inspection Report / Certificate No.)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.inspectionReportNumFieldLabel,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1358,9 +1373,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               child: TextFormField(
                 controller: _inspNotesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظات الفحص والنتائج المعملية',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.inspectionNotesFieldLabel,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1372,17 +1387,18 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   // Pillar 4: Prior Import Permits
   Widget _buildPillar4Content() {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('المحور 4: موافقات وتصاريح جهات العرض والجهات الرقابية المسبقة (Regulatory Permits)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        Text(l10n.pillar4Header, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               flex: 1,
               child: CheckboxListTile(
-                title: const Text('تصريح مسبق إلزامي (Permit Required)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                title: Text(l10n.importPermitRequiredCheck, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 value: _importPermitRequired,
                 onChanged: (v) => setState(() => _importPermitRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1391,16 +1407,16 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'جهة العرض والترخيص (Issuing Authority)',
+                labelText: l10n.issuingAuthorityFieldLabel,
                 value: _permitIssuingAuthority,
-                items: const [
-                  SearchableDropdownItem(value: 'جهاز شئون البيئة (EEAA)', label: 'جهاز شئون البيئة (EEAA)'),
-                  SearchableDropdownItem(value: 'الهيئة القومية لسلامة الغذاء (NFSA)', label: 'الهيئة القومية لسلامة الغذاء (NFSA)'),
-                  SearchableDropdownItem(value: 'هيئة الدواء المصرية (EDA)', label: 'هيئة الدواء المصرية (EDA)'),
-                  SearchableDropdownItem(value: 'الجهاز القومي لتنظيم الاتصالات (NTRA)', label: 'الجهاز القومي لتنظيم الاتصالات (NTRA)'),
-                  SearchableDropdownItem(value: 'الأمن العام / مصلحة الأمن والرقابة', label: 'الأمن العام / مصلحة الأمن والرقابة'),
-                  SearchableDropdownItem(value: 'مصلحة الكيمياء / الطاقة الذرية', label: 'مصلحة الكيمياء / الطاقة الذرية'),
-                  SearchableDropdownItem(value: 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)', label: 'الهيئة العامة للرقابة على الصادرات والواردات (GOEIC)'),
+                items: [
+                  SearchableDropdownItem(value: 'EEAA', label: l10n.authorityEeaaOption),
+                  SearchableDropdownItem(value: 'NFSA', label: l10n.authorityNfsaOption),
+                  SearchableDropdownItem(value: 'EDA', label: l10n.authorityEdaOption),
+                  SearchableDropdownItem(value: 'NTRA', label: l10n.authorityNtraOption),
+                  SearchableDropdownItem(value: 'Public Security', label: l10n.authorityPublicSecurityOption),
+                  SearchableDropdownItem(value: 'Chemistry Authority', label: l10n.authorityChemistryOption),
+                  SearchableDropdownItem(value: 'GOEIC', label: l10n.authorityGoeicOption),
                 ],
                 onChanged: (v) => setState(() => _permitIssuingAuthority = v ?? _permitIssuingAuthority),
               ),
@@ -1409,13 +1425,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               flex: 2,
               child: SearchableDropdownField<String>(
-                labelText: 'حالة التصريح (Permit Status)',
+                labelText: l10n.permitStatusFieldLabel,
                 value: _permitStatus,
-                items: const [
-                  SearchableDropdownItem(value: 'Not Required', label: 'غير مطلوبة (Not Required)'),
-                  SearchableDropdownItem(value: 'Applied', label: 'تم تقديم الطلب (Applied)'),
-                  SearchableDropdownItem(value: 'Approved', label: 'تمت الموافقة والاعتماد (Approved)'),
-                  SearchableDropdownItem(value: 'Rejected', label: 'مرفوض (Rejected)'),
+                items: [
+                  SearchableDropdownItem(value: 'Not Required', label: l10n.statusInactive),
+                  SearchableDropdownItem(value: 'Applied', label: l10n.permitStatusAppliedOption),
+                  SearchableDropdownItem(value: 'Approved', label: l10n.permitStatusApprovedOption),
+                  SearchableDropdownItem(value: 'Rejected', label: l10n.permitStatusRejectedOption),
                 ],
                 onChanged: (v) => setState(() => _permitStatus = v ?? _permitStatus),
               ),
@@ -1428,9 +1444,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               child: TextFormField(
                 controller: _permitNumberCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'رقم التصريح / الموافقة الرقابية',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.permitNumberFieldLabel,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1438,9 +1454,9 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Expanded(
               child: TextFormField(
                 controller: _permitNotesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظات وشروط الموافقة الرقابية',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l10n.permitNotesFieldLabel,
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ),
@@ -1452,16 +1468,17 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
 
   // Pillar 5: Technical Certificates & Sailing Confirmation
   Widget _buildPillar5Content() {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('المحور 5: الشهادات الفنية الخاصة وتأكيد الجاهزية للإبحار (Technical Certs & Sailing Clearance)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+        Text(l10n.pillar5Header, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
         const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
               child: CheckboxListTile(
-                title: const Text('شهادة صحيفة بيانات الأمان (MSDS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: Text(l10n.msdsRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _msdsRequired,
                 onChanged: (v) => setState(() => _msdsRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1469,7 +1486,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             Expanded(
               child: CheckboxListTile(
-                title: const Text('شهادة الذبح الحلال (Halal Certificate)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: Text(l10n.halalCertRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _halalCertRequired,
                 onChanged: (v) => setState(() => _halalCertRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1477,7 +1494,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             Expanded(
               child: CheckboxListTile(
-                title: const Text('شهادة التحليل المخبري (COA)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: Text(l10n.coaRequiredCheck, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _coaRequired,
                 onChanged: (v) => setState(() => _coaRequired = v ?? false),
                 controlAffinity: ListTileControlAffinity.leading,
@@ -1498,12 +1515,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Expanded(
                 flex: 2,
                 child: SearchableDropdownField<String>(
-                  labelText: 'حالة الإبحار والشحن الفعلي (Sailing Status)',
+                  labelText: l10n.sailingStatusFieldLabel,
                   value: _sailingStatus,
-                  items: const [
-                    SearchableDropdownItem(value: 'Pre-Sailing', label: 'قبل الإبحار (Pre-Sailing)'),
-                    SearchableDropdownItem(value: 'Cleared for Sailing', label: 'مصرح وجاهز للإبحار (Cleared for Sailing)'),
-                    SearchableDropdownItem(value: 'Sailed', label: 'تم الإبحار والشحن الفعلي (Sailed)'),
+                  items: [
+                    SearchableDropdownItem(value: 'Pre-Sailing', label: l10n.sailingStatusPreSailingOption),
+                    SearchableDropdownItem(value: 'Cleared for Sailing', label: l10n.sailingStatusClearedOption),
+                    SearchableDropdownItem(value: 'Sailed', label: l10n.sailingStatusSailedOption),
                   ],
                   onChanged: (v) => setState(() => _sailingStatus = v ?? _sailingStatus),
                 ),
@@ -1513,11 +1530,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 flex: 2,
                 child: TextFormField(
                   controller: _sailingDateCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'تاريخ الإبحار الفعلي / المتوقع (Sailing Date)',
+                  decoration: InputDecoration(
+                    labelText: l10n.sailingDateFieldLabel,
                     hintText: 'YYYY-MM-DD',
-                    border: OutlineInputBorder(),
-                    prefixIcon: Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
+                    border: const OutlineInputBorder(),
+                    prefixIcon: const Icon(Icons.directions_boat, color: AppTheme.cobalt, size: 18),
                   ),
                 ),
               ),
@@ -1525,12 +1542,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Expanded(
                 flex: 2,
                 child: SearchableDropdownField<String>(
-                  labelText: 'تقييم المخاطر (Risk Level)',
+                  labelText: l10n.riskLevelFieldLabel,
                   value: _riskLevel,
-                  items: const [
-                    SearchableDropdownItem(value: 'Low', label: 'منخفض (Low)'),
-                    SearchableDropdownItem(value: 'Medium', label: 'متوسط (Medium)'),
-                    SearchableDropdownItem(value: 'High', label: 'مرتفع (High)'),
+                  items: [
+                    SearchableDropdownItem(value: 'Low', label: l10n.riskLevelLowOption),
+                    SearchableDropdownItem(value: 'Medium', label: l10n.riskLevelMediumOption),
+                    SearchableDropdownItem(value: 'High', label: l10n.riskLevelHighOption),
                   ],
                   onChanged: (v) => setState(() => _riskLevel = v ?? _riskLevel),
                 ),
@@ -1539,13 +1556,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               Expanded(
                 flex: 2,
                 child: SearchableDropdownField<String>(
-                  labelText: 'الحالة الإجمالية (Overall Status)',
+                  labelText: l10n.statusCol,
                   value: _overallStatus,
-                  items: const [
-                    SearchableDropdownItem(value: 'Draft', label: 'مسودة (Draft)'),
-                    SearchableDropdownItem(value: 'In Progress', label: 'قيد الاستيفاء (In Progress)'),
-                    SearchableDropdownItem(value: 'Complete', label: 'مكتمل (Complete)'),
-                    SearchableDropdownItem(value: 'Confirmed', label: 'معتمد ومصرح للشحن (Confirmed)'),
+                  items: [
+                    SearchableDropdownItem(value: 'Draft', label: l10n.overallStatusDraftOption),
+                    SearchableDropdownItem(value: 'In Progress', label: l10n.overallStatusInProgressOption),
+                    SearchableDropdownItem(value: 'Complete', label: l10n.overallStatusCompleteOption),
+                    SearchableDropdownItem(value: 'Confirmed', label: l10n.overallStatusConfirmedOption),
                   ],
                   onChanged: (v) => setState(() => _overallStatus = v ?? _overallStatus),
                 ),
@@ -1558,6 +1575,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _buildBottomActionBar() {
+    final l10n = context.l10n;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -1576,7 +1594,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             onPressed: _autoCompleteAllPillars,
             icon: const Icon(Icons.bolt, color: AppTheme.cobalt, size: 18),
-            label: const Text('استيفاء وتأكيد كافة المحاور ⚡', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            label: Text(l10n.completeAllPillarsBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
@@ -1587,7 +1605,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             onPressed: _refreshAllData,
             icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-            label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l10n.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
           OutlinedButton.icon(
@@ -1598,7 +1616,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             onPressed: _resetForm,
             icon: const Icon(Icons.cleaning_services_outlined, size: 18, color: Colors.blueGrey),
-            label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l10n.cancelEditingAndStartNewBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 8),
           ElevatedButton.icon(
@@ -1611,7 +1629,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             ),
             onPressed: _isSaving ? null : _saveAssessment,
             icon: const Icon(Icons.save_outlined, size: 18, color: AppTheme.cobalt),
-            label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l10n.saveRequirementDraftBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const Spacer(),
           ElevatedButton.icon(
@@ -1626,7 +1644,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.check_circle_outline, size: 20),
             label: Text(
-              _editingAssessmentId != null ? 'تحديث وحفظ التعديلات' : 'حفظ واعتماد التقييم التأكيدي',
+              _editingAssessmentId != null ? l10n.updateRequirementSubmitBtn : l10n.saveRequirementSubmitBtn,
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
             ),
           ),
@@ -1639,6 +1657,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   // TAB 2: SAVED ASSESSMENTS REGISTRY
   // ===========================================================================
   Widget _buildSavedAssessmentsRegistryTab() {
+    final l10n = context.l10n;
     final asyncReqs = ref.watch(importRequirementsProvider);
 
     return Padding(
@@ -1666,11 +1685,11 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                   flex: 3,
                   child: TextField(
                     controller: _searchController,
-                    decoration: const InputDecoration(
-                      hintText: 'بحث برقم التقييم، البند الجمركي HS Code، رقم الـ ACID، المورد، أو الوصف...',
-                      prefixIcon: Icon(Icons.search, color: AppTheme.cobalt),
-                      border: OutlineInputBorder(),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                    decoration: InputDecoration(
+                      hintText: l10n.searchRequirementsHint,
+                      prefixIcon: const Icon(Icons.search, color: AppTheme.cobalt),
+                      border: const OutlineInputBorder(),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
@@ -1679,14 +1698,14 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'حالة المطابقة',
+                    labelText: l10n.complianceStatusFilterLabel,
                     value: _registryStatusFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة الحالات (All)'),
-                      SearchableDropdownItem(value: 'Draft', label: 'مسودة (Draft)'),
-                      SearchableDropdownItem(value: 'In Progress', label: 'قيد الاستيفاء (In Progress)'),
-                      SearchableDropdownItem(value: 'Complete', label: 'مكتمل (Complete)'),
-                      SearchableDropdownItem(value: 'Confirmed', label: 'معتمد ومصرح للشحن (Confirmed)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: l10n.partnerCatAll),
+                      SearchableDropdownItem(value: 'Draft', label: l10n.overallStatusDraftOption),
+                      SearchableDropdownItem(value: 'In Progress', label: l10n.overallStatusInProgressOption),
+                      SearchableDropdownItem(value: 'Complete', label: l10n.overallStatusCompleteOption),
+                      SearchableDropdownItem(value: 'Confirmed', label: l10n.overallStatusConfirmedOption),
                     ],
                     onChanged: (v) => setState(() => _registryStatusFilter = v ?? 'All'),
                   ),
@@ -1695,13 +1714,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'مستوى المخاطر',
+                    labelText: l10n.riskLevelFilterLabel,
                     value: _registryRiskFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة المستويات (All)'),
-                      SearchableDropdownItem(value: 'Low', label: 'منخفض (Low)'),
-                      SearchableDropdownItem(value: 'Medium', label: 'متوسط (Medium)'),
-                      SearchableDropdownItem(value: 'High', label: 'مرتفع (High)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: l10n.partnerCatAll),
+                      SearchableDropdownItem(value: 'Low', label: l10n.riskLevelLowOption),
+                      SearchableDropdownItem(value: 'Medium', label: l10n.riskLevelMediumOption),
+                      SearchableDropdownItem(value: 'High', label: l10n.riskLevelHighOption),
                     ],
                     onChanged: (v) => setState(() => _registryRiskFilter = v ?? 'All'),
                   ),
@@ -1710,12 +1729,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 Expanded(
                   flex: 2,
                   child: SearchableDropdownField<String>(
-                    labelText: 'السجلات النشطة / المحذوفة',
+                    labelText: l10n.activeDeletedFilterLabel,
                     value: _registryActiveFilter,
-                    items: const [
-                      SearchableDropdownItem(value: 'All', label: 'كافة السجلات (النشطة والمحذوفة)'),
-                      SearchableDropdownItem(value: 'Active', label: 'النشطة فقط (Active)'),
-                      SearchableDropdownItem(value: 'Deleted', label: 'المحذوفة فقط (Deleted)'),
+                    items: [
+                      SearchableDropdownItem(value: 'All', label: l10n.allRecordsActiveAndDeleted),
+                      SearchableDropdownItem(value: 'Active', label: l10n.activeOnlyOption),
+                      SearchableDropdownItem(value: 'Deleted', label: l10n.deletedOnlyOption),
                     ],
                     onChanged: (v) => setState(() => _registryActiveFilter = v ?? 'Active'),
                   ),
@@ -1730,7 +1749,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             child: asyncReqs.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, _) => Center(
-                child: Text('خطأ في تحميل سجلات التقييم: $err', style: const TextStyle(color: Colors.red)),
+                child: Text(l10n.requirementsFetchError(err.toString()), style: const TextStyle(color: Colors.red)),
               ),
               data: (list) {
                 final filtered = list.where((item) {
@@ -1772,13 +1791,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                       children: [
                         Icon(Icons.folder_open, size: 64, color: Colors.grey.shade400),
                         const SizedBox(height: 12),
-                        const Text('لا توجد تقييمات مسجلة مطابقة للبحث الحالي.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                        Text(l10n.noRequirementsFound, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                         const SizedBox(height: 12),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                           onPressed: () => _mainTabController.animateTo(0),
                           icon: const Icon(Icons.add, color: Colors.white),
-                          label: const Text('إنشاء دراسة تقييم جديدة', style: TextStyle(color: Colors.white)),
+                          label: Text(l10n.createNewRequirementBtn, style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -1806,12 +1825,13 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   Widget _buildRegistryRow(ImportRequirementModel req) {
+    final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
     final matchingFile = importFiles.where((f) => f.importFileId == req.importFileId).firstOrNull;
     final fileCode = matchingFile?.customFileNumber ?? matchingFile?.importFileCode ?? req.importFileCode ?? (req.importFileId != null ? 'IMP-${req.importFileId}' : '');
     final companyName = (matchingFile?.companyName.isNotEmpty == true && matchingFile?.companyName != 'N/A')
         ? matchingFile!.companyName
-        : 'الشركة المستوردة';
+        : l10n.fallbackImportingCompany;
     final displayName = fileCode.isNotEmpty ? '[$fileCode] $companyName' : req.assessmentCode;
 
     return ListTile(
@@ -1856,7 +1876,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
               decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.red)),
-              child: const Text('محذوف منطقياً (Soft Deleted)', style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
+              child: Text(l10n.deletedOnlyOption, style: const TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold)),
             ),
         ],
       ),
@@ -1866,7 +1886,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'البند الجمركي: ${req.hsCode ?? "N/A"} — ${req.commodityDescription ?? ""} | القيمة: ${req.shipmentValue.toStringAsFixed(2)} ${req.currency} | المورد: ${req.supplierName ?? "N/A"} (${req.countryOfOrigin ?? "N/A"})',
+              l10n.requirementRowSubtitle(req.hsCode ?? "N/A", req.commodityDescription ?? "", req.shipmentValue.toStringAsFixed(2), req.currency, req.supplierName ?? "N/A", req.countryOfOrigin ?? "N/A"),
               style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
             ),
             const SizedBox(height: 6),
@@ -1874,17 +1894,17 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
               spacing: 6,
               runSpacing: 4,
               children: [
-                _buildBadge('حالة الإبحار: ${req.sailingStatus}', _getStatusColor(req.sailingStatus)),
-                _buildBadge('الحالة: ${req.overallStatus}', _getStatusColor(req.overallStatus)),
-                _buildBadge('المخاطر: ${req.riskLevel}', _getRiskLevelColor(req.riskLevel)),
+                _buildBadge(l10n.sailingStatusBadgeRow(req.sailingStatus), _getStatusColor(req.sailingStatus)),
+                _buildBadge(l10n.requirementStatusBadgeRow(req.overallStatus), _getStatusColor(req.overallStatus)),
+                _buildBadge(l10n.riskLevelBadgeRow(req.riskLevel), _getRiskLevelColor(req.riskLevel)),
                 if (req.hsCodeItems.isNotEmpty)
-                  _buildBadge('${req.hsCodeItems.length} بنود HS', AppTheme.cobalt),
+                  _buildBadge(l10n.hsItemsCountBadge(req.hsCodeItems.length), AppTheme.cobalt),
                 if (req.decree43Applicable && req.whiteListVerified)
-                  _buildBadge('قرار 43 معتمد', AppTheme.emerald),
+                  _buildBadge(l10n.decree43VerifiedBadge, AppTheme.emerald),
                 if (req.cooRequired && req.cooStatus == 'Obtained')
-                  _buildBadge('منشأ مستوفى', AppTheme.emerald),
+                  _buildBadge(l10n.cooObtainedBadge, AppTheme.emerald),
                 if (req.inspectionRequired && req.inspectionStatus == 'Completed')
-                  _buildBadge('فحص SGS مجتاز', AppTheme.emerald),
+                  _buildBadge(l10n.inspectionPassedBadge, AppTheme.emerald),
               ],
             ),
           ],
@@ -1896,20 +1916,20 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           // Edit Button (Restores if deleted and loads into form)
           IconButton(
             icon: const Icon(Icons.edit, color: AppTheme.cobalt),
-            tooltip: 'تعديل واستكمال التقييم وإعادة تفعيله',
+            tooltip: l10n.editRequirementTooltip,
             onPressed: () => _loadAssessmentForEditing(req),
           ),
           // Restore Button if inactive
           if (!req.isActive)
             IconButton(
               icon: const Icon(Icons.restore_from_trash, color: AppTheme.emerald),
-              tooltip: 'استعادة وتفعيل التقييم',
+              tooltip: l10n.restoreRequirementTooltip,
               onPressed: () async {
                 if (req.assessmentId != null) {
                   await ref.read(importRequirementsProvider.notifier).restoreRequirement(req.assessmentId!);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('♻️ تم استعادة التقييم (${req.assessmentCode}) بنجاح!'), backgroundColor: AppTheme.emerald),
+                      SnackBar(content: Text(l10n.restoredRequirementSuccessSnack(req.assessmentCode)), backgroundColor: AppTheme.emerald),
                     );
                   }
                 }
@@ -1919,7 +1939,7 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
           if (req.isActive)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'حذف منطقي',
+              tooltip: l10n.deleteRequirementTooltip,
               onPressed: () => _confirmDeleteAssessment(req),
             ),
         ],
@@ -1940,19 +1960,20 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
   }
 
   void _confirmDeleteAssessment(ImportRequirementModel req) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('تأكيد الحذف المنطقي للتقييم'),
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(l10n.confirmDeleteRequirementTitle),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف تقييم المتطلبات (${req.assessmentCode}) للملف (${req.importFileCode})؟\n\nيمكنك استعادته أو إعادة تفعيله في أي وقت من خلال تعديله أو عبر زر الاستعادة.'),
+        content: Text(l10n.confirmDeleteRequirementContent(req.assessmentCode, req.importFileCode ?? '')),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () async {
@@ -1961,12 +1982,12 @@ class _ImportRequirementsScreenState extends ConsumerState<ImportRequirementsScr
                 await ref.read(importRequirementsProvider.notifier).deleteRequirement(req.assessmentId!);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('🗑️ تم حذف التقييم (${req.assessmentCode}) منطقياً.'), backgroundColor: Colors.red),
+                    SnackBar(content: Text(l10n.deletedRequirementSuccessSnack(req.assessmentCode)), backgroundColor: Colors.red),
                   );
                 }
               }
             },
-            child: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

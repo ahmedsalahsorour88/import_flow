@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/change_diff_dialog.dart';
@@ -34,6 +35,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final companiesAsync = ref.watch(importCompaniesProvider);
     final showInactive = ref.watch(showInactiveCompaniesProvider);
 
@@ -48,22 +50,22 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Egyptian Import Companies',
-                        style: TextStyle(
+                        l10n.importCompaniesScreenTitle,
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.charcoal,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Manage Egyptian Importers, Registration IDs, Active Status & Expiry Rules',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        l10n.importCompaniesScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -73,10 +75,9 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     const BackToDashboardButton(),
                     const SizedBox(width: 12),
                     // Show Deactivated Filter Switch
-
                     Row(
                       children: [
-                        const Text('Include Deactivated:', style: TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
+                        Text(l10n.includeDeactivatedLabel, style: const TextStyle(fontWeight: FontWeight.w600, color: AppTheme.charcoal)),
                         const SizedBox(width: 8),
                         Switch(
                           value: showInactive,
@@ -90,7 +91,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.add_business, size: 18),
-                      label: const Text('Add Importer Company'),
+                      label: Text(l10n.addImporterCompanyBtn),
                       onPressed: () => _showCompanyDialog(context),
                     ),
                   ],
@@ -126,7 +127,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                  hintText: 'Search by importer name, registration number, or VAT ID...',
+                  hintText: l10n.searchImporterHint,
                   filled: false,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -157,7 +158,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 24.0),
                         child: Text(
-                          'تعذر الاتصال بالسيرفر (DioException / Connection Error)\n$err',
+                          l10n.importersFetchError(err.toString()),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                         ),
@@ -170,7 +171,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                         ),
                         icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('إعادة المحاولة (Retry Connection)', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text(l10n.retryConnectionBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                         onPressed: () {
                           ref.read(importCompaniesProvider.notifier).fetchCompanies();
                         },
@@ -186,8 +187,8 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return const Center(
-                      child: Text('No import companies found.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    return Center(
+                      child: Text(l10n.noImportCompaniesFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                     );
                   }
 
@@ -223,6 +224,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   }
 
   Widget _buildCompanyRow(ImportCompanyModel company) {
+    final l10n = context.l10n;
     final isActive = company.isActive;
 
     return GestureDetector(
@@ -290,7 +292,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            isActive ? 'Active' : 'Inactive',
+                            isActive ? l10n.statusActive : l10n.statusInactive,
                             style: TextStyle(
                               color: isActive ? AppTheme.emerald : AppTheme.crimson,
                               fontSize: 11,
@@ -302,7 +304,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Importer ID: ${company.importerId} | VAT: ${company.vatId} | Reg #: ${company.registrationNumber}',
+                      l10n.importerRowMeta(company.importerId, company.vatId, company.registrationNumber),
                       style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
@@ -315,11 +317,11 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildExpiryBadge(company.daysUntilImporterIdExpiry, 'Import ID'),
+                    _buildExpiryBadge(company.daysUntilImporterIdExpiry, l10n.badgeImportId),
                     const SizedBox(height: 4),
-                    _buildExpiryBadge(company.daysUntilVatExpiry, 'VAT Expiry'),
+                    _buildExpiryBadge(company.daysUntilVatExpiry, l10n.badgeVatExpiry),
                     const SizedBox(height: 4),
-                    _buildExpiryBadge(company.daysUntilRegExpiry, 'Com. Reg'),
+                    _buildExpiryBadge(company.daysUntilRegExpiry, l10n.badgeComReg),
                   ],
                 ),
               ),
@@ -337,16 +339,16 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   final confirm = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
-                      title: const Text('تأكيد الإجراء'),
+                      title: Text(l10n.confirmActionTitle),
                       content: Text(isActive
-                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل الشركة (${company.importerName})؟'
-                          : 'هل أنت متأكد من إعادة تفعيل الشركة (${company.importerName})؟'),
+                          ? l10n.confirmDeactivateCompany(company.importerName)
+                          : l10n.confirmActivateCompany(company.importerName)),
                       actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                         ElevatedButton(
                           onPressed: () => Navigator.pop(ctx, true),
                           style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -355,7 +357,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                     ref.read(importCompaniesProvider.notifier).toggleActiveStatus(company.companyId!, isActive);
                   }
                 },
-                deleteTooltip: isActive ? 'إيقاف تفعيل الشركة (Deactivate)' : 'إعادة تفعيل الشركة (Activate)',
+                deleteTooltip: isActive ? l10n.deactivateCompanyTooltip : l10n.activateCompanyTooltip,
               ),
             ],
           ),
@@ -365,6 +367,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   }
 
   Widget _buildExpiryBadge(int daysLeft, String label) {
+    final l10n = context.l10n;
     Color bg;
     Color fg;
     String statusText;
@@ -372,15 +375,15 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
     if (daysLeft < 0) {
       bg = AppTheme.crimson.withOpacity(0.15);
       fg = AppTheme.crimson;
-      statusText = 'Expired';
+      statusText = l10n.expiryExpired;
     } else if (daysLeft <= 30) {
       bg = AppTheme.orange.withOpacity(0.15);
       fg = AppTheme.orange;
-      statusText = '$daysLeft days left';
+      statusText = l10n.expiryDaysLeft(daysLeft);
     } else {
       bg = AppTheme.emerald.withOpacity(0.15);
       fg = AppTheme.emerald;
-      statusText = 'Valid ($daysLeft d)';
+      statusText = l10n.expiryValidDays(daysLeft);
     }
 
     return Container(
@@ -394,6 +397,7 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
   }
 
   void _showCompanyDialog(BuildContext context, [ImportCompanyModel? companyToEdit]) {
+    final l10n = context.l10n;
     final isEditing = companyToEdit != null;
     final formKey = GlobalKey<FormState>();
 
@@ -434,14 +438,14 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                           Icon(isEditing ? Icons.edit : Icons.add_business, color: Colors.white, size: 22),
                           const SizedBox(width: 12),
                           Text(
-                            isEditing ? 'Edit Egyptian Import Company' : 'Add Egyptian Import Company',
+                            isEditing ? l10n.editImporterCompanyTitle : l10n.addImporterCompanyTitle,
                             style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
                           ),
                         ],
                       ),
                       IconButton(
                         icon: const Icon(Icons.close, color: Colors.white70),
-                        tooltip: 'إغلاق النافذة',
+                        tooltip: l10n.closeDialogTooltip,
                         onPressed: () => Navigator.pop(dialogCtx),
                       ),
                     ],
@@ -453,217 +457,217 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24.0),
                     child: Form(
-                    key: formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CustomTextField(
-                          controller: nameCtrl,
-                          label: 'Company Name',
-                          icon: Icons.business,
-                          isRequired: true,
-                          hint: 'e.g. Pharaohs Import & Export LLC',
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: CustomTextField(
-                                controller: addressCtrl,
-                                label: 'Address',
-                                icon: Icons.location_on,
-                                isRequired: true,
-                                hint: 'e.g. 12 Ramses St, Cairo',
+                      key: formKey,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CustomTextField(
+                            controller: nameCtrl,
+                            label: l10n.companyNameLabel,
+                            icon: Icons.business,
+                            isRequired: true,
+                            hint: l10n.companyNameHint,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: addressCtrl,
+                                  label: l10n.addressLabel,
+                                  icon: Icons.location_on,
+                                  isRequired: true,
+                                  hint: l10n.addressHint,
+                                ),
                               ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: CustomTextField(
-                                controller: countryCtrl,
-                                label: 'Country',
-                                icon: Icons.flag,
-                                isRequired: true,
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: countryCtrl,
+                                  label: l10n.countryLabel,
+                                  icon: Icons.flag,
+                                  isRequired: true,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        StatefulBuilder(
-                          builder: (context, setDialogState) {
-                            Future<void> pickDate(String type) async {
-                              final initial = type == 'imp'
-                                  ? impExpiry
-                                  : type == 'vat'
-                                      ? vatExpiry
-                                      : regExpiry;
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: initial,
-                                firstDate: DateTime(2020),
-                                lastDate: DateTime(2040),
-                              );
-                              if (picked != null) {
-                                setDialogState(() {
-                                  if (type == 'imp') impExpiry = picked;
-                                  if (type == 'vat') vatExpiry = picked;
-                                  if (type == 'reg') regExpiry = picked;
-                                });
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          StatefulBuilder(
+                            builder: (context, setDialogState) {
+                              Future<void> pickDate(String type) async {
+                                final initial = type == 'imp'
+                                    ? impExpiry
+                                    : type == 'vat'
+                                        ? vatExpiry
+                                        : regExpiry;
+                                final picked = await showDatePicker(
+                                  context: context,
+                                  initialDate: initial,
+                                  firstDate: DateTime(2020),
+                                  lastDate: DateTime(2040),
+                                );
+                                if (picked != null) {
+                                  setDialogState(() {
+                                    if (type == 'imp') impExpiry = picked;
+                                    if (type == 'vat') vatExpiry = picked;
+                                    if (type == 'reg') regExpiry = picked;
+                                  });
+                                }
                               }
-                            }
 
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: impIdCtrl,
-                                        label: 'Importer Card ID (9 digits)',
-                                        icon: Icons.badge,
-                                        isRequired: true,
-                                        hint: 'e.g. 528153439',
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: impIdCtrl,
+                                          label: l10n.importerCardIdLabel,
+                                          icon: Icons.badge,
+                                          isRequired: true,
+                                          hint: l10n.importerCardIdHint,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Importer Card Expiry Date *',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          InkWell(
-                                            onTap: () => pickDate('imp'),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.grey.shade400),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                  const SizedBox(width: 8),
-                                                  Text('${impExpiry.year}-${impExpiry.month.toString().padLeft(2, '0')}-${impExpiry.day.toString().padLeft(2, '0')}'),
-                                                ],
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              l10n.importerCardExpiryLabel,
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            InkWell(
+                                              onTap: () => pickDate('imp'),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.grey.shade400),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                    const SizedBox(width: 8),
+                                                    Text('${impExpiry.year}-${impExpiry.month.toString().padLeft(2, '0')}-${impExpiry.day.toString().padLeft(2, '0')}'),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: vatIdCtrl,
-                                        label: 'VAT Registration ID (9 digits)',
-                                        icon: Icons.receipt_long,
-                                        isRequired: true,
-                                        hint: 'e.g. 528153439',
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: vatIdCtrl,
+                                          label: l10n.vatRegIdLabel,
+                                          icon: Icons.receipt_long,
+                                          isRequired: true,
+                                          hint: l10n.vatRegIdHint,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'VAT Registration Expiry Date *',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          InkWell(
-                                            onTap: () => pickDate('vat'),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.grey.shade400),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                  const SizedBox(width: 8),
-                                                  Text('${vatExpiry.year}-${vatExpiry.month.toString().padLeft(2, '0')}-${vatExpiry.day.toString().padLeft(2, '0')}'),
-                                                ],
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              l10n.vatRegExpiryLabel,
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            InkWell(
+                                              onTap: () => pickDate('vat'),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.grey.shade400),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                    const SizedBox(width: 8),
+                                                    Text('${vatExpiry.year}-${vatExpiry.month.toString().padLeft(2, '0')}-${vatExpiry.day.toString().padLeft(2, '0')}'),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: CustomTextField(
-                                        controller: regNumCtrl,
-                                        label: 'Commercial Reg # (15 digits)',
-                                        icon: Icons.app_registration,
-                                        isRequired: true,
-                                        hint: 'e.g. 100200000070828',
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: CustomTextField(
+                                          controller: regNumCtrl,
+                                          label: l10n.commercialRegNumLabel,
+                                          icon: Icons.app_registration,
+                                          isRequired: true,
+                                          hint: l10n.commercialRegNumHint,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Commercial Reg Expiry Date *',
-                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                                          ),
-                                          const SizedBox(height: 6),
-                                          InkWell(
-                                            onTap: () => pickDate('reg'),
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                              decoration: BoxDecoration(
-                                                color: Colors.white,
-                                                borderRadius: BorderRadius.circular(8),
-                                                border: Border.all(color: Colors.grey.shade400),
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
-                                                  const SizedBox(width: 8),
-                                                  Text('${regExpiry.year}-${regExpiry.month.toString().padLeft(2, '0')}-${regExpiry.day.toString().padLeft(2, '0')}'),
-                                                ],
+                                      const SizedBox(width: 16),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              l10n.commercialRegExpiryLabel,
+                                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                                            ),
+                                            const SizedBox(height: 6),
+                                            InkWell(
+                                              onTap: () => pickDate('reg'),
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.white,
+                                                  borderRadius: BorderRadius.circular(8),
+                                                  border: Border.all(color: Colors.grey.shade400),
+                                                ),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(Icons.calendar_month, size: 18, color: AppTheme.cobalt),
+                                                    const SizedBox(width: 8),
+                                                    Text('${regExpiry.year}-${regExpiry.month.toString().padLeft(2, '0')}-${regExpiry.day.toString().padLeft(2, '0')}'),
+                                                  ],
+                                                ),
                                               ),
                                             ),
-                                          ),
-                                        ],
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                CustomTextField(
-                                  controller: phoneCtrl,
-                                  label: 'Phone Number',
-                                  icon: Icons.phone,
-                                  hint: '+20 100 000 0000',
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  CustomTextField(
+                                    controller: phoneCtrl,
+                                    label: l10n.phoneNumberLabel,
+                                    icon: Icons.phone,
+                                    hint: l10n.phoneNumberHint,
+                                  ),
+                                ],
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
 
                 // Dialog Action Buttons
                 Container(
@@ -682,12 +686,12 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                         ),
                         onPressed: () => Navigator.pop(dialogCtx),
                         icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-                        label: const Text('إلغاء وإغلاق ✕', style: TextStyle(fontWeight: FontWeight.bold)),
+                        label: Text(l10n.cancelAndCloseBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.check, size: 18),
-                        label: Text(isEditing ? 'Update Company' : 'Save Importer Company'),
+                        label: Text(isEditing ? l10n.updateCompanyBtn : l10n.saveCompanyBtn),
                         onPressed: () async {
                           if (!formKey.currentState!.validate()) {
                             return;
@@ -712,31 +716,31 @@ class _ImportCompaniesScreenState extends ConsumerState<ImportCompaniesScreen> {
                           if (isEditing && companyToEdit.companyId != null) {
                             final List<FieldChangeItem> changes = [];
                             if (FieldChangeItem.isDifferent(companyToEdit.importerName, company.importerName)) {
-                              changes.add(FieldChangeItem(fieldName: 'اسم الشركة المستوردة', oldValue: companyToEdit.importerName, newValue: company.importerName));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffCompanyName, oldValue: companyToEdit.importerName, newValue: company.importerName));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.importerId, company.importerId)) {
-                              changes.add(FieldChangeItem(fieldName: 'رقم البطاقة الاستيرادية', oldValue: companyToEdit.importerId, newValue: company.importerId));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardId, oldValue: companyToEdit.importerId, newValue: company.importerId));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.importerIdExpiry.toString().substring(0, 10), company.importerIdExpiry.toString().substring(0, 10))) {
-                              changes.add(FieldChangeItem(fieldName: 'تاريخ انتهاء البطاقة الاستيرادية', oldValue: companyToEdit.importerIdExpiry.toString().substring(0, 10), newValue: company.importerIdExpiry.toString().substring(0, 10)));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffImporterCardExpiry, oldValue: companyToEdit.importerIdExpiry.toString().substring(0, 10), newValue: company.importerIdExpiry.toString().substring(0, 10)));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.vatId, company.vatId)) {
-                              changes.add(FieldChangeItem(fieldName: 'رقم التسجيل الضريبي (VAT ID)', oldValue: companyToEdit.vatId, newValue: company.vatId));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffVatId, oldValue: companyToEdit.vatId, newValue: company.vatId));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.registrationNumber, company.registrationNumber)) {
-                              changes.add(FieldChangeItem(fieldName: 'رقم السجل التجاري', oldValue: companyToEdit.registrationNumber, newValue: company.registrationNumber));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffCommercialReg, oldValue: companyToEdit.registrationNumber, newValue: company.registrationNumber));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.address, company.address)) {
-                              changes.add(FieldChangeItem(fieldName: 'العنوان', oldValue: companyToEdit.address, newValue: company.address));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffAddress, oldValue: companyToEdit.address, newValue: company.address));
                             }
                             if (FieldChangeItem.isDifferent(companyToEdit.phone, company.phone)) {
-                              changes.add(FieldChangeItem(fieldName: 'رقم الهاتف', oldValue: companyToEdit.phone, newValue: company.phone));
+                              changes.add(FieldChangeItem(fieldName: l10n.diffPhone, oldValue: companyToEdit.phone, newValue: company.phone));
                             }
 
                             if (changes.isNotEmpty) {
                               final confirmed = await showChangeDiffConfirmationDialog(
                                 context,
-                                title: 'مراجعة وتأكيد تعديلات الشركة المستوردة',
+                                title: l10n.diffConfirmCompanyTitle,
                                 itemReference: companyToEdit.importerName,
                                 changes: changes,
                               );

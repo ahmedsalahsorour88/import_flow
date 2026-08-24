@@ -327,6 +327,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   children: [
                     Text(
                       l.appTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -334,6 +336,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     ),
                     Text(
                       l.appSubtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(color: Colors.white70, fontSize: 8.5),
                     ),
                   ],
@@ -342,35 +346,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               // 🌐 Language Toggle Button
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                 icon: const Icon(Icons.language, color: Colors.white70, size: 16),
                 tooltip: l.languageToggleTooltip,
                 onPressed: () =>
                     ref.read(localeProvider.notifier).toggleLocale(),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               const NotificationBellWidget(),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.sync_rounded,
-                    color: AppTheme.emerald, size: 17),
-                tooltip: l.syncHubTooltip,
-                onPressed: () => ProductionSyncHubDialog.show(context),
-              ),
               const SizedBox(width: 4),
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: const Icon(Icons.info_outline_rounded,
-                    color: Colors.white70, size: 16),
-                tooltip: l.systemInfoTooltip,
-                onPressed: () => _showSystemInfoDialog(context),
-              ),
-              const SizedBox(width: 4),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
+                constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
                 icon: const Icon(Icons.keyboard_double_arrow_left,
                     color: Colors.white70, size: 18),
                 tooltip: l.collapseSidebar,
@@ -626,7 +613,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert_rounded, color: Colors.white70, size: 16),
-                  tooltip: 'خيارات المستخدم',
+                  tooltip: l.userOptions,
                   onSelected: (val) {
                     if (val == 'LOGOUT') {
                       ref.read(authProvider.notifier).logout();
@@ -635,17 +622,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     }
                   },
                   itemBuilder: (ctx) => [
-                    const PopupMenuItem(value: 'ADMIN', child: Text('تبديل كـ: Admin 🔴')),
-                    const PopupMenuItem(value: 'MANAGER', child: Text('تبديل كـ: Manager 🔵')),
-                    const PopupMenuItem(value: 'OPERATOR', child: Text('تبديل كـ: Specialist 🟢')),
+                    PopupMenuItem(value: 'ADMIN', child: Text(l.switchAsAdmin)),
+                    PopupMenuItem(value: 'MANAGER', child: Text(l.switchAsManager)),
+                    PopupMenuItem(value: 'OPERATOR', child: Text(l.switchAsSpecialist)),
                     const PopupMenuDivider(),
-                    const PopupMenuItem(
+                    PopupMenuItem(
                       value: 'LOGOUT',
                       child: Row(
                         children: [
-                          Icon(Icons.logout, color: AppTheme.crimson, size: 16),
-                          SizedBox(width: 8),
-                          Text('تسجيل الخروج (Logout)', style: TextStyle(color: AppTheme.crimson)),
+                          const Icon(Icons.logout, color: AppTheme.crimson, size: 16),
+                          const SizedBox(width: 8),
+                          Text(l.logout, style: const TextStyle(color: AppTheme.crimson)),
                         ],
                       ),
                     ),
@@ -665,16 +652,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
-                    SizedBox(width: 4),
-                    Text(
-                      'v1.0.2 (Build 2026.08)',
-                      style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
-                    ),
-                  ],
+                const Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.verified_outlined, color: AppTheme.cobalt, size: 12),
+                      SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          'v1.0.2 (Build 2026.08)',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(color: Colors.white70, fontSize: 9.5, fontFamily: 'monospace', fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 4),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
                   decoration: BoxDecoration(
@@ -725,8 +719,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }) {
     final isSearching = _searchQuery.isNotEmpty;
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
-    final primary = isArabic ? titleAr : titleEn;
-    final secondary = isArabic ? titleEn : titleAr;
+    final title = isArabic ? titleAr : titleEn;
 
     return Theme(
       data: Theme.of(context).copyWith(
@@ -754,31 +747,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
             child: Icon(icon, color: color, size: 14),
           ),
-          title: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                primary,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.1,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                secondary,
-                style: const TextStyle(
-                  color: Color(0x99FFFFFF),
-                  fontSize: 9,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
+          title: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.1,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
           iconColor: color,
           collapsedIconColor: Colors.white54,
@@ -798,8 +776,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     }
 
     final isArabic = ref.watch(localeProvider).languageCode == 'ar';
-    final primary = isArabic ? titleAr : titleEn;
-    final secondary = isArabic ? titleEn : titleAr;
+    final title = isArabic ? titleAr : titleEn;
     final isSelected = selectedIndex == index;
 
     return Container(
@@ -824,20 +801,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               : const Color(0xCCECF0F1), // cloudWhite 80%
         ),
         title: Text(
-          primary,
+          title,
           style: TextStyle(
             color: isSelected ? Colors.white : AppTheme.cloudWhite,
             fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
             fontSize: 10.5,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Text(
-          secondary,
-          style: TextStyle(
-            color: isSelected ? Colors.white70 : Colors.white54,
-            fontSize: 9,
           ),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

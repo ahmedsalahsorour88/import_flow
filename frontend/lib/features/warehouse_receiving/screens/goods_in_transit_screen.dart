@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../providers/goods_in_transit_provider.dart';
@@ -24,6 +25,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final gitAsync = ref.watch(goodsInTransitProvider);
 
     final tabs = [
@@ -37,7 +39,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
     return VerticalStageScaffold(
       stageCode: 'GIT-01',
       titleEn: 'Goods In Transit (GIT) Inventory Ledger',
-      titleAr: 'رصيد ومطابقة البضاعة في الطريق (GIT)',
+      titleAr: 'رصيد ومطابقة البضاعة في الطريق',
       headerIcon: Icons.local_shipping,
       headerColor: AppTheme.emerald,
       tabs: tabs,
@@ -46,7 +48,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
       body: gitAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Text('خطأ في جلب بيانات البضاعة بالطريق: $err', style: const TextStyle(color: Colors.red)),
+          child: Text(l.gitErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
         ),
         data: (allItems) {
           final filteredItems = allItems.where((item) {
@@ -88,18 +90,18 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                     children: [
                       const Icon(Icons.inventory_2, color: Colors.teal, size: 28),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'تقرير رصيد البضاعة في الطريق (Goods In Transit Ledger - Detailed by PO)',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                              l.gitInfoBannerTitle,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
-                              'هذا التقرير يمثل رصيد البضائع المشحونة طبقاً للفواتير وقوائم التعبئة المعتمدة، ويتم تحديثه وخصم الكميات تلقائياً فور تأكيد الاستلام النهائي بالمخزن.',
-                              style: TextStyle(fontSize: 12, color: Colors.black87),
+                              l.gitInfoBannerSubtitle,
+                              style: const TextStyle(fontSize: 12, color: Colors.black87),
                             ),
                           ],
                         ),
@@ -107,10 +109,10 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, foregroundColor: Colors.white),
                         icon: const Icon(Icons.file_download_outlined, size: 16),
-                        label: const Text('تصدير Excel'),
+                        label: Text(l.gitExportExcelBtn),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم تصدير تقرير البضاعة في الطريق بنجاح'), backgroundColor: AppTheme.emerald),
+                            SnackBar(content: Text(l.gitExportSuccessMsg), backgroundColor: AppTheme.emerald),
                           );
                         },
                       ),
@@ -122,15 +124,15 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                 // KPI Metrics Bar
                 Row(
                   children: [
-                    Expanded(child: _buildMetricCard('الشحنات في الطريق', '$uniqueFiles شحنة', Icons.folder_open, Colors.blue)),
+                    Expanded(child: _buildMetricCard(l.gitKpiInTransitShipments, l.gitKpiShipmentsValue(uniqueFiles), Icons.folder_open, Colors.blue)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('أوامر الشراء (POs)', '$uniquePos أمر شراء', Icons.receipt_long, Colors.purple)),
+                    Expanded(child: _buildMetricCard(l.gitKpiPurchaseOrders, l.gitKpiPurchaseOrdersValue(uniquePos), Icons.receipt_long, Colors.purple)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('إجمالي العدد بالفاتورة', '${totalQty.toStringAsFixed(0)} قطعة', Icons.category, Colors.indigo)),
+                    Expanded(child: _buildMetricCard(l.gitKpiInvoicedQuantity, l.gitKpiQuantityValue(totalQty.toStringAsFixed(0)), Icons.category, Colors.indigo)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('إجمالي الكراتين / الطرود', '$totalPkgs طرد', Icons.all_inbox, Colors.teal)),
+                    Expanded(child: _buildMetricCard(l.gitKpiPackagesCount, l.gitKpiPackagesValue(totalPkgs), Icons.all_inbox, Colors.teal)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('عدد الحاويات النشطة', '$totalContainers حاوية', Icons.directions_boat, AppTheme.emerald)),
+                    Expanded(child: _buildMetricCard(l.gitKpiActiveContainers, l.gitKpiContainersValue(totalContainers), Icons.directions_boat, AppTheme.emerald)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -149,11 +151,11 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                             width: 320,
                             child: TextField(
                               controller: _searchCtrl,
-                              decoration: const InputDecoration(
-                                hintText: 'بحث برقم الشحنة، أمر الشراء PO، كود أو اسم الصنف...',
-                                prefixIcon: Icon(Icons.search),
+                              decoration: InputDecoration(
+                                hintText: l.gitSearchHint,
+                                prefixIcon: const Icon(Icons.search),
                                 isDense: true,
-                                border: OutlineInputBorder(),
+                                border: const OutlineInputBorder(),
                               ),
                               onChanged: (_) => setState(() {}),
                             ),
@@ -162,10 +164,10 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                           DropdownButton<String>(
                             value: _selectedStatusFilter,
                             underline: const SizedBox(),
-                            items: const [
-                              DropdownMenuItem(value: 'All', child: Text('جميع البضائع')),
-                              DropdownMenuItem(value: 'In-Transit Only', child: Text('🟢 البضاعة في الطريق فقط (الرصيد الفعلي)')),
-                              DropdownMenuItem(value: 'Delivered Only', child: Text('✅ الشحنات المستلمة بالمخزن فقط')),
+                            items: [
+                              DropdownMenuItem(value: 'All', child: Text(l.gitFilterAll)),
+                              DropdownMenuItem(value: 'In-Transit Only', child: Text(l.gitFilterInTransitOnly)),
+                              DropdownMenuItem(value: 'Delivered Only', child: Text(l.gitFilterDeliveredOnly)),
                             ],
                             onChanged: (val) {
                               if (val != null) setState(() => _selectedStatusFilter = val);
@@ -174,7 +176,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                           const SizedBox(width: 16),
                           IconButton(
                             icon: const Icon(Icons.refresh, color: AppTheme.cobalt),
-                            tooltip: 'تحديث الرصيد',
+                            tooltip: l.gitRefreshTooltip,
                             onPressed: () => ref.read(goodsInTransitProvider.notifier).initLedger(),
                           ),
                         ],
@@ -193,14 +195,14 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.table_chart_outlined, color: AppTheme.emerald, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.table_chart_outlined, color: AppTheme.emerald, size: 20),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'جدول رصيد البضاعة في الطريق تفصيلي لكل أمر شراء (GIT Inventory Breakdown)',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                l.gitTableSectionHeader,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -208,25 +210,25 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                         ),
                         const Divider(height: 20),
                         if (filteredItems.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Center(child: Text('لا توجد بضائع في الطريق مطابقة لمعايير البحث حالياً.')),
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Center(child: Text(l.gitNoDataFound)),
                           )
                         else
                           SingleChildScrollView(
                             scrollDirection: Axis.horizontal,
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                              columns: const [
-                                DataColumn(label: Text('رقم ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('رقم أمر الشراء (PO)', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('كود الصنف', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('اسم وبيان الصنف', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('العدد بالفاتورة', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('عدد الكراتين / الطرود', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('عدد الحاويات ونوعها', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('تاريخ الاعتماد', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('حالة الرصيد', style: TextStyle(fontWeight: FontWeight.bold))),
+                              columns: [
+                                DataColumn(label: Text(l.gitColFileCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColPoNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColItemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColItemName, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColInvoicedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColPackagesCount, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColContainers, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColCertifiedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.gitColLedgerStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: filteredItems.map((item) {
                                 final isDelivered = item.isDeliveredToWarehouse;
@@ -244,7 +246,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                   DataCell(Text(item.poNumber, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
                                   DataCell(Text(item.itemCode, style: const TextStyle(fontFamily: 'monospace'))),
                                   DataCell(Text(item.itemName, style: const TextStyle(fontWeight: FontWeight.w600))),
-                                  DataCell(Text('${item.invoicedQty.toStringAsFixed(0)} قطعة', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo))),
+                                  DataCell(Text(l.gitKpiQuantityValue(item.invoicedQty.toStringAsFixed(0)), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.indigo))),
                                   DataCell(Text('${item.packagesCount} ${item.packageType}')),
                                   DataCell(Text('${item.containersCount} × ${item.containerType}')),
                                   DataCell(Text(item.certifiedDate)),
@@ -257,7 +259,7 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
                                         border: Border.all(color: (isDelivered ? Colors.green : Colors.teal).shade300),
                                       ),
                                       child: Text(
-                                        isDelivered ? 'تم الاستلام بالمخزن ✅' : '🟢 في الطريق (GIT)',
+                                        isDelivered ? l.gitStatusDeliveredToWarehouse : l.gitStatusInTransit,
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.bold,
@@ -316,3 +318,4 @@ class _GoodsInTransitScreenState extends ConsumerState<GoodsInTransitScreen> {
     );
   }
 }
+

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -109,18 +110,19 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final state = ref.watch(demurrageProvider);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.timer_outlined, color: Colors.white),
-            SizedBox(width: 10),
+            const Icon(Icons.timer_outlined, color: Colors.white),
+            const SizedBox(width: 10),
             Text(
-              'حاسبة ومتابعة فترات السماح وغرامات الحاويات والأرضيات (Demurrage & Detention)',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+              l10n.demurrageScreenTitle,
+              style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -134,10 +136,10 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           indicatorColor: AppTheme.cobalt,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(icon: Icon(Icons.list_alt_rounded), text: 'جلسات تتبع الحاويات الحية'),
-            Tab(icon: Icon(Icons.calculate_outlined), text: 'محاكي وحاسبة الشرائح التصاعدية'),
-            Tab(icon: Icon(Icons.policy_outlined), text: 'سياسات تعريفة الخطوط الملاحية'),
+          tabs: [
+            Tab(icon: const Icon(Icons.list_alt_rounded), text: l10n.containerTrackingsTab),
+            Tab(icon: const Icon(Icons.calculate_outlined), text: l10n.simulatorAndTierCalcTab),
+            Tab(icon: const Icon(Icons.policy_outlined), text: l10n.carrierTariffPoliciesTab),
           ],
         ),
       ),
@@ -158,6 +160,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // TAB 1: ACTIVE CONTAINER TRACKINGS
   // ===========================================================================
   Widget _buildTrackingsTab(DemurrageState state) {
+    final l10n = context.l10n;
     final filteredTrackings = state.trackings.where((t) {
       final matchesSearch = t.trackingCode.toLowerCase().contains(_searchController.text.toLowerCase()) ||
           t.billOfLadingNo.toLowerCase().contains(_searchController.text.toLowerCase()) ||
@@ -181,22 +184,22 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             Row(
               children: [
                 _buildKpiCard(
-                  'إجمالي الجلسات النشطة',
-                  '$activeCount شحنة',
+                  l10n.totalActiveTrackingsMetric,
+                  l10n.activeShipmentsCount(activeCount),
                   Icons.all_inbox_rounded,
                   AppTheme.cobalt,
                 ),
                 const SizedBox(width: 16),
                 _buildKpiCard(
-                  'شحنات بها غرامات سارية',
-                  '$incurredCount شحنة',
+                  l10n.incurredDemurrageShipmentsMetric,
+                  l10n.activeShipmentsCount(incurredCount),
                   Icons.warning_amber_rounded,
                   AppTheme.crimson,
                 ),
                 const SizedBox(width: 16),
                 _buildKpiCard(
-                  'إجمالي الغرامات المحسوبة',
-                  '${totalDemurrageEgp.toStringAsFixed(0)} ج.م',
+                  l10n.totalCalculatedDemurrageMetric,
+                  l10n.egpCurrencyAmount(totalDemurrageEgp.toStringAsFixed(0)),
                   Icons.attach_money_rounded,
                   AppTheme.orange,
                 ),
@@ -221,7 +224,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         controller: _searchController,
                         onChanged: (_) => setState(() {}),
                         decoration: InputDecoration(
-                          hintText: 'بحث برقم البوليصة أو كود التتبع أو الخط الملاحي...',
+                          hintText: l10n.searchDemurrageHint,
                           prefixIcon: const Icon(Icons.search, size: 20),
                           isDense: true,
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -231,19 +234,15 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     const SizedBox(width: 16),
                     Expanded(
                       flex: 2,
-                      child: DropdownButtonFormField<String>(
+                      child: SearchableDropdownField<String>(
+                        labelText: l10n.statusFilterLabel,
                         value: _selectedStatusFilter,
-                        decoration: InputDecoration(
-                          labelText: 'تصفية بالحالة',
-                          isDense: true,
-                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                        items: const [
-                          DropdownMenuItem(value: 'All', child: Text('جميع الحالات')),
-                          DropdownMenuItem(value: 'Free Time Active', child: Text('فترة السماح سارية')),
-                          DropdownMenuItem(value: 'Demurrage Incurred', child: Text('غرامة أرضيات سارية')),
-                          DropdownMenuItem(value: 'Detention Incurred', child: Text('غرامة تأخير فارغ')),
-                          DropdownMenuItem(value: 'Pushed to Settlement', child: Text('تم الترحيل للتسوية')),
+                        items: [
+                          SearchableDropdownItem(value: 'All', label: l10n.allStatusesOption),
+                          SearchableDropdownItem(value: 'Free Time Active', label: l10n.statusFreeTimeActive),
+                          SearchableDropdownItem(value: 'Demurrage Incurred', label: l10n.statusDemurrageIncurred),
+                          SearchableDropdownItem(value: 'Detention Incurred', label: l10n.statusDetentionIncurred),
+                          SearchableDropdownItem(value: 'Pushed to Settlement', label: l10n.statusPushedToSettlement),
                         ],
                         onChanged: (v) => setState(() => _selectedStatusFilter = v ?? 'All'),
                       ),
@@ -252,7 +251,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     ElevatedButton.icon(
                       onPressed: () => _showAddTrackingDialog(context),
                       icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text('بدء تتبع شحنة جديدة', style: TextStyle(color: Colors.white)),
+                      label: Text(l10n.startNewTrackingBtn, style: const TextStyle(color: Colors.white)),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -274,7 +273,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   children: [
                     Icon(Icons.inbox_outlined, size: 64, color: Colors.grey.shade400),
                     const SizedBox(height: 12),
-                    Text('لا توجد جلسات تتبع مطابقة للبحث', style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
+                    Text(l10n.noTrackingsFound, style: TextStyle(color: Colors.grey.shade600, fontSize: 16)),
                   ],
                 ),
               )
@@ -334,6 +333,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   }
 
   Widget _buildTrackingCard(DemurrageTrackingModel item) {
+    final l10n = context.l10n;
     Color statusColor = AppTheme.emerald;
     if (item.status.contains('Demurrage') || item.status.contains('Detention')) {
       statusColor = AppTheme.crimson;
@@ -370,7 +370,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      'بوليصة: ${item.billOfLadingNo}',
+                      l10n.billOfLadingLabel(item.billOfLadingNo),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 10),
@@ -385,7 +385,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     border: Border.all(color: statusColor),
                   ),
                   child: Text(
-                    item.status,
+                    l10n.localizedDemurrageStatus(item.status),
                     style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                 ),
@@ -395,21 +395,21 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             Row(
               children: [
                 Expanded(
-                  child: _buildInfoColumn('تاريخ التفريغ (Discharge)', item.dischargeDate),
+                  child: _buildInfoColumn(l10n.dischargeDateLabel, item.dischargeDate),
                 ),
                 Expanded(
-                  child: _buildInfoColumn('خروج الميناء (Gate-Out)', item.gateOutDate ?? 'لم تخرج بعد'),
+                  child: _buildInfoColumn(l10n.gateOutDateLabel, item.gateOutDate ?? l10n.notGatedOutYet),
                 ),
                 Expanded(
-                  child: _buildInfoColumn('إعادة الفارغ (Return)', item.emptyReturnDate ?? 'لم تُعد بعد'),
+                  child: _buildInfoColumn(l10n.emptyReturnDateLabel, item.emptyReturnDate ?? l10n.notReturnedYet),
                 ),
                 Expanded(
-                  child: _buildInfoColumn('عدد الحاويات', '${item.containers.length} حاوية'),
+                  child: _buildInfoColumn(l10n.containersCountLabel, l10n.containersCountValue(item.containers.length)),
                 ),
                 Expanded(
                   child: _buildInfoColumn(
-                    'إجمالي التكلفة التقديرية',
-                    '${item.totalCostEgp.toStringAsFixed(2)} ج.م',
+                    l10n.totalEstimatedCostLabel,
+                    l10n.egpCurrencyAmount(item.totalCostEgp.toStringAsFixed(2)),
                     valueColor: item.totalCostEgp > 0 ? AppTheme.crimson : AppTheme.emerald,
                   ),
                 ),
@@ -422,21 +422,21 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                 OutlinedButton.icon(
                   onPressed: () => _showUpdateDatesDialog(context, item),
                   icon: const Icon(Icons.edit_calendar_outlined, size: 16),
-                  label: const Text('تحديث تواريخ الخروج والإعادة'),
+                  label: Text(l10n.updateGateOutAndReturnDatesBtn),
                 ),
                 const SizedBox(width: 8),
                 if (!item.isPushedToSettlement)
                   ElevatedButton.icon(
                     onPressed: () => _handlePushToSettlement(item),
                     icon: const Icon(Icons.receipt_long_rounded, color: Colors.white, size: 16),
-                    label: const Text('ترحيل للتسوية المالية (Landed Cost)', style: TextStyle(color: Colors.white)),
+                    label: Text(l10n.pushToFinancialSettlementBtn, style: const TextStyle(color: Colors.white)),
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
                   )
                 else
                   ElevatedButton.icon(
                     onPressed: null,
                     icon: const Icon(Icons.check_circle_outline, size: 16),
-                    label: const Text('تم ترحيل المصروف للتسوية'),
+                    label: Text(l10n.alreadyPushedToSettlementBtn),
                   ),
               ],
             ),
@@ -464,6 +464,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // TAB 2: INTERACTIVE SIMULATOR & TIER CALCULATOR
   // ===========================================================================
   Widget _buildSimulatorTab(DemurrageState state) {
+    final l10n = context.l10n;
     final res = state.simulationResult;
 
     return SingleChildScrollView(
@@ -487,13 +488,13 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'إعدادات ومحددات الحساب',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                      Text(
+                        l10n.calculationSettingsTitle,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
                       const SizedBox(height: 16),
                       SearchableDropdownField<String>(
-                        labelText: 'الخط الملاحي',
+                        labelText: l10n.shippingLineFieldLabel,
                         value: _simCarrier,
                         items: _carriersList
                             .map((c) => SearchableDropdownItem(value: c, label: c))
@@ -507,7 +508,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       ),
                       const SizedBox(height: 12),
                       SearchableDropdownField<String>(
-                        labelText: 'نوع الحاوية',
+                        labelText: l10n.containerTypeFieldLabel,
                         value: _simContainerType,
                         items: _containerTypesList
                             .map((t) => SearchableDropdownItem(value: t, label: t))
@@ -525,9 +526,9 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simContainersCount.toString(),
-                              decoration: const InputDecoration(labelText: 'عدد الحاويات', border: OutlineInputBorder()),
+                              decoration: InputDecoration(labelText: l10n.containersCountFieldLabel, border: const OutlineInputBorder()),
                               keyboardType: TextInputType.number,
-                              validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? 'مطلوب' : null,
+                              validator: (v) => (int.tryParse(v ?? '') ?? 0) <= 0 ? l10n.requiredFieldValidation : null,
                               onChanged: (v) {
                                 _simContainersCount = int.tryParse(v) ?? 1;
                                 _runQuickSimulation();
@@ -538,9 +539,9 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simExchangeRate.toString(),
-                              decoration: const InputDecoration(labelText: 'سعر الصرف (ج.م/USD)', border: OutlineInputBorder()),
+                              decoration: InputDecoration(labelText: l10n.exchangeRateFieldLabel, border: const OutlineInputBorder()),
                               keyboardType: TextInputType.number,
-                              validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0 ? 'مطلوب' : null,
+                              validator: (v) => (double.tryParse(v ?? '') ?? 0) <= 0 ? l10n.requiredFieldValidation : null,
                               onChanged: (v) {
                                 _simExchangeRate = double.tryParse(v) ?? 50.0;
                                 _runQuickSimulation();
@@ -550,14 +551,14 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('فترات السماح الممنوحة (Free Days)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(l10n.grantedFreeDaysHeader, style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       Row(
                         children: [
                           Expanded(
                             child: TextFormField(
                               initialValue: _simDemFreeDays.toString(),
-                              decoration: const InputDecoration(labelText: 'سماح الأرضيات بالميناء (يوم)', border: OutlineInputBorder()),
+                              decoration: InputDecoration(labelText: l10n.portDemurrageFreeDaysLabel, border: const OutlineInputBorder()),
                               keyboardType: TextInputType.number,
                               onChanged: (v) {
                                 _simDemFreeDays = int.tryParse(v) ?? 14;
@@ -569,7 +570,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           Expanded(
                             child: TextFormField(
                               initialValue: _simDetFreeDays.toString(),
-                              decoration: const InputDecoration(labelText: 'سماح إعادة الفارغ (يوم)', border: OutlineInputBorder()),
+                              decoration: InputDecoration(labelText: l10n.emptyReturnFreeDaysLabel, border: const OutlineInputBorder()),
                               keyboardType: TextInputType.number,
                               onChanged: (v) {
                                 _simDetFreeDays = int.tryParse(v) ?? 7;
@@ -580,7 +581,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         ],
                       ),
                       const SizedBox(height: 16),
-                      const Text('المحطات الزمنية (Operational Milestones)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text(l10n.operationalMilestonesHeader, style: const TextStyle(fontWeight: FontWeight.bold)),
                       const SizedBox(height: 8),
                       ListTile(
                         shape: RoundedRectangleBorder(
@@ -588,7 +589,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           side: BorderSide(color: Colors.grey.shade300),
                         ),
                         leading: const Icon(Icons.date_range, color: AppTheme.cobalt),
-                        title: const Text('تاريخ تفريغ الحاويات من السفينة (Discharge)'),
+                        title: Text(l10n.vesselDischargeDateMilestone),
                         subtitle: Text(_formatDate(_simDischargeDate), style: const TextStyle(fontWeight: FontWeight.bold)),
                         trailing: const Icon(Icons.edit, size: 18),
                         onTap: () async {
@@ -611,8 +612,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           side: BorderSide(color: Colors.grey.shade300),
                         ),
                         leading: const Icon(Icons.output_rounded, color: AppTheme.orange),
-                        title: const Text('تاريخ خروج الحاوية من بوابة الميناء (Gate-Out)'),
-                        subtitle: Text(_simGateOutDate != null ? _formatDate(_simGateOutDate!) : 'لم تخرج بعد (تحتسب حتى اليوم)'),
+                        title: Text(l10n.portGateOutDateMilestone),
+                        subtitle: Text(_simGateOutDate != null ? _formatDate(_simGateOutDate!) : l10n.notGatedOutCalculatedToday),
                         trailing: _simGateOutDate != null
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 18),
@@ -642,8 +643,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           side: BorderSide(color: Colors.grey.shade300),
                         ),
                         leading: const Icon(Icons.keyboard_return_rounded, color: AppTheme.emerald),
-                        title: const Text('تاريخ إعادة الحاوية الفارغة لساحة الخط (Return)'),
-                        subtitle: Text(_simEmptyReturnDate != null ? _formatDate(_simEmptyReturnDate!) : 'لم تُعد بعد'),
+                        title: Text(l10n.emptyReturnToDepotMilestone),
+                        subtitle: Text(_simEmptyReturnDate != null ? _formatDate(_simEmptyReturnDate!) : l10n.notReturnedYet),
                         trailing: _simEmptyReturnDate != null
                             ? IconButton(
                                 icon: const Icon(Icons.clear, size: 18),
@@ -674,7 +675,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           icon: _isSimulating
                               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                               : const Icon(Icons.refresh, color: Colors.white),
-                          label: const Text('إعادة احتساب الغرامات الآن', style: TextStyle(color: Colors.white)),
+                          label: Text(l10n.recalculateDemurrageNowBtn, style: const TextStyle(color: Colors.white)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.charcoal,
                             padding: const EdgeInsets.symmetric(vertical: 14),
@@ -694,7 +695,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           Expanded(
             flex: 6,
             child: res == null
-                ? const Center(child: Text('جاري تهيئة نتائج المحاكاة...'))
+                ? Center(child: Text(l10n.initializingSimulationResults))
                 : Column(
                     children: [
                       // Status Badge Alert
@@ -710,7 +711,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           children: [
                             Icon(
                               res.statusBadge == 'SAFE'
-                                  ? Icons.check_circle_outline
+                                   ? Icons.check_circle_outline
                                   : Icons.warning_amber_rounded,
                               color: _getStatusBadgeColor(res.statusBadge),
                               size: 28,
@@ -743,33 +744,33 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('ملخص التكلفة الإجمالية للغرامات والأرضيات', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(l10n.totalDemurrageCostSummaryTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 16),
                               Row(
                                 children: [
                                   Expanded(
                                     child: _buildCostMetricCard(
-                                      'غرامة أرضيات (Demurrage)',
+                                      l10n.demurrageFeeMetric,
                                       '${res.demurrageFeeFx.toStringAsFixed(2)} \$',
-                                      '${res.demurrageDaysOverdue} يوم تأخير',
+                                      l10n.daysOverdueFormatted(res.demurrageDaysOverdue),
                                       AppTheme.crimson,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildCostMetricCard(
-                                      'غرامة تأخير فارغ (Detention)',
+                                      l10n.detentionFeeMetric,
                                       '${res.detentionFeeFx.toStringAsFixed(2)} \$',
-                                      '${res.detentionDaysOverdue} يوم تأخير',
+                                      l10n.daysOverdueFormatted(res.detentionDaysOverdue),
                                       AppTheme.orange,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: _buildCostMetricCard(
-                                      'أرضيات الميناء (Storage)',
-                                      '${res.storageFeeEgp.toStringAsFixed(2)} ج.م',
-                                      '${res.storageDaysOverdue} يوم تأخير',
+                                      l10n.portStorageFeeMetric,
+                                      l10n.egpCurrencyAmount(res.storageFeeEgp.toStringAsFixed(2)),
+                                      l10n.daysOverdueFormatted(res.storageDaysOverdue),
                                       AppTheme.cobalt,
                                     ),
                                   ),
@@ -779,9 +780,9 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  const Text('إجمالي التكلفة الشاملة المستحقة (Total EGP):', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                  Text(l10n.totalDueComprehensiveCost, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                                   Text(
-                                    '${res.totalCostEgp.toStringAsFixed(2)} جنيه مصري',
+                                    l10n.egpCurrencyAmount(res.totalCostEgp.toStringAsFixed(2)),
                                     style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.crimson),
                                   ),
                                 ],
@@ -804,26 +805,28 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text('تفاصيل الشرائح التصاعدية المطبقة (Tiered Breakdown)', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text(l10n.tieredBreakdownTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 12),
                               DataTable(
-                                columns: const [
-                                  DataColumn(label: Text('البند')),
-                                  DataColumn(label: Text('الأيام المستهلكة')),
-                                  DataColumn(label: Text('أيام السماح')),
-                                  DataColumn(label: Text('أيام الغرامة')),
-                                  DataColumn(label: Text('قيمة الغرامة')),
+                                columns: [
+                                  DataColumn(label: Text(l10n.colCategory)),
+                                  DataColumn(label: Text(l10n.colConsumedDays)),
+                                  DataColumn(label: Text(l10n.colFreeDays)),
+                                  DataColumn(label: Text(l10n.colOverdueDays)),
+                                  DataColumn(label: Text(l10n.colFeeAmount)),
                                 ],
                                 rows: res.breakdownDetails.map((b) {
+                                  final cat = l10n.demurrageCategoryLabel(b['category']);
+                                  final feeStr = b['currency'] == 'EGP'
+                                      ? l10n.egpCurrencyAmount((b['fee_egp'] ?? 0).toString())
+                                      : '${b['fee_fx']} ${b['currency']}';
                                   return DataRow(cells: [
-                                    DataCell(Text(b['category']?.toString() ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                    DataCell(Text('${b['days_consumed']} يوم')),
-                                    DataCell(Text('${b['free_days']} يوم')),
-                                    DataCell(Text('${b['days_overdue']} يوم')),
+                                    DataCell(Text(cat, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                    DataCell(Text(l10n.daysCountFormatted(b['days_consumed'] ?? 0))),
+                                    DataCell(Text(l10n.daysCountFormatted(b['free_days'] ?? 0))),
+                                    DataCell(Text(l10n.daysCountFormatted(b['days_overdue'] ?? 0))),
                                     DataCell(Text(
-                                      b['currency'] == 'EGP'
-                                          ? '${b['fee_egp']} ج.م'
-                                          : '${b['fee_fx']} ${b['currency']}',
+                                      feeStr,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         color: (b['days_overdue'] ?? 0) > 0 ? AppTheme.crimson : AppTheme.emerald,
@@ -883,6 +886,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // TAB 3: CARRIER TARIFF POLICIES
   // ===========================================================================
   Widget _buildPoliciesTab(DemurrageState state) {
+    final l10n = context.l10n;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -891,21 +896,21 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'سياسات وشرائح الخطوط الملاحية المعتمدة',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                    l10n.carrierTariffPoliciesTitle,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                   ),
-                  SizedBox(height: 4),
-                  Text('جداول فترات السماح المتفق عليها والشرائح اليومية التصاعدية لكل خط ملاحي ونوع حاوية', style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 4),
+                  Text(l10n.carrierTariffPoliciesSubtitle, style: const TextStyle(color: Colors.grey)),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: () => _showAddPolicyDialog(context),
                 icon: const Icon(Icons.add, color: Colors.white),
-                label: const Text('إضافة سياسة خط ملاحي جديدة', style: TextStyle(color: Colors.white)),
+                label: Text(l10n.addCarrierPolicyBtn, style: const TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
               ),
             ],
@@ -915,7 +920,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             Container(
               padding: const EdgeInsets.all(40),
               alignment: Alignment.center,
-              child: const Text('لا توجد سياسات مضافة حالياً. يمكنك الضغط على "إضافة سياسة جديدة" أو استخدام السياسات الافتراضية.'),
+              child: Text(l10n.noCarrierPoliciesFound),
             )
           else
             ListView.separated(
@@ -943,16 +948,16 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                               '${p.carrierName} - ${p.containerType}',
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
-                            Text('العملة: ${p.currency}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text(l10n.currencyLabelFormatted(p.currency), style: const TextStyle(fontWeight: FontWeight.bold)),
                           ],
                         ),
                         const Divider(height: 20),
                         Row(
                           children: [
-                            Expanded(child: _buildInfoColumn('سماح الأرضيات', '${p.demurrageFreeDays} يوم')),
-                            Expanded(child: _buildInfoColumn('سماح الفارغ', '${p.detentionFreeDays} يوم')),
-                            Expanded(child: _buildInfoColumn('سماح تخزين الميناء', '${p.portStorageFreeDays} يوم')),
-                            Expanded(child: _buildInfoColumn('رسم التخزين اليومي', '${p.portStorageDailyRateEgp} ج.م/يوم')),
+                            Expanded(child: _buildInfoColumn(l10n.demurrageFreeLabel, l10n.daysCountFormatted(p.demurrageFreeDays))),
+                            Expanded(child: _buildInfoColumn(l10n.detentionFreeLabel, l10n.daysCountFormatted(p.detentionFreeDays))),
+                            Expanded(child: _buildInfoColumn(l10n.portStorageFreeLabel, l10n.daysCountFormatted(p.portStorageFreeDays))),
+                            Expanded(child: _buildInfoColumn(l10n.dailyStorageRateLabel, l10n.egpPerDayFormatted(p.portStorageDailyRateEgp.toStringAsFixed(0)))),
                           ],
                         ),
                       ],
@@ -970,6 +975,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   // DIALOGS & ACTIONS
   // ===========================================================================
   void _showAddTrackingDialog(BuildContext context) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     String carrier = _carriersList.first;
     String port = _portsList.first;
@@ -983,7 +989,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('بدء تتبع شحنة وحاويات جديدة'),
+          title: Text(l10n.addTrackingDialogTitle),
           content: SizedBox(
             width: 550,
             child: Form(
@@ -993,7 +999,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     SearchableDropdownField<String>(
-                      labelText: 'الخط الملاحي',
+                      labelText: l10n.shippingLineFieldLabel,
                       value: carrier,
                       items: _carriersList
                           .map((c) => SearchableDropdownItem(value: c, label: c))
@@ -1002,7 +1008,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     ),
                     const SizedBox(height: 12),
                     SearchableDropdownField<String>(
-                      labelText: 'ميناء الوصول',
+                      labelText: l10n.arrivalPortFieldLabel,
                       value: port,
                       items: _portsList
                           .map((p) => SearchableDropdownItem(value: p, label: p))
@@ -1011,8 +1017,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     ),
                     const SizedBox(height: 12),
                     TextFormField(
-                      decoration: const InputDecoration(labelText: 'رقم بوليصة الشحن (B/L No)', border: OutlineInputBorder()),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                      decoration: InputDecoration(labelText: l10n.blNumberFieldLabel, border: const OutlineInputBorder()),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
                       onSaved: (v) => blNo = v ?? '',
                     ),
                     const SizedBox(height: 12),
@@ -1021,8 +1027,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         Expanded(
                           flex: 2,
                           child: TextFormField(
-                            decoration: const InputDecoration(labelText: 'رقم الحاوية (مثال: MSCU1234567)', border: OutlineInputBorder()),
-                            validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                            decoration: InputDecoration(labelText: l10n.containerNumberFieldLabel, border: const OutlineInputBorder()),
+                            validator: (v) => (v == null || v.trim().isEmpty) ? l10n.requiredFieldValidation : null,
                             onSaved: (v) => cNo = v ?? '',
                           ),
                         ),
@@ -1030,7 +1036,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         Expanded(
                           flex: 2,
                           child: SearchableDropdownField<String>(
-                            labelText: 'نوع الحاوية',
+                            labelText: l10n.containerTypeFieldLabel,
                             value: cType,
                             items: _containerTypesList
                                 .map((t) => SearchableDropdownItem(value: t, label: t))
@@ -1047,7 +1053,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                         side: BorderSide(color: Colors.grey.shade300),
                       ),
                       leading: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
-                      title: const Text('تاريخ تفريغ الحاويات بالميناء'),
+                      title: Text(l10n.portDischargeDateTile),
                       subtitle: Text(_formatDate(dischargeDate), style: const TextStyle(fontWeight: FontWeight.bold)),
                       trailing: const Icon(Icons.edit, size: 18),
                       onTap: () async {
@@ -1068,7 +1074,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: isSaving
                   ? null
@@ -1093,7 +1099,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(success ? 'تم بدء تتبع الشحنة بنجاح' : 'حدث خطأ أثناء الحفظ'),
+                          content: Text(success ? l10n.trackingCreatedSuccessSnack : l10n.saveTrackingErrorSnack),
                           backgroundColor: success ? AppTheme.emerald : AppTheme.crimson,
                         ),
                       );
@@ -1101,7 +1107,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
               child: isSaving
                   ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('حفظ وبدء التتبع', style: TextStyle(color: Colors.white)),
+                  : Text(l10n.saveAndStartTrackingBtn, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1110,6 +1116,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   }
 
   void _showUpdateDatesDialog(BuildContext context, DemurrageTrackingModel item) {
+    final l10n = context.l10n;
     DateTime? gateOut = item.gateOutDate != null ? DateTime.tryParse(item.gateOutDate!) : null;
     DateTime? emptyReturn = item.emptyReturnDate != null ? DateTime.tryParse(item.emptyReturnDate!) : null;
     final discharge = DateTime.tryParse(item.dischargeDate) ?? DateTime.now();
@@ -1119,7 +1126,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text('تحديث تواريخ الشحنة (${item.trackingCode})'),
+          title: Text(l10n.updateTrackingDatesDialogTitle(item.trackingCode)),
           content: SizedBox(
             width: 450,
             child: Column(
@@ -1131,8 +1138,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
                   leading: const Icon(Icons.output, color: AppTheme.orange),
-                  title: const Text('تاريخ خروج الحاوية من الميناء (Gate-Out)'),
-                  subtitle: Text(gateOut != null ? _formatDate(gateOut!) : 'غير مسجل'),
+                  title: Text(l10n.gateOutDateTile),
+                  subtitle: Text(gateOut != null ? _formatDate(gateOut!) : l10n.notRecordedOption),
                   trailing: const Icon(Icons.edit, size: 18),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -1151,8 +1158,8 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                     side: BorderSide(color: Colors.grey.shade300),
                   ),
                   leading: const Icon(Icons.keyboard_return, color: AppTheme.emerald),
-                  title: const Text('تاريخ إعادة الحاوية الفارغة للخط (Return)'),
-                  subtitle: Text(emptyReturn != null ? _formatDate(emptyReturn!) : 'غير مسجل'),
+                  title: Text(l10n.emptyReturnDateTile),
+                  subtitle: Text(emptyReturn != null ? _formatDate(emptyReturn!) : l10n.notRecordedOption),
                   trailing: const Icon(Icons.edit, size: 18),
                   onTap: () async {
                     final picked = await showDatePicker(
@@ -1168,7 +1175,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: isSaving
                   ? null
@@ -1183,13 +1190,13 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Navigator.pop(ctx);
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text(ok ? 'تم تحديث التواريخ وإعادة احتساب الغرامات' : 'حدث خطأ أثناء التحديث'),
+                          content: Text(ok ? l10n.datesUpdatedAndRecalculatedSuccessSnack : l10n.datesUpdateErrorSnack),
                           backgroundColor: ok ? AppTheme.emerald : AppTheme.crimson,
                         ),
                       );
                     },
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-              child: const Text('حفظ وإعادة الاحتساب', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.saveAndRecalculateBtn, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),
@@ -1198,6 +1205,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
   }
 
   void _handlePushToSettlement(DemurrageTrackingModel item) async {
+    final l10n = context.l10n;
     final res = await ref.read(demurrageProvider.notifier).pushToSettlement(
           item.trackingId,
           importFileId: item.importFileId ?? 1,
@@ -1206,18 +1214,19 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
     if (res != null && res['success'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(res['message'] ?? 'تم ترحيل المصروف بنجاح إلى ملف التسوية المالية'),
+          content: Text(l10n.pushedToSettlementSuccessSnack),
           backgroundColor: AppTheme.emerald,
         ),
       );
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('حدث خطأ أثناء الترحيل'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(l10n.pushToSettlementErrorSnack), backgroundColor: AppTheme.crimson),
       );
     }
   }
 
   void _showAddPolicyDialog(BuildContext context) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     String carrier = _carriersList.first;
     String cType = _containerTypesList.first;
@@ -1230,7 +1239,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: const Text('إضافة سياسة خط ملاحي جديدة'),
+          title: Text(l10n.addPolicyDialogTitle),
           content: SizedBox(
             width: 500,
             child: Form(
@@ -1239,7 +1248,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SearchableDropdownField<String>(
-                    labelText: 'الخط الملاحي',
+                    labelText: l10n.shippingLineFieldLabel,
                     value: carrier,
                     items: _carriersList
                         .map((c) => SearchableDropdownItem(value: c, label: c))
@@ -1248,7 +1257,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                   ),
                   const SizedBox(height: 12),
                   SearchableDropdownField<String>(
-                    labelText: 'نوع الحاوية',
+                    labelText: l10n.containerTypeFieldLabel,
                     value: cType,
                     items: _containerTypesList
                         .map((t) => SearchableDropdownItem(value: t, label: t))
@@ -1261,7 +1270,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Expanded(
                         child: TextFormField(
                           initialValue: demFree.toString(),
-                          decoration: const InputDecoration(labelText: 'سماح الأرضيات (يوم)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: l10n.demurrageFreeDaysFieldLabel, border: const OutlineInputBorder()),
                           keyboardType: TextInputType.number,
                           onSaved: (v) => demFree = int.tryParse(v ?? '') ?? 14,
                         ),
@@ -1270,7 +1279,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Expanded(
                         child: TextFormField(
                           initialValue: detFree.toString(),
-                          decoration: const InputDecoration(labelText: 'سماح الفارغ (يوم)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: l10n.detentionFreeDaysFieldLabel, border: const OutlineInputBorder()),
                           keyboardType: TextInputType.number,
                           onSaved: (v) => detFree = int.tryParse(v ?? '') ?? 7,
                         ),
@@ -1283,7 +1292,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Expanded(
                         child: TextFormField(
                           initialValue: storFree.toString(),
-                          decoration: const InputDecoration(labelText: 'سماح تخزين الميناء (يوم)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: l10n.portStorageFreeDaysFieldLabel, border: const OutlineInputBorder()),
                           keyboardType: TextInputType.number,
                           onSaved: (v) => storFree = int.tryParse(v ?? '') ?? 5,
                         ),
@@ -1292,7 +1301,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                       Expanded(
                         child: TextFormField(
                           initialValue: storRate.toString(),
-                          decoration: const InputDecoration(labelText: 'رسم التخزين اليومي (ج.م)', border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: l10n.dailyStorageRateEgpFieldLabel, border: const OutlineInputBorder()),
                           keyboardType: TextInputType.number,
                           onSaved: (v) => storRate = double.tryParse(v ?? '') ?? 250.0,
                         ),
@@ -1304,7 +1313,7 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
@@ -1322,13 +1331,13 @@ class _DemurrageDetentionScreenState extends ConsumerState<DemurrageDetentionScr
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(ok ? 'تمت إضافة السياسة بنجاح' : 'حدث خطأ'),
+                    content: Text(ok ? l10n.policyCreatedSuccessSnack : l10n.genericErrorSnack),
                     backgroundColor: ok ? AppTheme.emerald : AppTheme.crimson,
                   ),
                 );
               },
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
-              child: const Text('حفظ السياسة', style: TextStyle(color: Colors.white)),
+              child: Text(l10n.savePolicyBtn, style: const TextStyle(color: Colors.white)),
             ),
           ],
         ),

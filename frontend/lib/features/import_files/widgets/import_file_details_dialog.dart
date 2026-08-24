@@ -1071,9 +1071,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                     // 3 Scenarios stacked under each other:
                     // 1. All Stackable
                     _buildScenarioResultCard(
+                      context,
                       title: '📦 ${l.scenarioAllStackableTitle}',
                       fleet: stackableFleet,
-                      description: 'Multi-layer stacking',
+                      description: l.multiLayerStacking,
                       badgeColor: AppTheme.emerald,
                       containerCount: planStackable.length,
                       spaceUtil: stackableSpaceUtil,
@@ -1084,9 +1085,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
                     // 2. All Non-Stackable
                     _buildScenarioResultCard(
+                      context,
                       title: '🚫 ${l.scenarioAllNonStackableTitle}',
                       fleet: nonStackableFleet,
-                      description: 'Floor placement z=0',
+                      description: l.floorPlacementZ0,
                       badgeColor: Colors.orange.shade800,
                       containerCount: planNonStackable.length,
                       spaceUtil: nonStackableSpaceUtil,
@@ -1097,9 +1099,10 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
 
                     // 3. Mixed Stacking (Actual cargo composition)
                     _buildScenarioResultCard(
+                      context,
                       title: '🔀 ${l.scenarioMixedStackingTitle}',
                       fleet: mixedFleet,
-                      description: '$mixedNonStackCount non-stackable + $mixedStackCount stackable',
+                      description: l.mixedStackingCargoDesc(mixedNonStackCount, mixedStackCount),
                       badgeColor: AppTheme.cobalt,
                       containerCount: planMixed.length,
                       spaceUtil: mixedSpaceUtil,
@@ -1295,7 +1298,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '🚢 ${modeRec.reasonAr}',
+                                  Localizations.localeOf(context).languageCode == 'ar' ? '🚢 ${modeRec.reasonAr}' : '🚢 ${modeRec.reasonEn}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
@@ -1306,7 +1309,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  '$mixedFleet (${modeRec.recommendedModeAr})',
+                                  '$mixedFleet (${Localizations.localeOf(context).languageCode == 'ar' ? modeRec.recommendedModeAr : modeRec.recommendedMode})',
                                   style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt, fontSize: 11.5),
                                 ),
                               ],
@@ -1351,9 +1354,14 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           ),
         if (file.status != 'Closed')
           ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
-            icon: const Icon(Icons.cancel_outlined, color: Colors.white, size: 16),
-            label: Text(l.stopShipmentTooltip, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.crimson,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            ),
+            icon: const Icon(Icons.pause_circle_outline, color: Colors.white, size: 16),
+            label: Text(l.stopShipmentAtThisStageBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () async {
               Navigator.pop(context);
               showDialog(
@@ -1372,7 +1380,8 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
   }
 
 
-  Widget _buildScenarioResultCard({
+  Widget _buildScenarioResultCard(
+    BuildContext context, {
     required String title,
     required String fleet,
     required String description,
@@ -1383,6 +1392,7 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
     required String detailsText,
     bool isHighlighted = false,
   }) {
+    final l = context.l10n;
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -1425,11 +1435,11 @@ class ImportFileDetailsDialogState extends ConsumerState<ImportFileDetailsDialog
           const SizedBox(height: 6),
           Row(
             children: [
-              _buildFileMetricPill('عدد الحاويات', '$containerCount حاوية', badgeColor),
+              _buildFileMetricPill(l.containerCountPill, l.containerCountUnit(containerCount), badgeColor),
               const SizedBox(width: 8),
-              _buildFileMetricPill('استغلال المساحة والحجم', '${spaceUtil.toStringAsFixed(1)}%', Colors.orange.shade900),
+              _buildFileMetricPill(l.spaceAndVolumeUtilPill, '${spaceUtil.toStringAsFixed(1)}%', Colors.orange.shade900),
               const SizedBox(width: 8),
-              _buildFileMetricPill('استغلال الوزن', '${payloadUtil.toStringAsFixed(1)}%', AppTheme.charcoal),
+              _buildFileMetricPill(l.weightUtilPill, '${payloadUtil.toStringAsFixed(1)}%', AppTheme.charcoal),
             ],
           ),
         ],

@@ -96,6 +96,7 @@ class ShipmentModeRecommendation {
   final String recommendedMode; // 'Air', 'Sea LCL', 'Sea FCL'
   final String recommendedModeAr;
   final String reasonAr;
+  final String reasonEn;
   final bool isAirSuggested;
   final bool isLclSuggested;
 
@@ -103,6 +104,7 @@ class ShipmentModeRecommendation {
     required this.recommendedMode,
     required this.recommendedModeAr,
     required this.reasonAr,
+    this.reasonEn = '',
     required this.isAirSuggested,
     required this.isLclSuggested,
   });
@@ -116,6 +118,7 @@ class ContainerRecommendationResult {
   final double spaceUtilizationPercent;
   final double payloadUtilizationPercent;
   final String recommendationSummary;
+  final String recommendationSummaryEn;
   final List<Map<String, dynamic>> comparisonDetails;
   final ShipmentModeRecommendation modeRecommendation;
 
@@ -127,6 +130,7 @@ class ContainerRecommendationResult {
     required this.spaceUtilizationPercent,
     required this.payloadUtilizationPercent,
     required this.recommendationSummary,
+    this.recommendationSummaryEn = '',
     required this.comparisonDetails,
     required this.modeRecommendation,
   });
@@ -202,7 +206,8 @@ class ContainerRequirementEngine {
     required double totalWeightKg,
     bool isStackable = true,
   }) {
-    final modeTag = isStackable ? '📦 قابل للرص (Stackable)' : '🚫 غير قابل للرص (Non-Stackable)';
+    final modeTag = isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص';
+    final modeTagEn = isStackable ? '📦 Stackable' : '🚫 Non-Stackable';
     final modeRec = recommendShipmentMode(totalCbm: totalCbm, totalWeightKg: totalWeightKg);
 
     if (totalCbm <= 0 && totalWeightKg <= 0) {
@@ -214,6 +219,7 @@ class ContainerRequirementEngine {
         spaceUtilizationPercent: 0,
         payloadUtilizationPercent: 0,
         recommendationSummary: 'لم يتم تحديد حمولة لحساب الحاوية المقترحة [$modeTag]',
+        recommendationSummaryEn: 'No cargo specified to calculate recommended container [$modeTagEn]',
         comparisonDetails: [],
         modeRecommendation: modeRec,
       );
@@ -279,7 +285,10 @@ class ContainerRequirementEngine {
       }
     }
 
-    final summary = '$fleetCombination [$modeTag] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
+    final modeDetail = isStackable ? 'رص متعدد الطبقات' : 'رص أرضي فقط Z=0';
+    final modeDetailEn = isStackable ? 'Multi-Layer Stacking' : 'Floor-Only Placement (Z=0)';
+    final summary = '$fleetCombination [$modeDetail] — (استغلال المساحة: ${bestVol.toStringAsFixed(1)}% | استغلال الوزن: ${bestWeight.toStringAsFixed(1)}%)';
+    final summaryEn = '$fleetCombination [$modeDetailEn] — (Space Util: ${bestVol.toStringAsFixed(1)}% | Weight Util: ${bestWeight.toStringAsFixed(1)}%)';
 
     return ContainerRecommendationResult(
       isStackable: isStackable,
@@ -289,6 +298,7 @@ class ContainerRequirementEngine {
       spaceUtilizationPercent: bestVol,
       payloadUtilizationPercent: bestWeight,
       recommendationSummary: summary,
+      recommendationSummaryEn: summaryEn,
       comparisonDetails: comparisons,
       modeRecommendation: modeRec,
     );

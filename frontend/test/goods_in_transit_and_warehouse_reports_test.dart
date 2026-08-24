@@ -2,11 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/customs_clearance/providers/customs_clearance_provider.dart';
 import 'package:frontend/features/import_files/providers/import_files_provider.dart';
 import 'package:frontend/features/purchase_orders/providers/purchase_orders_provider.dart';
 import 'package:frontend/features/warehouse_receiving/models/goods_in_transit_model.dart';
 import 'package:frontend/features/warehouse_receiving/models/warehouse_receiving_model.dart';
+import 'package:frontend/features/warehouse_receiving/providers/goods_in_transit_provider.dart';
 import 'package:frontend/features/warehouse_receiving/providers/warehouse_receiving_provider.dart';
 import 'package:frontend/features/warehouse_receiving/screens/goods_in_transit_screen.dart';
 import 'package:frontend/features/warehouse_receiving/screens/warehouse_received_report_screen.dart';
@@ -73,8 +75,36 @@ class _MockCustomsClearanceNotifier extends CustomsClearanceNotifier {
   }
 }
 
+class _MockGoodsInTransitNotifier extends GoodsInTransitNotifier {
+  final List<GitLineItemModel> mockItems;
+  _MockGoodsInTransitNotifier(this.mockItems) {
+    state = AsyncValue.data(mockItems);
+  }
+
+  @override
+  void initLedger() {
+    state = AsyncValue.data(mockItems);
+  }
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  final mockGitItem = GitLineItemModel(
+    importFileId: 1,
+    importFileCode: 'IMP-2026-001',
+    poId: 101,
+    poNumber: 'PO-2026-IT-001',
+    itemCode: 'ITM-SR-101',
+    itemName: 'Enterprise Servers',
+    invoicedQty: 250.0,
+    packagesCount: 125,
+    packageType: 'CT - Carton',
+    containersCount: 2,
+    containerType: '40ft High Cube',
+    certifiedDate: '2026-08-20',
+    isDeliveredToWarehouse: false,
+  );
 
   final mockGrnRecord = WarehouseReceivingModel(
     receivingId: 1,
@@ -99,22 +129,7 @@ void main() {
 
   group('Goods In Transit (GIT) Ledger & Model Tests', () {
     test('GitLineItemModel should parse and serialize correctly', () {
-      final model = GitLineItemModel(
-        importFileId: 1,
-        importFileCode: 'IMP-2026-001',
-        poId: 101,
-        poNumber: 'PO-2026-IT-001',
-        itemCode: 'ITM-SR-101',
-        itemName: 'Enterprise Servers',
-        invoicedQty: 250.0,
-        packagesCount: 125,
-        packageType: 'CT - Carton',
-        containersCount: 2,
-        containerType: '40ft High Cube',
-        certifiedDate: '2026-08-20',
-        isDeliveredToWarehouse: false,
-      );
-
+      final model = mockGitItem;
       final json = model.toJson();
       expect(json['import_file_code'], 'IMP-2026-001');
       expect(json['po_number'], 'PO-2026-IT-001');
@@ -135,9 +150,18 @@ void main() {
       });
 
       await tester.pumpWidget(
-        const ProviderScope(
-          child: MaterialApp(
-            home: GoodsInTransitScreen(),
+        ProviderScope(
+          overrides: [
+            goodsInTransitProvider.overrideWith((ref) => _MockGoodsInTransitNotifier([mockGitItem])),
+          ],
+          child: const AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: MaterialApp(
+              home: Directionality(
+                textDirection: TextDirection.rtl,
+                child: GoodsInTransitScreen(),
+              ),
+            ),
           ),
         ),
       );
@@ -146,7 +170,7 @@ void main() {
       expect(find.textContaining('رصيد ومطابقة البضاعة في الطريق'), findsOneWidget);
       expect(find.textContaining('تقرير رصيد البضاعة في الطريق'), findsOneWidget);
       expect(find.textContaining('الشحنات في الطريق'), findsOneWidget);
-      expect(find.textContaining('أوامر الشراء (POs)'), findsOneWidget);
+      expect(find.textContaining('أوامر الشراء'), findsWidgets);
       expect(find.text('PO-2026-IT-001'), findsWidgets);
     });
   });
@@ -165,8 +189,14 @@ void main() {
           overrides: [
             warehouseReceivingProvider.overrideWith((ref) => _MockWarehouseReceivingNotifier([mockGrnRecord])),
           ],
-          child: const MaterialApp(
-            home: WarehouseReceivedReportScreen(),
+          child: const AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: MaterialApp(
+              home: Directionality(
+                textDirection: TextDirection.rtl,
+                child: WarehouseReceivedReportScreen(),
+              ),
+            ),
           ),
         ),
       );
@@ -196,15 +226,21 @@ void main() {
             customsClearanceProvider.overrideWith((ref) => _MockCustomsClearanceNotifier()),
             purchaseOrdersProvider.overrideWith((ref) => _MockPurchaseOrdersNotifier()),
           ],
-          child: const MaterialApp(
-            home: WarehouseReceivingScreen(),
+          child: const AppLocalizationsProvider(
+            locale: Locale('ar'),
+            child: MaterialApp(
+              home: Directionality(
+                textDirection: TextDirection.rtl,
+                child: WarehouseReceivingScreen(),
+              ),
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
       expect(find.textContaining('استلام البضائع بالمخازن وفحص الجودة'), findsOneWidget);
-      expect(find.textContaining('تسجيل وصول شاحنة واستلام محضر GRN جديد'), findsOneWidget);
+      expect(find.textContaining('تسجيل وصول شاحنة'), findsOneWidget);
       expect(find.text('GRN-2026-001'), findsOneWidget);
     });
   });

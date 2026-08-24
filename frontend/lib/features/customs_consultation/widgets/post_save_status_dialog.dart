@@ -67,7 +67,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                   ConsultationMetricBadge(
                       title: l.clearanceReadyStatus, value: '${approved.length}', color: Colors.green),
                   ConsultationMetricBadge(
-                      title: l.allStatuses,
+                      title: l.statusPending,
                       value: '${pending.length}',
                       color: Colors.orange),
                   ConsultationMetricBadge(
@@ -153,7 +153,7 @@ class PostSaveStatusDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        l.allStatuses,
+                        l.statusPending,
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.orange),

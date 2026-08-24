@@ -79,6 +79,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     );
   }
   Widget _buildBrokerPriceListsView(AsyncValue<List<BrokerPriceListModel>> priceListsAsync, List<dynamic> brokersList) {
+    final l = context.l10n;
     return priceListsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('❌ Error: $e')),
@@ -101,10 +102,10 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       width: 300,
                       child: SearchableDropdownField<int?>(
                         value: _selectedMgmtBrokerId,
-                        labelText: 'تصفية حسب المخلص الجمركي',
-                        searchHintText: 'ابحث عن مخلص...',
+                        labelText: l.filterByBroker,
+                        searchHintText: l.searchBrokerHint,
                         items: [
-                          const SearchableDropdownItem(value: null, label: 'جميع المخلصين'),
+                          SearchableDropdownItem(value: null, label: l.allBrokers),
                           ...brokersList.map((b) => SearchableDropdownItem<int?>(
                                 value: b.providerId,
                                 label: b.partnerName,
@@ -120,7 +121,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         foregroundColor: Colors.white,
                       ),
                       icon: const Icon(Icons.auto_awesome, size: 18),
-                      label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text('🤖 ${l.smartClearanceQuoteExtractor}', style: const TextStyle(fontWeight: FontWeight.bold)),
                       onPressed: () => showSmartClearanceExtractorDialog(context, ref),
                     ),
                     const SizedBox(width: 10),
@@ -128,7 +129,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
                       icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text('إنشاء قائمة أسعار جديدة لمخلص', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l.createBrokerPriceListBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -145,12 +146,12 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                         children: [
                           Icon(Icons.receipt_long, size: 64, color: Colors.grey.shade400),
                           const SizedBox(height: 12),
-                          const Text('لا توجد قوائم أسعار مسجلة للمخلصين المحددين.', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                          Text(l.noBrokerPriceListsFound, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
                             onPressed: () => showPriceListFormDialog(context, ref, brokersList: brokersList),
                             icon: const Icon(Icons.add),
-                            label: const Text('إضافة قائمة أسعار الآن'),
+                            label: Text(l.addPriceListNowBtn),
                           ),
                         ],
                       ),
@@ -176,7 +177,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(color: pl.isActive ? Colors.green.shade100 : Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                                  child: Text(pl.isActive ? 'سارية' : 'مؤرشفة', style: TextStyle(color: pl.isActive ? Colors.green.shade900 : Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  child: Text(pl.isActive ? l.activePriceListStatus : l.archivedPriceListStatus, style: TextStyle(color: pl.isActive ? Colors.green.shade900 : Colors.red.shade900, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
                                 const Spacer(),
                                 ElevatedButton.icon(
@@ -187,24 +188,24 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                   ),
                                   onPressed: () => showPriceListFormDialog(context, ref, existingPriceList: pl, brokersList: brokersList),
                                   icon: const Icon(Icons.edit, color: Colors.white, size: 14),
-                                  label: const Text('تعديل الأسعار والبنود', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  label: Text(l.editPricesAndItemsBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 ),
                                 const SizedBox(width: 6),
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
-                                  tooltip: 'أرشفة قائمة الأسعار',
+                                  tooltip: l.archivePriceListTooltip,
                                   onPressed: () async {
                                     final confirm = await showDialog<bool>(
                                       context: context,
                                       builder: (ctx) => AlertDialog(
-                                        title: const Text('تأكيد أرشفة قائمة الأسعار'),
-                                        content: Text('هل أنت متأكد من رغبتك في أرشفة قائمة الأسعار "${pl.title}"؟'),
+                                        title: Text(l.confirmArchivePriceListTitle),
+                                        content: Text(l.confirmArchivePriceListMsg(pl.title)),
                                         actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
                                           ElevatedButton(
                                             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
                                             onPressed: () => Navigator.pop(ctx, true),
-                                            child: const Text('أرشفة', style: TextStyle(color: Colors.white)),
+                                            child: Text(l.archiveBtn, style: const TextStyle(color: Colors.white)),
                                           ),
                                         ],
                                       ),
@@ -216,7 +217,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                 ),
                               ],
                             ),
-                            subtitle: Text('المخلص: ${pl.brokerName} | الميناء: ${pl.portName ?? "عام"} | السريان: من ${pl.effectiveFrom} ${pl.effectiveTo != null ? "إلى ${pl.effectiveTo}" : "(مفتوح)"} | عدد البنود: ${pl.items.length}'),
+                            subtitle: Text('${l.responsibleCustomsBroker}: ${pl.brokerName} | ${l.targetPortField}: ${pl.portName ?? "-"} | ${pl.effectiveFrom} | ${pl.items.length}'),
                             children: [
                               Padding(
                                 padding: const EdgeInsets.all(16),
@@ -227,7 +228,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                       Container(
                                         padding: const EdgeInsets.all(8),
                                         decoration: BoxDecoration(color: Colors.amber.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.amber.shade200)),
-                                        child: Text('📝 ملاحظات وشروط: ${pl.notes}', style: const TextStyle(fontSize: 12)),
+                                        child: Text('📝 ${l.priceListNotesHeader} ${pl.notes}', style: const TextStyle(fontSize: 12)),
                                       ),
                                       const SizedBox(height: 12),
                                     ],
@@ -243,12 +244,12 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                                       children: [
                                         TableRow(
                                           decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                                          children: const [
-                                            Padding(padding: EdgeInsets.all(6), child: Text('اسم المصروف / البند', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('التصنيف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('الوحدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('السعر المعتمد', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                                            Padding(padding: EdgeInsets.all(6), child: Text('نطاق السعر / ملاحظات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                          children: [
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.expenseItemNameCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.expenseCategoryCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.expenseUnitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.standardPriceCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                                            Padding(padding: const EdgeInsets.all(6), child: Text(l.priceRangeAndNotesCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                                           ],
                                         ),
                                         ...pl.items.map((itm) => TableRow(
@@ -285,6 +286,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     );
   }
   Widget _buildExpenseCatalogView(AsyncValue<List<ClearanceExpenseTypeModel>> expenseTypesAsync) {
+    final l = context.l10n;
     return expenseTypesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('❌ Error: $e')),
@@ -311,7 +313,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       width: 250,
                       child: TextField(
                         decoration: InputDecoration(
-                          hintText: 'بحث في دليل المصروفات...',
+                          hintText: l.searchExpenseCatalogHint,
                           prefixIcon: const Icon(Icons.search, size: 18),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -325,15 +327,14 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       width: 250,
                       child: SearchableDropdownField<String>(
                         value: _mgmtExpenseCategory,
-                        labelText: 'تصفية التصنيف',
-                        searchHintText: 'ابحث...',
-                        items: const [
-                          SearchableDropdownItem(value: 'All', label: 'جميع التصنيفات'),
-                          SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
-                          SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
-                          SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
-                          SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
-                          SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                        labelText: l.filterCategoryLabel,
+                        items: [
+                          SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
+                          const SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
+                          const SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
+                          const SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
+                          const SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
+                          const SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
                         ],
                         onChanged: (v) => setState(() => _mgmtExpenseCategory = v ?? 'All'),
                       ),
@@ -343,7 +344,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       onPressed: _showAddExpenseTypeDialog,
                       icon: const Icon(Icons.add, color: Colors.white),
-                      label: const Text('تكويد نوع مصروف جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l.addNewExpenseTypeBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -359,13 +360,13 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                   child: DataTable(
                     headingRowColor: WidgetStateProperty.all(AppTheme.charcoal),
                     headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    columns: const [
-                      DataColumn(label: Text('الكود')),
-                      DataColumn(label: Text('اسم المصروف (عربي)')),
-                      DataColumn(label: Text('اسم المصروف (إنجليزي)')),
-                      DataColumn(label: Text('التصنيف')),
-                      DataColumn(label: Text('وحدة الحساب')),
-                      DataColumn(label: Text('العملة الافتراضية')),
+                    columns: [
+                      DataColumn(label: Text(l.expenseCodeCol)),
+                      DataColumn(label: Text(l.expenseNameArCol)),
+                      DataColumn(label: Text(l.expenseNameEnCol)),
+                      DataColumn(label: Text(l.expenseCategoryCol)),
+                      DataColumn(label: Text(l.calculationUnitCol)),
+                      DataColumn(label: Text(l.defaultCurrencyCol)),
                     ],
                     rows: filtered.map((exp) {
                       return DataRow(
@@ -389,6 +390,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
     );
   }
   void _showAddExpenseTypeDialog() {
+    final l = context.l10n;
     final codeCtrl = TextEditingController();
     final nameArCtrl = TextEditingController();
     final nameEnCtrl = TextEditingController();
@@ -400,7 +402,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          title: const Text('تكويد نوع مصروف جديد في الدليل', style: TextStyle(fontWeight: FontWeight.bold)),
+          title: Text(l.newExpenseTypeDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
           content: SizedBox(
             width: 480,
             child: Column(
@@ -408,29 +410,28 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
               children: [
                 TextFormField(
                   controller: codeCtrl,
-                  decoration: const InputDecoration(labelText: 'كود المصروف (مثال: EXP-CLR-050)', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.expenseCodeField, border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: nameArCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المصروف بالعربية *', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.expenseNameArField, border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: nameEnCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المصروف بالإنجليزية (اختياري)', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: l.expenseNameEnField, border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 12),
                 SearchableDropdownField<String>(
                   value: category,
-                  labelText: 'التصنيف',
-                  searchHintText: 'ابحث عن التصنيف...',
+                  labelText: l.categoryCol,
                   items: const [
-                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees (أتعاب ومصاريف تخليص)'),
-                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals (إجراءات وموافقات وفحص)'),
-                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport (نقل بري وشاحنات)'),
-                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling (موانئ وتعتيق وتفريغ)'),
-                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees (مصاريف أخرى)'),
+                    SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
+                    SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
+                    SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
+                    SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
+                    SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
                   ],
                   onChanged: (v) => setDlgState(() => category = v ?? category),
                 ),
@@ -440,7 +441,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     Expanded(
                       child: TextFormField(
                         initialValue: defaultUnit,
-                        decoration: const InputDecoration(labelText: 'وحدة الحساب الافتراضية', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: l.defaultCalculationUnitField, border: const OutlineInputBorder()),
                         onChanged: (v) => defaultUnit = v,
                       ),
                     ),
@@ -448,8 +449,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                     Expanded(
                       child: SearchableDropdownField<String>(
                         value: currency,
-                        labelText: 'العملة الافتراضية',
-                        searchHintText: 'ابحث عن العملة...',
+                        labelText: l.defaultCurrencyCol,
                         items: const [
                           SearchableDropdownItem(value: 'EGP', label: 'EGP'),
                           SearchableDropdownItem(value: 'USD', label: 'USD'),
@@ -464,7 +464,7 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
               onPressed: () async {
@@ -486,12 +486,11 @@ class _BrokerPriceListsTabState extends ConsumerState<BrokerPriceListsTab> {
                   if (ctx.mounted) ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: Colors.red));
                 }
               },
-              child: const Text('حفظ المصروف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              child: Text(l.saveExpenseBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       ),
     );
   }
-
 }

@@ -547,6 +547,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
       context: context,
       builder: (dialogCtx) {
         final l = dialogCtx.l10n;
+        final isArabic = Localizations.localeOf(dialogCtx).languageCode == 'ar';
         return DefaultTabController(
           length: 2,
           child: AlertDialog(
@@ -631,8 +632,8 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                       _buildDetailItem(l.foreignSupplier, po.supplierName ?? '-'),
                                       _buildDetailItem(l.countryOfOriginCol, po.countryOfOrigin ?? '-'),
                                       _buildDetailItem(l.incotermsRules, po.incotermCode ?? '-'),
-                                      _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (Rate: ${po.exchangeRate})'),
-                                      _buildDetailItem('Payment Terms', po.paymentTerms ?? '-'),
+                                      _buildDetailItem(l.currency, '${po.currencyCode ?? "USD"} (${l.exchangeRateLabel}: ${po.exchangeRate})'),
+                                      _buildDetailItem(l.paymentTermsLabel, po.paymentTerms ?? '-'),
                                       _buildDetailItem(l.totalFobMetric, '${po.currencyCode ?? "USD"} ${po.totalAmountFob.toStringAsFixed(2)}'),
                                       _buildDetailItem(
                                         l.totalCargoCbmMetric,
@@ -647,7 +648,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                   ),
 
                                 const SizedBox(height: 16),
-                                const Text('PO Line Items Breakdown (بنود الفاتورة المبدئية والأكواد الجمركية)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                Text(l.poLineItemsBreakdown, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                 const SizedBox(height: 6),
                                 Table(
                                   border: TableBorder.all(color: Colors.grey.shade300),
@@ -660,15 +661,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     5: FlexColumnWidth(1.5),
                                   },
                                   children: [
-                                    const TableRow(
-                                      decoration: BoxDecoration(color: AppTheme.cloudWhite),
+                                    TableRow(
+                                      decoration: const BoxDecoration(color: AppTheme.cloudWhite),
                                       children: [
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Item Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Description & HS Code', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Qty / UOM', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Unit Price', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Line Total', style: TextStyle(fontWeight: FontWeight.bold))),
-                                        Padding(padding: EdgeInsets.all(6), child: Text('Volume CBM (Packing List)', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.itemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.descriptionAndHsCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.qtyUom, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.unitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.lineTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                        Padding(padding: const EdgeInsets.all(6), child: Text(l.volumeCbmPackingList, style: const TextStyle(fontWeight: FontWeight.bold))),
                                       ],
                                     ),
                                     ...po.items.map(
@@ -702,7 +703,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                                   if (item.countryOfOrigin != null && item.countryOfOrigin!.isNotEmpty)
                                                     Padding(
                                                       padding: const EdgeInsets.only(top: 2),
-                                                      child: Text('المنشأ: ${item.countryOfOrigin}', style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
+                                                      child: Text(l.itemOriginLabel(item.countryOfOrigin!), style: TextStyle(fontSize: 10, color: Colors.grey.shade700)),
                                                     ),
                                                   if (itemHs != null && itemHs.isNotEmpty)
                                                     Padding(
@@ -721,19 +722,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                                                 children: [
                                                                   const Icon(Icons.warning_amber_rounded, size: 12, color: Colors.red),
                                                                   Text(
-                                                                    'HS: $itemHs (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                                    l.hsMismatchWarning('${item.dutyRate ?? 0}%', '${item.vatRate ?? 0}%'),
                                                                     style: TextStyle(color: Colors.red.shade900, fontSize: 10, fontWeight: FontWeight.bold),
-                                                                  ),
-                                                                  Container(
-                                                                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                                                                    decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(2)),
-                                                                    child: Text('⚠️ عدم تطابق', style: TextStyle(color: Colors.red.shade900, fontSize: 9, fontWeight: FontWeight.bold)),
                                                                   ),
                                                                 ],
                                                               ),
                                                             )
                                                           : Text(
-                                                              'HS: $itemHs (Duty: ${item.dutyRate ?? 0}% / VAT: ${item.vatRate ?? 0}%)',
+                                                              'HS: $itemHs (${l.fieldImportDuty}: ${item.dutyRate ?? 0}% / ${l.fieldVatAmount}: ${item.vatRate ?? 0}%)',
                                                               style: const TextStyle(color: AppTheme.cobalt, fontSize: 11),
                                                             ),
                                                     ),
@@ -788,18 +784,20 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Row(
+                                      Row(
                                         children: [
-                                          Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 18),
-                                          SizedBox(width: 6),
+                                          const Icon(Icons.warning_amber_rounded, color: Colors.deepOrange, size: 18),
+                                          const SizedBox(width: 6),
                                           Text(
-                                            'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية',
-                                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
+                                            isArabic
+                                                ? 'حالة مطابقة الفاتورة والباكينج: يوجد اختلافات في الكميات أو البنود الجمركية'
+                                                : 'Invoice & Packing Reconciliation: Discrepancies found in quantities or HS codes',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.brown),
                                           ),
                                         ],
                                       ),
                                       const SizedBox(height: 4),
-                                      ...reconciliation.discrepancySummaryList.map(
+                                      ...(isArabic ? reconciliation.discrepancySummaryList : (reconciliation.discrepancySummaryListEn.isNotEmpty ? reconciliation.discrepancySummaryListEn : reconciliation.discrepancySummaryList)).map(
                                         (d) => Padding(
                                           padding: const EdgeInsets.only(top: 2, left: 24),
                                           child: Text('• $d', style: const TextStyle(fontSize: 11, color: Colors.brown)),
@@ -808,7 +806,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                       if (po.notes != null && po.notes!.contains('[مبررات اختلاف الفاتورة والباكينج]')) ...[
                                         const Divider(height: 14),
                                         Text(
-                                          'المبرر المعتمد: ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
+                                          '${isArabic ? "المبرر المعتمد:" : "Approved Justification:"} ${po.notes!.split('[مبررات اختلاف الفاتورة والباكينج]:').last.trim()}',
                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.charcoal),
                                         ),
                                       ],
@@ -825,13 +823,15 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: Colors.green.shade300),
                                   ),
-                                  child: const Row(
+                                  child: Row(
                                     children: [
-                                      Icon(Icons.verified_outlined, color: Colors.green, size: 18),
-                                      SizedBox(width: 6),
+                                      const Icon(Icons.verified_outlined, color: Colors.green, size: 18),
+                                      const SizedBox(width: 6),
                                       Text(
-                                        'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.',
-                                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
+                                        isArabic
+                                            ? 'مطابقة تامة: جميع بنود الفاتورة المبدئية متطابقة بالكامل مع بيان التعبئة في الأكواد الجمركية والكميات.'
+                                            : 'Perfect Match: All proforma invoice line items match packing list in HS codes and quantities.',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 12),
                                       ),
                                     ],
                                   ),
@@ -848,11 +848,14 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Row(
+                                    Row(
                                       children: [
-                                        Icon(Icons.error_outline, color: Colors.red, size: 18),
-                                        SizedBox(width: 6),
-                                        Text('Packing List Validation Errors (أخطاء مطابقة الوزن والعبوات)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red)),
+                                        const Icon(Icons.error_outline, color: Colors.red, size: 18),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          isArabic ? 'أخطاء مطابقة قائمة التعبئة' : 'Packing List Validation Errors',
+                                          style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red),
+                                        ),
                                       ],
                                     ),
                                     ...validationErrors.map((e) => Padding(padding: const EdgeInsets.only(top: 4, left: 24), child: Text('• $e', style: const TextStyle(fontSize: 12, color: Colors.red)))),
@@ -865,11 +868,16 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                 padding: const EdgeInsets.all(10),
                                 margin: const EdgeInsets.only(bottom: 12),
                                 decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade300)),
-                                child: const Row(
+                                child: Row(
                                   children: [
-                                    Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
-                                    SizedBox(width: 6),
-                                    Text('Packing List Validation Passed — All weights and quantities verified.', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                                    const Icon(Icons.check_circle_outline, color: Colors.green, size: 18),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isArabic
+                                          ? 'تم التحقق من قائمة التعبئة بنجاح — كافة الأوزان والكميات مطابقة'
+                                          : 'Packing List Validation Passed — All weights and quantities verified.',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -978,7 +986,7 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                                               Padding(
                                                 padding: const EdgeInsets.all(6),
                                                 child: Text(
-                                                  pal.isStackable ? '📦 قابل للرص' : '🚫 غير قابل للرص (Floor Only)',
+                                                  pal.isStackable ? l.stackableOption : l.nonStackableOption,
                                                   style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: pal.isStackable ? Colors.green.shade800 : Colors.orange.shade900),
                                                 ),
                                               ),
@@ -992,13 +1000,13 @@ class _PurchaseOrdersScreenState extends ConsumerState<PurchaseOrdersScreen> {
                               ),
                             ],
 
-                            const Text('Packing List Breakdown (تفاصيل طرود ومقاسات الشحنة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                            Text(l.poPackingListTabCount(po.packingListItems.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                             const SizedBox(height: 6),
 
                             if (po.packingListItems.isEmpty)
-                              const Padding(
-                                padding: EdgeInsets.all(16),
-                                child: Text('No detailed packing list items recorded yet. Click "Edit PO & Packing List" to add packing details.', style: TextStyle(color: Colors.grey)),
+                              Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(l.noPackingEntriesYetDesc, style: const TextStyle(color: Colors.grey)),
                               )
                             else
                               Table(

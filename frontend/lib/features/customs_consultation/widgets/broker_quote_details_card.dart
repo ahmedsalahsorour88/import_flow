@@ -52,7 +52,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  l.customsBrokerLabel,
+                  l.selectBrokerFirstMsg,
                   style: const TextStyle(fontSize: 13, color: AppTheme.charcoal),
                 ),
               ),
@@ -131,7 +131,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   style: OutlinedButton.styleFrom(foregroundColor: AppTheme.cobalt),
                   onPressed: onAddCustomExpense,
                   icon: const Icon(Icons.add, size: 16),
-                  label: Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  label: Text(l.addCustomExpenseRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
@@ -147,7 +147,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
               // Category Filter Bar & Bulk Actions
               Row(
                 children: [
-                  Text('${l.statusFilterLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                  Text('${l.filterCategoryLabel}: ', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                   const SizedBox(width: 6),
                   Expanded(
                     child: SingleChildScrollView(
@@ -155,7 +155,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                       child: Row(
                         children: categories.map((cat) {
                           final isSelected = categoryFilter == cat;
-                          final label = cat == 'All' ? l.allStatuses : cat;
+                          final label = cat == 'All' ? l.allCategoriesItem : cat;
                           return Padding(
                             padding: const EdgeInsets.only(left: 6),
                             child: ChoiceChip(
@@ -172,12 +172,12 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                   TextButton.icon(
                     onPressed: onApplyAll,
                     icon: const Icon(Icons.check_box_outlined, size: 14, color: AppTheme.emerald),
-                    label: Text(l.saveConsultationChanges, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
+                    label: Text(l.applyAllQuoteItems, style: const TextStyle(fontSize: 11, color: AppTheme.emerald)),
                   ),
                   TextButton.icon(
                     onPressed: onDisableAll,
                     icon: const Icon(Icons.disabled_by_default_outlined, size: 14, color: Colors.red),
-                    label: Text(l.delete, style: const TextStyle(fontSize: 11, color: Colors.red)),
+                    label: Text(l.disableAllQuoteItems, style: const TextStyle(fontSize: 11, color: Colors.red)),
                   ),
                 ],
               ),
@@ -195,6 +195,7 @@ class BrokerQuoteDetailsCard extends StatelessWidget {
                 ...filteredItems.map((item) {
                   final idx = brokerQuoteItems.indexOf(item);
                   return buildBrokerCostRow(
+                    context: context,
                     onUpdate: onUpdateItem,
                     index: idx,
                     item: item,

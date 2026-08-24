@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:dio/dio.dart';
-import '../../../core/widgets/back_to_dashboard_button.dart';
-import '../../../core/theme/app_theme.dart';
-import '../../../core/constants/api_constants.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
+import '../../../core/network/api_client.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/back_to_dashboard_button.dart';
+import '../../../core/widgets/searchable_dropdown_field.dart';
+import '../../import_files/providers/import_files_provider.dart';
 
 class LandedCostComparisonScreen extends ConsumerStatefulWidget {
-  final int importFileId;
-  final String importFileCode;
+  final int? importFileId;
+  final String? importFileCode;
 
   const LandedCostComparisonScreen({
     super.key,
-    required this.importFileId,
-    required this.importFileCode,
+    this.importFileId,
+    this.importFileCode,
   });
 
   @override
@@ -21,9 +24,11 @@ class LandedCostComparisonScreen extends ConsumerStatefulWidget {
 }
 
 class _LandedCostComparisonScreenState extends ConsumerState<LandedCostComparisonScreen> {
-  bool _isLoading = true;
+  bool _isLoading = false;
   String? _error;
 
+  int? _selectedImportFileId;
+  String _selectedImportFileCode = '';
   double _estimatedCost = 0.0;
   Map<String, dynamic>? _settlementRecord;
 
@@ -36,30 +41,41 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   @override
   void initState() {
     super.initState();
-    _fetchData();
+    _selectedImportFileId = widget.importFileId;
+    _selectedImportFileCode = widget.importFileCode ?? '';
+    Future.microtask(() {
+      ref.read(importFilesProvider.notifier).fetchImportFiles();
+      if (_selectedImportFileId != null && _selectedImportFileId! > 0) {
+        _fetchData(_selectedImportFileId!);
+      }
+    });
   }
 
-  Future<void> _fetchData() async {
+  Future<void> _fetchData(int fileId) async {
+    final l10n = context.l10n;
     setState(() {
       _isLoading = true;
       _error = null;
+      _selectedImportFileId = fileId;
     });
 
     try {
-      final dio = Dio(BaseOptions(baseUrl: ApiConstants.baseUrl));
-      
+      final dio = ref.read(dioProvider);
+
       // Fetch import file for estimated cost
       try {
-        final importFileRes = await dio.get('/import-files/${widget.importFileId}');
+        final importFileRes = await dio.get('${ApiConstants.baseUrl}/import-files/$fileId');
         _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
+        if (importFileRes.data['import_file_code'] != null) {
+          _selectedImportFileCode = importFileRes.data['import_file_code'].toString();
+        }
       } catch (e) {
-        // Fallback if endpoint doesn't exist
         _estimatedCost = 0.0;
       }
 
       // Fetch settlement record
-      final settlementRes = await dio.get('/financial-settlements', queryParameters: {
-        'import_file_id': widget.importFileId,
+      final settlementRes = await dio.get('${ApiConstants.baseUrl}/financial-settlements', queryParameters: {
+        'import_file_id': fileId,
       });
 
       final settlements = settlementRes.data;
@@ -67,10 +83,12 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         _settlementRecord = settlements.first;
       } else if (settlements != null && settlements is Map<String, dynamic> && settlements.containsKey('settlement_id')) {
         _settlementRecord = settlements;
+      } else {
+        _settlementRecord = null;
       }
 
     } catch (e) {
-      _error = 'حدث خطأ أثناء تحميل البيانات: $e';
+      _error = l10n.landedCostLoadError(e.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -86,15 +104,22 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
       case 'customs': return Colors.orange;
       case 'clearance': return Colors.teal;
       case 'transport': return Colors.purple;
+      case 'storage': return Colors.amber.shade800;
       default: return Colors.grey;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final fileDisplayCode = _selectedImportFileCode.isNotEmpty ? _selectedImportFileCode : (_selectedImportFileId != null ? 'IMP-#$_selectedImportFileId' : '');
+
     return Scaffold(
       appBar: AppBar(
-        title: Text('مقارنة Landed Cost — تقديري vs فعلي [${widget.importFileCode}]', style: const TextStyle(color: Colors.white)),
+        title: Text(
+          fileDisplayCode.isNotEmpty ? l10n.landedCostComparisonTitle(fileDisplayCode) : l10n.landedCostComparison,
+          style: const TextStyle(color: Colors.white),
+        ),
         backgroundColor: _charcoal,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: const [
@@ -103,15 +128,82 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         ],
       ),
 
-      body: _isLoading 
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null 
-              ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
-              : _buildContent(),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: _buildImportFileSelector(),
+          ),
+          Expanded(
+            child: _isLoading 
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null 
+                    ? Center(child: Text(_error!, style: TextStyle(color: _crimson)))
+                    : _buildContent(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImportFileSelector() {
+    final l10n = context.l10n;
+    final importFiles = ref.watch(importFilesProvider).value ?? [];
+
+    final items = importFiles.map((file) {
+      final code = file.importFileCode;
+      final supplier = file.supplierName.isNotEmpty ? file.supplierName : l10n.unknownSupplierFallback;
+      final company = file.companyName.isNotEmpty ? file.companyName : '';
+      final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
+      return SearchableDropdownItem<int>(
+        value: file.importFileId,
+        label: label,
+      );
+    }).toList();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: SearchableDropdownField<int>(
+        labelText: l10n.selectImportFileDropdownLabel,
+        hintText: l10n.selectImportFileDropdownHint,
+        value: _selectedImportFileId,
+        items: items,
+        onChanged: (fileId) {
+          if (fileId != null) {
+            final found = importFiles.where((f) => f.importFileId == fileId).firstOrNull;
+            if (found != null) {
+              _selectedImportFileCode = found.importFileCode;
+            }
+            _fetchData(fileId);
+          } else {
+            setState(() {
+              _selectedImportFileId = null;
+              _selectedImportFileCode = '';
+              _settlementRecord = null;
+            });
+          }
+        },
+      ),
     );
   }
 
   Widget _buildContent() {
+    final l10n = context.l10n;
+    if (_selectedImportFileId == null) {
+      return Center(
+        child: Text(
+          l10n.selectImportFilePrompt,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.grey),
+        ),
+      );
+    }
+
     if (_settlementRecord == null) {
       return Center(
         child: Card(
@@ -123,7 +215,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
               children: [
                 Icon(Icons.info_outline, size: 64, color: _charcoal),
                 const SizedBox(height: 16),
-                const Text('لم يتم تسجيل بيانات Landed Cost بعد', style: TextStyle(fontSize: 20)),
+                Text(l10n.noLandedCostDataRegistered, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ],
             ),
           ),
@@ -147,11 +239,11 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           const SizedBox(height: 24),
           _buildSummaryCards(totalFobEgp, totalExpensesEgp, totalLandedCostEgp, fobVariance, landedVariance),
           const SizedBox(height: 32),
-          const Text('تفاصيل المصروفات (Expense Breakdown)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(l10n.expenseBreakdownHeader, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           _buildExpenseTable(),
           const SizedBox(height: 32),
-          const Text('تكلفة الأصناف (Item Landed Cost)', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text(l10n.itemLandedCostHeader, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           _buildItemLandedCostTable(),
           const SizedBox(height: 32),
@@ -162,13 +254,14 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   }
 
   Widget _buildHeader() {
+    final l10n = context.l10n;
     return Row(
       children: [
         Expanded(
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: _cobalt.withOpacity(0.1), border: Border(bottom: BorderSide(color: _cobalt, width: 4))),
-            child: Center(child: Text('التكلفة التقديرية (Estimated)', style: TextStyle(fontSize: 24, color: _cobalt, fontWeight: FontWeight.bold))),
+            child: Center(child: Text(l10n.estimatedCostHeader, style: TextStyle(fontSize: 22, color: _cobalt, fontWeight: FontWeight.bold))),
           ),
         ),
         const SizedBox(width: 16),
@@ -176,7 +269,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: _emerald.withOpacity(0.1), border: Border(bottom: BorderSide(color: _emerald, width: 4))),
-            child: Center(child: Text('التكلفة الفعلية (Actual)', style: TextStyle(fontSize: 24, color: _emerald, fontWeight: FontWeight.bold))),
+            child: Center(child: Text(l10n.actualCostHeader, style: TextStyle(fontSize: 22, color: _emerald, fontWeight: FontWeight.bold))),
           ),
         ),
       ],
@@ -184,18 +277,20 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   }
 
   Widget _buildSummaryCards(double totalFob, double totalExpenses, double totalLanded, double fobVariance, double landedVariance) {
+    final l10n = context.l10n;
     return Row(
       children: [
-        Expanded(child: _buildCard('FOB Value', _estimatedCost, totalFob, fobVariance)),
+        Expanded(child: _buildCard(l10n.fobValueCardTitle, _estimatedCost, totalFob, fobVariance)),
         const SizedBox(width: 16),
-        Expanded(child: _buildCard('Total Expenses', 0, totalExpenses, null)),
+        Expanded(child: _buildCard(l10n.totalExpensesCardTitle, 0, totalExpenses, null)),
         const SizedBox(width: 16),
-        Expanded(child: _buildCard('Total Landed Cost', _estimatedCost, totalLanded, landedVariance, highlight: true)),
+        Expanded(child: _buildCard(l10n.totalLandedCostCardTitle, _estimatedCost, totalLanded, landedVariance, highlight: true)),
       ],
     );
   }
 
   Widget _buildCard(String title, double est, double act, double? variance, {bool highlight = false}) {
+    final l10n = context.l10n;
     Color? varColor;
     if (variance != null) {
       varColor = variance > 0 ? _crimson : _emerald;
@@ -211,7 +306,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const Divider(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -219,15 +314,15 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Est.', style: TextStyle(color: Colors.grey)),
-                    Text(est.toStringAsFixed(2), style: TextStyle(fontSize: 16, color: _cobalt, fontWeight: FontWeight.bold)),
+                    Text(l10n.estAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(est.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _cobalt, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
-                    const Text('Act.', style: TextStyle(color: Colors.grey)),
-                    Text(act.toStringAsFixed(2), style: TextStyle(fontSize: 16, color: _emerald, fontWeight: FontWeight.bold)),
+                    Text(l10n.actAbbreviation, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                    Text(act.toStringAsFixed(2), style: TextStyle(fontSize: 15, color: _emerald, fontWeight: FontWeight.bold)),
                   ],
                 ),
               ],
@@ -247,25 +342,27 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   }
 
   Widget _buildExpenseTable() {
+    final l10n = context.l10n;
     final expenses = _settlementRecord?['expense_invoices'] as List? ?? [];
     return DataTable(
       headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
-      columns: const [
-        DataColumn(label: Text('الفئة', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('المورد', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('العملة', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('القيمة FX', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('سعر الصرف', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('القيمة جم (EGP)', style: TextStyle(fontWeight: FontWeight.bold))),
+      columns: [
+        DataColumn(label: Text(l10n.colExpenseCategory, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colExpenseProvider, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colExpenseCurrency, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colExpenseAmountFx, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colExpenseExchangeRate, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colExpenseAmountEgp, style: const TextStyle(fontWeight: FontWeight.bold))),
       ],
       rows: expenses.map((e) {
-        final category = e['category']?.toString() ?? 'Other';
+        final categoryRaw = e['category']?.toString() ?? 'other';
+        final categoryLocalized = l10n.expenseCategoryName(categoryRaw);
         return DataRow(
           cells: [
             DataCell(Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: _getCategoryColor(category).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
-              child: Text(category, style: TextStyle(color: _getCategoryColor(category), fontWeight: FontWeight.bold)),
+              decoration: BoxDecoration(color: _getCategoryColor(categoryRaw).withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+              child: Text(categoryLocalized, style: TextStyle(color: _getCategoryColor(categoryRaw), fontWeight: FontWeight.bold)),
             )),
             DataCell(Text(e['provider_name']?.toString() ?? '')),
             DataCell(Text(e['currency']?.toString() ?? '')),
@@ -279,16 +376,17 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   }
 
   Widget _buildItemLandedCostTable() {
+    final l10n = context.l10n;
     final items = _settlementRecord?['item_landed_costs'] as List? ?? [];
     return DataTable(
       headingRowColor: WidgetStateProperty.all(_charcoal.withOpacity(0.05)),
-      columns: const [
-        DataColumn(label: Text('الكود', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('الصنف', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('سعر الوحدة (FOB)', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('تكلفة الوحدة (Landed)', style: TextStyle(fontWeight: FontWeight.bold))),
-        DataColumn(label: Text('معامل التكلفة', style: TextStyle(fontWeight: FontWeight.bold))),
+      columns: [
+        DataColumn(label: Text(l10n.colItemCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colItemName, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colItemQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colFobUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colLandedUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold))),
+        DataColumn(label: Text(l10n.colCostMarkupFactor, style: const TextStyle(fontWeight: FontWeight.bold))),
       ],
       rows: items.map((e) {
         final markup = (e['markup_factor'] ?? 1.0).toDouble();
@@ -311,6 +409,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
   }
 
   Widget _buildSummaryBanner(double landedVariance) {
+    final l10n = context.l10n;
     if (landedVariance > 10) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -319,7 +418,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           children: [
             Icon(Icons.warning, color: _crimson),
             const SizedBox(width: 16),
-            Text('تجاوزت التكلفة التقديرية بنسبة ${landedVariance.toStringAsFixed(2)}%', style: TextStyle(color: _crimson, fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(child: Text(l10n.landedCostOverBudgetBanner(landedVariance.toStringAsFixed(2)), style: TextStyle(color: _crimson, fontSize: 16, fontWeight: FontWeight.bold))),
           ],
         ),
       );
@@ -331,7 +430,7 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           children: [
             Icon(Icons.check_circle, color: _emerald),
             const SizedBox(width: 16),
-            Text('وفرت المشروع ${landedVariance.abs().toStringAsFixed(2)}% من الميزانية', style: TextStyle(color: _emerald, fontSize: 18, fontWeight: FontWeight.bold)),
+            Expanded(child: Text(l10n.landedCostUnderBudgetBanner(landedVariance.abs().toStringAsFixed(2)), style: TextStyle(color: _emerald, fontSize: 16, fontWeight: FontWeight.bold))),
           ],
         ),
       );

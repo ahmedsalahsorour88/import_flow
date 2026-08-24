@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../../cargox/screens/cargox_hub_screen.dart';
@@ -62,6 +63,7 @@ class _OriginalDocsAndCargoXScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final shipmentDocs = ref.watch(shipmentDocumentsProvider).value ?? [];
 
     final tabs = [
@@ -116,7 +118,7 @@ class _OriginalDocsAndCargoXScreenState
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات (Refresh)',
+          tooltip: l.refreshDataTooltip,
           onPressed: _refreshData,
         ),
       ],

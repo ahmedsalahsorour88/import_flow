@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../models/customs_consultation_model.dart';
 import '../providers/customs_consultation_provider.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -11,9 +12,10 @@ void showPriceListFormDialog(
   BrokerPriceListModel? existingPriceList,
   required List<dynamic> brokersList,
 }) {
+    final l = context.l10n;
     if (brokersList.isEmpty && existingPriceList == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('لا يوجد مخلصين جمركيين مسجلين في الشركاء.'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(l.noBrokersRegistered), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -141,7 +143,7 @@ void showPriceListFormDialog(
                       const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          isEditing ? 'تعديل وتحديث أسعار قائمة المستخلص: ${existingPriceList.title}' : 'إنشاء وتحديد أسعار قائمة جديدة للمستخلص الجمركي',
+                          isEditing ? l.editPriceListTitle(existingPriceList.title) : l.createPriceListTitle,
                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                         ),
                       ),
@@ -170,8 +172,8 @@ void showPriceListFormDialog(
                                 flex: 2,
                                 child: SearchableDropdownField<int?>(
                                   value: selectedBroker,
-                                  labelText: 'المستخلص الجمركي *',
-                                  searchHintText: 'ابحث عن المستخلص...',
+                                  labelText: '${l.responsibleCustomsBroker} *',
+                                  searchHintText: l.searchBrokerHint,
                                   items: brokersList.map((b) => SearchableDropdownItem<int?>(value: b.providerId, label: b.partnerName)).toList(),
                                   onChanged: (v) => setDlgState(() => selectedBroker = v),
                                 ),
@@ -182,7 +184,7 @@ void showPriceListFormDialog(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                                   decoration: BoxDecoration(color: Colors.grey.shade100, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.grey.shade300)),
-                                  child: Text('المستخلص: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  child: Text('${l.responsibleCustomsBroker}: ${existingPriceList.brokerName}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
                               ),
                             const SizedBox(width: 10),
@@ -190,7 +192,7 @@ void showPriceListFormDialog(
                               flex: 3,
                               child: TextFormField(
                                 controller: titleCtrl,
-                                decoration: const InputDecoration(labelText: 'عنوان قائمة الأسعار *', isDense: true, border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.priceListTitleField, isDense: true, border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -198,7 +200,7 @@ void showPriceListFormDialog(
                               flex: 2,
                               child: TextFormField(
                                 controller: portCtrl,
-                                decoration: const InputDecoration(labelText: 'الميناء المعني', isDense: true, border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.targetPortField, isDense: true, border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -206,7 +208,7 @@ void showPriceListFormDialog(
                               flex: 2,
                               child: TextFormField(
                                 controller: dateCtrl,
-                                decoration: const InputDecoration(labelText: 'تاريخ السريان', isDense: true, border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: l.effectiveDateField, isDense: true, border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -214,7 +216,7 @@ void showPriceListFormDialog(
                         const SizedBox(height: 8),
                         TextFormField(
                           controller: notesCtrl,
-                          decoration: const InputDecoration(labelText: 'ملاحظات وشروط عامة', isDense: true, border: OutlineInputBorder()),
+                          decoration: InputDecoration(labelText: l.generalTermsAndNotesField, isDense: true, border: const OutlineInputBorder()),
                         ),
                       ],
                     ),
@@ -229,7 +231,7 @@ void showPriceListFormDialog(
                         width: 220,
                         child: TextField(
                           decoration: InputDecoration(
-                            hintText: 'بحث في بنود المصروفات...',
+                            hintText: l.searchExpenseCatalogHint,
                             prefixIcon: const Icon(Icons.search, size: 16),
                             isDense: true,
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(6)),
@@ -244,15 +246,14 @@ void showPriceListFormDialog(
                         width: 250,
                         child: SearchableDropdownField<String>(
                           value: selectedCategoryFilter,
-                          labelText: 'تصفية التصنيف',
-                          searchHintText: 'ابحث عن التصنيف...',
-                          items: const [
-                            SearchableDropdownItem(value: 'All', label: 'جميع التصنيفات'),
-                            SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'أتعاب ومصاريف تخليص'),
-                            SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'إجراءات وموافقات وفحص'),
-                            SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'نقل بري وشاحنات'),
-                            SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'موانئ وتعتيق وتفريغ'),
-                            SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'مصاريف أخرى'),
+                          labelText: l.filterCategoryLabel,
+                          items: [
+                            SearchableDropdownItem(value: 'All', label: l.allCategoriesItem),
+                            const SearchableDropdownItem(value: 'Clearance Fees (أتعاب ومصاريف تخليص)', label: 'Clearance Fees'),
+                            const SearchableDropdownItem(value: 'Procedures & Approvals (إجراءات وموافقات وفحص)', label: 'Procedures & Approvals'),
+                            const SearchableDropdownItem(value: 'Inland Transport (نقل بري وشاحنات)', label: 'Inland Transport'),
+                            const SearchableDropdownItem(value: 'Port & Handling (موانئ وتعتيق وتفريغ)', label: 'Port & Handling'),
+                            const SearchableDropdownItem(value: 'Other Fees (مصاريف أخرى)', label: 'Other Fees'),
                           ],
                           onChanged: (v) => setDlgState(() => selectedCategoryFilter = v ?? 'All'),
                         ),
@@ -274,11 +275,11 @@ void showPriceListFormDialog(
                             }
                           });
                           ScaffoldMessenger.of(ctx).showSnackBar(
-                            const SnackBar(content: Text('⚡ تم استدعاء وتعبئة الأسعار الاسترشادية القياسية المصرية بنجاح!'), backgroundColor: AppTheme.cobalt),
+                            SnackBar(content: Text('⚡ ${l.standardRatesFilledToast}'), backgroundColor: AppTheme.cobalt),
                           );
                         },
                         icon: const Icon(Icons.flash_on, size: 14),
-                        label: const Text('تعبئة بالأسعار الاسترشادية', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                        label: Text(l.fillStandardRatesBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 6),
                       // Zero Out Button
@@ -292,7 +293,7 @@ void showPriceListFormDialog(
                           });
                         },
                         icon: const Icon(Icons.clear_all, size: 14),
-                        label: const Text('تصفير الكل', style: TextStyle(fontSize: 11)),
+                        label: Text(l.zeroOutRatesBtn, style: const TextStyle(fontSize: 11)),
                       ),
                     ],
                   ),
@@ -346,11 +347,11 @@ void showPriceListFormDialog(
                                       key: ValueKey('dlg_price_${itm['expense_type_id']}_$standardPrice'),
                                       initialValue: standardPrice == 0.0 ? '' : standardPrice.toString(),
                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                      decoration: const InputDecoration(
-                                        labelText: 'السعر المعتمد *',
+                                      decoration: InputDecoration(
+                                        labelText: l.approvedPriceField,
                                         isDense: true,
-                                        border: OutlineInputBorder(),
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        border: const OutlineInputBorder(),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                       ),
                                       onChanged: (v) {
                                         final p = double.tryParse(v) ?? 0.0;
@@ -362,18 +363,13 @@ void showPriceListFormDialog(
 
                                   // Currency Dropdown
                                   SizedBox(
-                                    width: 85,
-                                    child: DropdownButtonFormField<String>(
+                                    width: 110,
+                                    child: SearchableDropdownField<String>(
                                       value: itm['currency'] ?? 'EGP',
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        border: OutlineInputBorder(),
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-                                      ),
                                       items: const [
-                                        DropdownMenuItem(value: 'EGP', child: Text('EGP', style: TextStyle(fontSize: 11))),
-                                        DropdownMenuItem(value: 'USD', child: Text('USD', style: TextStyle(fontSize: 11))),
-                                        DropdownMenuItem(value: 'EUR', child: Text('EUR', style: TextStyle(fontSize: 11))),
+                                        SearchableDropdownItem(value: 'EGP', label: 'EGP'),
+                                        SearchableDropdownItem(value: 'USD', label: 'USD'),
+                                        SearchableDropdownItem(value: 'EUR', label: 'EUR'),
                                       ],
                                       onChanged: (v) => setDlgState(() => itemsState[realIdx]['currency'] = v ?? 'EGP'),
                                     ),
@@ -386,11 +382,11 @@ void showPriceListFormDialog(
                                     child: TextFormField(
                                       key: ValueKey('dlg_notes_${itm['expense_type_id']}'),
                                       initialValue: itm['notes'] ?? '',
-                                      decoration: const InputDecoration(
-                                        labelText: 'ملاحظات / نطاق السعر',
+                                      decoration: InputDecoration(
+                                        labelText: l.notesPriceRangeField,
                                         isDense: true,
-                                        border: OutlineInputBorder(),
-                                        contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                        border: const OutlineInputBorder(),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                                       ),
                                       onChanged: (v) => itemsState[realIdx]['notes'] = v,
                                     ),
@@ -410,14 +406,17 @@ void showPriceListFormDialog(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'إجمالي بنود المصروفات بالقائمة: ${itemsState.length} بند (${itemsState.where((i) => (i['standard_price'] as num) > 0).length} بند مسعر بقيمة)',
+                        l.totalExpensesCountSummary(
+                          itemsState.length,
+                          itemsState.where((i) => (i['standard_price'] as num) > 0).length,
+                        ),
                         style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blueGrey),
                       ),
                       Row(
                         children: [
                           TextButton(
                             onPressed: () => Navigator.pop(ctx),
-                            child: const Text('إلغاء'),
+                            child: Text(l.cancel),
                           ),
                           const SizedBox(width: 8),
                           ElevatedButton.icon(
@@ -429,7 +428,7 @@ void showPriceListFormDialog(
                               final title = titleCtrl.text.trim();
                               if (title.isEmpty) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('يرجى كتابة عنوان قائمة الأسعار.'), backgroundColor: Colors.red),
+                                  SnackBar(content: Text(l.priceListTitleRequired), backgroundColor: Colors.red),
                                 );
                                 return;
                               }
@@ -470,13 +469,13 @@ void showPriceListFormDialog(
                                   );
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('✅ تم تحديث وتعديل أسعار القائمة بنجاح!'), backgroundColor: AppTheme.emerald),
+                                      SnackBar(content: Text('✅ ${l.priceListUpdatedSuccess}'), backgroundColor: AppTheme.emerald),
                                     );
                                   }
                                 } else {
                                   if (selectedBroker == null) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('الرجاء اختيار المستخلص الجمركي'), backgroundColor: Colors.orange),
+                                      SnackBar(content: Text(l.selectBrokerRequired), backgroundColor: Colors.orange),
                                     );
                                     return;
                                   }
@@ -493,7 +492,7 @@ void showPriceListFormDialog(
                                   });
                                   if (ctx.mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(content: Text('✅ تم إنشاء قائمة أسعار المخلص وحفظ الأسعار بنجاح!'), backgroundColor: AppTheme.emerald),
+                                      SnackBar(content: Text('✅ ${l.priceListCreatedSuccess}'), backgroundColor: AppTheme.emerald),
                                     );
                                   }
                                 }
@@ -501,14 +500,14 @@ void showPriceListFormDialog(
                               } catch (e) {
                                 if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: Colors.red),
+                                  SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
                                 );
                                 }
                               }
                             },
                             icon: const Icon(Icons.save, color: Colors.white, size: 18),
                             label: Text(
-                              isEditing ? 'حفظ تعديلات القائمة' : 'إنشاء وحفظ قائمة الأسعار',
+                              isEditing ? l.savePriceListEditsBtn : l.createAndSavePriceListBtn,
                               style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                           ),

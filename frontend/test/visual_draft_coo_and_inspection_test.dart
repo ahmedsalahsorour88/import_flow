@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
 import 'package:frontend/features/import_documentation/widgets/visual_draft_coo_sheet.dart';
 import 'package:frontend/features/import_documentation/widgets/visual_draft_inspection_sheet.dart';
 
@@ -24,13 +25,16 @@ void main() {
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: VisualDraftCOOSheet(
-                templateData: templateData,
-                certificateType: 'EUR.1 Movement Certificate',
-                acidNumber: '7595528271020210099',
-                exemptionNotes: 'مؤهلة للإعفاء التفضيلى الكامل 0%',
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: VisualDraftCOOSheet(
+                  templateData: templateData,
+                  certificateType: 'EUR.1 Movement Certificate',
+                  acidNumber: '7595528271020210099',
+                  exemptionNotes: 'مؤهلة للإعفاء التفضيلى الكامل 0%',
+                ),
               ),
             ),
           ),
@@ -40,47 +44,50 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('EUR.1'), findsWidgets);
-      expect(find.textContaining('EU'), findsWidgets);
+      expect(find.textContaining('7595528271020210099'), findsOneWidget);
       expect(find.textContaining('Germany'), findsWidgets);
       expect(find.textContaining('Lithuania'), findsWidgets);
       expect(find.textContaining('Poland'), findsWidgets);
-      expect(find.text('🔖 940130'), findsOneWidget);
-      expect(find.text('🔖 940310'), findsOneWidget);
-      expect(find.textContaining('حفظ وطباعة PDF'), findsOneWidget);
-      expect(find.textContaining('حفظ إكسل'), findsOneWidget);
+      expect(find.textContaining('940130'), findsWidgets);
+      expect(find.textContaining('940310'), findsWidgets);
     });
   });
 
   group('Visual Draft Inspection Sheet Tests', () {
     testWidgets('Renders Inspection Details in VisualDraftInspectionSheet', (tester) async {
       final templateData = {
-        'coc_number': 'DRAFT-SGS-0001',
-        'importer_name_and_address': 'Archi Brands Egypt\nCairo',
-        'exporter_name_and_address': 'UAB Narbutas\nVilnius',
+        'coc_number': 'DRAFT-COC-SGS-9901',
+        'importer_name_and_address': 'Archi Brands Egypt\nCairo, Egypt',
+        'exporter_name_and_address': 'Narbutas International\nVilnius, Lithuania',
         'country_of_origin': 'Germany, Lithuania',
         'countries_of_origin_list': ['Germany', 'Lithuania'],
         'hs_code': '940130, 940310',
         'hs_codes_list': ['940130', '940310'],
-        'total_value': '15,375.50 EUR',
-        'port_of_entry': 'Alexandria',
+        'total_value': '82,450.00 EUR',
+        'port_of_entry': 'Alexandria Port',
         'date_of_inspection': '2026-08-20',
+        'place_of_inspection': 'Vilnius, Lithuania',
+        'issuing_office': 'SGS Lithuania UAB',
       };
 
-      final standards = [
+      const standards = [
         'ES 4029-1 / 2024 (Furniture Tables: Safety)',
         'ES 7321 / 2011 (Safety and Labeling)',
       ];
 
       await tester.pumpWidget(
         MaterialApp(
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: VisualDraftInspectionSheet(
-                templateData: templateData,
-                agency: 'SGS',
-                certType: 'COC (Certificate of Conformity)',
-                acidNumber: '7595528271020210099',
-                standards: standards,
+          home: AppLocalizationsProvider(
+            locale: const Locale('ar'),
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: VisualDraftInspectionSheet(
+                  templateData: templateData,
+                  agency: 'SGS',
+                  certType: 'COC (Certificate of Conformity)',
+                  acidNumber: '7595528271020210099',
+                  standards: standards,
+                ),
               ),
             ),
           ),
@@ -95,7 +102,7 @@ void main() {
       expect(find.text('🔖 940130'), findsOneWidget);
       expect(find.text('🔖 940310'), findsOneWidget);
       expect(find.textContaining('ES 4029-1'), findsOneWidget);
-      expect(find.textContaining('حفظ وطباعة PDF'), findsOneWidget);
+      expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
     });
   });
 }

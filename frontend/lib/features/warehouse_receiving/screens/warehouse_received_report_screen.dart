@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/vertical_stage_scaffold.dart';
 import '../providers/warehouse_receiving_provider.dart';
@@ -31,6 +32,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final recordsAsync = ref.watch(warehouseReceivingProvider);
 
     final tabs = [
@@ -53,7 +55,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
       body: recordsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(
-          child: Text('خطأ في جلب تقرير الشحنات المستلمة: $err', style: const TextStyle(color: Colors.red)),
+          child: Text(l.whReportErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
         ),
         data: (records) {
           // Dummy or real received entries expanded with Multi-PO breakdown
@@ -72,7 +74,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
               'variance_qty': -3,
               'warehouse_name': 'Main Warehouse - Cairo',
               'arrival_date': '2026-08-22',
-              'status': 'Confirmed Final (تم تأكيد الاستلام)',
+              'status': 'Confirmed Final',
             },
             {
               'import_file_code': 'IMP-2026-001',
@@ -88,7 +90,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
               'variance_qty': -2,
               'warehouse_name': 'Main Warehouse - Cairo',
               'arrival_date': '2026-08-22',
-              'status': 'Confirmed Final (تم تأكيد الاستلام)',
+              'status': 'Confirmed Final',
             },
             {
               'import_file_code': 'IMP-2026-002',
@@ -104,7 +106,7 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
               'variance_qty': -6,
               'warehouse_name': 'Alexandria Logistics Hub',
               'arrival_date': '2026-08-21',
-              'status': 'Confirmed Final (تم تأكيد الاستلام)',
+              'status': 'Confirmed Final',
             },
           ];
 
@@ -163,18 +165,18 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                     children: [
                       const Icon(Icons.assessment_outlined, color: Colors.indigo, size: 28),
                       const SizedBox(width: 12),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'تقرير الشحنات المستلمة بالمخازن ومطابقة الفروق (Received Shipments Detailed Audit)',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                              l.whReportInfoBannerTitle,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                             ),
-                            SizedBox(height: 4),
+                            const SizedBox(height: 4),
                             Text(
-                              'حصر شامل لكل الشحنات التي تم تأكيد استلامها بالمخازن مفصلة بأوامر الشراء (PO) ومطابقة الكميات المقر عنها بالفاتورة مع المستلم الفعلي والفاقد والتالف والعينات المسحوبة.',
-                              style: TextStyle(fontSize: 12, color: Colors.black87),
+                              l.whReportInfoBannerSubtitle,
+                              style: const TextStyle(fontSize: 12, color: Colors.black87),
                             ),
                           ],
                         ),
@@ -182,10 +184,10 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo, foregroundColor: Colors.white),
                         icon: const Icon(Icons.file_download_outlined, size: 16),
-                        label: const Text('تصدير Excel'),
+                        label: Text(l.whReportExportExcelBtn),
                         onPressed: () {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم تصدير تقرير الشحنات المستلمة بنجاح'), backgroundColor: AppTheme.emerald),
+                            SnackBar(content: Text(l.whReportExportSuccessMsg), backgroundColor: AppTheme.emerald),
                           );
                         },
                       ),
@@ -197,17 +199,17 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                 // KPI Metrics Bar
                 Row(
                   children: [
-                    Expanded(child: _buildMetricCard('إجمالي العدد بالفاتورة', '$totalInvoiced وحدة', Icons.receipt_long, Colors.blue)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiInvoicedQty, l.whReportUnitsValue(totalInvoiced), Icons.receipt_long, Colors.blue)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('المستلم الفعلي بالمخزن', '$totalReceived وحدة', Icons.inventory, AppTheme.emerald)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiReceivedQty, l.whReportUnitsValue(totalReceived), Icons.inventory, AppTheme.emerald)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('إجمالي التالف', '$totalDamaged وحدة', Icons.broken_image, AppTheme.crimson)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiDamagedQty, l.whReportUnitsValue(totalDamaged), Icons.broken_image, AppTheme.crimson)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('إجمالي العجز', '$totalShortage وحدة', Icons.remove_circle_outline, AppTheme.orange)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiShortageQty, l.whReportUnitsValue(totalShortage), Icons.remove_circle_outline, AppTheme.orange)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('العينات المسحوبة', '$totalSamples وحدة', Icons.science, Colors.purple)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiSamplesQty, l.whReportUnitsValue(totalSamples), Icons.science, Colors.purple)),
                     const SizedBox(width: 10),
-                    Expanded(child: _buildMetricCard('صافي الفروق', '${totalVariance >= 0 ? "+" : ""}$totalVariance وحدة', Icons.compare_arrows, totalVariance == 0 ? Colors.green : AppTheme.crimson)),
+                    Expanded(child: _buildMetricCard(l.whReportKpiVarianceQty, '${totalVariance >= 0 ? "+" : ""}${l.whReportUnitsValue(totalVariance)}', Icons.compare_arrows, totalVariance == 0 ? Colors.green : AppTheme.crimson)),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -220,11 +222,11 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                     padding: const EdgeInsets.all(12),
                     child: TextField(
                       controller: _searchCtrl,
-                      decoration: const InputDecoration(
-                        hintText: 'بحث برقم الشحنة، أمر الشراء PO، كود الصنف، أو اسم الصنف...',
-                        prefixIcon: Icon(Icons.search),
+                      decoration: InputDecoration(
+                        hintText: l.whReportSearchHint,
+                        prefixIcon: const Icon(Icons.search),
                         isDense: true,
-                        border: OutlineInputBorder(),
+                        border: const OutlineInputBorder(),
                       ),
                       onChanged: (_) => setState(() {}),
                     ),
@@ -241,91 +243,100 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.fact_check, color: AppTheme.cobalt, size: 20),
-                            SizedBox(width: 8),
+                            const Icon(Icons.fact_check, color: AppTheme.cobalt, size: 20),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                'جدول الشحنات المستلمة تفصيلي بكل PO (Received Items Breakdown)',
-                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                l.whReportTableSectionHeader,
+                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                         const Divider(height: 20),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                            columns: const [
-                              DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('أمر الشراء (PO)', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('الحاويات والسيارة', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('الصنف وبيانه', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('العدد بالفاتورة', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('الفاقد / العجز', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('التالف', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('عينات مسحوبة', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('المستلم بالمخزن', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('الفارق (Variance)', style: TextStyle(fontWeight: FontWeight.bold))),
-                              DataColumn(label: Text('حالة الاستلام', style: TextStyle(fontWeight: FontWeight.bold))),
-                            ],
-                            rows: filtered.map((item) {
-                              final variance = item['variance_qty'] as int;
-                              return DataRow(cells: [
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.charcoal.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(item['import_file_code'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
-                                  ),
-                                ),
-                                DataCell(Text(item['po_number'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
-                                DataCell(Text(item['container_info'])),
-                                DataCell(
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(item['item_code'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11)),
-                                      Text(item['item_name'], style: const TextStyle(fontSize: 12)),
-                                    ],
-                                  ),
-                                ),
-                                DataCell(Text('${item['invoiced_qty']}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                DataCell(Text('${item['shortage_qty']}', style: TextStyle(color: item['shortage_qty'] > 0 ? AppTheme.orange : Colors.black87, fontWeight: FontWeight.bold))),
-                                DataCell(Text('${item['damaged_qty']}', style: TextStyle(color: item['damaged_qty'] > 0 ? AppTheme.crimson : Colors.black87, fontWeight: FontWeight.bold))),
-                                DataCell(Text('${item['samples_qty']}', style: TextStyle(color: item['samples_qty'] > 0 ? Colors.purple : Colors.black87, fontWeight: FontWeight.bold))),
-                                DataCell(Text('${item['received_qty']}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
-                                DataCell(
-                                  Text(
-                                    '${variance >= 0 ? "+" : ""}$variance',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: variance == 0 ? Colors.green : (variance < 0 ? AppTheme.crimson : Colors.blue),
+                        if (filtered.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Center(child: Text(l.whReportNoDataFound)),
+                          )
+                        else
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                              columns: [
+                                DataColumn(label: Text(l.whReportColImportFile, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColPoNumber, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColContainerAndTruck, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColItemAndDescription, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColInvoicedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColShortageQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColDamagedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColSamplesQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColReceivedQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColVarianceQty, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l.whReportColReceiptStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                              ],
+                              rows: filtered.map((item) {
+                                final variance = item['variance_qty'] as int;
+                                return DataRow(cells: [
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.charcoal.withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(item['import_file_code'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                                     ),
                                   ),
-                                ),
-                                DataCell(
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade50,
-                                      borderRadius: BorderRadius.circular(6),
-                                      border: Border.all(color: Colors.green.shade300),
+                                  DataCell(Text(item['po_number'], style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt))),
+                                  DataCell(Text(item['container_info'])),
+                                  DataCell(
+                                    Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Text(item['item_code'], style: const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.bold, fontSize: 11)),
+                                        Text(item['item_name'], style: const TextStyle(fontSize: 12)),
+                                      ],
                                     ),
-                                    child: const Text('معتمد ومستلم ✅', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green)),
                                   ),
-                                ),
-                              ]);
-                            }).toList(),
+                                  DataCell(Text('${item['invoiced_qty']}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                                  DataCell(Text('${item['shortage_qty']}', style: TextStyle(color: item['shortage_qty'] > 0 ? AppTheme.orange : Colors.black87, fontWeight: FontWeight.bold))),
+                                  DataCell(Text('${item['damaged_qty']}', style: TextStyle(color: item['damaged_qty'] > 0 ? AppTheme.crimson : Colors.black87, fontWeight: FontWeight.bold))),
+                                  DataCell(Text('${item['samples_qty']}', style: TextStyle(color: item['samples_qty'] > 0 ? Colors.purple : Colors.black87, fontWeight: FontWeight.bold))),
+                                  DataCell(Text('${item['received_qty']}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))),
+                                  DataCell(
+                                    Text(
+                                      '${variance >= 0 ? "+" : ""}$variance',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: variance == 0 ? Colors.green : (variance < 0 ? AppTheme.crimson : Colors.blue),
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.green.shade50,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(color: Colors.green.shade300),
+                                      ),
+                                      child: Text(
+                                        l.whReportStatusApprovedAndReceived,
+                                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                      ),
+                                    ),
+                                  ),
+                                ]);
+                              }).toList(),
+                            ),
                           ),
-                        ),
                       ],
                     ),
                   ),
@@ -372,3 +383,4 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
     );
   }
 }
+

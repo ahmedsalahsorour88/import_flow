@@ -197,11 +197,11 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'تحصيل ${group.groupName}',
+                              '${l.nafezaCollectionPrefix} ${group.groupName}',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                             ),
                             Text(
-                              '${group.totalAmount.toStringAsFixed(2)} ج.م',
+                              '${group.totalAmount.toStringAsFixed(2)} EGP',
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                             ),
                           ],
@@ -210,8 +210,8 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                       // Items inside group
                       ...group.items.map((item) {
                         final typeLabel = item.calculationType == 'flat'
-                            ? 'قطعي'
-                            : (item.calculationType == 'reference' ? 'مرجعي' : 'مشتق');
+                            ? l.nafezaCalculationFlat
+                            : (item.calculationType == 'reference' ? l.nafezaCalculationReference : l.nafezaCalculationDerived);
                         return Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           child: Row(
@@ -260,7 +260,7 @@ class NafezaFeeBreakdownCard extends StatelessWidget {
                               SizedBox(
                                 width: 110,
                                 child: Text(
-                                  '${item.calculatedAmount.toStringAsFixed(2)} ج.م',
+                                  '${item.calculatedAmount.toStringAsFixed(2)} EGP',
                                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                   textAlign: TextAlign.end,
                                 ),

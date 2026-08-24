@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -42,6 +43,8 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     return Scaffold(
       backgroundColor: AppTheme.cloudWhite,
       body: Padding(
@@ -50,28 +53,28 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Header
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Incoterms Rules',
-                      style: TextStyle(
+                      l10n.incotermsScreenTitle,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.charcoal,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Incoterms 2020 · Cost Items · Responsibility Matrix',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                      l10n.incotermsScreenSubtitle,
+                      style: const TextStyle(color: Colors.grey, fontSize: 14),
                     ),
                   ],
                 ),
-                BackToDashboardButton(),
+                const BackToDashboardButton(),
               ],
             ),
 
@@ -104,10 +107,10 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                 indicatorWeight: 3,
                 labelStyle: const TextStyle(
                     fontWeight: FontWeight.bold, fontSize: 14),
-                tabs: const [
-                  Tab(icon: Icon(Icons.handshake_outlined), text: 'Incoterms'),
-                  Tab(icon: Icon(Icons.receipt_long_outlined), text: 'Cost Items'),
-                  Tab(icon: Icon(Icons.table_chart_outlined), text: 'Responsibility Matrix'),
+                tabs: [
+                  Tab(icon: const Icon(Icons.handshake_outlined), text: l10n.incotermsTabRules),
+                  Tab(icon: const Icon(Icons.receipt_long_outlined), text: l10n.incotermsTabCostItems),
+                  Tab(icon: const Icon(Icons.table_chart_outlined), text: l10n.incotermsTabMatrix),
                 ],
               ),
             ),
@@ -125,7 +128,7 @@ class _IncotermsScreenState extends ConsumerState<IncotermsScreen>
                     onChanged: (val) =>
                         setState(() => _searchQuery = val.toLowerCase()),
                     decoration: InputDecoration(
-                      hintText: 'Search...',
+                      hintText: l10n.searchIncotermsHint,
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -169,6 +172,7 @@ class _IncotermsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final incotermsAsync = ref.watch(incotermsProvider);
     final showInactive = ref.watch(showInactiveIncotermsProvider);
 
@@ -179,7 +183,7 @@ class _IncotermsTab extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Text('Show Inactive', style: TextStyle(fontSize: 13)),
+                Text(l10n.showInactiveIncotermsLabel, style: const TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Switch(
                   value: showInactive,
@@ -192,7 +196,7 @@ class _IncotermsTab extends ConsumerWidget {
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Incoterm'),
+              label: Text(l10n.addIncotermBtn),
               onPressed: () => _showIncotermDialog(context, ref),
             ),
           ],
@@ -202,7 +206,7 @@ class _IncotermsTab extends ConsumerWidget {
           child: incotermsAsync.when(
             loading: () =>
                 const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text(e.toString())),
             data: (incoterms) {
               final filtered = searchQuery.isEmpty
                   ? incoterms
@@ -212,9 +216,9 @@ class _IncotermsTab extends ConsumerWidget {
                           i.incotermName.toLowerCase().contains(searchQuery))
                       .toList();
               if (filtered.isEmpty) {
-                return const Center(
-                    child: Text('No incoterms found.',
-                        style: TextStyle(color: Colors.grey)));
+                return Center(
+                    child: Text(l10n.noIncotermsFound,
+                        style: const TextStyle(color: Colors.grey)));
               }
               return _buildIncotermTable(context, ref, filtered);
             },
@@ -226,6 +230,8 @@ class _IncotermsTab extends ConsumerWidget {
 
   Widget _buildIncotermTable(
       BuildContext context, WidgetRef ref, List<IncotermModel> incoterms) {
+    final l10n = context.l10n;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -255,7 +261,13 @@ class _IncotermsTab extends ConsumerWidget {
                 children: [
               TableRow(
                 decoration: const BoxDecoration(color: AppTheme.charcoal),
-                children: ['Code', 'Name', 'Version', 'Status', 'Actions']
+                children: [
+                  l10n.incotermCodeCol,
+                  l10n.incotermNameCol,
+                  l10n.incotermVersionCol,
+                  l10n.incotermStatusCol,
+                  l10n.incotermActionsCol,
+                ]
                     .map((h) => Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
@@ -321,7 +333,7 @@ class _IncotermsTab extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          i.isActive ? 'Active' : 'Inactive',
+                          i.isActive ? l10n.statusActive : l10n.statusInactive,
                           style: TextStyle(
                             color:
                                 i.isActive ? AppTheme.emerald : AppTheme.crimson,
@@ -338,7 +350,7 @@ class _IncotermsTab extends ConsumerWidget {
                         onPrint: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('طباعة بيانات شرط التجارة الدولي: ${i.incotermCode} (${i.incotermName})'),
+                              content: Text(l10n.printIncotermSnack(i.incotermCode, i.incotermName)),
                               backgroundColor: AppTheme.charcoal,
                               duration: const Duration(seconds: 2),
                             ),
@@ -349,16 +361,16 @@ class _IncotermsTab extends ConsumerWidget {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('تأكيد الإجراء'),
+                              title: Text(l10n.confirmActionTitle),
                               content: Text(isActive
-                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل شرط التجارة (${i.incotermCode})؟'
-                                  : 'هل أنت متأكد من إعادة تفعيل شرط التجارة (${i.incotermCode})؟'),
+                                  ? l10n.confirmDeactivateIncoterm(i.incotermCode)
+                                  : l10n.confirmActivateIncoterm(i.incotermCode)),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                                 ElevatedButton(
                                   onPressed: () => Navigator.pop(ctx, true),
                                   style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                  child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                  child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
@@ -367,7 +379,7 @@ class _IncotermsTab extends ConsumerWidget {
                             await ref.read(incotermsProvider.notifier).toggleActive(i.incotermId, i.isActive);
                           }
                         },
-                        deleteTooltip: i.isActive ? 'إيقاف تفعيل الشرط (Deactivate)' : 'إعادة تفعيل الشرط (Activate)',
+                        deleteTooltip: i.isActive ? l10n.deactivateIncotermTooltip : l10n.activateIncotermTooltip,
                       ),
                     ),
                   ],
@@ -384,6 +396,7 @@ class _IncotermsTab extends ConsumerWidget {
 
   void _showIncotermDialog(BuildContext context, WidgetRef ref,
       {IncotermModel? incoterm}) {
+    final l10n = context.l10n;
     final codeCtrl =
         TextEditingController(text: incoterm?.incotermCode ?? '');
     final nameCtrl =
@@ -399,7 +412,7 @@ class _IncotermsTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(incoterm == null ? 'Add Incoterm' : 'Edit Incoterm'),
+          title: Text(incoterm == null ? l10n.addIncotermDialogTitle : l10n.editIncotermDialogTitle),
           content: Form(
             key: formKey,
             child: SizedBox(
@@ -410,29 +423,29 @@ class _IncotermsTab extends ConsumerWidget {
                   TextFormField(
                     controller: codeCtrl,
                     decoration:
-                        const InputDecoration(labelText: 'Incoterm Code *'),
+                        InputDecoration(labelText: l10n.incotermCodeLabel),
                     textCapitalization: TextCapitalization.characters,
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Required'
+                        ? l10n.requiredField
                         : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameCtrl,
-                    decoration: const InputDecoration(labelText: 'Full Name *'),
+                    decoration: InputDecoration(labelText: l10n.incotermFullNameLabel),
                     validator: (v) => (v == null || v.trim().isEmpty)
-                        ? 'Required'
+                        ? l10n.requiredField
                         : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: versionCtrl,
-                    decoration: const InputDecoration(labelText: 'Version'),
+                    decoration: InputDecoration(labelText: l10n.incotermVersionLabel),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: descCtrl,
-                    decoration: const InputDecoration(labelText: 'Description'),
+                    decoration: InputDecoration(labelText: l10n.incotermDescriptionLabel),
                     maxLines: 2,
                   ),
                 ],
@@ -442,7 +455,7 @@ class _IncotermsTab extends ConsumerWidget {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
+                child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: isLoading
                   ? null
@@ -485,7 +498,7 @@ class _IncotermsTab extends ConsumerWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : Text(incoterm == null ? 'Add' : 'Save'),
+                  : Text(incoterm == null ? l10n.addIncotermBtn : l10n.save),
             ),
           ],
         ),
@@ -514,8 +527,24 @@ class _CostItemsTab extends ConsumerWidget {
     'Freight', 'Customs', 'Port', 'Bank', 'Other'
   ];
 
+  static String _getCategoryLabel(AppLocalizations l10n, String category) {
+    switch (category) {
+      case 'Freight':
+        return l10n.costCategoryFreight;
+      case 'Customs':
+        return l10n.costCategoryCustoms;
+      case 'Port':
+        return l10n.costCategoryPort;
+      case 'Bank':
+        return l10n.costCategoryBank;
+      default:
+        return l10n.costCategoryOther;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final costItemsAsync = ref.watch(costItemsProvider);
     final showInactive = ref.watch(showInactiveCostItemsProvider);
 
@@ -526,7 +555,7 @@ class _CostItemsTab extends ConsumerWidget {
           children: [
             Row(
               children: [
-                const Text('Show Inactive', style: TextStyle(fontSize: 13)),
+                Text(l10n.showInactiveCostItemsLabel, style: const TextStyle(fontSize: 13)),
                 const SizedBox(width: 8),
                 Switch(
                   value: showInactive,
@@ -539,7 +568,7 @@ class _CostItemsTab extends ConsumerWidget {
             ),
             ElevatedButton.icon(
               icon: const Icon(Icons.add, size: 18),
-              label: const Text('Add Cost Item'),
+              label: Text(l10n.addCostItemBtn),
               onPressed: () => _showCostItemDialog(context, ref),
             ),
           ],
@@ -549,7 +578,7 @@ class _CostItemsTab extends ConsumerWidget {
           child: costItemsAsync.when(
             loading: () => const Center(
                 child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text(e.toString())),
             data: (items) {
               final filtered = searchQuery.isEmpty
                   ? items
@@ -560,9 +589,9 @@ class _CostItemsTab extends ConsumerWidget {
                           i.costCategory.toLowerCase().contains(searchQuery))
                       .toList();
               if (filtered.isEmpty) {
-                return const Center(
-                    child: Text('No cost items found.',
-                        style: TextStyle(color: Colors.grey)));
+                return Center(
+                    child: Text(l10n.noCostItemsFound,
+                        style: const TextStyle(color: Colors.grey)));
               }
               return _buildCostItemTable(context, ref, filtered);
             },
@@ -589,6 +618,8 @@ class _CostItemsTab extends ConsumerWidget {
 
   Widget _buildCostItemTable(
       BuildContext context, WidgetRef ref, List<CostItemModel> items) {
+    final l10n = context.l10n;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -611,14 +642,20 @@ class _CostItemsTab extends ConsumerWidget {
                 columnWidths: const {
                   0: FixedColumnWidth(100),
                   1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(110),
+                  2: FixedColumnWidth(120),
                   3: FixedColumnWidth(85),
                   4: FixedColumnWidth(150),
                 },
                 children: [
               TableRow(
                 decoration: const BoxDecoration(color: AppTheme.charcoal),
-                children: ['Code', 'Name', 'Category', 'Status', 'Actions']
+                children: [
+                  l10n.costItemCodeCol,
+                  l10n.costItemNameCol,
+                  l10n.costItemCategoryCol,
+                  l10n.costItemStatusCol,
+                  l10n.costItemActionsCol,
+                ]
                     .map((h) => Padding(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 16, vertical: 12),
@@ -666,8 +703,7 @@ class _CostItemsTab extends ConsumerWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600)),
+                                    fontSize: 12, color: Colors.grey.shade600)),
                         ],
                       ),
                     ),
@@ -679,7 +715,7 @@ class _CostItemsTab extends ConsumerWidget {
                           color: catColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(20),
                         ),
-                        child: Text(item.costCategory,
+                        child: Text(_getCategoryLabel(l10n, item.costCategory),
                             style: TextStyle(
                                 color: catColor,
                                 fontWeight: FontWeight.bold,
@@ -697,7 +733,7 @@ class _CostItemsTab extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          item.isActive ? 'Active' : 'Inactive',
+                          item.isActive ? l10n.statusActive : l10n.statusInactive,
                           style: TextStyle(
                             color: item.isActive
                                 ? AppTheme.emerald
@@ -715,7 +751,7 @@ class _CostItemsTab extends ConsumerWidget {
                         onPrint: () {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text('طباعة بيانات بند التكلفة: ${item.costItemCode} (${item.costItemName})'),
+                              content: Text(l10n.printCostItemSnack(item.costItemCode, item.costItemName)),
                               backgroundColor: AppTheme.charcoal,
                               duration: const Duration(seconds: 2),
                             ),
@@ -726,16 +762,16 @@ class _CostItemsTab extends ConsumerWidget {
                           final confirm = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('تأكيد الإجراء'),
+                              title: Text(l10n.confirmActionTitle),
                               content: Text(isActive
-                                  ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل بند التكلفة (${item.costItemCode})؟'
-                                  : 'هل أنت متأكد من إعادة تفعيل بند التكلفة (${item.costItemCode})؟'),
+                                  ? l10n.confirmDeactivateCostItem(item.costItemCode)
+                                  : l10n.confirmActivateCostItem(item.costItemCode)),
                               actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                                 ElevatedButton(
                                   onPressed: () => Navigator.pop(ctx, true),
                                   style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                  child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                  child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                                 ),
                               ],
                             ),
@@ -744,7 +780,7 @@ class _CostItemsTab extends ConsumerWidget {
                             await ref.read(costItemsProvider.notifier).toggleActive(item.costItemId, item.isActive);
                           }
                         },
-                        deleteTooltip: item.isActive ? 'إيقاف تفعيل بند التكلفة (Deactivate)' : 'إعادة تفعيل بند التكلفة (Activate)',
+                        deleteTooltip: item.isActive ? l10n.deactivateCostItemTooltip : l10n.activateCostItemTooltip,
                       ),
                     ),
                   ],
@@ -761,6 +797,7 @@ class _CostItemsTab extends ConsumerWidget {
 
   void _showCostItemDialog(BuildContext context, WidgetRef ref,
       {CostItemModel? item}) {
+    final l10n = context.l10n;
     final codeCtrl = TextEditingController(text: item?.costItemCode ?? '');
     final nameCtrl = TextEditingController(text: item?.costItemName ?? '');
     String selectedCategory = item?.costCategory ?? 'Freight';
@@ -772,7 +809,7 @@ class _CostItemsTab extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(item == null ? 'Add Cost Item' : 'Edit Cost Item'),
+          title: Text(item == null ? l10n.addCostItemDialogTitle : l10n.editCostItemDialogTitle),
           content: Form(
             key: formKey,
             child: SizedBox(
@@ -783,25 +820,25 @@ class _CostItemsTab extends ConsumerWidget {
                   TextFormField(
                     controller: codeCtrl,
                     decoration:
-                        const InputDecoration(labelText: 'Cost Item Code *'),
+                        InputDecoration(labelText: l10n.costItemCodeLabel),
                     textCapitalization: TextCapitalization.characters,
                     validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: nameCtrl,
                     decoration:
-                        const InputDecoration(labelText: 'Cost Item Name *'),
+                        InputDecoration(labelText: l10n.costItemNameLabel),
                     validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        (v == null || v.trim().isEmpty) ? l10n.requiredField : null,
                   ),
                   const SizedBox(height: 12),
                   SearchableDropdownField<String>(
                     value: selectedCategory,
-                    labelText: 'Category *',
+                    labelText: l10n.costCategoryLabel,
                     items: _categories
-                        .map((c) => SearchableDropdownItem<String>(value: c, label: c))
+                        .map((c) => SearchableDropdownItem<String>(value: c, label: _getCategoryLabel(l10n, c)))
                         .toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -813,7 +850,7 @@ class _CostItemsTab extends ConsumerWidget {
                   TextFormField(
                     controller: descCtrl,
                     decoration:
-                        const InputDecoration(labelText: 'Description'),
+                        InputDecoration(labelText: l10n.costItemDescriptionLabel),
                     maxLines: 2,
                   ),
                 ],
@@ -823,7 +860,7 @@ class _CostItemsTab extends ConsumerWidget {
           actions: [
             TextButton(
                 onPressed: () => Navigator.pop(ctx),
-                child: const Text('Cancel')),
+                child: Text(l10n.cancel)),
             ElevatedButton(
               onPressed: isLoading
                   ? null
@@ -865,7 +902,7 @@ class _CostItemsTab extends ConsumerWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : Text(item == null ? 'Add' : 'Save'),
+                  : Text(item == null ? l10n.addCostItemBtn : l10n.save),
             ),
           ],
         ),
@@ -880,7 +917,9 @@ class _CostItemsTab extends ConsumerWidget {
           child: Align(alignment: Alignment.centerLeft, child: child),
         ),
       );
-}// ==================================================
+}
+
+// ==================================================
 // Tab 3: Responsibility Matrix
 // ==================================================
 
@@ -896,8 +935,24 @@ class _ResponsibilityMatrixTabState
     extends ConsumerState<_ResponsibilityMatrixTab> {
   int? _selectedIncotermId;
 
+  static String _getCategoryLabel(AppLocalizations l10n, String category) {
+    switch (category) {
+      case 'Freight':
+        return l10n.costCategoryFreight;
+      case 'Customs':
+        return l10n.costCategoryCustoms;
+      case 'Port':
+        return l10n.costCategoryPort;
+      case 'Bank':
+        return l10n.costCategoryBank;
+      default:
+        return l10n.costCategoryOther;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final incotermsAsync = ref.watch(incotermsProvider);
     final matrixAsync = ref.watch(responsibilityMatrixProvider);
 
@@ -915,17 +970,17 @@ class _ResponsibilityMatrixTabState
               children: [
                 Row(
                   children: [
-                    const Text('Filter by Incoterm:',
-                        style: TextStyle(fontWeight: FontWeight.w600)),
+                    Text(l10n.filterByIncotermLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w600)),
                     const SizedBox(width: 16),
                     SizedBox(
                       width: 280,
                       child: SearchableDropdownField<int?>(
                         value: _selectedIncotermId,
-                        hintText: 'All Incoterms (11 Terms)',
+                        hintText: l10n.allIncotermsOption,
                         items: [
-                          const SearchableDropdownItem<int?>(
-                              value: null, label: 'All Incoterms (11 Terms)'),
+                          SearchableDropdownItem<int?>(
+                              value: null, label: l10n.allIncotermsOption),
                           ...active.map((i) => SearchableDropdownItem<int?>(
                                 value: i.incotermId,
                                 label: '${i.incotermCode} - ${i.incotermName}',
@@ -939,8 +994,8 @@ class _ResponsibilityMatrixTabState
                 ),
                 Text(
                   _selectedIncotermId == null
-                      ? 'Showing All Matrix Responsibilities'
-                      : 'Filtering responsibilities for selected term',
+                      ? l10n.showingAllMatrixResponsibilities
+                      : l10n.filteringResponsibilitiesForSelectedTerm,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
               ],
@@ -954,7 +1009,7 @@ class _ResponsibilityMatrixTabState
           child: matrixAsync.when(
             loading: () => const Center(
                 child: CircularProgressIndicator(color: AppTheme.cobalt)),
-            error: (e, _) => Center(child: Text('Error: $e')),
+            error: (e, _) => Center(child: Text(e.toString())),
             data: (matrix) {
               final filtered = _selectedIncotermId == null
                   ? matrix
@@ -962,9 +1017,9 @@ class _ResponsibilityMatrixTabState
                       .where((r) => r.incotermId == _selectedIncotermId)
                       .toList();
               if (filtered.isEmpty) {
-                return const Center(
-                    child: Text('No responsibility data found.',
-                        style: TextStyle(color: Colors.grey)));
+                return Center(
+                    child: Text(l10n.noMatrixDataFound,
+                        style: const TextStyle(color: Colors.grey)));
               }
               return _buildMatrixTable(filtered);
             },
@@ -975,6 +1030,8 @@ class _ResponsibilityMatrixTabState
   }
 
   Widget _buildMatrixTable(List<IncotermResponsibilityModel> matrix) {
+    final l10n = context.l10n;
+
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -997,8 +1054,8 @@ class _ResponsibilityMatrixTabState
                 columnWidths: const {
                   0: FixedColumnWidth(100),
                   1: FlexColumnWidth(2),
-                  2: FixedColumnWidth(110),
-                  3: FixedColumnWidth(140),
+                  2: FixedColumnWidth(120),
+                  3: FixedColumnWidth(160),
                   4: FixedColumnWidth(100),
                   5: FlexColumnWidth(2),
                   6: FixedColumnWidth(80),
@@ -1007,13 +1064,13 @@ class _ResponsibilityMatrixTabState
                   TableRow(
                     decoration: const BoxDecoration(color: AppTheme.charcoal),
                     children: [
-                      'Incoterm',
-                      'Cost Item',
-                      'Category',
-                      'Responsible (الجهة)',
-                      'Included',
-                      'Comment / Notes',
-                      'Actions'
+                      l10n.matrixIncotermCol,
+                      l10n.matrixCostItemCol,
+                      l10n.matrixCategoryCol,
+                      l10n.matrixResponsibleCol,
+                      l10n.matrixIncludedCol,
+                      l10n.matrixNotesCol,
+                      l10n.matrixActionsCol,
                     ]
                         .map((h) => Padding(
                               padding: const EdgeInsets.symmetric(
@@ -1034,15 +1091,15 @@ class _ResponsibilityMatrixTabState
                     switch (r.responsibleParty) {
                       case 'Importer':
                         partyColor = AppTheme.cobalt;
-                        partyText = 'المشتري / المستورد (YES)';
+                        partyText = l10n.partyBuyerImporter;
                         break;
                       case 'Exporter':
                         partyColor = AppTheme.orange;
-                        partyText = 'البائع / الشاحن (NO)';
+                        partyText = l10n.partySellerExporter;
                         break;
                       default:
                         partyColor = AppTheme.emerald;
-                        partyText = 'مشترك (Shared)';
+                        partyText = l10n.partyShared;
                     }
                     return TableRow(
                       decoration: BoxDecoration(
@@ -1069,7 +1126,7 @@ class _ResponsibilityMatrixTabState
                                     fontWeight: FontWeight.w600,
                                     color: AppTheme.charcoal))),
                         _cell(
-                            child: Text(r.costCategory ?? '—',
+                            child: Text(_getCategoryLabel(l10n, r.costCategory ?? ''),
                                 style: TextStyle(
                                     fontSize: 12, color: Colors.grey.shade700))),
                         _cell(
@@ -1111,7 +1168,7 @@ class _ResponsibilityMatrixTabState
                           child: IconButton(
                             icon: const Icon(Icons.edit,
                                 color: AppTheme.cobalt, size: 20),
-                            tooltip: 'Edit Responsibility (تعديل المسؤولية)',
+                            tooltip: l10n.editResponsibilityTooltip,
                             onPressed: () =>
                                 _showEditResponsibilityDialog(context, ref, r),
                           ),
@@ -1130,6 +1187,7 @@ class _ResponsibilityMatrixTabState
 
   void _showEditResponsibilityDialog(
       BuildContext context, WidgetRef ref, IncotermResponsibilityModel r) {
+    final l10n = context.l10n;
     String selectedParty = r.responsibleParty;
     bool isIncluded = r.includedInIncoterm;
     final notesCtrl = TextEditingController(text: r.notes ?? '');
@@ -1144,7 +1202,7 @@ class _ResponsibilityMatrixTabState
             children: [
               const Icon(Icons.edit_note, color: AppTheme.cobalt),
               const SizedBox(width: 8),
-              Text('Edit Responsibility · ${r.incotermCode ?? ''}'),
+              Text(l10n.editResponsibilityDialogTitle(r.incotermCode ?? '')),
             ],
           ),
           content: Form(
@@ -1166,29 +1224,30 @@ class _ResponsibilityMatrixTabState
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Incoterm: ${r.incotermCode ?? '—'}',
+                        Text(l10n.incotermPrefix(r.incotermCode ?? '—'),
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold, fontSize: 13)),
                         const SizedBox(height: 4),
                         Text(
-                            'Cost Item: ${r.costItemName ?? '—'} (${r.costCategory ?? '—'})',
+                            l10n.costItemPrefix(r.costItemName ?? '—', _getCategoryLabel(l10n, r.costCategory ?? '—')),
                             style: TextStyle(
                                 color: Colors.grey.shade700, fontSize: 12)),
                       ],
                     ),
                   ),
+                  const SizedBox(height: 12),
                   SearchableDropdownField<String>(
                     value: selectedParty,
-                    labelText: 'Responsible Party (الجهة المسؤولة) *',
-                    items: const [
+                    labelText: l10n.matrixResponsiblePartyFieldLabel,
+                    items: [
                       SearchableDropdownItem<String>(
                           value: 'Importer',
-                          label: 'المشتري / المستورد (YES)'),
+                          label: l10n.partyBuyerImporter),
                       SearchableDropdownItem<String>(
                           value: 'Exporter',
-                          label: 'البائع / الشاحن (NO)'),
+                          label: l10n.partySellerExporter),
                       SearchableDropdownItem<String>(
-                          value: 'Shared', label: 'مشترك (Shared)'),
+                          value: 'Shared', label: l10n.partyShared),
                     ],
                     onChanged: (val) {
                       if (val != null) {
@@ -1205,12 +1264,12 @@ class _ResponsibilityMatrixTabState
                   ),
                   const SizedBox(height: 16),
                   SwitchListTile(
-                    title: const Text('Included in Seller Price (مدرج ضمن التكلفة)',
-                        style: TextStyle(
+                    title: Text(l10n.includedInSellerPriceTitle,
+                        style: const TextStyle(
                             fontSize: 13, fontWeight: FontWeight.w500)),
-                    subtitle: const Text(
-                        'Does the seller cover this cost in the invoice price?',
-                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    subtitle: Text(
+                        l10n.includedInSellerPriceSubtitle,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
                     value: isIncluded,
                     activeColor: AppTheme.emerald,
                     onChanged: (val) => setDialogState(() => isIncluded = val),
@@ -1218,9 +1277,9 @@ class _ResponsibilityMatrixTabState
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: notesCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Comment / Notes (تعليق أوملاحظات)',
-                      hintText: 'إضافة تفاصيل أو شروط خاصة ببند التكلفة...',
+                    decoration: InputDecoration(
+                      labelText: l10n.commentNotesLabel,
+                      hintText: l10n.commentNotesHint,
                     ),
                     maxLines: 2,
                   ),
@@ -1231,7 +1290,7 @@ class _ResponsibilityMatrixTabState
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               onPressed: isLoading
@@ -1260,8 +1319,8 @@ class _ResponsibilityMatrixTabState
                         } else {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text('Updated successfully'),
+                              SnackBar(
+                                  content: Text(l10n.updatedSuccessfully),
                                   backgroundColor: AppTheme.emerald));
                         }
                       }
@@ -1272,7 +1331,7 @@ class _ResponsibilityMatrixTabState
                       height: 18,
                       child: CircularProgressIndicator(
                           strokeWidth: 2, color: Colors.white))
-                  : const Text('Save Changes'),
+                  : Text(l10n.saveChanges),
             ),
           ],
         ),

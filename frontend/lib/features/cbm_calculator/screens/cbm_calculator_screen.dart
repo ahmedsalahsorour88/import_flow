@@ -279,11 +279,12 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
     final dualRec = ContainerRequirementEngine.calculateBoth(totalCbm: totalCbm, totalWeightKg: totalGrossWt);
     final containerRec = _isStackable ? dualRec.stackableResult : dualRec.nonStackableResult;
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final modeRec = dualRec.modeRecommendation;
-    String recMethod = modeRec.recommendedModeAr;
-    String recContainer = modeRec.reasonAr;
+    String recMethod = isArabic ? modeRec.recommendedModeAr : modeRec.recommendedMode;
+    String recContainer = isArabic ? modeRec.reasonAr : modeRec.reasonEn;
     if (totalCbm >= 15.0) {
-      recContainer = containerRec.recommendationSummary;
+      recContainer = isArabic ? containerRec.recommendationSummary : containerRec.recommendationSummaryEn;
     }
 
     return Scrollbar(
@@ -491,7 +492,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            modeRec.reasonAr,
+                            isArabic ? modeRec.reasonAr : modeRec.reasonEn,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
@@ -1229,6 +1230,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
 
   Widget _buildComparisonTable(BuildContext context, ContainerRecommendationResult rec) {
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -1241,7 +1243,7 @@ class _CBMCalculatorScreenState extends ConsumerState<CBMCalculatorScreen> with 
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade800),
             ),
-            child: Text('${l.approvedRecommendation}: ${rec.recommendationSummary}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
+            child: Text('${l.approvedRecommendation}: ${isArabic ? rec.recommendationSummary : rec.recommendationSummaryEn}', style: TextStyle(fontWeight: FontWeight.bold, color: rec.isStackable ? AppTheme.emerald : Colors.orange.shade900)),
           ),
           const SizedBox(height: 12),
           Table(

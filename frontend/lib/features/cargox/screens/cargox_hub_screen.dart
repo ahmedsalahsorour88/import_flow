@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -267,26 +268,26 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     });
   }
 
-    @override
+  @override
   Widget build(BuildContext context) {
     final envelopesState = ref.watch(cargoxEnvelopesProvider);
     final envelopes = envelopesState.value ?? [];
 
     final tabs = [
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.table_chart_outlined,
         titleEn: 'Standard Commercial Invoice',
-        titleAr: 'الفاتورة المعيارية Excel والمطابقة',
+        titleAr: context.l10n.cargoxTabStandardInvoice,
       ),
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.markunread_mailbox_outlined,
         titleEn: 'Create CargoX Envelope',
-        titleAr: 'تجهيز وتوليد مظروف جديد',
+        titleAr: context.l10n.cargoxTabCreateEnvelope,
       ),
       VerticalNavTabItem(
         icon: Icons.hub_outlined,
         titleEn: 'Blockchain Envelopes Hub',
-        titleAr: 'مركز تتبع أظرف البلوك تشين',
+        titleAr: context.l10n.cargoxTabTrackingHub,
         badge: envelopes.isNotEmpty
             ? Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -301,10 +302,10 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               )
             : null,
       ),
-      const VerticalNavTabItem(
+      VerticalNavTabItem(
         icon: Icons.description_outlined,
         titleEn: 'ACI Digital Manifest Viewer',
-        titleAr: 'معاينة وتصدير المانيفست الرقمي',
+        titleAr: context.l10n.cargoxTabManifestViewer,
       ),
     ];
 
@@ -330,17 +331,17 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 children: [
                   const Icon(Icons.hub_outlined, color: AppTheme.cobalt, size: 20),
                   const SizedBox(width: 8),
-                  const Text(
-                    'منظومة كارجو إكس والبلوك تشين (CargoX & ACI Dispatch Hub):',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                  Text(
+                    context.l10n.cargoxEmbeddedTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                   ),
                   const SizedBox(width: 24),
                   SegmentedButton<int>(
-                    segments: const [
-                      ButtonSegment(value: 0, label: Text('الفاتورة المعيارية 📊', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 1, label: Text('تجهيز المظروف 📦', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 2, label: Text('تتبع البلوك تشين 🔗', style: TextStyle(fontSize: 11))),
-                      ButtonSegment(value: 3, label: Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11))),
+                    segments: [
+                      ButtonSegment(value: 0, label: Text(context.l10n.cargoxSegStandardInvoice, style: const TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 1, label: Text(context.l10n.cargoxSegCreateEnvelope, style: const TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 2, label: Text(context.l10n.cargoxSegTrackingHub, style: const TextStyle(fontSize: 11))),
+                      ButtonSegment(value: 3, label: Text(context.l10n.cargoxSegManifestViewer, style: const TextStyle(fontSize: 11))),
                     ],
                     selected: {_selectedSubTab},
                     onSelectionChanged: (set) => setState(() => _selectedSubTab = set.first),
@@ -358,7 +359,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     return VerticalStageScaffold(
       stageCode: '',
       titleEn: 'CargoX & ACI Blockchain Dispatch Hub',
-      titleAr: 'منظومة كارجو إكس والبلوك تشين والمانيفست الرقمي',
+      titleAr: context.l10n.cargoxHubTitle,
       headerIcon: Icons.hub_outlined,
       headerColor: AppTheme.cobalt,
       tabs: tabs,
@@ -367,7 +368,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'Live Refresh (تحديث حي)',
+          tooltip: context.l10n.cargoxLiveRefreshTooltip,
           onPressed: _refreshData,
         ),
       ],
@@ -399,22 +400,22 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.shield_outlined, color: AppTheme.cobalt, size: 28),
-                  SizedBox(width: 14),
+                  const Icon(Icons.shield_outlined, color: AppTheme.cobalt, size: 28),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'تجهيز وتوليد مظروف كارجو إكس المشفر (CargoX Blockchain Envelope Generator)',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                          context.l10n.cargoxEnvelopeGenTitle,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
-                          'يتم إنشاء المظروف الرقمي وتوقيعه إلكترونياً بالتشفير (PKI) وربطه برقم الـ ACID ومستندات الشحن المعتمدة قبل التحويل لمصلحة الجمارك المصرية.',
-                          style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                          context.l10n.cargoxEnvelopeGenDesc,
+                          style: const TextStyle(fontSize: 11.5, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -432,13 +433,13 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Row(
+                    Row(
                       children: [
-                        Icon(Icons.badge_outlined, color: AppTheme.cobalt, size: 20),
-                        SizedBox(width: 8),
+                        const Icon(Icons.badge_outlined, color: AppTheme.cobalt, size: 20),
+                        const SizedBox(width: 8),
                         Text(
-                          '1. بيانات الشحنة والربط مع منظومة التسجيل المسبق (ACID & Import File):',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                          context.l10n.cargoxSection1ShipmentAcid,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
                         ),
                       ],
                     ),
@@ -450,12 +451,12 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                           flex: 2,
                           child: SearchableDropdownField<int?>(
                             value: _selectedImportFileId,
-                            labelText: 'Import File (ملف الشحنة الاستيرادية) *',
-                            searchHintText: 'ابحث عن ملف الشحنة...',
+                            labelText: context.l10n.cargoxImportFileField,
+                            searchHintText: context.l10n.cargoxSearchFileHint,
                             items: [
-                              const SearchableDropdownItem<int?>(
+                              SearchableDropdownItem<int?>(
                                 value: null,
-                                label: '-- None / غير مرتبط بملف شحنة --',
+                                label: context.l10n.cargoxUnlinkedOption,
                               ),
                               ...importFiles.map((f) => SearchableDropdownItem<int?>(
                                     value: f.importFileId,
@@ -469,15 +470,15 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _acidNumberCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'رقم الـ ACID الجمركي (19 رقماً) *',
-                              prefixIcon: Icon(Icons.qr_code_2, size: 18),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.cargoxAcidNumberField,
+                              prefixIcon: const Icon(Icons.qr_code_2, size: 18),
+                              border: const OutlineInputBorder(),
                             ),
                             validator: (val) {
-                              if (val == null || val.trim().isEmpty) return 'مطلوب';
+                              if (val == null || val.trim().isEmpty) return context.l10n.required;
                               final digits = val.replaceAll(RegExp(r'[^0-9]'), '');
-                              if (digits.length != 19) return 'يجب أن يتكون من 19 رقماً';
+                              if (digits.length != 19) return context.l10n.cargoxAcidValidationDigits;
                               return null;
                             },
                           ),
@@ -486,10 +487,10 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _blNumberCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'رقم بوليصة الشحن (B/L Number)',
-                              prefixIcon: Icon(Icons.directions_boat_outlined, size: 18),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.cargoxBlNumberField,
+                              prefixIcon: const Icon(Icons.directions_boat_outlined, size: 18),
+                              border: const OutlineInputBorder(),
                             ),
                           ),
                         ),
@@ -501,36 +502,36 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         Expanded(
                           child: TextFormField(
                             controller: _importerNameCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'الشركة المستوردة (Importer Company) *',
-                              prefixIcon: Icon(Icons.business_outlined, size: 18),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.cargoxImporterCompanyField,
+                              prefixIcon: const Icon(Icons.business_outlined, size: 18),
+                              border: const OutlineInputBorder(),
                             ),
-                            validator: (val) => val == null || val.trim().isEmpty ? 'مطلوب' : null,
+                            validator: (val) => val == null || val.trim().isEmpty ? context.l10n.required : null,
                           ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: TextFormField(
                             controller: _supplierNameCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'المورد الأجنبي (Foreign Exporter) *',
-                              prefixIcon: Icon(Icons.factory_outlined, size: 18),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.cargoxForeignSupplierField,
+                              prefixIcon: const Icon(Icons.factory_outlined, size: 18),
+                              border: const OutlineInputBorder(),
                             ),
-                            validator: (val) => val == null || val.trim().isEmpty ? 'مطلوب' : null,
+                            validator: (val) => val == null || val.trim().isEmpty ? context.l10n.required : null,
                           ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
                           child: TextFormField(
                             controller: _supplierCargoXIdCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'معرف منصة CargoX للمورد (CargoX ID) *',
-                              prefixIcon: Icon(Icons.fingerprint, size: 18),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.cargoxSupplierCargoxIdField,
+                              prefixIcon: const Icon(Icons.fingerprint, size: 18),
+                              border: const OutlineInputBorder(),
                             ),
-                            validator: (val) => val == null || val.trim().isEmpty ? 'مطلوب' : null,
+                            validator: (val) => val == null || val.trim().isEmpty ? context.l10n.required : null,
                           ),
                         ),
                       ],
@@ -555,20 +556,20 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Row(
+                          Row(
                             children: [
-                              Icon(Icons.checklist_rtl_outlined, color: AppTheme.emerald, size: 20),
-                              SizedBox(width: 8),
+                              const Icon(Icons.checklist_rtl_outlined, color: AppTheme.emerald, size: 20),
+                              const SizedBox(width: 8),
                               Text(
-                                '2. قائمة المستندات المحملة داخل المظروف (Attached Documents Checklist):',
-                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
+                                context.l10n.cargoxSection2AttachedDocs,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13.5, color: AppTheme.charcoal),
                               ),
                             ],
                           ),
                           const SizedBox(width: 16),
                           TextButton.icon(
                             icon: const Icon(Icons.restore_page, size: 16),
-                            label: const Text('استعادة القائمة القياسية 📄', style: TextStyle(fontSize: 11)),
+                            label: Text(context.l10n.cargoxRestoreDefaultDocsBtn, style: const TextStyle(fontSize: 11)),
                             onPressed: () => setState(() => _initDefaultAttachedDocs()),
                           ),
                         ],
@@ -589,15 +590,15 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         5: FlexColumnWidth(1.0),
                       },
                       children: [
-                        const TableRow(
-                          decoration: BoxDecoration(color: AppTheme.charcoal),
+                        TableRow(
+                          decoration: const BoxDecoration(color: AppTheme.charcoal),
                           children: [
-                            Padding(padding: EdgeInsets.all(8), child: Text('نوع المستند', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('رقم المرجع', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('اسم الملف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('الحجم (KB)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('مطابقة ACID', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
-                            Padding(padding: EdgeInsets.all(8), child: Text('حذف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColDocType, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColDocNumber, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColFileName, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColFileSize, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColAcidMatch, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
+                            Padding(padding: const EdgeInsets.all(8), child: Text(context.l10n.cargoxColActions, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11))),
                           ],
                         ),
                         ..._attachedDocs.asMap().entries.map((entry) {
@@ -618,7 +619,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                                     borderRadius: BorderRadius.circular(6),
                                     border: Border.all(color: Colors.green.shade300),
                                   ),
-                                  child: const Text('🟢 100% مطابق', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)),
+                                  child: Text(context.l10n.cargoxDocMatchedBadge, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 10)),
                                 ),
                               ),
                               IconButton(
@@ -642,7 +643,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                         elevation: 0,
                       ),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('إضافة مستند جديد للمظروف', style: TextStyle(fontSize: 11.5)),
+                      label: Text(context.l10n.cargoxAddDocToEnvelopeBtn, style: const TextStyle(fontSize: 11.5)),
                       onPressed: _showAddDocumentDialog,
                     ),
                   ],
@@ -665,9 +666,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   icon: _isSavingEnvelope
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.security, size: 20, color: Colors.amber),
-                  label: const Text(
-                    'توليد وتوقيع مظروف CargoX بالبلوك تشين ⚡ (Generate & Sign Envelope)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  label: Text(
+                    context.l10n.cargoxGenerateAndSignEnvelopeBtn,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                   ),
                   onPressed: _isSavingEnvelope ? null : _submitCreateEnvelope,
                 ),
@@ -687,22 +688,22 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('إضافة مستند جديد للمظروف', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        title: Text(context.l10n.cargoxAddDocDialogTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
         content: SizedBox(
           width: 400,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              TextField(controller: typeCtrl, decoration: const InputDecoration(labelText: 'نوع المستند *', border: OutlineInputBorder())),
+              TextField(controller: typeCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocTypeField, border: const OutlineInputBorder())),
               const SizedBox(height: 10),
-              TextField(controller: numCtrl, decoration: const InputDecoration(labelText: 'رقم المستند', border: OutlineInputBorder())),
+              TextField(controller: numCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocNumberField, border: const OutlineInputBorder())),
               const SizedBox(height: 10),
-              TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'اسم الملف *', border: OutlineInputBorder())),
+              TextField(controller: nameCtrl, decoration: InputDecoration(labelText: context.l10n.cargoxDocFileNameField, border: const OutlineInputBorder())),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             onPressed: () {
@@ -719,7 +720,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               });
               Navigator.pop(ctx);
             },
-            child: const Text('إضافة للمظروف', style: TextStyle(color: Colors.white)),
+            child: Text(context.l10n.cargoxAddDocSubmitBtn, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -730,7 +731,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     if (!_envelopeFormKey.currentState!.validate()) return;
     if (_attachedDocs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى إضافة مستند واحد على الأقل داخل المظروف'), backgroundColor: AppTheme.orange),
+        SnackBar(content: Text(context.l10n.cargoxAtLeastOneDocError), backgroundColor: AppTheme.orange),
       );
       return;
     }
@@ -756,7 +757,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم توليد وتوقيع مظروف CargoX بنجاح (${created.envelopeCode}) ⚡'),
+            content: Text(context.l10n.cargoxEnvelopeCreatedSuccess(created.envelopeCode)),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -764,7 +765,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ أثناء إنشاء المظروف', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.cargoxEnvelopeCreateError, error: e);
       }
     } finally {
       if (mounted) setState(() => _isSavingEnvelope = false);
@@ -800,13 +801,13 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
           // Metric Cards
           Row(
             children: [
-              _buildMetricCard('إجمالي المظاريف (Total Envelopes)', '$totalCount', AppTheme.cobalt, Icons.markunread_mailbox),
+              _buildMetricCard(context.l10n.cargoxMetricTotalEnvelopes, '$totalCount', AppTheme.cobalt, Icons.markunread_mailbox),
               const SizedBox(width: 12),
-              _buildMetricCard('تم قبولها بالجمارك (Accepted by Customs)', '$acceptedCount', AppTheme.emerald, Icons.verified),
+              _buildMetricCard(context.l10n.cargoxMetricAcceptedCustoms, '$acceptedCount', AppTheme.emerald, Icons.verified),
               const SizedBox(width: 12),
-              _buildMetricCard('قيد المعالجة (In Progress / Uploaded)', '$uploadedCount', AppTheme.orange, Icons.hourglass_top),
+              _buildMetricCard(context.l10n.cargoxMetricInProgress, '$uploadedCount', AppTheme.orange, Icons.hourglass_top),
               const SizedBox(width: 12),
-              _buildMetricCard('مطابقة الـ ACID بنسبة 100%', '$verifiedCount', Colors.purple, Icons.check_circle_outline),
+              _buildMetricCard(context.l10n.cargoxMetricAcidVerified, '$verifiedCount', Colors.purple, Icons.check_circle_outline),
             ],
           ),
           const SizedBox(height: 18),
@@ -822,10 +823,10 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   Expanded(
                     flex: 2,
                     child: TextField(
-                      decoration: const InputDecoration(
-                        hintText: 'ابحث برقم المظروف، رقم الـ ACID، المورد، أو البوليصة...',
-                        prefixIcon: Icon(Icons.search, size: 18),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        hintText: context.l10n.cargoxSearchEnvelopesHint,
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        border: const OutlineInputBorder(),
                         isDense: true,
                       ),
                       onChanged: (val) => setState(() => _searchQuery = val),
@@ -834,11 +835,11 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   const SizedBox(width: 14),
                   DropdownButton<String>(
                     value: _statusFilter,
-                    items: const [
-                      DropdownMenuItem(value: 'All', child: Text('جميع الحالات (All Statuses)')),
-                      DropdownMenuItem(value: 'DRAFT', child: Text('مسودة (Draft)')),
-                      DropdownMenuItem(value: 'UPLOADED_BY_SUPPLIER', child: Text('مرفوع بالبلوك تشين (Uploaded)')),
-                      DropdownMenuItem(value: 'ACCEPTED_BY_CUSTOMS', child: Text('مقبول بالجمارك (Accepted)')),
+                    items: [
+                      DropdownMenuItem(value: 'All', child: Text(context.l10n.cargoxFilterAllStatuses)),
+                      DropdownMenuItem(value: 'DRAFT', child: Text(context.l10n.cargoxFilterDraft)),
+                      DropdownMenuItem(value: 'UPLOADED_BY_SUPPLIER', child: Text(context.l10n.cargoxFilterUploaded)),
+                      DropdownMenuItem(value: 'ACCEPTED_BY_CUSTOMS', child: Text(context.l10n.cargoxFilterAccepted)),
                     ],
                     onChanged: (val) => setState(() => _statusFilter = val ?? 'All'),
                   ),
@@ -846,7 +847,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, visualDensity: VisualDensity.compact),
                     icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                    label: const Text('تجهيز مظروف جديد ➕', style: TextStyle(color: Colors.white, fontSize: 11.5)),
+                    label: Text(context.l10n.cargoxPrepareNewEnvelopeBtn, style: const TextStyle(color: Colors.white, fontSize: 11.5)),
                     onPressed: () => setState(() => _selectedSubTab = 0),
                   ),
                 ],
@@ -861,8 +862,8 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(40),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.grey.shade300)),
-              child: const Center(
-                child: Text('لا توجد مظاريف مطابقة لشروط البحث', style: TextStyle(fontSize: 13, color: Colors.grey)),
+              child: Center(
+                child: Text(context.l10n.cargoxNoEnvelopesFound, style: const TextStyle(fontSize: 13, color: Colors.grey)),
               ),
             )
           else
@@ -944,14 +945,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               spacing: 20,
               runSpacing: 10,
               children: [
-                _buildMetaItem('رقم الـ ACID الجمركي:', env.acidNumber, isCopyable: true),
-                _buildMetaItem('المورد الأجنبي:', env.supplierName),
-                _buildMetaItem('معرف CargoX للمورد:', env.supplierCargoxId),
-                _buildMetaItem('رقم البوليصة:', env.blNumber ?? 'قيد الإصدار'),
+                _buildMetaItem(context.l10n.cargoxMetaAcidNumber, env.acidNumber, isCopyable: true),
+                _buildMetaItem(context.l10n.cargoxMetaSupplier, env.supplierName),
+                _buildMetaItem(context.l10n.cargoxMetaSupplierCargoxId, env.supplierCargoxId),
+                _buildMetaItem(context.l10n.cargoxMetaBlNumber, env.blNumber ?? context.l10n.cargoxMetaPendingIssuance),
                 if (env.blockchainTxHash != null)
-                  _buildMetaItem('Blockchain TX Hash:', '${env.blockchainTxHash!.substring(0, 16)}...', isCopyable: true, fullValue: env.blockchainTxHash),
+                  _buildMetaItem(context.l10n.cargoxMetaBlockchainTxHash, '${env.blockchainTxHash!.substring(0, 16)}...', isCopyable: true, fullValue: env.blockchainTxHash),
                 if (env.customsConfirmationReceipt != null)
-                  _buildMetaItem('إيصال الجمارك:', env.customsConfirmationReceipt!, isCopyable: true),
+                  _buildMetaItem(context.l10n.cargoxMetaCustomsReceipt, env.customsConfirmationReceipt!, isCopyable: true),
               ],
             ),
             const SizedBox(height: 12),
@@ -978,14 +979,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.verified_outlined, size: 15, color: Colors.purple),
-                  label: const Text('فحص الـ ACID 🛡️', style: TextStyle(fontSize: 11, color: Colors.purple)),
+                  label: Text(context.l10n.cargoxCheckAcidBtn, style: const TextStyle(fontSize: 11, color: Colors.purple)),
                   onPressed: () => _runAcidVerification(env.envelopeId),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.receipt_long, size: 15, color: AppTheme.cobalt),
-                  label: const Text('المانيفست الرقمي 📜', style: TextStyle(fontSize: 11, color: AppTheme.cobalt)),
+                  label: Text(context.l10n.cargoxDigitalManifestBtn, style: const TextStyle(fontSize: 11, color: AppTheme.cobalt)),
                   onPressed: () => _viewManifest(env),
                 ),
                 const SizedBox(width: 8),
@@ -997,14 +998,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                       visualDensity: VisualDensity.compact,
                     ),
                     icon: const Icon(Icons.send_to_mobile, size: 15, color: Colors.white),
-                    label: const Text('إغلاق وتحويل للجمارك ⚡', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                    label: Text(context.l10n.cargoxSealAndTransferBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     onPressed: () => _sealAndTransfer(env),
                   )
                 else
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                     decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(6), border: Border.all(color: Colors.green.shade300)),
-                    child: const Text('🟢 تم التسليم والاعتماد الجمركي', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
+                    child: Text(context.l10n.cargoxDeliveredAndAcceptedBadge, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 11)),
                   ),
               ],
             ),
@@ -1027,7 +1028,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
             onTap: () {
               Clipboard.setData(ClipboardData(text: fullValue ?? value));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('📋 تم النسخ إلى الحافظة'), duration: Duration(seconds: 1)),
+                SnackBar(content: Text(context.l10n.cargoxCopiedToClipboard), duration: const Duration(seconds: 1)),
               );
             },
             child: const Icon(Icons.copy, size: 13, color: AppTheme.cobalt),
@@ -1042,16 +1043,16 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     String label = status;
     if (status == 'ACCEPTED_BY_CUSTOMS') {
       bg = AppTheme.emerald;
-      label = 'مقبول بالجمارك (Accepted)';
+      label = context.l10n.cargoxFilterAccepted;
     } else if (status == 'UPLOADED_BY_SUPPLIER') {
       bg = AppTheme.cobalt;
-      label = 'مرفوع بالبلوك تشين (Uploaded)';
+      label = context.l10n.cargoxFilterUploaded;
     } else if (status == 'SEALED_AND_TRANSFERRED') {
       bg = Colors.purple;
-      label = 'محول للجمارك (Transferred)';
+      label = context.l10n.cargoxFilterAccepted;
     } else if (status == 'DRAFT') {
       bg = Colors.orange;
-      label = 'مسودة (Draft)';
+      label = context.l10n.cargoxFilterDraft;
     }
 
     return Container(
@@ -1072,7 +1073,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               children: [
                 Icon(report.allMatched ? Icons.verified : Icons.warning_amber, color: report.allMatched ? AppTheme.emerald : Colors.red),
                 const SizedBox(width: 8),
-                Text('تقرير مطابقة الـ ACID (${report.envelopeCode})', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(context.l10n.cargoxAcidReportDialogTitle(report.envelopeCode), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
               ],
             ),
             content: SizedBox(
@@ -1081,9 +1082,9 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('رقم الـ ACID المستهدف: ${report.targetAcidNumber}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                  Text(context.l10n.cargoxTargetAcidLabel(report.targetAcidNumber), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                   const SizedBox(height: 4),
-                  Text('نسبة المطابقة: ${report.verifiedCount} من إجمالي ${report.totalDocuments} مستندات', style: const TextStyle(fontSize: 12)),
+                  Text(context.l10n.cargoxMatchRatioLabel(report.verifiedCount, report.totalDocuments), style: const TextStyle(fontSize: 12)),
                   const Divider(),
                   ...report.items.map((item) => ListTile(
                         dense: true,
@@ -1095,14 +1096,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+              TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.close)),
             ],
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ أثناء فحص الـ ACID', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.cargoxAcidCheckError, error: e);
       }
     }
   }
@@ -1111,20 +1112,20 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.security, color: AppTheme.cobalt),
-            SizedBox(width: 8),
-            Text('تأكيد الإغلاق والتحويل للجمارك', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            const Icon(Icons.security, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text(context.l10n.cargoxConfirmSealTransferTitle, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text('هل أنت متأكد من إغلاق المظروف (${env.envelopeCode}) وتوقيعه رقمياً وتحويله لمصلحة الجمارك المصرية (Nafeza)؟'),
+        content: Text(context.l10n.cargoxConfirmSealTransferContent(env.envelopeCode)),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(context.l10n.cancel)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
             icon: const Icon(Icons.send, size: 16, color: Colors.white),
-            label: const Text('تأكيد التحويل الجمركي', style: TextStyle(color: Colors.white)),
+            label: Text(context.l10n.cargoxConfirmTransferBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -1142,14 +1143,14 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ ${res['message']} (إيصال: ${res['customs_confirmation_receipt']})'),
+            content: Text(context.l10n.cargoxSealSuccessSnackbar(res['message'], res['customs_confirmation_receipt'])),
             backgroundColor: AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ أثناء تحويل المظروف للجمارك', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.cargoxTransferError, error: e);
       }
     }
   }
@@ -1171,7 +1172,7 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isLoadingManifest = false);
-        showErrorDetailsDialog(context, title: 'خطأ أثناء جلب المانيفست الرقمي', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.cargoxFetchManifestError, error: e);
       }
     }
   }
@@ -1190,8 +1191,8 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
     }
 
     if (_activeDigitalManifest == null) {
-      return const Center(
-        child: Text('يرجى اختيار مظروف من مركز التتبع لعرض المانيفست الرقمي الخاص به'),
+      return Center(
+        child: Text(context.l10n.cargoxSelectEnvelopeForManifestPrompt),
       );
     }
 
@@ -1212,18 +1213,18 @@ class _CargoXHubScreenState extends ConsumerState<CargoXHubScreen> {
                   const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 22),
                   const SizedBox(width: 8),
                   Text(
-                    'المانيفست الرقمي الرسمي: ${_activeDigitalManifest!.envelopeCode} (ACID: ${_activeDigitalManifest!.acidNumber})',
+                    context.l10n.cargoxManifestTitle(_activeDigitalManifest!.envelopeCode, _activeDigitalManifest!.acidNumber),
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                   ),
                   const Spacer(),
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, visualDensity: VisualDensity.compact),
                     icon: const Icon(Icons.copy, size: 15, color: Colors.white),
-                    label: const Text('نسخ الـ JSON 📋', style: TextStyle(color: Colors.white, fontSize: 11)),
+                    label: Text(context.l10n.cargoxCopyJsonBtn, style: const TextStyle(color: Colors.white, fontSize: 11)),
                     onPressed: () {
                       Clipboard.setData(ClipboardData(text: jsonStr));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('📋 تم نسخ المانيفست الرقمي إلى الحافظة بنجاح')),
+                        SnackBar(content: Text(context.l10n.cargoxManifestCopiedToast)),
                       );
                     },
                   ),

@@ -117,6 +117,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 900;
                 final kpi1 = _buildKpiCard(
+                  context: context,
                   title: l.fobEgpCol,
                   preliminaryVal: res.preliminaryFobEgp,
                   finalVal: res.finalFobEgp,
@@ -124,6 +125,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   color: AppTheme.charcoal,
                 );
                 final kpi2 = _buildKpiCard(
+                  context: context,
                   title: l.cifEgpCol,
                   preliminaryVal: res.preliminaryCifEgp,
                   finalVal: res.finalCifEgp,
@@ -131,6 +133,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   color: AppTheme.cobalt,
                 );
                 final kpi3 = _buildKpiCard(
+                  context: context,
                   title: l.customsDutyCol,
                   preliminaryVal: res.preliminaryDutyEgp,
                   finalVal: res.finalDutyEgp,
@@ -138,6 +141,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   color: Colors.indigo,
                 );
                 final kpi4 = _buildKpiCard(
+                  context: context,
                   title: l.totalTaxesAndDutiesCol,
                   preliminaryVal: res.preliminaryTotalTaxesEgp,
                   finalVal: res.finalTotalTaxesEgp,
@@ -204,7 +208,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   DataColumn(label: Text(l.customsDutyCol)),
                   DataColumn(label: Text(l.vatCol)),
                   DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
-                  DataColumn(label: Text(l.totalTaxesAndDutiesCol)),
+                  DataColumn(label: Text(l.varianceCol)),
                 ],
 
                 rows: res.comparisonLines.map((line) {
@@ -245,7 +249,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                               ),
                               if (line.countryOfOrigin != null && line.countryOfOrigin!.isNotEmpty)
                                 Text(
-                                  'المنشأ: ${line.countryOfOrigin}',
+                                  '${l.originPrefix} ${line.countryOfOrigin}',
                                   style: TextStyle(fontSize: 10, color: Colors.blue.shade900),
                                 ),
                             ],
@@ -346,7 +350,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          l.saveCustomsStudy,
+                          l.applyRecalculatedDutiesTitle,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 13,
@@ -369,7 +373,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                     onPressed: onApplyNewFees,
                     icon: const Icon(Icons.save_alt, color: Colors.white, size: 18),
                     label: Text(
-                      l.saveCustomsStudy,
+                      l.applyAndLinkFinancialEstimate,
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -387,6 +391,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
   }
 
   Widget _buildKpiCard({
+    required BuildContext context,
     required String title,
     required double preliminaryVal,
     required double finalVal,
@@ -394,6 +399,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
     required Color color,
     bool isGrandTotal = false,
   }) {
+    final l = context.l10n;
     final diffSign = varianceVal > 0 ? '+' : '';
     final diffColor = varianceVal > 0
         ? AppTheme.crimson
@@ -428,7 +434,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'مبدئي (PO):',
+                      l.preliminaryPoLabel,
                       style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                     ),
                     FittedBox(
@@ -455,7 +461,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      'المعاد احتسابه:',
+                      l.recalculatedLabel,
                       style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                     ),
                     FittedBox(
@@ -486,7 +492,7 @@ class RecalculationVarianceComparisonCard extends StatelessWidget {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Text(
-                  'الفارق: ',
+                  '${l.varianceLabel} ',
                   style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
                 ),
                 Text(

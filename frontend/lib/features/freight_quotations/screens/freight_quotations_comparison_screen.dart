@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
@@ -36,6 +37,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Future<void> _fetchQuotations(int importFileId) async {
+    final l10n = context.l10n;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -71,7 +73,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
       }
 
     } catch (e) {
-      _error = 'حدث خطأ أثناء تحميل عروض الأسعار: $e';
+      _error = l10n.freightQuotesLoadError(e.toString());
     } finally {
       if (mounted) {
         setState(() {
@@ -82,6 +84,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Future<void> _selectQuotation(int quotationId) async {
+    final l10n = context.l10n;
     final quote = _quotations.where((q) => q['quotation_id'] == quotationId).firstOrNull;
     final rfqId = quote?['rfq_id'];
 
@@ -91,7 +94,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
 
     if (rfqId == null) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم اختيار عرض السعر بنجاح'), backgroundColor: AppTheme.emerald));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.freightQuoteSelectedSuccess), backgroundColor: AppTheme.emerald));
       }
       return;
     }
@@ -104,21 +107,22 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم اختيار واعتماد عرض السعر بنجاح ✅'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text(l10n.freightQuoteAwardedSuccess), backgroundColor: AppTheme.emerald),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('خطأ في اعتماد العرض: $e'), backgroundColor: AppTheme.crimson));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l10n.freightQuoteAwardError(e.toString())), backgroundColor: AppTheme.crimson));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('مقارنة عروض أسعار الشحن (Side-by-Side Comparison)', style: TextStyle(color: Colors.white)),
+        title: Text(l10n.freightQuotationsComparisonTitle, style: const TextStyle(color: Colors.white)),
         backgroundColor: _charcoal,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: const [
@@ -139,9 +143,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
             else if (_error != null)
               Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
             else if (_selectedImportFileId == null)
-              const Center(child: Text('الرجاء اختيار ملف استيراد لعرض عروض الأسعار', style: TextStyle(fontSize: 18)))
+              Center(child: Text(l10n.selectImportFilePrompt, style: const TextStyle(fontSize: 18)))
             else if (_quotations.isEmpty)
-              const Center(child: Text('لا توجد عروض أسعار مسجلة لهذا الملف', style: TextStyle(fontSize: 18)))
+              Center(child: Text(l10n.noFreightQuotesForFile, style: const TextStyle(fontSize: 18)))
             else
               Expanded(
                 child: Column(
@@ -159,11 +163,12 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Widget _buildImportFileSelector() {
+    final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     final items = importFiles.map((file) {
       final code = file.importFileCode;
-      final supplier = file.supplierName.isNotEmpty ? file.supplierName : 'Unknown Supplier';
+      final supplier = file.supplierName.isNotEmpty ? file.supplierName : l10n.unknownSupplierFallback;
       final company = file.companyName.isNotEmpty ? file.companyName : '';
       final label = '$code — $supplier ${company.isNotEmpty ? "($company)" : ""}';
       return SearchableDropdownItem<int>(
@@ -180,8 +185,8 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: SearchableDropdownField<int>(
-        labelText: 'اختر ملف الاستيراد لمقارنة عروض الأسعار (Select Import File)',
-        hintText: 'ابحث برقم الملف، اسم المورد الأجنبي، أو الشركة المستوردة...',
+        labelText: l10n.selectImportFileDropdownLabel,
+        hintText: l10n.selectImportFileDropdownHint,
         value: _selectedImportFileId,
         items: items,
         onChanged: (fileId) {
@@ -199,6 +204,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Widget _buildMetricsBar() {
+    final l10n = context.l10n;
     if (_quotations.isEmpty) return const SizedBox.shrink();
 
     // Find cheapest
@@ -215,7 +221,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
 
     // Find selected
     final selected = _quotations.where((q) => q['quotation_id'] == _selectedQuotationId).toList();
-    final selectedName = selected.isNotEmpty ? selected.first['provider_name'] : 'لم يتم الاختيار بعد';
+    final selectedName = selected.isNotEmpty ? selected.first['provider_name'] : l10n.notSelectedYet;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -223,9 +229,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildMetric('الأرخص', '${cheapest['provider_name']} (${cheapest['total_cost']} ${cheapest['currency_code']})', Icons.attach_money, _emerald),
-          _buildMetric('الأسرع', '${fastest['provider_name']} (${fastest['transit_days']} يوم)', Icons.speed, _cobalt),
-          _buildMetric('المختار حالياً', selectedName, Icons.check_circle, _charcoal),
+          _buildMetric(l10n.metricCheapestQuote, '${cheapest['provider_name']} (${cheapest['total_cost']} ${cheapest['currency_code']})', Icons.attach_money, _emerald),
+          _buildMetric(l10n.metricFastestQuote, '${fastest['provider_name']} (${l10n.transitDaysCount(fastest['transit_days'])})', Icons.speed, _cobalt),
+          _buildMetric(l10n.metricCurrentlySelected, selectedName, Icons.check_circle, _charcoal),
         ],
       ),
     );
@@ -248,6 +254,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
   }
 
   Widget _buildComparisonColumns() {
+    final l10n = context.l10n;
     // Determine cheapest id to give it a gold badge
     int? cheapestId;
     if (_quotations.isNotEmpty) {
@@ -287,9 +294,9 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                           margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(color: _gold, borderRadius: BorderRadius.circular(12)),
-                          child: const Text('الأفضل سعراً', style: TextStyle(fontWeight: FontWeight.bold)),
+                          child: Text(l10n.badgeBestPrice, style: const TextStyle(fontWeight: FontWeight.bold)),
                         ),
-                      Text(q['provider_name'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
+                      Text(q['provider_name'] ?? l10n.unknownCarrierFallback, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18), textAlign: TextAlign.center),
                     ],
                   ),
                 ),
@@ -297,16 +304,16 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      _buildDetailRow('إجمالي التكلفة', '${q['total_cost']} ${q['currency_code']}', bold: true, color: _emerald),
-                      _buildDetailRow('الشحن البحري', '${q['ocean_freight_cost']} ${q['currency_code']}'),
-                      _buildDetailRow('مصاريف محلية', '${q['local_charges_cost']} ${q['currency_code']}'),
+                      _buildDetailRow(l10n.totalFreightCostLabel, '${q['total_cost']} ${q['currency_code']}', bold: true, color: _emerald),
+                      _buildDetailRow(l10n.oceanFreightLabel, '${q['ocean_freight_cost']} ${q['currency_code']}'),
+                      _buildDetailRow(l10n.localChargesLabel, '${q['local_charges_cost']} ${q['currency_code']}'),
                       const Divider(),
-                      _buildDetailRow('مدة الترانزيت', '${q['transit_days']} يوم'),
-                      _buildDetailRow('تاريخ الإبحار', q['sailing_date']?.toString() ?? '-'),
-                      _buildDetailRow('تاريخ الوصول', q['estimated_arrival_date']?.toString() ?? '-'),
+                      _buildDetailRow(l10n.transitDurationLabel, l10n.transitDaysCount(q['transit_days'] ?? 0)),
+                      _buildDetailRow(l10n.sailingDateLabel, q['sailing_date']?.toString() ?? '-'),
+                      _buildDetailRow(l10n.estimatedArrivalDateLabel, q['estimated_arrival_date']?.toString() ?? '-'),
                       const Divider(),
                       if (q['remarks'] != null) ...[
-                        const Text('ملاحظات:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(l10n.remarksLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
                         Text(q['remarks'].toString()),
                       ]
                     ],
@@ -320,7 +327,7 @@ class _FreightQuotationsComparisonScreenState extends ConsumerState<FreightQuota
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
                     onPressed: () => _selectQuotation(qId),
-                    child: Text(isSelected ? 'تم الاختيار' : 'اختيارها', style: const TextStyle(color: Colors.white, fontSize: 16)),
+                    child: Text(isSelected ? l10n.quoteAwardedBtn : l10n.awardQuoteBtn, style: const TextStyle(color: Colors.white, fontSize: 16)),
                   ),
                 ),
               ],

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/partner_model.dart';
 import '../providers/partners_provider.dart';
@@ -26,6 +27,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = context.l10n;
     final soaAsync = ref.watch(partnerStatementOfAccountProvider(partner.providerId ?? 0));
 
     return Dialog(
@@ -65,7 +67,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                         Row(
                           children: [
                             Text(
-                              'كشف حساب مقدم الخدمة — ${partner.partnerName}',
+                              l10n.partnerSoaTitle(partner.partnerName),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 17,
@@ -88,7 +90,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'تصنيف الشريك: ${partner.partnerType} | الرقم الضريبي: ${partner.taxId ?? "—"} | العملات والحركات المالية',
+                          l10n.partnerSoaSubtitle(partner.partnerType, partner.taxId ?? "—"),
                           style: const TextStyle(color: Colors.white70, fontSize: 12),
                         ),
                       ],
@@ -96,7 +98,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: Colors.white70),
-                    tooltip: 'تحديث البيانات',
+                    tooltip: l10n.refresh,
                     onPressed: () {
                       ref.invalidate(partnerStatementOfAccountProvider(partner.providerId ?? 0));
                     },
@@ -112,13 +114,13 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
             // Content Body
             Expanded(
               child: soaAsync.when(
-                loading: () => const Center(
+                loading: () => Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CircularProgressIndicator(color: AppTheme.cobalt),
-                      SizedBox(height: 16),
-                      Text('جاري احتساب كشف الحساب وتجميع الأرصدة...', style: TextStyle(color: AppTheme.charcoal)),
+                      const CircularProgressIndicator(color: AppTheme.cobalt),
+                      const SizedBox(height: 16),
+                      Text(l10n.calculatingSoaMsg, style: const TextStyle(color: AppTheme.charcoal)),
                     ],
                   ),
                 ),
@@ -130,14 +132,14 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       children: [
                         const Icon(Icons.error_outline, color: AppTheme.crimson, size: 48),
                         const SizedBox(height: 12),
-                        Text('حدث خطأ أثناء جلب كشف الحساب: $err', style: const TextStyle(color: AppTheme.crimson)),
+                        Text(l10n.soaFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                       ],
                     ),
                   ),
                 ),
                 data: (soa) {
                   if (soa == null) {
-                    return const Center(child: Text('لا توجد بيانات متاحة لهذا الشريك'));
+                    return Center(child: Text(l10n.noSoaDataAvailable));
                   }
 
                   return Padding(
@@ -146,9 +148,9 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         // Currency Balances Cards
-                        const Text(
-                          'ملخص الأرصدة والمستحقات بكل عملة (Multi-Currency Balances):',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                        Text(
+                          l10n.multiCurrencyBalancesHeader,
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                         ),
                         const SizedBox(height: 10),
                         Wrap(
@@ -191,7 +193,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text('إجمالي الفواتير:', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                      Text(l10n.totalInvoicedLabel, style: const TextStyle(fontSize: 11, color: Colors.black54)),
                                       Text(_formatNumber(cb.totalInvoiced), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                     ],
                                   ),
@@ -199,7 +201,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text('المبالغ المسددة:', style: TextStyle(fontSize: 11, color: Colors.black54)),
+                                      Text(l10n.totalPaidLabel, style: const TextStyle(fontSize: 11, color: Colors.black54)),
                                       Text(_formatNumber(cb.totalPaid), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                     ],
                                   ),
@@ -207,7 +209,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      const Text('الرصيد المستحق:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
+                                      Text(l10n.balanceDueLabel, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.charcoal)),
                                       Text(
                                         _formatNumber(cb.balanceDue),
                                         style: TextStyle(
@@ -231,13 +233,13 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'سجل العمليات والفواتير والمدفوعات (${soa.ledgerEntries.length} حركة مسجلة):',
+                              l10n.transactionsLedgerHeader(soa.ledgerEntries.length),
                               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
                             ),
                             Row(
                               children: [
                                 Text(
-                                  'فواتير: ${soa.totalInvoicesCount} | دفعات: ${soa.totalPaymentsCount}',
+                                  l10n.invoicesCountLabel(soa.totalInvoicesCount, soa.totalPaymentsCount),
                                   style: const TextStyle(fontSize: 12, color: Colors.black54, fontWeight: FontWeight.w600),
                                 ),
                               ],
@@ -255,12 +257,12 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                       color: Colors.grey.shade100,
                                       borderRadius: BorderRadius.circular(8),
                                     ),
-                                    child: const Column(
+                                    child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(Icons.receipt_long_outlined, size: 36, color: Colors.grey),
-                                        SizedBox(height: 8),
-                                        Text('لا توجد حركات فواتير أو مدفوعات مسجلة لهذا الشريك حتى الآن'),
+                                        const Icon(Icons.receipt_long_outlined, size: 36, color: Colors.grey),
+                                        const SizedBox(height: 8),
+                                        Text(l10n.noLedgerEntriesFound),
                                       ],
                                     ),
                                   ),
@@ -277,16 +279,16 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                         headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                                         columnSpacing: 18,
                                         horizontalMargin: 12,
-                                        columns: const [
-                                          DataColumn(label: Text('التاريخ', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('النوع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('المرجع', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('البيان / الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('العملة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('مدين (فاتورة)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('دائن (سداد)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
-                                          DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                        columns: [
+                                          DataColumn(label: Text(l10n.ledgerDateCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerTypeCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerRefCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerImportFileCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerDescriptionCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerCurrencyCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerDebitCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerCreditCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
+                                          DataColumn(label: Text(l10n.ledgerStatusCol, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12))),
                                         ],
                                         rows: soa.ledgerEntries.map((entry) {
                                           final isInvoice = entry.entryType.contains('Invoice');
@@ -303,7 +305,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                                                     borderRadius: BorderRadius.circular(4),
                                                   ),
                                                   child: Text(
-                                                    isInvoice ? 'فاتورة' : 'سداد',
+                                                    isInvoice ? l10n.ledgerInvoiceBadge : l10n.ledgerPaymentBadge,
                                                     style: TextStyle(
                                                       fontSize: 10,
                                                       fontWeight: FontWeight.bold,
@@ -379,9 +381,9 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text(
-                    'Sorour Logistics ERP — وحدة محاسبة الموردين ومقدمي الخدمات متعددة العملات',
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  Text(
+                    l10n.soaFooterText,
+                    style: const TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                   ElevatedButton(
                     onPressed: () => Navigator.of(context).pop(),
@@ -390,7 +392,7 @@ class PartnerStatementOfAccountDialog extends ConsumerWidget {
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
                     ),
-                    child: const Text('إغلاق'),
+                    child: Text(l10n.closeBtn),
                   ),
                 ],
               ),

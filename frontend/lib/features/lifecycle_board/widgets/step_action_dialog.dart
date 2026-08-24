@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/lifecycle_board_model.dart';
 import '../providers/lifecycle_board_provider.dart';
@@ -28,29 +29,13 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   final List<String> _selectedNextSteps = [];
   bool _isSaving = false;
 
-  final Map<String, String> _allStepsMap = {
-    'STEP_01': 'STEP_01: Freight Studies (دراسات النولون)',
-    'STEP_02': 'STEP_02: Customs Studies (الدراسات الجمركية)',
-    'STEP_03': 'STEP_03: Regulatory Reqs (اشتراطات الاستيراد)',
-    'STEP_04': 'STEP_04: Finance Approvals (اعتماد الميزانية)',
-    'STEP_05': 'STEP_05: ACID Operations (إصدار ACID)',
-    'STEP_06': 'STEP_06: Freight Booking (حجز النولون)',
-    'STEP_07': 'STEP_07: Freight Allocations (تخصيص الحاويات)',
-    'STEP_08': 'STEP_08: Draft Docs Review (مراجعة المسودات)',
-    'STEP_09': 'STEP_09: Docs Customs Approval (الاعتماد النهائي)',
-    'STEP_10': 'STEP_10: CargoX Follow-up (رفع CargoX)',
-    'STEP_11': 'STEP_11: Originals Collection (أصول المستندات)',
-    'STEP_12': 'STEP_12: Bank Form 4 (نموذج 4 البنكي)',
-    'STEP_13': 'STEP_13: Declaration 46 (إقرار 46 ك.م)',
-    'STEP_14': 'STEP_14: Clearance Follow-up (الكشف والتثمين)',
-    'STEP_15': 'STEP_15: Drawing Samples (سحب العينات)',
-    'STEP_16': 'STEP_16: Cargo Discrepancy (محضر المعاينة)',
-    'STEP_17': 'STEP_17: Final Calculation (سداد الرسوم)',
-    'STEP_18': 'STEP_18: Demurrage & Detention (الأرضيات)',
-    'STEP_19': 'STEP_19: Warehouse GRN (إذن الإضافة)',
-    'STEP_20': 'STEP_20: Landed Cost (تسوية التكلفة)',
-    'STEP_21': 'STEP_21: Final Closure (إغلاق الملف)',
-  };
+  final List<String> _allStepCodes = [
+    'STEP_01', 'STEP_02', 'STEP_03', 'STEP_04', 'STEP_05',
+    'STEP_06', 'STEP_07', 'STEP_08', 'STEP_09', 'STEP_10',
+    'STEP_11', 'STEP_12', 'STEP_13', 'STEP_14', 'STEP_15',
+    'STEP_16', 'STEP_17', 'STEP_18', 'STEP_19', 'STEP_20',
+    'STEP_21',
+  ];
 
   @override
   void initState() {
@@ -128,6 +113,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   }
 
   Future<void> _handleSaveAndAdvance() async {
+    final l10n = context.l10n;
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
@@ -156,16 +142,16 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
           SnackBar(
             backgroundColor: AppTheme.emerald,
             content: Text(
-              'تم حفظ الخطوة وتفعيل المراحل التالية (${_selectedNextSteps.join(', ')}) بنجاح للشحنة ${widget.shipment.importFileCode}.',
+              l10n.stepAdvanceSuccessSnack(_selectedNextSteps.join(', '), widget.shipment.importFileCode),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             backgroundColor: AppTheme.crimson,
-            content: Text('حدث خطأ أثناء حفظ الخطوة. يرجى مراجعة الخادم.'),
+            content: Text(l10n.stepAdvanceErrorSnack),
           ),
         );
       }
@@ -173,17 +159,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   }
 
   Future<void> _handleSkipStep() async {
+    final l10n = context.l10n;
     final reasonController = TextEditingController();
     final formKey = GlobalKey<FormState>();
 
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
-            SizedBox(width: 8),
-            Text('تخطي هذه المرحلة (Skip Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Icon(Icons.fast_forward_rounded, color: AppTheme.orange),
+            const SizedBox(width: 8),
+            Text(l10n.skipStepDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: SizedBox(
@@ -195,18 +182,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'هل أنت متأكد من تخطي الخطوة (${widget.shipment.stepNameAr}) للشحنة ${widget.shipment.importFileCode}؟',
+                  l10n.skipStepConfirmText(l10n.lifecycleStepName(widget.shipment.stepCode), widget.shipment.importFileCode),
                   style: const TextStyle(fontSize: 13),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: reasonController,
-                  decoration: const InputDecoration(
-                    labelText: 'سبب التخطي (Skip Reason) *',
-                    hintText: 'مثال: شحنة CIF - نولون مسدد، أو إعفاء من الـ ACID...',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: l10n.skipReasonLabel,
+                    hintText: l10n.skipReasonHint,
+                    border: const OutlineInputBorder(),
                   ),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'يلزم إدخال سبب التخطي' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? l10n.skipReasonRequired : null,
                   maxLines: 2,
                 ),
               ],
@@ -214,7 +201,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
             onPressed: () {
@@ -223,7 +210,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
               }
             },
             icon: const Icon(Icons.fast_forward_rounded, color: Colors.white, size: 18),
-            label: const Text('تأكيد التخطي والترحيل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(l10n.confirmSkipAndAdvanceBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -246,7 +233,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
             SnackBar(
               backgroundColor: AppTheme.orange,
               content: Text(
-                '⏭️ تم تخطي الخطوة بنجاح وتفعيل المراحل التالية (${_selectedNextSteps.join(', ')}) للشحنة ${widget.shipment.importFileCode}.',
+                l10n.stepSkippedSuccessSnack(_selectedNextSteps.join(', '), widget.shipment.importFileCode),
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             ),
@@ -257,6 +244,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
   }
 
   Future<void> _handleHoldOrResume() async {
+    final l10n = context.l10n;
     final isOnHold = widget.shipment.status == 'On-Hold';
     if (isOnHold) {
       setState(() => _isSaving = true);
@@ -264,16 +252,16 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
       final success = await notifier.setMultiActiveStages(
         importFileCode: widget.shipment.importFileCode,
         activeStepCodes: [widget.shipment.stepCode],
-        notes: 'تم استئناف العمل على الشحنة من نفس المرحلة',
+        notes: 'Resumed workflow from active stage',
       );
       if (mounted) {
         setState(() => _isSaving = false);
         if (success) {
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               backgroundColor: AppTheme.emerald,
-              content: Text('▶️ تم استئناف الشحنة ومواصلة دورة العمل بنجاح.'),
+              content: Text(l10n.shipmentResumedSuccessSnack),
             ),
           );
         }
@@ -285,11 +273,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
-              SizedBox(width: 8),
-              Text('إيقاف مؤقت / تعليق الشحنة (Put on Hold)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.pause_circle_outline_rounded, color: AppTheme.crimson),
+              const SizedBox(width: 8),
+              Text(l10n.holdDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: SizedBox(
@@ -301,18 +289,18 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'سيتم تعليق الشحنة ${widget.shipment.importFileCode} مؤقتاً عند هذه الخطوة (${widget.shipment.stepNameAr}).',
+                    l10n.holdConfirmText(widget.shipment.importFileCode, l10n.lifecycleStepName(widget.shipment.stepCode)),
                     style: const TextStyle(fontSize: 13),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
                     controller: reasonController,
-                    decoration: const InputDecoration(
-                      labelText: 'سبب الإيقاف المؤقت (Hold Reason) *',
-                      hintText: 'مثال: في انتظار موافقة البنك، أو مراجعة مع المورد...',
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      labelText: l10n.holdReasonLabel,
+                      hintText: l10n.holdReasonHint,
+                      border: const OutlineInputBorder(),
                     ),
-                    validator: (v) => (v == null || v.trim().isEmpty) ? 'يلزم إدخال سبب الإيقاف' : null,
+                    validator: (v) => (v == null || v.trim().isEmpty) ? l10n.holdReasonRequired : null,
                     maxLines: 2,
                   ),
                 ],
@@ -320,7 +308,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
               onPressed: () {
@@ -329,7 +317,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                 }
               },
               icon: const Icon(Icons.pause_circle_filled_rounded, color: Colors.white, size: 18),
-              label: const Text('تأكيد الإيقاف المؤقت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: Text(l10n.confirmHoldBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
@@ -349,9 +337,9 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
           if (success) {
             Navigator.of(context).pop();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
+              SnackBar(
                 backgroundColor: AppTheme.crimson,
-                content: Text('⏸️ تم تعليق الشحنة مؤقتاً بنجاح.'),
+                content: Text(l10n.shipmentHeldSuccessSnack),
               ),
             );
           }
@@ -362,7 +350,9 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isOnHold = widget.shipment.status == 'On-Hold';
+    final localizedStepName = l10n.lifecycleStepName(widget.shipment.stepCode);
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -394,7 +384,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         Row(
                           children: [
                             Text(
-                              'بطاقة تنفيذ الخطوة: ${widget.shipment.stepNameEn}',
+                              l10n.stepActionCardTitle(localizedStepName),
                               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
                             const SizedBox(width: 8),
@@ -405,14 +395,14 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                                 borderRadius: BorderRadius.circular(6),
                               ),
                               child: Text(
-                                isOnHold ? '${widget.shipment.stepCode} (On-Hold)' : widget.shipment.stepCode,
+                                isOnHold ? '${widget.shipment.stepCode} (${l10n.onHoldStatusTag})' : widget.shipment.stepCode,
                                 style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
                               ),
                             ),
                           ],
                         ),
                         Text(
-                          widget.shipment.stepNameAr,
+                          localizedStepName,
                           style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
                         ),
                       ],
@@ -442,20 +432,20 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         ),
                         child: Row(
                           children: [
-                            _buildInfoCol('ملف الشحنة', widget.shipment.importFileCode, isBold: true, color: AppTheme.cobalt),
-                            _buildInfoCol('الشركة المستوردة', widget.shipment.companyName),
-                            _buildInfoCol('المورد الأجنبي', widget.shipment.supplierName),
-                            _buildInfoCol('أمر الشراء', widget.shipment.poNumber ?? 'N/A'),
-                            _buildInfoCol('القيمة التقديرية', '${widget.shipment.estimatedCost.toStringAsFixed(0)} ${widget.shipment.estimatedCostCurrency}', isBold: true, color: AppTheme.emerald),
+                            _buildInfoCol(l10n.importFileLabel, widget.shipment.importFileCode, isBold: true, color: AppTheme.cobalt),
+                            _buildInfoCol(l10n.importingCompanyLabel, widget.shipment.companyName),
+                            _buildInfoCol(l10n.foreignSupplierLabel, widget.shipment.supplierName),
+                            _buildInfoCol(l10n.purchaseOrderLabel, widget.shipment.poNumber ?? 'N/A'),
+                            _buildInfoCol(l10n.estimatedValueLabel, '${widget.shipment.estimatedCost.toStringAsFixed(0)} ${widget.shipment.estimatedCostCurrency}', isBold: true, color: AppTheme.emerald),
                           ],
                         ),
                       ),
                       const SizedBox(height: 18),
 
                       // Step-Specific Parameters Form
-                      const Text(
-                        'بيانات ومتطلبات الخطوة التشغيلية الحالية:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                      Text(
+                        l10n.currentStepRequirementsHeader,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                       ),
                       const SizedBox(height: 10),
 
@@ -465,11 +455,11 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             child: TextFormField(
                               controller: _param1Controller,
                               decoration: InputDecoration(
-                                labelText: _getParam1Label(widget.shipment.stepCode),
+                                labelText: l10n.stepParam1Label(widget.shipment.stepCode),
                                 border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
-                              validator: (val) => val == null || val.trim().isEmpty ? 'هذا الحقل إلزامي' : null,
+                              validator: (val) => val == null || val.trim().isEmpty ? l10n.requiredFieldValidation : null,
                             ),
                           ),
                           const SizedBox(width: 12),
@@ -477,7 +467,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             child: TextFormField(
                               controller: _param2Controller,
                               decoration: InputDecoration(
-                                labelText: _getParam2Label(widget.shipment.stepCode),
+                                labelText: l10n.stepParam2Label(widget.shipment.stepCode),
                                 border: const OutlineInputBorder(),
                                 isDense: true,
                               ),
@@ -490,7 +480,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       TextFormField(
                         controller: _param3Controller,
                         decoration: InputDecoration(
-                          labelText: _getParam3Label(widget.shipment.stepCode),
+                          labelText: l10n.stepParam3Label(widget.shipment.stepCode),
                           border: const OutlineInputBorder(),
                           isDense: true,
                         ),
@@ -498,20 +488,20 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       const SizedBox(height: 18),
 
                       // Next Step Multi-Target Picker (Supports Concurrent Multi-Stage)
-                      const Text(
-                        'المراحل التالية المستهدفة بعد الإنجاز (يمكن اختيار أكثر من مرحلة بالتوازي):',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                      Text(
+                        l10n.targetNextPhasesHeader,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                       ),
                       const SizedBox(height: 8),
 
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: _allStepsMap.entries.map((entry) {
-                          final isSelected = _selectedNextSteps.contains(entry.key);
+                        children: _allStepCodes.map((stepCode) {
+                          final isSelected = _selectedNextSteps.contains(stepCode);
                           return FilterChip(
                             label: Text(
-                              entry.value,
+                              '$stepCode: ${l10n.lifecycleStepName(stepCode)}',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -524,9 +514,9 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                             onSelected: (selected) {
                               setState(() {
                                 if (selected) {
-                                  _selectedNextSteps.add(entry.key);
+                                  _selectedNextSteps.add(stepCode);
                                 } else {
-                                  _selectedNextSteps.remove(entry.key);
+                                  _selectedNextSteps.remove(stepCode);
                                 }
                               });
                             },
@@ -536,17 +526,17 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       const SizedBox(height: 18),
 
                       // Notes & Live Updates
-                      const Text(
-                        'ملاحظات وسجل التحديثات لهذه الخطوة:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                      Text(
+                        l10n.stepNotesHeader,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                       ),
                       const SizedBox(height: 6),
                       TextFormField(
                         controller: _notesController,
                         maxLines: 3,
-                        decoration: const InputDecoration(
-                          hintText: 'اكتب الملاحظات الفنية، التوجيهات أو المرجع التشغيلي...',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          hintText: l10n.stepNotesHint,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ],
@@ -565,7 +555,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                       TextButton.icon(
                         onPressed: () => Navigator.of(context).pop(),
                         icon: const Icon(Icons.cancel_outlined, size: 16),
-                        label: const Text('إغلاق'),
+                        label: Text(l10n.close),
                       ),
                       const SizedBox(width: 8),
                       // Skip Step Button
@@ -577,7 +567,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         ),
                         onPressed: _isSaving ? null : _handleSkipStep,
                         icon: const Icon(Icons.fast_forward_rounded, size: 16),
-                        label: const Text('تخطي المرحلة (Skip Step)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: Text(l10n.skipStepBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                       const SizedBox(width: 8),
                       // Hold / Resume Button
@@ -589,7 +579,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         ),
                         onPressed: _isSaving ? null : _handleHoldOrResume,
                         icon: Icon(isOnHold ? Icons.play_arrow_rounded : Icons.pause_circle_outline_rounded, size: 16),
-                        label: Text(isOnHold ? 'استئناف الشحنة (Resume)' : 'إيقاف مؤقت (Hold)', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                        label: Text(isOnHold ? l10n.resumeShipmentBtn : l10n.holdShipmentBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                       ),
                     ],
                   ),
@@ -604,7 +594,7 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                         : const Icon(Icons.check_circle_outline, size: 18, color: Colors.white),
                     label: Text(
-                      _isSaving ? 'جاري الحفظ والترحيل...' : 'اكتمال الخطوة وترحيل الشحنة',
+                      _isSaving ? l10n.savingAndAdvancing : l10n.completeAndAdvanceBtn,
                       style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 13),
                     ),
                   ),
@@ -637,76 +627,5 @@ class _StepActionDialogState extends ConsumerState<StepActionDialog> {
         ],
       ),
     );
-  }
-
-  String _getParam1Label(String stepCode) {
-    switch (stepCode) {
-      case 'STEP_01':
-        return 'اسم الخط الملاحي / شركة الشحن المعتمدة';
-      case 'STEP_02':
-        return 'بند التعريفة الجمركية (HS Code)';
-      case 'STEP_03':
-        return 'جهة العرض والرقابة المطلوبة';
-      case 'STEP_04':
-        return 'مبلغ الدفعة المعتمدة للمورد';
-      case 'STEP_05':
-        return 'الرقم التعريفي المبدئي (ACID Number)';
-      case 'STEP_06':
-        return 'رقم تأكيد الحجز (Booking Ref)';
-      case 'STEP_12':
-        return 'رقم نموذج 4 المعتمد';
-      case 'STEP_13':
-        return 'رقم شهادة الإجراءات (إقرار 46)';
-      case 'STEP_19':
-        return 'رقم إذن الإضافة المخزني (GRN)';
-      default:
-        return 'المرجع التشغيلي الرئيسي للخطوة';
-    }
-  }
-
-  String _getParam2Label(String stepCode) {
-    switch (stepCode) {
-      case 'STEP_01':
-        return 'سعر النولون البحري للحاوية (\$)';
-      case 'STEP_02':
-        return 'نسبة ضريبة الوارد / الجمارك %';
-      case 'STEP_04':
-        return 'البنك المعتمد للتحويل';
-      case 'STEP_05':
-        return 'فترة صلاحية الـ ACID (أيام)';
-      case 'STEP_06':
-        return 'اسم السفينة الناقلة';
-      case 'STEP_12':
-        return 'البنك المصدر للنموذج';
-      case 'STEP_13':
-        return 'جمرك الإفراج المعتمد';
-      case 'STEP_19':
-        return 'المستودع المستلم';
-      default:
-        return 'الملاحظة الإجرائية الفرعية';
-    }
-  }
-
-  String _getParam3Label(String stepCode) {
-    switch (stepCode) {
-      case 'STEP_01':
-        return 'مدة الإبحار المتوقعة (Transit Days)';
-      case 'STEP_02':
-        return 'نسبة ضريبة القيمة المضافة VAT %';
-      case 'STEP_04':
-        return 'رقم مرجع السويفت SWIFT Ref';
-      case 'STEP_05':
-        return 'رقم تسجيل المصنع الأجنبي';
-      case 'STEP_06':
-        return 'توزيع الحاويات وعدد الطرود';
-      case 'STEP_12':
-        return 'القيمة المعتمدة بالنموذج (\$)';
-      case 'STEP_13':
-        return 'اسم المخلص الجمركي المعتمد';
-      case 'STEP_19':
-        return 'حالة الفحص والاستلام الفعلي';
-      default:
-        return 'بيانات إضافية';
-    }
   }
 }

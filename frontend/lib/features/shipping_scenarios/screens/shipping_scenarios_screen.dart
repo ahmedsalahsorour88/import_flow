@@ -468,6 +468,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
   ) {
     final crd = _cargoReadyDate;
     final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
 
     // Calculate Scenario lead times
 
@@ -615,7 +616,7 @@ class _ShippingScenariosScreenState extends ConsumerState<ShippingScenariosScree
                           avgArrivalDate,
                           Icons.date_range,
                           AppTheme.emerald,
-                          subtitle: 'خلال $avgTotalDays يوم من الجاهزية',
+                          subtitle: isArabic ? 'خلال $avgTotalDays يوم من الجاهزية' : 'Within $avgTotalDays days of readiness',
                         ),
                       ),
                       const SizedBox(width: 12),

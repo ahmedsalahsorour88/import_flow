@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/production_sync_model.dart';
 import '../providers/production_sync_provider.dart';
@@ -38,6 +39,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final compAsync = ref.watch(syncComparisonProvider);
     final syncState = ref.watch(productionSyncNotifierProvider);
     final isLoading = syncState.isLoading;
@@ -71,23 +73,23 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                     child: const Icon(Icons.shield_rounded, color: Colors.white, size: 20),
                   ),
                   const SizedBox(width: 12),
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'مركز حماية ومزامنة الإنتاج (Production Sync & Backup Hub)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                        l.prodSyncHubDialogTitle,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
                       ),
                       Text(
-                        'ترقية الـ Schema + إدارة النسخ الاحتياطية + الاستعادة — بدون أي مساس ببيانات التشغيل',
-                        style: TextStyle(color: Colors.white70, fontSize: 11),
+                        l.prodSyncHubDialogSubtitle,
+                        style: const TextStyle(color: Colors.white70, fontSize: 11),
                       ),
                     ],
                   ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
-                    tooltip: 'إعادة فحص وتحديث البيانات',
+                    tooltip: l.refreshDataTooltip,
                     onPressed: () {
                       ref.invalidate(syncComparisonProvider);
                       ref.invalidate(backupsListProvider);
@@ -109,9 +111,9 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 labelColor: AppTheme.cobalt,
                 unselectedLabelColor: Colors.grey.shade600,
                 indicatorColor: AppTheme.cobalt,
-                tabs: const [
-                  Tab(icon: Icon(Icons.upgrade_rounded, size: 18), text: 'ترقية الـ Schema (Schema Upgrade)'),
-                  Tab(icon: Icon(Icons.backup_rounded, size: 18), text: 'النسخ الاحتياطية والاستعادة'),
+                tabs: [
+                  Tab(icon: const Icon(Icons.upgrade_rounded, size: 18), text: l.prodSyncTabSchemaUpgrade),
+                  Tab(icon: const Icon(Icons.backup_rounded, size: 18), text: l.prodSyncTabSafetyBackups),
                 ],
               ),
             ),
@@ -122,14 +124,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 controller: _tabController,
                 children: [
                   compAsync.when(
-                    data: (comp) => _buildUpgradeTab(context, comp, isLoading),
-                    loading: () => const Center(
+                    data: (comp) => _buildUpgradeTab(context, l, comp, isLoading),
+                    loading: () => Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 12),
-                          Text('جاري فحص ومقارنة قواعد البيانات...', style: TextStyle(color: Colors.grey)),
+                          const CircularProgressIndicator(),
+                          const SizedBox(height: 12),
+                          Text(l.prodSyncComparingDatabasesProgress, style: const TextStyle(color: Colors.grey)),
                         ],
                       ),
                     ),
@@ -141,12 +143,12 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                           children: [
                             const Icon(Icons.error_outline_rounded, color: AppTheme.crimson, size: 48),
                             const SizedBox(height: 10),
-                            Text('تعذر جلب بيانات المقارنة: $err',
+                            Text(l.prodSyncErrorFetchingComparison(err),
                                 style: const TextStyle(color: AppTheme.crimson)),
                             const SizedBox(height: 12),
                             ElevatedButton.icon(
                               icon: const Icon(Icons.refresh),
-                              label: const Text('إعادة المحاولة'),
+                              label: Text(l.retry),
                               onPressed: () => ref.invalidate(syncComparisonProvider),
                             ),
                           ],
@@ -154,7 +156,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                       ),
                     ),
                   ),
-                  _buildBackupsTab(context),
+                  _buildBackupsTab(context, l),
                 ],
               ),
             ),
@@ -168,7 +170,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   // Tab 1: Schema Upgrade
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildUpgradeTab(BuildContext context, SyncComparisonResponseModel comp, bool isLoading) {
+  Widget _buildUpgradeTab(BuildContext context, AppLocalizations l, SyncComparisonResponseModel comp, bool isLoading) {
     final filteredTables = comp.tables.where((t) {
       if (_tableSearchQuery.isEmpty) return true;
       return t.tableName.toLowerCase().contains(_tableSearchQuery.toLowerCase());
@@ -199,18 +201,18 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                   child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 20),
                 ),
                 const SizedBox(width: 12),
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '🔒 ضمان الحماية الكاملة لبيانات التشغيل',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF064E3B)),
+                        l.prodSyncSafetyGuaranteeTitle,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF064E3B)),
                       ),
-                      SizedBox(height: 3),
+                      const SizedBox(height: 3),
                       Text(
-                        'الترقية تضيف فقط الجداول والأعمدة الجديدة • لا تحذف أي سجل • لا تعدل بيانات الموردين أو الشركات أو POs أو ملفات الشحن • نسخة احتياطية تلقائية قبل البدء',
-                        style: TextStyle(fontSize: 11, color: Color(0xFF065F46)),
+                        l.prodSyncSafetyGuaranteeBody,
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF065F46)),
                       ),
                     ],
                   ),
@@ -225,21 +227,23 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
             children: [
               Expanded(
                 child: _buildDatabaseStatCard(
-                  title: 'قاعدة بيانات التطوير (Dev DB)',
-                  subtitle: 'مصدر الميزات الجديدة والترقيات',
+                  title: l.prodSyncDevDbTitle,
+                  subtitle: l.prodSyncDevDbUpgradeSub,
                   icon: Icons.code_rounded,
                   color: AppTheme.cobalt,
                   stats: comp.devStats,
+                  l: l,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: _buildDatabaseStatCard(
-                  title: 'قاعدة بيانات الإنتاج (Prod DB)',
-                  subtitle: 'الهدف — بياناتها محمية 100%',
+                  title: l.prodSyncProdDbTitle,
+                  subtitle: l.prodSyncProdDbUpgradeSub,
                   icon: Icons.desktop_windows_rounded,
                   color: AppTheme.emerald,
                   stats: comp.prodStats,
+                  l: l,
                 ),
               ),
             ],
@@ -270,8 +274,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                     children: [
                       Text(
                         comp.isFullySynchronized
-                            ? '✅ الإنتاج محدث بآخر الميزات (${comp.matchedTablesCount} جدول متطابق)'
-                            : '⬆️ يوجد ميزات جديدة جاهزة للترقية (${comp.differingTablesCount} جدول)',
+                            ? l.prodSyncFullySynchronizedTitle(comp.matchedTablesCount)
+                            : l.prodSyncUpgradeReadyTitle(comp.differingTablesCount),
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
@@ -280,8 +284,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                       ),
                       Text(
                         comp.isFullySynchronized
-                            ? 'البرودكشن يعمل بآخر إصدار من الـ Schema والميزات.'
-                            : 'اضغط "ترقية البرودكشن" لإضافة الميزات الجديدة فقط — بياناتك محمية تماماً.',
+                            ? l.prodSyncFullySynchronizedSub
+                            : l.prodSyncUpgradeReadySub,
                         style: const TextStyle(fontSize: 11, color: Colors.black54),
                       ),
                     ],
@@ -301,11 +305,11 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.upgrade_rounded, size: 16),
-                  label: const Text(
-                    'ترقية البرودكشن (Schema Upgrade)',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                  label: Text(
+                    l.prodSyncUpgradeBtn,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
                   ),
-                  onPressed: isLoading ? null : () => _confirmAndSyncToProd(context),
+                  onPressed: isLoading ? null : () => _confirmAndSyncToProd(context, l),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
@@ -315,8 +319,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                   ),
                   icon: const Icon(Icons.download_rounded, size: 16),
-                  label: const Text('سحب من البرودكشن (Pull)', style: TextStyle(fontSize: 11.5)),
-                  onPressed: isLoading ? null : () => _handlePullToDev(context),
+                  label: Text(l.prodSyncPullFromProdBtn, style: const TextStyle(fontSize: 11.5)),
+                  onPressed: isLoading ? null : () => _handlePullToDev(context, l),
                 ),
               ],
             ),
@@ -328,7 +332,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'تفاصيل الجداول (${filteredTables.length} / ${comp.totalTables}) — الجداول ذات الفروق ستتلقى الأعمدة الجديدة فقط',
+                l.prodSyncTablesUpgradeHeader(filteredTables.length, comp.totalTables),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
               ),
               SizedBox(
@@ -336,7 +340,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 height: 34,
                 child: TextField(
                   decoration: InputDecoration(
-                    hintText: 'بحث في الجداول...',
+                    hintText: l.prodSyncSearchTablesHint,
                     hintStyle: const TextStyle(fontSize: 11.5),
                     prefixIcon: const Icon(Icons.search, size: 16),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 0),
@@ -393,12 +397,12 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text('التطوير: ${item.devCount} سجل',
+                            child: Text(l.prodSyncDevRecordsCount(item.devCount),
                                 style: const TextStyle(fontSize: 11.5, color: Colors.black87)),
                           ),
                           Expanded(
                             flex: 2,
-                            child: Text('الإنتاج: ${item.prodCount} سجل',
+                            child: Text(l.prodSyncProdRecordsCount(item.prodCount),
                                 style: const TextStyle(fontSize: 11.5, color: Colors.black87)),
                           ),
                           Container(
@@ -410,7 +414,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(
-                              item.isMatch ? 'محدث ✓' : item.status,
+                              item.isMatch ? l.prodSyncTableStatusUpdated : item.status,
                               style: TextStyle(
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.bold,
@@ -435,7 +439,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   // Tab 2: Backups & Restore
   // ──────────────────────────────────────────────────────────────────────────
 
-  Widget _buildBackupsTab(BuildContext context) {
+  Widget _buildBackupsTab(BuildContext context, AppLocalizations l) {
     final backupsAsync = ref.watch(backupsListProvider);
     final isLoading = ref.watch(productionSyncNotifierProvider).isLoading;
 
@@ -447,26 +451,29 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'النسخ الاحتياطية المحفوظة (Safety Snapshots)',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
-                  ),
-                  Text(
-                    'يمكنك استعادة أي نسخة — يتم حفظ نسخة أمان من الوضع الحالي قبل الاستعادة',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                ],
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l.prodSyncBackupsSectionHeader,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                    ),
+                    Text(
+                      l.prodSyncBackupsDialogSub,
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
+              const SizedBox(width: 10),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.cobalt,
                   foregroundColor: Colors.white,
                 ),
                 icon: const Icon(Icons.add_to_photos_rounded, size: 16),
-                label: const Text('نسخة احتياطية الآن (Dev)', style: TextStyle(fontSize: 11.5)),
+                label: Text(l.prodSyncCreateDevSnapshotBtn, style: const TextStyle(fontSize: 11.5)),
                 onPressed: isLoading
                     ? null
                     : () async {
@@ -476,14 +483,14 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                               .createManualBackup(target: 'dev');
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('✅ تم إنشاء النسخة الاحتياطية: ${backup.filename}'),
+                              content: Text(l.prodSyncBackupCreatedSuccess(backup.filename)),
                               backgroundColor: AppTheme.emerald,
                             ));
                           }
                         } catch (e) {
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                              content: Text('❌ خطأ: $e'),
+                              content: Text(l.prodSyncSyncError(e)),
                               backgroundColor: AppTheme.crimson,
                             ));
                           }
@@ -503,11 +510,11 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                       children: [
                         Icon(Icons.folder_zip_outlined, size: 48, color: Colors.grey.shade400),
                         const SizedBox(height: 10),
-                        const Text('لا توجد نسخ احتياطية محفوظة بعد', style: TextStyle(color: Colors.grey)),
+                        Text(l.prodSyncNoBackupsFound, style: const TextStyle(color: Colors.grey)),
                         const SizedBox(height: 6),
-                        const Text(
-                          'يتم أخذ نسخة احتياطية تلقائياً قبل كل ترقية وعند إغلاق النظام',
-                          style: TextStyle(fontSize: 11, color: Colors.grey),
+                        Text(
+                          l.prodSyncNoBackupsDialogSub,
+                          style: const TextStyle(fontSize: 11, color: Colors.grey),
                         ),
                       ],
                     ),
@@ -549,7 +556,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                                       ),
                                     ),
                                     Text(
-                                      '${b.createdAt}  •  ${b.sizeKb} KB',
+                                      '${l.prodSyncBackupCreatedAt(b.createdAt)}  •  ${l.prodSyncBackupSize(b.sizeKb)}',
                                       style: const TextStyle(fontSize: 10.5, color: Colors.grey),
                                     ),
                                   ],
@@ -577,8 +584,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 ),
                                 icon: const Icon(Icons.restore_rounded, size: 15),
-                                label: const Text('استعادة → Prod', style: TextStyle(fontSize: 11)),
-                                onPressed: isLoading ? null : () => _confirmAndRestore(context, b, 'prod'),
+                                label: Text(l.prodSyncRestoreToProdBtn, style: const TextStyle(fontSize: 11)),
+                                onPressed: isLoading ? null : () => _confirmAndRestore(context, l, b, 'prod'),
                               ),
                               const SizedBox(width: 4),
                               TextButton.icon(
@@ -587,8 +594,8 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                 ),
                                 icon: const Icon(Icons.restore_page_rounded, size: 15),
-                                label: const Text('استعادة → Dev', style: TextStyle(fontSize: 11)),
-                                onPressed: isLoading ? null : () => _confirmAndRestore(context, b, 'dev'),
+                                label: Text(l.prodSyncRestoreToDevBtn, style: const TextStyle(fontSize: 11)),
+                                onPressed: isLoading ? null : () => _confirmAndRestore(context, l, b, 'dev'),
                               ),
                             ],
                           ),
@@ -600,7 +607,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (err, st) =>
-                  Center(child: Text('خطأ: $err', style: const TextStyle(color: AppTheme.crimson))),
+                  Center(child: Text(l.prodSyncErrorFetchingComparison(err), style: const TextStyle(color: AppTheme.crimson))),
             ),
           ),
         ],
@@ -618,6 +625,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
     required IconData icon,
     required Color color,
     required DatabaseStatsModel stats,
+    required AppLocalizations l,
   }) {
     return Container(
       padding: const EdgeInsets.all(12),
@@ -650,13 +658,13 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    Text('الحجم: ${stats.sizeKb} KB',
+                    Text(l.prodSyncDbSize(stats.sizeKb),
                         style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                     const SizedBox(width: 10),
-                    Text('الجداول: ${stats.tablesCount}',
+                    Text(l.prodSyncDbTablesCount(stats.tablesCount),
                         style: const TextStyle(fontSize: 11, color: Colors.black87)),
                     const SizedBox(width: 10),
-                    Text('السجلات: ${stats.totalRecords}',
+                    Text(l.prodSyncDbRecordsCount(stats.totalRecords),
                         style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: color)),
                   ],
                 ),
@@ -672,16 +680,16 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
   // Confirm dialogs & handlers
   // ──────────────────────────────────────────────────────────────────────────
 
-  Future<void> _confirmAndSyncToProd(BuildContext context) async {
+  Future<void> _confirmAndSyncToProd(BuildContext context, AppLocalizations l) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.upgrade_rounded, color: AppTheme.emerald, size: 22),
-            SizedBox(width: 8),
-            Text('تأكيد ترقية الإنتاج', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.upgrade_rounded, color: AppTheme.emerald, size: 22),
+            const SizedBox(width: 8),
+            Text(l.prodSyncConfirmUpgradeTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
@@ -695,13 +703,9 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF6EE7B7)),
               ),
-              child: const Text(
-                '✅ ما سيحدث:\n'
-                '• نسخة احتياطية أمان تلقائية قبل البدء\n'
-                '• إضافة الجداول الجديدة (إن وجدت)\n'
-                '• إضافة الأعمدة الجديدة لكل جدول موجود\n'
-                '• دمج بيانات المرجعية الجديدة (INSERT OR IGNORE)',
-                style: TextStyle(fontSize: 12, color: Color(0xFF065F46), height: 1.7),
+              child: Text(
+                l.prodSyncConfirmUpgradeWhatHappens,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF065F46), height: 1.7),
               ),
             ),
             const SizedBox(height: 10),
@@ -712,12 +716,9 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF93C5FD)),
               ),
-              child: const Text(
-                '🔒 ما لن يحدث أبداً:\n'
-                '• لن يُمسّ أي مورد أو شركة أو PO أو ملف شحن\n'
-                '• لن يُحذف أي سجل موجود في الإنتاج\n'
-                '• لن يُعدَّل أي بيان تشغيلي مُدخل يدوياً',
-                style: TextStyle(fontSize: 12, color: Color(0xFF1E40AF), height: 1.7),
+              child: Text(
+                l.prodSyncConfirmUpgradeWhatWontHappen,
+                style: const TextStyle(fontSize: 12, color: Color(0xFF1E40AF), height: 1.7),
               ),
             ),
           ],
@@ -725,7 +726,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
+            child: Text(l.cancel),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -733,35 +734,35 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.upgrade_rounded, size: 16),
-            label: const Text('تأكيد الترقية', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.prodSyncConfirmUpgradeSubmitBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
       ),
     );
     if (confirmed == true && context.mounted) {
-      await _handleSyncToProd(context);
+      await _handleSyncToProd(context, l);
     }
   }
 
-  Future<void> _confirmAndRestore(BuildContext context, BackupItemModel backup, String target) async {
-    final targetLabel = target == 'prod' ? 'الإنتاج (Prod)' : 'التطوير (Dev)';
+  Future<void> _confirmAndRestore(BuildContext context, AppLocalizations l, BackupItemModel backup, String target) async {
+    final targetLabel = target == 'prod' ? l.prodSyncTargetProdLabel : l.prodSyncTargetDevLabel;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.restore_rounded, color: AppTheme.orange, size: 22),
-            SizedBox(width: 8),
-            Text('تأكيد الاستعادة', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const Icon(Icons.restore_rounded, color: AppTheme.orange, size: 22),
+            const SizedBox(width: 8),
+            Text(l.prodSyncConfirmRestoreTitle, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('سيتم استعادة النسخة التالية إلى قاعدة بيانات $targetLabel:',
+            Text(l.prodSyncConfirmRestoreMsg(targetLabel),
                 style: const TextStyle(fontSize: 12)),
             const SizedBox(height: 8),
             Container(
@@ -776,7 +777,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                   Text(backup.filename,
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 12, fontFamily: 'monospace')),
-                  Text('التاريخ: ${backup.createdAt}  •  ${backup.sizeKb} KB',
+                  Text('${l.prodSyncBackupCreatedAt(backup.createdAt)}  •  ${l.prodSyncBackupSize(backup.sizeKb)}',
                       style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 ],
               ),
@@ -789,9 +790,9 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
                 borderRadius: BorderRadius.circular(6),
                 border: Border.all(color: Colors.amber.shade300),
               ),
-              child: const Text(
-                '⚠️ سيتم حفظ نسخة أمان من الوضع الحالي قبل الاستعادة، ثم استبدال قاعدة البيانات بالنسخة المختارة.',
-                style: TextStyle(fontSize: 11.5, color: Color(0xFF92400E)),
+              child: Text(
+                l.prodSyncConfirmRestoreWarning,
+                style: const TextStyle(fontSize: 11.5, color: Color(0xFF92400E)),
               ),
             ),
           ],
@@ -799,7 +800,7 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('إلغاء'),
+            child: Text(l.cancel),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -807,23 +808,23 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
               foregroundColor: Colors.white,
             ),
             icon: const Icon(Icons.restore_rounded, size: 16),
-            label: const Text('تأكيد الاستعادة', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.prodSyncConfirmRestoreSubmitBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
       ),
     );
     if (confirmed == true && context.mounted) {
-      await _handleRestore(context, backup.filename, target);
+      await _handleRestore(context, l, backup.filename, target);
     }
   }
 
-  Future<void> _handleSyncToProd(BuildContext context) async {
+  Future<void> _handleSyncToProd(BuildContext context, AppLocalizations l) async {
     try {
       final res = await ref.read(productionSyncNotifierProvider.notifier).syncDevToProd();
       if (context.mounted && res != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ ${res.message}'),
+          content: Text(res.message),
           backgroundColor: AppTheme.emerald,
           duration: const Duration(seconds: 5),
         ));
@@ -831,18 +832,18 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ فشلت الترقية: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(l.prodSyncSyncError(e)), backgroundColor: AppTheme.crimson),
         );
       }
     }
   }
 
-  Future<void> _handlePullToDev(BuildContext context) async {
+  Future<void> _handlePullToDev(BuildContext context, AppLocalizations l) async {
     try {
       final res = await ref.read(productionSyncNotifierProvider.notifier).pullProdToDev();
       if (context.mounted && res != null) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ ${res.message}'),
+          content: Text(res.message),
           backgroundColor: AppTheme.emerald,
           duration: const Duration(seconds: 4),
         ));
@@ -850,20 +851,20 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ فشل السحب: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(l.prodSyncPullError(e)), backgroundColor: AppTheme.crimson),
         );
       }
     }
   }
 
-  Future<void> _handleRestore(BuildContext context, String filename, String target) async {
+  Future<void> _handleRestore(BuildContext context, AppLocalizations l, String filename, String target) async {
     try {
       final res = await ref
           .read(productionSyncNotifierProvider.notifier)
           .restoreBackup(filename: filename, target: target);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('✅ ${res.message}'),
+          content: Text(res.message),
           backgroundColor: AppTheme.emerald,
           duration: const Duration(seconds: 5),
         ));
@@ -871,9 +872,10 @@ class _ProductionSyncHubDialogState extends ConsumerState<ProductionSyncHubDialo
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('❌ فشلت الاستعادة: $e'), backgroundColor: AppTheme.crimson),
+          SnackBar(content: Text(l.prodSyncRestoreError(e)), backgroundColor: AppTheme.crimson),
         );
       }
     }
   }
 }
+

@@ -35,7 +35,7 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
         children: [
           const Icon(Icons.add_circle, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(l.addCustomExpenseRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
       content: SizedBox(
@@ -45,7 +45,7 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
           children: [
             TextFormField(
               controller: nameCtrl,
-              decoration: InputDecoration(labelText: l.itemDescriptionAndOriginCol, border: const OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l.expenseItemNameCol, border: const OutlineInputBorder()),
             ),
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
@@ -88,7 +88,7 @@ class _AddCustomBrokerExpenseRowDialogState extends State<AddCustomBrokerExpense
                   child: TextFormField(
                     controller: qtyCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: InputDecoration(labelText: l.quantityAndUnitCol, border: const OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l.quoteItemQuantity, border: const OutlineInputBorder()),
                   ),
                 ),
               ],

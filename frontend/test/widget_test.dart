@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:frontend/core/localization/app_localizations.dart';
+import 'package:frontend/core/localization/app_localizations_en.dart';
 import 'package:frontend/features/import_companies/models/import_company_model.dart';
 import 'package:frontend/features/import_companies/providers/import_companies_provider.dart';
 import 'package:frontend/features/import_companies/screens/import_companies_screen.dart';
@@ -12,6 +14,8 @@ void main() {
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+
+    const l10n = AppLocalizationsEn();
 
     final mockCompanies = [
       ImportCompanyModel(
@@ -36,16 +40,19 @@ void main() {
             return MockImportCompaniesNotifier(mockCompanies);
           }),
         ],
-        child: const MaterialApp(
-          home: ImportCompaniesScreen(),
+        child: const AppLocalizationsProvider(
+          locale: Locale('en'),
+          child: MaterialApp(
+            home: ImportCompaniesScreen(),
+          ),
         ),
       ),
     );
 
     await tester.pump();
 
-    expect(find.text('Egyptian Import Companies'), findsOneWidget);
-    expect(find.text('Add Importer Company'), findsOneWidget);
+    expect(find.text(l10n.importCompaniesScreenTitle), findsOneWidget);
+    expect(find.text(l10n.addImporterCompanyBtn), findsOneWidget);
     expect(find.text('Pharaohs Importers'), findsOneWidget);
   });
 }

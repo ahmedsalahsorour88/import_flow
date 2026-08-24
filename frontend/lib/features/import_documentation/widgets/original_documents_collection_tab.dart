@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/models/import_file_model.dart';
@@ -77,6 +78,7 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Future<void> _onSelectImportFile(ImportFileModel file) async {
+    final l = context.l10n;
     setState(() {
       _selectedImportFile = file;
       _existingSession = null;
@@ -112,7 +114,7 @@ class _OriginalDocumentsCollectionTabState
       if (!mounted) return;
       setState(() => _isLoading = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في استدعاء بيانات الأرشيف: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.errorFetchingArchiveData(e)), backgroundColor: Colors.red),
       );
     }
   }
@@ -137,11 +139,12 @@ class _OriginalDocumentsCollectionTabState
   }
 
   void _addCustomDocument() {
+    final l = context.l10n;
     setState(() {
       _documents.add(
         OriginalDocumentItemModel(
           category: 'Commercial',
-          documentName: 'مستند إضافي جديد',
+          documentName: l.defaultNewCustomDocName,
           isRequired: 'Yes',
           responsibleParty: 'Supplier',
           status: 'Pending',
@@ -157,9 +160,10 @@ class _OriginalDocumentsCollectionTabState
   }
 
   Future<void> _handleSaveSession({bool isConfirmComplete = false}) async {
+    final l = context.l10n;
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: Colors.red),
       );
       return;
     }
@@ -168,10 +172,10 @@ class _OriginalDocumentsCollectionTabState
       final unverified = _documents.where((d) => !d.isVerified && d.isRequired == 'Yes').toList();
       if (unverified.isNotEmpty && _overrideReasonController.text.trim().isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('⚠️ توجد مستندات إلزامية لم يتم تدقيقها بعد. يرجى ذكر مبرر الاعتماد قبل التأكيد النهائي.'),
+          SnackBar(
+            content: Text(l.unverifiedMandatoryDocsWarning),
             backgroundColor: Colors.orange,
-            duration: Duration(seconds: 4),
+            duration: const Duration(seconds: 4),
           ),
         );
         return;
@@ -204,7 +208,7 @@ class _OriginalDocumentsCollectionTabState
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم حفظ وتحديث جلسة تحصيل أصول المستندات بنجاح [${saved.collectionCode}]'),
+          content: Text(l.sessionSavedSuccess(saved.collectionCode)),
           backgroundColor: const Color(0xFF27AE60),
         ),
       );
@@ -212,15 +216,16 @@ class _OriginalDocumentsCollectionTabState
       if (!mounted) return;
       setState(() => _isSaving = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في حفظ الجلسة: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.sessionSaveError(e)), backgroundColor: Colors.red),
       );
     }
   }
 
   Future<void> _handleExportExcel() async {
+    final l = context.l10n;
     if (_selectedImportFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً.'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.selectImportFileFirstWarning), backgroundColor: Colors.red),
       );
       return;
     }
@@ -233,22 +238,116 @@ class _OriginalDocumentsCollectionTabState
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('تم توليد وتصدير ملف Excel بنجاح (${bytes.length} bytes)'),
+          content: Text(l.excelExportSuccess(bytes.length)),
           backgroundColor: const Color(0xFF27AE60),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في تصدير Excel: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.excelExportError(e)), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
     }
   }
 
+  String _getDocCategoryLabel(String category, AppLocalizations l) {
+    switch (category) {
+      case 'Commercial':
+        return l.docCatCommercial;
+      case 'Certificate':
+        return l.docCatCertificate;
+      case 'Shipping':
+        return l.docCatShipping;
+      case 'Egypt Import':
+        return l.docCatEgyptImport;
+      case 'Banking':
+        return l.docCatBanking;
+      case 'Regulatory':
+        return l.docCatRegulatory;
+      case 'Other':
+        return l.docCatOther;
+      default:
+        return category;
+    }
+  }
+
+  String _getCourierCompanyLabel(String company, AppLocalizations l) {
+    switch (company) {
+      case 'Hand Delivery':
+        return l.courierCompanyHandDelivery;
+      case 'Other':
+        return l.courierCompanyOther;
+      default:
+        return company;
+    }
+  }
+
+  String _getResponsiblePartyLabel(String party, AppLocalizations l) {
+    switch (party) {
+      case 'Supplier':
+        return l.partySupplier;
+      case 'Freight Forwarder':
+        return l.partyFreightForwarder;
+      case 'Customs Broker':
+        return l.partyCustomsBroker;
+      case 'Bank':
+        return l.partyBank;
+      case 'Importer':
+        return l.partyImporter;
+      case 'Carrier':
+      case 'Shipping Line':
+        return l.partyCarrier;
+      default:
+        return party;
+    }
+  }
+
+  String _getStatusLabel(String status, AppLocalizations l) {
+    switch (status) {
+      case 'Verified':
+        return l.statusBadgeVerified;
+      case 'Received':
+        return l.statusBadgeReceived;
+      case 'In Transit':
+        return l.statusBadgeInTransit;
+      case 'Discrepant':
+        return l.statusBadgeDiscrepant;
+      case 'DRAFT':
+        return l.filterStatusDraft;
+      case 'PARTIALLY_RECEIVED':
+        return l.filterStatusPartiallyReceived;
+      case 'FULLY_RECEIVED':
+        return l.filterStatusFullyReceived;
+      case 'FULLY_VERIFIED':
+        return l.filterStatusFullyVerified;
+      case 'Pending':
+      default:
+        return l.statusBadgePending;
+    }
+  }
+
+  String _getRegistryStatusFilterLabel(String filter, AppLocalizations l) {
+    switch (filter) {
+      case 'All':
+        return l.filterStatusAll;
+      case 'DRAFT':
+        return l.filterStatusDraft;
+      case 'PARTIALLY_RECEIVED':
+        return l.filterStatusPartiallyReceived;
+      case 'FULLY_RECEIVED':
+        return l.filterStatusFullyReceived;
+      case 'FULLY_VERIFIED':
+        return l.filterStatusFullyVerified;
+      default:
+        return filter;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final filesAsync = ref.watch(importFilesProvider);
     final sessionsAsync = ref.watch(originalDocumentsSessionsProvider);
 
@@ -261,25 +360,27 @@ class _OriginalDocumentsCollectionTabState
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _buildHeader(),
+              _buildHeader(l),
               if (_isLoading) ...[
                 const SizedBox(height: 8),
                 const LinearProgressIndicator(),
               ],
               const SizedBox(height: 16),
-              _buildFileSelector(filesAsync),
+              _buildFileSelector(l, filesAsync),
               if (_selectedImportFile != null) ...[
                 const SizedBox(height: 16),
-                _buildStatisticsCards(),
+                _buildStatisticsCards(l),
                 const SizedBox(height: 16),
-                _buildCouriersManagementCard(),
+                _buildCouriersManagementCard(l),
                 const SizedBox(height: 16),
-                _buildDocumentsCollectionGrid(),
+                _buildDocumentsCollectionGrid(l),
                 const SizedBox(height: 16),
-                _buildActionToolbar(),
+                _buildSessionNotesCard(l),
+                const SizedBox(height: 16),
+                _buildActionToolbar(l),
               ],
               const SizedBox(height: 24),
-              _buildRegistrySection(sessionsAsync),
+              _buildRegistrySection(l, sessionsAsync),
             ],
           ),
         ),
@@ -287,7 +388,7 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(AppLocalizations l) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -312,13 +413,13 @@ class _OriginalDocumentsCollectionTabState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'تحصيل أصول المستندات وتتبع طرود الكورير (Original Documents Collection Hub)',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                Text(
+                  l.originalDocsHubTitle,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'استدعاء تلقائي للمستندات المطلوبة من الأرشيف المركزي للشحنة، تتبع طرود البريد السريع المتعددة (DHL / FedEx)، وتدقيق استلام الأصول الورقية.',
+                  l.originalDocsHubSubtitle,
                   style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                 ),
               ],
@@ -337,7 +438,7 @@ class _OriginalDocumentsCollectionTabState
                   const Icon(Icons.check_circle_outline, color: Color(0xFF27AE60), size: 18),
                   const SizedBox(width: 6),
                   Text(
-                    'جلسة محفوظة: ${_existingSession!.collectionCode}',
+                    l.savedSessionBadge(_existingSession!.collectionCode),
                     style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ],
@@ -348,7 +449,7 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildFileSelector(AsyncValue<List<ImportFileModel>> filesAsync) {
+  Widget _buildFileSelector(AppLocalizations l, AsyncValue<List<ImportFileModel>> filesAsync) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -364,8 +465,8 @@ class _OriginalDocumentsCollectionTabState
             children: [
               Expanded(
                 child: SearchableDropdownField<int>(
-                  labelText: 'اختيار ملف الشحنة (Import File)',
-                  hintText: 'ابحث برقم الملف، ACID، المورد أو الشركة المستوردة...',
+                  labelText: l.selectImportFileLabel,
+                  hintText: l.selectImportFileHint,
                   value: _selectedImportFile?.importFileId,
                   items: files
                       .map((f) => SearchableDropdownItem<int>(
@@ -386,7 +487,7 @@ class _OriginalDocumentsCollectionTabState
               ElevatedButton.icon(
                 onPressed: () => ref.read(importFilesProvider.notifier).fetchImportFiles(),
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('تحديث'),
+                label: Text(l.refreshDataTooltip),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.cobalt,
                   foregroundColor: Colors.white,
@@ -397,12 +498,12 @@ class _OriginalDocumentsCollectionTabState
           );
         },
         loading: () => const LinearProgressIndicator(),
-        error: (e, _) => Text('خطأ في جلب ملفات الاستيراد: $e', style: const TextStyle(color: Colors.red)),
+        error: (e, _) => Text(l.errorFetchingImportFiles(e), style: const TextStyle(color: Colors.red)),
       ),
     );
   }
 
-  Widget _buildStatisticsCards() {
+  Widget _buildStatisticsCards(AppLocalizations l) {
     final totalDocs = _documents.length;
     final receivedDocs = _documents.where((d) => d.isReceived).length;
     final verifiedDocs = _documents.where((d) => d.isVerified).length;
@@ -413,15 +514,15 @@ class _OriginalDocumentsCollectionTabState
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _statCard('إجمالي المستندات المطلوبة', '$totalDocs', Icons.description_outlined, AppTheme.charcoal),
+          _statCard(l.statTotalRequiredDocs, '$totalDocs', Icons.description_outlined, AppTheme.charcoal),
           const SizedBox(width: 12),
-          _statCard('تم استلام الأصل الورقي', '$receivedDocs', Icons.inbox_outlined, const Color(0xFF3498DB)),
+          _statCard(l.statReceivedOriginals, '$receivedDocs', Icons.inbox_outlined, const Color(0xFF3498DB)),
           const SizedBox(width: 12),
-          _statCard('تم الفحص والتدقيق', '$verifiedDocs', Icons.verified_outlined, const Color(0xFF27AE60)),
+          _statCard(l.statVerifiedDocs, '$verifiedDocs', Icons.verified_outlined, const Color(0xFF27AE60)),
           const SizedBox(width: 12),
-          _statCard('قيد الانتظار', '$pendingDocs', Icons.hourglass_empty_outlined, const Color(0xFFE67E22)),
+          _statCard(l.statPendingDocs, '$pendingDocs', Icons.hourglass_empty_outlined, const Color(0xFFE67E22)),
           const SizedBox(width: 12),
-          _statCard('نسبة الاكتمال والجاهزية', '$completionPct%', Icons.pie_chart_outline, const Color(0xFF8E44AD)),
+          _statCard(l.statReadinessRate, '$completionPct%', Icons.pie_chart_outline, const Color(0xFF8E44AD)),
         ],
       ),
     );
@@ -431,37 +532,37 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       width: 180,
       padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: color.withOpacity(0.2)),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
-              child: Icon(icon, color: color, size: 22),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 6, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+            child: Icon(icon, color: color, size: 22),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+                Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis),
+              ],
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(value, style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
-                  Text(label, style: TextStyle(fontSize: 11, color: Colors.grey.shade600), overflow: TextOverflow.ellipsis),
-                ],
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _buildCouriersManagementCard() {
+  Widget _buildCouriersManagementCard(AppLocalizations l) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -477,20 +578,20 @@ class _OriginalDocumentsCollectionTabState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.local_shipping_outlined, color: AppTheme.cobalt, size: 22),
-                  SizedBox(width: 8),
+                  const Icon(Icons.local_shipping_outlined, color: AppTheme.cobalt, size: 22),
+                  const SizedBox(width: 8),
                   Text(
-                    'طرود وبوالص الشحن السريع للكورير (Courier Dispatch Packages):',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                    l.courierDispatchPackagesHeader,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                   ),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: _addCourier,
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('إضافة بوليصة كورير'),
+                label: Text(l.addCourierAwbBtn),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.cobalt,
                   foregroundColor: Colors.white,
@@ -504,7 +605,7 @@ class _OriginalDocumentsCollectionTabState
             Container(
               padding: const EdgeInsets.all(16),
               alignment: Alignment.center,
-              child: Text('لم يتم تسجيل بوالص كورير بعد. اضغط زر إضافة بوليصة لإدراج شحنة بريد سريع.',
+              child: Text(l.noCouriersRegisteredMsg,
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
             )
           else
@@ -527,10 +628,10 @@ class _OriginalDocumentsCollectionTabState
                       flex: 2,
                       child: TextFormField(
                         initialValue: c.courierNo,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم بوليصة الكورير (AWB / Tracking No)',
+                        decoration: InputDecoration(
+                          labelText: l.courierTrackingNoField,
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) => c.courierNo = val.trim(),
                       ),
@@ -542,13 +643,16 @@ class _OriginalDocumentsCollectionTabState
                         value: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other'].contains(c.courierCompany)
                             ? c.courierCompany
                             : 'DHL',
-                        decoration: const InputDecoration(
-                          labelText: 'شركة الكورير',
+                        decoration: InputDecoration(
+                          labelText: l.courierCompanyField,
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         items: ['DHL', 'FedEx', 'Aramex', 'UPS', 'Naqel', 'SMSA', 'Hand Delivery', 'Other']
-                            .map((company) => DropdownMenuItem(value: company, child: Text(company, style: const TextStyle(fontSize: 12))))
+                            .map((company) => DropdownMenuItem(
+                                  value: company,
+                                  child: Text(_getCourierCompanyLabel(company, l), style: const TextStyle(fontSize: 12)),
+                                ))
                             .toList(),
                         onChanged: (val) {
                           if (val != null) setState(() => c.courierCompany = val);
@@ -560,10 +664,10 @@ class _OriginalDocumentsCollectionTabState
                       flex: 2,
                       child: TextFormField(
                         initialValue: c.dispatchDate,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ الإرسال (YYYY-MM-DD)',
+                        decoration: InputDecoration(
+                          labelText: l.dispatchDateField,
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) => c.dispatchDate = val.trim(),
                       ),
@@ -583,7 +687,7 @@ class _OriginalDocumentsCollectionTabState
                             });
                           },
                         ),
-                        const Text('تم الاستلام', style: TextStyle(fontSize: 12)),
+                        Text(l.isReceivedCheckbox, style: const TextStyle(fontSize: 12)),
                       ],
                     ),
                     const SizedBox(width: 8),
@@ -591,16 +695,17 @@ class _OriginalDocumentsCollectionTabState
                       flex: 2,
                       child: TextFormField(
                         initialValue: c.receivedBy,
-                        decoration: const InputDecoration(
-                          labelText: 'اسم المستلم',
+                        decoration: InputDecoration(
+                          labelText: l.receivedByNameField,
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) => c.receivedBy = val.trim(),
                       ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                      tooltip: l.deleteCourierTooltip,
                       onPressed: () => _removeCourier(idx),
                     ),
                   ],
@@ -612,7 +717,7 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildDocumentsCollectionGrid() {
+  Widget _buildDocumentsCollectionGrid(AppLocalizations l) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -628,20 +733,20 @@ class _OriginalDocumentsCollectionTabState
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Row(
+              Row(
                 children: [
-                  Icon(Icons.table_view_outlined, color: Color(0xFF27AE60), size: 22),
-                  SizedBox(width: 8),
+                  const Icon(Icons.table_view_outlined, color: Color(0xFF27AE60), size: 22),
+                  const SizedBox(width: 8),
                   Text(
-                    'مصفوفة استلام وتدقيق أصول المستندات الورقية (Physical Documents Verification Matrix):',
-                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                    l.physicalDocsVerificationMatrixHeader,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                   ),
                 ],
               ),
               ElevatedButton.icon(
                 onPressed: _addCustomDocument,
                 icon: const Icon(Icons.add, size: 16),
-                label: const Text('إضافة مستند إضافي'),
+                label: Text(l.addCustomDocBtn),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF27AE60),
                   foregroundColor: Colors.white,
@@ -658,19 +763,19 @@ class _OriginalDocumentsCollectionTabState
               headingTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
               dataRowMinHeight: 48,
               dataRowMaxHeight: 56,
-              columns: const [
-                DataColumn(label: Text('رقم الكورير (Courier No)')),
-                DataColumn(label: Text('تصنيف الوثيقة')),
-                DataColumn(label: Text('اسم المستند')),
-                DataColumn(label: Text('الإلزامية')),
-                DataColumn(label: Text('الجهة المسؤولة')),
-                DataColumn(label: Text('تم الاستلام الورقي')),
-                DataColumn(label: Text('تاريخ الاستلام')),
-                DataColumn(label: Text('تم الفحص والتدقيق')),
-                DataColumn(label: Text('القائم بالتدقيق')),
-                DataColumn(label: Text('الحالة')),
-                DataColumn(label: Text('ملاحظات')),
-                DataColumn(label: Text('إجراء')),
+              columns: [
+                DataColumn(label: Text(l.colCourierNo)),
+                DataColumn(label: Text(l.colDocCategory)),
+                DataColumn(label: Text(l.colDocName)),
+                DataColumn(label: Text(l.colRequirement)),
+                DataColumn(label: Text(l.colResponsibleParty)),
+                DataColumn(label: Text(l.colPhysicalReceived)),
+                DataColumn(label: Text(l.colReceivedDate)),
+                DataColumn(label: Text(l.colVerified)),
+                DataColumn(label: Text(l.colAuditor)),
+                DataColumn(label: Text(l.colDocStatus)),
+                DataColumn(label: Text(l.colRemarks)),
+                DataColumn(label: Text(l.colAction)),
               ],
               rows: List.generate(_documents.length, (index) {
                 final doc = _documents[index];
@@ -685,7 +790,7 @@ class _OriginalDocumentsCollectionTabState
                               ? doc.courierNo
                               : null,
                           isDense: true,
-                          hint: const Text('اختر الكورير', style: TextStyle(fontSize: 11)),
+                          hint: Text(l.selectCourierPlaceholder, style: const TextStyle(fontSize: 11)),
                           decoration: const InputDecoration(border: InputBorder.none),
                           items: _couriers
                               .where((c) => c.courierNo.isNotEmpty)
@@ -706,7 +811,10 @@ class _OriginalDocumentsCollectionTabState
                           isDense: true,
                           decoration: const InputDecoration(border: InputBorder.none),
                           items: ['Commercial', 'Certificate', 'Shipping', 'Egypt Import', 'Banking', 'Regulatory', 'Other']
-                              .map((cat) => DropdownMenuItem(value: cat, child: Text(cat, style: const TextStyle(fontSize: 11))))
+                              .map((cat) => DropdownMenuItem(
+                                    value: cat,
+                                    child: Text(_getDocCategoryLabel(cat, l), style: const TextStyle(fontSize: 11)),
+                                  ))
                               .toList(),
                           onChanged: (val) {
                             if (val != null) setState(() => doc.category = val);
@@ -727,9 +835,9 @@ class _OriginalDocumentsCollectionTabState
                       ),
                     ),
                     // Required
-                    DataCell(_buildRequiredBadge(doc.isRequired)),
+                    DataCell(_buildRequiredBadge(doc.isRequired, l)),
                     // Responsible Party
-                    DataCell(Text(doc.responsibleParty, style: const TextStyle(fontSize: 11))),
+                    DataCell(Text(_getResponsiblePartyLabel(doc.responsibleParty, l), style: const TextStyle(fontSize: 11))),
                     // Received Checkbox
                     DataCell(
                       Checkbox(
@@ -791,13 +899,13 @@ class _OriginalDocumentsCollectionTabState
                         child: TextFormField(
                           initialValue: doc.verifiedBy,
                           style: const TextStyle(fontSize: 11),
-                          decoration: const InputDecoration(hintText: 'المدقق', border: InputBorder.none),
+                          decoration: InputDecoration(hintText: l.hintAuditor, border: InputBorder.none),
                           onChanged: (val) => doc.verifiedBy = val.trim(),
                         ),
                       ),
                     ),
                     // Status Badge
-                    DataCell(_buildStatusBadge(doc.status)),
+                    DataCell(_buildStatusBadge(doc.status, l)),
                     // Remarks
                     DataCell(
                       SizedBox(
@@ -805,7 +913,7 @@ class _OriginalDocumentsCollectionTabState
                         child: TextFormField(
                           initialValue: doc.remarks,
                           style: const TextStyle(fontSize: 11),
-                          decoration: const InputDecoration(hintText: 'ملاحظات...', border: InputBorder.none),
+                          decoration: InputDecoration(hintText: l.hintRemarks, border: InputBorder.none),
                           onChanged: (val) => doc.remarks = val.trim(),
                         ),
                       ),
@@ -827,36 +935,79 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildRequiredBadge(String req) {
+  Widget _buildSessionNotesCard(AppLocalizations l) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextFormField(
+            controller: _notesController,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: l.sessionNotesLabel,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _overrideReasonController,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: l.overrideReasonLabel,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRequiredBadge(String req, AppLocalizations l) {
     Color bg = Colors.grey.shade200;
     Color fg = Colors.grey.shade800;
+    String label = l.reqBadgeNo;
     if (req == 'Yes') {
       bg = Colors.red.shade50;
       fg = Colors.red.shade700;
+      label = l.reqBadgeYes;
     } else if (req == 'Conditional') {
       bg = Colors.orange.shade50;
       fg = Colors.orange.shade800;
+      label = l.reqBadgeConditional;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(req, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(label, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildStatusBadge(String status) {
+  Widget _buildStatusBadge(String status, AppLocalizations l) {
     Color bg = Colors.grey.shade100;
     Color fg = Colors.grey.shade700;
     switch (status) {
       case 'Verified':
+      case 'FULLY_VERIFIED':
         bg = Colors.green.shade50;
         fg = Colors.green.shade700;
         break;
       case 'Received':
+      case 'FULLY_RECEIVED':
         bg = Colors.blue.shade50;
         fg = Colors.blue.shade700;
         break;
       case 'In Transit':
+      case 'PARTIALLY_RECEIVED':
         bg = Colors.amber.shade50;
         fg = Colors.amber.shade900;
         break;
@@ -864,6 +1015,7 @@ class _OriginalDocumentsCollectionTabState
         bg = Colors.red.shade50;
         fg = Colors.red.shade700;
         break;
+      case 'DRAFT':
       case 'Pending':
       default:
         bg = Colors.grey.shade100;
@@ -873,11 +1025,11 @@ class _OriginalDocumentsCollectionTabState
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(4)),
-      child: Text(status, style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
+      child: Text(_getStatusLabel(status, l), style: TextStyle(color: fg, fontSize: 11, fontWeight: FontWeight.bold)),
     );
   }
 
-  Widget _buildActionToolbar() {
+  Widget _buildActionToolbar(AppLocalizations l) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -897,7 +1049,7 @@ class _OriginalDocumentsCollectionTabState
                 ElevatedButton.icon(
                   onPressed: _isSaving ? null : () => _handleSaveSession(isConfirmComplete: false),
                   icon: const Icon(Icons.save_outlined, size: 18),
-                  label: const Text('حفظ مؤقت (Save Draft)'),
+                  label: Text(l.saveDraftSessionBtn),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.charcoal,
                     foregroundColor: Colors.white,
@@ -908,7 +1060,7 @@ class _OriginalDocumentsCollectionTabState
                 ElevatedButton.icon(
                   onPressed: _isSaving ? null : () => _handleSaveSession(isConfirmComplete: true),
                   icon: const Icon(Icons.check_circle, size: 18),
-                  label: const Text('اعتماد واكتمال التحصيل (Complete Collection)'),
+                  label: Text(l.completeCollectionBtn),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF27AE60),
                     foregroundColor: Colors.white,
@@ -923,7 +1075,7 @@ class _OriginalDocumentsCollectionTabState
                 OutlinedButton.icon(
                   onPressed: _isExporting ? null : _handleExportExcel,
                   icon: const Icon(Icons.table_chart, size: 18, color: Color(0xFF27AE60)),
-                  label: const Text('تصدير Excel', style: TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
+                  label: Text(l.exportExcelBtn, style: const TextStyle(color: Color(0xFF27AE60), fontWeight: FontWeight.bold)),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF27AE60)),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -937,7 +1089,7 @@ class _OriginalDocumentsCollectionTabState
     );
   }
 
-  Widget _buildRegistrySection(AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
+  Widget _buildRegistrySection(AppLocalizations l, AsyncValue<List<OriginalDocumentsCollectionSessionModel>> sessionsAsync) {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
@@ -955,13 +1107,13 @@ class _OriginalDocumentsCollectionTabState
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.history_edu_outlined, color: AppTheme.cobalt, size: 22),
-                    SizedBox(width: 8),
+                    const Icon(Icons.history_edu_outlined, color: AppTheme.cobalt, size: 22),
+                    const SizedBox(width: 8),
                     Text(
-                      'سجل جلسات تحصيل أصول المستندات (Physical Documents Collection Registry):',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
+                      l.collectionRegistryHeader,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.charcoal),
                     ),
                   ],
                 ),
@@ -972,11 +1124,11 @@ class _OriginalDocumentsCollectionTabState
                       width: 220,
                       child: TextField(
                         controller: _registrySearchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث برقم الكود أو الشحنة...',
-                          prefixIcon: Icon(Icons.search, size: 18),
+                        decoration: InputDecoration(
+                          hintText: l.searchRegistryHint,
+                          prefixIcon: const Icon(Icons.search, size: 18),
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) {
                           ref.read(originalDocumentsSessionsProvider.notifier).fetchSessions(
@@ -990,7 +1142,10 @@ class _OriginalDocumentsCollectionTabState
                     DropdownButton<String>(
                       value: _registryStatusFilter,
                       items: ['All', 'DRAFT', 'PARTIALLY_RECEIVED', 'FULLY_RECEIVED', 'FULLY_VERIFIED']
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 12))))
+                          .map((s) => DropdownMenuItem(
+                                value: s,
+                                child: Text(_getRegistryStatusFilterLabel(s, l), style: const TextStyle(fontSize: 12)),
+                              ))
                           .toList(),
                       onChanged: (val) {
                         if (val != null) {
@@ -1014,7 +1169,7 @@ class _OriginalDocumentsCollectionTabState
                 return Container(
                   padding: const EdgeInsets.all(24),
                   alignment: Alignment.center,
-                  child: Text('لا توجد جلسات تحصيل مسجلة بعد.', style: TextStyle(color: Colors.grey.shade600)),
+                  child: Text(l.noRegisteredSessionsFound, style: TextStyle(color: Colors.grey.shade600)),
                 );
               }
 
@@ -1023,17 +1178,17 @@ class _OriginalDocumentsCollectionTabState
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(const Color(0xFFF2F4F4)),
                   headingTextStyle: const TextStyle(color: AppTheme.charcoal, fontWeight: FontWeight.bold, fontSize: 12),
-                  columns: const [
-                    DataColumn(label: Text('كود الجلسة')),
-                    DataColumn(label: Text('ملف الشحنة')),
-                    DataColumn(label: Text('رقم ACID')),
-                    DataColumn(label: Text('المورد الأجنبي')),
-                    DataColumn(label: Text('إجمالي المستندات')),
-                    DataColumn(label: Text('تم الاستلام')),
-                    DataColumn(label: Text('تم التدقيق')),
-                    DataColumn(label: Text('نسبة الإنجاز')),
-                    DataColumn(label: Text('الحالة')),
-                    DataColumn(label: Text('تاريخ التحديث')),
+                  columns: [
+                    DataColumn(label: Text(l.colSessionCode)),
+                    DataColumn(label: Text(l.colImportFile)),
+                    DataColumn(label: Text(l.colAcidNumber)),
+                    DataColumn(label: Text(l.colSupplierName)),
+                    DataColumn(label: Text(l.colTotalDocs)),
+                    DataColumn(label: Text(l.colReceivedDocs)),
+                    DataColumn(label: Text(l.colVerifiedDocs)),
+                    DataColumn(label: Text(l.colCompletionPercentage)),
+                    DataColumn(label: Text(l.colDocStatus)),
+                    DataColumn(label: Text(l.colUpdatedAt)),
                   ],
                   rows: sessions.map((s) {
                     return DataRow(
@@ -1060,7 +1215,7 @@ class _OriginalDocumentsCollectionTabState
                                 )),
                           ),
                         ),
-                        DataCell(_buildStatusBadge(s.status)),
+                        DataCell(_buildStatusBadge(s.status, l)),
                         DataCell(Text(_formatDateTime(s.updatedAt))),
                       ],
                     );
@@ -1069,7 +1224,7 @@ class _OriginalDocumentsCollectionTabState
               );
             },
             loading: () => const Center(child: CircularProgressIndicator()),
-            error: (e, _) => Text('خطأ في جلب السجل: $e', style: const TextStyle(color: Colors.red)),
+            error: (e, _) => Text(l.errorFetchingRegistry(e), style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),

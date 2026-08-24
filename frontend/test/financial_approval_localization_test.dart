@@ -139,5 +139,16 @@ void main() {
       expect(lEn.totalBudgetEgp.contains('إجمالي الميزانية'), isFalse);
       expect(lEn.swiftExtractorTitle.contains('استخراج ومطابقة'), isFalse);
     });
+
+    test('SWIFT Reconciliation labels are verified for both languages without mixing', () {
+      const lAr = AppLocalizationsAr();
+      const lEn = AppLocalizationsEn();
+
+      expect(lAr.swiftExtractorTitle, isNotEmpty);
+      expect(lEn.swiftExtractorTitle, isNotEmpty);
+      expect(lAr.swiftCodeLabel, equals('كود السويفت'));
+      expect(lEn.swiftCodeLabel, equals('SWIFT Code'));
+    });
   });
 }
+

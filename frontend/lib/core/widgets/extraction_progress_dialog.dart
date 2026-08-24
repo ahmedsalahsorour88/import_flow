@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 
 /// Progress state notifier for AI / OCR extraction operations
@@ -127,11 +128,32 @@ class ExtractionProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
         final pct = controller.percent;
         final pctInt = controller.percentInt;
+
+        String activeStepLabel;
+        String activeStatus;
+        if (pctInt >= 100) {
+          activeStepLabel = l.ocrCompleteSuccess;
+          activeStatus = l.ocrCompleteSuccessDesc;
+        } else if (controller.currentStep == 1) {
+          activeStepLabel = l.ocrStepProgressLabel(1, 4, l.ocrStep1Reading);
+          activeStatus = l.ocrAnalyzingText;
+        } else if (controller.currentStep == 2) {
+          activeStepLabel = l.ocrStepProgressLabel(2, 4, l.ocrStep2Upload);
+          activeStatus = l.ocrSendingDoc;
+        } else if (controller.currentStep == 3) {
+          activeStepLabel = l.ocrStepProgressLabel(3, 4, l.ocrStep3Ocr);
+          activeStatus = l.ocrAnalyzingText;
+        } else {
+          activeStepLabel = l.ocrStepProgressLabel(4, 4, l.ocrStep4Fields);
+          activeStatus = l.ocrExtractingFields;
+        }
 
         return Dialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -173,7 +195,7 @@ class ExtractionProgressDialog extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            controller.stepLabel,
+                            activeStepLabel,
                             style: const TextStyle(fontSize: 12, color: AppTheme.cobalt, fontWeight: FontWeight.w600),
                           ),
                         ],
@@ -197,7 +219,7 @@ class ExtractionProgressDialog extends StatelessWidget {
                     const SizedBox(width: 8),
                     IconButton(
                       icon: const Icon(Icons.close_rounded, color: Colors.grey, size: 22),
-                      tooltip: 'إغلاق وإلغاء الاستخراج',
+                      tooltip: l.closeAndCancelExtractionTooltip,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       onPressed: () {
@@ -269,7 +291,7 @@ class ExtractionProgressDialog extends StatelessWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        controller.status,
+                        activeStatus,
                         style: TextStyle(
                           fontSize: 12.5,
                           fontWeight: FontWeight.w600,
@@ -284,13 +306,13 @@ class ExtractionProgressDialog extends StatelessWidget {
                 // 4-Step Visual Progress Stepper
                 Row(
                   children: [
-                    _buildStepIndicator(stepNum: 1, label: 'قراءة', active: controller.currentStep >= 1, done: controller.currentStep > 1 || pctInt == 100),
+                    _buildStepIndicator(stepNum: 1, label: l.ocrStep1Reading, active: controller.currentStep >= 1, done: controller.currentStep > 1 || pctInt == 100),
                     _buildStepLine(done: controller.currentStep > 1 || pctInt == 100),
-                    _buildStepIndicator(stepNum: 2, label: 'رفع', active: controller.currentStep >= 2, done: controller.currentStep > 2 || pctInt == 100),
+                    _buildStepIndicator(stepNum: 2, label: l.ocrStep2Upload, active: controller.currentStep >= 2, done: controller.currentStep > 2 || pctInt == 100),
                     _buildStepLine(done: controller.currentStep > 2 || pctInt == 100),
-                    _buildStepIndicator(stepNum: 3, label: 'OCR ذكي', active: controller.currentStep >= 3, done: controller.currentStep > 3 || pctInt == 100),
+                    _buildStepIndicator(stepNum: 3, label: l.ocrStep3Ocr, active: controller.currentStep >= 3, done: controller.currentStep > 3 || pctInt == 100),
                     _buildStepLine(done: controller.currentStep > 3 || pctInt == 100),
-                    _buildStepIndicator(stepNum: 4, label: 'استخراج الحقول', active: controller.currentStep >= 4, done: pctInt == 100),
+                    _buildStepIndicator(stepNum: 4, label: l.ocrStep4Fields, active: controller.currentStep >= 4, done: pctInt == 100),
                   ],
                 ),
                 const SizedBox(height: 16),
@@ -300,7 +322,7 @@ class ExtractionProgressDialog extends StatelessWidget {
                     TextButton.icon(
                       style: TextButton.styleFrom(foregroundColor: AppTheme.crimson),
                       icon: const Icon(Icons.cancel_outlined, size: 16),
-                      label: const Text('إلغاء العملية وإغلاق الأداة', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(l.cancelAndCloseExtractor, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: () {
                         controller.cancel();
                         onCancel?.call();

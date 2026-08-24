@@ -1424,14 +1424,17 @@ class _OperationalDashboardScreenState extends ConsumerState<OperationalDashboar
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Text(
-                                stepName,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: isStepSelected ? FontWeight.bold : FontWeight.normal,
-                                  color: isStepSelected
-                                      ? Colors.white
-                                      : (count > 0 ? AppTheme.charcoal : Colors.grey.shade700),
+                              Flexible(
+                                child: Text(
+                                  stepName,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: isStepSelected ? FontWeight.bold : FontWeight.normal,
+                                    color: isStepSelected
+                                        ? Colors.white
+                                        : (count > 0 ? AppTheme.charcoal : Colors.grey.shade700),
+                                  ),
                                 ),
                               ),
                               const SizedBox(width: 5),

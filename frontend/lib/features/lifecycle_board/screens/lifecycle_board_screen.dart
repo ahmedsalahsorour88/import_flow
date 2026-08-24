@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/lifecycle_board_model.dart';
@@ -22,29 +23,13 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   final ScrollController _verticalScrollController = ScrollController();
   final ScrollController _topPhasesScrollController = ScrollController();
 
-  // Step definitions with English & Arabic names
-  final Map<String, Map<String, String>> _stepMetadata = {
-    'STEP_01': {'en': 'Freight Studies', 'ar': 'دراسات النولون', 'phase': '1'},
-    'STEP_02': {'en': 'Customs Studies', 'ar': 'الدراسات الجمركية', 'phase': '1'},
-    'STEP_03': {'en': 'Regulatory Reqs', 'ar': 'اشتراطات الاستيراد', 'phase': '1'},
-    'STEP_04': {'en': 'Finance Approvals', 'ar': 'اعتماد الميزانية', 'phase': '2'},
-    'STEP_05': {'en': 'ACID Operations', 'ar': 'إصدار ACID', 'phase': '2'},
-    'STEP_06': {'en': 'Freight Booking', 'ar': 'تأكيد الحجز', 'phase': '3'},
-    'STEP_07': {'en': 'Freight Allocations', 'ar': 'تخصيص الحاويات', 'phase': '3'},
-    'STEP_08': {'en': 'Draft Docs Review', 'ar': 'مراجعة المسودات', 'phase': '3'},
-    'STEP_09': {'en': 'Customs Approval', 'ar': 'الاعتماد النهائي', 'phase': '3'},
-    'STEP_10': {'en': 'CargoX Upload', 'ar': 'رفع المستندات', 'phase': '4'},
-    'STEP_11': {'en': 'Originals Collection', 'ar': 'أصول المستندات', 'phase': '4'},
-    'STEP_12': {'en': 'Bank Form 4', 'ar': 'نموذج 4 البنكي', 'phase': '4'},
-    'STEP_13': {'en': 'Declaration 46', 'ar': 'إقرار 46 ك.م', 'phase': '5'},
-    'STEP_14': {'en': 'Clearance Follow-up', 'ar': 'الكشف والتثمين', 'phase': '5'},
-    'STEP_15': {'en': 'Drawing Samples', 'ar': 'سحب العينات', 'phase': '5'},
-    'STEP_16': {'en': 'Discrepancy / Damage', 'ar': 'محضر المعاينة', 'phase': '5'},
-    'STEP_17': {'en': 'Final Calculation', 'ar': 'سداد الرسوم', 'phase': '5'},
-    'STEP_18': {'en': 'Demurrage & Detention', 'ar': 'الأرضيات', 'phase': '5'},
-    'STEP_19': {'en': 'Warehouse GRN', 'ar': 'إذن الإضافة', 'phase': '6'},
-    'STEP_20': {'en': 'Landed Cost', 'ar': 'تسوية التكلفة', 'phase': '6'},
-    'STEP_21': {'en': 'Final Closure', 'ar': 'إغلاق الملف', 'phase': '6'},
+  final Map<String, String> _stepPhases = {
+    'STEP_01': '1', 'STEP_02': '1', 'STEP_03': '1',
+    'STEP_04': '2', 'STEP_05': '2',
+    'STEP_06': '3', 'STEP_07': '3', 'STEP_08': '3', 'STEP_09': '3',
+    'STEP_10': '4', 'STEP_11': '4', 'STEP_12': '4',
+    'STEP_13': '5', 'STEP_14': '5', 'STEP_15': '5', 'STEP_16': '5', 'STEP_17': '5', 'STEP_18': '5',
+    'STEP_19': '6', 'STEP_20': '6', 'STEP_21': '6',
   };
 
   @override
@@ -63,6 +48,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final boardAsync = ref.watch(lifecycleBoardSummaryProvider);
 
     return Scaffold(
@@ -70,29 +56,31 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.charcoal,
         elevation: 2,
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.view_kanban_outlined, color: AppTheme.cobalt, size: 24),
-            SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Shipment Lifecycle Operations Board (6 Phases / 21 Steps)',
-                  style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  'لوحة تتبع ومتابعة مراحل الشحنات التفاعلية المباشرة — اختيار المرحلة لعرض جدول الملفات',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
+            const Icon(Icons.view_kanban_outlined, color: AppTheme.cobalt, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.lifecycleBoardTitle,
+                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    l10n.lifecycleBoardSubtitle,
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: 'تحديث البيانات المباشرة',
+            tooltip: l10n.refreshLiveBoardTooltip,
             onPressed: () => ref.invalidate(lifecycleBoardSummaryProvider),
           ),
           const SizedBox(width: 8),
@@ -108,12 +96,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             children: [
               const Icon(Icons.error_outline, color: AppTheme.crimson, size: 40),
               const SizedBox(height: 12),
-              Text('حدث خطأ أثناء تحميل بيانات اللوحة: $err', style: const TextStyle(color: AppTheme.crimson)),
+              Text(l10n.lifecycleBoardError(err.toString()), style: const TextStyle(color: AppTheme.crimson), textAlign: TextAlign.center),
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: () => ref.invalidate(lifecycleBoardSummaryProvider),
                 icon: const Icon(Icons.refresh),
-                label: const Text('إعادة المحاولة'),
+                label: Text(l10n.retry),
               ),
             ],
           ),
@@ -153,13 +141,13 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Row(
+                        Row(
                           children: [
-                            Icon(Icons.layers_outlined, color: AppTheme.cobalt, size: 18),
-                            SizedBox(width: 6),
+                            const Icon(Icons.layers_outlined, color: AppTheme.cobalt, size: 18),
+                            const SizedBox(width: 6),
                             Text(
-                              'المستويات الـ 6 الكبرى — اضغط على أي مرحلة لعرض وتحديث شحناتها بالجدول أدناه:',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
+                              l10n.majorPhasesHeader,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                             ),
                           ],
                         ),
@@ -173,7 +161,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                 border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
                               ),
                               child: Text(
-                                'إجمالي الشحنات: ${boardData.totalActiveFiles} ملف (${boardData.allShipments.length} مرحلة)',
+                                l10n.totalActiveShipmentsCount(boardData.totalActiveFiles, boardData.allShipments.length),
                                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
                               ),
                             ),
@@ -188,7 +176,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                                   });
                                 },
                                 icon: const Icon(Icons.clear_all, size: 14, color: AppTheme.crimson),
-                                label: const Text('عرض كافة المراحل', style: TextStyle(color: AppTheme.crimson, fontSize: 11)),
+                                label: Text(l10n.showAllPhasesBtn, style: const TextStyle(color: AppTheme.crimson, fontSize: 11)),
                               ),
                             ],
                           ],
@@ -272,6 +260,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   // ─── Phase Top Card (Compact Upper 1/3) ────────────────────────────────────
 
   Widget _buildPhaseTopCard(PhaseSummaryModel phase, double width) {
+    final l10n = context.l10n;
     final headerColor = _parseColor(phase.colorHex);
     final isPhaseSelected = _selectedPhaseId == phase.phaseId && _selectedStepCode == null;
 
@@ -319,22 +308,11 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          phase.titleEn,
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        Text(
-                          phase.titleAr,
-                          style: const TextStyle(color: Colors.white70, fontSize: 8.5),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
+                    child: Text(
+                      l10n.lifecyclePhaseName(phase.phaseId, phase.titleAr, phase.titleEn),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                   Container(
@@ -360,7 +338,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
               children: phase.stepCodes.map((stepCode) {
                 final count = phase.stepCounts[stepCode] ?? 0;
                 final isStepSelected = _selectedStepCode == stepCode;
-                final meta = _stepMetadata[stepCode] ?? {'en': stepCode, 'ar': stepCode};
+                final localizedName = l10n.lifecycleStepName(stepCode);
 
                 return InkWell(
                   onTap: () {
@@ -401,26 +379,15 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                         ),
                         const SizedBox(width: 4),
                         Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                meta['en']!,
-                                style: TextStyle(
-                                  fontSize: 9.5,
-                                  fontWeight: isStepSelected || count > 0 ? FontWeight.bold : FontWeight.w500,
-                                  color: isStepSelected ? headerColor : AppTheme.charcoal,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              Text(
-                                meta['ar']!,
-                                style: TextStyle(fontSize: 8, color: Colors.grey.shade600),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
+                          child: Text(
+                            localizedName,
+                            style: TextStyle(
+                              fontSize: 9.5,
+                              fontWeight: isStepSelected || count > 0 ? FontWeight.bold : FontWeight.w500,
+                              color: isStepSelected ? headerColor : AppTheme.charcoal,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         Container(
@@ -453,20 +420,19 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   // ─── Table Top Filter Bar ──────────────────────────────────────────────────
 
   Widget _buildTableTopBar(int filteredCount, List<PhaseSummaryModel> phases) {
-    String selectedTitle = 'كافة الشحنات في جميع المراحل';
+    final l10n = context.l10n;
+    String selectedTitle = l10n.allShipmentsAllPhases;
     Color badgeColor = AppTheme.cobalt;
 
     if (_selectedStepCode != null) {
-      final meta = _stepMetadata[_selectedStepCode!];
-      if (meta != null) {
-        selectedTitle = '${_selectedStepCode!}: ${meta['en']} — ${meta['ar']}';
-      }
-      final phaseId = int.tryParse(meta?['phase'] ?? '1') ?? 1;
+      selectedTitle = '${_selectedStepCode!}: ${l10n.lifecycleStepName(_selectedStepCode!)}';
+      final phaseStr = _stepPhases[_selectedStepCode!];
+      final phaseId = int.tryParse(phaseStr ?? '1') ?? 1;
       final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
       badgeColor = _parseColor(p.colorHex);
     } else if (_selectedPhaseId != null) {
       final p = phases.firstWhere((ph) => ph.phaseId == _selectedPhaseId, orElse: () => phases[0]);
-      selectedTitle = '${p.titleEn} — ${p.titleAr}';
+      selectedTitle = l10n.lifecyclePhaseName(p.phaseId, p.titleAr, p.titleEn);
       badgeColor = _parseColor(p.colorHex);
     }
 
@@ -500,7 +466,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(color: badgeColor, borderRadius: BorderRadius.circular(8)),
                   child: Text(
-                    '$filteredCount شحنة',
+                    l10n.shipmentsCountFormatted(filteredCount),
                     style: const TextStyle(color: Colors.white, fontSize: 9.5, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -515,7 +481,7 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             height: 32,
             child: TextField(
               decoration: InputDecoration(
-                hintText: 'بحث بكود الشحنة، المورد، PO، أو الملاحظات...',
+                hintText: l10n.searchLifecycleTableHint,
                 hintStyle: const TextStyle(fontSize: 10.5),
                 prefixIcon: const Icon(Icons.search, size: 15),
                 isDense: true,
@@ -537,6 +503,8 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
   // ─── Shipments Data Table with Horizontal Scrollbar ────────────────────────
 
   Widget _buildShipmentsTable(List<ShipmentStageCardModel> shipments, List<PhaseSummaryModel> phases) {
+    final l10n = context.l10n;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         return Scrollbar(
@@ -557,156 +525,154 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
                   controller: _verticalScrollController,
                   scrollDirection: Axis.vertical,
                   child: DataTable(
-                  headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                  dataRowMinHeight: 44,
-                  dataRowMaxHeight: 58,
-                  columnSpacing: 20,
-                  horizontalMargin: 12,
-                  columns: const [
-                    DataColumn(label: Text('كود الشحنة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('الخطوة الحالية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('أمر الشراء PO', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('نوع الشحن والشرط', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('القيمة التقديرية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('الملاحظات والأنشطة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                    DataColumn(label: Text('الإجراءات والترحيل', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                  ],
-                  rows: shipments.map((s) {
-                    final phaseId = int.tryParse(_stepMetadata[s.stepCode]?['phase'] ?? '1') ?? 1;
-                    final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
-                    final stepColor = _parseColor(p.colorHex);
+                    headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
+                    dataRowMinHeight: 44,
+                    dataRowMaxHeight: 58,
+                    columnSpacing: 20,
+                    horizontalMargin: 12,
+                    columns: [
+                      DataColumn(label: Text(l10n.colShipmentCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colCurrentStep, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colImportCompany, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colForeignSupplier, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colPurchaseOrder, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colModeAndIncoterm, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colEstimatedValue, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colNotesAndActivities, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                      DataColumn(label: Text(l10n.colActionsAndAdvance, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                    ],
+                    rows: shipments.map((s) {
+                      final phaseStr = _stepPhases[s.stepCode];
+                      final phaseId = int.tryParse(phaseStr ?? '1') ?? 1;
+                      final p = phases.firstWhere((ph) => ph.phaseId == phaseId, orElse: () => phases[0]);
+                      final stepColor = _parseColor(p.colorHex);
 
-                    return DataRow(
-                      cells: [
-                        // 1. File Code
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: AppTheme.cobalt.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
-                            ),
-                            child: Text(
-                              s.importFileCode,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
-                            ),
-                          ),
-                        ),
-
-                        // 2. Step Name
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                            decoration: BoxDecoration(
-                              color: stepColor.withOpacity(0.12),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: stepColor.withOpacity(0.3)),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(s.stepNameEn, style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: stepColor)),
-                                Text(s.stepNameAr, style: TextStyle(fontSize: 9, color: stepColor.withOpacity(0.85))),
-                              ],
+                      return DataRow(
+                        cells: [
+                          // 1. File Code
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: AppTheme.cobalt.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                s.importFileCode,
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.cobalt),
+                              ),
                             ),
                           ),
-                        ),
 
-                        // 3. Company
-                        DataCell(
-                          Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
-                        ),
-
-                        // 4. Supplier
-                        DataCell(
-                          Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
-                        ),
-
-                        // 5. PO Number
-                        DataCell(
-                          Text(s.poNumber ?? 'غير محدد', style: const TextStyle(fontSize: 10.5)),
-                        ),
-
-                        // 6. Mode & Incoterm
-                        DataCell(
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${s.shipmentMode} | ${s.incotermCode}',
-                              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                          // 2. Step Name
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: stepColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: stepColor.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                l10n.lifecycleStepName(s.stepCode),
+                                style: TextStyle(fontSize: 10.5, fontWeight: FontWeight.bold, color: stepColor),
+                              ),
                             ),
                           ),
-                        ),
 
-                        // 7. Value
-                        DataCell(
-                          Text(
-                            '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
-                            style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
+                          // 3. Company
+                          DataCell(
+                            Text(s.companyName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 11)),
                           ),
-                        ),
 
-                        // 8. Notes
-                        DataCell(
-                          Container(
-                            constraints: const BoxConstraints(maxWidth: 200),
-                            child: Text(
-                              s.notes ?? 'قيد المتابعة التشغيلية',
-                              style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                          // 4. Supplier
+                          DataCell(
+                            Text(s.supplierName, style: TextStyle(fontSize: 10.5, color: Colors.grey.shade800)),
+                          ),
+
+                          // 5. PO Number
+                          DataCell(
+                            Text(s.poNumber ?? l10n.notSpecifiedOption, style: const TextStyle(fontSize: 10.5)),
+                          ),
+
+                          // 6. Mode & Incoterm
+                          DataCell(
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${s.shipmentMode} | ${s.incotermCode}',
+                                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: Colors.grey.shade800),
+                              ),
                             ),
                           ),
-                        ),
 
-                        // 9. Workstation Action Button
-                        DataCell(
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: stepColor,
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-                              visualDensity: VisualDensity.compact,
-                            ),
-                            onPressed: () {
-                              showDialog(
-                                context: context,
-                                barrierDismissible: false,
-                                builder: (ctx) => StepActionDialog(
-                                  shipment: s,
-                                  allPhases: phases,
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
-                            label: const Text(
-                              'تنفيذ وترحيل الخطوة',
-                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                          // 7. Value
+                          DataCell(
+                            Text(
+                              '${s.estimatedCost.toStringAsFixed(0)} ${s.estimatedCostCurrency}',
+                              style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 11),
                             ),
                           ),
-                        ),
-                      ],
-                    );
-                  }).toList(),
+
+                          // 8. Notes
+                          DataCell(
+                            Container(
+                              constraints: const BoxConstraints(maxWidth: 200),
+                              child: Text(
+                                s.notes ?? l10n.notesUnderFollowupFallback,
+                                style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+
+                          // 9. Workstation Action Button
+                          DataCell(
+                            ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: stepColor,
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (ctx) => StepActionDialog(
+                                    shipment: s,
+                                    allPhases: phases,
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.play_circle_outline, size: 13, color: Colors.white),
+                              label: Text(
+                                l10n.executeAndAdvanceStepBtn,
+                                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    }).toList(),
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-    },
-  );
-}
+        );
+      },
+    );
+  }
 
   Widget _buildEmptyState() {
+    final l10n = context.l10n;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -716,12 +682,12 @@ class _LifecycleBoardScreenState extends ConsumerState<LifecycleBoardScreen> {
             Icon(Icons.folder_open_outlined, size: 44, color: Colors.grey.shade300),
             const SizedBox(height: 8),
             Text(
-              'لا توجد شحنات مسجلة حالياً في هذه المرحلة المحددة',
+              l10n.noShipmentsInStage,
               style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 3),
             Text(
-              'يمكنك اختيار مرحلة أخرى من الأقسام بالأعلى أو إلغاء التصفية لعرض كافة الشحنات.',
+              l10n.noShipmentsInStageDesc,
               style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
             ),
           ],

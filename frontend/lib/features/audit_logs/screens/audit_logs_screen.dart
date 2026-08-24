@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../models/audit_log_model.dart';
@@ -43,7 +44,14 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final logsAsync = ref.watch(systemAuditLogsProvider);
 
     return Scaffold(
@@ -57,22 +65,22 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Expanded(
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'System Audit Trail & History Logs',
-                        style: TextStyle(
+                        l10n.auditLogsScreenTitle,
+                        style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           color: AppTheme.charcoal,
                         ),
                       ),
-                      SizedBox(height: 4),
+                      const SizedBox(height: 4),
                       Text(
-                        'Complete System-Wide Activity Trail, Field Diffs & User Change Tracking',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        l10n.auditLogsScreenSubtitle,
+                        style: const TextStyle(color: Colors.grey, fontSize: 14),
                       ),
                     ],
                   ),
@@ -83,7 +91,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                     const SizedBox(width: 10),
                     ElevatedButton.icon(
                       icon: const Icon(Icons.refresh, size: 18),
-                      label: const Text('Live Refresh'),
+                      label: Text(l10n.liveRefreshBtn),
                       onPressed: () => ref.invalidate(systemAuditLogsProvider),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
@@ -101,7 +109,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             // Entity Type Filter Chips
             Row(
               children: [
-                const Text('Entity:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l10n.filterEntityLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SingleChildScrollView(
@@ -113,7 +121,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                           padding: const EdgeInsets.only(right: 8.0),
                           child: ChoiceChip(
                             label: Text(
-                              type == 'ImportCompany' ? 'Importer' : type == 'ExternalServiceProvider' ? 'Partner/Bank' : type,
+                              l10n.auditEntityLabel(type),
                               style: TextStyle(
                                 color: isSelected ? Colors.white : AppTheme.charcoal,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -143,7 +151,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
             // Action Filter Chips
             Row(
               children: [
-                const Text('Action:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                Text(l10n.filterActionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                 const SizedBox(width: 8),
                 Expanded(
                   child: SingleChildScrollView(
@@ -155,7 +163,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                           padding: const EdgeInsets.only(right: 8.0),
                           child: ChoiceChip(
                             label: Text(
-                              act,
+                              l10n.auditActionLabel(act),
                               style: TextStyle(
                                 color: isSelected ? Colors.white : AppTheme.charcoal,
                                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
@@ -200,7 +208,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                 style: const TextStyle(fontSize: 14),
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.search, color: AppTheme.charcoal),
-                  hintText: 'Search logs by entity code, user, or change summary...',
+                  hintText: l10n.searchAuditLogsHint,
                   filled: false,
                   border: InputBorder.none,
                   enabledBorder: InputBorder.none,
@@ -223,7 +231,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
               child: logsAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Text('Error loading audit logs: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  child: Text(l10n.auditLogsFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                 ),
                 data: (logs) {
                   final filtered = logs.where((log) {
@@ -238,8 +246,8 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   }).toList();
 
                   if (filtered.isEmpty) {
-                    return const Center(
-                      child: Text('No system audit logs match your search filters.', style: TextStyle(fontSize: 16, color: Colors.grey)),
+                    return Center(
+                      child: Text(l10n.noAuditLogsFound, style: const TextStyle(fontSize: 16, color: Colors.grey)),
                     );
                   }
 
@@ -275,6 +283,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
   }
 
   Widget _buildAuditLogCard(AuditLogModel log) {
+    final l10n = context.l10n;
     final actionColor = _getActionColor(log.action);
     final formattedDate = log.performedAt.toLocal().toString().split('.').first;
 
@@ -310,7 +319,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
-                        log.action.toUpperCase(),
+                        l10n.auditActionLabel(log.action),
                         style: TextStyle(color: actionColor, fontWeight: FontWeight.bold, fontSize: 11),
                       ),
                     ),
@@ -324,7 +333,10 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '${log.entityType} #${log.entityCode ?? log.entityId}',
+                        l10n.auditEntityWithCode(
+                          l10n.auditEntityLabel(log.entityType),
+                          log.entityCode ?? log.entityId.toString(),
+                        ),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                       ),
                     ),
@@ -347,7 +359,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
 
                 // Changes Summary
                 Text(
-                  log.changesSummary ?? 'System mutation recorded',
+                  log.changesSummary ?? l10n.systemMutationFallback,
                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                 ),
                 const SizedBox(height: 4),
@@ -357,7 +369,7 @@ class _AuditLogsScreenState extends ConsumerState<AuditLogsScreen> {
                   children: [
                     const Icon(Icons.person_outline, size: 14, color: Colors.grey),
                     const SizedBox(width: 4),
-                    Text('Performed by: ${log.performedBy}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(l10n.performedByUser(log.performedBy), style: const TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               ],

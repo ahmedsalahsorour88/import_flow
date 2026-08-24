@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -62,7 +63,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '▶️ تم استئناف واستكمال الشحنة (${widget.importFile.importFileCode}) بنجاح!',
+              '▶️ ${context.l10n.resumeShipmentBtn} (${widget.importFile.importFileCode})!',
             ),
             backgroundColor: AppTheme.emerald,
             duration: const Duration(seconds: 4),
@@ -74,7 +75,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ تعذر استئناف الشحنة: $e'),
+            content: Text('❌ Error: $e'),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -86,9 +87,11 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
+    final isAr = Localizations.localeOf(context).languageCode == 'ar';
     final file = widget.importFile;
     final pausedStage = file.pausedAtStage ?? widget.currentStageName;
-    final holdReason = file.holdReason ?? 'غير محدد';
+    final holdReason = file.holdReason ?? '-';
 
     return AlertDialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -119,9 +122,9 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'استئناف واستكمال الشحنة',
-                    style: TextStyle(
+                  Text(
+                    l.resumeShipmentBtn,
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: AppTheme.emerald,
@@ -161,7 +164,7 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
                         Icon(Icons.pause_circle_outline, color: Colors.amber.shade900, size: 18),
                         const SizedBox(width: 6),
                         Text(
-                          'بيانات توقف الشحنة السابق:',
+                          isAr ? 'بيانات توقف الشحنة السابق:' : 'Previous Hold Details:',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: Colors.amber.shade900,
@@ -172,12 +175,12 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      '• مرحلة التوقف: $pausedStage',
+                      '• ${isAr ? "مرحلة التوقف" : "Hold Stage"}: $pausedStage',
                       style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '• سبب التوقف المسجل: $holdReason',
+                      '• ${l.holdDialogReasonLabel}: $holdReason',
                       style: TextStyle(fontSize: 12, color: Colors.red.shade900),
                     ),
                   ],
@@ -194,14 +197,16 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.green.shade200),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.info_outline, color: AppTheme.emerald, size: 18),
-                    SizedBox(width: 8),
+                    const Icon(Icons.info_outline, color: AppTheme.emerald, size: 18),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'عند تأكيد الاستئناف، ستعود حالة الشحنة إلى "In Progress" النشطة وسيتمكن الفريق من استكمال ومتابعة باقي الإجراءات والمراحل.',
-                        style: TextStyle(fontSize: 11.5, color: AppTheme.charcoal, height: 1.3),
+                        isAr
+                            ? 'عند تأكيد الاستئناف، ستعود حالة الشحنة إلى "In Progress" النشطة وسيتمكن الفريق من استكمال ومتابعة باقي الإجراءات والمراحل.'
+                            : 'Upon resuming, the shipment status will return to active "In Progress", allowing the team to proceed with subsequent phases.',
+                        style: const TextStyle(fontSize: 11.5, color: AppTheme.charcoal, height: 1.3),
                       ),
                     ),
                   ],
@@ -213,11 +218,11 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
               TextFormField(
                 controller: _notesController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'ملاحظات الاستئناف ومبررات المتابعة (اختياري)',
-                  hintText: 'مثال: تم استيفاء التعديل المطلوب من المورد وجاهزية المتابعة...',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.comment, color: AppTheme.emerald),
+                decoration: InputDecoration(
+                  labelText: isAr ? 'ملاحظات الاستئناف ومبررات المتابعة (اختياري)' : 'Resume Notes & Justification (Optional)',
+                  hintText: isAr ? 'مثال: تم استيفاء التعديل المطلوب من المورد وجاهزية المتابعة...' : 'e.g. Supplier amendment fulfilled, ready to proceed...',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.comment, color: AppTheme.emerald),
                 ),
               ),
             ],
@@ -228,14 +233,14 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(false),
-          child: const Text('إلغاء التراجع'),
+          child: Text(l.cancel),
         ),
         ElevatedButton.icon(
           onPressed: _isSubmitting ? null : _handleResume,
           icon: _isSubmitting
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.play_arrow_rounded, size: 18),
-          label: const Text('تأكيد استكمال واستئناف الشحنة'),
+          label: Text(l.resumeShipmentBtn),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.emerald,
             foregroundColor: Colors.white,
@@ -247,3 +252,4 @@ class _ResumeShipmentFromStageDialogState extends ConsumerState<ResumeShipmentFr
     );
   }
 }
+

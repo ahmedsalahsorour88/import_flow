@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -43,11 +45,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   String? _activeAcidNumber;
   List<String> _activeStandards = [];
 
-  static const List<ImportDocStep> _steps = [
-    ImportDocStep(label: '1. متطلبات شهادة الفحص والمطابقة', icon: Icons.fact_check_outlined),
-    ImportDocStep(label: '2. إدخال واستخراج الدرافت', icon: Icons.file_upload),
-    ImportDocStep(label: '3. مصفوفة المقارنة والفروق', icon: Icons.rule),
-    ImportDocStep(label: '4. سجل شهادات الفحص المعتمدة', icon: Icons.history),
+  List<ImportDocStep> _buildSteps(AppLocalizations l10n) => [
+    ImportDocStep(label: '1. ${l10n.inspStepRequirements}', icon: Icons.fact_check_outlined),
+    ImportDocStep(label: '2. ${l10n.inspStepDraftInput}', icon: Icons.file_upload),
+    ImportDocStep(label: '3. ${l10n.inspStepDiscrepancyMatrix}', icon: Icons.rule),
+    ImportDocStep(label: '4. ${l10n.inspStepRegistry}', icon: Icons.history),
   ];
 
   @override
@@ -162,11 +164,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     return 'COC (Certificate of Conformity)'; // default
   }
 
-
   Future<void> _runComparison() async {
+    final l10n = context.l10n;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.pleaseSelectFileFirstPrompt), backgroundColor: Colors.red),
       );
       return;
     }
@@ -200,7 +202,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء المقارنة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.inspectionComparisonError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -209,6 +211,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Future<void> _saveReview() async {
+    final l10n = context.l10n;
     if (_comparisonResult == null || _selectedImportFileId == null) return;
 
     final hasDisc = _comparisonResult!['has_discrepancies'] as bool? ?? false;
@@ -217,10 +220,10 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
     if ((hasDisc || hasCritical) && reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ يجب كتابة سبب ومبرر الموافقة على الاختلافات قبل الاعتماد والحفظ، أو الضغط على [العودة للتعديل ومخاطبة المورد].'),
+        SnackBar(
+          content: Text('⚠️ ${l10n.overrideReasonMandatoryWarning}'),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 5),
+          duration: const Duration(seconds: 5),
         ),
       );
       return;
@@ -249,14 +252,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
       await ref.read(inspectionReviewsProvider.notifier).saveInspectionReview(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✔ تم حفظ جلسة مراجعة شهادة الفحص بنجاح بالسجل'), backgroundColor: Colors.green),
+          SnackBar(content: Text('✔ ${l10n.saveInspectionReviewSuccess}'), backgroundColor: Colors.green),
         );
         setState(() => _activeStep = 3);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الحفظ: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.saveInspectionReviewError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -264,13 +267,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     }
   }
 
-  // TODO: Implement certificate file picker when upload endpoint is ready
-  // Future<void> _pickCertificateFile() async { ... }
-
   Future<void> _generateOfficialDraft() async {
+    final l10n = context.l10n;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لتوليد درافت شهادة الفحص'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l10n.generateDraftSelectFileFirstPrompt), backgroundColor: Colors.red),
       );
       return;
     }
@@ -308,7 +309,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 children: [
                   const Icon(Icons.fact_check, color: AppTheme.cobalt),
                   const SizedBox(width: 8),
-                  Text('المعاينة المصورة لمسودة شهادة الفحص: $_inspAgency ($_inspType)',
+                  Text(l10n.inspectionVisualPreviewDialogTitle(_inspAgency, _inspType),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -334,12 +335,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء وإغلاق ✕', style: TextStyle(color: Colors.grey)),
+              child: Text(l10n.cancelAndClose, style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
               icon: const Icon(Icons.check, color: Colors.white),
-              label: const Text('اعتماد وتعبئة الحقول تلقائياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: Text(l10n.applyInspectionDraftDataBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.pop(ctx);
                 setState(() {
@@ -351,7 +352,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   _activeStep = 1;
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✔ تم ملء بيانات درافت شهادة الفحص بنجاح'), backgroundColor: Colors.green),
+                  SnackBar(content: Text('✔ ${l10n.inspectionDraftDataAppliedSuccess}'), backgroundColor: Colors.green),
                 );
               },
             ),
@@ -361,7 +362,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء توليد المسودة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.generateDraftError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -370,10 +371,11 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Future<void> _extractFromOcrText() async {
+    final l10n = context.l10n;
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى لصق نص شهادة الفحص أو رفع الملف أولاً'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(l10n.pasteRawTextFirstPrompt), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -441,29 +443,29 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         if (warnings.isNotEmpty) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('⚠️ تنبيهات الاستخراج: ${warnings.join(", ")}'),
+              content: Text(l10n.inspectionOcrWarningsAlert(warnings.join(', '))),
               backgroundColor: Colors.orange.shade800,
               duration: const Duration(seconds: 4),
             ),
           );
         } else if (isDraft) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('⚠️ تم اكتشاف مسودة (DRAFT) - يرجى تأكيد الفحص خلال مهلة الـ 48 ساعة لتفادي رفض الإفراج.'),
+            SnackBar(
+              content: Text('⚠️ ${l10n.inspectionDraft48hWarningAlert}'),
               backgroundColor: Colors.orange,
-              duration: Duration(seconds: 5),
+              duration: const Duration(seconds: 5),
             ),
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✔ تم استخراج ومطابقة بيانات شهادة الفحص والمطابقة بنجاح'), backgroundColor: Colors.green),
+            SnackBar(content: Text('✔ ${l10n.inspectionExtractionSuccess}'), backgroundColor: Colors.green),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الاستخراج: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l10n.inspectionComparisonError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -473,13 +475,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     return Column(
       children: [
         // Unified Stepper Navigation
         ImportDocStepper(
-          steps: _steps,
+          steps: _buildSteps(l10n),
           currentStep: _activeStep,
           onStepTapped: (i) => setState(() => _activeStep = i),
         ),
@@ -512,6 +515,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep1(List<dynamic> importFiles) {
+    final l10n = context.l10n;
     final existingReviews = ref.watch(inspectionReviewsProvider).value ?? [];
     final existingReview = existingReviews.where((r) => r.importFileId == _selectedImportFileId).firstOrNull;
 
@@ -540,25 +544,25 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'ℹ️ توجد دراسة مسجلة مسبقاً لهذا الملف [كود الجلسة: ${existingReview.inspectionReviewCode} - الحالة: ${existingReview.status}]. سيتم تحديث وتعديل نفس الدراسة المعتمدة لضمان عدم تكرار السجلات.',
+                            l10n.existingInspectionReviewBanner(existingReview.inspectionReviewCode, existingReview.status),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                           ),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                           icon: const Icon(Icons.history, color: Colors.white, size: 14),
-                          label: const Text('سجل الشهادات', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(l10n.inspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 3),
                         ),
                       ],
                     ),
                   ),
                 ],
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.verified, color: AppTheme.cobalt),
-                    SizedBox(width: 10),
-                    Text('توليد متطلبات شهادة الفحص المسبق قبل الشحن (Pre-Shipment Inspection / COC)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.verified, color: AppTheme.cobalt),
+                    const SizedBox(width: 10),
+                    Text(l10n.inspRequirementsHeader, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
                 const Divider(height: 24),
@@ -568,8 +572,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       flex: 3,
                       child: SearchableDropdownField<int>(
                         value: _selectedImportFileId,
-                        labelText: 'اختر ملف الشحنة *',
-                        searchHintText: 'ابحث برقم الملف...',
+                        labelText: l10n.selectInspectionFileLabel,
+                        searchHintText: l10n.selectInspectionFileHint,
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
@@ -589,13 +593,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       flex: 2,
                       child: SearchableDropdownField<String>(
                         value: _inspType,
-                        labelText: 'نوع شهادة الفحص *',
-                        searchHintText: 'اختر نوع الفحص...',
-                        items: const [
-                          SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: 'شهادة المطابقة النوعية (COC)'),
-                          SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: 'شهادة التحليل المخبري (COA)'),
-                          SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: 'التحقق من المطابقة (VOC)'),
-                          SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: 'تقرير المعاينة قبل الشحن (PSI)'),
+                        labelText: l10n.inspectionCertTypeLabel,
+                        searchHintText: l10n.inspectionCertTypeHint,
+                        items: [
+                          SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: l10n.optInspectionCoc),
+                          SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: l10n.optInspectionCoa),
+                          SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: l10n.optInspectionVoc),
+                          SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: l10n.optInspectionPsi),
                         ],
                         onChanged: (v) {
                           setState(() => _inspType = v ?? 'COC (Certificate of Conformity)');
@@ -610,8 +614,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                       flex: 2,
                       child: SearchableDropdownField<String>(
                         value: _inspAgency,
-                        labelText: 'شركة / جهة الفحص الدولية *',
-                        searchHintText: 'اختر جهة الفحص...',
+                        labelText: l10n.inspectionAgencyLabel,
+                        searchHintText: l10n.inspectionAgencyHint,
                         items: const [
                           SearchableDropdownItem(value: 'SGS', label: 'SGS International'),
                           SearchableDropdownItem(value: 'TÜV Rheinland', label: 'TÜV Rheinland'),
@@ -631,14 +635,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                       icon: const Icon(Icons.bolt, color: Colors.white),
-                      label: const Text('⚡ فتح المعاينة والتصدير', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l10n.openInspectionPreviewBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _generateOfficialDraft,
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                       icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l10n.nextInspectionInputBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: () => setState(() => _activeStep = 1),
                     ),
                   ],
@@ -667,6 +671,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep2(List<dynamic> importFiles) {
+    final l10n = context.l10n;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -678,13 +683,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('إدخال واستخراج بيانات درافت شهادة الفحص (Inspection Draft Input)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(l10n.inspDraftInputHeader, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
                   icon: _isLoading
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.compare_arrows, color: Colors.white),
-                  label: const Text('تشغيل المطابقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  label: Text(l10n.runInspectionComparisonBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
                 ),
               ],
@@ -697,8 +702,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   flex: 4,
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
-                    labelText: 'اختر ملف الشحنة المربوط *',
-                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    labelText: l10n.linkedInspectionFileLabel,
+                    searchHintText: l10n.linkedInspectionFileHint,
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
@@ -718,13 +723,13 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   flex: 3,
                   child: SearchableDropdownField<String>(
                     value: _inspType,
-                    labelText: 'نوع شهادة الفحص *',
-                    searchHintText: 'اختر نوع الفحص...',
-                    items: const [
-                      SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: 'شهادة المطابقة النوعية (COC)'),
-                      SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: 'شهادة التحليل المخبري (COA)'),
-                      SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: 'التحقق من المطابقة (VOC)'),
-                      SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: 'تقرير المعاينة قبل الشحن (PSI)'),
+                    labelText: l10n.inspectionCertTypeLabel,
+                    searchHintText: l10n.inspectionCertTypeHint,
+                    items: [
+                      SearchableDropdownItem(value: 'COC (Certificate of Conformity)', label: l10n.optInspectionCoc),
+                      SearchableDropdownItem(value: 'COA (Certificate of Analysis)', label: l10n.optInspectionCoa),
+                      SearchableDropdownItem(value: 'VOC (Verification of Conformity)', label: l10n.optInspectionVoc),
+                      SearchableDropdownItem(value: 'PSI (Pre-Shipment Inspection)', label: l10n.optInspectionPsi),
                     ],
                     onChanged: (v) {
                       setState(() => _inspType = v ?? 'COC (Certificate of Conformity)');
@@ -736,8 +741,8 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   flex: 3,
                   child: SearchableDropdownField<String>(
                     value: _inspAgency,
-                    labelText: 'جهة الفحص الدولية *',
-                    searchHintText: 'اختر جهة الفحص...',
+                    labelText: l10n.inspectionAgencyLabel,
+                    searchHintText: l10n.inspectionAgencyHint,
                     items: const [
                       SearchableDropdownItem(value: 'SGS', label: 'SGS International'),
                       SearchableDropdownItem(value: 'TÜV Rheinland', label: 'TÜV Rheinland'),
@@ -761,14 +766,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red.shade300),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.red),
-                    SizedBox(width: 10),
+                    const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً حتى يتم استخراج البيانات ومقارنتها بسجلات النظام.',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                        '⚠️ ${l10n.pleaseSelectInspectionFileWarning}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
                       ),
                     ),
                   ],
@@ -781,21 +786,21 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _certNumberCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم درافت الشهادة *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.certNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _authorityCtrl,
-                    decoration: const InputDecoration(labelText: 'الجهة الرقابية المصرية المختصة *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.regulatoryAuthorityFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _invoiceNoCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم الفاتورة الخاضعة للفحص *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.inspectedInvoiceNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -806,21 +811,21 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _exporterCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم المصدر / الشاحن *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.exporterShipperFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _importerCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم المستورد / طالب الفحص *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.importerApplicantFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _specCtrl,
-                    decoration: const InputDecoration(labelText: 'المواصفة القياسية المعتمدة *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.standardSpecFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -831,14 +836,14 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _acidCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم القيد الجمركي المسبق (ACID Number) *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.acidNumberFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _originCountryCtrl,
-                    decoration: const InputDecoration(labelText: 'بلد المنشأ (Country of Origin) *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: l10n.countryOfOriginFieldLabel, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -849,7 +854,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               children: [
                 SmartUploadButton(
                   module: SmartUploadModule.inspectionCertificate,
-                  label: 'رفع واستخراج شهادة الفحص الذكي (PDF / Word / Excel)',
+                  label: l10n.smartUploadInspectionBtn,
                   onDataExtracted: (result) {
                     final fields = result.extractedFields;
                     setState(() {
@@ -911,10 +916,10 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('النص الخام لدرافت شهادة الفحص (Raw Text / OCR Dump):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(l10n.rawTextInspectionHeader, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 TextButton.icon(
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                  label: const Text('⚡ استخراج ومطابقة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  label: Text(l10n.smartExtractFromTextBtn, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                   onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
                 ),
               ],
@@ -923,9 +928,9 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             TextFormField(
               controller: _rawTextCtrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'الصق النص الكامل لشهادة الفحص هنا (مثل نصوص Cotecna أو TÜV أو SGS)...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: l10n.rawTextInspectionHint,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -935,6 +940,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep3(List<dynamic> importFiles) {
+    final l10n = context.l10n;
     if (_selectedImportFileId == null) {
       return Card(
         elevation: 2,
@@ -944,12 +950,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             children: [
               const Icon(Icons.folder_off, size: 48, color: Colors.orange),
               const SizedBox(height: 12),
-              const Text('⚠️ يجب اختيار ملف الشحنة أولاً لعرض مصفوفة المقارنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text('⚠️ ${l10n.mustSelectFileForMatrixWarning}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                label: Text(l10n.returnToSelectFileBtn, style: const TextStyle(color: Colors.white)),
                 onPressed: () => setState(() => _activeStep = 1),
               ),
             ],
@@ -967,12 +973,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             children: [
               const Icon(Icons.compare_arrows, size: 48, color: AppTheme.cobalt),
               const SizedBox(height: 12),
-              const Text('يرجى تشغيل المطابقة في الخطوة السابقة لاستعراض مصفوفة الفروق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(l10n.pleaseRunComparisonPrompt, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: const Text('العودة لتشغيل المطابقة', style: TextStyle(color: Colors.white)),
+                label: Text(l10n.returnToRunComparisonBtn, style: const TextStyle(color: Colors.white)),
                 onPressed: () => setState(() => _activeStep = 1),
               ),
             ],
@@ -1001,7 +1007,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? Colors.red : (hasDisc ? Colors.orange : Colors.green), size: 24),
                     const SizedBox(width: 10),
                     Text(
-                      hasCritical ? '🚨 توجد اختلافات حرجة في بيانات شهادة الفحص' : (hasDisc ? '⚠️ توجد فروق طفيفة' : '✔ شهادة الفحص مطابقة 100%'),
+                      hasCritical ? l10n.hasCriticalMismatchStatus : (hasDisc ? l10n.hasMinorDiscrepanciesStatus : l10n.inspectionConforms100Status),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ],
@@ -1016,7 +1022,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.picture_as_pdf, size: 16),
-                      label: const Text('تصدير PDF', style: TextStyle(fontSize: 12)),
+                      label: Text(l10n.exportPdfBtn, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
                         if (_selectedImportFileId != null && _activeDraftTemplate != null) {
                           InspectionExportService.printOrSavePdf(
@@ -1028,7 +1034,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('جارٍ تصدير تقرير مطابقة شهادة الفحص...')),
+                            SnackBar(content: Text(l10n.exportingInspectionPdfPrompt)),
                           );
                         }
                       },
@@ -1041,7 +1047,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.table_chart, size: 16),
-                      label: const Text('Excel', style: TextStyle(fontSize: 12)),
+                      label: Text(l10n.exportExcelBtn, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
                         if (_activeDraftTemplate != null) {
                           final csv = InspectionExportService.exportInspectionCsv(
@@ -1053,7 +1059,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           );
                           Clipboard.setData(ClipboardData(text: csv));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('📊 تم نسخ وتصدير بيانات المطابقة إلى Excel بنجاح'), backgroundColor: Colors.green),
+                            SnackBar(content: Text('📊 ${l10n.copiedInspectionExcelSuccess}'), backgroundColor: Colors.green),
                           );
                         }
                       },
@@ -1062,7 +1068,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text('حفظ بالسجل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(l10n.saveToInspectionRegistryBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _saveReview,
                     ),
                   ],
@@ -1073,12 +1079,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('الحقل')),
-                  DataColumn(label: Text('القيمة بالنظام')),
-                  DataColumn(label: Text('القيمة بالدرافت')),
-                  DataColumn(label: Text('حالة التطابق')),
-                  DataColumn(label: Text('التفاصيل')),
+                columns: [
+                  DataColumn(label: Text(l10n.colInspField)),
+                  DataColumn(label: Text(l10n.colInspSystemValue)),
+                  DataColumn(label: Text(l10n.colInspDraftValue)),
+                  DataColumn(label: Text(l10n.colInspMatchStatus)),
+                  DataColumn(label: Text(l10n.colInspDetails)),
                 ],
                 rows: matrix.map((m) {
                   return DataRow(cells: [
@@ -1114,7 +1120,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'سبب ومبررات الموافقة على الاختلافات (إلزامي للاعتماد والحفظ):',
+                            l10n.inspOverrideReasonBoxTitle,
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
                           ),
                         ),
@@ -1122,17 +1128,17 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'عند وجود فروق أو اختلافات في شهادة الفحص والمطابقة، يجب تسجيل سبب الموافقة والاعتماد (مثال: اعتماد المعمل المرجعي / استثناء الفحص الظاهري)، أو الضغط على العودة للتعديل ومخاطبة المورد.',
+                      l10n.inspOverrideReasonBoxDesc,
                       style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
                       controller: _overrideReasonCtrl,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'سبب ومبرر الموافقة على الاختلافات (Approval Justification) *',
-                        hintText: 'اكتب مبررات قبول الاختلافات هنا قبل الحفظ...',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l10n.inspOverrideReasonFieldLabel,
+                        hintText: l10n.inspOverrideReasonFieldHint,
+                        border: const OutlineInputBorder(),
                         filled: true,
                         fillColor: Colors.white,
                       ),
@@ -1147,7 +1153,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           ),
                           icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
-                          label: const Text('✔ اعتماد وحفظ مع ذكر سبب الموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(l10n.approveAndSaveWithReasonBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: _saveReview,
                         ),
                         const SizedBox(width: 12),
@@ -1158,7 +1164,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
                           icon: const Icon(Icons.edit_note, size: 16),
-                          label: const Text('↩ العودة لتعديل المسودة ومخاطبة المورد', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text(l10n.returnToEditAndContactSupplierBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 1),
                         ),
                       ],
@@ -1174,11 +1180,12 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   Widget _buildStep4(List<dynamic> importFiles) {
+    final l10n = context.l10n;
     final reviewsState = ref.watch(inspectionReviewsProvider);
 
     return reviewsState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('خطأ في جلب السجلات: $err')),
+      error: (err, _) => Center(child: Text(l10n.saveInspectionReviewError(err.toString()))),
       data: (reviews) {
         return Card(
           elevation: 2,
@@ -1196,7 +1203,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                         const Icon(Icons.history_edu, color: AppTheme.cobalt, size: 22),
                         const SizedBox(width: 8),
                         Text(
-                          'سجل مراجعات واعتماد شهادات الفحص والتفتيش (${reviews.length} جلسة)',
+                          l10n.inspReviewsRegistryTitle(reviews.length),
                           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                         ),
                       ],
@@ -1204,7 +1211,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.add, color: Colors.white, size: 16),
-                      label: const Text('بدء مراجعة جديدة', style: TextStyle(color: Colors.white)),
+                      label: Text(l10n.startNewInspReviewBtn, style: const TextStyle(color: Colors.white)),
                       onPressed: () => setState(() => _activeStep = 1),
                     ),
                   ],
@@ -1215,21 +1222,21 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(color: Colors.grey.shade50, borderRadius: BorderRadius.circular(8)),
-                    child: const Center(child: Text('لا توجد جلسات مراجعة مسجلة لشهادات الفحص حتى الآن.')),
+                    child: Center(child: Text(l10n.noInspReviewsYet)),
                   )
                 else
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
-                      columns: const [
-                        DataColumn(label: Text('كود الجلسة')),
-                        DataColumn(label: Text('نوع الفحص')),
-                        DataColumn(label: Text('جهة الفحص')),
-                        DataColumn(label: Text('رقم الشهادة')),
-                        DataColumn(label: Text('الحالة')),
-                        DataColumn(label: Text('تاريخ الإنشاء')),
-                        DataColumn(label: Text('الإجراءات')),
+                      columns: [
+                        DataColumn(label: Text(l10n.colInspSessionCode)),
+                        DataColumn(label: Text(l10n.colInspCertType)),
+                        DataColumn(label: Text(l10n.colInspAgency)),
+                        DataColumn(label: Text(l10n.colInspCertNo)),
+                        DataColumn(label: Text(l10n.colInspStatus)),
+                        DataColumn(label: Text(l10n.colInspCreatedAt)),
+                        DataColumn(label: Text(l10n.colInspActions)),
                       ],
                       rows: reviews.map((r) {
                         final rawTxt = r.rawText ?? r.draftInputData?['raw_text'] ?? '';
@@ -1254,7 +1261,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                                 // 1. Edit (تعديل)
                                 IconButton(
                                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                  tooltip: 'تعديل الجلسة',
+                                  tooltip: l10n.editInspSessionTooltip,
                                   onPressed: () {
                                     setState(() {
                                       _selectedImportFileId = r.importFileId;
@@ -1275,20 +1282,20 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                                       _activeStep = 1;
                                     });
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('تم تحميل بيانات الجلسة (${r.inspectionReviewCode}) للتعديل')),
+                                      SnackBar(content: Text(l10n.loadedInspSessionForEdit(r.inspectionReviewCode))),
                                     );
                                   },
                                 ),
                                 // 2. View (مشاهدة)
                                 IconButton(
                                   icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                  tooltip: 'معاينة التفاصيل',
+                                  tooltip: l10n.viewInspDetailsTooltip,
                                   onPressed: () => _showInspectionReviewDetailsDialog(r),
                                 ),
                                 // 3. Download PDF (تنزيل PDF)
                                 IconButton(
                                   icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
-                                  tooltip: 'تنزيل PDF',
+                                  tooltip: l10n.downloadInspPdfTooltip,
                                   onPressed: () async {
                                     final tData = {
                                       'certificate_number': r.certificateNumber,
@@ -1308,7 +1315,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                                 // 4. Delete (حذف)
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                  tooltip: 'حذف الجلسة',
+                                  tooltip: l10n.deleteInspSessionTooltip,
                                   onPressed: () => _confirmDeleteInspectionReview(r),
                                 ),
                               ],
@@ -1327,6 +1334,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   void _showInspectionReviewDetailsDialog(InspectionCertificateReviewModel r) {
+    final l10n = context.l10n;
     final overrideReason = r.notes ?? r.draftInputData?['override_reason'] ?? '';
 
     showDialog(
@@ -1336,7 +1344,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
           children: [
             const Icon(Icons.assignment, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            Text('تفاصيل جلسة مراجعة شهادة الفحص: ${r.inspectionReviewCode}'),
+            Text(l10n.inspDetailsDialogTitle(r.inspectionReviewCode)),
           ],
         ),
         content: SizedBox(
@@ -1347,24 +1355,24 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: const Text('نوع الفحص والجهة المصدرة'),
-                  subtitle: Text('${r.inspectionType} — جهة الفحص: ${r.inspectionAgency}'),
+                  title: Text(l10n.tileInspTypeAndAgency),
+                  subtitle: Text('${r.inspectionType} — ${r.inspectionAgency}'),
                   dense: true,
                 ),
                 ListTile(
-                  title: const Text('رقم الشهادة والحالة'),
-                  subtitle: Text('رقم الشهادة: ${r.certificateNumber} | الحالة: ${r.status}'),
+                  title: Text(l10n.tileInspCertNoAndStatus),
+                  subtitle: Text('${r.certificateNumber} | ${r.status}'),
                   dense: true,
                 ),
                 if (overrideReason.isNotEmpty)
                   ListTile(
-                    title: const Text('سبب ومبرر الموافقة على الاختلافات'),
+                    title: Text(l10n.tileInspOverrideReason),
                     subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     dense: true,
                   ),
                 if (r.comparisonMatrix.isNotEmpty) ...[
                   const Divider(),
-                  const Text('مصفوفة الفروق والمطابقة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(l10n.sectionInspDiscrepancyMatrix, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ...r.comparisonMatrix.map((m) {
                     final item = m is Map ? m : {};
@@ -1377,7 +1385,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              '${item['field_label_ar'] ?? item['field']}: [درافت: ${item['draft_value']}] vs [نظام: ${item['system_value']}]',
+                              '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -1393,7 +1401,7 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء'),
+            child: Text(l10n.cancel),
           ),
         ],
       ),
@@ -1401,21 +1409,22 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
   }
 
   void _confirmDeleteInspectionReview(InspectionCertificateReviewModel r) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning, color: Colors.red),
-            SizedBox(width: 8),
-            Text('تأكيد حذف جلسة مراجعة الفحص'),
+            const Icon(Icons.warning, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(l10n.confirmDeleteInspSessionTitle),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف جلسة المراجعة رقم (${r.inspectionReviewCode}) لشهادة (${r.certificateNumber})؟'),
+        content: Text(l10n.confirmDeleteInspSessionContent(r.inspectionReviewCode, r.certificateNumber)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -1425,18 +1434,18 @@ class _InspectionReviewTabState extends ConsumerState<InspectionReviewTab> {
                 await ref.read(inspectionReviewsProvider.notifier).deleteInspectionReview(r.inspectionReviewId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✔ تم حذف جلسة مراجعة الفحص بنجاح'), backgroundColor: Colors.green),
+                    SnackBar(content: Text('✔ ${l10n.inspSessionDeletedSuccess}'), backgroundColor: Colors.green),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text(l10n.deleteInspSessionError(e.toString())), backgroundColor: Colors.red),
                   );
                 }
               }
             },
-            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+            child: Text(l10n.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import 'stop_shipment_dialog.dart';
@@ -26,8 +27,8 @@ class StopShipmentButton extends ConsumerWidget {
       style: ElevatedButton.styleFrom(
         backgroundColor: AppTheme.crimson,
         foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
       ),
       onPressed: () {
         StopShipmentDialog.show(
@@ -37,8 +38,11 @@ class StopShipmentButton extends ConsumerWidget {
           onSuccess: onSuccess,
         );
       },
-      icon: const Icon(Icons.cancel_outlined, size: 18),
-      label: const Text('إغلاق وإيقاف الشحنة عند هذه المرحلة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+      icon: const Icon(Icons.cancel_outlined, size: 16),
+      label: Text(
+        context.l10n.stopShipmentAtThisStageBtn,
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+      ),
     );
   }
 }

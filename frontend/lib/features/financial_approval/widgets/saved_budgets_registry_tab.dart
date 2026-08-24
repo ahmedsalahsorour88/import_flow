@@ -68,6 +68,8 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
       return true;
     }).toList();
 
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -75,64 +77,70 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         Container(
           color: AppTheme.charcoal,
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            children: [
-              _histStatCard(
-                icon: Icons.account_balance_wallet_outlined,
-                label: l.totalBudgetsMetric,
-                value: '$totalBudgets',
-                color: AppTheme.cobalt,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.verified_rounded,
-                label: l.approvedBudgetsMetric,
-                value: '$approvedBudgets',
-                color: AppTheme.emerald,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.hourglass_top_rounded,
-                label: l.pendingBudgetsMetric,
-                value: '$pendingBudgets',
-                color: Colors.orange.shade300,
-              ),
-              const SizedBox(width: 10),
-              _histStatCard(
-                icon: Icons.monetization_on_outlined,
-                label: l.totalValueEgpMetric,
-                value: totalValueEgp > 1000000
-                    ? '${(totalValueEgp / 1000000).toStringAsFixed(2)}M EGP'
-                    : '${totalValueEgp.toStringAsFixed(0)} EGP',
-                color: Colors.tealAccent.shade400,
-              ),
-              const Spacer(),
-              // Force Live Refresh button
-              OutlinedButton.icon(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _histStatCard(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: l.totalBudgetsMetric,
+                  value: '$totalBudgets',
+                  color: AppTheme.cobalt,
                 ),
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: Text(l.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                onPressed: () {
-                  ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
-                  ref.read(importFilesProvider.notifier).fetchImportFiles();
-                },
-              ),
-              const SizedBox(width: 8),
-              // Create New Budget Shortcut
-              ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.emerald,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                const SizedBox(width: 10),
+                _histStatCard(
+                  icon: Icons.verified_rounded,
+                  label: l.approvedBudgetsMetric,
+                  value: '$approvedBudgets',
+                  color: AppTheme.emerald,
                 ),
-                icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
-                label: Text(l.importBudgetSetupTitle, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
-                onPressed: widget.onSwitchToForm,
-              ),
-            ],
+                const SizedBox(width: 10),
+                _histStatCard(
+                  icon: Icons.hourglass_top_rounded,
+                  label: l.pendingBudgetsMetric,
+                  value: '$pendingBudgets',
+                  color: Colors.orange.shade300,
+                ),
+                const SizedBox(width: 10),
+                _histStatCard(
+                  icon: Icons.monetization_on_outlined,
+                  label: l.totalValueEgpMetric,
+                  value: totalValueEgp > 1000000
+                      ? '${(totalValueEgp / 1000000).toStringAsFixed(2)}M EGP'
+                      : '${totalValueEgp.toStringAsFixed(0)} EGP',
+                  color: Colors.tealAccent.shade400,
+                ),
+                const SizedBox(width: 16),
+                // Force Live Refresh button
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    side: const BorderSide(color: Colors.white38),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(l.refresh, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    ref.read(importBudgetsProvider.notifier).fetchImportBudgets();
+                    ref.read(importFilesProvider.notifier).fetchImportFiles();
+                  },
+                ),
+                const SizedBox(width: 8),
+                // Create New Budget Shortcut
+                ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.emerald,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  ),
+                  icon: const Icon(Icons.add_circle_outline, color: Colors.white, size: 18),
+                  label: Text(
+                    isArabic ? 'اعتماد ميزانية جديدة' : 'New Budget Approval',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                  ),
+                  onPressed: widget.onSwitchToForm,
+                ),
+              ],
+            ),
           ),
         ),
 
@@ -544,6 +552,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showBudgetDetailsDialog(ImportBudgetModel budget) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -639,11 +648,17 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isArabic ? 'إغلاق' : 'Close'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.charcoal),
             icon: const Icon(Icons.print, color: Colors.white, size: 16),
-            label: const Text('طباعة المستند الرسمي PDF', style: TextStyle(color: Colors.white)),
+            label: Text(
+              isArabic ? 'طباعة المستند الرسمي PDF' : 'Print Official PDF',
+              style: const TextStyle(color: Colors.white),
+            ),
             onPressed: () {
               Navigator.pop(ctx);
               FinancialExportService.printOrSaveBudgetPdf(budget: budget);
@@ -655,15 +670,19 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showWhatsAppShareDialog(ImportBudgetModel budget) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final phoneCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.chat, color: Color(0xFF25D366)),
-            SizedBox(width: 8),
-            Text('مشاركة اعتماد الميزانية عبر WhatsApp', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.chat, color: Color(0xFF25D366)),
+            const SizedBox(width: 8),
+            Text(
+              isArabic ? 'مشاركة اعتماد الميزانية عبر WhatsApp' : 'Share Budget Approval via WhatsApp',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: SizedBox(
@@ -674,21 +693,26 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               TextField(
                 controller: phoneCtrl,
                 keyboardType: TextInputType.phone,
-                decoration: const InputDecoration(
-                  labelText: 'رقم هاتف المستلم (مع كود الدولة مثل 2010...)',
+                decoration: InputDecoration(
+                  labelText: isArabic
+                      ? 'رقم هاتف المستلم (مع كود الدولة مثل 2010...)'
+                      : 'Recipient phone number (with country code, e.g. 2010...)',
                   hintText: '201012345678',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: const Text('إرسال الآن', style: TextStyle(color: Colors.white)),
+            label: Text(isArabic ? 'إرسال الآن' : 'Send Now', style: const TextStyle(color: Colors.white)),
             onPressed: () {
               final phone = phoneCtrl.text.trim().replaceAll('+', '').replaceAll(' ', '');
               final text = FinancialExportService.generateBudgetWhatsAppText(budget);
@@ -703,15 +727,19 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   void _showEmailShareDialog(ImportBudgetModel budget) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final emailCtrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.email, color: AppTheme.orange),
-            SizedBox(width: 8),
-            Text('إرسال اعتماد الميزانية عبر البريد الإلكتروني', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.email, color: AppTheme.orange),
+            const SizedBox(width: 8),
+            Text(
+              isArabic ? 'إرسال اعتماد الميزانية عبر البريد الإلكتروني' : 'Send Budget Approval via Email',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
         content: SizedBox(
@@ -722,24 +750,29 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
               TextField(
                 controller: emailCtrl,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'البريد الإلكتروني للمستلم',
+                decoration: InputDecoration(
+                  labelText: isArabic ? 'البريد الإلكتروني للمستلم' : 'Recipient Email Address',
                   hintText: 'finance@company.com',
-                  border: OutlineInputBorder(),
+                  border: const OutlineInputBorder(),
                 ),
               ),
             ],
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
             icon: const Icon(Icons.send, color: Colors.white, size: 16),
-            label: const Text('فتح تطبيق البريد', style: TextStyle(color: Colors.white)),
+            label: Text(isArabic ? 'فتح تطبيق البريد' : 'Open Mail Client', style: const TextStyle(color: Colors.white)),
             onPressed: () {
               final email = emailCtrl.text.trim();
-              final subject = 'اعتماد ميزانية استيرادية: ${budget.budgetCode} - ${budget.title}';
+              final subject = isArabic
+                  ? 'اعتماد ميزانية استيرادية: ${budget.budgetCode} - ${budget.title}'
+                  : 'Import Budget Approval: ${budget.budgetCode} - ${budget.title}';
               final body = FinancialExportService.generateBudgetWhatsAppText(budget);
               final url = 'mailto:$email?subject=${Uri.encodeComponent(subject)}&body=${Uri.encodeComponent(body)}';
               FinancialExportService.launchUrlNative(url);
@@ -752,23 +785,34 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Future<void> _confirmDeleteBudget(ImportBudgetModel budget) async {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.red),
-            SizedBox(width: 8),
-            Text('تأكيد حذف اعتماد الميزانية', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.warning_amber_rounded, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(
+              isArabic ? 'تأكيد حذف اعتماد الميزانية' : 'Confirm Budget Deletion',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
-        content: Text('هل أنت متأكد من رغبتك في حذف اعتماد الميزانية (${budget.budgetCode} - ${budget.title})؟'),
+        content: Text(
+          isArabic
+              ? 'هل أنت متأكد من رغبتك في حذف اعتماد الميزانية (${budget.budgetCode} - ${budget.title})؟'
+              : 'Are you sure you want to delete budget approval (${budget.budgetCode} - ${budget.title})?',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(isArabic ? 'إلغاء' : 'Cancel'),
+          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             icon: const Icon(Icons.delete, color: Colors.white, size: 16),
-            label: const Text('تأكيد الحذف', style: TextStyle(color: Colors.white)),
+            label: Text(isArabic ? 'تأكيد الحذف' : 'Confirm Delete', style: const TextStyle(color: Colors.white)),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -780,13 +824,23 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         await ref.read(importBudgetsProvider.notifier).softDeleteImportBudget(budget.budgetId);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('🗑️ تم حذف اعتماد الميزانية (${budget.budgetCode}) بنجاح'), backgroundColor: AppTheme.emerald),
+            SnackBar(
+              content: Text(
+                isArabic
+                    ? '🗑️ تم حذف اعتماد الميزانية (${budget.budgetCode}) بنجاح'
+                    : '🗑️ Budget approval (${budget.budgetCode}) deleted successfully',
+              ),
+              backgroundColor: AppTheme.emerald,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('❌ خطأ أثناء الحذف: $e'), backgroundColor: AppTheme.crimson),
+            SnackBar(
+              content: Text(isArabic ? '❌ خطأ أثناء الحذف: $e' : '❌ Error during deletion: $e'),
+              backgroundColor: AppTheme.crimson,
+            ),
           );
         }
       }
@@ -794,9 +848,20 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Widget _buildStatusBadge(String status) {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     Color color = Colors.grey;
-    if (status.toLowerCase().contains('approved')) color = AppTheme.emerald;
-    if (status.toLowerCase().contains('pending')) color = Colors.orange;
+    String displayStatus = status;
+
+    if (status.toLowerCase().contains('approved')) {
+      color = AppTheme.emerald;
+      displayStatus = isArabic ? 'معتمد' : 'Approved';
+    } else if (status.toLowerCase().contains('pending')) {
+      color = Colors.orange;
+      displayStatus = isArabic ? 'قيد المراجعة' : 'Pending Review';
+    } else if (status.toLowerCase().contains('draft')) {
+      color = Colors.blueGrey;
+      displayStatus = isArabic ? 'مسودة' : 'Draft';
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -805,7 +870,7 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: color.withOpacity(0.3)),
       ),
-      child: Text(status, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
+      child: Text(displayStatus, style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 11)),
     );
   }
 
@@ -854,20 +919,33 @@ class _SavedBudgetsRegistryTabState extends ConsumerState<SavedBudgetsRegistryTa
   }
 
   Widget _buildEmptyState() {
+    final l = context.l10n;
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.account_balance_wallet_outlined, size: 56, color: Colors.grey.shade400),
           const SizedBox(height: 12),
-          Text('لا توجد اعتمادات ميزانية مطابقة لمعايير البحث', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey.shade700)),
+          Text(
+            l.noMatchingBudgets,
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.grey.shade700),
+          ),
           const SizedBox(height: 6),
-          const Text('قم بإنشاء ميزانية استيرادية جديدة أو تغيير فلاتر البحث', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          Text(
+            isArabic
+                ? 'قم بإنشاء ميزانية استيرادية جديدة أو تغيير فلاتر البحث'
+                : 'Create a new import budget or adjust search filters',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
           const SizedBox(height: 16),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
             icon: const Icon(Icons.add, color: Colors.white, size: 16),
-            label: const Text('اعتماد ميزانية جديدة الآن ➕', style: TextStyle(color: Colors.white)),
+            label: Text(
+              isArabic ? 'اعتماد ميزانية جديدة الآن ➕' : 'Approve New Budget Now ➕',
+              style: const TextStyle(color: Colors.white),
+            ),
             onPressed: widget.onSwitchToForm,
           ),
         ],

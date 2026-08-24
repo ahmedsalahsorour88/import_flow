@@ -943,6 +943,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final l = context.l10n;
     final projectsAsync = ref.watch(projectsProvider);
     final companiesAsync = ref.watch(importCompaniesProvider);
     final suppliersAsync = ref.watch(suppliersProvider);
@@ -2229,21 +2230,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                                         decoration: const InputDecoration(labelText: 'وزن البالتة Gross (kg)', isDense: true),
                                                         onChanged: (v) {
-                                                          final val = double.tryParse(v) ?? 0.0;
+                                                          final val = double.tryParse(v) ?? 500.0;
                                                           setState(() {
                                                             _dialogPalletItems[pIdx] = pLine.copyWith(grossWeightPerPalletKg: val);
                                                           });
-                                                        },
-                                                      ),
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Expanded(
-                                                      flex: 2,
-                                                      child: TextFormField(
-                                                        initialValue: pLine.notes ?? '',
-                                                        decoration: const InputDecoration(labelText: 'ملاحظات وتوصيف البالتة', isDense: true),
-                                                        onChanged: (v) {
-                                                          _dialogPalletItems[pIdx] = pLine.copyWith(notes: v.trim());
                                                         },
                                                       ),
                                                     ),
@@ -2253,23 +2243,22 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                             ),
                                           ),
                                         );
-                                      }),
-                                  ],
-                                ),
-                              ),
-                            Row(
+                                      },
+                                    ),
+                                const SizedBox(height: 16),
+                                Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text(
-                                  'Packing List Entries (بيان التعبئة والطرود والأبعاد) *',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                Text(
+                                  l.packingListEntriesSection,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                 ),
                                 Row(
                                   children: [
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
                                       icon: const Icon(Icons.auto_fix_high, size: 16),
-                                      label: const Text('تعبئة تلقائية من الفاتورة', style: TextStyle(fontSize: 12)),
+                                      label: Text(l.autoFillFromInvoice, style: const TextStyle(fontSize: 12)),
                                       onPressed: () {
                                         if (_dialogItems.isEmpty) return;
                                         setState(() {
@@ -2309,7 +2298,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         });
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
-                                            content: Text('تمت التعبئة التلقائية لـ ${_dialogPackingItems.length} طرود من بنود الفاتورة المبدئية!'),
+                                            content: Text(l.autoFillSuccessNotice(_dialogPackingItems.length)),
                                             backgroundColor: AppTheme.emerald,
                                             duration: const Duration(seconds: 2),
                                           ),
@@ -2320,13 +2309,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                     ElevatedButton.icon(
                                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange, foregroundColor: Colors.white),
                                       icon: const Icon(Icons.view_in_ar_rounded, size: 16),
-                                      label: const Text('محاكاة ورص الحاويات 3D', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      label: Text(l.simulateAndPack3d, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       onPressed: () => _showPoVisualLoadPlannerDialog(context, _dialogPackingItems),
                                     ),
                                     const SizedBox(width: 8),
                                     TextButton.icon(
                                       icon: const Icon(Icons.playlist_add, size: 18, color: AppTheme.emerald),
-                                      label: const Text('Add Packing Entry', style: TextStyle(color: AppTheme.emerald)),
+                                      label: Text(l.addPackingEntryBtn, style: const TextStyle(color: AppTheme.emerald)),
                                       onPressed: () {
                                         String defaultHs = '';
                                         String? defaultDesc;
@@ -2374,14 +2363,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                         children: [
                                           Icon(Icons.inventory_2_outlined, size: 48, color: Colors.grey.shade400),
                                           const SizedBox(height: 12),
-                                          const Text(
-                                            'لم يتم إضافة بنود تعبئة بعد',
-                                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
+                                          Text(
+                                            l.noPackingEntriesYet,
+                                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                                           ),
                                           const SizedBox(height: 6),
-                                          const Text(
-                                            'انقر فوق "تعبئة تلقائية من الفاتورة" لإنشاء قائمة التعبئة آلياً أو "Add Packing Entry"',
-                                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                                          Text(
+                                            l.noPackingEntriesYetDesc,
+                                            style: const TextStyle(fontSize: 12, color: Colors.grey),
                                           ),
                                         ],
                                       ),
@@ -2420,7 +2409,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                            borderRadius: BorderRadius.circular(4),
                                                          ),
                                                          child: Text(
-                                                           'Pkg #${idx + 1}',
+                                                           l.pkgCardNumber(idx + 1),
                                                            style: TextStyle(
                                                              fontWeight: FontWeight.bold,
                                                              color: isMismatched ? Colors.red.shade900 : AppTheme.cobalt,
@@ -2442,12 +2431,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                            },
                                                            child: InputDecorator(
                                                              decoration: InputDecoration(
-                                                               labelText: 'HS Code (بحث 🔍) *',
+                                                               labelText: l.hsCodeSearchFieldLabel,
                                                                isDense: true,
                                                                suffixIcon: isMismatched ? const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 16) : null,
                                                              ),
                                                              child: Text(
-                                                               p.hsCode.isNotEmpty ? p.hsCode : 'اختر بند جمركي',
+                                                               p.hsCode.isNotEmpty ? p.hsCode : l.selectTariffItemHint,
                                                                key: ValueKey('pkg_desc_${idx}_${p.description ?? ''}'),
                                                                style: TextStyle(
                                                                  fontWeight: p.hsCode.isNotEmpty ? FontWeight.bold : FontWeight.normal,
@@ -2465,8 +2454,8 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       key: ValueKey('pkg_code_${idx}_${p.itemCode}'),
                                                       initialValue: p.itemCode,
-                                                      decoration: const InputDecoration(labelText: 'Item Code *', isDense: true),
-                                                      validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                                                      decoration: InputDecoration(labelText: l.itemCodeLabel, isDense: true),
+                                                      validator: (v) => v == null || v.trim().isEmpty ? context.l10n.fieldRequired : null,
                                                       onChanged: (v) {
                                                         _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(itemCode: v.trim());
                                                       },
@@ -2478,9 +2467,9 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                        key: ValueKey('pkg_desc_${idx}_${p.description ?? ""}'),
                                                       initialValue: p.description ?? '',
-                                                      decoration: const InputDecoration(
-                                                        labelText: 'Item Name / Description (الوصف)',
-                                                        hintText: 'اسم أو وصف الصنف',
+                                                      decoration: InputDecoration(
+                                                        labelText: l.itemDescriptionLabel,
+                                                        hintText: l.itemNameOrDescHint,
                                                         isDense: true,
                                                       ),
                                                       onChanged: (v) {
@@ -2495,7 +2484,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      flex: 3,
                                                     child: SearchableDropdownField<String>(
                                                       value: p.packageType,
-                                                      labelText: 'Package Type / نوع الطرد',
+                                                      labelText: l.packageTypeFieldLabel,
                                                       items: cachedPackageTypeItems,
                                                       onChanged: (v) => setState(() {
                                                         _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(packageType: v ?? 'CT');
@@ -2515,7 +2504,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     width: 100,
                                                     child: SearchableDropdownField<String>(
                                                       value: p.unit,
-                                                      labelText: 'Unit',
+                                                      labelText: l.unitFieldLabel,
                                                       items: const [
                                                         SearchableDropdownItem(value: 'cm', label: 'cm'),
                                                         SearchableDropdownItem(value: 'mm', label: 'mm'),
@@ -2531,7 +2520,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       initialValue: p.qtyPcs.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Qty PCS', isDense: true),
+                                                      decoration: InputDecoration(labelText: l.qtyPcsFieldLabel, isDense: true),
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
                                                         _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(qtyPcs: q);
@@ -2543,7 +2532,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       initialValue: p.qtyPkg.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: const InputDecoration(labelText: 'Qty PKG (طرود)', isDense: true),
+                                                      decoration: InputDecoration(labelText: l.qtyPkgFieldLabel, isDense: true),
                                                       onChanged: (v) {
                                                         final q = double.tryParse(v) ?? 1.0;
                                                         setState(() {
@@ -2557,11 +2546,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       initialValue: p.lengthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: 'Length (${p.unit})', isDense: true),
+                                                      decoration: InputDecoration(labelText: l.lengthFieldLabel(p.unit), isDense: true),
                                                       onChanged: (v) {
-                                                        final l = double.tryParse(v) ?? 0.0;
+                                                        final len = double.tryParse(v) ?? 0.0;
                                                         setState(() {
-                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(lengthCm: l);
+                                                          _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(lengthCm: len);
                                                         });
                                                       },
                                                     ),
@@ -2571,7 +2560,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       initialValue: p.widthCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: 'Width (${p.unit})', isDense: true),
+                                                      decoration: InputDecoration(labelText: l.widthFieldLabel(p.unit), isDense: true),
                                                       onChanged: (v) {
                                                         final w = double.tryParse(v) ?? 0.0;
                                                         setState(() {
@@ -2585,7 +2574,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                     child: TextFormField(
                                                       initialValue: p.heightCm.toString(),
                                                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                      decoration: InputDecoration(labelText: 'Height (${p.unit})', isDense: true),
+                                                      decoration: InputDecoration(labelText: l.heightFieldLabel(p.unit), isDense: true),
                                                       onChanged: (v) {
                                                         final h = double.tryParse(v) ?? 0.0;
                                                         setState(() {
@@ -2603,7 +2592,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      flex: 3,
                                                      child: SearchableDropdownField<String>(
                                                        value: p.weightUnit,
-                                                       labelText: 'Weight Unit / وحدة الوزن',
+                                                       labelText: l.weightUnitFieldLabel,
                                                        items: cachedUomItems,
                                                        onChanged: (v) {
                                                          if (v != null) {
@@ -2620,7 +2609,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      child: TextFormField(
                                                        initialValue: p.netWeightUnitKg.toString(),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                       decoration: InputDecoration(labelText: 'Net Wt (${p.weightUnit})', isDense: true),
+                                                       decoration: InputDecoration(labelText: l.netWeightFieldLabel(p.weightUnit), isDense: true),
                                                        onChanged: (v) {
                                                          final nw = double.tryParse(v) ?? 0.0;
                                                          setState(() {
@@ -2635,11 +2624,11 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      child: TextFormField(
                                                        initialValue: p.grossWeightUnitKg.toString(),
                                                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                                       decoration: InputDecoration(labelText: 'Gross Wt (${p.weightUnit})', isDense: true),
+                                                       decoration: InputDecoration(labelText: l.grossWeightFieldLabel(p.weightUnit), isDense: true),
                                                        onChanged: (v) {
                                                          final gw = double.tryParse(v) ?? 0.0;
                                                          setState(() {
-                                                           _dialogPackingItems[idx] = p.copyWith(grossWeightUnitKg: gw);
+                                                           _dialogPackingItems[idx] = _dialogPackingItems[idx].copyWith(grossWeightUnitKg: gw);
                                                          });
                                                        },
                                                      ),
@@ -2649,10 +2638,10 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                      flex: 3,
                                                      child: SearchableDropdownField<bool>(
                                                        value: p.isStackable,
-                                                       labelText: 'تعليمات الرص *',
-                                                       items: const [
-                                                         SearchableDropdownItem(value: true, label: '📦 قابل للرص'),
-                                                         SearchableDropdownItem(value: false, label: '🚫 غير قابل للرص'),
+                                                       labelText: l.stackingInstructionsLabel,
+                                                       items: [
+                                                         SearchableDropdownItem(value: true, label: l.stackableOption),
+                                                         SearchableDropdownItem(value: false, label: l.nonStackableOption),
                                                        ],
                                                        onChanged: (v) => setState(() {
                                                          _dialogPackingItems[idx] = p.copyWith(isStackable: v ?? true);
@@ -2674,19 +2663,19 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                                         children: [
                                                           Column(
                                                             children: [
-                                                              const Text('Total Volume', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text(l.totalVolumePill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                                               Text('${p.calculatedCbm.toStringAsFixed(4)} m³', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
-                                                              const Text('Total Gross Wt', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text(l.totalGrossWeightPill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                                               Text('${(p.totalGrossWeightKg > 0 ? p.totalGrossWeightKg : (p.qtyPkg * p.grossWeightUnitKg)).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.cobalt)),
                                                             ],
                                                           ),
                                                           Column(
                                                             children: [
-                                                              const Text('Air Chargeable', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                                              Text(l.airChargeablePill, style: const TextStyle(fontSize: 10, color: Colors.grey)),
                                                               Text('${(p.calculatedCbm * 166.67).toStringAsFixed(1)} kg', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.purple)),
                                                             ],
                                                           ),
@@ -2705,11 +2694,14 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                           ],
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+            ],
+          ),
         ),
+      ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
@@ -3308,12 +3300,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
-                                  'مخطط ومحاكاة رص الحاويات 3D (Purchase Order Load Planner)',
-                                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                                Text(
+                                  context.l10n.containerLoadPlan3dTitle,
+                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
                                 ),
                                 Text(
-                                  'محاكاة خوارزمية الرص ثلاثية الأبعاد للحاويات البحرية بناءً على قائمة التعبئة وأبعاد الطرود',
+                                  context.l10n.containerLoadPlan3dSubtitle,
                                   style: TextStyle(fontSize: 11.5, color: Colors.grey.shade600),
                                 ),
                               ],
@@ -3337,13 +3329,13 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            const Text('نمط الرص بالمحاكاة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                            Text(context.l10n.stackingSimulationModeLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
                             const SizedBox(width: 10),
                             SegmentedButton<int>(
-                              segments: const [
-                                ButtonSegment(value: 0, label: Text('⚖️ الرص الفعلي (Mixed)'), tooltip: 'استخدام إعدادات الرص المحددة لكل طرد/بالتة'),
-                                ButtonSegment(value: 1, label: Text('📦 قابل للرص (Stackable)'), tooltip: 'محاكاة افتراض أن جميع الطرود قابلة للتراص الرأسي'),
-                                ButtonSegment(value: 2, label: Text('🚫 أرضي فقط (Floor Only)'), tooltip: 'محاكاة افتراض أن جميع الطرود غير قابلة للتراص'),
+                              segments: [
+                                ButtonSegment(value: 0, label: Text(context.l10n.simulationModeActualMixed)),
+                                ButtonSegment(value: 1, label: Text(context.l10n.simulationModeStackable)),
+                                ButtonSegment(value: 2, label: Text(context.l10n.simulationModeFloorOnly)),
                               ],
                               selected: {
                                 activeStackingMode == null ? 0 : (activeStackingMode == true ? 1 : 2)
@@ -3358,12 +3350,12 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                               },
                             ),
                             const SizedBox(width: 20),
-                            const Text('المسقط:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
+                            Text(context.l10n.projectionLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal)),
                             const SizedBox(width: 8),
                             SegmentedButton<bool>(
-                              segments: const [
-                                ButtonSegment(value: true, label: Text('🔝 مسقط علوي (Top View)')),
-                                ButtonSegment(value: false, label: Text('🔲 مسقط جانبي (Side View)')),
+                              segments: [
+                                ButtonSegment(value: true, label: Text(context.l10n.topViewProjection)),
+                                ButtonSegment(value: false, label: Text(context.l10n.sideViewProjection)),
                               ],
                               selected: {isTopView},
                               onSelectionChanged: (val) {
@@ -3391,28 +3383,28 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                             children: [
                               const Icon(Icons.directions_boat_rounded, color: AppTheme.cobalt, size: 20),
                               const SizedBox(width: 6),
-                              Text('الحاويات المطلوبة: $fleetSummary', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                              Text(context.l10n.requiredContainersSummary(fleetSummary), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                             ],
                           ),
                           Row(
                             children: [
                               const Icon(Icons.inventory_2_outlined, color: AppTheme.charcoal, size: 18),
                               const SizedBox(width: 6),
-                              Text('عدد الطرود: $totalPkgs طرد ($stackableInActive قابل للرص | $nonStackableInActive أرضي)', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                              Text(context.l10n.totalPackagesSummary(totalPkgs, stackableInActive, nonStackableInActive), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
                             ],
                           ),
                           Row(
                             children: [
                               const Icon(Icons.scale_outlined, color: AppTheme.emerald, size: 18),
                               const SizedBox(width: 6),
-                              Text('إجمالي الوزن: ${totalPlanWeight.toStringAsFixed(1)} kg', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
+                              Text(context.l10n.totalWeightSummary(totalPlanWeight.toStringAsFixed(1)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                             ],
                           ),
                           Row(
                             children: [
                               const Icon(Icons.view_in_ar, color: AppTheme.orange, size: 18),
                               const SizedBox(width: 6),
-                              Text('إجمالي الحجم: ${totalPlanVolume.toStringAsFixed(3)} m³', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
+                              Text(context.l10n.totalVolumeSummary(totalPlanVolume.toStringAsFixed(3)), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.orange)),
                             ],
                           ),
                         ],
@@ -3441,7 +3433,7 @@ class _POFormDialogState extends ConsumerState<POFormDialog> {
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Text(
-                                      res.failureReason ?? 'فشل الرص: تجاوز أبعاد الطرد أو الوزن الأبعاد القياسية المسموح بها داخل الحاوية',
+                                      res.failureReason ?? context.l10n.packingFailureTitle,
                                       style: const TextStyle(color: AppTheme.crimson, fontWeight: FontWeight.bold, fontSize: 13),
                                     ),
                                   ),

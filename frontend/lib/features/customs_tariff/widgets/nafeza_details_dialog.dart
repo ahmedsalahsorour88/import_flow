@@ -1,14 +1,16 @@
-import '../widgets/add_agreement_dialog.dart';
-import '../widgets/tariff_form_dialog.dart';
-import '../widgets/verify_tariff_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/customs_tariff_model.dart';
 import '../providers/customs_tariff_provider.dart';
+import '../widgets/add_agreement_dialog.dart';
+import '../widgets/tariff_form_dialog.dart';
+import '../widgets/verify_tariff_dialog.dart';
 
   void showNafezaDetailsDialog(
       BuildContext context, WidgetRef ref, CustomsTariffModel tariff) {
+    final l10n = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -33,14 +35,14 @@ import '../providers/customs_tariff_provider.dart';
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Row(
+                      Row(
                         children: [
-                          Icon(Icons.article_outlined,
+                          const Icon(Icons.article_outlined,
                               color: AppTheme.charcoal, size: 26),
-                          SizedBox(width: 8),
+                          const SizedBox(width: 8),
                           Text(
-                            'تفاصيل البند',
-                            style: TextStyle(
+                            l10n.nafezaDetailsModalTitle,
+                            style: const TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.charcoal,
@@ -67,9 +69,9 @@ import '../providers/customs_tariff_provider.dart';
                               style: const TextStyle(
                                   color: AppTheme.charcoal, fontSize: 14),
                               children: [
-                                const TextSpan(
-                                  text: 'رقم البند : ',
-                                  style: TextStyle(
+                                TextSpan(
+                                  text: l10n.itemNumberLabel,
+                                  style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15),
                                 ),
@@ -90,9 +92,9 @@ import '../providers/customs_tariff_provider.dart';
                               style: const TextStyle(
                                   color: AppTheme.charcoal, fontSize: 14),
                               children: [
-                                const TextSpan(
-                                  text: 'نص البند : ',
-                                  style: TextStyle(
+                                TextSpan(
+                                  text: l10n.itemDescriptionLabel,
+                                  style: const TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 15),
                                 ),
@@ -108,9 +110,9 @@ import '../providers/customs_tariff_provider.dart';
                           const Divider(height: 20, thickness: 1),
 
                           // Taxes Breakdown Section matching Screenshot
-                          const Text(
-                            'الضرائب :',
-                            style: TextStyle(
+                          Text(
+                            l10n.taxesSectionHeader,
+                            style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
                               color: AppTheme.charcoal,
@@ -122,17 +124,17 @@ import '../providers/customs_tariff_provider.dart';
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                _taxDetailRow('ضريبة الوارد',
+                                _taxDetailRow(l10n.importDutyLabel,
                                     '${tariff.customsDutyRate.toStringAsFixed(3)} %'),
-                                _taxDetailRow('ضريبة الجدول',
+                                _taxDetailRow(l10n.scheduleTaxLabel,
                                     '${tariff.scheduleTaxRate.toStringAsFixed(3)} %'),
-                                _taxDetailRow('ضريبة قيمة مضافة',
+                                _taxDetailRow(l10n.vatLabel,
                                     '${tariff.vatRate.toStringAsFixed(3)} %'),
                                 if (tariff.developmentFeeRate > 0)
-                                  _taxDetailRow('رسم التنمية',
+                                  _taxDetailRow(l10n.developmentFeeLabel,
                                       '${tariff.developmentFeeRate.toStringAsFixed(3)} %'),
                                 if (tariff.importFeeRate > 0)
-                                  _taxDetailRow('رسم الوارد',
+                                  _taxDetailRow(l10n.importFeeLabel,
                                       '${tariff.importFeeRate.toStringAsFixed(3)} %'),
                               ],
                             ),
@@ -144,9 +146,9 @@ import '../providers/customs_tariff_provider.dart';
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text(
-                                'المستندات والأعمال :',
-                                style: TextStyle(
+                              Text(
+                                l10n.documentsAndProceduresHeader,
+                                style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.bold,
                                   color: AppTheme.charcoal,
@@ -182,7 +184,7 @@ import '../providers/customs_tariff_provider.dart';
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           icon: const Icon(Icons.verified, size: 18),
-                          label: const Text('توثيق وتدقيق البند'),
+                          label: Text(l10n.verifyTariffBtn),
                           onPressed: () {
                             Navigator.pop(ctx);
                             showVerifyTariffDialog(context, ref, tariff);
@@ -198,7 +200,7 @@ import '../providers/customs_tariff_provider.dart';
                             padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                           icon: const Icon(Icons.handshake_outlined, size: 18),
-                          label: const Text('إضافة اتفاقية تفضيلية'),
+                          label: Text(l10n.addPreferentialAgreementBtn),
                           onPressed: () {
                             Navigator.pop(ctx);
                             showAddAgreementDialog(
@@ -214,7 +216,7 @@ import '../providers/customs_tariff_provider.dart';
                               horizontal: 16, vertical: 12),
                         ),
                         icon: const Icon(Icons.edit, size: 18),
-                        label: const Text('تعديل البند'),
+                        label: Text(l10n.editTariffBtn),
                         onPressed: () {
                           Navigator.pop(ctx);
                           showTariffDialog(context, ref, tariff: tariff);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/back_to_dashboard_button.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -31,6 +32,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final currenciesAsync = ref.watch(currenciesProvider);
 
     return Scaffold(
@@ -44,21 +46,21 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Column(
+                Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Currencies & Exchange Rates',
-                      style: TextStyle(
+                      l10n.currenciesScreenTitle,
+                      style: const TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.charcoal,
                       ),
                     ),
-                    SizedBox(height: 4),
+                    const SizedBox(height: 4),
                     Text(
-                      'Manage Currency ISO Codes, Commercial Bank Rates & Official Customs Exchange Rates',
-                      style: TextStyle(fontSize: 13, color: Colors.grey),
+                      l10n.currenciesScreenSubtitle,
+                      style: const TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                   ],
                 ),
@@ -68,10 +70,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   children: [
                     const BackToDashboardButton(),
                     ElevatedButton.icon(
-
                       onPressed: () => _showCurrencyConverterDialog(context),
                       icon: const Icon(Icons.currency_exchange, size: 18),
-                      label: const Text('محول العملات الحي'),
+                      label: Text(l10n.liveCurrencyConverterBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.cobalt,
                         foregroundColor: Colors.white,
@@ -82,7 +83,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _showGainLossCalculatorDialog(context),
                       icon: const Icon(Icons.trending_up, size: 18),
-                      label: const Text('فروق أسعار العملات'),
+                      label: Text(l10n.currencyGainLossBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.orange,
                         foregroundColor: Colors.white,
@@ -93,7 +94,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _showAddRateDialog(context),
                       icon: const Icon(Icons.rate_review, size: 18),
-                      label: const Text('تحديث أسعار الصرف'),
+                      label: Text(l10n.updateExchangeRatesBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.emerald,
                         foregroundColor: Colors.white,
@@ -104,7 +105,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     ElevatedButton.icon(
                       onPressed: () => _showCurrencyDialog(context),
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('إضافة عملة'),
+                      label: Text(l10n.addCurrencyBtn),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.charcoal,
                         foregroundColor: Colors.white,
@@ -136,7 +137,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   child: TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
-                      hintText: 'Search by ISO code (USD, EUR...) or name...',
+                      hintText: l10n.searchCurrenciesHint,
                       prefixIcon: const Icon(Icons.search, size: 20),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -181,12 +182,12 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
               child: currenciesAsync.when(
                 loading: () => const Center(child: CircularProgressIndicator(color: AppTheme.cobalt)),
                 error: (err, stack) => Center(
-                  child: Text('Error loading currencies: $err', style: const TextStyle(color: AppTheme.crimson)),
+                  child: Text(l10n.currenciesFetchError(err.toString()), style: const TextStyle(color: AppTheme.crimson)),
                 ),
                 data: (currencies) {
                   if (currencies.isEmpty) {
-                    return const Center(
-                      child: Text('No currencies found.', style: TextStyle(color: Colors.grey, fontSize: 15)),
+                    return Center(
+                      child: Text(l10n.noCurrenciesFound, style: const TextStyle(color: Colors.grey, fontSize: 15)),
                     );
                   }
 
@@ -241,13 +242,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                 TableRow(
                                   decoration: const BoxDecoration(color: AppTheme.charcoal),
                                   children: [
-                                    'ISO Code',
-                                    'Currency Name',
-                                    'Symbol',
-                                    'Commercial Rate (Bank)',
-                                    'Customs Rate (Official)',
-                                    'Status',
-                                    'Actions'
+                                    l10n.isoCodeCol,
+                                    l10n.currencyNameCol,
+                                    l10n.currencySymbolCol,
+                                    l10n.commercialRateBankCol,
+                                    l10n.customsRateOfficialCol,
+                                    l10n.statusCol,
+                                    l10n.actionsCol,
                                   ]
                                       .map((h) => Padding(
                                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -294,11 +295,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                               ),
                                             ),
                                             if (c.isBaseCurrency)
-                                              const Padding(
-                                                padding: EdgeInsets.only(left: 4),
+                                              Padding(
+                                                padding: const EdgeInsets.only(left: 4),
                                                 child: Tooltip(
-                                                  message: 'Base Currency (EGP)',
-                                                  child: Icon(Icons.star, size: 14, color: AppTheme.emerald),
+                                                  message: l10n.baseCurrencyTooltip,
+                                                  child: const Icon(Icons.star, size: 14, color: AppTheme.emerald),
                                                 ),
                                               ),
                                           ],
@@ -328,7 +329,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                 ),
                                                 const SizedBox(width: 6),
                                                 Tooltip(
-                                                  message: 'عرض السجل التاريخي لتحديث أسعار الصرف',
+                                                  message: l10n.viewRateHistoryTooltip,
                                                   child: Icon(
                                                     Icons.history_edu,
                                                     size: 16,
@@ -352,11 +353,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                       // Commercial Rate
                                       _cell(
                                         child: c.isBaseCurrency
-                                            ? const Text('1.0000 (Base)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
+                                            ? Text(l10n.baseCurrencyRateLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
                                             : Text(
                                                 c.latestCommercialRate != null
-                                                    ? '1 ${c.currencyCode} = ${c.latestCommercialRate!.toStringAsFixed(4)} EGP'
-                                                    : 'Not Set',
+                                                    ? l10n.rateToEgpFormatted(c.currencyCode, c.latestCommercialRate!.toStringAsFixed(4))
+                                                    : l10n.rateNotSet,
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                                               ),
                                       ),
@@ -364,11 +365,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                       // Customs Rate
                                       _cell(
                                         child: c.isBaseCurrency
-                                            ? const Text('1.0000 (Base)', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
+                                            ? Text(l10n.baseCurrencyRateLabel, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald))
                                             : Text(
                                                 c.latestCustomsRate != null
-                                                    ? '1 ${c.currencyCode} = ${c.latestCustomsRate!.toStringAsFixed(4)} EGP'
-                                                    : 'Not Set',
+                                                    ? l10n.rateToEgpFormatted(c.currencyCode, c.latestCustomsRate!.toStringAsFixed(4))
+                                                    : l10n.rateNotSet,
                                                 style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.orange),
                                               ),
                                       ),
@@ -382,7 +383,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                             borderRadius: BorderRadius.circular(20),
                                           ),
                                           child: Text(
-                                            isActive ? 'Active' : 'Inactive',
+                                            isActive ? l10n.statusActive : l10n.statusInactive,
                                             style: TextStyle(
                                               color: isActive ? AppTheme.emerald : AppTheme.crimson,
                                               fontSize: 11,
@@ -400,7 +401,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                           onPrint: () {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               SnackBar(
-                                                content: Text('طباعة بيانات وسجل أسعار العملة: ${c.currencyCode} (${c.currencyName})'),
+                                                content: Text(l10n.printCurrencyDetailsSnack(c.currencyCode, c.currencyName)),
                                                 backgroundColor: AppTheme.charcoal,
                                                 duration: const Duration(seconds: 2),
                                               ),
@@ -412,16 +413,16 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   final confirm = await showDialog<bool>(
                                                     context: context,
                                                     builder: (ctx) => AlertDialog(
-                                                      title: const Text('تأكيد الإجراء'),
+                                                      title: Text(l10n.confirmActionTitle),
                                                       content: Text(isActive
-                                                          ? 'هل أنت متأكد من رغبتك في إيقاف تفعيل عملة (${c.currencyCode} - ${c.currencyName})؟'
-                                                          : 'هل أنت متأكد من إعادة تفعيل عملة (${c.currencyCode} - ${c.currencyName})؟'),
+                                                          ? l10n.confirmDeactivateCurrency(c.currencyCode, c.currencyName)
+                                                          : l10n.confirmActivateCurrency(c.currencyCode, c.currencyName)),
                                                       actions: [
-                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l10n.cancel)),
                                                         ElevatedButton(
                                                           onPressed: () => Navigator.pop(ctx, true),
                                                           style: ElevatedButton.styleFrom(backgroundColor: isActive ? AppTheme.crimson : AppTheme.emerald),
-                                                          child: Text(isActive ? 'إيقاف التفعيل' : 'تفعيل', style: const TextStyle(color: Colors.white)),
+                                                          child: Text(isActive ? l10n.deactivateBtn : l10n.activateBtn, style: const TextStyle(color: Colors.white)),
                                                         ),
                                                       ],
                                                     ),
@@ -431,8 +432,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   }
                                                 },
                                           deleteTooltip: c.isBaseCurrency
-                                              ? 'لا يمكن تعطيل عملة الأساس (EGP)'
-                                              : (isActive ? 'إيقاف تفعيل العملة (Deactivate)' : 'إعادة تفعيل العملة (Activate)'),
+                                              ? l10n.cannotDeactivateBaseCurrencyTooltip
+                                              : (isActive ? l10n.deactivateCurrencyTooltip : l10n.activateCurrencyTooltip),
                                         ),
                                       ),
                                     ],
@@ -462,12 +463,12 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Showing ${totalItems == 0 ? 0 : startIndex + 1}–$endIndex of $totalItems currencies',
+                        l10n.showingCurrenciesCount(totalItems == 0 ? 0 : startIndex + 1, endIndex, totalItems),
                         style: TextStyle(fontSize: 13, color: Colors.grey.shade700, fontWeight: FontWeight.w500),
                       ),
                       Row(
                         children: [
-                          const Text('Rows per page: ', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(l10n.rowsPerPageLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                           DropdownButton<int>(
                             value: _pageSize,
                             underline: const SizedBox(),
@@ -488,29 +489,29 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           IconButton(
                             icon: const Icon(Icons.first_page, size: 20),
                             onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = 1) : null,
-                            tooltip: 'First Page',
+                            tooltip: l10n.firstPageTooltip,
                           ),
                           IconButton(
                             icon: const Icon(Icons.chevron_left, size: 20),
                             onPressed: safeCurrentPage > 1 ? () => setState(() => _currentPage = safeCurrentPage - 1) : null,
-                            tooltip: 'Previous Page',
+                            tooltip: l10n.previousPageTooltip,
                           ),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             child: Text(
-                              'Page $safeCurrentPage of ${totalPages == 0 ? 1 : totalPages}',
+                              l10n.pageOfTotal(safeCurrentPage, totalPages == 0 ? 1 : totalPages),
                               style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                             ),
                           ),
                           IconButton(
                             icon: const Icon(Icons.chevron_right, size: 20),
                             onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = safeCurrentPage + 1) : null,
-                            tooltip: 'Next Page',
+                            tooltip: l10n.nextPageTooltip,
                           ),
                           IconButton(
                             icon: const Icon(Icons.last_page, size: 20),
                             onPressed: safeCurrentPage < totalPages ? () => setState(() => _currentPage = totalPages) : null,
-                            tooltip: 'Last Page',
+                            tooltip: l10n.lastPageTooltip,
                           ),
                         ],
                       ),
@@ -534,6 +535,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       );
 
   void _showCurrencyDialog(BuildContext context, {CurrencyModel? currency}) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final codeCtrl = TextEditingController(text: currency?.currencyCode ?? '');
     final nameCtrl = TextEditingController(text: currency?.currencyName ?? '');
@@ -542,7 +544,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
-        title: Text(currency == null ? 'Add Currency' : 'Edit Currency (${currency.currencyCode})'),
+        title: Text(currency == null ? l10n.addCurrencyDialogTitle : l10n.editCurrencyDialogTitle(currency.currencyCode)),
         content: SizedBox(
           width: 400,
           child: Form(
@@ -554,29 +556,29 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   controller: codeCtrl,
                   enabled: currency == null,
                   maxLength: 3,
-                  decoration: const InputDecoration(
-                    labelText: 'ISO Currency Code (3 Letters) *',
-                    hintText: 'e.g. USD, EUR, GBP, CNY',
+                  decoration: InputDecoration(
+                    labelText: l10n.isoCodeLabel,
+                    hintText: l10n.isoCodeHint,
                   ),
-                  validator: (v) => v == null || v.trim().length != 3 ? 'Must be 3 uppercase letters' : null,
+                  validator: (v) => v == null || v.trim().length != 3 ? l10n.isoCodeLengthError : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: nameCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Currency Name *',
-                    hintText: 'e.g. US Dollar, Euro',
+                  decoration: InputDecoration(
+                    labelText: l10n.currencyNameLabel,
+                    hintText: l10n.currencyNameHint,
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: symbolCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Currency Symbol *',
-                    hintText: r'e.g. $, €, £, ¥',
+                  decoration: InputDecoration(
+                    labelText: l10n.currencySymbolLabel,
+                    hintText: l10n.currencySymbolHint,
                   ),
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Required' : null,
+                  validator: (v) => v == null || v.trim().isEmpty ? l10n.requiredField : null,
                 ),
               ],
             ),
@@ -585,7 +587,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('Cancel'),
+            child: Text(l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
@@ -611,7 +613,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                 }
               }
             },
-            child: Text(currency == null ? 'Create Currency' : 'Save Changes'),
+            child: Text(currency == null ? l10n.createCurrencySubmitBtn : l10n.saveChangesSubmitBtn),
           ),
         ],
       ),
@@ -668,6 +670,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
 
   void _showCurrencyRateHistoryDialog(BuildContext context, WidgetRef ref, CurrencyModel initialCurrency) {
     if (initialCurrency.currencyId == null) return;
+    final l10n = context.l10n;
 
     showDialog(
       context: context,
@@ -714,7 +717,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'السجل التاريخي لأسعار الصرف — ${currency.currencyName}',
+                                l10n.exchangeRateHistoryTitle(currency.currencyName),
                                 style: const TextStyle(
                                   fontSize: 17,
                                   fontWeight: FontWeight.bold,
@@ -724,8 +727,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                               const SizedBox(height: 2),
                               Text(
                                 currency.isBaseCurrency
-                                    ? 'العملة الأساسية للنظام (الجنيه المصري EGP)'
-                                    : 'سجل التحديثات والتغيرات في أسعار البنك والجمارك الرسمية',
+                                    ? l10n.baseCurrencySystemDesc
+                                    : l10n.rateHistorySubtitle,
                                 style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                               ),
                             ],
@@ -745,12 +748,12 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     children: [
                       Expanded(
                         child: _historyStatCard(
-                          title: 'سعر البنك التجاري الحالي',
+                          title: l10n.currentCommercialRateStat,
                           value: currency.isBaseCurrency
                               ? '1.0000 EGP'
                               : (currency.latestCommercialRate != null
                                   ? '${currency.latestCommercialRate!.toStringAsFixed(4)} EGP'
-                                  : 'غير محدد'),
+                                  : l10n.notSetLabel),
                           icon: Icons.account_balance,
                           color: AppTheme.cobalt,
                         ),
@@ -758,12 +761,12 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _historyStatCard(
-                          title: 'سعر الصرف الجمركي الرسمي',
+                          title: l10n.currentCustomsRateStat,
                           value: currency.isBaseCurrency
                               ? '1.0000 EGP'
                               : (currency.latestCustomsRate != null
                                   ? '${currency.latestCustomsRate!.toStringAsFixed(4)} EGP'
-                                  : 'غير محدد'),
+                                  : l10n.notSetLabel),
                           icon: Icons.gavel,
                           color: AppTheme.orange,
                         ),
@@ -771,7 +774,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _historyStatCard(
-                          title: 'الفارق بين السعرين',
+                          title: l10n.rateSpreadStat,
                           value: (currency.latestCommercialRate != null && currency.latestCustomsRate != null)
                               ? '${(currency.latestCommercialRate! - currency.latestCustomsRate!).toStringAsFixed(4)} EGP'
                               : '0.0000 EGP',
@@ -782,8 +785,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: _historyStatCard(
-                          title: 'عدد التحديثات التاريخية',
-                          value: '${rates.length} سجلات',
+                          title: l10n.historicalUpdatesCountStat,
+                          value: l10n.recordsCountBadge(rates.length),
                           icon: Icons.history,
                           color: AppTheme.charcoal,
                         ),
@@ -797,9 +800,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text(
-                          'سجل التحديثات الزمنية لأسعار الصرف (Timeline):',
-                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        Text(
+                          l10n.exchangeRateTimelineHeader,
+                          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                         ),
                         ElevatedButton.icon(
                           onPressed: () {
@@ -807,8 +810,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                             _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
                           },
                           icon: const Icon(Icons.add_chart, size: 16, color: Colors.white),
-                          label: const Text('تحديث سعر صرف جديد',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(l10n.recordNewExchangeRateBtn,
+                              style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.emerald,
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -837,13 +840,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                     children: [
                                       const Icon(Icons.check_circle_outline, color: AppTheme.emerald, size: 48),
                                       const SizedBox(height: 12),
-                                      const Text(
-                                        'الجنيه المصري (EGP) هو عملة الأساس في النظام',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                                      Text(
+                                        l10n.baseCurrencyNoticeTitle,
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                                       ),
                                       const SizedBox(height: 4),
                                       Text(
-                                        'سعر الصرف دائماً 1.0000 ولا يتطلب تحديث أسعار تاريخية مقابل نفسه.',
+                                        l10n.baseCurrencyNoticeSubtitle,
                                         style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
                                       ),
                                     ],
@@ -858,7 +861,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                         Icon(Icons.history_toggle_off, size: 48, color: Colors.grey.shade400),
                                         const SizedBox(height: 12),
                                         Text(
-                                          'لا يوجد سجل أسعار تاريخي مسجل لعملة (${currency.currencyCode}) حتى الآن.',
+                                          l10n.noRateHistoryForCurrency(currency.currencyCode),
                                           style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                                         ),
                                         const SizedBox(height: 16),
@@ -868,8 +871,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                             _showAddRateDialog(context, preSelectedCurrencyId: currency.currencyId);
                                           },
                                           icon: const Icon(Icons.add, size: 16, color: Colors.white),
-                                          label: const Text('تسجيل أول سعر صرف',
-                                              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                                          label: Text(l10n.recordFirstExchangeRateBtn,
+                                              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor: AppTheme.cobalt,
                                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -919,9 +922,9 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                         ),
                                                       ),
                                                       if (isLatest)
-                                                        const Text(
-                                                          'السعر الحالي الساري',
-                                                          style: TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.bold),
+                                                        Text(
+                                                          l10n.currentActiveRateBadge,
+                                                          style: const TextStyle(fontSize: 9, color: Colors.white70, fontWeight: FontWeight.bold),
                                                         ),
                                                     ],
                                                   ),
@@ -933,8 +936,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
-                                                      const Text('سعر البنك (Commercial):',
-                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      Text(l10n.commercialBankRateLabel,
+                                                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                                       const SizedBox(height: 2),
                                                       Text(
                                                         '${rate.commercialRate.toStringAsFixed(4)} EGP',
@@ -950,8 +953,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
-                                                      const Text('سعر الجمارك (Customs):',
-                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      Text(l10n.customsExchangeRateLabel,
+                                                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                                       const SizedBox(height: 2),
                                                       Text(
                                                         '${rate.customsRate.toStringAsFixed(4)} EGP',
@@ -967,8 +970,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                   child: Column(
                                                     crossAxisAlignment: CrossAxisAlignment.start,
                                                     children: [
-                                                      const Text('الفارق (Spread):',
-                                                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                                                      Text(l10n.spreadVarianceLabel,
+                                                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
                                                       const SizedBox(height: 2),
                                                       Text(
                                                         '${diff >= 0 ? "+" : ""}${diff.toStringAsFixed(4)} (${diffPct >= 0 ? "+" : ""}${diffPct.toStringAsFixed(2)}%)',
@@ -990,7 +993,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                                                     borderRadius: BorderRadius.circular(6),
                                                   ),
                                                   child: Text(
-                                                    'بواسطة: ${rate.createdBy ?? "System"}',
+                                                    l10n.rateSourcePrefix(rate.createdBy ?? "System"),
                                                     style: TextStyle(fontSize: 10, color: Colors.grey.shade700),
                                                   ),
                                                 ),
@@ -1012,6 +1015,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   }
 
   void _showAddRateDialog(BuildContext context, {int? preSelectedCurrencyId}) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final currencies = ref.read(currenciesProvider).value?.where((c) => !c.isBaseCurrency).toList() ?? [];
     if (currencies.isEmpty) return;
@@ -1025,7 +1029,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       context: context,
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Update Exchange Rates (Commercial & Customs)'),
+          title: Text(l10n.updateExchangeRatesDialogTitle),
           content: SizedBox(
             width: 450,
             child: Form(
@@ -1035,8 +1039,8 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                 children: [
                   SearchableDropdownField<int?>(
                     value: selectedCurrencyId,
-                    labelText: 'Select Foreign Currency *',
-                    searchHintText: 'ابحث عن العملة...',
+                    labelText: l10n.selectForeignCurrencyLabel,
+                    searchHintText: l10n.searchCurrenciesHint,
                     items: currencies
                         .map((c) => SearchableDropdownItem<int?>(
                               value: c.currencyId,
@@ -1052,13 +1056,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   TextFormField(
                     controller: commCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Commercial Bank Rate to EGP *',
-                      hintText: 'e.g. 50.25',
+                    decoration: InputDecoration(
+                      labelText: l10n.commercialRateInputLabel,
+                      hintText: l10n.rateInputHint,
                     ),
                     validator: (v) {
                       final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return 'Enter valid rate > 0';
+                      if (n == null || n <= 0) return l10n.enterValidRateError;
                       return null;
                     },
                   ),
@@ -1066,19 +1070,19 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   TextFormField(
                     controller: custCtrl,
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Official Customs Exchange Rate to EGP *',
-                      hintText: 'e.g. 50.10',
+                    decoration: InputDecoration(
+                      labelText: l10n.customsRateInputLabel,
+                      hintText: l10n.rateInputHint,
                     ),
                     validator: (v) {
                       final n = double.tryParse(v ?? '');
-                      if (n == null || n <= 0) return 'Enter valid rate > 0';
+                      if (n == null || n <= 0) return l10n.enterValidRateError;
                       return null;
                     },
                   ),
                   const SizedBox(height: 12),
                   ListTile(
-                    title: Text('Effective Date: ${selectedDate.toIso8601String().split('T').first}'),
+                    title: Text(l10n.effectiveDateLabel(selectedDate.toIso8601String().split('T').first)),
                     trailing: const Icon(Icons.calendar_today, color: AppTheme.cobalt),
                     onTap: () async {
                       final picked = await showDatePicker(
@@ -1099,7 +1103,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('Cancel'),
+              child: Text(l10n.cancel),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
@@ -1115,7 +1119,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   if (ok && context.mounted) Navigator.pop(dialogCtx);
                 }
               },
-              child: const Text('Save Rate'),
+              child: Text(l10n.saveRateSubmitBtn),
             ),
           ],
         ),
@@ -1126,6 +1130,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   // ─── Multi-Currency Conversion Dialog ─────────────────────────────────────
 
   void _showCurrencyConverterDialog(BuildContext context) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final amountCtrl = TextEditingController(text: '10000');
     String fromCurr = 'USD';
@@ -1139,11 +1144,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setSheetState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.currency_exchange, color: AppTheme.cobalt),
-              SizedBox(width: 8),
-              Text('محول العملات الحي (Multi-Currency Engine)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.currency_exchange, color: AppTheme.cobalt),
+              const SizedBox(width: 8),
+              Text(l10n.liveCurrencyConverterDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: SizedBox(
@@ -1155,19 +1160,19 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('قم بإدخال المبلغ واختيار العملات لنشاط التحويل المباشر:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(l10n.liveCurrencyConverterDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: amountCtrl,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'المبلغ المراد تحويله *',
-                        hintText: '10000',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l10n.amountToConvertLabel,
+                        hintText: l10n.amountToConvertHint,
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) {
                         final val = double.tryParse(v ?? '');
-                        if (val == null || val <= 0) return 'أدخل مبلغ صحيح أكبر من صفر';
+                        if (val == null || val <= 0) return l10n.enterValidAmountError;
                         return null;
                       },
                     ),
@@ -1177,15 +1182,15 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: fromCurr,
-                            decoration: const InputDecoration(labelText: 'من عملة', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.fromCurrencyLabel, border: const OutlineInputBorder()),
                             items: const [
-                              DropdownMenuItem(value: 'USD', child: Text('USD (دولار أمريكي)')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR (يورو)')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP (جنيه إسترليني)')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY (يوان صيني)')),
-                              DropdownMenuItem(value: 'SAR', child: Text('SAR (ريال سعودي)')),
-                              DropdownMenuItem(value: 'AED', child: Text('AED (درهم إماراتي)')),
-                              DropdownMenuItem(value: 'EGP', child: Text('EGP (جنيه مصري)')),
+                              DropdownMenuItem(value: 'USD', child: Text('USD')),
+                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
+                              DropdownMenuItem(value: 'SAR', child: Text('SAR')),
+                              DropdownMenuItem(value: 'AED', child: Text('AED')),
+                              DropdownMenuItem(value: 'EGP', child: Text('EGP')),
                             ],
                             onChanged: (v) => setSheetState(() => fromCurr = v!),
                           ),
@@ -1194,13 +1199,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: toCurr,
-                            decoration: const InputDecoration(labelText: 'إلى عملة', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.toCurrencyLabel, border: const OutlineInputBorder()),
                             items: const [
-                              DropdownMenuItem(value: 'EGP', child: Text('EGP (جنيه مصري)')),
-                              DropdownMenuItem(value: 'USD', child: Text('USD (دولار أمريكي)')),
-                              DropdownMenuItem(value: 'EUR', child: Text('EUR (يورو)')),
-                              DropdownMenuItem(value: 'GBP', child: Text('GBP (جنيه إسترليني)')),
-                              DropdownMenuItem(value: 'CNY', child: Text('CNY (يوان صيني)')),
+                              DropdownMenuItem(value: 'EGP', child: Text('EGP')),
+                              DropdownMenuItem(value: 'USD', child: Text('USD')),
+                              DropdownMenuItem(value: 'EUR', child: Text('EUR')),
+                              DropdownMenuItem(value: 'GBP', child: Text('GBP')),
+                              DropdownMenuItem(value: 'CNY', child: Text('CNY')),
                             ],
                             onChanged: (v) => setSheetState(() => toCurr = v!),
                           ),
@@ -1210,10 +1215,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
                       value: rateType,
-                      decoration: const InputDecoration(labelText: 'نوع سعر الصرف المطبق', border: OutlineInputBorder()),
-                      items: const [
-                        DropdownMenuItem(value: 'commercial', child: Text('سعر البنك التجاري (Commercial Rate)')),
-                        DropdownMenuItem(value: 'customs', child: Text('سعر الصرف الجمركي الرسمي (Customs Rate)')),
+                      decoration: InputDecoration(labelText: l10n.appliedRateTypeLabel, border: const OutlineInputBorder()),
+                      items: [
+                        DropdownMenuItem(value: 'commercial', child: Text(l10n.rateTypeCommercialOption)),
+                        DropdownMenuItem(value: 'customs', child: Text(l10n.rateTypeCustomsOption)),
                       ],
                       onChanged: (v) => setSheetState(() => rateType = v!),
                     ),
@@ -1244,7 +1249,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       icon: isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.calculate, color: Colors.white),
-                      label: const Text('تحويل العملة الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(l10n.convertCurrencyNowBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     if (resultData != null) ...[
                       const SizedBox(height: 16),
@@ -1261,7 +1266,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('المبلغ المحول:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                Text(l10n.convertedAmountLabel, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                                 Text(
                                   '${resultData!['converted_amount']} ${resultData!['to_currency_code']}',
                                   style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
@@ -1269,11 +1274,13 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                               ],
                             ),
                             const Divider(height: 14),
-                            Text('سعر الصرف المطبق: ${resultData!['applied_rate']}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            Text(l10n.appliedRatePrefix(resultData!['applied_rate']), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                             const SizedBox(height: 4),
-                            Text('الماكفئ بالجنيه المصري (Base EGP): ${resultData!['base_currency_equivalent_egp']} EGP', style: const TextStyle(fontSize: 12)),
-                            const SizedBox(height: 6),
-                            Text(resultData!['summary_ar'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                            Text(l10n.baseEgpEquivalentPrefix(resultData!['base_currency_equivalent_egp']), style: const TextStyle(fontSize: 12)),
+                            if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
+                              const SizedBox(height: 6),
+                              Text(resultData!['summary_ar'] ?? '', style: const TextStyle(fontSize: 11, color: AppTheme.charcoal)),
+                            ],
                           ],
                         ),
                       ),
@@ -1286,7 +1293,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('إغلاق'),
+              child: Text(l10n.closeBtn),
             ),
           ],
         ),
@@ -1297,6 +1304,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
   // ─── FX Gain / Loss Engine Dialog ─────────────────────────────────────────
 
   void _showGainLossCalculatorDialog(BuildContext context) {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final amountCtrl = TextEditingController(text: '50000');
     final initialRateCtrl = TextEditingController(text: '49.00');
@@ -1310,11 +1318,11 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
       builder: (dialogCtx) => StatefulBuilder(
         builder: (context, setSheetState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.trending_up, color: AppTheme.orange),
-              SizedBox(width: 8),
-              Text('حاسبة فروق أسعار العملات (FX Gain/Loss)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.trending_up, color: AppTheme.orange),
+              const SizedBox(width: 8),
+              Text(l10n.fxGainLossDialogTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
           content: SizedBox(
@@ -1326,7 +1334,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('حساب الفرق المالي الناتج عن تغير سعر الصرف بين تاريخ الربط وتاريخ التسوية:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Text(l10n.fxGainLossDialogSubtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 16),
                     Row(
                       children: [
@@ -1335,10 +1343,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           child: TextFormField(
                             controller: amountCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'المبلغ الأجنبي *', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.foreignAmountLabel, border: const OutlineInputBorder()),
                             validator: (v) {
                               final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return 'أدخل مبلغ صحيح';
+                              if (val == null || val <= 0) return l10n.enterValidAmountError;
                               return null;
                             },
                           ),
@@ -1347,7 +1355,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                         Expanded(
                           child: DropdownButtonFormField<String>(
                             value: currencyCode,
-                            decoration: const InputDecoration(labelText: 'العملة', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.currencyLabel, border: const OutlineInputBorder()),
                             items: const [
                               DropdownMenuItem(value: 'USD', child: Text('USD')),
                               DropdownMenuItem(value: 'EUR', child: Text('EUR')),
@@ -1366,10 +1374,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           child: TextFormField(
                             controller: initialRateCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'سعر الربط المبدئي (R1) *', hintText: '49.00', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.initialRateLabel, hintText: l10n.initialRateHint, border: const OutlineInputBorder()),
                             validator: (v) {
                               final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return 'سعر غير صحيح';
+                              if (val == null || val <= 0) return l10n.enterValidRateError;
                               return null;
                             },
                           ),
@@ -1379,10 +1387,10 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                           child: TextFormField(
                             controller: settlementRateCtrl,
                             keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                            decoration: const InputDecoration(labelText: 'سعر التسوية/الدفع (R2) *', hintText: '47.50', border: OutlineInputBorder()),
+                            decoration: InputDecoration(labelText: l10n.settlementRateLabel, hintText: l10n.settlementRateHint, border: const OutlineInputBorder()),
                             validator: (v) {
                               final val = double.tryParse(v ?? '');
-                              if (val == null || val <= 0) return 'سعر غير صحيح';
+                              if (val == null || val <= 0) return l10n.enterValidRateError;
                               return null;
                             },
                           ),
@@ -1416,7 +1424,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                       icon: isLoading
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                           : const Icon(Icons.analytics, color: Colors.white),
-                      label: const Text('حساب فروق العملة الآن', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(l10n.calculateGainLossBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     if (resultData != null) ...[
                       const SizedBox(height: 16),
@@ -1457,14 +1465,16 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
                               ],
                             ),
                             const Divider(height: 14),
-                            Text('التكلفة المبدئية عند الربط: ${resultData!['initial_amount_egp']} EGP (سعر: ${resultData!['initial_rate']})'),
+                            Text(l10n.initialCostAtBooking(resultData!['initial_amount_egp'], resultData!['initial_rate'])),
                             const SizedBox(height: 4),
-                            Text('التكلفة الفعلية عند التسوية: ${resultData!['settlement_amount_egp']} EGP (سعر: ${resultData!['settlement_rate']})'),
-                            const SizedBox(height: 8),
-                            Text(
-                              resultData!['summary_ar'] ?? '',
-                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
-                            ),
+                            Text(l10n.actualCostAtSettlement(resultData!['settlement_amount_egp'], resultData!['settlement_rate'])),
+                            if (resultData!['summary_ar'] != null && Localizations.localeOf(context).languageCode == 'ar') ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                resultData!['summary_ar'] ?? '',
+                                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppTheme.charcoal),
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -1477,7 +1487,7 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogCtx),
-              child: const Text('إغلاق'),
+              child: Text(l10n.closeBtn),
             ),
           ],
         ),
@@ -1485,4 +1495,5 @@ class _CurrenciesScreenState extends ConsumerState<CurrenciesScreen> {
     );
   }
 }
+
 

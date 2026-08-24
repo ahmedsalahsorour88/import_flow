@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/services/master_data_export_service.dart';
 import '../models/import_company_model.dart';
@@ -28,6 +29,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
     final isActive = company.isActive;
 
     return Dialog(
@@ -100,7 +102,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                                 ),
                               ),
                               child: Text(
-                                isActive ? 'Active' : 'Inactive',
+                                isActive ? l10n.statusActive : l10n.statusInactive,
                                 style: TextStyle(
                                   color: isActive ? const Color(0xFF2ECC71) : const Color(0xFFE74C3C),
                                   fontSize: 11,
@@ -112,7 +114,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'بطاقة بيانات الشركة المستوردة والتراخيص الرقابية (Egyptian Importer Profile)',
+                          l10n.importerProfileSubtitle,
                           style: TextStyle(color: Colors.grey.shade300, fontSize: 12),
                         ),
                       ],
@@ -121,7 +123,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.white70),
                     onPressed: () => Navigator.pop(context),
-                    tooltip: 'إغلاق',
+                    tooltip: l10n.close,
                   ),
                 ],
               ),
@@ -135,7 +137,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Section 1: Official Identifiers & Registrations
-                    _buildSectionHeader(Icons.verified_user_rounded, 'بيانات القيد والتراخيص الرسمية'),
+                    _buildSectionHeader(Icons.verified_user_rounded, l10n.officialRegistrationsHeader),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -149,7 +151,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           _buildDetailRow(
                             context: context,
                             icon: Icons.badge_outlined,
-                            label: 'رقم البطاقة الاستيرادية (Importer Card ID)',
+                            label: l10n.importerCardIdRowLabel,
                             value: company.importerId,
                             expiryDate: company.importerIdExpiry,
                             daysRemaining: company.daysUntilImporterIdExpiry,
@@ -158,7 +160,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           _buildDetailRow(
                             context: context,
                             icon: Icons.receipt_long_outlined,
-                            label: 'رقم التسجيل الضريبي (VAT / Tax ID)',
+                            label: l10n.vatTaxIdRowLabel,
                             value: company.vatId,
                             expiryDate: company.vatIdExpiry,
                             daysRemaining: company.daysUntilVatExpiry,
@@ -167,7 +169,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           _buildDetailRow(
                             context: context,
                             icon: Icons.account_balance_outlined,
-                            label: 'رقم السجل التجاري (Commercial Reg #)',
+                            label: l10n.commercialRegRowLabel,
                             value: company.registrationNumber,
                             expiryDate: company.registrationExpiry,
                             daysRemaining: company.daysUntilRegExpiry,
@@ -178,7 +180,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     const SizedBox(height: 18),
 
                     // Section 2: Address & Contact Details
-                    _buildSectionHeader(Icons.location_on_outlined, 'بيانات الموقع والتواصل'),
+                    _buildSectionHeader(Icons.location_on_outlined, l10n.locationAndContactHeader),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
@@ -189,18 +191,18 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          _buildSimpleInfoRow(context, Icons.public, 'الدولة (Country)', company.country.isNotEmpty ? company.country : 'جمهورية مصر العربية'),
+                          _buildSimpleInfoRow(context, Icons.public, l10n.countryRowLabel, company.country.isNotEmpty ? company.country : l10n.egyptCountryFallback),
                           const Divider(height: 14),
-                          _buildSimpleInfoRow(context, Icons.home_outlined, 'العنوان (Address)', company.address),
+                          _buildSimpleInfoRow(context, Icons.home_outlined, l10n.addressRowLabel, company.address),
                           const Divider(height: 14),
                           Row(
                             children: [
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.phone_outlined, 'الهاتف (Phone)', company.phone ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.phone_outlined, l10n.phoneRowLabel, company.phone ?? '-'),
                               ),
                               const SizedBox(width: 12),
                               Expanded(
-                                child: _buildSimpleInfoRow(context, Icons.email_outlined, 'البريد الإلكتروني (Email)', company.email ?? '-'),
+                                child: _buildSimpleInfoRow(context, Icons.email_outlined, l10n.emailRowLabel, company.email ?? '-'),
                               ),
                             ],
                           ),
@@ -210,7 +212,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
 
                     if (company.notes != null && company.notes!.isNotEmpty) ...[
                       const SizedBox(height: 18),
-                      _buildSectionHeader(Icons.notes_rounded, 'ملاحظات إدارية ورقمية'),
+                      _buildSectionHeader(Icons.notes_rounded, l10n.administrativeNotesHeader),
                       const SizedBox(height: 10),
                       Container(
                         width: double.infinity,
@@ -258,7 +260,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.print_rounded, size: 16),
-                        label: const Text('طباعة / حفظ PDF 🖨️', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.printSavePdfBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
                           await MasterDataExportService.printOrSaveImporterPdf(company);
                         },
@@ -272,13 +274,13 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.table_view_rounded, size: 16),
-                        label: const Text('تنزيل EXCEL 📊', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.downloadExcelBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () async {
                           final path = await MasterDataExportService.exportImporterToExcel(context, company);
                           if (context.mounted && path != null) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✅ تم حفظ ملف الإكسل بنجاح: $path'),
+                                content: Text(l10n.excelSavedSuccess(path)),
                                 backgroundColor: AppTheme.emerald,
                               ),
                             );
@@ -294,7 +296,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
-                        label: const Text('نسخة واتس 💬', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.whatsappShareBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () => _showWhatsAppPreviewModal(context),
                       ),
 
@@ -306,7 +308,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         ),
                         icon: const Icon(Icons.mail_outline_rounded, size: 16),
-                        label: const Text('إيميل ✉️', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        label: Text(l10n.emailShareBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         onPressed: () => _showEmailPreviewModal(context),
                       ),
                     ],
@@ -324,7 +326,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                           ),
                           icon: const Icon(Icons.edit, size: 16),
-                          label: const Text('تعديل', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          label: Text(l10n.edit, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                           onPressed: () {
                             Navigator.pop(context);
                             onEdit!();
@@ -333,7 +335,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                       const SizedBox(width: 8),
                       TextButton(
                         onPressed: () => Navigator.pop(context),
-                        child: const Text('إغلاق', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                        child: Text(l10n.close, style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
@@ -371,21 +373,22 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
     required DateTime expiryDate,
     required int daysRemaining,
   }) {
+    final l10n = context.l10n;
     final isExpired = daysRemaining <= 0;
     final isWarning = daysRemaining > 0 && daysRemaining <= 30;
 
     Color badgeBg = AppTheme.emerald.withOpacity(0.12);
     Color badgeColor = AppTheme.emerald;
-    String statusText = 'سارٍ ($daysRemaining يوم)';
+    String statusText = l10n.expiryValidDaysRemaining(daysRemaining);
 
     if (isExpired) {
       badgeBg = AppTheme.crimson.withOpacity(0.12);
       badgeColor = AppTheme.crimson;
-      statusText = 'منتهي الصلاحية';
+      statusText = l10n.expiryExpired;
     } else if (isWarning) {
       badgeBg = AppTheme.orange.withOpacity(0.15);
       badgeColor = AppTheme.orange;
-      statusText = 'ينتهي قريباً ($daysRemaining يوم)';
+      statusText = l10n.expiryEndingSoon(daysRemaining);
     }
 
     return Row(
@@ -411,7 +414,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                     onTap: () {
                       Clipboard.setData(ClipboardData(text: value));
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('تم نسخ $value إلى الحافظة'), duration: const Duration(seconds: 1)),
+                        SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
                       );
                     },
                     child: const Icon(Icons.copy, size: 14, color: Colors.grey),
@@ -424,7 +427,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('الانتهاء: ${expiryDate.toIso8601String().split('T')[0]}', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+            Text(l10n.expiryDateLabel(expiryDate.toIso8601String().split('T')[0]), style: const TextStyle(fontSize: 11, color: Colors.grey)),
             const SizedBox(height: 2),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -444,6 +447,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
   }
 
   Widget _buildSimpleInfoRow(BuildContext context, IconData icon, String label, String value) {
+    final l10n = context.l10n;
     return Row(
       children: [
         Icon(icon, size: 18, color: Colors.blueGrey),
@@ -467,7 +471,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
                       onTap: () {
                         Clipboard.setData(ClipboardData(text: value));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('تم نسخ $value إلى الحافظة'), duration: const Duration(seconds: 1)),
+                          SnackBar(content: Text(l10n.copiedToClipboard(value)), duration: const Duration(seconds: 1)),
                         );
                       },
                       child: const Icon(Icons.copy, size: 13, color: Colors.grey),
@@ -482,15 +486,16 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
   }
 
   void _showWhatsAppPreviewModal(BuildContext context) {
+    final l10n = context.l10n;
     final text = MasterDataExportService.generateImporterWhatsAppText(company);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
-            SizedBox(width: 8),
-            Text('نص مشاركة الواتساب (WhatsApp Summary)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFF25D366)),
+            const SizedBox(width: 8),
+            Text(l10n.whatsappPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -514,16 +519,16 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF25D366)),
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: const Text('نسخ نص الواتس 📋', style: TextStyle(color: Colors.white)),
+            label: Text(l10n.copyWhatsappTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: text));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ تم نسخ نص الواتساب للحافظة بنجاح!'), backgroundColor: AppTheme.emerald),
+                SnackBar(content: Text(l10n.whatsappCopiedSuccess), backgroundColor: AppTheme.emerald),
               );
             },
           ),
@@ -533,17 +538,18 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
   }
 
   void _showEmailPreviewModal(BuildContext context) {
+    final l10n = context.l10n;
     final subject = MasterDataExportService.generateImporterEmailSubject(company);
     final body = MasterDataExportService.generateImporterEmailBody(company);
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
-            SizedBox(width: 8),
-            Text('نموذج البريد الإلكتروني (Email Template)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Icon(Icons.mail_outline_rounded, color: AppTheme.cobalt),
+            const SizedBox(width: 8),
+            Text(l10n.emailPreviewTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ],
         ),
         content: SizedBox(
@@ -552,7 +558,7 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('الموضوع: $subject', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l10n.emailSubjectPrefix(subject), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -570,16 +576,16 @@ class ImportCompanyDetailsDialog extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l10n.close)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
             icon: const Icon(Icons.copy, color: Colors.white, size: 16),
-            label: const Text('نسخ نص الإيميل والموضوع 📋', style: TextStyle(color: Colors.white)),
+            label: Text(l10n.copyEmailTextBtn, style: const TextStyle(color: Colors.white)),
             onPressed: () {
-              Clipboard.setData(ClipboardData(text: 'الموضوع: $subject\n\n$body'));
+              Clipboard.setData(ClipboardData(text: '$subject\n\n$body'));
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('✅ تم نسخ نص وموضوع الإيميل للحافظة بنجاح!'), backgroundColor: AppTheme.emerald),
+                SnackBar(content: Text(l10n.emailCopiedSuccess), backgroundColor: AppTheme.emerald),
               );
             },
           ),

@@ -138,7 +138,7 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                                       borderRadius: BorderRadius.circular(6),
                                     ),
                                     child: Text(
-                                      '${l.statusCol}: ${item.status}',
+                                      '${l.statusCol}: ${item.status == 'Blocked' ? l.statusBlocked : (item.status == 'Pending' ? l.statusPending : (item.status == 'Action Required' ? l.statusActionRequired : item.status))}',
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
                                         fontSize: 11,
@@ -171,7 +171,7 @@ void showBlockingIssuesDialog(BuildContext context, List<CustomsChecklistItemMod
                                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                                     ),
                                     icon: const Icon(Icons.check_circle_outline, size: 16),
-                                    label: Text(l.saveConsultationChanges, style: const TextStyle(fontSize: 11.5)),
+                                    label: Text(l.statusApproved, style: const TextStyle(fontSize: 11.5)),
                                     onPressed: () {
                                       final realIndex = checklist.indexWhere((c) => c.documentType == item.documentType);
                                       if (realIndex != -1) {

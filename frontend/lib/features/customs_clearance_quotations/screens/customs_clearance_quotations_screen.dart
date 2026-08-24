@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../external_service_providers/providers/partners_provider.dart';
@@ -50,6 +51,8 @@ class _CustomsClearanceQuotationsScreenState
 
   @override
   Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
     if (widget.embedded) {
       return Container(
         color: const Color(0xFFF4F6F8),
@@ -65,23 +68,14 @@ class _CustomsClearanceQuotationsScreenState
                 children: [
                   const Icon(Icons.request_quote_rounded, color: AppTheme.cobalt, size: 24),
                   const SizedBox(width: 10),
-                  const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'عروض ومقايسات التخليص الجمركي والاستخراج الذكي',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                      Text(
-                        'Customs Clearance RFQs, Quotes Evaluator & AI Rate Extractor',
-                        style: TextStyle(fontSize: 11, color: Colors.grey),
-                      ),
-                    ],
+                  Text(
+                    l10n.clearanceQuotesEmbeddedTitle,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
                   const Spacer(),
                   IconButton(
                     icon: const Icon(Icons.refresh, color: AppTheme.charcoal),
-                    tooltip: 'تحديث البيانات',
+                    tooltip: l10n.refresh,
                     onPressed: () {
                       ref.invalidate(customsClearanceQuotationsProvider);
                       ref.invalidate(clearancePriceListProvider);
@@ -97,7 +91,7 @@ class _CustomsClearanceQuotationsScreenState
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(l10n.clearanceQuotesSmartExtractorBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () => _showSmartExtractorDialog(null),
                   ),
                 ],
@@ -112,14 +106,14 @@ class _CustomsClearanceQuotationsScreenState
                 labelColor: AppTheme.cobalt,
                 unselectedLabelColor: Colors.grey.shade600,
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                tabs: const [
+                tabs: [
                   Tab(
-                    icon: Icon(Icons.compare_arrows_rounded, size: 18),
-                    text: 'طلب ومقارنة عروض التخليص الجمركي (RFQs & Evaluator)',
+                    icon: const Icon(Icons.compare_arrows_rounded, size: 18),
+                    text: l10n.clearanceQuotesTabRfqs,
                   ),
                   Tab(
-                    icon: Icon(Icons.price_change_rounded, size: 18),
-                    text: 'قوائم أسعار بنود التخليص الثابتة (Master Price Lists)',
+                    icon: const Icon(Icons.price_change_rounded, size: 18),
+                    text: l10n.clearanceQuotesTabPriceLists,
                   ),
                 ],
               ),
@@ -141,13 +135,13 @@ class _CustomsClearanceQuotationsScreenState
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.request_quote_rounded, color: Colors.amber, size: 26),
-            SizedBox(width: 10),
+            const Icon(Icons.request_quote_rounded, color: Colors.amber, size: 26),
+            const SizedBox(width: 10),
             Text(
-              'عروض ومقايسات التخليص الجمركي وقوائم الأسعار (Customs Clearance Quotations)',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+              l10n.clearanceQuotesScreenTitle,
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
           ],
         ),
@@ -156,7 +150,7 @@ class _CustomsClearanceQuotationsScreenState
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded, color: Colors.white),
-            tooltip: 'إعادة تحميل وتحديث البيانات',
+            tooltip: l10n.refresh,
             onPressed: () {
               ref.invalidate(customsClearanceQuotationsProvider);
               ref.invalidate(clearancePriceListProvider);
@@ -172,14 +166,14 @@ class _CustomsClearanceQuotationsScreenState
           labelColor: Colors.white,
           unselectedLabelColor: Colors.grey.shade400,
           labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-          tabs: const [
+          tabs: [
             Tab(
-              icon: Icon(Icons.compare_arrows_rounded),
-              text: 'طلب ومقارنة عروض التخليص الجمركي (RFQs & Evaluator)',
+              icon: const Icon(Icons.compare_arrows_rounded),
+              text: l10n.clearanceQuotesTabRfqs,
             ),
             Tab(
-              icon: Icon(Icons.price_change_rounded),
-              text: 'قوائم أسعار بنود التخليص الثابتة (Master Price Lists)',
+              icon: const Icon(Icons.price_change_rounded),
+              text: l10n.clearanceQuotesTabPriceLists,
             ),
           ],
         ),
@@ -199,6 +193,7 @@ class _CustomsClearanceQuotationsScreenState
   // ===========================================================================
 
   Widget _buildRFQsTab() {
+    final l10n = context.l10n;
     final rfqsState = ref.watch(customsClearanceQuotationsProvider);
 
     return rfqsState.when(
@@ -209,11 +204,11 @@ class _CustomsClearanceQuotationsScreenState
           children: [
             const Icon(Icons.error_outline_rounded, size: 48, color: AppTheme.crimson),
             const SizedBox(height: 12),
-            Text('خطأ في تحميل عروض التخليص: $e', style: const TextStyle(color: AppTheme.crimson)),
+            Text('${l10n.clearanceQuotesErrorLoadingRfqs} $e', style: const TextStyle(color: AppTheme.crimson)),
             const SizedBox(height: 12),
             ElevatedButton.icon(
               icon: const Icon(Icons.refresh),
-              label: const Text('إعادة المحاولة'),
+              label: Text(l10n.retry),
               onPressed: () => ref.read(customsClearanceQuotationsProvider.notifier).fetchRFQs(),
             ),
           ],
@@ -241,7 +236,7 @@ class _CustomsClearanceQuotationsScreenState
                     child: TextField(
                       controller: _searchCtrl,
                       decoration: InputDecoration(
-                        hintText: 'بحث بكود الطلب، العنوان، أو الميناء...',
+                        hintText: l10n.clearanceQuotesSearchHint,
                         prefixIcon: const Icon(Icons.search_rounded),
                         filled: true,
                         fillColor: Colors.white,
@@ -258,11 +253,11 @@ class _CustomsClearanceQuotationsScreenState
                   DropdownButton<String>(
                     value: _selectedStatusFilter,
                     underline: const SizedBox(),
-                    items: const [
-                      DropdownMenuItem(value: 'ALL', child: Text('جميع الحالات')),
-                      DropdownMenuItem(value: 'Draft', child: Text('مسودة (Draft)')),
-                      DropdownMenuItem(value: 'Quotations Received', child: Text('عروض مستلمة')),
-                      DropdownMenuItem(value: 'Awarded', child: Text('معتمد ومُرسى (Awarded)')),
+                    items: [
+                      DropdownMenuItem(value: 'ALL', child: Text(l10n.clearanceQuotesStatusAll)),
+                      DropdownMenuItem(value: 'Draft', child: Text(l10n.clearanceQuotesStatusDraft)),
+                      DropdownMenuItem(value: 'Quotations Received', child: Text(l10n.clearanceQuotesStatusReceived)),
+                      DropdownMenuItem(value: 'Awarded', child: Text(l10n.clearanceQuotesStatusAwarded)),
                     ],
                     onChanged: (val) {
                       if (val != null) setState(() => _selectedStatusFilter = val);
@@ -277,7 +272,7 @@ class _CustomsClearanceQuotationsScreenState
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('🤖 استخراج ذكي لمقايسة تخليص', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(l10n.clearanceQuotesSmartExtractorBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () => _showSmartExtractorDialog(null),
                   ),
                   const SizedBox(width: 10),
@@ -289,7 +284,7 @@ class _CustomsClearanceQuotationsScreenState
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                     ),
                     icon: const Icon(Icons.add_circle_outline_rounded),
-                    label: const Text('إنشاء طلب عرض أسعار جديد', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(l10n.clearanceQuotesCreateRfqBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () => _showCreateRFQDialog(),
                   ),
                 ],
@@ -306,7 +301,7 @@ class _CustomsClearanceQuotationsScreenState
                             Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey.shade400),
                             const SizedBox(height: 12),
                             Text(
-                              'لا توجد طلبات عروض أسعار تخليص حالياً.',
+                              l10n.clearanceQuotesNoRfqsFound,
                               style: TextStyle(color: Colors.grey.shade600, fontSize: 15),
                             ),
                           ],
@@ -325,9 +320,18 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Widget _buildRFQCard(CustomsClearanceRFQModel rfq) {
+    final l10n = context.l10n;
     Color statusColor = Colors.grey;
-    if (rfq.status == 'Awarded') statusColor = AppTheme.emerald;
-    if (rfq.status == 'Quotations Received') statusColor = AppTheme.cobalt;
+    String statusDisplay = rfq.status;
+    if (rfq.status == 'Awarded') {
+      statusColor = AppTheme.emerald;
+      statusDisplay = l10n.clearanceQuotesStatusAwarded;
+    } else if (rfq.status == 'Quotations Received') {
+      statusColor = AppTheme.cobalt;
+      statusDisplay = l10n.clearanceQuotesStatusReceived;
+    } else if (rfq.status == 'Draft') {
+      statusDisplay = l10n.clearanceQuotesStatusDraft;
+    }
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -370,7 +374,7 @@ class _CustomsClearanceQuotationsScreenState
                     border: Border.all(color: statusColor),
                   ),
                   child: Text(
-                    rfq.status,
+                    statusDisplay,
                     style: TextStyle(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
@@ -383,16 +387,16 @@ class _CustomsClearanceQuotationsScreenState
               spacing: 18,
               runSpacing: 8,
               children: [
-                _buildInfoBadge(Icons.anchor_rounded, 'الميناء:', rfq.portName),
-                _buildInfoBadge(Icons.local_shipping_rounded, 'نوع الشحنة:', '${rfq.shipmentType} (${rfq.containersCount} حاوية)'),
+                _buildInfoBadge(Icons.anchor_rounded, l10n.clearanceQuotesBadgePort, rfq.portName),
+                _buildInfoBadge(Icons.local_shipping_rounded, l10n.clearanceQuotesBadgeShipmentType, '${rfq.shipmentType} (${rfq.containersCount})'),
                 if (rfq.hsCode != null && rfq.hsCode!.isNotEmpty)
-                  _buildInfoBadge(Icons.category_rounded, 'HS Code:', rfq.hsCode!),
-                _buildInfoBadge(Icons.scale_rounded, 'الوزن:', '${rfq.grossWeightKg} كجم'),
-                _buildInfoBadge(Icons.view_in_ar_rounded, 'الحجم:', '${rfq.cbm} CBM'),
+                  _buildInfoBadge(Icons.category_rounded, l10n.clearanceQuotesBadgeHsCode, rfq.hsCode!),
+                _buildInfoBadge(Icons.scale_rounded, l10n.clearanceQuotesBadgeWeight, '${rfq.grossWeightKg} ${l10n.kgUnit}'),
+                _buildInfoBadge(Icons.view_in_ar_rounded, l10n.clearanceQuotesBadgeVolume, '${rfq.cbm} ${l10n.cbmUnit}'),
                 if (rfq.lowestClearanceCost > 0)
-                  _buildInfoBadge(Icons.monetization_on_rounded, 'أقل عرض:', '${rfq.lowestClearanceCost.toStringAsFixed(2)} EGP', color: AppTheme.emerald),
+                  _buildInfoBadge(Icons.monetization_on_rounded, l10n.clearanceQuotesBadgeLowestCost, '${rfq.lowestClearanceCost.toStringAsFixed(2)} ${l10n.egpCurrency}', color: AppTheme.emerald),
                 if (rfq.fastestTurnaroundDays > 0)
-                  _buildInfoBadge(Icons.timer_rounded, 'أسرع مدة:', '${rfq.fastestTurnaroundDays} أيام', color: AppTheme.cobalt),
+                  _buildInfoBadge(Icons.timer_rounded, l10n.clearanceQuotesBadgeFastestDuration, l10n.clearanceQuotesDaysCount(rfq.fastestTurnaroundDays), color: AppTheme.cobalt),
               ],
             ),
 
@@ -410,7 +414,7 @@ class _CustomsClearanceQuotationsScreenState
                     const Icon(Icons.verified_rounded, color: AppTheme.emerald, size: 20),
                     const SizedBox(width: 8),
                     Text(
-                      'تم اعتماد وترسية التخليص الجمركي على: ${rfq.awardedProviderName}',
+                      '${l10n.clearanceQuotesAwardedBannerPrefix} ${rfq.awardedProviderName}',
                       style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald, fontSize: 13),
                     ),
                   ],
@@ -425,7 +429,7 @@ class _CustomsClearanceQuotationsScreenState
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'العروض المستلمة من المخلصين (${rfq.quotations.length})',
+                  l10n.clearanceQuotesReceivedQuotesHeader(rfq.quotations.length),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
                 Wrap(
@@ -433,7 +437,7 @@ class _CustomsClearanceQuotationsScreenState
                   children: [
                     TextButton.icon(
                       icon: const Icon(Icons.auto_awesome, size: 16, color: Color(0xFF6C5CE7)),
-                      label: const Text('استخراج ذكي للعرض', style: TextStyle(color: Color(0xFF6C5CE7), fontWeight: FontWeight.bold, fontSize: 12)),
+                      label: Text(l10n.clearanceQuotesSmartExtractQuoteBtn, style: const TextStyle(color: Color(0xFF6C5CE7), fontWeight: FontWeight.bold, fontSize: 12)),
                       onPressed: () => _showSmartExtractorDialog(rfq.rfqId),
                     ),
                     ElevatedButton.icon(
@@ -444,7 +448,7 @@ class _CustomsClearanceQuotationsScreenState
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                       ),
                       icon: const Icon(Icons.add, size: 16),
-                      label: const Text('إضافة عرض يدوي', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(l10n.clearanceQuotesAddManualQuoteBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: () => _showAddQuotationDialog(rfq.rfqId),
                     ),
                   ],
@@ -456,23 +460,23 @@ class _CustomsClearanceQuotationsScreenState
             if (rfq.quotations.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text('لم يتم إدخال عروض أسعار لهذا الطلب بعد.', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                child: Text(l10n.clearanceQuotesNoQuotesYet, style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
               )
             else
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: DataTable(
                   headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                  columns: const [
-                    DataColumn(label: Text('المخلص الجمركي', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('أتعاب التخليص', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('النقل الداخلي', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('فحص وعرض', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('موانئ وتخزين', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('نثريات', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('الإجمالي التقديري', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('المدة', style: TextStyle(fontWeight: FontWeight.bold))),
-                    DataColumn(label: Text('الحالة / الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                  columns: [
+                    DataColumn(label: Text(l10n.clearanceQuotesColBroker, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColClearanceFee, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColInlandTransport, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColInspectionFee, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColPortExpenses, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColMiscellaneous, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColEstimatedTotal, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColDuration, style: const TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(label: Text(l10n.clearanceQuotesColStatusActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                   ],
                   rows: rfq.quotations.map((q) {
                     final isAwarded = q.isAwarded;
@@ -489,14 +493,14 @@ class _CustomsClearanceQuotationsScreenState
                           '${q.totalCost.toStringAsFixed(0)} ${q.currency}',
                           style: TextStyle(fontWeight: FontWeight.bold, color: isAwarded ? AppTheme.emerald : AppTheme.charcoal),
                         )),
-                        DataCell(Text('${q.estimatedTurnaroundDays} أيام')),
+                        DataCell(Text(l10n.clearanceQuotesDaysCount(q.estimatedTurnaroundDays))),
                         DataCell(Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             if (isAwarded)
-                              const Chip(
-                                avatar: Icon(Icons.check, size: 14, color: Colors.white),
-                                label: Text('معتمد', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                              Chip(
+                                avatar: const Icon(Icons.check, size: 14, color: Colors.white),
+                                label: Text(l10n.clearanceQuotesStatusAwardedBadge, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                 backgroundColor: AppTheme.emerald,
                                 padding: EdgeInsets.zero,
                               )
@@ -508,7 +512,7 @@ class _CustomsClearanceQuotationsScreenState
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
                                 ),
-                                child: const Text('ترسية واعتماد 🏆', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                child: Text(l10n.clearanceQuotesAwardAndApproveBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                 onPressed: () => _awardQuotation(rfq.rfqId, q.quotationId!),
                               ),
                             IconButton(
@@ -545,11 +549,12 @@ class _CustomsClearanceQuotationsScreenState
   // ===========================================================================
 
   Widget _buildPriceListsTab() {
+    final l10n = context.l10n;
     final priceListState = ref.watch(clearancePriceListProvider);
 
     return priceListState.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('خطأ في تحميل قوائم الأسعار: $e', style: const TextStyle(color: AppTheme.crimson))),
+      error: (e, _) => Center(child: Text('${l10n.clearanceQuotesErrorLoadingPriceList} $e', style: const TextStyle(color: AppTheme.crimson))),
       data: (items) {
         return Padding(
           padding: const EdgeInsets.all(18.0),
@@ -559,15 +564,15 @@ class _CustomsClearanceQuotationsScreenState
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Column(
+                  Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'قوائم أسعار بنود التخليص والنقل الجمركي المعتمدة',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                        l10n.clearanceQuotesPriceListTitle,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                       ),
-                      SizedBox(height: 4),
-                      Text('إدارة الأسعار المعيارية لكل مخلص جمركي وميناء وصول', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      const SizedBox(height: 4),
+                      Text(l10n.clearanceQuotesPriceListSubtitle, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                     ],
                   ),
                   ElevatedButton.icon(
@@ -577,7 +582,7 @@ class _CustomsClearanceQuotationsScreenState
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                     ),
                     icon: const Icon(Icons.add),
-                    label: const Text('إضافة بند لقائمة الأسعار', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(l10n.clearanceQuotesAddPriceItemBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () => _showAddPriceItemDialog(),
                   ),
                 ],
@@ -586,7 +591,7 @@ class _CustomsClearanceQuotationsScreenState
               Expanded(
                 child: items.isEmpty
                     ? Center(
-                        child: Text('لا توجد بنود أسعار مسجلة بعد.', style: TextStyle(color: Colors.grey.shade600)),
+                        child: Text(l10n.clearanceQuotesNoPriceItemsFound, style: TextStyle(color: Colors.grey.shade600)),
                       )
                     : Card(
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -595,14 +600,14 @@ class _CustomsClearanceQuotationsScreenState
                             width: double.infinity,
                             child: DataTable(
                               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-                              columns: const [
-                                DataColumn(label: Text('المخلص الجمركي', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('الميناء', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('نوع الخدمة', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('نوع الحاوية', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('السعر المعياري', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('ملاحظات', style: TextStyle(fontWeight: FontWeight.bold))),
-                                DataColumn(label: Text('حذف', style: TextStyle(fontWeight: FontWeight.bold))),
+                              columns: [
+                                DataColumn(label: Text(l10n.clearanceQuotesColBroker, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPricePort, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceServiceType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceContainerType, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceStandardRate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceNotes, style: const TextStyle(fontWeight: FontWeight.bold))),
+                                DataColumn(label: Text(l10n.clearanceQuotesColPriceDelete, style: const TextStyle(fontWeight: FontWeight.bold))),
                               ],
                               rows: items.map((item) {
                                 return DataRow(cells: [
@@ -635,8 +640,9 @@ class _CustomsClearanceQuotationsScreenState
   // ===========================================================================
 
   Future<void> _showCreateRFQDialog() async {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
-    final titleCtrl = TextEditingController(text: 'طلب عروض أسعار تخليص شحنة جديدة');
+    final titleCtrl = TextEditingController(text: l10n.clearanceQuotesDialogCreateRfqTitle);
     final commodityCtrl = TextEditingController();
     final hsCodeCtrl = TextEditingController();
     final grossWeightCtrl = TextEditingController(text: '10000');
@@ -654,11 +660,11 @@ class _CustomsClearanceQuotationsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.add_task_rounded, color: AppTheme.emerald),
-              SizedBox(width: 10),
-              Text('إنشاء طلب عرض أسعار تخليص جمركي (RFQ)'),
+              const Icon(Icons.add_task_rounded, color: AppTheme.emerald),
+              const SizedBox(width: 10),
+              Text(l10n.clearanceQuotesDialogCreateRfqTitle),
             ],
           ),
           content: SizedBox(
@@ -671,14 +677,14 @@ class _CustomsClearanceQuotationsScreenState
                   children: [
                     TextFormField(
                       controller: titleCtrl,
-                      decoration: const InputDecoration(labelText: 'عنوان الطلب *', prefixIcon: Icon(Icons.title_rounded)),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? 'العنوان مطلوب' : null,
+                      decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldRfqTitle, prefixIcon: const Icon(Icons.title_rounded)),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? l10n.clearanceQuotesFieldRfqTitleRequired : null,
                     ),
                     const SizedBox(height: 12),
                     SearchableDropdownField<int>(
                       value: selectedImportFileId,
-                      labelText: 'ربط بملف استيراد (اختياري)',
-                      searchHintText: 'ابحث برقم الملف...',
+                      labelText: l10n.clearanceQuotesFieldLinkImportFile,
+                      searchHintText: l10n.searchPlaceholder,
                       items: importFiles
                           .map((f) => SearchableDropdownItem<int>(
                                 value: f.importFileId,
@@ -700,8 +706,8 @@ class _CustomsClearanceQuotationsScreenState
                     const SizedBox(height: 12),
                     SearchableDropdownField<String>(
                       value: portName,
-                      labelText: 'ميناء التخليص الجمركي *',
-                      searchHintText: 'ابحث عن الميناء...',
+                      labelText: l10n.clearanceQuotesFieldClearancePort,
+                      searchHintText: l10n.searchPlaceholder,
                       items: locations
                           .map((l) => SearchableDropdownItem<String>(
                                 value: l.locationName,
@@ -716,14 +722,14 @@ class _CustomsClearanceQuotationsScreenState
                     Row(
                       children: [
                         Expanded(
-                          child: DropdownButtonFormField<String>(
+                          child: SearchableDropdownField<String>(
                             value: shipmentType,
-                            decoration: const InputDecoration(labelText: 'نوع الشحنة والحاوية *'),
+                            labelText: l10n.clearanceQuotesFieldShipmentType,
                             items: const [
-                              DropdownMenuItem(value: 'Ocean FCL (40HQ)', child: Text('Ocean FCL (40HQ)')),
-                              DropdownMenuItem(value: 'Ocean FCL (20GP)', child: Text('Ocean FCL (20GP)')),
-                              DropdownMenuItem(value: 'Ocean LCL', child: Text('Ocean LCL (مشترك)')),
-                              DropdownMenuItem(value: 'Air Freight', child: Text('Air Freight (شحن جوي)')),
+                              SearchableDropdownItem(value: 'Ocean FCL (40HQ)', label: 'Ocean FCL (40HQ)'),
+                              SearchableDropdownItem(value: 'Ocean FCL (20GP)', label: 'Ocean FCL (20GP)'),
+                              SearchableDropdownItem(value: 'Ocean LCL', label: 'Ocean LCL'),
+                              SearchableDropdownItem(value: 'Air Freight', label: 'Air Freight'),
                             ],
                             onChanged: (v) {
                               if (v != null) setDState(() => shipmentType = v);
@@ -734,7 +740,7 @@ class _CustomsClearanceQuotationsScreenState
                         Expanded(
                           child: TextFormField(
                             initialValue: containersCount.toString(),
-                            decoration: const InputDecoration(labelText: 'عدد الحاويات *'),
+                            decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldContainersCount),
                             keyboardType: TextInputType.number,
                             onChanged: (v) => containersCount = int.tryParse(v) ?? 1,
                           ),
@@ -747,7 +753,7 @@ class _CustomsClearanceQuotationsScreenState
                         Expanded(
                           child: TextFormField(
                             controller: grossWeightCtrl,
-                            decoration: const InputDecoration(labelText: 'الوزن القائم (كجم)'),
+                            decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldGrossWeightKg),
                             keyboardType: TextInputType.number,
                           ),
                         ),
@@ -755,7 +761,7 @@ class _CustomsClearanceQuotationsScreenState
                         Expanded(
                           child: TextFormField(
                             controller: cbmCtrl,
-                            decoration: const InputDecoration(labelText: 'الحجم (CBM)'),
+                            decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldCbm),
                             keyboardType: TextInputType.number,
                           ),
                         ),
@@ -768,12 +774,12 @@ class _CustomsClearanceQuotationsScreenState
           ),
           actions: [
             TextButton(
-              child: const Text('إلغاء'),
+              child: Text(l10n.cancel),
               onPressed: () => Navigator.pop(ctx),
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              child: const Text('إنشاء الطلب'),
+              child: Text(l10n.clearanceQuotesSubmitCreateRfqBtn),
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
                 final newRfq = CustomsClearanceRFQModel(
@@ -806,11 +812,12 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Future<void> _showAddQuotationDialog(int rfqId, {Map<String, dynamic>? prefill}) async {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final partners = ref.read(partnersProvider).value?.where((p) => p.partnerType == 'Customs Broker' || p.partnerType == 'Freight Forwarder').toList() ?? [];
 
     int? selectedProviderId = prefill?['provider_id'] ?? (partners.isNotEmpty ? partners.first.partnerId : 1);
-    String selectedProviderName = prefill?['provider_name'] ?? (partners.isNotEmpty ? partners.first.partnerName : 'مكتب تخليص جمركي');
+    String selectedProviderName = prefill?['provider_name'] ?? (partners.isNotEmpty ? partners.first.partnerName : l10n.clearanceQuotesColBroker);
 
     final clearanceFeeCtrl = TextEditingController(text: prefill?['clearance_fee']?.toString() ?? '3000');
     final inlandFeeCtrl = TextEditingController(text: prefill?['inland_transport_fee']?.toString() ?? '6000');
@@ -832,11 +839,11 @@ class _CustomsClearanceQuotationsScreenState
 
           return AlertDialog(
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.receipt_long_rounded, color: AppTheme.cobalt),
-                SizedBox(width: 10),
-                Text('إضافة عرض أسعار مخلص جمركي'),
+                const Icon(Icons.receipt_long_rounded, color: AppTheme.cobalt),
+                const SizedBox(width: 10),
+                Text(l10n.clearanceQuotesDialogAddQuoteTitle),
               ],
             ),
             content: SizedBox(
@@ -849,8 +856,8 @@ class _CustomsClearanceQuotationsScreenState
                     children: [
                       SearchableDropdownField<int>(
                         value: selectedProviderId,
-                        labelText: 'المخلص الجمركي (Customs Broker) *',
-                        searchHintText: 'ابحث عن المخلص الجمركي...',
+                        labelText: l10n.clearanceQuotesFieldCustomsBroker,
+                        searchHintText: l10n.searchPlaceholder,
                         items: partners
                             .map((p) => SearchableDropdownItem<int>(
                                   value: p.partnerId!,
@@ -873,7 +880,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: clearanceFeeCtrl,
-                              decoration: const InputDecoration(labelText: 'أتعاب التخليص الجمركي (EGP) *'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldClearanceFeeEgp),
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setDState(() {}),
                             ),
@@ -882,7 +889,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: inlandFeeCtrl,
-                              decoration: const InputDecoration(labelText: 'النقل الداخلي للمصنع (EGP) *'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldInlandFeeEgp),
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setDState(() {}),
                             ),
@@ -895,7 +902,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: inspectionFeeCtrl,
-                              decoration: const InputDecoration(labelText: 'مصاريف فحص وعرض (EGP)'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldInspectionFeeEgp),
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setDState(() {}),
                             ),
@@ -904,7 +911,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: portExpCtrl,
-                              decoration: const InputDecoration(labelText: 'رسوم موانئ وأرضيات (EGP)'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldPortExpEgp),
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setDState(() {}),
                             ),
@@ -917,7 +924,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: miscCtrl,
-                              decoration: const InputDecoration(labelText: 'نثريات ومصروفات إدارية (EGP)'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldMiscFeeEgp),
                               keyboardType: TextInputType.number,
                               onChanged: (_) => setDState(() {}),
                             ),
@@ -926,7 +933,7 @@ class _CustomsClearanceQuotationsScreenState
                           Expanded(
                             child: TextFormField(
                               controller: daysCtrl,
-                              decoration: const InputDecoration(labelText: 'مدة التخليص المقدرة (أيام) *'),
+                              decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldEstimatedDays),
                               keyboardType: TextInputType.number,
                             ),
                           ),
@@ -943,8 +950,8 @@ class _CustomsClearanceQuotationsScreenState
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text('الإجمالي التقديري للعرض:', style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('${total.toStringAsFixed(2)} EGP', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald)),
+                            Text(l10n.clearanceQuotesTotalEstimatedQuoteLabel, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('${total.toStringAsFixed(2)} ${l10n.egpCurrency}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald)),
                           ],
                         ),
                       ),
@@ -954,10 +961,10 @@ class _CustomsClearanceQuotationsScreenState
               ),
             ),
             actions: [
-              TextButton(child: const Text('إلغاء'), onPressed: () => Navigator.pop(ctx)),
+              TextButton(child: Text(l10n.cancel), onPressed: () => Navigator.pop(ctx)),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
-                child: const Text('حفظ العرض'),
+                child: Text(l10n.clearanceQuotesSubmitSaveQuoteBtn),
                 onPressed: () async {
                   final quote = CustomsClearanceQuotationItemModel(
                     providerId: selectedProviderId ?? 1,
@@ -984,6 +991,7 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Future<void> _showSmartExtractorDialog(int? targetRfqId) async {
+    final l10n = context.l10n;
     final textCtrl = TextEditingController();
     bool isExtracting = false;
     Map<String, dynamic>? extractedResult;
@@ -993,11 +1001,11 @@ class _CustomsClearanceQuotationsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.auto_awesome, color: Color(0xFF6C5CE7)),
-              SizedBox(width: 10),
-              Text('الاستخلاص الذكي لعروض أسعار ومقايسات التخليص'),
+              const Icon(Icons.auto_awesome, color: Color(0xFF6C5CE7)),
+              const SizedBox(width: 10),
+              Text(l10n.clearanceQuotesSmartExtractorDialogTitle),
             ],
           ),
           content: SizedBox(
@@ -1006,14 +1014,14 @@ class _CustomsClearanceQuotationsScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('الصق نص عرض السعر / الإيميل أو اختر ملف المقايسة لاستخلاص البنود آلياً:'),
+                Text(l10n.clearanceQuotesSmartExtractorPrompt),
                 const SizedBox(height: 10),
                 Expanded(
                   child: TextField(
                     controller: textCtrl,
                     maxLines: 8,
                     decoration: InputDecoration(
-                      hintText: 'مثال:\nعرض أسعار تخليص جمركي من مكتب النسر...\nأتعاب التخليص: 3500 جنيه\nنقل داخلي: 7000 جنيه\nمصاريف فحص وعرض: 1500 جنيه...',
+                      hintText: l10n.clearanceQuotesSmartExtractorInputHint,
                       filled: true,
                       fillColor: Colors.grey.shade50,
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1028,7 +1036,7 @@ class _CustomsClearanceQuotationsScreenState
                       icon: isExtracting
                           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.bolt_rounded),
-                      label: Text(isExtracting ? 'جاري الاستخراج...' : 'استخراج فوري من النص'),
+                      label: Text(isExtracting ? l10n.clearanceQuotesExtractingState : l10n.clearanceQuotesExtractFromTextBtn),
                       onPressed: isExtracting
                           ? null
                           : () async {
@@ -1050,7 +1058,7 @@ class _CustomsClearanceQuotationsScreenState
                               } catch (e) {
                                 if (mounted) {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('خطأ في الاستخراج: $e'), backgroundColor: AppTheme.crimson),
+                                    SnackBar(content: Text('${l10n.errorPrefix}: $e'), backgroundColor: AppTheme.crimson),
                                   );
                                 }
                               } finally {
@@ -1061,7 +1069,7 @@ class _CustomsClearanceQuotationsScreenState
                     const SizedBox(width: 10),
                     OutlinedButton.icon(
                       icon: const Icon(Icons.upload_file_rounded),
-                      label: const Text('رفع مستند PDF / Excel / Word'),
+                      label: Text(l10n.clearanceQuotesUploadDocBtn),
                       onPressed: () async {
                         final result = await FilePicker.pickFiles(
                           type: FileType.custom,
@@ -1089,7 +1097,7 @@ class _CustomsClearanceQuotationsScreenState
                         } catch (e) {
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(content: Text('خطأ في رفع الملف: $e'), backgroundColor: AppTheme.crimson),
+                              SnackBar(content: Text('${l10n.errorPrefix}: $e'), backgroundColor: AppTheme.crimson),
                             );
                           }
                         } finally {
@@ -1114,15 +1122,15 @@ class _CustomsClearanceQuotationsScreenState
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('المخلص المستخرج: ${extractedResult!['broker_name'] ?? 'مكتب تخليص'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            Text('الميناء: ${extractedResult!['port_name'] ?? '-'} | الحاوية: ${extractedResult!['container_type'] ?? '-'}'),
-                            Text('إجمالي التكلفة المقدرة: ${extractedResult!['total_estimated_clearance_cost']} EGP', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                            Text('${l10n.clearanceQuotesExtractedBrokerPrefix} ${extractedResult!['broker_name'] ?? l10n.clearanceQuotesColBroker}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            Text('${l10n.clearanceQuotesExtractedPortPrefix} ${extractedResult!['port_name'] ?? '-'} | ${l10n.clearanceQuotesExtractedContainerPrefix} ${extractedResult!['container_type'] ?? '-'}'),
+                            Text('${l10n.clearanceQuotesExtractedTotalPrefix} ${extractedResult!['total_estimated_clearance_cost']} ${l10n.egpCurrency}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
                           ],
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                           icon: const Icon(Icons.check),
-                          label: const Text('تطبيق وإضافة العرض'),
+                          label: Text(l10n.clearanceQuotesApplyExtractedQuoteBtn),
                           onPressed: () {
                             Navigator.pop(ctx);
                             final rfqs = ref.read(customsClearanceQuotationsProvider).value ?? [];
@@ -1142,7 +1150,7 @@ class _CustomsClearanceQuotationsScreenState
             ),
           ),
           actions: [
-            TextButton(child: const Text('إغلاق'), onPressed: () => Navigator.pop(ctx)),
+            TextButton(child: Text(l10n.close), onPressed: () => Navigator.pop(ctx)),
           ],
         ),
       ),
@@ -1150,14 +1158,15 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Future<void> _showAddPriceItemDialog() async {
+    final l10n = context.l10n;
     final formKey = GlobalKey<FormState>();
     final partners = ref.read(partnersProvider).value?.where((p) => p.partnerType == 'Customs Broker' || p.partnerType == 'Freight Forwarder').toList() ?? [];
     final locations = ref.read(transportLocationsProvider).value ?? [];
 
     int selectedProviderId = partners.isNotEmpty ? partners.first.partnerId! : 1;
-    String selectedProviderName = partners.isNotEmpty ? partners.first.partnerName : 'مكتب تخليص';
-    String portName = locations.isNotEmpty ? locations.first.locationName : 'Alexandria Port (ميناء الإسكندرية)';
-    String category = 'Clearance Fee (أتعاب التخليص)';
+    String selectedProviderName = partners.isNotEmpty ? partners.first.partnerName : l10n.clearanceQuotesColBroker;
+    String portName = locations.isNotEmpty ? locations.first.locationName : 'Alexandria Port';
+    String category = l10n.clearanceQuotesCatClearanceFee;
     String containerType = '40HQ';
     final priceCtrl = TextEditingController(text: '3500');
     final notesCtrl = TextEditingController();
@@ -1167,7 +1176,7 @@ class _CustomsClearanceQuotationsScreenState
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDState) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Text('إضافة بند لقائمة أسعار التخليص'),
+          title: Text(l10n.clearanceQuotesDialogAddPriceItemTitle),
           content: SizedBox(
             width: 500,
             child: Form(
@@ -1177,7 +1186,8 @@ class _CustomsClearanceQuotationsScreenState
                 children: [
                   SearchableDropdownField<int>(
                     value: selectedProviderId,
-                    labelText: 'المخلص الجمركي *',
+                    labelText: l10n.clearanceQuotesFieldCustomsBroker,
+                    searchHintText: l10n.searchPlaceholder,
                     items: partners.map((p) => SearchableDropdownItem<int>(value: p.partnerId!, label: p.partnerName)).toList(),
                     onChanged: (val) {
                       if (val != null) {
@@ -1192,21 +1202,22 @@ class _CustomsClearanceQuotationsScreenState
                   const SizedBox(height: 12),
                   SearchableDropdownField<String>(
                     value: portName,
-                    labelText: 'الميناء *',
+                    labelText: l10n.clearanceQuotesFieldClearancePort,
+                    searchHintText: l10n.searchPlaceholder,
                     items: locations.map((l) => SearchableDropdownItem<String>(value: l.locationName, label: l.locationName)).toList(),
                     onChanged: (val) {
                       if (val != null) setDState(() => portName = val);
                     },
                   ),
                   const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
+                  SearchableDropdownField<String>(
                     value: category,
-                    decoration: const InputDecoration(labelText: 'نوع بند الخدمة *'),
-                    items: const [
-                      DropdownMenuItem(value: 'Clearance Fee (أتعاب التخليص)', child: Text('Clearance Fee (أتعاب التخليص)')),
-                      DropdownMenuItem(value: 'Inland Transport (النقل الداخلي)', child: Text('Inland Transport (النقل الداخلي)')),
-                      DropdownMenuItem(value: 'Inspection Fee (فحص وعرض)', child: Text('Inspection Fee (فحص وعرض)')),
-                      DropdownMenuItem(value: 'Port Charges (رسوم موانئ)', child: Text('Port Charges (رسوم موانئ)')),
+                    labelText: l10n.clearanceQuotesFieldServiceCategory,
+                    items: [
+                      SearchableDropdownItem(value: l10n.clearanceQuotesCatClearanceFee, label: l10n.clearanceQuotesCatClearanceFee),
+                      SearchableDropdownItem(value: l10n.clearanceQuotesCatInlandTransport, label: l10n.clearanceQuotesCatInlandTransport),
+                      SearchableDropdownItem(value: l10n.clearanceQuotesCatInspectionFee, label: l10n.clearanceQuotesCatInspectionFee),
+                      SearchableDropdownItem(value: l10n.clearanceQuotesCatPortCharges, label: l10n.clearanceQuotesCatPortCharges),
                     ],
                     onChanged: (val) {
                       if (val != null) setDState(() => category = val);
@@ -1216,15 +1227,15 @@ class _CustomsClearanceQuotationsScreenState
                   Row(
                     children: [
                       Expanded(
-                        child: DropdownButtonFormField<String>(
+                        child: SearchableDropdownField<String>(
                           value: containerType,
-                          decoration: const InputDecoration(labelText: 'نوع الحاوية *'),
+                          labelText: l10n.clearanceQuotesColPriceContainerType,
                           items: const [
-                            DropdownMenuItem(value: '40HQ', child: Text('40HQ')),
-                            DropdownMenuItem(value: '40GP', child: Text('40GP')),
-                            DropdownMenuItem(value: '20GP', child: Text('20GP')),
-                            DropdownMenuItem(value: 'LCL', child: Text('LCL')),
-                            DropdownMenuItem(value: 'Air', child: Text('Air')),
+                            SearchableDropdownItem(value: '40HQ', label: '40HQ'),
+                            SearchableDropdownItem(value: '40GP', label: '40GP'),
+                            SearchableDropdownItem(value: '20GP', label: '20GP'),
+                            SearchableDropdownItem(value: 'LCL', label: 'LCL'),
+                            SearchableDropdownItem(value: 'Air', label: 'Air'),
                           ],
                           onChanged: (val) {
                             if (val != null) setDState(() => containerType = val);
@@ -1235,9 +1246,9 @@ class _CustomsClearanceQuotationsScreenState
                       Expanded(
                         child: TextFormField(
                           controller: priceCtrl,
-                          decoration: const InputDecoration(labelText: 'السعر المعياري (EGP) *'),
+                          decoration: InputDecoration(labelText: l10n.clearanceQuotesFieldStandardPriceEgp),
                           keyboardType: TextInputType.number,
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'السعر مطلوب' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? l10n.clearanceQuotesFieldStandardPriceRequired : null,
                         ),
                       ),
                     ],
@@ -1247,10 +1258,10 @@ class _CustomsClearanceQuotationsScreenState
             ),
           ),
           actions: [
-            TextButton(child: const Text('إلغاء'), onPressed: () => Navigator.pop(ctx)),
+            TextButton(child: Text(l10n.cancel), onPressed: () => Navigator.pop(ctx)),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-              child: const Text('حفظ البند'),
+              child: Text(l10n.clearanceQuotesSubmitSavePriceItemBtn),
               onPressed: () async {
                 if (!formKey.currentState!.validate()) return;
                 final newItem = ClearancePriceListItemModel(
@@ -1261,7 +1272,7 @@ class _CustomsClearanceQuotationsScreenState
                   serviceCategory: category,
                   containerType: containerType,
                   unitPrice: double.tryParse(priceCtrl.text) ?? 0.0,
-                  currency: 'EGP',
+                  currency: l10n.egpCurrency,
                   notes: notesCtrl.text.trim().isNotEmpty ? notesCtrl.text.trim() : null,
                 );
 
@@ -1276,23 +1287,24 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Future<void> _awardQuotation(int rfqId, int quotationId) async {
+    final l10n = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.verified_rounded, color: AppTheme.emerald),
-            SizedBox(width: 8),
-            Text('تأكيد اعتماد وترسية التخليص الجمركي'),
+            const Icon(Icons.verified_rounded, color: AppTheme.emerald),
+            const SizedBox(width: 8),
+            Text(l10n.clearanceQuotesConfirmAwardTitle),
           ],
         ),
-        content: const Text('هل أنت متأكد من رغبتك في اعتماد وترسية هذا العرض وتثبيته في منظومة تكاليف الشحنة؟'),
+        content: Text(l10n.clearanceQuotesConfirmAwardContent),
         actions: [
-          TextButton(child: const Text('إلغاء'), onPressed: () => Navigator.pop(ctx, false)),
+          TextButton(child: Text(l10n.cancel), onPressed: () => Navigator.pop(ctx, false)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
-            child: const Text('نعم، اعتماد العرض'),
+            child: Text(l10n.clearanceQuotesConfirmAwardBtn),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -1303,8 +1315,8 @@ class _CustomsClearanceQuotationsScreenState
       await ref.read(customsClearanceQuotationsProvider.notifier).awardQuotation(rfqId, quotationId);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 تم اعتماد وترسية عرض التخليص الجمركي بنجاح!'),
+          SnackBar(
+            content: Text(l10n.clearanceQuotesAwardSuccessSnackbar),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -1313,16 +1325,17 @@ class _CustomsClearanceQuotationsScreenState
   }
 
   Future<void> _deleteQuotation(int quotationId) async {
+    final l10n = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('تأكيد الحذف'),
-        content: const Text('هل تريد حذف هذا العرض من المقارنة؟'),
+        title: Text(l10n.clearanceQuotesConfirmDeleteQuoteTitle),
+        content: Text(l10n.clearanceQuotesConfirmDeleteQuoteContent),
         actions: [
-          TextButton(child: const Text('إلغاء'), onPressed: () => Navigator.pop(ctx, false)),
+          TextButton(child: Text(l10n.cancel), onPressed: () => Navigator.pop(ctx, false)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
-            child: const Text('حذف'),
+            child: Text(l10n.delete),
             onPressed: () => Navigator.pop(ctx, true),
           ),
         ],
@@ -1342,6 +1355,7 @@ Future<void> showSmartClearanceExtractorDialog(
   int? targetRfqId,
   Function(Map<String, dynamic> extracted)? onExtracted,
 }) async {
+  final l10n = AppLocalizations.of(context);
   final textCtrl = TextEditingController();
   bool isExtracting = false;
   Map<String, dynamic>? extractedResult;
@@ -1351,11 +1365,11 @@ Future<void> showSmartClearanceExtractorDialog(
     builder: (ctx) => StatefulBuilder(
       builder: (ctx, setDState) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.auto_awesome, color: Color(0xFF6C5CE7)),
-            SizedBox(width: 10),
-            Text('الاستخلاص الذكي لعروض أسعار ومقايسات التخليص'),
+            const Icon(Icons.auto_awesome, color: Color(0xFF6C5CE7)),
+            const SizedBox(width: 10),
+            Text(l10n.clearanceQuotesSmartExtractorDialogTitle),
           ],
         ),
         content: SizedBox(
@@ -1364,14 +1378,14 @@ Future<void> showSmartClearanceExtractorDialog(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('الصق نص عرض السعر / الإيميل أو اختر ملف المقايسة لاستخلاص البنود آلياً:'),
+              Text(l10n.clearanceQuotesSmartExtractorPrompt),
               const SizedBox(height: 10),
               Expanded(
                 child: TextField(
                   controller: textCtrl,
                   maxLines: 8,
                   decoration: InputDecoration(
-                    hintText: 'مثال:\nعرض أسعار تخليص جمركي من مكتب النسر...\nأتعاب التخليص: 3500 جنيه\nنقل داخلي: 7000 جنيه\nمصاريف فحص وعرض: 1500 جنيه...',
+                    hintText: l10n.clearanceQuotesSmartExtractorInputHint,
                     filled: true,
                     fillColor: Colors.grey.shade50,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
@@ -1386,7 +1400,7 @@ Future<void> showSmartClearanceExtractorDialog(
                     icon: isExtracting
                         ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.bolt_rounded),
-                    label: Text(isExtracting ? 'جاري الاستخراج...' : 'استخراج فوري من النص'),
+                    label: Text(isExtracting ? l10n.clearanceQuotesExtractingState : l10n.clearanceQuotesExtractFromTextBtn),
                     onPressed: isExtracting
                         ? null
                         : () async {
@@ -1408,7 +1422,7 @@ Future<void> showSmartClearanceExtractorDialog(
                             } catch (e) {
                               if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('خطأ في الاستخراج: $e'), backgroundColor: AppTheme.crimson),
+                                SnackBar(content: Text('${l10n.errorPrefix}: $e'), backgroundColor: AppTheme.crimson),
                               );
                               }
                             } finally {
@@ -1419,7 +1433,7 @@ Future<void> showSmartClearanceExtractorDialog(
                   const SizedBox(width: 10),
                   OutlinedButton.icon(
                     icon: const Icon(Icons.upload_file_rounded),
-                    label: const Text('رفع مستند PDF / Excel / Word'),
+                    label: Text(l10n.clearanceQuotesUploadDocBtn),
                     onPressed: () async {
                       final result = await FilePicker.pickFiles(
                         type: FileType.custom,
@@ -1447,7 +1461,7 @@ Future<void> showSmartClearanceExtractorDialog(
                       } catch (e) {
                         if (context.mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('خطأ في رفع الملف: $e'), backgroundColor: AppTheme.crimson),
+                          SnackBar(content: Text('${l10n.errorPrefix}: $e'), backgroundColor: AppTheme.crimson),
                         );
                         }
                       } finally {
@@ -1472,15 +1486,15 @@ Future<void> showSmartClearanceExtractorDialog(
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('المخلص المستخرج: ${extractedResult!['broker_name'] ?? 'مكتب تخليص'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          Text('الميناء: ${extractedResult!['port_name'] ?? '-'} | الحاوية: ${extractedResult!['container_type'] ?? '-'}'),
-                          Text('إجمالي التكلفة المقدرة: ${extractedResult!['total_estimated_clearance_cost']} EGP', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
+                          Text('${l10n.clearanceQuotesExtractedBrokerPrefix} ${extractedResult!['broker_name'] ?? l10n.clearanceQuotesColBroker}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${l10n.clearanceQuotesExtractedPortPrefix} ${extractedResult!['port_name'] ?? '-'} | ${l10n.clearanceQuotesExtractedContainerPrefix} ${extractedResult!['container_type'] ?? '-'}'),
+                          Text('${l10n.clearanceQuotesExtractedTotalPrefix} ${extractedResult!['total_estimated_clearance_cost']} ${l10n.egpCurrency}', style: const TextStyle(color: AppTheme.emerald, fontWeight: FontWeight.bold)),
                         ],
                       ),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                         icon: const Icon(Icons.check),
-                        label: const Text('تطبيق واستخدام العرض'),
+                        label: Text(l10n.clearanceQuotesUseExtractedQuoteBtn),
                         onPressed: () {
                           Navigator.pop(ctx);
                           if (onExtracted != null) {
@@ -1488,7 +1502,10 @@ Future<void> showSmartClearanceExtractorDialog(
                           } else {
                             ScaffoldMessenger.of(context).showSnackBar(
                               SnackBar(
-                                content: Text('✔ تم استخلاص عرض المخلص بنجاح: ${extractedResult!['broker_name']} - الإجمالي: ${extractedResult!['total_estimated_clearance_cost']} EGP'),
+                                content: Text(l10n.clearanceQuotesExtractedSuccessToast(
+                                  extractedResult!['broker_name'] ?? l10n.clearanceQuotesColBroker,
+                                  extractedResult!['total_estimated_clearance_cost'] ?? 0,
+                                )),
                                 backgroundColor: Colors.green,
                               ),
                             );
@@ -1503,7 +1520,7 @@ Future<void> showSmartClearanceExtractorDialog(
           ),
         ),
         actions: [
-          TextButton(child: const Text('إغلاق'), onPressed: () => Navigator.pop(ctx)),
+          TextButton(child: Text(l10n.close), onPressed: () => Navigator.pop(ctx)),
         ],
       ),
     ),

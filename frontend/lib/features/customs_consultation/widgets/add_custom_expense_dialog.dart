@@ -40,7 +40,7 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
         children: [
           const Icon(Icons.add_circle, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          Text(l.addNewChecklistItem, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          Text(l.addCustomExpenseRow, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         ],
       ),
       content: SizedBox(
@@ -51,7 +51,7 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
             TextFormField(
               controller: _nameCtrl,
               decoration: InputDecoration(
-                labelText: l.itemDescriptionAndOriginCol,
+                labelText: l.expenseItemNameCol,
                 border: const OutlineInputBorder(),
               ),
             ),
@@ -73,7 +73,7 @@ class _AddCustomExpenseDialogState extends State<AddCustomExpenseDialog> {
             const SizedBox(height: 12),
             SearchableDropdownField<String>(
               value: _selectedUnit,
-              labelText: l.quantityAndUnitCol,
+              labelText: l.calculationUnitCol,
               items: const [
                 SearchableDropdownItem(value: 'Fixed', label: 'Fixed'),
                 SearchableDropdownItem(value: 'Per Container', label: 'Per Container'),

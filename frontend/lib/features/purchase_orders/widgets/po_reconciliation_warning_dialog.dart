@@ -32,6 +32,7 @@ class POReconciliationReport {
   final double totalDifference;
   final List<POReconciliationItem> items;
   final List<String> discrepancySummaryList;
+  final List<String> discrepancySummaryListEn;
 
   POReconciliationReport({
     required this.hasDiscrepancy,
@@ -40,6 +41,7 @@ class POReconciliationReport {
     required this.totalDifference,
     required this.items,
     required this.discrepancySummaryList,
+    this.discrepancySummaryListEn = const [],
   });
 }
 
@@ -56,6 +58,7 @@ POReconciliationReport evaluatePOReconciliation({
       totalDifference: 0.0,
       items: [],
       discrepancySummaryList: [],
+      discrepancySummaryListEn: [],
     );
   }
 
@@ -89,6 +92,7 @@ POReconciliationReport evaluatePOReconciliation({
   final Set<String> allHs = {...invoiceHsMap.keys, ...packingHsMap.keys};
   final List<POReconciliationItem> items = [];
   final List<String> warnings = [];
+  final List<String> warningsEn = [];
   bool hasDiscrepancy = false;
 
   for (final hs in allHs) {
@@ -103,12 +107,15 @@ POReconciliationReport evaluatePOReconciliation({
     if (isMissingInPkg) {
       hasDiscrepancy = true;
       warnings.add('البند الجمركي $hs موجود بالفاتورة (كمية: $invQty) وغير موجود ببيان التعبئة');
+      warningsEn.add('HS Code $hs is present in invoice (Qty: $invQty) but missing in packing list');
     } else if (isMissingInInv) {
       hasDiscrepancy = true;
       warnings.add('البند الجمركي $hs موجود ببيان التعبئة (كمية: $pkgQty) وغير موجود بالفاتورة');
+      warningsEn.add('HS Code $hs is present in packing list (Qty: $pkgQty) but missing in invoice');
     } else if (!matched) {
       hasDiscrepancy = true;
       warnings.add('البند الجمركي $hs: كمية الفاتورة ($invQty) تختلف عن كمية الباكينج ($pkgQty) بفارق ($diff)');
+      warningsEn.add('HS Code $hs: Invoice Qty ($invQty) differs from Packing Qty ($pkgQty) by ($diff)');
     }
 
     items.add(
@@ -128,6 +135,7 @@ POReconciliationReport evaluatePOReconciliation({
   if (totalDiff.abs() > 0.001) {
     hasDiscrepancy = true;
     warnings.add('إجمالي عدد القطع: الفاتورة ($totalInv) والباكينج ($totalPkg) بفارق ($totalDiff)');
+    warningsEn.add('Total PCS: Invoice ($totalInv) vs Packing ($totalPkg) with difference ($totalDiff)');
   }
 
   return POReconciliationReport(
@@ -137,6 +145,7 @@ POReconciliationReport evaluatePOReconciliation({
     totalDifference: totalDiff,
     items: items,
     discrepancySummaryList: warnings,
+    discrepancySummaryListEn: warningsEn,
   );
 }
 

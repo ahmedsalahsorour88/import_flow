@@ -63,7 +63,7 @@ POReconciliationReport evaluatePOReconciliation({
   double totalInv = 0.0;
   for (final item in invoiceItems) {
     totalInv += item.quantity;
-    String hs = 'بدون بند جمركي (Unassigned)';
+    String hs = 'UNASSIGNED';
     if (item.tariffId != null) {
       final match = tariffs.cast<CustomsTariffModel?>().firstWhere(
         (t) => t?.tariffId == item.tariffId,
@@ -82,7 +82,7 @@ POReconciliationReport evaluatePOReconciliation({
   double totalPkg = 0.0;
   for (final p in packingItems) {
     totalPkg += p.qtyPcs;
-    final hs = p.hsCode.isNotEmpty ? p.hsCode : 'بدون بند جمركي (Unassigned)';
+    final hs = p.hsCode.isNotEmpty ? p.hsCode : 'UNASSIGNED';
     packingHsMap[hs] = (packingHsMap[hs] ?? 0.0) + p.qtyPcs;
   }
 
@@ -241,7 +241,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                       ),
                       child: Column(
                         children: [
-                          const Text('Diff', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                          Text(l.poRecDiff, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
                           const SizedBox(height: 4),
                           Text(
                             '${report.totalDifference > 0 ? "+" : ""}${report.totalDifference.toStringAsFixed(1)} PCS',
@@ -281,28 +281,30 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                       Padding(padding: const EdgeInsets.all(8), child: Text(l.hsCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                       Padding(padding: const EdgeInsets.all(8), child: Text(l.poLineItemsTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                       Padding(padding: const EdgeInsets.all(8), child: Text(l.reviewPackingListTab, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      const Padding(padding: EdgeInsets.all(8), child: Text('Diff', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
-                      Padding(padding: const EdgeInsets.all(8), child: Text(l.lifecycleBoard, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.poRecDiff, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
+                      Padding(padding: const EdgeInsets.all(8), child: Text(l.status, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11))),
                     ],
                   ),
                   ...report.items.map((item) {
                     Color rowBg = Colors.white;
                     Color statusColor = Colors.green;
-                    String statusText = 'OK';
+                    String statusText = l.poRecOk;
 
                     if (item.isMissingInPacking) {
                       rowBg = Colors.red.shade50.withOpacity(0.5);
                       statusColor = Colors.red.shade700;
-                      statusText = 'Missing in Packing';
+                      statusText = l.poRecMissingInPacking;
                     } else if (item.isMissingInInvoice) {
                       rowBg = Colors.amber.shade50.withOpacity(0.5);
                       statusColor = Colors.amber.shade900;
-                      statusText = 'Missing in Invoice';
+                      statusText = l.poRecMissingInInvoice;
                     } else if (!item.isMatched) {
                       rowBg = Colors.orange.shade50.withOpacity(0.5);
                       statusColor = Colors.deepOrange;
-                      statusText = 'Qty Diff';
+                      statusText = l.poRecQtyDiff;
                     }
+
+                    final displayHs = item.hsCode == 'UNASSIGNED' ? l.poRecUnassignedHsCode : item.hsCode;
 
                     return TableRow(
                       decoration: BoxDecoration(color: rowBg),
@@ -310,7 +312,7 @@ class _POReconciliationWarningDialogState extends State<POReconciliationWarningD
                         Padding(
                           padding: const EdgeInsets.all(8),
                           child: Text(
-                            item.hsCode,
+                            displayHs,
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                           ),
                         ),

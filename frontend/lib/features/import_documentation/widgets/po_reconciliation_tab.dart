@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/api_constants.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
 import '../../import_files/providers/import_files_provider.dart';
@@ -153,15 +154,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       _packingFileBytes = null;
     });
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✔ تم تحميل النموذج التجريبي الحقيقي (G.I. INDUSTRIAL / ECO ASSOCIATES) بنجاح'),
+      SnackBar(
+        content: Text(context.l10n.poRecSampleLoadedSuccess),
         backgroundColor: Colors.blueGrey,
-        duration: Duration(seconds: 2),
+        duration: const Duration(seconds: 2),
       ),
     );
   }
 
   Future<void> _pickFile(bool isInvoice) async {
+    final l = context.l10n;
     try {
       final result = await FilePicker.pickFiles(
         type: FileType.custom,
@@ -185,7 +187,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 _invoiceTextCtrl.text = '';
               }
             } else {
-              _invoiceTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومعالجة بنوده آلياً عند الضغط على زر الاستخراج والمطابقة]';
+              _invoiceTextCtrl.text = l.poRecExtractedDigitalFileNotice(file.name);
             }
           } else {
             _selectedPackingFileName = file.name;
@@ -197,7 +199,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 _packingTextCtrl.text = '';
               }
             } else {
-              _packingTextCtrl.text = '[تم تحميل ملف رقمي: ${file.name} — سيتم استخراج ومعالجة بنوده آلياً عند الضغط على زر الاستخراج والمطابقة]';
+              _packingTextCtrl.text = l.poRecExtractedDigitalFileNotice(file.name);
             }
           }
         });
@@ -205,7 +207,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم اختيار الملف: ${file.name} (${(file.size / 1024).toStringAsFixed(1)} KB)'),
+              content: Text(l.poRecFileSelected(file.name, (file.size / 1024).toStringAsFixed(1))),
               backgroundColor: AppTheme.cobalt,
               duration: const Duration(seconds: 2),
             ),
@@ -215,7 +217,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('فشل في اختيار الملف: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecFilePickFailed(e.toString())), backgroundColor: Colors.red),
         );
       }
     }
@@ -226,6 +228,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     required List<String> issues,
     required List<String> recommendations,
   }) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -248,9 +251,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'تم رصد الملاحظات التالية في المدخلات التي تمنع إتمام الاستخراج والمطابقة بدقة:',
-                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              Text(
+                l.poRecInputValidationDesc,
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 10),
               Container(
@@ -276,7 +279,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 ),
               ),
               const SizedBox(height: 14),
-              const Text('إرشادات تصحيح المدخلات والحل المقترح:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              Text(l.poRecInputValidationRecHeader, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -306,7 +309,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('فهمت، سأقوم بالتصحيح', style: TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+            child: Text(l.poRecInputValidationGotIt, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
           ),
         ],
       ),
@@ -314,6 +317,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _runSmartExtractionAndComparison() async {
+    final l = context.l10n;
     final invText = _invoiceTextCtrl.text.trim();
     final plText = _packingTextCtrl.text.trim();
 
@@ -321,21 +325,21 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     final List<String> inputRecommendations = [];
 
     if (_selectedImportFileId == null) {
-      inputIssues.add('لم يتم اختيار الملف الاستيرادي المرجعي (Import File).');
-      inputRecommendations.add('يرجى تحديد الملف الاستيرادي من القائمة المنسدلة في أعلى الشاشة.');
+      inputIssues.add(l.poRecIssueNoFileSelected);
+      inputRecommendations.add(l.poRecRecSelectFileFromList);
     }
 
-    final hasInvoiceInput = (_invoiceFileBytes != null) || (invText.isNotEmpty && !invText.startsWith('[تم'));
-    final hasPackingInput = (_packingFileBytes != null) || (plText.isNotEmpty && !plText.startsWith('[تم'));
+    final hasInvoiceInput = (_invoiceFileBytes != null) || (invText.isNotEmpty && !invText.startsWith('['));
+    final hasPackingInput = (_packingFileBytes != null) || (plText.isNotEmpty && !plText.startsWith('['));
 
     if (!hasInvoiceInput && !hasPackingInput) {
-      inputIssues.add('لم يتم إدخال أو رفع أي مستند (الفاتورة التجارية أو قائمة التعبئة فارغتان تماماً).');
-      inputRecommendations.add('قم برفع ملف PDF/Excel أو لصق النص التجاري أو الضغط على "تحميل نموذج تجريبي حقيقي".');
+      inputIssues.add(l.poRecIssueEmptyInputs);
+      inputRecommendations.add(l.poRecRecProvideInputs);
     }
 
     if (inputIssues.isNotEmpty) {
       _showInputValidationDialog(
-        title: '⚠️ تنبيه: تحقق من مدخلات الاستخراج والمطابقة',
+        title: l.poRecInputValidationTitle,
         issues: inputIssues,
         recommendations: inputRecommendations,
       );
@@ -365,7 +369,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             _invoiceFileBytes!,
             filename: _selectedInvoiceFileName ?? 'invoice.pdf',
           );
-        } else if (invText.isNotEmpty && !invText.startsWith('[تم')) {
+        } else if (invText.isNotEmpty && !invText.startsWith('[')) {
           formMap['invoice_text'] = invText;
         }
 
@@ -374,7 +378,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             _packingFileBytes!,
             filename: _selectedPackingFileName ?? 'packing_list.pdf',
           );
-        } else if (plText.isNotEmpty && !plText.startsWith('[تم')) {
+        } else if (plText.isNotEmpty && !plText.startsWith('[')) {
           formMap['packing_text'] = plText;
         }
 
@@ -404,10 +408,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('✔ تم الاستخراج الذكي والمطابقة بنجاح من السيرفر! راجع النتائج بالأسفل'),
+            SnackBar(
+              content: Text(l.poRecServerSuccessNotice),
               backgroundColor: Colors.green,
-              duration: Duration(seconds: 3),
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -420,10 +424,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✔ تم إجراء التحليل والمطابقة محلياً بنجاح عبر محرك الطوارئ المدمج'),
-            backgroundColor: Color(0xFF27AE60),
-            duration: Duration(seconds: 3),
+          SnackBar(
+            content: Text(l.poRecFallbackSuccessNotice),
+            backgroundColor: const Color(0xFF27AE60),
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -684,8 +688,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('✔ تم تطبيق البيانات المستخرجة في جداول الفاتورة والباكينج ليست بنجاح!'),
+      SnackBar(
+        content: Text(context.l10n.poRecApplyExtractedSuccess),
         backgroundColor: Colors.green,
       ),
     );
@@ -710,7 +714,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     for (var po in linkedPOs) {
       for (var itm in po.items) {
         final itmCode = itm.itemCode ?? 'ITEM-${itm.itemId ?? 0}';
-        final itmDesc = itm.descriptionAr.isNotEmpty ? itm.descriptionAr : (itm.descriptionEn ?? 'بند أمر الشراء');
+        final itmDesc = itm.descriptionAr.isNotEmpty ? itm.descriptionAr : (itm.descriptionEn ?? 'PO Line Item');
         final recItem = POReconciliationItemModel(
           poItemId: itm.itemId ?? 0,
           itemCode: itmCode,
@@ -744,10 +748,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   // --- SAVE RECONCILIATION SESSION LOGIC ---
   Future<void> _saveReconciliationSession() async {
+    final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('⚠️ يرجى اختيار ملف الشحنة أولاً لحفظ الجلسة'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.poRecSaveSessionSelectFileWarning), backgroundColor: Colors.red),
       );
       return;
     }
@@ -768,32 +773,21 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
-              SizedBox(width: 10),
-              Text('تنبيه: ملف الشحنة له جلسة سابقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 28),
+              const SizedBox(width: 10),
+              Text(l.poRecExistingSessionWarningTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'يوجد بالفعل جلسة مطابقة محفوظة لهذا الملف الاستيرادي (رمز الجلسة: ${existingSession.sessionCode}).',
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-              ),
-              const SizedBox(height: 10),
-              const Text(
-                'وفقاً لضوابط المنظومة، لا يُسمح بإنشاء أكثر من جلسة حفظ لنفس الملف الاستيرادي لمنع تكرار وتضارب البيانات.\n\nهل ترغب في تحديث الجلسة الحالية بالبيانات الجديدة؟',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
-              ),
-            ],
+          content: Text(
+            l.poRecExistingSessionWarningContent(existingSession.sessionCode),
+            style: const TextStyle(fontSize: 13, height: 1.5),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء', style: TextStyle(color: Colors.grey)),
+              child: Text(l.cancel, style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -801,7 +795,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.update, size: 18),
-              label: const Text('تحديث الجلسة الحالية', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: Text(l.poRecUpdateExistingSessionButton, style: const TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -829,6 +823,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight,
     double totalCbm,
   ) async {
+    final l = context.l10n;
     setState(() => _isSavingSession = true);
     try {
       final filesList = ref.read(importFilesProvider).value ?? [];
@@ -861,7 +856,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         reconciledPackingItems: _packingItems.map((i) => i.toJson()).toList(),
         extractedInvoiceData: _extractedReconciliationData?['extracted_invoice_data'] as Map<String, dynamic>?,
         extractedPackingData: _extractedReconciliationData?['extracted_packing_data'] as Map<String, dynamic>?,
-        notes: 'جلسة مطابقة وتدقيق مستندات نهائية',
+        notes: 'Final PO & Packing Reconciliation Session',
         certifiedBy: 'Import Manager',
       );
 
@@ -878,7 +873,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء حفظ الجلسة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecSaveSessionError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -894,6 +889,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight,
     double totalCbm,
   ) async {
+    final l = context.l10n;
     setState(() => _isSavingSession = true);
     try {
       final updateData = {
@@ -928,7 +924,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء تحديث الجلسة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecSaveSessionError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -937,10 +933,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Future<void> _submitCertification() async {
+    final l = context.l10n;
     if (!_formKey.currentState!.validate()) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
+        SnackBar(content: Text(l.poRecSelectFileRequired), backgroundColor: Colors.red),
       );
       return;
     }
@@ -958,30 +955,21 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         context: context,
         builder: (ctx) => AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          title: const Row(
+          title: Row(
             children: [
-              Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 24),
-              SizedBox(width: 8),
-              Text('تنبيه: وجود فروق في المطابقة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              const Icon(Icons.warning_amber_rounded, color: AppTheme.orange, size: 24),
+              const SizedBox(width: 8),
+              Text(l.poRecVarianceAlertTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ],
           ),
-          content: const Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'تم رصد فروق بين أمر الشراء الأصلي والفاتورة والباكينج ليست النهائية:\n'
-                '• سيتم اعتماد القيم والكميات النهائية كمرجع رسمي.\n'
-                '• سيتم تحديث رصيد البضاعة في الطريق (GIT) بالكميات المعتمدة.\n'
-                'هل ترغب في المتابعة وتأكيد الاعتماد؟',
-                style: TextStyle(fontSize: 12.5, height: 1.6),
-              ),
-            ],
+          content: Text(
+            l.poRecVarianceAlertContent,
+            style: const TextStyle(fontSize: 12.5, height: 1.6),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('إلغاء والمراجعة'),
+              child: Text(l.poRecCancelAndReview),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
@@ -989,7 +977,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.verified, size: 16),
-              label: const Text('تأكيد الاعتماد والمطابقة', style: TextStyle(fontWeight: FontWeight.bold)),
+              label: Text(l.poRecConfirmCertifyButton, style: const TextStyle(fontWeight: FontWeight.bold)),
               onPressed: () => Navigator.pop(ctx, true),
             ),
           ],
@@ -1044,8 +1032,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✔ تم اعتماد مطابقة المستندات وتحديث ملف الاستيراد وسجل الجلسات بنجاح!'),
+          SnackBar(
+            content: Text(l.poRecCertificationSuccess),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -1053,7 +1041,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء اعتماد المطابقة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(l.poRecCertificationError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -1062,6 +1050,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   void _loadSessionIntoEditor(POReconciliationSessionModel session) {
+    final l = context.l10n;
     setState(() {
       _activeSessionId = session.sessionId;
       _activeSessionCode = session.sessionCode;
@@ -1104,7 +1093,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('✔ تم تحميل جلسة المطابقة (${session.sessionCode}) في شاشة التعديل والمطابقة!'),
+        content: Text(l.poRecSessionLoadedInEditor(session.sessionCode)),
         backgroundColor: AppTheme.cobalt,
       ),
     );
@@ -1163,6 +1152,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     double totalNetWeight,
     double totalCbm,
   ) {
+    final l = context.l10n;
     return Form(
       key: _formKey,
       child: Column(
@@ -1188,8 +1178,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             Expanded(
                               child: Text(
                                 _activeSessionCode != null
-                                    ? 'تعديل جلسة المطابقة: $_activeSessionCode'
-                                    : 'مراجعة وتأكيد الفاتورة التجارية والباكينج ليست النهائية (PO Final Reconciliation & Review)',
+                                    ? l.poRecEditSessionTitle(_activeSessionCode!)
+                                    : l.poRecNewSessionTitle,
                                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -1206,7 +1196,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             border: Border.all(color: AppTheme.cobalt),
                           ),
                           child: Text(
-                            'جلسة مفتوحة: $_activeSessionCode',
+                            l.poRecOpenSessionBadge(_activeSessionCode!),
                             style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 12),
                           ),
                         ),
@@ -1214,7 +1204,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'البيانات والكميات والأسعار والأوزان المعتمدة هنا هي المرجع الحاكم لدرافت البوليصة، والمخزون بالطريق، والإفراج الجمركي، واستلام المخزن.',
+                    l.poRecHeaderDescription,
                     style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
                   ),
                   const Divider(height: 24),
@@ -1224,8 +1214,8 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         flex: 3,
                         child: SearchableDropdownField<int?>(
                           value: _selectedImportFileId,
-                          hintText: 'ابحث عن ملف الشحنة برقم الملف أو الكود...',
-                          labelText: 'ملف الشحنة المرجعي (Import File) *',
+                          hintText: l.poRecSearchFileHint,
+                          labelText: l.poRecImportFileLabel,
                           items: importFiles
                               .map((f) => SearchableDropdownItem<int?>(
                                     value: f.importFileId,
@@ -1242,7 +1232,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               _loadPOItems(val);
                             }
                           },
-                          validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                          validator: (v) => v == null ? l.poRecSelectFileRequired : null,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1250,13 +1240,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         flex: 2,
                         child: TextFormField(
                           controller: _finalInvNumberCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'رقم الفاتورة التجارية النهائية *',
-                            hintText: 'e.g. V1/2562',
-                            prefixIcon: Icon(Icons.receipt_long),
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.poRecFinalInvoiceNoLabel,
+                            hintText: l.poRecFinalInvoiceNoHint,
+                            prefixIcon: const Icon(Icons.receipt_long),
+                            border: const OutlineInputBorder(),
                           ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? l.poRecRequired : null,
                         ),
                       ),
                       const SizedBox(width: 16),
@@ -1264,13 +1254,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         flex: 2,
                         child: TextFormField(
                           controller: _finalPLNumberCtrl,
-                          decoration: const InputDecoration(
-                            labelText: 'رقم قائمة التعبئة النهائية *',
-                            hintText: 'e.g. M26 413 / PL-2562',
-                            prefixIcon: Icon(Icons.inventory_2),
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            labelText: l.poRecFinalPackingListNoLabel,
+                            hintText: l.poRecFinalPackingListNoHint,
+                            prefixIcon: const Icon(Icons.inventory_2),
+                            border: const OutlineInputBorder(),
                           ),
-                          validator: (v) => (v == null || v.trim().isEmpty) ? 'مطلوب' : null,
+                          validator: (v) => (v == null || v.trim().isEmpty) ? l.poRecRequired : null,
                         ),
                       ),
                     ],
@@ -1288,15 +1278,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           // Summary Metrics Cards
           Row(
             children: [
-              _buildSummaryCard('إجمالي الفاتورة النهائية', '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt),
+              _buildSummaryCard(l.poRecKpiTotalInvoice, '${totalAmount.toStringAsFixed(2)} \$', Icons.monetization_on, AppTheme.cobalt),
               const SizedBox(width: 12),
-              _buildSummaryCard('إجمالي الطرود الفعلية', '${totalPackages.toStringAsFixed(0)} طرد', Icons.all_inbox, AppTheme.charcoal),
+              _buildSummaryCard(l.poRecKpiTotalPackages, '${totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
               const SizedBox(width: 12),
-              _buildSummaryCard('إجمالي الوزن القائم (Gross)', '${totalGrossWeight.toStringAsFixed(2)} كجم', Icons.scale, AppTheme.orange),
+              _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${totalGrossWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
               const SizedBox(width: 12),
-              _buildSummaryCard('إجمالي الوزن الصافي (Net)', '${totalNetWeight.toStringAsFixed(2)} كجم', Icons.fitness_center, AppTheme.emerald),
+              _buildSummaryCard(l.poRecKpiTotalNetWeight, '${totalNetWeight.toStringAsFixed(2)} ${l.poRecKgUnit}', Icons.fitness_center, AppTheme.emerald),
               const SizedBox(width: 12),
-              _buildSummaryCard('إجمالي الحجم (CBM)', '${totalCbm.toStringAsFixed(3)} م³', Icons.view_in_ar, AppTheme.cobalt),
+              _buildSummaryCard(l.poRecKpiTotalCbm, '${totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.cobalt),
             ],
           ),
           const SizedBox(height: 20),
@@ -1313,15 +1303,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Expanded(
+                      Expanded(
                         child: Row(
                           children: [
-                            Icon(Icons.receipt, color: AppTheme.cobalt),
-                            SizedBox(width: 8),
+                            const Icon(Icons.receipt, color: AppTheme.cobalt),
+                            const SizedBox(width: 8),
                             Expanded(
                               child: Text(
-                                '1. مراجعة وتأكيد بنود وأسعار الفاتورة التجارية النهائية (Invoice Items & Price Review)',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                l.poRecInvoiceSectionTitle,
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -1338,7 +1328,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             ),
                             icon: const Icon(Icons.restart_alt, size: 16),
-                            label: const Text('إعادة تعيين للقيم الأصلية', style: TextStyle(fontSize: 12.5)),
+                            label: Text(l.poRecResetToOriginalValuesButton, style: const TextStyle(fontSize: 12.5)),
                             onPressed: () {
                               if (_selectedImportFileId != null) {
                                 _loadPOItems(_selectedImportFileId!);
@@ -1357,7 +1347,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.save_rounded, size: 18),
                             label: Text(
-                              _activeSessionId != null ? 'تحديث جلسة المطابقة' : '💾 حفظ جلسة المطابقة',
+                              _activeSessionId != null ? l.poRecUpdateSessionButton : l.poRecSaveSessionButton,
                               style: const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             onPressed: _isSavingSession ? null : _saveReconciliationSession,
@@ -1372,7 +1362,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             icon: _isSubmitting
                                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                                 : const Icon(Icons.verified, color: Colors.white),
-                            label: const Text('اعتماد ومطابقة البيانات النهائية', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                            label: Text(l.poRecCertifyFinalDataButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                             onPressed: _isSubmitting ? null : _submitCertification,
                           ),
                         ],
@@ -1381,10 +1371,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                   const Divider(height: 20),
                   if (_invoiceItems.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(30),
-                        child: Text('يرجى اختيار ملف الشحنة لعرض بنود أمر الشراء للمطابقة', style: TextStyle(color: Colors.grey)),
+                        padding: const EdgeInsets.all(30),
+                        child: Text(l.poRecSelectFileToViewPoItems, style: const TextStyle(color: Colors.grey)),
                       ),
                     )
                   else
@@ -1392,17 +1382,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
                         columnSpacing: 16,
-                        columns: const [
-                          DataColumn(label: Text('كود الصنف')),
-                          DataColumn(label: Text('الوصف')),
-                          DataColumn(label: Text('كمية PO')),
-                          DataColumn(label: Text('الكمية النهائية *')),
-                          DataColumn(label: Text('فارق الكمية')),
-                          DataColumn(label: Text('سعر وحدة PO')),
-                          DataColumn(label: Text('سعر الوحدة النهائي *')),
-                          DataColumn(label: Text('فارق السعر')),
-                          DataColumn(label: Text('الإجمالي النهائي')),
-                          DataColumn(label: Text('بند التعريفة (HS)')),
+                        columns: [
+                          DataColumn(label: Text(l.poRecColItemCode)),
+                          DataColumn(label: Text(l.poRecColDescription)),
+                          DataColumn(label: Text(l.poRecColPoQty)),
+                          DataColumn(label: Text(l.poRecColFinalQty)),
+                          DataColumn(label: Text(l.poRecColQtyVariance)),
+                          DataColumn(label: Text(l.poRecColPoUnitPrice)),
+                          DataColumn(label: Text(l.poRecColFinalUnitPrice)),
+                          DataColumn(label: Text(l.poRecColPriceVariance)),
+                          DataColumn(label: Text(l.poRecColFinalTotal)),
+                          DataColumn(label: Text(l.poRecColHsCode)),
                         ],
                         rows: _invoiceItems.asMap().entries.map((entry) {
                           int idx = entry.key;
@@ -1486,14 +1476,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(Icons.inventory, color: AppTheme.orange),
-                      SizedBox(width: 8),
+                      const Icon(Icons.inventory, color: AppTheme.orange),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          '2. مراجعة وتأكيد قائمة التعبئة والأوزان والطرود والأحجام (Packing List & Physical Cargo Review)',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                          l.poRecPackingSectionTitle,
+                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1502,10 +1492,10 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
                   const Divider(height: 20),
                   if (_packingItems.isEmpty)
-                    const Center(
+                    Center(
                       child: Padding(
-                        padding: EdgeInsets.all(30),
-                        child: Text('يرجى اختيار ملف الشحنة لعرض بنود قائمة التعبئة', style: TextStyle(color: Colors.grey)),
+                        padding: const EdgeInsets.all(30),
+                        child: Text(l.poRecSelectFileToViewPackingItems, style: const TextStyle(color: Colors.grey)),
                       ),
                     )
                   else
@@ -1513,13 +1503,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       scrollDirection: Axis.horizontal,
                       child: DataTable(
                         columnSpacing: 16,
-                        columns: const [
-                          DataColumn(label: Text('كود الصنف')),
-                          DataColumn(label: Text('نوع الطرد')),
-                          DataColumn(label: Text('عدد الطرود النهائية *')),
-                          DataColumn(label: Text('الوزن القائم (Gross kg) *')),
-                          DataColumn(label: Text('الوزن الصافي (Net kg) *')),
-                          DataColumn(label: Text('الحجم (CBM m³) *')),
+                        columns: [
+                          DataColumn(label: Text(l.poRecColItemCode)),
+                          DataColumn(label: Text(l.poRecColPackageType)),
+                          DataColumn(label: Text(l.poRecColFinalPackagesCount)),
+                          DataColumn(label: Text(l.poRecColGrossWeight)),
+                          DataColumn(label: Text(l.poRecColNetWeight)),
+                          DataColumn(label: Text(l.poRecColCbm)),
                         ],
                         rows: _packingItems.asMap().entries.map((entry) {
                           int idx = entry.key;
@@ -1629,6 +1619,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   // PART 2: SAVED SESSIONS HISTORY SECTION
   // ==========================================
   Widget _buildSavedSessionsHistorySection(List<POReconciliationSessionModel> allSessions) {
+    final l = context.l10n;
     // Apply filters
     var filtered = allSessions.where((s) {
       if (_statusFilter != 'All' && s.overallStatus != _statusFilter) return false;
@@ -1677,9 +1668,9 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'سجل جلسات المطابقة المحفوظة (Saved Sessions Registry)',
-                      style: TextStyle(
+                    Text(
+                      l.poRecHistorySectionTitle,
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.charcoal,
@@ -1687,7 +1678,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'أرشيف جلسات مطابقة وتدقيق مستندات الشحن والفواتير وقوائم التعبئة',
+                      l.poRecHistorySectionSubtitle,
                       style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
                     ),
                   ],
@@ -1700,7 +1691,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '${allSessions.length} جلسة محفوظة',
+                    l.poRecHistoryTotalSessionsBadge(allSessions.length),
                     style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -1723,28 +1714,28 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               children: [
                 _histStatCard(
                   icon: Icons.all_inbox_rounded,
-                  label: 'إجمالي الجلسات المحفوظة',
-                  value: '${allSessions.length} جلسة',
+                  label: l.poRecHistoryKpiTotalSessions,
+                  value: l.poRecHistoryTotalSessionsBadge(allSessions.length),
                   color: AppTheme.cobalt,
                 ),
                 const SizedBox(width: 14),
                 _histStatCard(
                   icon: Icons.check_circle_rounded,
-                  label: 'مطابقة بنسبة 100%',
-                  value: '$matchedSessions جلسة',
+                  label: l.poRecHistoryKpiFullMatch,
+                  value: l.poRecHistoryTotalSessionsBadge(matchedSessions),
                   color: AppTheme.emerald,
                 ),
                 const SizedBox(width: 14),
                 _histStatCard(
                   icon: Icons.warning_amber_rounded,
-                  label: 'جلسات بها فوارق / تنبيهات',
-                  value: '$varianceSessions جلسة',
+                  label: l.poRecHistoryKpiWithVariances,
+                  value: l.poRecHistoryTotalSessionsBadge(varianceSessions),
                   color: AppTheme.orange,
                 ),
                 const SizedBox(width: 14),
                 _histStatCard(
                   icon: Icons.monetization_on_rounded,
-                  label: 'إجمالي القيمة المعتمدة',
+                  label: l.poRecHistoryKpiTotalCertifiedValue,
                   value: '${totalVal.toStringAsFixed(0)} EUR/USD',
                   color: const Color(0xFF16A085),
                 ),
@@ -1756,7 +1747,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   ),
                   icon: const Icon(Icons.add_rounded, size: 18),
-                  label: const Text('جلسة مطابقة جديدة', style: TextStyle(fontWeight: FontWeight.bold)),
+                  label: Text(l.poRecHistoryNewSessionButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                   onPressed: () {
                     setState(() {
                       _activeSessionId = null;
@@ -1792,7 +1783,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 child: TextField(
                   controller: _searchHistoryCtrl,
                   decoration: InputDecoration(
-                    hintText: 'بحث برمز الجلسة، رقم الملف، اسم الشركة، رقم الفاتورة، أو رقم ACID...',
+                    hintText: l.poRecHistorySearchHint,
                     prefixIcon: const Icon(Icons.search, size: 20),
                     suffixIcon: _searchHistoryCtrl.text.isNotEmpty
                         ? IconButton(
@@ -1814,16 +1805,16 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               Wrap(
                 spacing: 8,
                 children: [
-                  _buildStatusFilterChip('All', 'الكل (${allSessions.length})'),
-                  _buildStatusFilterChip('FULLY_MATCHED', 'مطابق بالكامل'),
-                  _buildStatusFilterChip('ACCEPTED_WITH_WARNINGS', 'فوارق مقبولة'),
-                  _buildStatusFilterChip('CRITICAL_DISCREPANCY', 'فوارق حرجة'),
+                  _buildStatusFilterChip('All', l.poRecHistoryFilterAll(allSessions.length)),
+                  _buildStatusFilterChip('FULLY_MATCHED', l.poRecHistoryFilterMatched),
+                  _buildStatusFilterChip('ACCEPTED_WITH_WARNINGS', l.poRecHistoryFilterWarnings),
+                  _buildStatusFilterChip('CRITICAL_DISCREPANCY', l.poRecHistoryFilterCritical),
                 ],
               ),
               const Spacer(),
               IconButton(
                 icon: const Icon(Icons.refresh_rounded, color: AppTheme.charcoal),
-                tooltip: 'تحديث السجلات',
+                tooltip: l.poRecHistoryRefreshTooltip,
                 onPressed: () {
                   ref.read(poReconciliationSessionsProvider.notifier).fetchSessions();
                 },
@@ -1845,14 +1836,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       const SizedBox(height: 16),
                       Text(
                         allSessions.isEmpty
-                            ? 'لا توجد جلسات مطابقة محفوظة حتى الآن.'
-                            : 'لا توجد جلسات مطابقة مطابقة لمعايير البحث والفلترة.',
+                            ? l.poRecHistoryEmptyTitle
+                            : l.poRecHistoryNoMatchFilter,
                         style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                       ),
                       const SizedBox(height: 12),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('إنشاء أول جلسة مطابقة'),
+                        label: Text(l.poRecHistoryCreateFirstSessionButton),
                         onPressed: () {
                           if (_mainScrollController.hasClients) {
                             _mainScrollController.animateTo(
@@ -1877,17 +1868,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                     child: DataTable(
                       columnSpacing: 18,
                       headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.04)),
-                      columns: const [
-                        DataColumn(label: Text('#', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('رمز الجلسة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('ملف الشحنة / المستورد', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الفاتورة & الباكينج', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('إجمالي القيمة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الطرود & الأوزان', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الحجم CBM', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('تاريخ الحفظ', style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+                      columns: [
+                        DataColumn(label: Text(l.poRecHistoryColIndex, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColSessionCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColImportFileImporter, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColInvoicePacking, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColTotalValue, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColPackagesWeight, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColCbm, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColSavedDate, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        DataColumn(label: Text(l.poRecHistoryColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                       rows: filtered.asMap().entries.map((entry) {
                         final idx = entry.key + 1;
@@ -1923,11 +1914,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                       const SizedBox(width: 4),
                                       IconButton(
                                         icon: const Icon(Icons.copy_rounded, size: 14, color: Colors.grey),
-                                        tooltip: 'نسخ رمز الجلسة',
+                                        tooltip: l.poRecHistoryCopyCodeTooltip,
                                         onPressed: () {
                                           Clipboard.setData(ClipboardData(text: sess.sessionCode));
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(content: Text('تم نسخ رمز الجلسة'), duration: Duration(seconds: 1)),
+                                            SnackBar(content: Text(l.poRecHistoryCodeCopiedNotice), duration: const Duration(seconds: 1)),
                                           );
                                         },
                                       ),
@@ -1985,15 +1976,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Text('${sess.totalPackages.toStringAsFixed(0)} طرد', style: const TextStyle(fontSize: 12)),
-                                      Text('Gross: ${sess.totalGrossWeightKg.toStringAsFixed(0)} kg', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                      Text('${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', style: const TextStyle(fontSize: 12)),
+                                      Text('Gross: ${sess.totalGrossWeightKg.toStringAsFixed(0)} ${l.poRecKgUnit}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                     ],
                                   ),
                                 ),
 
                                 // 7. Total CBM
                                 DataCell(
-                                  Text('${sess.totalCbm.toStringAsFixed(3)} m³', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                  Text('${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                 ),
 
                                 // 8. Overall Status Badge
@@ -2017,25 +2008,25 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                       // View Details Modal
                                       IconButton(
                                         icon: const Icon(Icons.visibility_rounded, size: 18, color: AppTheme.cobalt),
-                                        tooltip: 'عرض تفاصيل وتقرير الجلسة',
+                                        tooltip: l.poRecHistoryViewDetailsTooltip,
                                         onPressed: () => _showSessionDetailsModal(context, sess),
                                       ),
                                       // Load into Editor
                                       IconButton(
                                         icon: const Icon(Icons.edit_note_rounded, size: 20, color: AppTheme.emerald),
-                                        tooltip: 'تحميل الجلسة في شاشة التعديل والمطابقة',
+                                        tooltip: l.poRecHistoryLoadIntoEditorTooltip,
                                         onPressed: () => _loadSessionIntoEditor(sess),
                                       ),
                                       // Copy / Print Report
                                       IconButton(
                                         icon: const Icon(Icons.print_rounded, size: 18, color: AppTheme.charcoal),
-                                        tooltip: 'نسخ تقرير المطابقة للطباعة (Ctrl+P)',
+                                        tooltip: l.poRecHistoryPrintTooltip,
                                         onPressed: () => _showPrintReportDialog(context, sess),
                                       ),
                                       // Delete Session
                                       IconButton(
                                         icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
-                                        tooltip: 'حذف الجلسة',
+                                        tooltip: l.poRecHistoryDeleteTooltip,
                                         onPressed: () => _confirmDeleteSession(context, sess),
                                       ),
                                     ],
@@ -2066,6 +2057,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildSessionStatusBadge(String status) {
+    final l = context.l10n;
     Color bg;
     Color fg;
     String label;
@@ -2075,19 +2067,19 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       case 'FULLY_MATCHED':
         bg = Colors.green.shade50;
         fg = Colors.green.shade800;
-        label = 'مطابق بالكامل';
+        label = l.poRecMatchStatusMatched;
         icon = Icons.check_circle;
         break;
       case 'ACCEPTED_WITH_WARNINGS':
         bg = Colors.amber.shade50;
         fg = Colors.amber.shade900;
-        label = 'فوارق مقبولة';
+        label = l.poRecMatchStatusWarning;
         icon = Icons.warning_amber;
         break;
       case 'CRITICAL_DISCREPANCY':
         bg = Colors.red.shade50;
         fg = Colors.red.shade800;
-        label = 'فوارق حرجة';
+        label = l.poRecMatchStatusCritical;
         icon = Icons.error_outline;
         break;
       default:
@@ -2148,6 +2140,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
   // --- POPUP DIALOGS ---
   void _showSaveSuccessReportDialog(BuildContext context, POReconciliationSessionModel sess) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -2158,7 +2151,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'تم حفظ جلسة المطابقة بنجاح (${sess.sessionCode})',
+                l.poRecHistorySavedDialogTitle(sess.sessionCode),
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -2170,11 +2163,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('الملف الاستيرادي: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? "N/A"}'),
+              Text('${l.poRecImportFileLabel}: ${sess.importFileCode ?? "IMP-${sess.importFileId}"} - ${sess.importerName ?? "N/A"}'),
               const SizedBox(height: 6),
-              Text('الفاتورة النهائية: ${sess.finalInvoiceNumber ?? "N/A"} | الباكينج: ${sess.finalPackingListNumber ?? "N/A"}'),
+              Text('${l.poRecFinalInvoiceNoLabel}: ${sess.finalInvoiceNumber ?? "N/A"} | ${l.poRecFinalPackingListNoLabel}: ${sess.finalPackingListNumber ?? "N/A"}'),
               const SizedBox(height: 6),
-              Text('إجمالي القيمة: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency} | الطرود: ${sess.totalPackages.toStringAsFixed(0)} | CBM: ${sess.totalCbm.toStringAsFixed(3)} m³'),
+              Text('${l.poRecKpiTotalInvoice}: ${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency} | ${l.poRecKpiTotalPackages}: ${sess.totalPackages.toStringAsFixed(0)} | ${l.poRecKpiTotalCbm}: ${sess.totalCbm.toStringAsFixed(3)} m³'),
               const SizedBox(height: 12),
               Container(
                 padding: const EdgeInsets.all(10),
@@ -2183,14 +2176,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.green.shade200),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.shield_rounded, color: AppTheme.emerald, size: 20),
-                    SizedBox(width: 8),
+                    const Icon(Icons.shield_rounded, color: AppTheme.emerald, size: 20),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'تم تسجيل الجلسة كمرجع موثق وحصري لهذا الملف الاستيرادي لمنع أي تكرار.',
-                        style: TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold),
+                        l.poRecHistorySavedUniqueNotice,
+                        style: const TextStyle(fontSize: 12, color: AppTheme.emerald, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ],
@@ -2202,12 +2195,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
-            child: const Text('إغلاق'),
+            child: Text(l.close),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.print_rounded, size: 16),
-            label: const Text('نسخ تقرير الجلسة للطباعة'),
+            label: Text(l.poRecHistoryCopyReportButton),
             onPressed: () {
               Navigator.pop(dialogCtx);
               _showPrintReportDialog(context, sess);
@@ -2219,6 +2212,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   void _showSessionDetailsModal(BuildContext context, POReconciliationSessionModel sess) {
+    final l = context.l10n;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
@@ -2230,7 +2224,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               children: [
                 const Icon(Icons.assignment_rounded, color: AppTheme.cobalt, size: 26),
                 const SizedBox(width: 10),
-                Text('تقرير جلسة المطابقة: ${sess.sessionCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(l.poRecHistoryDetailsModalTitle(sess.sessionCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             _buildSessionStatusBadge(sess.overallStatus),
@@ -2252,13 +2246,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   ),
                   child: Row(
                     children: [
-                      _buildExtractedPill('الملف الاستيرادي', sess.importFileCode ?? 'IMP-${sess.importFileId}', Icons.folder_rounded),
+                      _buildExtractedPill(l.poRecImportFileLabel, sess.importFileCode ?? 'IMP-${sess.importFileId}', Icons.folder_rounded),
                       const SizedBox(width: 8),
-                      _buildExtractedPill('رقم الفاتورة النهائية', sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
+                      _buildExtractedPill(l.poRecFinalInvoiceNoLabel, sess.finalInvoiceNumber ?? '—', Icons.receipt_long),
                       const SizedBox(width: 8),
-                      _buildExtractedPill('رقم الباكينج ليست', sess.finalPackingListNumber ?? '—', Icons.inventory_2),
+                      _buildExtractedPill(l.poRecFinalPackingListNoLabel, sess.finalPackingListNumber ?? '—', Icons.inventory_2),
                       const SizedBox(width: 8),
-                      _buildExtractedPill('رقم ACID', sess.acidNumber ?? '—', Icons.tag),
+                      _buildExtractedPill(l.poRecExtractedAcid, sess.acidNumber ?? '—', Icons.tag),
                     ],
                   ),
                 ),
@@ -2267,32 +2261,32 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                 // Metrics Row
                 Row(
                   children: [
-                    _buildSummaryCard('إجمالي الفاتورة', '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt),
+                    _buildSummaryCard(l.poRecKpiTotalInvoice, '${sess.totalInvoiceAmount.toStringAsFixed(2)} ${sess.currency}', Icons.monetization_on, AppTheme.cobalt),
                     const SizedBox(width: 8),
-                    _buildSummaryCard('إجمالي الطرود', '${sess.totalPackages.toStringAsFixed(0)} طرد', Icons.all_inbox, AppTheme.charcoal),
+                    _buildSummaryCard(l.poRecKpiTotalPackages, '${sess.totalPackages.toStringAsFixed(0)} ${l.poRecPackagesUnit}', Icons.all_inbox, AppTheme.charcoal),
                     const SizedBox(width: 8),
-                    _buildSummaryCard('الوزن القائم (Gross)', '${sess.totalGrossWeightKg.toStringAsFixed(1)} kg', Icons.scale, AppTheme.orange),
+                    _buildSummaryCard(l.poRecKpiTotalGrossWeight, '${sess.totalGrossWeightKg.toStringAsFixed(1)} ${l.poRecKgUnit}', Icons.scale, AppTheme.orange),
                     const SizedBox(width: 8),
-                    _buildSummaryCard('الحجم (CBM)', '${sess.totalCbm.toStringAsFixed(3)} m³', Icons.view_in_ar, AppTheme.emerald),
+                    _buildSummaryCard(l.poRecKpiTotalCbm, '${sess.totalCbm.toStringAsFixed(3)} ${l.poRecCbmUnit}', Icons.view_in_ar, AppTheme.emerald),
                   ],
                 ),
                 const SizedBox(height: 16),
 
                 // Items list summary
                 if (sess.reconciledInvoiceItems != null && sess.reconciledInvoiceItems!.isNotEmpty) ...[
-                  const Text('بنود الفاتورة المعتمدة في الجلسة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  Text(l.poRecHistoryDetailsCertifiedItemsTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                   const SizedBox(height: 8),
                   Table(
                     border: TableBorder.all(color: Colors.grey.shade300),
                     children: [
                       TableRow(
                         decoration: BoxDecoration(color: AppTheme.charcoal.withOpacity(0.08)),
-                        children: const [
-                          Padding(padding: EdgeInsets.all(6), child: Text('كود الصنف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('الوصف', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('الكمية', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('سعر الوحدة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
-                          Padding(padding: EdgeInsets.all(6), child: Text('الإجمالي', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                        children: [
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColItemCode, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColDescription, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalQty, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalUnitPrice, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
+                          Padding(padding: const EdgeInsets.all(6), child: Text(l.poRecColFinalTotal, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5))),
                         ],
                       ),
                       ...sess.reconciledInvoiceItems!.map((itm) {
@@ -2318,11 +2312,11 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إغلاق')),
+          TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(l.close)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, foregroundColor: Colors.white),
             icon: const Icon(Icons.edit_note_rounded, size: 16),
-            label: const Text('تحميل في شاشة التعديل'),
+            label: Text(l.poRecHistoryLoadInEditorButton),
             onPressed: () {
               Navigator.pop(dialogCtx);
               _loadSessionIntoEditor(sess);
@@ -2334,6 +2328,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   void _showPrintReportDialog(BuildContext context, POReconciliationSessionModel sess) {
+    final l = context.l10n;
     final buffer = StringBuffer();
     buffer.writeln('================================================================');
     buffer.writeln('Sorour Logistics ERP - PO & Packing Final Reconciliation Report');
@@ -2357,36 +2352,37 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
 
     Clipboard.setData(ClipboardData(text: buffer.toString()));
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('🖨️ تم نسخ تقرير جلسة المطابقة للحافظة بنجاح! جاهز للطباعة والمشاركة'),
+      SnackBar(
+        content: Text(l.poRecHistoryPrintCopiedSuccess),
         backgroundColor: AppTheme.cobalt,
       ),
     );
   }
 
   Future<void> _confirmDeleteSession(BuildContext context, POReconciliationSessionModel sess) async {
+    final l = context.l10n;
     final messenger = ScaffoldMessenger.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_forever_rounded, color: Colors.red, size: 28),
-            SizedBox(width: 10),
-            Text('تأكيد حذف جلسة المطابقة', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Icon(Icons.delete_forever_rounded, color: Colors.red, size: 28),
+            const SizedBox(width: 10),
+            Text(l.poRecHistoryDeleteConfirmTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: Text(
-          'هل أنت متأكد من رغبتك في حذف جلسة المطابقة (${sess.sessionCode}) الخاصة بملف الشحنة (${sess.importFileCode ?? sess.importFileId})؟',
+          l.poRecHistoryDeleteConfirmContent(sess.sessionCode, sess.importFileCode ?? sess.importFileId.toString()),
           style: const TextStyle(fontSize: 13.5),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('حذف نهائياً'),
+            child: Text(l.poRecHistoryDeletePermanent),
           ),
         ],
       ),
@@ -2396,7 +2392,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       await ref.read(poReconciliationSessionsProvider.notifier).deleteSession(sess.sessionId!);
       messenger.showSnackBar(
         SnackBar(
-          content: Text('تم حذف جلسة المطابقة (${sess.sessionCode}) بنجاح'),
+          content: Text(l.poRecHistoryDeletedSuccess(sess.sessionCode)),
           backgroundColor: Colors.red,
         ),
       );
@@ -2467,6 +2463,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildSmartExtractionCard() {
+    final l = context.l10n;
     return Card(
       elevation: 3,
       shape: RoundedRectangleBorder(
@@ -2497,14 +2494,14 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              '⚡ أداة الرفع والاستخراج الذكي والمطابقة الثلاثية (Smart 3-Way Extractor & Matcher)',
-                              style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                            Text(
+                              l.poRecExtractorTitle,
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                               overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'استخراج بنود الفاتورة النهائية وقائمة التعبئة ومطابقتها آلياً مع أمر الشراء بالسستم وكشف الفوارق',
+                              l.poRecExtractorSubtitle,
                               style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -2524,7 +2521,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       ),
                       icon: const Icon(Icons.dataset_linked, size: 16),
-                      label: const Text('تحميل نموذج تجريبي حقيقي (G.I. INDUSTRIAL)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(l.poRecLoadSampleDemoButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: _loadSampleData,
                     ),
                     const SizedBox(width: 8),
@@ -2533,7 +2530,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                         _showSmartExtractionTool ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
                         color: AppTheme.charcoal,
                       ),
-                      tooltip: _showSmartExtractionTool ? 'إخفاء الأداة' : 'عرض الأداة',
+                      tooltip: _showSmartExtractionTool ? l.poRecHideTool : l.poRecShowTool,
                       onPressed: () {
                         setState(() => _showSmartExtractionTool = !_showSmartExtractionTool);
                       },
@@ -2562,15 +2559,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Row(
                                   children: [
-                                    Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
-                                    SizedBox(width: 6),
+                                    const Icon(Icons.receipt_long, color: AppTheme.cobalt, size: 18),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        '1. الفاتورة التجارية النهائية (Commercial Invoice)',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        l.poRecExtractorTabInvoice,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -2584,7 +2581,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 icon: const Icon(Icons.upload_file, size: 15),
-                                label: Text(_selectedInvoiceFileName != null ? 'تغيير الملف' : 'رفع ملف (PDF/Word/Excel)', style: const TextStyle(fontSize: 11)),
+                                label: Text(_selectedInvoiceFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
                                 onPressed: () => _pickFile(true),
                               ),
                             ],
@@ -2609,7 +2606,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             maxLines: 8,
                             style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
                             decoration: InputDecoration(
-                              hintText: 'ألصق نص الفاتورة التجارية هنا أو ارفع الملف الرقمي...',
+                              hintText: l.poRecPasteInvoiceHint,
                               filled: true,
                               fillColor: Colors.white,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -2635,15 +2632,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Expanded(
+                              Expanded(
                                 child: Row(
                                   children: [
-                                    Icon(Icons.inventory_2, color: AppTheme.orange, size: 18),
-                                    SizedBox(width: 6),
+                                    const Icon(Icons.inventory_2, color: AppTheme.orange, size: 18),
+                                    const SizedBox(width: 6),
                                     Expanded(
                                       child: Text(
-                                        '2. قائمة التعبئة والأوزان (Packing & Weight List)',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                        l.poRecExtractorTabPacking,
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                                         overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
@@ -2657,7 +2654,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                                   visualDensity: VisualDensity.compact,
                                 ),
                                 icon: const Icon(Icons.upload_file, size: 15),
-                                label: Text(_selectedPackingFileName != null ? 'تغيير الملف' : 'رفع ملف (PDF/Word/Excel)', style: const TextStyle(fontSize: 11)),
+                                label: Text(_selectedPackingFileName != null ? l.poRecChangeFile : l.poRecUploadFile, style: const TextStyle(fontSize: 11)),
                                 onPressed: () => _pickFile(false),
                               ),
                             ],
@@ -2683,7 +2680,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                             maxLines: 8,
                             style: const TextStyle(fontSize: 12, fontFamily: 'monospace'),
                             decoration: InputDecoration(
-                              hintText: 'ألصق نص قائمة التعبئة هنا أو ارفع الملف الرقمي...',
+                              hintText: l.poRecPastePackingHint,
                               filled: true,
                               fillColor: Colors.white,
                               border: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: Colors.grey.shade300)),
@@ -2710,7 +2707,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.compare_arrows, size: 20),
                   label: Text(
-                    _isExtracting ? 'جاري الاستخراج والمطابقة الذكية...' : '⚡ تنفيذ الاستخراج الذكي والمطابقة مع بيانات السستم',
+                    _isExtracting ? l.poRecExtractingProgress : l.poRecExecuteSmartExtractionButton,
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                   ),
                   onPressed: _isExtracting ? null : _runSmartExtractionAndComparison,
@@ -2729,6 +2726,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildDiscrepanciesResultSection() {
+    final l = context.l10n;
     final data = _extractedReconciliationData!;
     final overallStatus = data['overall_status'] as String? ?? 'FULLY_MATCHED';
     final critCount = data['critical_discrepancies_count'] as int? ?? 0;
@@ -2744,15 +2742,15 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
     if (overallStatus == 'FULLY_MATCHED') {
       statusColor = const Color(0xFF27AE60);
       statusIcon = Icons.check_circle;
-      statusTitle = 'مطابقة تامة بنسبة 100% — لا توجد أي فوارق أو تعارضات (Safe for Certification)';
+      statusTitle = l.poRecStatusFullyMatchedTitle;
     } else if (overallStatus == 'ACCEPTED_WITH_WARNINGS') {
       statusColor = const Color(0xFFE67E22);
       statusIcon = Icons.warning_amber;
-      statusTitle = 'توجد فوارق أو تنبيهات غير حرجة ($warnCount تنبيه) — يمكن المراجعة والاعتماد';
+      statusTitle = l.poRecStatusWarningsTitle(warnCount);
     } else {
       statusColor = const Color(0xFFC0392B);
       statusIcon = Icons.cancel;
-      statusTitle = 'توجد فوارق حرجة ($critCount خطأ حرج) — يجب تدقيقها وتعديلها قبل الاعتماد!';
+      statusTitle = l.poRecStatusCriticalTitle(critCount);
     }
 
     return Container(
@@ -2783,13 +2781,13 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                 ),
                 icon: const Icon(Icons.playlist_add_check, size: 18),
-                label: const Text('✔ تطبيق البيانات المستخرجة في جداول المطابقة أدناه', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                label: Text(l.poRecApplyExtractedToTablesButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 onPressed: _applyExtractedDataToTables,
               ),
             ],
           ),
           const Divider(height: 20),
-          const Text('فحص ومطابقة البيانات الحاكمة (Header & Compliance Checks):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(l.poRecHeaderComplianceChecksTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -2798,12 +2796,12 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
               dataRowMinHeight: 36,
               dataRowMaxHeight: 44,
               columnSpacing: 20,
-              columns: const [
-                DataColumn(label: Text('بند الفحص')),
-                DataColumn(label: Text('القيمة بالسستم')),
-                DataColumn(label: Text('القيمة بالمستند المرفوع')),
-                DataColumn(label: Text('حالة المطابقة')),
-                DataColumn(label: Text('التفاصيل')),
+              columns: [
+                DataColumn(label: Text(l.poRecColCheckItem)),
+                DataColumn(label: Text(l.poRecColSystemValue)),
+                DataColumn(label: Text(l.poRecColExtractedValue)),
+                DataColumn(label: Text(l.poRecColMatchStatus)),
+                DataColumn(label: Text(l.poRecColDetails)),
               ],
               rows: headerDiscrepancies.map((d) {
                 final map = d as Map<String, dynamic>;
@@ -2819,17 +2817,17 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
             ),
           ),
           const SizedBox(height: 16),
-          const Text('البيانات المستخرجة من المستندات الرقمية (Extracted Document Metadata):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+          Text(l.poRecExtractedDocMetadataTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           const SizedBox(height: 8),
           Row(
             children: [
-              _buildExtractedPill('رقم الفاتورة المستخرج', invData['invoice_number']?.toString() ?? '—', Icons.receipt_long),
+              _buildExtractedPill(l.poRecExtractedInvNo, invData['invoice_number']?.toString() ?? '—', Icons.receipt_long),
               const SizedBox(width: 8),
-              _buildExtractedPill('إجمالي قيمة الفاتورة', '${invData['total_amount'] ?? "—"} ${invData['currency'] ?? ""}', Icons.monetization_on),
+              _buildExtractedPill(l.poRecExtractedInvAmount, '${invData['total_amount'] ?? "—"} ${invData['currency'] ?? ""}', Icons.monetization_on),
               const SizedBox(width: 8),
-              _buildExtractedPill('رقم ACID المستخرج', plData['acid_number']?.toString() ?? invData['acid_number']?.toString() ?? '—', Icons.tag),
+              _buildExtractedPill(l.poRecExtractedAcid, plData['acid_number']?.toString() ?? invData['acid_number']?.toString() ?? '—', Icons.tag),
               const SizedBox(width: 8),
-              _buildExtractedPill('إجمالي الطرود والوزن', '${plData['total_packages'] ?? "—"} طرد / ${plData['total_gross_weight_kg'] ?? "—"} kg', Icons.inventory_2),
+              _buildExtractedPill(l.poRecExtractedPackagesWeight, '${plData['total_packages'] ?? "—"} ${l.poRecPackagesUnit} / ${plData['total_gross_weight_kg'] ?? "—"} ${l.poRecKgUnit}', Icons.inventory_2),
             ],
           ),
         ],
@@ -2838,6 +2836,7 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
   }
 
   Widget _buildMatchStatusBadge(String status) {
+    final l = context.l10n;
     Color bg;
     Color fg;
     String label;
@@ -2846,18 +2845,18 @@ KG / COLLI 2254,0 2274,0 4,0 TOTAL
       case 'MATCH':
         bg = Colors.green.shade100;
         fg = Colors.green.shade900;
-        label = 'مطابق ✔';
+        label = l.poRecMatchStatusMatched;
         break;
       case 'WARNING':
         bg = Colors.amber.shade100;
         fg = Colors.amber.shade900;
-        label = 'تنبيه ⚠';
+        label = l.poRecMatchStatusWarning;
         break;
       case 'CRITICAL':
       default:
         bg = Colors.red.shade100;
         fg = Colors.red.shade900;
-        label = 'تعارض حرج ✖';
+        label = l.poRecMatchStatusCritical;
         break;
     }
 

@@ -58,7 +58,7 @@
 - [x] Screen 18: Draft B/L Review (`DraftBLReviewTab` / `draft_bl_review_tab.dart` & `VisualDraftBLSheet` / `visual_draft_bl_sheet.dart`) — **Reviewed & Fixed**
 - [x] Screen 19: Draft COO / EUR.1 (`COOReviewTab` in `coo_review_tab.dart` & `VisualDraftCOOSheet` in `visual_draft_coo_sheet.dart`) — **Reviewed & Fixed**
 - [x] Screen 20: Customs Docs Approval (`CustomsDocumentApprovalTab` in `customs_document_approval_tab.dart` & sub-dialogs `_CommercialReviewDialog`, `_CustomsBrokerReviewDialog`, `_RaiseTicketDialog`, `_ResolveTicketDialog`) — **Reviewed & Fixed**
-- [ ] Screen 21: PO & Packing Reconciliation (`PoReconciliationScreen`)
+- [x] Screen 21: PO & Packing Reconciliation (`POReconciliationTab` in `po_reconciliation_tab.dart` & `POReconciliationWarningDialog` in `po_reconciliation_warning_dialog.dart`) — **Reviewed & Fixed**
 - [ ] Screen 23: Customs Declaration 46 (`CustomsDeclaration46Screen`)
 - [ ] Screen 24: Customs Clearance Management (`CustomsClearanceManagementScreen`)
 - [ ] Screen 25: Freight Booking (`FreightBookingScreen`)
@@ -93,8 +93,8 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 20: Customs Docs Approval & Dual-Tier Sign-off (customs_document_approval_tab.dart)`  
-**Next Screen to Review:** `Screen 21: PO & Packing Reconciliation (PoReconciliationScreen / po_packing_reconciliation_screen.dart)`
+**Last Screen Fully Fixed:** `Screen 21: PO & Packing Reconciliation (POReconciliationTab in po_reconciliation_tab.dart & POReconciliationWarningDialog)`  
+**Next Screen to Review:** `Screen 23: Customs Declaration 46 (CustomsDeclaration46Screen / customs_declaration_46_screen.dart)`
 
 
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/row_actions_pill.dart';
@@ -58,27 +59,27 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
   }
 
   Future<void> _confirmFinalReceipt(WarehouseReceivingModel record) async {
+    final l10n = context.l10n;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: AppTheme.emerald),
-            SizedBox(width: 8),
-            Text('تأكيد الاستلام النهائي للمخزن'),
+            const Icon(Icons.check_circle, color: AppTheme.emerald),
+            const SizedBox(width: 8),
+            Text(l10n.warehouseReceivingConfirmReceiptTitle),
           ],
         ),
         content: Text(
-          'هل تريد تأكيد الاستلام النهائي للشحنة رقم [${record.grnCode}] بالمخزن؟\n\n'
-          '⚠️ هذا الإجراء سيقوم بتثبيت الكميات الفعلية وإغلاق المحضر وخصم رصيد الشحنة من تقرير "البضاعة في الطريق (GIT)".',
+          l10n.warehouseReceivingConfirmReceiptMessage(record.grnCode),
           style: const TextStyle(height: 1.5),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
             icon: const Icon(Icons.verified, color: Colors.white, size: 16),
-            label: const Text('نعم، تأكيد الاستلام النهائي', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(l10n.warehouseReceivingConfirmReceiptBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             onPressed: () => Navigator.pop(c, true),
           ),
         ],
@@ -89,7 +90,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       try {
         final payload = {
           'status': 'Goods Received',
-          'discrepancy_notes': 'تم تأكيد الاستلام النهائي بالمخزن واعتماد الكميات الفعلية.',
+          'discrepancy_notes': l10n.warehouseReceivingStatusGoodsReceived,
         };
         await ref.read(warehouseReceivingProvider.notifier).updateRecord(record.receivingId, payload);
         ref.read(goodsInTransitProvider.notifier).confirmWarehouseReceipt(record.importFileId);
@@ -97,7 +98,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('تم تأكيد الاستلام النهائي لـ ${record.grnCode} وخصم رصيد البضاعة بالطريق بنجاح ✅'),
+              content: Text(l10n.warehouseReceivingConfirmReceiptSuccess(record.grnCode)),
               backgroundColor: AppTheme.emerald,
             ),
           );
@@ -105,7 +106,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('خطأ أثناء تأكيد الاستلام: $e'), backgroundColor: AppTheme.crimson),
+            SnackBar(content: Text(l10n.warehouseReceivingConfirmReceiptError('$e')), backgroundColor: AppTheme.crimson),
           );
         }
       }
@@ -145,7 +146,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات',
+          tooltip: context.l10n.warehouseReceivingRefreshTooltip,
           onPressed: () => ref.read(warehouseReceivingProvider.notifier).fetchRecords(),
         ),
       ],
@@ -176,18 +177,18 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
                         onPressed: () => _showAddEditDialog(),
                         icon: const Icon(Icons.local_shipping, color: Colors.white),
-                        label: const Text('تسجيل وصول شاحنة واستلام محضر GRN جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        label: Text(context.l10n.warehouseReceivingNewGrnBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 16),
                       SizedBox(
                         width: 250,
                         child: TextField(
                           controller: _searchController,
-                          decoration: const InputDecoration(
-                            hintText: 'بحث برقم GRN، الشاحنة، السائق...',
-                            prefixIcon: Icon(Icons.search),
+                          decoration: InputDecoration(
+                            hintText: context.l10n.warehouseReceivingSearchHint,
+                            prefixIcon: const Icon(Icons.search),
                             isDense: true,
-                            border: OutlineInputBorder(),
+                            border: const OutlineInputBorder(),
                           ),
                           onChanged: (val) {
                             ref.read(warehouseReceivingProvider.notifier).fetchRecords(search: val, status: _selectedStatusFilter);
@@ -199,11 +200,11 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                         width: 250,
                         child: SearchableDropdownField<String>(
                           value: _selectedStatusFilter,
-                          items: const [
-                            SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
-                            SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: '🟡 مسودة مؤقتة (بانتظار العد)'),
-                            SearchableDropdownItem(value: 'Goods Received', label: '🟢 تم الاستلام النهائي بالمخزن'),
-                            SearchableDropdownItem(value: 'Discrepancy Reported', label: '🟠 مُثبت به عجز/تلف جمركي'),
+                          items: [
+                            SearchableDropdownItem(value: 'All', label: context.l10n.warehouseReceivingStatusAll),
+                            SearchableDropdownItem(value: 'Draft / Pending Warehouse Count', label: context.l10n.warehouseReceivingStatusDraft),
+                            SearchableDropdownItem(value: 'Goods Received', label: context.l10n.warehouseReceivingStatusGoodsReceived),
+                            SearchableDropdownItem(value: 'Discrepancy Reported', label: context.l10n.warehouseReceivingStatusDiscrepancy),
                           ],
                           onChanged: (val) {
                             if (val != null) {
@@ -224,10 +225,10 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
             Expanded(
               child: recordsState.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('خطأ في جلب بيانات استلام المخزن: $err', style: const TextStyle(color: AppTheme.crimson))),
+                error: (err, _) => Center(child: Text('${context.l10n.error}: $err', style: const TextStyle(color: AppTheme.crimson))),
                 data: (records) {
                   if (records.isEmpty) {
-                    return const Center(child: Text('لا توجد سجلات استلام بمخازن الشركة حالياً.'));
+                    return Center(child: Text(context.l10n.warehouseReceivingEmptyRecords));
                   }
 
                   return ListView.builder(
@@ -268,9 +269,9 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('الشاحنة والسائق: ${r.driverName ?? "غير محدد"} (${r.truckPlateNumber ?? "بلا رقم"})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                        Text('${context.l10n.warehouseReceivingTruckAndDriver}: ${r.driverName ?? "-"} (${r.truckPlateNumber ?? "-"})', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                                         const SizedBox(height: 4),
-                                        Text('تاريخ ووقت الوصول: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                        Text('${context.l10n.warehouseReceivingArrivalDatetime}: ${r.arrivalDatetime.replaceFirst("T", " ").split(".")[0]}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                                       ],
                                     ),
                                   ),
@@ -278,9 +279,9 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Text('مسئول الاستلام والجودة: ${r.inspectorName}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                                        Text('${context.l10n.warehouseReceivingInspector}: ${r.inspectorName}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
                                         const SizedBox(height: 4),
-                                        Text('حالة الفروق: ${r.discrepancyType}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: r.discrepancyType != "None" ? AppTheme.crimson : AppTheme.emerald)),
+                                        Text('${context.l10n.warehouseReceivingDiscrepancyStatus}: ${r.discrepancyType}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: r.discrepancyType != "None" ? AppTheme.crimson : AppTheme.emerald)),
                                       ],
                                     ),
                                   ),
@@ -295,10 +296,10 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                                   children: [
-                                    _buildQtyMetric('الفاتورة (Invoiced)', '${r.totalInvoicedQty}', Colors.black87),
-                                    _buildQtyMetric('المقبول (Accepted)', '${r.totalAcceptedQty}', AppTheme.emerald),
-                                    _buildQtyMetric('العجز (Shortage)', '${r.totalShortageQty}', r.totalShortageQty > 0 ? AppTheme.crimson : Colors.grey),
-                                    _buildQtyMetric('التلف (Damaged)', '${r.totalDamagedQty}', r.totalDamagedQty > 0 ? AppTheme.crimson : Colors.grey),
+                                    _buildQtyMetric(context.l10n.warehouseReceivingMetricInvoiced, '${r.totalInvoicedQty}', Colors.black87),
+                                    _buildQtyMetric(context.l10n.warehouseReceivingMetricAccepted, '${r.totalAcceptedQty}', AppTheme.emerald),
+                                    _buildQtyMetric(context.l10n.warehouseReceivingMetricShortage, '${r.totalShortageQty}', r.totalShortageQty > 0 ? AppTheme.crimson : Colors.grey),
+                                    _buildQtyMetric(context.l10n.warehouseReceivingMetricDamaged, '${r.totalDamagedQty}', r.totalDamagedQty > 0 ? AppTheme.crimson : Colors.grey),
                                   ],
                                 ),
                               ),
@@ -316,7 +317,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
                                         icon: const Icon(Icons.check_circle, size: 16),
-                                        label: const Text('تأكيد الاستلام النهائي للمخزن ✅', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+                                        label: Text(context.l10n.warehouseReceivingConfirmFinalReceiptBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
                                         onPressed: () => _confirmFinalReceipt(r),
                                       ),
                                     ],
@@ -324,7 +325,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       ElevatedButton.icon(
                                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.orange),
                                         icon: const Icon(Icons.warning_amber, size: 16, color: Colors.white),
-                                        label: const Text('إثبات عجز / تلف', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                                        label: Text(context.l10n.warehouseReceivingRecordDiscrepancyBtn, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                                         onPressed: () => _showDiscrepancyDialog(r),
                                       ),
                                     ],
@@ -334,7 +335,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                       onPrint: () {
                                         ScaffoldMessenger.of(context).showSnackBar(
                                           SnackBar(
-                                            content: Text('طباعة محضر استلام البضاعة GRN: ${r.grnCode} (${r.warehouseName})'),
+                                            content: Text(context.l10n.warehouseReceivingPrintGrnSnack(r.grnCode, r.warehouseName)),
                                             backgroundColor: AppTheme.charcoal,
                                             duration: const Duration(seconds: 2),
                                           ),
@@ -344,11 +345,11 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                         final confirm = await showDialog<bool>(
                                           context: context,
                                           builder: (c) => AlertDialog(
-                                            title: const Text('حذف محضر الاستلام'),
-                                            content: const Text('هل أنت متأكد من نقل محضر الاستلام للمحذوفات؟'),
+                                            title: Text(context.l10n.warehouseReceivingDeleteTitle),
+                                            content: Text(context.l10n.warehouseReceivingDeleteConfirmMessage),
                                             actions: [
-                                              TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                              TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
+                                              TextButton(onPressed: () => Navigator.pop(c, false), child: Text(context.l10n.cancel)),
+                                              TextButton(onPressed: () => Navigator.pop(c, true), child: Text(context.l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
                                             ],
                                           ),
                                         );
@@ -356,10 +357,10 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
                                           ref.read(warehouseReceivingProvider.notifier).softDeleteRecord(r.receivingId);
                                         }
                                       },
-                                      viewTooltip: 'عرض محضر الاستلام',
-                                      editTooltip: 'تعديل محضر الاستلام',
-                                      printTooltip: 'طباعة محضر GRN',
-                                      deleteTooltip: 'حذف محضر الاستلام (Soft Delete)',
+                                      viewTooltip: context.l10n.warehouseReceivingViewTooltip,
+                                      editTooltip: context.l10n.warehouseReceivingEditTooltip,
+                                      printTooltip: context.l10n.warehouseReceivingPrintTooltip,
+                                      deleteTooltip: context.l10n.warehouseReceivingDeleteTooltip,
                                     ),
                                   ],
                                 ),
@@ -390,7 +391,7 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
 
   Widget _buildSealBadge(bool intact, String? sealNo) {
     final color = intact ? AppTheme.emerald : AppTheme.crimson;
-    final text = intact ? 'الرصاص أصل وسليم (Seal Intact)' : 'الرصاص تالف/مكسور (Seal Broken)';
+    final text = intact ? context.l10n.warehouseReceivingSealIntact : context.l10n.warehouseReceivingSealBroken;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(4), border: Border.all(color: color)),
@@ -403,13 +404,13 @@ class _WarehouseReceivingScreenState extends ConsumerState<WarehouseReceivingScr
     String label = status;
     if (status.contains('Draft') || status.contains('Pending')) {
       color = AppTheme.orange;
-      label = '🟡 مسودة مؤقتة (بانتظار العد)';
+      label = context.l10n.warehouseReceivingStatusDraft;
     } else if (status == 'Discrepancy Reported') {
       color = AppTheme.crimson;
-      label = '🟠 مُثبت به عجز/تلف';
+      label = context.l10n.warehouseReceivingStatusDiscrepancy;
     } else if (status == 'Closed' || status == 'Goods Received') {
       color = AppTheme.emerald;
-      label = '🟢 تم الاستلام النهائي ✅';
+      label = context.l10n.warehouseReceivingStatusGoodsReceived;
     }
 
     return Container(
@@ -481,7 +482,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
     _poItems.add({
       'po_number': 'PO-2026-IT-001',
       'item_code_ctrl': TextEditingController(text: 'ITM-SR-101'),
-      'item_name_ctrl': TextEditingController(text: 'خوادم رقمية صناعية (Enterprise Servers)'),
+      'item_name_ctrl': TextEditingController(text: 'Enterprise Servers'),
       'inv_qty_ctrl': TextEditingController(text: '250'),
       'acc_qty_ctrl': TextEditingController(text: '247'),
       'short_qty_ctrl': TextEditingController(text: '0'),
@@ -491,7 +492,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
     _poItems.add({
       'po_number': 'PO-2026-IT-001',
       'item_code_ctrl': TextEditingController(text: 'ITM-SR-102'),
-      'item_name_ctrl': TextEditingController(text: 'محولات شبكية ذكية (Smart Network Switches)'),
+      'item_name_ctrl': TextEditingController(text: 'Smart Network Switches'),
       'inv_qty_ctrl': TextEditingController(text: '500'),
       'acc_qty_ctrl': TextEditingController(text: '498'),
       'short_qty_ctrl': TextEditingController(text: '0'),
@@ -539,7 +540,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         _poItems.add({
           'po_number': selectedFile.poNumber ?? 'PO-2026-GEN',
           'item_code_ctrl': TextEditingController(text: 'ITM-GEN-01'),
-          'item_name_ctrl': TextEditingController(text: 'بضائع ومنتجات استيرادية معتمدة بالفاتورة'),
+          'item_name_ctrl': TextEditingController(text: selectedFile.importFileCode),
           'inv_qty_ctrl': TextEditingController(text: '100'),
           'acc_qty_ctrl': TextEditingController(text: '100'),
           'short_qty_ctrl': TextEditingController(text: hasDiscrepancy ? '1' : '0'),
@@ -574,6 +575,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
 
     final nav = Navigator.of(context);
     final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
 
     try {
       final grnItemsPayload = _poItems.map((item) {
@@ -612,13 +614,13 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
       messenger.showSnackBar(
         SnackBar(
           content: Text(isFinalConfirmation
-              ? 'تم تأكيد الاستلام النهائي للمخزن وخصم رصيد البضاعة بالطريق بنجاح ✅'
-              : 'تم حفظ المحضر كمسودة مؤقتة بانتظار العد الفعلي للمخزن ⏳'),
+              ? l10n.warehouseReceivingFinalSuccessSnack
+              : l10n.warehouseReceivingDraftSuccessSnack),
           backgroundColor: isFinalConfirmation ? AppTheme.emerald : AppTheme.orange,
         ),
       );
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text('خطأ أثناء الحفظ: $e'), backgroundColor: AppTheme.crimson));
+      messenger.showSnackBar(SnackBar(content: Text('${l10n.error}: $e'), backgroundColor: AppTheme.crimson));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -633,7 +635,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         children: [
           const Icon(Icons.warehouse, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          Text(widget.recordToEdit == null ? 'تسجيل محضر استلام شحنة جديدة بالمخزن' : 'تعديل بيانات المحضر وتأكيد الاستلام'),
+          Text(widget.recordToEdit == null ? context.l10n.warehouseReceivingNewDialogTitle : context.l10n.warehouseReceivingEditDialogTitle),
         ],
       ),
       content: SizedBox(
@@ -657,18 +659,18 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                     children: [
                       const Icon(Icons.mark_email_unread_outlined, color: Colors.orange, size: 24),
                       const SizedBox(width: 10),
-                      const Expanded(
+                      Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '⚠️ تنبيه إداري عاجل (Document Dispatch Alert):',
-                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
+                              context.l10n.warehouseReceivingDispatchAlertTitle,
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                             ),
-                            SizedBox(height: 2),
+                            const SizedBox(height: 2),
                             Text(
-                              'يجب إرسال أوراق الشحنة المعتمدة (Packing List & Commercial Invoice) فوراً إلى مسؤولي المخزن لمطابقة البضائع عند وصول الشاحنة.',
-                              style: TextStyle(fontSize: 11.5, color: Colors.black87),
+                              context.l10n.warehouseReceivingDispatchAlertDesc,
+                              style: const TextStyle(fontSize: 11.5, color: Colors.black87),
                             ),
                           ],
                         ),
@@ -681,14 +683,14 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                         ),
                         icon: Icon(_alertSentToWarehouse ? Icons.check : Icons.send, size: 14),
                         label: Text(
-                          _alertSentToWarehouse ? 'تم الإرسال للمخزن ✅' : '📤 إرسال إشعار للمخزن وتوليد مهمة',
+                          _alertSentToWarehouse ? context.l10n.warehouseReceivingDispatchSentBtn : context.l10n.warehouseReceivingDispatchSendBtn,
                           style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                         ),
                         onPressed: () {
                           setState(() => _alertSentToWarehouse = true);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('تم إرسال إشعار المستندات وتوليد مهمة ذكية في الداش بورد لمسؤولي المخزن بنجاح ✅'),
+                            SnackBar(
+                              content: Text(context.l10n.warehouseReceivingDispatchSuccessSnack),
                               backgroundColor: AppTheme.emerald,
                             ),
                           );
@@ -706,7 +708,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                       flex: 2,
                       child: SearchableDropdownField<int?>(
                         value: _selectedImportFileId,
-                        labelText: 'ملف الشحنة الاستيرادية *',
+                        labelText: context.l10n.warehouseReceivingImportFileLabel,
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int?>(
                                   value: f.importFileId,
@@ -714,7 +716,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                 ))
                             .toList(),
                         onChanged: _onImportFileSelected,
-                        validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                        validator: (v) => v == null ? context.l10n.warehouseReceivingSelectFileValidator : null,
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -722,8 +724,8 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                       flex: 2,
                       child: TextFormField(
                         controller: _whCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم المخزن والفرع *', border: OutlineInputBorder()),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى إدخال اسم المخزن' : null,
+                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingWarehouseNameLabel, border: const OutlineInputBorder()),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingWarehouseNameValidator : null,
                       ),
                     ),
                   ],
@@ -736,27 +738,27 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                     Expanded(
                       child: TextFormField(
                         controller: _plateCtrl,
-                        decoration: const InputDecoration(labelText: 'رقم الشاحنة / السيارة', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingTruckPlateLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: _driverCtrl,
-                        decoration: const InputDecoration(labelText: 'اسم السائق', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDriverNameLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: TextFormField(
                         controller: _sealCtrl,
-                        decoration: const InputDecoration(labelText: 'رقم السيل / الرصاص الأمني', border: OutlineInputBorder()),
+                        decoration: InputDecoration(labelText: context.l10n.warehouseReceivingSealNumberLabel, border: const OutlineInputBorder()),
                       ),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: SwitchListTile(
-                        title: const Text('سلامة السيل (Seal Intact)', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
+                        title: Text(context.l10n.warehouseReceivingSealIntactSwitch, style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.bold)),
                         value: _sealIntact,
                         onChanged: (val) => setState(() => _sealIntact = val),
                       ),
@@ -770,21 +772,21 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                   children: [
                     const Icon(Icons.list_alt, color: AppTheme.cobalt, size: 20),
                     const SizedBox(width: 8),
-                    const Text(
-                      'بيانات جرد واختبار كميات الأصناف تفصيلياً بكل أمر شراء (Multi-PO Breakdown):',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
+                    Text(
+                      context.l10n.warehouseReceivingMultiPoHeader,
+                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt),
                     ),
                     const Spacer(),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                       icon: const Icon(Icons.add, size: 14),
-                      label: const Text('إضافة صنف', style: TextStyle(fontSize: 11)),
+                      label: Text(context.l10n.warehouseReceivingAddItemBtn, style: const TextStyle(fontSize: 11)),
                       onPressed: () {
                         setState(() {
                           _poItems.add({
                             'po_number': 'PO-NEW',
                             'item_code_ctrl': TextEditingController(text: 'ITM-NEW'),
-                            'item_name_ctrl': TextEditingController(text: 'صنف جديد'),
+                            'item_name_ctrl': TextEditingController(text: 'New Item'),
                             'inv_qty_ctrl': TextEditingController(text: '0'),
                             'acc_qty_ctrl': TextEditingController(text: '0'),
                             'short_qty_ctrl': TextEditingController(text: '0'),
@@ -821,7 +823,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                   decoration: BoxDecoration(color: Colors.blue.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue.shade200)),
-                                  child: Text('أمر الشراء: ${item["po_number"]}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blue.shade900)),
+                                  child: Text(context.l10n.warehouseReceivingPoLabel('${item["po_number"]}'), style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: Colors.blue.shade900)),
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -840,7 +842,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   flex: 2,
                                   child: TextFormField(
                                     controller: item['item_name_ctrl'] as TextEditingController,
-                                    decoration: const InputDecoration(labelText: 'اسم وبيان الصنف', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingItemNameLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -848,7 +850,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   child: TextFormField(
                                     controller: item['inv_qty_ctrl'] as TextEditingController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'العدد بالفاتورة', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingInvoicedQtyLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -856,7 +858,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   child: TextFormField(
                                     controller: item['acc_qty_ctrl'] as TextEditingController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'المستلم الفعلي', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingAcceptedQtyLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -864,7 +866,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   child: TextFormField(
                                     controller: item['short_qty_ctrl'] as TextEditingController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'العجز', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingShortageQtyLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -872,7 +874,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   child: TextFormField(
                                     controller: item['dmg_qty_ctrl'] as TextEditingController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'التلف', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDamagedQtyLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
@@ -880,7 +882,7 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
                                   child: TextFormField(
                                     controller: item['samples_qty_ctrl'] as TextEditingController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'عينات مسحوبة', isDense: true, border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: context.l10n.warehouseReceivingSamplesQtyLabel, isDense: true, border: const OutlineInputBorder()),
                                   ),
                                 ),
                               ],
@@ -897,17 +899,17 @@ class _WarehouseReceivingFormDialogState extends ConsumerState<_WarehouseReceivi
         ),
       ),
       actions: [
-        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(foregroundColor: AppTheme.orange, side: const BorderSide(color: AppTheme.orange)),
           icon: const Icon(Icons.save_as_outlined, size: 16),
-          label: const Text('حفظ مؤقت (مسودة بانتظار العد) ⏳', style: TextStyle(fontWeight: FontWeight.bold)),
+          label: Text(context.l10n.warehouseReceivingSaveDraftBtn, style: const TextStyle(fontWeight: FontWeight.bold)),
           onPressed: _isLoading ? null : () => _submitForm(false),
         ),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.check_circle_outline, color: Colors.white, size: 16),
-          label: const Text('تأكيد الاستلام النهائي للمخزن ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: Text(context.l10n.warehouseReceivingSaveFinalBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: _isLoading ? null : () => _submitForm(true),
         ),
       ],
@@ -939,7 +941,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
   @override
   void initState() {
     super.initState();
-    _notesCtrl = TextEditingController(text: widget.record.discrepancyNotes ?? 'عجز وتلف ملحوظ أثناء تفريغ الحاوية بمخزن الشركة.');
+    _notesCtrl = TextEditingController(text: widget.record.discrepancyNotes ?? 'Discrepancy recorded during unloading.');
     _claimRefCtrl = TextEditingController(text: widget.record.insuranceClaimRef ?? 'CLM-2026-WH-001');
   }
 
@@ -957,7 +959,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
         children: [
           const Icon(Icons.warning, color: AppTheme.orange),
           const SizedBox(width: 8),
-          Text('إثبات عجز / تلف رسمي لمحضر: ${widget.record.grnCode}'),
+          Text(context.l10n.warehouseReceivingDiscrepancyDialogTitle(widget.record.grnCode)),
         ],
       ),
       content: SizedBox(
@@ -969,12 +971,12 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
             children: [
               SearchableDropdownField<String>(
                 value: _selectedDiscrepancyType,
-                labelText: 'نوع التباين والعجز *',
-                items: const [
-                  SearchableDropdownItem(value: 'Shortage and Damage', label: 'عجز وتلف كلي (Shortage and Damage)'),
-                  SearchableDropdownItem(value: 'Shortage Only', label: 'عجز طرود فقط (Shortage Only)'),
-                  SearchableDropdownItem(value: 'Damage Only', label: 'تلف وكسر بضائع فقط (Damage Only)'),
-                  SearchableDropdownItem(value: 'Broken Seal Discrepancy', label: 'كسر سيل وتباين مشمول (Broken Seal)'),
+                labelText: context.l10n.warehouseReceivingDiscrepancyTypeLabel,
+                items: [
+                  SearchableDropdownItem(value: 'Shortage and Damage', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageAndDamage),
+                  SearchableDropdownItem(value: 'Shortage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeShortageOnly),
+                  SearchableDropdownItem(value: 'Damage Only', label: context.l10n.warehouseReceivingDiscrepancyTypeDamageOnly),
+                  SearchableDropdownItem(value: 'Broken Seal Discrepancy', label: context.l10n.warehouseReceivingDiscrepancyTypeBrokenSeal),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _selectedDiscrepancyType = val);
@@ -984,17 +986,17 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
               TextFormField(
                 controller: _notesCtrl,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'ملاحظات وتفاصيل الفحص *', border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'يرجى كتابة الملاحظات' : null,
+                decoration: InputDecoration(labelText: context.l10n.warehouseReceivingDiscrepancyNotesLabel, border: const OutlineInputBorder()),
+                validator: (v) => (v == null || v.trim().isEmpty) ? context.l10n.warehouseReceivingDiscrepancyNotesValidator : null,
               ),
               const SizedBox(height: 12),
               SwitchListTile(
-                title: const Text('عزل البضاعة في منطقة الحجر (Quarantine Zone)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: Text(context.l10n.warehouseReceivingQuarantineSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _quarantineAssigned,
                 onChanged: (val) => setState(() => _quarantineAssigned = val),
               ),
               SwitchListTile(
-                title: const Text('رفع مطالبة تعويض تأمين بحري (Insurance Claim)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                title: Text(context.l10n.warehouseReceivingInsuranceClaimSwitch, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                 value: _fileClaim,
                 onChanged: (val) => setState(() => _fileClaim = val),
               ),
@@ -1002,7 +1004,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _claimRefCtrl,
-                  decoration: const InputDecoration(labelText: 'رقم مرجع المطالبة التأمينية', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.warehouseReceivingClaimRefLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ],
@@ -1010,7 +1012,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
         ),
       ),
       actions: [
-        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         ElevatedButton(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson),
           onPressed: _isLoading
@@ -1020,6 +1022,7 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
                     setState(() => _isLoading = true);
                     final nav = Navigator.of(context);
                     final messenger = ScaffoldMessenger.of(context);
+                    final l10n = context.l10n;
                     try {
                       final payload = {
                         'discrepancy_type': _selectedDiscrepancyType,
@@ -1031,15 +1034,15 @@ class _DiscrepancyReportDialogState extends ConsumerState<_DiscrepancyReportDial
 
                       await ref.read(warehouseReceivingProvider.notifier).reportDiscrepancy(widget.record.receivingId, payload);
                       nav.pop();
-                      messenger.showSnackBar(const SnackBar(content: Text('تم توثيق محضر العجز والتلف بنجاح'), backgroundColor: AppTheme.emerald));
+                      messenger.showSnackBar(SnackBar(content: Text(l10n.warehouseReceivingDiscrepancySuccessSnack), backgroundColor: AppTheme.emerald));
                     } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('خطأ: $e'), backgroundColor: AppTheme.crimson));
+                      messenger.showSnackBar(SnackBar(content: Text('${l10n.error}: $e'), backgroundColor: AppTheme.crimson));
                     } finally {
                       if (mounted) setState(() => _isLoading = false);
                     }
                   }
                 },
-          child: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Text('اعتماد محضر العجز والتلف', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          child: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(context.l10n.warehouseReceivingCertifyDiscrepancyBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
       ],
     );

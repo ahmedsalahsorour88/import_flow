@@ -63,10 +63,10 @@
 - [x] Screen 24: Customs Clearance Management (`CustomsClearanceScreen` in `customs_clearance_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 25: Freight Booking (`FreightBookingScreen` in `freight_booking_screen.dart` and dialogs `_FreightBookingFormDialog`, `_FreightBookingViewDialog`, `_FreightBookingPrintDialog`) — **Reviewed & Fixed**
 - [x] Screen 26: Freight Allocations & Cargo Shipping (VGM) (`CargoShippingScreen` in `cargo_shipping_screen.dart`, initialSubTab: 0) — **Reviewed & Fixed**
-- [ ] Screen 27: Clearance Follow-up (`ClearanceFollowupScreen`)
-- [ ] Screen 28: Warehouse Receiving GRN (`WarehouseReceivingScreen`)
-- [ ] Screen 29: Landed Cost Settlement (`LandedCostSettlementScreen`)
-- [ ] Screen 30: Import File Closure (`ImportFileClosureScreen`)
+- [x] Screen 27: Clearance Follow-up (`CustomsClearanceScreen` in `customs_clearance_screen.dart`, initialSubTab: 1) — **Reviewed & Fixed**
+- [x] Screen 28: Warehouse Receiving GRN (`WarehouseReceivingScreen` in `warehouse_receiving_screen.dart` & sub-dialogs `_WarehouseReceivingFormDialog`, `_DiscrepancyReportDialog`) — **Reviewed & Fixed**
+- [ ] Screen 29: Landed Cost Settlement (`FinancialSettlementScreen` in `financial_settlement_screen.dart`)
+- [ ] Screen 30: Import File Closure (`FileClosureScreen` in `file_closure_screen.dart`)
 - [ ] Screen 31: Projects & Cost Centers (`ProjectsScreen`)
 - [ ] Screen 32: Import Companies (`ImportCompaniesScreen`)
 - [ ] Screen 33: Foreign Suppliers (`SuppliersScreen`)
@@ -75,26 +75,26 @@
 - [ ] Screen 36: Customs Tariff Schedule (`CustomsTariffScreen`)
 - [ ] Screen 37: Ports & Transport Locations (`TransportLocationsScreen`)
 - [ ] Screen 38: Currencies & Exchange Rates (`CurrenciesScreen`)
-- [ ] Screen 43: Regulatory Requirements (`RegulatoryRequirementsScreen`)
+- [ ] Screen 43: Regulatory Requirements (`ImportRequirementsScreen`)
 - [ ] Screen 44: Demurrage & Detention (`DemurrageDetentionScreen`)
 - [ ] Screen 47: Audit Logs (`AuditLogsScreen`)
 - [ ] Screen 48: Lifecycle Kanban Board (`LifecycleBoardScreen`)
-- [ ] Screen 49: Freight Quotations Comparison (`FreightQuotationsScreen`)
+- [ ] Screen 49: Freight Quotations Comparison (`FreightQuotationsComparisonScreen`)
 - [ ] Screen 50: Landed Cost Comparison (`LandedCostComparisonScreen`)
-- [ ] Screen 51: Central Docs Hub (`CentralDocsHubScreen`)
+- [ ] Screen 51: Central Docs Hub (`CentralDocsArchiveScreen`)
 - [x] Screen 52: Cargo Shipping Tracking (48h SLA) (`CargoShippingScreen` in `cargo_shipping_screen.dart`, initialSubTab: 1) — **Reviewed & Fixed**
-- [ ] Screen 53: Draft Inspection COC (`DraftInspectionScreen`)
-- [ ] Screen 54: CargoX Blockchain Hub (`CargoXScreen`)
+- [ ] Screen 53: Draft Inspection COC (`ShipmentDraftDocsScreen`)
+- [ ] Screen 54: CargoX Blockchain Hub (`CargoXHubScreen`)
 - [ ] Screen 55: Clearance Quotations Extractor (`CustomsClearanceQuotationsScreen`)
-- [ ] Screen 56: Customs Duty Estimator (`CustomsDutyEstimatorScreen`)
-- [ ] Screen 57: Originals Collection & Courier (`OriginalsCollectionScreen`)
+- [ ] Screen 56: Customs Duty Estimator (`CustomsConsultationScreen`)
+- [ ] Screen 57: Originals Collection & Courier (`OriginalDocsAndCargoXScreen`)
 - [ ] Screen 59: Production Sync Screen (`ProductionSyncScreen`)
-- [ ] Screens 60-64: Customs subtabs, GIT Ledger, Received Shipments Report
+- [ ] Screens 60-64: Customs subtabs, GIT Ledger (`GoodsInTransitScreen`), Received Shipments Report (`WarehouseReceivedReportScreen`)
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 26 & 52: Cargo Shipping Tracking & Container Allocation (CargoShippingScreen in cargo_shipping_screen.dart)`  
-**Next Screen to Review:** `Screen 27: Clearance Follow-up (ClearanceFollowupScreen / clearance_followup_screen.dart)`
+**Last Screen Fully Fixed:** `Screen 28: Warehouse Receiving GRN (WarehouseReceivingScreen in warehouse_receiving_screen.dart)`  
+**Next Screen to Review:** `Screen 29: Landed Cost Settlement (FinancialSettlementScreen in financial_settlement_screen.dart)`
 
 
 

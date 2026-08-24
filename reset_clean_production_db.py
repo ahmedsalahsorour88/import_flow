@@ -60,6 +60,7 @@ from modules.smart_document_upload.model import UploadSession
 from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
 from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
 from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
+from modules.cargo_insurance.model import CargoInsuranceCertificate
 
 
 def build_clean_production_db():

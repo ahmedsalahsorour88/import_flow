@@ -27,6 +27,7 @@ import '../freight_booking/screens/freight_booking_screen.dart';
 import '../freight_quotations/screens/freight_quotations_comparison_screen.dart';
 import '../import_companies/screens/import_companies_screen.dart';
 import '../import_documentation/screens/bank_form4_screen.dart';
+import '../cargo_insurance/screens/cargo_insurance_screen.dart';
 import '../import_documentation/screens/central_docs_archive_screen.dart';
 import '../import_documentation/screens/customs_declaration46_screen.dart';
 import '../import_documentation/screens/nafeza_acid_screen.dart';
@@ -183,6 +184,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
         // 64: Warehouse Received Shipments Detailed Report
         WarehouseReceivedReportScreen(),
+
+        // 65: Cargo & Marine Insurance Certificate Module
+        CargoInsuranceScreen(),
       ];
 
   bool _isSidebarCollapsed = false;
@@ -490,6 +494,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 children: [
                   _buildMenuItem(Icons.bookmark_added_outlined, 'Freight Booking', 'حجز النولون وتأكيد الخط الملاحي', 25, selectedIndex),
                   _buildMenuItem(Icons.grid_view_outlined, 'Freight Allocations', 'تخصيص وتوزيع الحاويات والبضائع (VGM)', 26, selectedIndex),
+                  _buildMenuItem(Icons.shield_outlined, 'Cargo Insurance', 'شهادات ووثائق التأمين على البضائع', 65, selectedIndex),
                   _buildMenuItem(Icons.directions_boat_outlined, 'Cargo Shipping Tracking', 'متابعة حركة الشحن البحري والجوي', 52, selectedIndex),
                   _buildMenuItem(Icons.rule_folder_outlined, 'PO & Packing Reconciliation', 'مطابقة وتأكيد الفاتورة والباكينج ليست', 21, selectedIndex),
                   _buildMenuItem(Icons.rate_review_outlined, 'Draft Docs Review (B/L)', 'مراجعة وتدقيق مسودات بوالص الشحن', 18, selectedIndex),

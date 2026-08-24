@@ -5,6 +5,7 @@ from modules.cbm_calculator.model import CBMCalculation, CBMCalculationItem
 from modules.customs_tariff.model import CustomsTariff, PreferentialAgreement
 from modules.purchase_orders.model import POLineItem, PackingListItem, PurchaseOrder
 from modules.import_requirements.model import ImportRequirementAssessment
+from modules.cargo_insurance.model import CargoInsuranceCertificate
 
 def migrate_db():
     # 1. Create any missing tables

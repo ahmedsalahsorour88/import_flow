@@ -30,63 +30,9 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
   String _selectedStatusFilter = 'All';
   int _selectedTab = 0;
 
-  // Local state for sample drawing items & discrepancy protocols
-  final List<Map<String, dynamic>> _drawnSamples = [
-    {
-      'sample_id': 'SMP-2026-001',
-      'authority': 'GOEIC Lab',
-      'drawing_date': '2026-08-20',
-      'receipt_no': 'REC-GOEIC-9921',
-      'test_type': 'Physical & Quality Specs Analysis',
-      'status': 'PASSED',
-      'notes': 'Standard ES:1234 compliance approved',
-    },
-    {
-      'sample_id': 'SMP-2026-002',
-      'authority': 'NFSA Central Lab',
-      'drawing_date': '2026-08-21',
-      'receipt_no': 'REC-NFSA-8834',
-      'test_type': 'Microbiology & Heavy Metals Test',
-      'status': 'PENDING',
-      'notes': 'Central lab testing in progress (48h SLA)',
-    },
-    {
-      'sample_id': 'SMP-2026-003',
-      'authority': 'Chemical & Radiation Authority',
-      'drawing_date': '2026-08-22',
-      'receipt_no': 'REC-CHEM-5512',
-      'test_type': 'Purity & Chemical Compound Analysis',
-      'status': 'PASSED',
-      'notes': 'Report #5512: Verified 100% compliant',
-    },
-  ];
-
-  final List<Map<String, dynamic>> _discrepancyProtocols = [
-    {
-      'protocol_no': 'DMG-ALX-2026-001',
-      'declaration_no': '46-ALX-IMP-2026-001',
-      'container_no': 'MSCU9812450',
-      'damage_type': 'Carton breakage & water damage',
-      'damaged_qty': '12 Cartons',
-      'estimated_loss_egp': 14500.0,
-      'responsible_party': 'Shipping Line Carrier',
-      'insurance_claim_status': 'CLAIM_SUBMITTED',
-      'date': '2026-08-22',
-      'notes': 'Joint inspection protocol signed by shipping agent and cargo surveyor',
-    },
-    {
-      'protocol_no': 'SHT-ALX-2026-002',
-      'declaration_no': '46-ALX-IMP-2026-002',
-      'container_no': 'MEDU4412998',
-      'damage_type': 'Weight shortage inside container',
-      'damaged_qty': '45 kg short',
-      'estimated_loss_egp': 8200.0,
-      'responsible_party': 'Foreign Supplier',
-      'insurance_claim_status': 'APPROVED',
-      'date': '2026-08-21',
-      'notes': 'Variance settled by deduction from supplier credit ledger',
-    },
-  ];
+  // Local state for sample drawing items & discrepancy protocols (Clean Production - 0 records)
+  final List<Map<String, dynamic>> _drawnSamples = [];
+  final List<Map<String, dynamic>> _discrepancyProtocols = [];
 
   @override
   void initState() {
@@ -565,9 +511,20 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     ],
                   ),
                   const Divider(height: 20),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
+                  if (_drawnSamples.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          l.customsClearanceEmptyDutyLedger,
+                          style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    )
+                  else
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                       columns: [
                         DataColumn(label: Text(l.customsClearanceColSampleCode, style: const TextStyle(fontWeight: FontWeight.bold))),
@@ -685,9 +642,20 @@ class _CustomsClearanceScreenState extends ConsumerState<CustomsClearanceScreen>
                     ],
                   ),
                   const Divider(height: 20),
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: DataTable(
+                  if (_discrepancyProtocols.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          l.customsClearanceEmptyDutyLedger,
+                          style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+                        ),
+                      ),
+                    )
+                  else
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: DataTable(
                       headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
                       columns: [
                         DataColumn(label: Text(l.customsClearanceColProtocolNo, style: const TextStyle(fontWeight: FontWeight.bold))),

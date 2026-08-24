@@ -90,23 +90,23 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   double _confidenceScore = 0.0;
 
   static const List<Map<String, String>> _countryList = [
-    {'code': 'CN', 'name': 'الصين (China)'},
-    {'code': 'DE', 'name': 'ألمانيا (Germany)'},
-    {'code': 'IT', 'name': 'إيطاليا (Italy)'},
-    {'code': 'TR', 'name': 'تركيا (Turkey)'},
-    {'code': 'US', 'name': 'الولايات المتحدة (USA)'},
-    {'code': 'GB', 'name': 'المملكة المتحدة (UK)'},
-    {'code': 'ES', 'name': 'إسبانيا (Spain)'},
-    {'code': 'FR', 'name': 'فرنسا (France)'},
-    {'code': 'IN', 'name': 'الهند (India)'},
-    {'code': 'JP', 'name': 'اليابان (Japan)'},
-    {'code': 'KR', 'name': 'كوريا الجنوبية (South Korea)'},
-    {'code': 'AE', 'name': 'الإمارات (UAE)'},
-    {'code': 'SA', 'name': 'السعودية (Saudi Arabia)'},
-    {'code': 'EG', 'name': 'مصر (Egypt)'},
-    {'code': 'BR', 'name': 'البرازيل (Brazil)'},
-    {'code': 'RU', 'name': 'روسيا (Russia)'},
-    {'code': 'VN', 'name': 'فيتنام (Vietnam)'},
+    {'code': 'CN', 'name': 'الصين (CN)'},
+    {'code': 'DE', 'name': 'ألمانيا (DE)'},
+    {'code': 'IT', 'name': 'إيطاليا (IT)'},
+    {'code': 'TR', 'name': 'تركيا (TR)'},
+    {'code': 'US', 'name': 'الولايات المتحدة (US)'},
+    {'code': 'GB', 'name': 'المملكة المتحدة (GB)'},
+    {'code': 'ES', 'name': 'إسبانيا (ES)'},
+    {'code': 'FR', 'name': 'فرنسا (FR)'},
+    {'code': 'IN', 'name': 'الهند (IN)'},
+    {'code': 'JP', 'name': 'اليابان (JP)'},
+    {'code': 'KR', 'name': 'كوريا الجنوبية (KR)'},
+    {'code': 'AE', 'name': 'الإمارات (AE)'},
+    {'code': 'SA', 'name': 'السعودية (SA)'},
+    {'code': 'EG', 'name': 'مصر (EG)'},
+    {'code': 'BR', 'name': 'البرازيل (BR)'},
+    {'code': 'RU', 'name': 'روسيا (RU)'},
+    {'code': 'VN', 'name': 'فيتنام (VN)'},
   ];
 
   @override
@@ -547,13 +547,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
   String _targetLabel(EntityTarget target) {
     switch (target) {
       case EntityTarget.supplier:
-        return 'مورد أجنبي (Supplier / Exporter)';
+        return 'مورد أجنبي';
       case EntityTarget.company:
-        return 'شركة مستوردة (Importer / Consignee)';
+        return 'شركة مستوردة';
       case EntityTarget.partner:
-        return 'شريك / مخلص / ناقل (Partner / Broker)';
+        return 'شريك / مخلص / ناقل';
       case EntityTarget.bank:
-        return 'بنك معتمد (Bank / Financial)';
+        return 'بنك معتمد';
     }
   }
 
@@ -659,7 +659,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                                     side: BorderSide(color: _inputModeTab == 0 ? AppTheme.emerald : Colors.grey.shade300),
                                   ),
                                   icon: const Icon(Icons.paste_rounded, size: 16),
-                                  label: const Text('لصق نص حر (Raw Text)'),
+                                  label: const Text('لصق نص حر'),
                                   onPressed: () => setState(() => _inputModeTab = 0),
                                 ),
                               ),
@@ -903,7 +903,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         TextFormField(
           controller: _companyNameCtrl,
           decoration: const InputDecoration(
-            labelText: 'اسم المورد الأجنبي بالإنجليزية (Company English Name) *',
+            labelText: 'اسم المورد الأجنبي بالإنجليزية *',
             prefixIcon: Icon(Icons.business_rounded, size: 18),
             hintText: 'e.g. Suzhou Yuheng Textile Co., Ltd',
           ),
@@ -916,8 +916,8 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 2,
               child: SearchableDropdownField<String>(
                 value: _countryCodeCtrl.text.isNotEmpty ? _countryCodeCtrl.text : 'CN',
-                labelText: 'دولة المنشأ / المقر (Country) *',
-                items: _countryList.map((c) => SearchableDropdownItem(value: c['code']!, label: '${c['code']} - ${c['name']}')).toList(),
+                labelText: 'دولة المنشأ / المقر *',
+                items: _countryList.map((c) => SearchableDropdownItem(value: c['code']!, label: '${c['name']}')).toList(),
                 onChanged: (val) {
                   if (val != null) {
                     setState(() {
@@ -936,13 +936,13 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 value: _supplierRegType,
                 labelText: 'نوع السجل الأجنبي *',
                 items: const [
-                  SearchableDropdownItem(value: 'Company Registration Number', label: 'Company Registration Number (رقم تسجيل الشركة)'),
-                  SearchableDropdownItem(value: 'Commercial Register', label: 'Commercial Register (سجل تجاري)'),
-                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: 'Foreign Exporter Number (Nafeza)'),
-                  SearchableDropdownItem(value: 'Factory Registration', label: 'Factory Registration (تسجيل مصنع)'),
-                  SearchableDropdownItem(value: 'VAT Number', label: 'VAT Number (رقم القيمة المضافة)'),
-                  SearchableDropdownItem(value: 'Tax Number', label: 'Tax Number (رقم ضريبي)'),
-                  SearchableDropdownItem(value: 'DUNS Number', label: 'DUNS No (رقم دنز)'),
+                  SearchableDropdownItem(value: 'Commercial Register', label: 'سجل تجاري (Commercial Register)'),
+                  SearchableDropdownItem(value: 'Company Registration Number', label: 'رقم قيد الشركة (Reg Number)'),
+                  SearchableDropdownItem(value: 'Foreign Exporter Number (Nafeza)', label: 'رقم المصدر الأجنبي بنافذة'),
+                  SearchableDropdownItem(value: 'Factory Registration', label: 'تسجيل مصنع (Factory Registration)'),
+                  SearchableDropdownItem(value: 'VAT Number', label: 'رقم القيمة المضافة (VAT Number)'),
+                  SearchableDropdownItem(value: 'Tax Number', label: 'رقم التعريف الضريبي (Tax ID)'),
+                  SearchableDropdownItem(value: 'DUNS Number', label: 'رقم دنز العالمي (DUNS No)'),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _supplierRegType = val);
@@ -958,7 +958,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _foreignTaxIdCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم التسجيل الأجنبي (Foreign Exporter ID / VAT) *',
+                  labelText: 'رقم السجل / التعريف الضريبي الأجنبي *',
                   prefixIcon: Icon(Icons.badge_rounded, size: 18),
                   hintText: 'e.g. 91320581MA1X...',
                 ),
@@ -969,7 +969,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _cargoxIdCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'معرف كارجو إكس (CargoX Blockchain ID) *',
+                  labelText: 'معرف بلوكتشين كارجو إكس (CargoX ID) *',
                   prefixIcon: Icon(Icons.token_rounded, size: 18, color: Colors.indigo),
                   hintText: 'e.g. 0x71C... أو CX-98214',
                 ),
@@ -981,7 +981,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         TextField(
           controller: _addressCtrl,
           decoration: const InputDecoration(
-            labelText: 'عنوان المصنع / المقر الرئيسي (Factory Address) *',
+            labelText: 'عنوان المصنع / المقر الرئيسي *',
             prefixIcon: Icon(Icons.location_on_rounded, size: 18),
             hintText: 'e.g. No.16, Kangsheng Road, Changshu, Jiangsu, China',
           ),
@@ -999,7 +999,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextField(
                 controller: _mobileCtrl,
-                decoration: const InputDecoration(labelText: 'واتساب / المحمول (WhatsApp)', prefixIcon: Icon(Icons.phone_android_rounded, size: 18)),
+                decoration: const InputDecoration(labelText: 'رقم الهاتف / الواتساب', prefixIcon: Icon(Icons.phone_android_rounded, size: 18)),
               ),
             ),
           ],
@@ -1010,14 +1010,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextField(
                 controller: _emailCtrl,
-                decoration: const InputDecoration(labelText: 'البريد الإلكتروني (Email)', prefixIcon: Icon(Icons.email_rounded, size: 18)),
+                decoration: const InputDecoration(labelText: 'البريد الإلكتروني', prefixIcon: Icon(Icons.email_rounded, size: 18)),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
                 controller: _websiteCtrl,
-                decoration: const InputDecoration(labelText: 'الموقع الإلكتروني (Website)', prefixIcon: Icon(Icons.language_rounded, size: 18)),
+                decoration: const InputDecoration(labelText: 'الموقع الإلكتروني', prefixIcon: Icon(Icons.language_rounded, size: 18)),
               ),
             ),
           ],
@@ -1028,14 +1028,14 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
             Expanded(
               child: TextField(
                 controller: _swiftCodeCtrl,
-                decoration: const InputDecoration(labelText: 'السويفت كود البنكي (SWIFT)', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)),
+                decoration: const InputDecoration(labelText: 'كود السويفت البنكي (SWIFT)', prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18)),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: TextField(
                 controller: _brandsCtrl,
-                decoration: const InputDecoration(labelText: 'العلامات التجارية والنشاط (Brands / Industry)', prefixIcon: Icon(Icons.category_rounded, size: 18)),
+                decoration: const InputDecoration(labelText: 'العلامات التجارية والنشاط الصناعي', prefixIcon: Icon(Icons.category_rounded, size: 18)),
               ),
             ),
           ],
@@ -1053,9 +1053,9 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         TextFormField(
           controller: _companyNameCtrl,
           decoration: const InputDecoration(
-            labelText: 'اسم الشركة المستوردة (Company Name) *',
+            labelText: 'اسم الشركة المستوردة *',
             prefixIcon: Icon(Icons.domain_rounded, size: 18),
-            hintText: 'e.g. Al-Noor Import & Export LLC',
+            hintText: 'مثال: شركة النور للاستيراد والتصدير ش.م.م',
           ),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم الشركة المستوردة مطلوب' : null,
         ),
@@ -1069,7 +1069,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _addressCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'المقر الرئيسي والعنوان (Address) *',
+                  labelText: 'المقر الرئيسي والعنوان *',
                   prefixIcon: Icon(Icons.location_on_rounded, size: 18),
                   hintText: 'مثال: 15 شارع طلعت حرب - وسط البلد - القاهرة',
                 ),
@@ -1080,11 +1080,11 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               flex: 2,
               child: SearchableDropdownField<String>(
                 value: _importerCountry,
-                labelText: 'الدولة (Country) *',
+                labelText: 'الدولة *',
                 searchHintText: 'ابحث عن الدولة...',
                 items: _countryList.map((c) => SearchableDropdownItem<String>(
-                  value: c['name'] ?? 'Egypt',
-                  label: c['name'] ?? 'Egypt',
+                  value: c['name'] ?? 'مصر',
+                  label: c['name'] ?? 'مصر',
                 )).toList(),
                 onChanged: (val) {
                   if (val != null) {
@@ -1108,7 +1108,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _importerCardCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم البطاقة الاستيرادية (Importer Card ID - 9 digits) *',
+                  labelText: 'رقم البطاقة الاستيرادية (9 أرقام) *',
                   prefixIcon: Icon(Icons.card_membership_rounded, size: 18, color: AppTheme.cobalt),
                   hintText: 'مثال: 528153439',
                 ),
@@ -1134,7 +1134,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _taxIdCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم البطاقة الضريبية (VAT Registration ID - 9 digits) *',
+                  labelText: 'رقم البطاقة الضريبية (9 أرقام) *',
                   prefixIcon: Icon(Icons.receipt_long_rounded, size: 18, color: Colors.deepOrange),
                   hintText: 'مثال: 528153439',
                 ),
@@ -1160,7 +1160,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _commercialRegisterCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم السجل التجاري (Commercial Reg # - 15 digits) *',
+                  labelText: 'رقم السجل التجاري *',
                   prefixIcon: Icon(Icons.app_registration_rounded, size: 18),
                   hintText: 'مثال: 100200000070828',
                 ),
@@ -1185,7 +1185,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _phoneCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'رقم الهاتف / المحمول (Phone Number)',
+                  labelText: 'رقم الهاتف / المحمول',
                   prefixIcon: Icon(Icons.phone_rounded, size: 18),
                   hintText: '+20 100 000 0000',
                 ),
@@ -1196,7 +1196,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _emailCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'البريد الإلكتروني للشركة (Email)',
+                  labelText: 'البريد الإلكتروني للشركة',
                   prefixIcon: Icon(Icons.email_rounded, size: 18),
                   hintText: 'info@company.com',
                 ),
@@ -1210,7 +1210,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
         TextField(
           controller: _nafezaTokenCtrl,
           decoration: const InputDecoration(
-            labelText: 'كود حساب نافذة / الرمز الإلكتروني (Nafeza E-Token / Notes)',
+            labelText: 'كود حساب نافذة / الرمز الإلكتروني',
             prefixIcon: Icon(Icons.vpn_key_rounded, size: 18),
             hintText: 'مثال: Nafeza-Portal-Token أو ملاحظات إضافية',
           ),
@@ -1282,12 +1282,12 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
                 value: _partnerTypeStr,
                 labelText: 'نوع وتصنيف الشريك *',
                 items: const [
-                  SearchableDropdownItem(value: 'Customs Broker', label: 'Customs Broker (مخلص جمركي)'),
-                  SearchableDropdownItem(value: 'Shipping Line', label: 'Shipping Line (خط ملاحي)'),
-                  SearchableDropdownItem(value: 'Freight Forwarder', label: 'Freight Forwarder (شركة شحن دولي)'),
-                  SearchableDropdownItem(value: 'Inland Transport', label: 'Inland Transport (ناقل بري محلي)'),
-                  SearchableDropdownItem(value: 'Inspection Agency', label: 'Inspection Agency (شركة فحص ومعاينة)'),
-                  SearchableDropdownItem(value: 'Insurance Company', label: 'Insurance Co (شركة تأمين)'),
+                  SearchableDropdownItem(value: 'Customs Broker', label: 'مخلص جمركي (Customs Broker)'),
+                  SearchableDropdownItem(value: 'Shipping Line', label: 'خط ملاحي (Shipping Line)'),
+                  SearchableDropdownItem(value: 'Freight Forwarder', label: 'شركة شحن دولي (Freight Forwarder)'),
+                  SearchableDropdownItem(value: 'Inland Transport', label: 'ناقل بري محلي (Inland Transport)'),
+                  SearchableDropdownItem(value: 'Inspection Agency', label: 'شركة فحص ومعاينة (Inspection)'),
+                  SearchableDropdownItem(value: 'Insurance Company', label: 'شركة تأمين (Insurance Co)'),
                 ],
                 onChanged: (val) {
                   if (val != null) setState(() => _partnerTypeStr = val);
@@ -1395,7 +1395,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
           decoration: const InputDecoration(
             labelText: 'اسم البنك والمؤسسة المصرفية *',
             prefixIcon: Icon(Icons.account_balance_rounded, size: 18),
-            hintText: 'مثال: البنك التجاري الدولي (CIB) أو Banque Misr',
+            hintText: 'مثال: البنك التجاري الدولي (CIB) أو بنك مصر',
           ),
           validator: (v) => (v == null || v.trim().isEmpty) ? 'اسم البنك مطلوب' : null,
         ),
@@ -1406,7 +1406,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _swiftCodeCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'كود السويفت الدولي (SWIFT / BIC Code) *',
+                  labelText: 'كود السويفت الدولي (SWIFT / BIC) *',
                   prefixIcon: Icon(Icons.swap_horiz_rounded, size: 18, color: Colors.blue),
                   hintText: 'e.g. CIBEGGCAXXX',
                 ),
@@ -1417,7 +1417,7 @@ class _UniversalEntityExtractorDialogState extends State<UniversalEntityExtracto
               child: TextField(
                 controller: _branchNameCtrl,
                 decoration: const InputDecoration(
-                  labelText: 'اسم الفرع المعتمد (Branch Name) *',
+                  labelText: 'اسم الفرع المعتمد *',
                   prefixIcon: Icon(Icons.store_rounded, size: 18),
                   hintText: 'مثال: فرع المهندسين / فرع مدينة نصر',
                 ),

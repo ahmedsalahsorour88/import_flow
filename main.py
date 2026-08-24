@@ -60,6 +60,7 @@ from modules.smart_document_upload.model import UploadSession
 from modules.docs_customs_approval.model import CustomsDocumentApproval, DiscrepancyRectificationTicket
 from modules.cargox.model import CargoXEnvelope, CargoXEnvelopeDocument, CargoXStandardInvoiceReviewSession
 from modules.original_documents_collection.model import OriginalDocumentsCollectionSession
+from modules.cargo_insurance.model import CargoInsuranceCertificate
 
 
 # ==================================================
@@ -87,6 +88,7 @@ from modules.import_documentation.router import router as import_documentation_r
 from modules.import_files.router import router as import_files_router
 from modules.freight_booking.router import router as freight_booking_router
 from modules.cargo_shipping.router import router as cargo_shipping_router
+from modules.cargo_insurance.router import router as cargo_insurance_router
 from modules.customs_clearance.router import router as customs_clearance_router
 from modules.warehouse_receiving.router import router as warehouse_receiving_router
 from modules.financial_settlement.router import router as financial_settlement_router
@@ -197,6 +199,7 @@ app.include_router(import_documentation_router)
 app.include_router(import_files_router)
 app.include_router(freight_booking_router)
 app.include_router(cargo_shipping_router)
+app.include_router(cargo_insurance_router)
 app.include_router(customs_clearance_router)
 app.include_router(warehouse_receiving_router)
 app.include_router(financial_settlement_router)

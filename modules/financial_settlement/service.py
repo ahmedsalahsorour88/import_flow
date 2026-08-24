@@ -26,14 +26,24 @@ from modules.import_files.model import ImportFile
 def calculate_landed_cost_engine(
     expenses: List[Dict[str, Any]],
     items: List[Dict[str, Any]],
+    incoterm: str = "FOB",
 ) -> Dict[str, Any]:
     """
     Core Landed Cost & Cost Allocation Calculation Engine (BP-038 & BP-039).
     Allocates freight, customs duties, brokerage, local transport, and storage expenses
-    across items based on Value, Weight, Volume (CBM), or Equal distribution rules.
+    across items based on Value, Weight, Volume (CBM), or Equal distribution rules,
+    tailored to the Incoterms 2020 rules:
+    - FOB / FAS / FCA: Importer pays international freight, insurance, customs duties, and clearance.
+    - CIF / CIP: Invoice already covers freight and insurance.
+    - CFR / CPT: Invoice already covers freight. Importer pays insurance, customs duties, and clearance.
+    - EXW: Importer pays origin trucking/clearance, freight, insurance, customs duties, and local transport.
+    - DDP: Exporter covers transport/duties; only exceptional storage or unincluded local charges apply.
     """
+    incoterm_normalized = (incoterm or "FOB").upper().strip()
+
     if not items or len(items) == 0:
         return {
+            "incoterm_code": incoterm_normalized,
             "total_fob_egp": 0.0,
             "total_expenses_egp": sum(e.get("amount_egp", 0.0) for e in expenses),
             "total_landed_cost_egp": sum(e.get("amount_egp", 0.0) for e in expenses),
@@ -60,6 +70,10 @@ def calculate_landed_cost_engine(
     total_expenses_egp = 0.0
 
     for exp in expenses:
+        # If marked as seller-paid under CIF/CFR/DDP, do not double-add to importer's expense total
+        if exp.get("is_seller_paid", False) or exp.get("payer", "").lower() == "seller":
+            continue
+
         amount_egp = exp.get("amount_egp", 0.0)
         if amount_egp == 0.0:
             amount_egp = exp.get("amount_fx", 0.0) * exp.get("exchange_rate", 1.0)
@@ -82,13 +96,13 @@ def calculate_landed_cost_engine(
 
             allocated_share = amount_egp * ratio
 
-            if category in ("Freight", "Shipping"):
+            if category in ("Freight", "Shipping", "Ocean Freight", "Air Freight"):
                 item["allocated_freight_egp"] += allocated_share
-            elif category in ("Customs Duty", "Customs", "Taxes"):
+            elif category in ("Customs Duty", "Customs", "Taxes", "VAT", "Import Duty"):
                 item["allocated_customs_egp"] += allocated_share
-            elif category in ("Brokerage", "Clearance", "Brokerage Fees"):
+            elif category in ("Brokerage", "Clearance", "Brokerage Fees", "Customs Clearance"):
                 item["allocated_clearance_egp"] += allocated_share
-            elif category in ("Local Transport", "Transport", "Trucking"):
+            elif category in ("Local Transport", "Transport", "Trucking", "Inland Transport"):
                 item["allocated_transport_egp"] += allocated_share
             else:
                 item["allocated_other_egp"] += allocated_share
@@ -117,6 +131,7 @@ def calculate_landed_cost_engine(
     )
 
     return {
+        "incoterm_code": incoterm_normalized,
         "total_fob_egp": round(total_fob_egp, 2),
         "total_expenses_egp": round(total_expenses_egp, 2),
         "total_landed_cost_egp": round(total_landed_cost_egp, 2),
@@ -129,11 +144,13 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
     if not imp_file:
         raise HTTPException(status_code=404, detail="ملف الشحنة الاستيرادية المرتكز عليه غير موجود أو محذوف.")
 
+    incoterm = (schema.incoterm_code or imp_file.incoterm_code or "FOB").upper()
     code = generate_settlement_code(db)
     record = create_settlement(db, schema, code)
+    record.incoterm_code = incoterm
 
-    # Perform Landed Cost Engine calculation
-    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs)
+    # Perform Landed Cost Engine calculation based on Incoterm
+    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm)
     record.total_fob_egp = calc_res["total_fob_egp"]
     record.total_expenses_egp = calc_res["total_expenses_egp"]
     record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]
@@ -143,7 +160,7 @@ def create_settlement_service(db: Session, schema: FinancialSettlementCreate) ->
 
     # Update Import File progress to 95%
     imp_file.current_module = "Phase 9 - Financial Settlement & Landed Cost Engine"
-    imp_file.current_stage = f"Landed Cost Calculated (Code: {code})"
+    imp_file.current_stage = f"Landed Cost Calculated ({incoterm} - Code: {code})"
     imp_file.progress_percent = 95.0
     imp_file.next_action = "Review Final Settlement & Perform File Closure (Phase 10)"
     db.commit()
@@ -155,7 +172,8 @@ def recalculate_settlement_service(db: Session, settlement_id: int) -> LandedCos
     if not record:
         raise HTTPException(status_code=404, detail="سجل التسوية المالية غير موجود.")
 
-    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs)
+    incoterm = record.incoterm_code or (record.import_file.incoterm_code if record.import_file else "FOB")
+    calc_res = calculate_landed_cost_engine(record.expense_invoices, record.item_landed_costs, incoterm=incoterm)
     record.total_fob_egp = calc_res["total_fob_egp"]
     record.total_expenses_egp = calc_res["total_expenses_egp"]
     record.total_landed_cost_egp = calc_res["total_landed_cost_egp"]

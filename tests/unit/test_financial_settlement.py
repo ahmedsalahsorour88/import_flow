@@ -149,5 +149,37 @@ class TestFinancialSettlementModule(unittest.TestCase):
         self.assertEqual(restored.settlement_id, s_id)
         self.assertTrue(restored.is_active)
 
+    def test_incoterm_aware_landed_cost_calculation(self):
+        # 1. CIF Shipment: Seller pays freight & insurance
+        expenses_cif = [
+            {"invoice_no": "INV-FR-CIF", "category": "Freight", "amount_egp": 40000.0, "is_seller_paid": True},
+            {"invoice_no": "INV-CUST-CIF", "category": "Customs Duty", "amount_egp": 25000.0, "allocation_rule": "Value-Based"},
+            {"invoice_no": "INV-TR-CIF", "category": "Local Transport", "amount_egp": 5000.0, "allocation_rule": "Value-Based"},
+        ]
+        items_cif = [
+            {"item_code": "ITM-CIF-01", "item_name": "Medical Device", "qty": 10, "gross_weight_kg": 500.0, "cbm": 4.0, "fob_unit_egp": 20000.0},
+        ]
+        res_cif = calculate_landed_cost_engine(expenses_cif, items_cif, incoterm="CIF")
+        # Importer expenses should only include customs (25000) and transport (5000) = 30000, excluding seller-paid freight
+        self.assertEqual(res_cif["total_fob_egp"], 200000.0)
+        self.assertEqual(res_cif["total_expenses_egp"], 30000.0)
+        self.assertEqual(res_cif["total_landed_cost_egp"], 230000.0)
+        self.assertEqual(res_cif["incoterm_code"], "CIF")
+
+        # 2. EXW Shipment: Importer pays origin trucking, freight, insurance, customs, transport
+        expenses_exw = [
+            {"invoice_no": "INV-ORIG-EXW", "category": "Origin Inland Transport", "amount_egp": 15000.0, "allocation_rule": "Value-Based"},
+            {"invoice_no": "INV-FR-EXW", "category": "Freight", "amount_egp": 50000.0, "allocation_rule": "Value-Based"},
+            {"invoice_no": "INV-CUST-EXW", "category": "Customs Duty", "amount_egp": 30000.0, "allocation_rule": "Value-Based"},
+        ]
+        items_exw = [
+            {"item_code": "ITM-EXW-01", "item_name": "Industrial Motor", "qty": 5, "gross_weight_kg": 1000.0, "cbm": 8.0, "fob_unit_egp": 30000.0},
+        ]
+        res_exw = calculate_landed_cost_engine(expenses_exw, items_exw, incoterm="EXW")
+        self.assertEqual(res_exw["total_fob_egp"], 150000.0)
+        self.assertEqual(res_exw["total_expenses_egp"], 95000.0)
+        self.assertEqual(res_exw["total_landed_cost_egp"], 245000.0)
+        self.assertEqual(res_exw["incoterm_code"], "EXW")
+
 if __name__ == "__main__":
     unittest.main()

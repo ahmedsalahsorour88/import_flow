@@ -31,12 +31,14 @@ class ItemLandedCostSchema(BaseModel):
 
 class FinancialSettlementCreate(BaseModel):
     import_file_id: int
+    incoterm_code: Optional[str] = "FOB"
     expense_invoices: List[ExpenseInvoiceSchema] = []
     item_landed_costs: List[ItemLandedCostSchema] = []
     accountant_name: str = "Kamal"
     notes: Optional[str] = None
 
 class FinancialSettlementUpdate(BaseModel):
+    incoterm_code: Optional[str] = None
     expense_invoices: Optional[List[ExpenseInvoiceSchema]] = None
     item_landed_costs: Optional[List[ItemLandedCostSchema]] = None
     status: Optional[str] = None
@@ -47,6 +49,7 @@ class FinancialSettlementResponse(BaseModel):
     settlement_id: int
     settlement_code: str
     import_file_id: int
+    incoterm_code: str = "FOB"
     expense_invoices: List[Dict[str, Any]]
     total_fob_egp: float
     total_expenses_egp: float

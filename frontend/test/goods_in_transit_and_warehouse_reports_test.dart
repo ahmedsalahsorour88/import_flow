@@ -125,6 +125,16 @@ void main() {
     inspectorName: 'Eng. Hany',
     createdAt: '2026-08-23T10:00:00Z',
     updatedAt: '2026-08-23T10:00:00Z',
+    grnItems: [
+      GrnItemModel(
+        itemCode: 'ITM-SR-101',
+        itemName: 'خوادم رقمية صناعية (Enterprise Servers)',
+        invoicedQty: 250,
+        acceptedQty: 247,
+        shortageQty: 0,
+        damagedQty: 2,
+      ),
+    ],
   );
 
   group('Goods In Transit (GIT) Ledger & Model Tests', () {
@@ -204,7 +214,7 @@ void main() {
 
       expect(find.textContaining('تقرير الشحنات المستلمة بالمخزن تفصيلي'), findsWidgets);
       expect(find.textContaining('المستلم الفعلي بالمخزن'), findsOneWidget);
-      expect(find.text('PO-2026-IT-001'), findsWidgets);
+      expect(find.textContaining('IMP-1'), findsWidgets);
       expect(find.textContaining('Enterprise Servers'), findsOneWidget);
     });
   });

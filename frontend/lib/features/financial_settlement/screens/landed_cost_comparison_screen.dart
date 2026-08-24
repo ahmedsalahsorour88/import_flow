@@ -51,8 +51,9 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     });
   }
 
+  String _selectedIncoterm = 'FOB';
+
   Future<void> _fetchData(int fileId) async {
-    final l10n = context.l10n;
     setState(() {
       _isLoading = true;
       _error = null;
@@ -62,33 +63,50 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
     try {
       final dio = ref.read(dioProvider);
 
-      // Fetch import file for estimated cost
+      // Fetch import file for estimated cost and Incoterm
       try {
         final importFileRes = await dio.get('${ApiConstants.baseUrl}/import-files/$fileId');
-        _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
-        if (importFileRes.data['import_file_code'] != null) {
-          _selectedImportFileCode = importFileRes.data['import_file_code'].toString();
+        if (importFileRes.data != null) {
+          _estimatedCost = (importFileRes.data['estimated_cost'] ?? 0.0).toDouble();
+          if (importFileRes.data['import_file_code'] != null) {
+            _selectedImportFileCode = importFileRes.data['import_file_code'].toString();
+          }
+          if (importFileRes.data['incoterm_code'] != null) {
+            _selectedIncoterm = importFileRes.data['incoterm_code'].toString().toUpperCase();
+          }
         }
-      } catch (e) {
+      } catch (_) {
         _estimatedCost = 0.0;
+        _selectedIncoterm = 'FOB';
       }
 
-      // Fetch settlement record
-      final settlementRes = await dio.get('${ApiConstants.baseUrl}/financial-settlements', queryParameters: {
-        'import_file_id': fileId,
-      });
+      // Fetch settlement record safely
+      try {
+        final settlementRes = await dio.get('${ApiConstants.baseUrl}/financial-settlements', queryParameters: {
+          'import_file_id': fileId,
+        });
 
-      final settlements = settlementRes.data;
-      if (settlements != null && settlements is List && settlements.isNotEmpty) {
-        _settlementRecord = settlements.first;
-      } else if (settlements != null && settlements is Map<String, dynamic> && settlements.containsKey('settlement_id')) {
-        _settlementRecord = settlements;
-      } else {
+        final settlements = settlementRes.data;
+        if (settlements != null && settlements is List && settlements.isNotEmpty) {
+          _settlementRecord = settlements.first;
+          if (_settlementRecord?['incoterm_code'] != null) {
+            _selectedIncoterm = _settlementRecord!['incoterm_code'].toString().toUpperCase();
+          }
+        } else if (settlements != null && settlements is Map<String, dynamic> && settlements.containsKey('settlement_id')) {
+          _settlementRecord = settlements;
+          if (_settlementRecord?['incoterm_code'] != null) {
+            _selectedIncoterm = _settlementRecord!['incoterm_code'].toString().toUpperCase();
+          }
+        } else {
+          _settlementRecord = null;
+        }
+      } catch (_) {
+        // No settlement registered yet for this file
         _settlementRecord = null;
       }
 
     } catch (e) {
-      _error = l10n.landedCostLoadError(e.toString());
+      _settlementRecord = null;
     } finally {
       if (mounted) {
         setState(() {
@@ -237,6 +255,8 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
         children: [
           _buildHeader(),
           const SizedBox(height: 24),
+          _buildIncotermRuleCard(),
+          const SizedBox(height: 24),
           _buildSummaryCards(totalFobEgp, totalExpensesEgp, totalLandedCostEgp, fobVariance, landedVariance),
           const SizedBox(height: 32),
           Text(l10n.expenseBreakdownHeader, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -248,6 +268,166 @@ class _LandedCostComparisonScreenState extends ConsumerState<LandedCostCompariso
           _buildItemLandedCostTable(),
           const SizedBox(height: 32),
           _buildSummaryBanner(landedVariance),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIncotermRuleCard() {
+    final isArabic = Localizations.localeOf(context).languageCode == 'ar';
+    final inco = _selectedIncoterm.toUpperCase();
+
+    String ruleTitle;
+    String ruleDesc;
+    List<String> exporterCovers;
+    List<String> importerCovers;
+
+    switch (inco) {
+      case 'CIF':
+      case 'CIP':
+        ruleTitle = isArabic ? 'قاعدة تسليم CIF / CIP (التكلفة والتأمين والنولون)' : 'CIF / CIP Rule (Cost, Insurance & Freight)';
+        ruleDesc = isArabic 
+            ? 'فاتورة الشراء تشمل نولون الشحن الدولي والتأمين البحري. تكلفة الوصول الواصلة للمستورد تتكون من: (قيمة الفاتورة CIF + الضرائب والرسوم الجمركية + أتعاب التخليص ومصاريف الميناء + النقل الداخلي).'
+            : 'Purchase invoice includes international freight and marine insurance. Importer Landed Cost = (CIF Invoice + Customs Duties & Taxes + Port & Clearance Fees + Local Transport).';
+        exporterCovers = isArabic ? ['النولون الدولي', 'التأمين البحري', 'إجراءات التصدير'] : ['Ocean Freight', 'Marine Insurance', 'Export Clearance'];
+        importerCovers = isArabic ? ['الجمارك والضرائب', 'أتعاب التخليص', 'رسوم الميناء DTHC', 'النقل الداخلي'] : ['Customs & Taxes', 'Clearance Fees', 'DTHC Port Fees', 'Local Inland Transport'];
+        break;
+      case 'CFR':
+      case 'CPT':
+        ruleTitle = isArabic ? 'قاعدة تسليم CFR / CPT (التكلفة والنولون)' : 'CFR / CPT Rule (Cost & Freight)';
+        ruleDesc = isArabic
+            ? 'فاتورة الشراء تشمل نولون الشحن الدولي فقط. تكلفة الوصول للمستورد تشمل: (قيمة الفاتورة CFR + وثيقة التأمين البحري + الضرائب والرسوم الجمركية + أتعاب التخليص + النقل الداخلي).'
+            : 'Purchase invoice covers international freight. Importer Landed Cost = (CFR Invoice + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
+        exporterCovers = isArabic ? ['النولون الدولي', 'إجراءات التصدير'] : ['Ocean Freight', 'Export Clearance'];
+        importerCovers = isArabic ? ['التأمين البحري', 'الجمارك والضرائب', 'أتعاب التخليص', 'النقل الداخلي'] : ['Marine Insurance', 'Customs & Taxes', 'Clearance', 'Local Transport'];
+        break;
+      case 'EXW':
+        ruleTitle = isArabic ? 'قاعدة تسليم EXW (تسليم أرض المصنع)' : 'EXW Rule (Ex Works - Factory Gate)';
+        ruleDesc = isArabic
+            ? 'فاتورة الشراء تغطي ثمن البضاعة بأرض المصنع فقط. المستورد يتحمل كافة التكاليف من بلد المنشأ حتى الوصول: (قيمة الفاتورة + نقل المنشأ + تخليص التصدير + النولون + التأمين + الجمارك + التخليص + النقل الداخلي).'
+            : 'Invoice covers factory goods only. Importer bears all origin-to-destination costs: (EXW Invoice + Origin Trucking + Export Clearance + Freight + Insurance + Customs + Clearance + Local Transport).';
+        exporterCovers = isArabic ? ['تجهيز البضاعة بالمصنع'] : ['Goods Packaging at Factory'];
+        importerCovers = isArabic ? ['نقل وتخليص المنشأ', 'النولون والتأمين', 'الجمارك والضرائب', 'التخليص والنقل الداخلي'] : ['Origin Trucking & Export', 'Freight & Insurance', 'Customs & Taxes', 'Clearance & Transport'];
+        break;
+      case 'DDP':
+        ruleTitle = isArabic ? 'قاعدة تسليم DDP (التسليم خالص الرسوم والجمارك)' : 'DDP Rule (Delivered Duty Paid)';
+        ruleDesc = isArabic
+            ? 'فاتورة الشراء تغطي كافة التكاليف بما فيها الشحن والتأمين والرسوم الجمركية والتوصيل. المستورد لا يتحمل سوى أي مصاريف استثنائية للتخزين إن وجدت.'
+            : 'Invoice covers freight, insurance, customs duties, and local delivery. Importer only bears extraordinary storage/handling fees if incurred.';
+        exporterCovers = isArabic ? ['النولون والتأمين', 'الضرائب والجمارك', 'النقل حتى المستودع'] : ['Freight & Insurance', 'Customs Duties & Taxes', 'Delivery to Warehouse'];
+        importerCovers = isArabic ? ['التفريغ أو التخزين الاستثنائي'] : ['Unloading / Extraordinary Storage'];
+        break;
+      case 'FOB':
+      case 'FCA':
+      case 'FAS':
+      default:
+        ruleTitle = isArabic ? 'قاعدة تسليم FOB / FCA (تسليم على ظهر السفينة)' : 'FOB / FCA Rule (Free On Board)';
+        ruleDesc = isArabic
+            ? 'فاتورة الشراء تشمل ثمن البضاعة وتحميلها على السفينة بميناء الشحن. تكلفة الوصول للمستورد تتكون من: (قيمة الفاتورة FOB + نولون الشحن + التأمين البحري + الرسوم الجمركية والضرائب + التخليص + النقل الداخلي).'
+            : 'Invoice covers goods loaded on vessel at origin port. Importer Landed Cost = (FOB Invoice + Ocean Freight + Marine Insurance + Customs Duties & Taxes + Clearance + Local Transport).';
+        exporterCovers = isArabic ? ['نقل وتخليص المنشأ', 'التحميل بميناء الشحن'] : ['Origin Transport & Export', 'Loading on Vessel'];
+        importerCovers = isArabic ? ['النولون الدولي', 'التأمين البحري', 'الجمارك والضرائب', 'التخليص والنقل الداخلي'] : ['Ocean Freight', 'Marine Insurance', 'Customs & Taxes', 'Clearance & Local Transport'];
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.cobalt.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: AppTheme.cobalt,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  inco,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  ruleTitle,
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            ruleDesc,
+            style: TextStyle(fontSize: 12, color: Colors.grey.shade800, height: 1.4),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isArabic ? '✔ مشمول في الفاتورة (على البائع):' : '✔ Included in Invoice (Exporter):',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green.shade800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        exporterCovers.join(' • '),
+                        style: TextStyle(fontSize: 11, color: Colors.green.shade900),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.blue.shade200),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        isArabic ? '➕ إضافات تكلفة الوصول (على المستورد):' : '➕ Added Landed Cost Expenses (Importer):',
+                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue.shade800),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        importerCovers.join(' • '),
+                        style: TextStyle(fontSize: 11, color: Colors.blue.shade900),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

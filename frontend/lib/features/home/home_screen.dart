@@ -140,7 +140,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         FreightQuotationsComparisonScreen(),
 
         // 50: Landed Cost Comparison
-        LandedCostComparisonScreen(importFileId: 1, importFileCode: 'IMP-DEMO'),
+        LandedCostComparisonScreen(),
 
         // 51: Central Shipment Documents Archive & Discrepancies Summary Hub
         CentralDocsArchiveScreen(),

@@ -58,57 +58,8 @@ class _WarehouseReceivedReportScreenState extends ConsumerState<WarehouseReceive
           child: Text(l.whReportErrorFetchingData(err), style: const TextStyle(color: Colors.red)),
         ),
         data: (records) {
-          // Dummy or real received entries expanded with Multi-PO breakdown
-          final List<Map<String, dynamic>> receivedReportItems = [
-            {
-              'import_file_code': 'IMP-2026-001',
-              'po_number': 'PO-2026-IT-001',
-              'container_info': '2 × 40ft High Cube (MSCU9812450)',
-              'item_code': 'ITM-SR-101',
-              'item_name': 'خوادم رقمية صناعية (Enterprise Servers)',
-              'invoiced_qty': 250,
-              'shortage_qty': 0,
-              'damaged_qty': 2,
-              'samples_qty': 1,
-              'received_qty': 247,
-              'variance_qty': -3,
-              'warehouse_name': 'Main Warehouse - Cairo',
-              'arrival_date': '2026-08-22',
-              'status': 'Confirmed Final',
-            },
-            {
-              'import_file_code': 'IMP-2026-001',
-              'po_number': 'PO-2026-IT-001',
-              'container_info': '2 × 40ft High Cube (MSCU9812450)',
-              'item_code': 'ITM-SR-102',
-              'item_name': 'محولات شبكية ذكية (Smart Network Switches)',
-              'invoiced_qty': 500,
-              'shortage_qty': 0,
-              'damaged_qty': 0,
-              'samples_qty': 2,
-              'received_qty': 498,
-              'variance_qty': -2,
-              'warehouse_name': 'Main Warehouse - Cairo',
-              'arrival_date': '2026-08-22',
-              'status': 'Confirmed Final',
-            },
-            {
-              'import_file_code': 'IMP-2026-002',
-              'po_number': 'PO-2026-DE-004',
-              'container_info': '1 × 20ft Standard (MEDU4412998)',
-              'item_code': 'ITM-MD-201',
-              'item_name': 'أجهزة قياس وضبط الجودة الهيدروليكية',
-              'invoiced_qty': 180,
-              'shortage_qty': 5,
-              'damaged_qty': 0,
-              'samples_qty': 1,
-              'received_qty': 174,
-              'variance_qty': -6,
-              'warehouse_name': 'Alexandria Logistics Hub',
-              'arrival_date': '2026-08-21',
-              'status': 'Confirmed Final',
-            },
-          ];
+          // Real received entries expanded from warehouse receiving records
+          final List<Map<String, dynamic>> receivedReportItems = [];
 
           // Also map any actual records from the provider
           for (var r in records) {

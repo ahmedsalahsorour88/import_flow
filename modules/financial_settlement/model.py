@@ -28,8 +28,7 @@ class LandedCostSettlementRecord(Base):
     settlement_code = Column(String(50), unique=True, index=True, nullable=False) # e.g. LCS-2026-0001
 
     import_file_id = Column(Integer, ForeignKey("import_files.import_file_id"), nullable=False)
-    
-    # BP-036 & BP-037 Expense Invoices JSON
+    incoterm_code = Column(String(20), default="FOB", nullable=False) # FOB, CIF, CFR, EXW, DDP, etc.
     # Schema: [{"invoice_no": "INV-100", "category": "Freight", "provider_name": "Maersk", "currency": "USD", "amount_fx": 1000.0, "exchange_rate": 50.0, "amount_egp": 50000.0, "allocation_rule": "Volume-Based"}]
     expense_invoices = Column(JSON, default=list, nullable=False)
     

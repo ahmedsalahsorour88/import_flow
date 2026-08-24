@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -265,7 +266,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  _comparisonResult!.allMatched ? 'مطابق' : 'فروق',
+                  _comparisonResult!.allMatched ? context.l10n.matchedStatus : context.l10n.discrepancyStatus,
                   style: TextStyle(
                     color: _comparisonResult!.allMatched ? Colors.green : Colors.red,
                     fontSize: 10,
@@ -334,7 +335,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات (Refresh)',
+          tooltip: context.l10n.refresh,
           onPressed: _refreshData,
         ),
       ],
@@ -391,7 +392,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'تسجيل وطلب استخراج رقم القيد الجمركي المبدئي (ACID) وفق متطلبات مصلحة الجمارك المصرية ومنظومة نافذة (MTS). اختر ملف الشحنة لتحميل بيانات المستورد والمورد الأجنبي تلقائياً.',
+                    context.l10n.acidInfoBanner,
                     style: TextStyle(color: Colors.blue.shade900, fontSize: 13, height: 1.4),
                   ),
                 ),
@@ -418,13 +419,13 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'وضع التعديل النشط: جاري تعديل وتحديث بيانات طلب ACID (${_editingAcidCode ?? ''})',
+                          '${context.l10n.activeEditModeBanner}: ${_editingAcidCode ?? ''}',
                           style: TextStyle(fontWeight: FontWeight.bold, color: Colors.orange.shade900, fontSize: 13.5),
                         ),
                         const SizedBox(height: 2),
-                        const Text(
-                          'يمكنك تعديل أي بيانات هنا ثم الضغط على "تعديل وحفظ طلب ACID" لتحديث الجلسة فورياً دون تكرار.',
-                          style: TextStyle(fontSize: 12, color: Colors.black87),
+                        Text(
+                          context.l10n.savePaymentChangesButton,
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -438,7 +439,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       });
                     },
                     icon: const Icon(Icons.close, size: 16),
-                    label: const Text('إلغاء التعديل'),
+                    label: Text(context.l10n.cancelEdit),
                   ),
                 ],
               ),
@@ -454,8 +455,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: SearchableDropdownField<int>(
-              labelText: 'اختر ملف الشحنة لطلب ACID (Select Import File)',
-              hintText: 'ابحث برقم الملف أو اسم المورد أو الشركة...',
+              labelText: context.l10n.selectImportFileAcidLabel,
+              hintText: context.l10n.searchFileOrSupplierHint,
               value: _selectedImportFileId,
               isRequired: true,
               items: importFiles.map((f) => SearchableDropdownItem<int>(
@@ -478,9 +479,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '1. بيانات المستورد والمصدر الأجنبي (Importer & Exporter Parties):',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                Text(
+                  context.l10n.importerAndExporterSection,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const Divider(height: 24),
                 Row(
@@ -491,11 +492,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('🏢 الشركة المستوردة (Importer):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('🏢 ${context.l10n.importerSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height: 10),
                           SearchableDropdownField<int>(
-                            labelText: 'الشركة المستوردة (Importer Company)',
-                            hintText: 'اختر الشركة المستوردة...',
+                            labelText: context.l10n.importerSectionTitle,
+                            hintText: context.l10n.searchFileOrSupplierHint,
                             value: _selectedImporterId,
                             isRequired: true,
                             items: importCompanies.map((c) => SearchableDropdownItem<int>(
@@ -515,20 +516,20 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _importerTaxIdCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'الرقم الضريبي للمستورد (Tax ID) *',
-                              prefixIcon: Icon(Icons.badge_outlined),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: '${context.l10n.importerTaxIdLabel} *',
+                              prefixIcon: const Icon(Icons.badge_outlined),
+                              border: const OutlineInputBorder(),
                             ),
-                            validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                            validator: (v) => v == null || v.trim().isEmpty ? context.l10n.importerTaxIdLabel : null,
                           ),
                           const SizedBox(height: 12),
                           TextFormField(
                             controller: _importerAddressCtrl,
-                            decoration: const InputDecoration(
-                              labelText: 'عنوان المستورد المسجل بنافذة',
-                              prefixIcon: Icon(Icons.location_on_outlined),
-                              border: OutlineInputBorder(),
+                            decoration: InputDecoration(
+                              labelText: context.l10n.importerAddressLabel,
+                              prefixIcon: const Icon(Icons.location_on_outlined),
+                              border: const OutlineInputBorder(),
                             ),
                           ),
                         ],
@@ -541,11 +542,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('🌍 المصدر الأجنبي (Foreign Exporter):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text('🌍 ${context.l10n.foreignExporterSectionTitle}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height: 10),
                           SearchableDropdownField<int>(
-                            labelText: 'المورد الأجنبي (Foreign Exporter / Supplier)',
-                            hintText: 'اختر المورد الأجنبي...',
+                            labelText: context.l10n.foreignExporterSectionTitle,
+                            hintText: context.l10n.searchFileOrSupplierHint,
                             value: _selectedSupplierId,
                             isRequired: true,
                             items: suppliers.map((s) => SearchableDropdownItem<int>(
@@ -573,18 +574,18 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                                 child: TextFormField(
                                   controller: _exporterRegIdCtrl,
                                   decoration: InputDecoration(
-                                    labelText: 'رقم السجل / الضريبي بالخارج *',
+                                    labelText: '${context.l10n.foreignExporterIdLabel} *',
                                     helperText: _exporterRegType,
                                     border: const OutlineInputBorder(),
                                   ),
-                                  validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.foreignExporterIdLabel : null,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: DropdownButtonFormField<String>(
                                   value: _exporterRegType,
-                                  decoration: const InputDecoration(labelText: 'نوع التسجيل', border: OutlineInputBorder()),
+                                  decoration: InputDecoration(labelText: context.l10n.regTypeLabel, border: const OutlineInputBorder()),
                                   items: const [
                                     DropdownMenuItem(value: 'VAT Number', child: Text('VAT')),
                                     DropdownMenuItem(value: 'Commercial Register', child: Text('CR')),
@@ -602,20 +603,20 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                               Expanded(
                                 child: TextFormField(
                                   controller: _exporterCountryCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'دولة المنشأ / التصدير *',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: '${context.l10n.countryOfOriginExportLabel} *',
+                                    border: const OutlineInputBorder(),
                                   ),
-                                  validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                                  validator: (v) => v == null || v.trim().isEmpty ? context.l10n.countryOfOriginExportLabel : null,
                                 ),
                               ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: TextFormField(
                                   controller: _cargoxIdCtrl,
-                                  decoration: const InputDecoration(
-                                    labelText: 'CargoX Platform ID',
-                                    border: OutlineInputBorder(),
+                                  decoration: InputDecoration(
+                                    labelText: context.l10n.cargoxPlatformIdLabel,
+                                    border: const OutlineInputBorder(),
                                   ),
                                 ),
                               ),
@@ -642,9 +643,9 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  '2. بيانات الفاتورة المبدئية والموانئ والمخلص (Proforma, Ports & Broker):',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
+                Text(
+                  context.l10n.proformaPortsBrokerSection,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: AppTheme.charcoal),
                 ),
                 const Divider(height: 24),
                 Row(
@@ -652,22 +653,22 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _proformaNoCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'رقم الفاتورة المبدئية (PI Number) *',
-                          prefixIcon: Icon(Icons.receipt_outlined),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: '${context.l10n.proformaInvoiceNoLabel} *',
+                          prefixIcon: const Icon(Icons.receipt_outlined),
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? context.l10n.proformaInvoiceNoLabel : null,
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: TextFormField(
                         controller: _proformaDateCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ الفاتورة (PI Date) *',
-                          prefixIcon: Icon(Icons.calendar_today_outlined),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: '${context.l10n.proformaInvoiceDateLabel} *',
+                          prefixIcon: const Icon(Icons.calendar_today_outlined),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -675,10 +676,10 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     Expanded(
                       child: DropdownButtonFormField<String>(
                         value: _invoiceType,
-                        decoration: const InputDecoration(labelText: 'نوع الفاتورة المقدمة', border: OutlineInputBorder()),
-                        items: const [
-                          DropdownMenuItem(value: 'Proforma Invoice', child: Text('فاتورة مبدئية (Proforma)')),
-                          DropdownMenuItem(value: 'Commercial Invoice', child: Text('فاتورة تجارية نهائية')),
+                        decoration: InputDecoration(labelText: context.l10n.invoiceTypeLabel, border: const OutlineInputBorder()),
+                        items: [
+                          DropdownMenuItem(value: 'Proforma Invoice', child: Text(context.l10n.proformaInvoiceNoLabel)),
+                          const DropdownMenuItem(value: 'Commercial Invoice', child: Text('Commercial Invoice')),
                         ],
                         onChanged: (val) => setState(() => _invoiceType = val ?? 'Proforma Invoice'),
                       ),
@@ -691,24 +692,24 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _polCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'ميناء الشحن (Port of Loading - POL) *',
-                          prefixIcon: Icon(Icons.directions_boat_outlined),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: '${context.l10n.portOfLoadingLabel} *',
+                          prefixIcon: const Icon(Icons.directions_boat_outlined),
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfLoadingLabel : null,
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: TextFormField(
                         controller: _podCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'ميناء الوصول الجمركي بمصر (POD) *',
-                          prefixIcon: Icon(Icons.anchor),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: '${context.l10n.portOfDischargeLabel} *',
+                          prefixIcon: const Icon(Icons.anchor),
+                          border: const OutlineInputBorder(),
                         ),
-                        validator: (v) => v == null || v.trim().isEmpty ? 'مطلوب' : null,
+                        validator: (v) => v == null || v.trim().isEmpty ? context.l10n.portOfDischargeLabel : null,
                       ),
                     ),
                   ],
@@ -718,8 +719,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   children: [
                     Expanded(
                       child: SearchableDropdownField<int>(
-                        labelText: 'المخلص الجمركي المسؤول (Customs Broker)',
-                        hintText: 'اختر المخلص الجمركي...',
+                        labelText: context.l10n.customsBrokerResponsibleLabel,
+                        hintText: context.l10n.searchFileOrSupplierHint,
                         value: _selectedBrokerId,
                         items: brokers.map((b) => SearchableDropdownItem<int>(
                           value: b.providerId ?? 0,
@@ -739,10 +740,10 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _brokerPhoneCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'هاتف المخلص للتواصل',
-                          prefixIcon: Icon(Icons.phone_outlined),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.brokerPhoneLabel,
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -750,10 +751,10 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     Expanded(
                       child: TextFormField(
                         controller: _requestedDateCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ تقديم الطلب بنافذة *',
-                          prefixIcon: Icon(Icons.event_available),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: '${context.l10n.acidRequestDateLabel} *',
+                          prefixIcon: const Icon(Icons.event_available),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -777,8 +778,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           : const Icon(Icons.save),
                       label: Text(
                         _isSaving
-                            ? 'جارٍ الحفظ...'
-                            : (_editingAcidSessionId != null ? 'تعديل وحفظ طلب ACID' : 'حفظ بيانات الطلب وإرسالها للمطابقة'),
+                            ? context.l10n.loading
+                            : (_editingAcidSessionId != null ? context.l10n.updateAcidRequestButton : context.l10n.saveAcidRequestButton),
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
@@ -787,7 +788,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
                       onPressed: () => setState(() => _selectedSubTab = 1),
                       icon: const Icon(Icons.smart_toy_outlined),
-                      label: const Text('الانتقال للإدخال الذكي من نافذة (MTS Parser)'),
+                      label: Text(context.l10n.goToSmartParserButton),
                     ),
                   ],
                 ),
@@ -811,18 +812,18 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   children: [
                     const Icon(Icons.mark_email_read_outlined, color: Colors.green, size: 24),
                     const SizedBox(width: 10),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '📩 رسالة طلب إصدار ACID الجاهزة للإرسال للمخلص الجمركي (Broker Dispatch Message):',
-                            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
+                            context.l10n.brokerDispatchMessageTitle,
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.green),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'تم تجميع وتوليد الرسالة تلقائياً بكافة البيانات المستدعاة من الشحنة لتسهيل إرسالها للمخلص عبر الواتساب أو الإيميل بنقرة واحدة.',
-                            style: TextStyle(fontSize: 12, color: Colors.black87),
+                            context.l10n.brokerDispatchMessageSub,
+                            style: const TextStyle(fontSize: 12, color: Colors.black87),
                           ),
                         ],
                       ),
@@ -836,11 +837,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: _buildWhatsAppMessage()));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ تم نسخ رسالة الواتساب إلى الحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                          const SnackBar(content: Text('✅ WhatsApp Message Copied'), backgroundColor: AppTheme.emerald),
                         );
                       },
                       icon: const Icon(Icons.copy, size: 16),
-                      label: const Text('نسخ عربي (WhatsApp)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.copyArabicWhatsApp, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 8),
                     ElevatedButton.icon(
@@ -852,11 +853,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: _buildEnglishRequestMessage()));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ تم نسخ رسالة ACID Request باللغة الإنجليزية بنجاح (English)'), backgroundColor: AppTheme.emerald),
+                          const SnackBar(content: Text('✅ ACID Request Message Copied (English)'), backgroundColor: AppTheme.emerald),
                         );
                       },
                       icon: const Icon(Icons.language, size: 16),
-                      label: const Text('نسخ بالإنجليزية (English)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.copyEnglishRequest, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     const SizedBox(width: 8),
                     OutlinedButton.icon(
@@ -867,11 +868,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       onPressed: () {
                         Clipboard.setData(ClipboardData(text: _buildEmailMessage()));
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('✅ تم نسخ قالب الإيميل إلى الحافظة بنجاح'), backgroundColor: AppTheme.emerald),
+                          const SnackBar(content: Text('✅ Email Template Copied'), backgroundColor: AppTheme.emerald),
                         );
                       },
                       icon: const Icon(Icons.email_outlined, size: 16),
-                      label: const Text('قالب الإيميل'),
+                      label: Text(context.l10n.emailTemplateButton),
                     ),
                   ],
                 ),
@@ -918,7 +919,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'المحلل الذكي لنصوص نافذة (MTS Smart Parser): الصق النص الخام المستلم من إشعار نافذة أو البريد الإلكتروني. سيقوم النظام باستخراج رقم ACID، تاريخ الصلاحية، بيانات المصدر والمستورد تلقائياً وبدقة 100%.',
+                  context.l10n.smartParserInfoBanner,
                   style: TextStyle(color: Colors.teal.shade900, fontSize: 13, height: 1.4),
                 ),
               ),
@@ -935,8 +936,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: SearchableDropdownField<int>(
-            labelText: 'ربط بنتيجة ملف شحنة (Select Import File)',
-            hintText: 'اختر ملف الشحنة المرتبط...',
+            labelText: context.l10n.linkImportFileResult,
+            hintText: context.l10n.searchFileOrSupplierHint,
             value: _selectedImportFileId,
             items: importFiles.map((f) => SearchableDropdownItem<int>(
               value: f.importFileId,
@@ -960,7 +961,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             children: [
               Row(
                 children: [
-                  const Text('الصق نص إشعار نافذة الخام هنا (Raw Nafeza MTS Text):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  Text('${context.l10n.pasteRawMtsTextTitle}:', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const Spacer(),
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
@@ -969,7 +970,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     ),
                     onPressed: _loadSampleMtsText,
                     icon: const Icon(Icons.auto_fix_high, size: 16),
-                    label: const Text('تحميل نص إشعار نافذة نموذجي'),
+                    label: Text(context.l10n.loadSampleMtsTextButton),
                   ),
                   const SizedBox(width: 8),
                   TextButton.icon(
@@ -980,7 +981,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       }
                     },
                     icon: const Icon(Icons.paste, size: 16),
-                    label: const Text('لصق من الحافظة'),
+                    label: Text(context.l10n.pasteFromClipboardButton),
                   ),
                 ],
               ),
@@ -989,7 +990,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 controller: _rawMtsTextCtrl,
                 maxLines: 8,
                 decoration: const InputDecoration(
-                  hintText: 'الصق نص إشعار نافذة المستلم من البريد أو موقع نافذة...\n\nيجب أن يحتوي على:\n- رقم القيد الجمركي [ACID: ...]\n- تواريخ الطلب والإصدار والصلاحية\n- بيانات المستورد والمصدر الأجنبي والفاتورة',
+                  hintText: 'MTS Notification [ACID: 19 digits]...',
                   border: OutlineInputBorder(),
                   filled: true,
                   fillColor: Color(0xFFFAFAFA),
@@ -1008,7 +1009,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     icon: _isParsingMts
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Icon(Icons.bolt),
-                    label: Text(_isParsingMts ? 'جارٍ التحليل بالذكاء الاصطناعي...' : 'تشغيل المحلل الذكي واستخراج البيانات ⚡', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    label: Text(_isParsingMts ? context.l10n.loading : context.l10n.runSmartParserButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                   const SizedBox(width: 12),
                   OutlinedButton.icon(
@@ -1017,7 +1018,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       _parsedMtsData = null;
                     }),
                     icon: const Icon(Icons.clear_all),
-                    label: const Text('مسح النص'),
+                    label: Text(context.l10n.clearTextButton),
                   ),
                 ],
               ),
@@ -1047,8 +1048,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                     const SizedBox(width: 8),
                     Text(
                       (_parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false)
-                          ? 'البيانات المستخرجة بنجاح من نص نافذة (Parsed MTS Result):'
-                          : 'نتائج الاستخراج (لم يتم العثور على رقم ACID في النص):',
+                          ? context.l10n.parsedMtsSuccessTitle
+                          : context.l10n.parsedMtsNoAcidTitle,
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
@@ -1068,7 +1069,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         }
                       },
                       icon: const Icon(Icons.compare_arrows, size: 16),
-                      label: const Text('الانتقال للمطابقة والتحقق'),
+                      label: Text(context.l10n.goToVerificationButton),
                     ),
                   ],
                 ),
@@ -1077,19 +1078,19 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   spacing: 16,
                   runSpacing: 12,
                   children: [
-                    _buildExtractedField('رقم ACID الجمركي', _parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false ? _parsedMtsData!['acid_number']!.toString() : 'غير محدد في النص'),
-                    _buildExtractedField('تاريخ الإصدار', _parsedMtsData!['generated_date']?.toString() ?? '-'),
-                    _buildExtractedField('تاريخ الانتهاء', _parsedMtsData!['expiry_date']?.toString() ?? '-'),
-                    _buildExtractedField('الشركة المستوردة', _parsedMtsData!['importer_name']?.toString() ?? '-'),
-                    _buildExtractedField('الرقم الضريبي للمستورد', _parsedMtsData!['importer_tax_id']?.toString() ?? '-'),
-                    _buildExtractedField('المصدر الأجنبي', _parsedMtsData!['exporter_name']?.toString() ?? '-'),
-                    _buildExtractedField('معرف المصدر (ID)', _parsedMtsData!['exporter_reg_id']?.toString() ?? '-'),
-                    _buildExtractedField('نوع التسجيل', _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number'),
-                    _buildExtractedField('دولة المصدر', _parsedMtsData!['exporter_country']?.toString() ?? '-'),
-                    _buildExtractedField('معرف كارجو إكس (CargoX)', _parsedMtsData!['cargox_id']?.toString() ?? '-'),
-                    _buildExtractedField('رقم الفاتورة المبدئية', _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
-                    _buildExtractedField('ميناء الشحن (POL)', _parsedMtsData!['pol_name']?.toString() ?? '-'),
-                    _buildExtractedField('ميناء الوصول (POD)', _parsedMtsData!['pod_name']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.acidNumberCol, _parsedMtsData!['acid_number']?.toString().isNotEmpty ?? false ? _parsedMtsData!['acid_number']!.toString() : '-'),
+                    _buildExtractedField(context.l10n.issueDateCol, _parsedMtsData!['generated_date']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.expiryDateCol, _parsedMtsData!['expiry_date']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.importerCompanyCol, _parsedMtsData!['importer_name']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.importerTaxIdLabel, _parsedMtsData!['importer_tax_id']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.foreignExporterCol, _parsedMtsData!['exporter_name']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.foreignExporterIdLabel, _parsedMtsData!['exporter_reg_id']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.regTypeLabel, _parsedMtsData!['exporter_reg_type']?.toString() ?? 'Company Registration Number'),
+                    _buildExtractedField(context.l10n.countryOfOriginExportLabel, _parsedMtsData!['exporter_country']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.cargoxPlatformIdLabel, _parsedMtsData!['cargox_id']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.proformaInvoiceNoLabel, _parsedMtsData!['proforma_invoice_no']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.portOfLoadingLabel, _parsedMtsData!['pol_name']?.toString() ?? '-'),
+                    _buildExtractedField(context.l10n.portOfDischargeLabel, _parsedMtsData!['pod_name']?.toString() ?? '-'),
                   ],
                 ),
                 const Divider(height: 24),
@@ -1107,7 +1108,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       ),
                       onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: false),
                       icon: const Icon(Icons.save_as, size: 18),
-                      label: const Text('حفظ واعتماد بيانات ACID بالشحنة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.saveAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -1118,7 +1119,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       ),
                       onPressed: _isSaving ? null : () => _saveMtsResultAsAcidSession(isDraft: true),
                       icon: const Icon(Icons.save_outlined, size: 18),
-                      label: const Text('حفظ مؤقت (مسودة)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.saveTempDraftButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     OutlinedButton.icon(
                       style: OutlinedButton.styleFrom(
@@ -1129,7 +1130,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       ),
                       onPressed: _showEditMtsDataDialog,
                       icon: const Icon(Icons.edit, size: 18),
-                      label: const Text('تعديل البيانات المستخرجة', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.editExtractedDataButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
@@ -1140,7 +1141,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       ),
                       onPressed: _codeSupplierFromMts,
                       icon: const Icon(Icons.business_outlined, size: 18),
-                      label: const Text('تكويد / تحديث المورد (Company Reg No)', style: TextStyle(fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.codeSupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -1190,8 +1191,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             children: [
               Expanded(
                 child: SearchableDropdownField<int>(
-                  labelText: 'اختر ملف الشحنة للتحقق والمطابقة الجمركية',
-                  hintText: 'اختر الملف...',
+                  labelText: context.l10n.selectImportFileAcidLabel,
+                  hintText: context.l10n.searchFileOrSupplierHint,
                   value: _selectedImportFileId,
                   items: importFiles.map((f) => SearchableDropdownItem<int>(
                     value: f.importFileId,
@@ -1216,7 +1217,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                 icon: _isComparing
                     ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                     : const Icon(Icons.compare_arrows),
-                label: const Text('تشغيل مصفوفة المطابقة الفورية (Compare)', style: TextStyle(fontWeight: FontWeight.bold)),
+                label: Text(context.l10n.runDiscrepancyMatrixButton, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1248,8 +1249,8 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                       children: [
                         Text(
                           _comparisonResult!.allMatched
-                              ? 'المطابقة الجمركية كاملة بنسبة 100% (No Discrepancies)'
-                              : 'يوجد عدم تطابق في بعض الحقول الجمركية الأساسية!',
+                              ? context.l10n.perfectMatchTitle
+                              : context.l10n.discrepancyFoundTitle,
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -1257,7 +1258,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           ),
                         ),
                         Text(
-                          'نسبة التطابق: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% — الحقول المتطابقة: ${_comparisonResult!.matchedCount} من ${_comparisonResult!.totalComparedFields}',
+                          '${context.l10n.matchingStatusCol}: ${_comparisonResult!.matchPercentage.toStringAsFixed(1)}% (${_comparisonResult!.matchedCount} / ${_comparisonResult!.totalComparedFields})',
                           style: const TextStyle(fontSize: 12, color: Colors.grey),
                         ),
                       ],
@@ -1277,11 +1278,11 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   children: [
                     TableRow(
                       decoration: BoxDecoration(color: Colors.grey.shade100),
-                      children: const [
-                        Padding(padding: EdgeInsets.all(10), child: Text('الحقل الجمركي', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(10), child: Text('البيان المطلوب (النظام)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(10), child: Text('البيان الصادر (نافذة)', style: TextStyle(fontWeight: FontWeight.bold))),
-                        Padding(padding: EdgeInsets.all(10), child: Text('حالة المطابقة', style: TextStyle(fontWeight: FontWeight.bold))),
+                      children: [
+                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.customsFieldCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.requestedValueCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.generatedValueCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                        Padding(padding: const EdgeInsets.all(10), child: Text(context.l10n.matchingStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
                       ],
                     ),
                     ..._comparisonResult!.items.map((item) {
@@ -1297,7 +1298,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                               children: [
                                 Icon(item.isMatched ? Icons.check_circle : Icons.cancel, size: 16, color: item.isMatched ? Colors.green : Colors.red),
                                 const SizedBox(width: 4),
-                                Text(item.isMatched ? 'مطابق' : 'فروق', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.isMatched ? Colors.green : Colors.red)),
+                                Text(item.isMatched ? context.l10n.matchedStatus : context.l10n.discrepancyStatus, style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: item.isMatched ? Colors.green : Colors.red)),
                               ],
                             ),
                           ),
@@ -1310,12 +1311,12 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
 
                 // Approval & Override
                 if (!_comparisonResult!.allMatched) ...[
-                  const Text('ملاحظات وتبرير اعتماد الفروق (Discrepancy Override Justification):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
+                  Text(context.l10n.discrepancyOverrideJustificationLabel, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red)),
                   const SizedBox(height: 8),
                   TextField(
                     controller: _discrepancyOverrideReasonCtrl,
                     decoration: const InputDecoration(
-                      hintText: 'اكتب سبب التجاوز أو التعديل لاعتماد رقم ACID رغم وجود الفروق...',
+                      hintText: 'Discrepancy override reason...',
                       border: OutlineInputBorder(),
                     ),
                   ),
@@ -1332,7 +1333,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   icon: _isSaving
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.verified),
-                  label: Text(_isSaving ? 'جارٍ الاعتماد...' : 'اعتماد وتثبيت رقم ACID بملف الشحنة', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  label: Text(_isSaving ? context.l10n.loading : context.l10n.verifyAndCertifyAcidButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 ),
               ],
             ),
@@ -1360,7 +1361,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             Expanded(
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'بحث في سجل أرقام ACID برقم القيد، المورد، رقم الملف...',
+                  hintText: context.l10n.searchAcidRegistryHint,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   filled: true,
@@ -1379,7 +1380,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
               ),
               onPressed: () => setState(() => _selectedSubTab = 0),
               icon: const Icon(Icons.add),
-              label: const Text('طلب ACID جديد'),
+              label: Text(context.l10n.newAcidRequestButton),
             ),
           ],
         ),
@@ -1396,15 +1397,15 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-              columns: const [
-                DataColumn(label: Text('رقم ACID', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('الشركة المستوردة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('تاريخ الإصدار', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('تاريخ الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('الإجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+              columns: [
+                DataColumn(label: Text(context.l10n.acidNumberCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.importFile, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.foreignExporterCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.importerCompanyCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.issueDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.expiryDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.validityStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.actionCol, style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
               rows: filtered.map((s) {
                 final dateStr = s.generatedDate ?? s.requestedDate ?? '';
@@ -1426,7 +1427,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                           border: Border.all(color: s.status == 'Issued' ? Colors.green.shade300 : Colors.blue.shade300),
                         ),
                         child: Text(
-                          s.status == 'Issued' ? 'صادر وساري' : (s.status == 'DRAFT' ? 'مسودة مؤقتة' : 'قيد المراجعة'),
+                          s.status == 'Issued' ? context.l10n.issuedAndValidStatus : (s.status == 'DRAFT' ? context.l10n.tempDraftStatus : context.l10n.underReviewStatus),
                           style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: s.status == 'Issued' ? Colors.green.shade800 : Colors.blue.shade800),
                         ),
                       ),
@@ -1437,12 +1438,12 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         children: [
                           IconButton(
                             icon: const Icon(Icons.edit_note, color: AppTheme.cobalt, size: 22),
-                            tooltip: 'تعديل بيانات طلب وجلسة ACID',
+                            tooltip: context.l10n.edit,
                             onPressed: () => _loadSessionForEdit(s),
                           ),
                           IconButton(
                             icon: const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 20),
-                            tooltip: 'حذف جلسة ACID',
+                            tooltip: context.l10n.delete,
                             onPressed: () => _confirmDeleteAcidSession(s),
                           ),
                         ],
@@ -1477,28 +1478,28 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         Row(
           children: [
             _buildTrackerCard(
-              title: 'إجمالي أرقام ACID',
+              title: context.l10n.totalAcidsCard,
               count: trackerSummary?.totalAcidsCount ?? trackerItems.length,
               color: AppTheme.charcoal,
               icon: Icons.qr_code,
             ),
             const SizedBox(width: 14),
             _buildTrackerCard(
-              title: 'ساري (> 14 يوم)',
+              title: context.l10n.validAcidsCard,
               count: trackerSummary?.validCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining > 14).length,
               color: Colors.green,
               icon: Icons.check_circle_outline,
             ),
             const SizedBox(width: 14),
             _buildTrackerCard(
-              title: 'أوشك على الانتهاء (≤ 14 يوم)',
+              title: context.l10n.expiringSoonAcidsCard,
               count: trackerSummary?.expiringSoonCount ?? trackerItems.where((t) => t.status != 'Expired' && t.daysRemaining <= 14 && t.daysRemaining > 0).length,
               color: AppTheme.orange,
               icon: Icons.warning_amber,
             ),
             const SizedBox(width: 14),
             _buildTrackerCard(
-              title: 'منتهي الصلاحية',
+              title: context.l10n.expiredAcidsCard,
               count: trackerSummary?.expiredCount ?? trackerItems.where((t) => t.status == 'Expired' || t.daysRemaining <= 0).length,
               color: AppTheme.crimson,
               icon: Icons.cancel_outlined,
@@ -1510,7 +1511,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
         // Search Bar
         TextField(
           decoration: InputDecoration(
-            hintText: 'بحث في متتبع الصلاحيات والإفراج الجمركي...',
+            hintText: context.l10n.searchExpiryTrackerHint,
             prefixIcon: const Icon(Icons.search),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
             filled: true,
@@ -1531,13 +1532,13 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
           ),
           child: DataTable(
             headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-            columns: const [
-              DataColumn(label: Text('رقم ACID', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('المورد الأجنبي', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('تاريخ الانتهاء', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('الأيام المتبقية', style: TextStyle(fontWeight: FontWeight.bold))),
-              DataColumn(label: Text('حالة الصلاحية', style: TextStyle(fontWeight: FontWeight.bold))),
+            columns: [
+              DataColumn(label: Text(context.l10n.acidNumberCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(context.l10n.importFile, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(context.l10n.foreignExporterCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(context.l10n.expiryDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(context.l10n.daysRemainingCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+              DataColumn(label: Text(context.l10n.validityStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
             ],
             rows: filtered.map((t) {
               final days = t.daysRemaining;
@@ -1551,7 +1552,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                   DataCell(Text(t.importFileCode ?? '-')),
                   DataCell(Text(t.supplierName)),
                   DataCell(Text(expDate.length >= 10 ? expDate.substring(0, 10) : expDate)),
-                  DataCell(Text('$days يوم', style: TextStyle(fontWeight: FontWeight.bold, color: isExp ? Colors.red : isWarning ? Colors.orange : Colors.green))),
+                  DataCell(Text('$days', style: TextStyle(fontWeight: FontWeight.bold, color: isExp ? Colors.red : isWarning ? Colors.orange : Colors.green))),
                   DataCell(
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1561,7 +1562,7 @@ class _NafezaAcidScreenState extends ConsumerState<NafezaAcidScreen> {
                         border: Border.all(color: isExp ? Colors.red.shade300 : isWarning ? Colors.orange.shade300 : Colors.green.shade300),
                       ),
                       child: Text(
-                        isExp ? 'منتهي الصلاحية ⛔' : isWarning ? 'أوشك على الانتهاء ⚠️' : 'ساري وصالح ✅',
+                        isExp ? context.l10n.expiredStatusBadge : isWarning ? context.l10n.expiringSoonStatusBadge : context.l10n.validStatusBadge,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -2003,24 +2004,24 @@ Please note that the required documents for the mentioned shipment must be uploa
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
-            SizedBox(width: 8),
-            Text('تأكيد حذف جلسة ACID', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Icon(Icons.delete_outline, color: AppTheme.crimson, size: 24),
+            const SizedBox(width: 8),
+            Text(context.l10n.confirmSoftDelete, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('هل أنت متأكد من حذف جلسة ACID (${session.acidCode}) رقم القيد (${session.acidNumber})؟'),
+            Text('ACID (${session.acidCode}) — (${session.acidNumber})'),
             const SizedBox(height: 10),
-            const Text('سيتم نقل الجلسة إلى المحذوفات وتحديث حالة ملف الشحنة.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(context.l10n.confirmSoftDelete, style: const TextStyle(fontSize: 12, color: Colors.grey)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(context.l10n.cancel)),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
             onPressed: () async {
@@ -2032,19 +2033,19 @@ Please note that the required documents for the mentioned shipment must be uploa
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('تم حذف جلسة ACID (${session.acidCode}) بنجاح'),
+                      content: Text('ACID (${session.acidCode}) deleted successfully'),
                       backgroundColor: AppTheme.charcoal,
                     ),
                   );
                 }
               } catch (e) {
                 if (mounted) {
-                  showErrorDetailsDialog(context, title: 'خطأ في حذف جلسة ACID', error: e);
+                  showErrorDetailsDialog(context, title: 'Error deleting ACID session', error: e);
                 }
               }
             },
             icon: const Icon(Icons.delete_forever, size: 18),
-            label: const Text('تأكيد الحذف'),
+            label: Text(context.l10n.delete),
           ),
         ],
       ),
@@ -2055,7 +2056,7 @@ Please note that the required documents for the mentioned shipment must be uploa
     if (_parsedMtsData == null) return;
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لربط بيانات ACID به'), backgroundColor: AppTheme.crimson),
+        const SnackBar(content: Text('Please select import file first'), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -2115,15 +2116,15 @@ Please note that the required documents for the mentioned shipment must be uploa
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isDraft
-                ? 'تم حفظ مسودة بيانات نافذة بنجاح مؤقتاً!'
-                : 'تم حفظ واعتماد بيانات ACID بنجاح ومزامنتها مع ملف الشحنة والمتتبع!'),
+                ? 'MTS draft saved successfully!'
+                : 'ACID data certified and saved successfully!'),
             backgroundColor: isDraft ? AppTheme.charcoal : AppTheme.emerald,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: isDraft ? 'خطأ في حفظ المسودة' : 'خطأ في حفظ واعتماد ACID', error: e);
+        showErrorDetailsDialog(context, title: isDraft ? 'Error saving draft' : 'Error saving ACID', error: e);
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -2165,11 +2166,11 @@ Please note that the required documents for the mentioned shipment must be uploa
                     color: AppTheme.charcoal,
                     borderRadius: BorderRadius.only(topLeft: Radius.circular(16), topRight: Radius.circular(16)),
                   ),
-                  child: const Row(
+                  child: Row(
                     children: [
-                      Icon(Icons.edit_note, color: Colors.white, size: 22),
-                      SizedBox(width: 10),
-                      Text('تعديل البيانات المستخرجة من إشعار نافذة (Edit Extracted MTS Data)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+                      const Icon(Icons.edit_note, color: Colors.white, size: 22),
+                      const SizedBox(width: 10),
+                      Text(context.l10n.editExtractedDataButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
                     ],
                   ),
                 ),
@@ -2184,28 +2185,28 @@ Please note that the required documents for the mentioned shipment must be uploa
                             Expanded(
                               child: TextField(
                                 controller: acidCtrl,
-                                decoration: const InputDecoration(labelText: 'رقم ACID (19 رقماً) *', prefixIcon: Icon(Icons.qr_code), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: '${context.l10n.acidNumberCol} *', prefixIcon: const Icon(Icons.qr_code), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: reqDateCtrl,
-                                decoration: const InputDecoration(labelText: 'تاريخ الطلب', prefixIcon: Icon(Icons.event_available), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.acidRequestDateLabel, prefixIcon: const Icon(Icons.event_available), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: genDateCtrl,
-                                decoration: const InputDecoration(labelText: 'تاريخ الإصدار', prefixIcon: Icon(Icons.calendar_today), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.issueDateCol, prefixIcon: const Icon(Icons.calendar_today), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: expDateCtrl,
-                                decoration: const InputDecoration(labelText: 'تاريخ الانتهاء', prefixIcon: Icon(Icons.event_busy), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.expiryDateCol, prefixIcon: const Icon(Icons.event_busy), border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -2217,14 +2218,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                               flex: 2,
                               child: TextField(
                                 controller: impNameCtrl,
-                                decoration: const InputDecoration(labelText: 'الشركة المستوردة', prefixIcon: Icon(Icons.business), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.importerCompanyCol, prefixIcon: const Icon(Icons.business), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: impTaxCtrl,
-                                decoration: const InputDecoration(labelText: 'الرقم الضريبي للمستورد', prefixIcon: Icon(Icons.badge), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.importerTaxIdLabel, prefixIcon: const Icon(Icons.badge), border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -2236,14 +2237,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                               flex: 2,
                               child: TextField(
                                 controller: expNameCtrl,
-                                decoration: const InputDecoration(labelText: 'المصدر الأجنبي', prefixIcon: Icon(Icons.public), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.foreignExporterCol, prefixIcon: const Icon(Icons.public), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: expRegIdCtrl,
-                                decoration: const InputDecoration(labelText: 'معرف المصدر (ID)', prefixIcon: Icon(Icons.confirmation_number), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.foreignExporterIdLabel, prefixIcon: const Icon(Icons.confirmation_number), border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -2253,7 +2254,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                           children: [
                             Expanded(
                               child: SearchableDropdownField<String>(
-                                labelText: 'نوع التسجيل (Registration Type)',
+                                labelText: context.l10n.regTypeLabel,
                                 value: regType,
                                 items: const [
                                   SearchableDropdownItem(value: 'Company Registration Number', label: 'Company Registration Number'),
@@ -2272,14 +2273,14 @@ Please note that the required documents for the mentioned shipment must be uploa
                             Expanded(
                               child: TextField(
                                 controller: expCountryCtrl,
-                                decoration: const InputDecoration(labelText: 'دولة المصدر', prefixIcon: Icon(Icons.flag), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.countryOfOriginExportLabel, prefixIcon: const Icon(Icons.flag), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: cargoxCtrl,
-                                decoration: const InputDecoration(labelText: 'معرف CargoX', prefixIcon: Icon(Icons.token), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.cargoxPlatformIdLabel, prefixIcon: const Icon(Icons.token), border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -2290,21 +2291,21 @@ Please note that the required documents for the mentioned shipment must be uploa
                             Expanded(
                               child: TextField(
                                 controller: piCtrl,
-                                decoration: const InputDecoration(labelText: 'رقم الفاتورة المبدئية (PI)', prefixIcon: Icon(Icons.receipt), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.proformaInvoiceNoLabel, prefixIcon: const Icon(Icons.receipt), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: polCtrl,
-                                decoration: const InputDecoration(labelText: 'ميناء الشحن (POL)', prefixIcon: Icon(Icons.sailing), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.portOfLoadingLabel, prefixIcon: const Icon(Icons.sailing), border: const OutlineInputBorder()),
                               ),
                             ),
                             const SizedBox(width: 12),
                             Expanded(
                               child: TextField(
                                 controller: podCtrl,
-                                decoration: const InputDecoration(labelText: 'ميناء الوصول (POD)', prefixIcon: Icon(Icons.anchor), border: OutlineInputBorder()),
+                                decoration: InputDecoration(labelText: context.l10n.portOfDischargeLabel, prefixIcon: const Icon(Icons.anchor), border: const OutlineInputBorder()),
                               ),
                             ),
                           ],
@@ -2319,7 +2320,7 @@ Please note that the required documents for the mentioned shipment must be uploa
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      TextButton(onPressed: () => Navigator.pop(dialogCtx), child: const Text('إلغاء')),
+                      TextButton(onPressed: () => Navigator.pop(dialogCtx), child: Text(context.l10n.cancel)),
                       const SizedBox(width: 12),
                       ElevatedButton.icon(
                         style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, foregroundColor: Colors.white),
@@ -2343,11 +2344,11 @@ Please note that the required documents for the mentioned shipment must be uploa
                           });
                           Navigator.pop(dialogCtx);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('تم تحديث البيانات المستخرجة بنجاح'), backgroundColor: AppTheme.emerald),
+                            const SnackBar(content: Text('MTS Extracted Data Updated'), backgroundColor: AppTheme.emerald),
                           );
                         },
                         icon: const Icon(Icons.check, size: 18),
-                        label: const Text('حفظ التعديلات في النتائج'),
+                        label: Text(context.l10n.save),
                       ),
                     ],
                   ),

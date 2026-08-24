@@ -61,7 +61,7 @@
 - [x] Screen 21: PO & Packing Reconciliation (`POReconciliationTab` in `po_reconciliation_tab.dart` & `POReconciliationWarningDialog` in `po_reconciliation_warning_dialog.dart`) — **Reviewed & Fixed**
 - [x] Screen 23: Customs Declaration 46 (`CustomsDeclaration46Screen` in `customs_declaration46_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 24: Customs Clearance Management (`CustomsClearanceScreen` in `customs_clearance_screen.dart`) — **Reviewed & Fixed**
-- [ ] Screen 25: Freight Booking (`FreightBookingScreen`)
+- [x] Screen 25: Freight Booking (`FreightBookingScreen` in `freight_booking_screen.dart` and dialogs `_FreightBookingFormDialog`, `_FreightBookingViewDialog`, `_FreightBookingPrintDialog`) — **Reviewed & Fixed**
 - [ ] Screen 26: Freight Allocations (`FreightAllocationsScreen`)
 - [ ] Screen 27: Clearance Follow-up (`ClearanceFollowupScreen`)
 - [ ] Screen 28: Warehouse Receiving GRN (`WarehouseReceivingScreen`)
@@ -93,8 +93,9 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 24: Customs Clearance Management (CustomsClearanceScreen in customs_clearance_screen.dart)`  
-**Next Screen to Review:** `Screen 25: Freight Booking (FreightBookingScreen / freight_booking_screen.dart)`
+**Last Screen Fully Fixed:** `Screen 25: Freight Booking (FreightBookingScreen in freight_booking_screen.dart)`  
+**Next Screen to Review:** `Screen 26: Freight Allocations (FreightAllocationsScreen / freight_allocations_screen.dart)`
+
 
 
 

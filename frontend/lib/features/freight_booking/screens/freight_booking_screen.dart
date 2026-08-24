@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/container_requirement_engine.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
@@ -72,6 +73,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final bookingsState = ref.watch(freightBookingProvider);
 
     final tabs = [
@@ -103,7 +105,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات',
+          tooltip: l.freightBookingBtnLiveReload,
           onPressed: () {
             ref.read(freightBookingProvider.notifier).fetchBookings();
             ref.read(shippingScenariosProvider.notifier).fetchSessions();
@@ -138,9 +140,9 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       ),
                       onPressed: () => _showAddEditBookingDialog(),
                       icon: const Icon(Icons.add_task, color: Colors.white),
-                      label: const Text(
-                        'إنشاء حجز شحن جديد (Create Booking)',
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      label: Text(
+                        l.freightBookingCreateButton,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                       ),
                     ),
                     const Spacer(),
@@ -148,11 +150,11 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       width: 250,
                       child: TextField(
                         controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث بكود الحجز أو رقم التأكيد...',
-                          prefixIcon: Icon(Icons.search),
+                        decoration: InputDecoration(
+                          hintText: l.freightBookingSearchHint,
+                          prefixIcon: const Icon(Icons.search),
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) {
                           ref.read(freightBookingProvider.notifier).fetchBookings(search: val, status: _selectedStatusFilter);
@@ -164,14 +166,14 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                       width: 220,
                       child: SearchableDropdownField<String>(
                         value: _selectedStatusFilter,
-                        labelText: 'تصفية حسب الحالة',
-                        searchHintText: 'ابحث عن الحالة...',
-                        items: const [
-                          SearchableDropdownItem(value: 'All', label: 'جميع الحالات'),
-                          SearchableDropdownItem(value: 'Draft', label: 'Draft (مسودة)'),
-                          SearchableDropdownItem(value: 'Booking Requested', label: 'Booking Requested (تم الطلب)'),
-                          SearchableDropdownItem(value: 'Confirmed', label: 'Confirmed (مؤكد)'),
-                          SearchableDropdownItem(value: 'Sailed', label: 'Sailed (أبحر)'),
+                        labelText: l.freightBookingFilterStatusLabel,
+                        searchHintText: l.freightBookingFilterStatusHint,
+                        items: [
+                          SearchableDropdownItem(value: 'All', label: l.freightBookingStatusAll),
+                          SearchableDropdownItem(value: 'Draft', label: l.freightBookingStatusDraft),
+                          SearchableDropdownItem(value: 'Booking Requested', label: l.freightBookingStatusRequested),
+                          SearchableDropdownItem(value: 'Confirmed', label: l.freightBookingStatusConfirmed),
+                          SearchableDropdownItem(value: 'Sailed', label: l.freightBookingStatusSailed),
                         ],
                         onChanged: (val) {
                           if (val != null) {
@@ -194,8 +196,8 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                 error: (err, stack) => Center(child: Text('❌ Error: $err', style: const TextStyle(color: Colors.red))),
                 data: (bookings) {
                   if (bookings.isEmpty) {
-                    return const Center(
-                      child: Text('لا توجد حجوزات شحن مسجلة بالنظام. اضغط إضافة حجز جديد.', style: TextStyle(fontSize: 16)),
+                    return Center(
+                      child: Text(l.freightBookingEmptyRecords, style: const TextStyle(fontSize: 16)),
                     );
                   }
                   return Card(
@@ -207,19 +209,19 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                           headingRowColor: WidgetStateProperty.all(AppTheme.charcoal.withOpacity(0.06)),
                           horizontalMargin: 12,
                           columnSpacing: 16,
-                          columns: const [
-                            DataColumn(label: Text('العمليات ⚡', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('كود الحجز', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('ملف الشحنة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('رقم تأكيد الحجز', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الخط الملاحي / الوكيل', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('موانئ الشحن (POL ➔ POD)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('السفينة / رقم الرحلة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('المغادرة (ETD / ATD)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الوصول (ETA / المخزن)', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الحاويات المخصصة', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('إجمالي النولون USD', style: TextStyle(fontWeight: FontWeight.bold))),
-                            DataColumn(label: Text('الحالة', style: TextStyle(fontWeight: FontWeight.bold))),
+                          columns: [
+                            DataColumn(label: Text(l.freightBookingColActions, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColBookingCode, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColImportFile, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColConfirmationNo, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColCarrierForwarder, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColRoute, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColVesselVoyage, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColDeparture, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColArrival, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColContainers, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColTotalFreight, style: const TextStyle(fontWeight: FontWeight.bold))),
+                            DataColumn(label: Text(l.freightBookingColStatus, style: const TextStyle(fontWeight: FontWeight.bold))),
                           ],
                           rows: bookings.map((bkg) {
                             final hasDelay = bkg.departureDelayDays > 0;
@@ -235,14 +237,14 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
-                                          title: const Text('تأكيد الحذف'),
-                                          content: Text('هل أنت متأكد من حذف حجز الشحن ${bkg.bookingCode}؟'),
+                                          title: Text(l.freightBookingDeleteConfirmTitle),
+                                          content: Text(l.freightBookingDeleteConfirmMessage(bkg.bookingCode)),
                                           actions: [
-                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l.cancel)),
                                             ElevatedButton(
                                               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.crimson, foregroundColor: Colors.white),
                                               onPressed: () => Navigator.pop(c, true),
-                                              child: const Text('حذف'),
+                                              child: Text(l.delete),
                                             ),
                                           ],
                                         ),
@@ -251,10 +253,10 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                         await ref.read(freightBookingProvider.notifier).softDeleteBooking(bkg.bookingId);
                                       }
                                     },
-                                    viewTooltip: 'عرض تفاصيل الحجز',
-                                    editTooltip: 'تعديل حجز الشحن',
-                                    printTooltip: 'طباعة بطاقة الحجز',
-                                    deleteTooltip: 'حذف حجز الشحن',
+                                    viewTooltip: l.freightBookingViewTooltip,
+                                    editTooltip: l.freightBookingEditTooltip,
+                                    printTooltip: l.freightBookingPrintTooltip,
+                                    deleteTooltip: l.freightBookingDeleteTooltip,
                                   ),
                                 ),
 
@@ -336,7 +338,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                             const Icon(Icons.verified, size: 11, color: AppTheme.emerald),
                                             const SizedBox(width: 2),
                                             Text(
-                                              'عرض معتمد: ${bkg.scenarioProviderName}',
+                                              l.freightBookingApprovedQuoteLabel(bkg.scenarioProviderName!),
                                               style: const TextStyle(fontSize: 10, color: AppTheme.emerald, fontWeight: FontWeight.w600),
                                             ),
                                           ],
@@ -396,7 +398,7 @@ class _FreightBookingScreenState extends ConsumerState<FreightBookingScreen> {
                                     children: [
                                       Text('ETA: ${bkg.eta != null ? bkg.eta!.substring(0, 10) : "-"}', style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11)),
                                       if (bkg.expectedWarehouseArrivalDate != null)
-                                        Text('مخزن: ${bkg.expectedWarehouseArrivalDate!.substring(0, 10)}', style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
+                                        Text(l.freightBookingWhArrivalLabel(bkg.expectedWarehouseArrivalDate!.substring(0, 10)), style: const TextStyle(fontSize: 10, color: Colors.blueGrey)),
                                     ],
                                   ),
                                 ),
@@ -919,9 +921,10 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
       _rebuildChargesFromQuoteBreakdown();
     });
 
+    final l = AppLocalizations.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('🚢 تم استدعاء وتحديث بيانات العرض المعتمد بنجاح (${item.providerName} - ${item.vesselName})!'),
+        content: Text('🚢 ${l.freightBookingQuoteAppliedSuccess(item.providerName, item.vesselName)}'),
         backgroundColor: AppTheme.emerald,
         duration: const Duration(seconds: 3),
       ),
@@ -1005,6 +1008,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   Future<void> _submitWithContainerValidation(ContainerRecommendationResult? rec) async {
     if (!_formKey.currentState!.validate()) return;
+    final l = AppLocalizations.of(context);
 
     // Check Container Matching
     if (rec != null) {
@@ -1023,11 +1027,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Row(
+            title: Row(
               children: [
-                Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
-                SizedBox(width: 8),
-                Text('تنبيه عدم تطابق الحاويات', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
+                const SizedBox(width: 8),
+                Text(l.freightBookingMismatchTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
               ],
             ),
             content: SizedBox(
@@ -1037,15 +1041,15 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '⚠️ عدد الحاويات المخصصة ونوعها ($assignedStr) مختلف عن الحاوية المقترحة ($suggestedStr).',
+                    '⚠️ ${l.freightBookingMismatchWarning(assignedStr, suggestedStr)}',
                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.black87),
                   ),
                   const SizedBox(height: 12),
-                  const Text('هل ترغب في الاستمرار وتثبيت هذا التخصيص؟', style: TextStyle(fontSize: 13)),
+                  Text(l.freightBookingMismatchPrompt, style: const TextStyle(fontSize: 13)),
                   const SizedBox(height: 8),
-                  const Text(
-                    'ℹ️ في حال اختيار "نعم"، يتطلب النظام إدخال سبب التغيير لتوثيق القرار.',
-                    style: TextStyle(fontSize: 11, color: Colors.blueGrey),
+                  Text(
+                    'ℹ️ ${l.freightBookingMismatchNote}',
+                    style: const TextStyle(fontSize: 11, color: Colors.blueGrey),
                   ),
                 ],
               ),
@@ -1053,12 +1057,12 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('لا (العودة للمطابقة)', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: Text(l.freightBookingMismatchBtnNo, style: const TextStyle(fontWeight: FontWeight.bold)),
               ),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
                 onPressed: () => Navigator.pop(ctx, true),
-                child: const Text('نعم (الاستمرار وكتابة السبب)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                child: Text(l.freightBookingMismatchBtnYes, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
@@ -1077,21 +1081,21 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           context: context,
           barrierDismissible: false,
           builder: (ctx) => AlertDialog(
-            title: const Text('سبب تغيير الحاويات المقترحة *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+            title: Text(l.freightBookingMismatchReasonTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             content: Form(
               key: formKeyReason,
               child: TextFormField(
                 controller: reasonController,
                 maxLines: 3,
-                decoration: const InputDecoration(
-                  labelText: 'اكتب سبب اعتماد هذا التخصيص المختلف...',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.freightBookingMismatchReasonHint,
+                  border: const OutlineInputBorder(),
                 ),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'يجب إدخال سبب التغيير للاستمرار' : null,
+                validator: (v) => (v == null || v.trim().isEmpty) ? l.freightBookingMismatchReasonValidator : null,
               ),
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
               ElevatedButton(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 onPressed: () {
@@ -1099,7 +1103,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                     Navigator.pop(ctx, true);
                   }
                 },
-                child: const Text('تأكيد وحفظ', style: TextStyle(color: Colors.white)),
+                child: Text(l.freightBookingMismatchReasonConfirm, style: const TextStyle(color: Colors.white)),
               ),
             ],
           ),
@@ -1120,6 +1124,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
   Future<void> _doSave() async {
     setState(() => _isSaving = true);
+    final l = AppLocalizations.of(context);
     try {
       _rebuildChargesFromQuoteBreakdown();
 
@@ -1160,7 +1165,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✅ تم حفظ وتأكيد حجز الشحن بنجاح!'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text('✅ ${l.freightBookingSaveSuccess}'), backgroundColor: AppTheme.emerald),
         );
         Navigator.pop(context);
       }
@@ -1183,6 +1188,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
   }
 
   void _showDuplicateBookingWarningDialog(ShipmentBookingModel existing) {
+    final l = AppLocalizations.of(context);
     final importFiles = ref.read(importFilesProvider).value ?? [];
     final curFile = importFiles.where((f) => f.importFileId == existing.importFileId).toList();
     final fileLabel = curFile.isNotEmpty
@@ -1205,10 +1211,10 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               child: const Icon(Icons.warning_amber_rounded, color: Colors.orange, size: 28),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Text(
-                'تنبيه: الشحنة مسجلة بالفعل!',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
+                l.freightBookingDuplicateTitle,
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.charcoal),
               ),
             ),
           ],
@@ -1226,19 +1232,19 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'ملف الشحنة الاستيرادية المختار مرتبط بالفعل بحجز شحن محفوظ:',
+                l.freightBookingDuplicateMessage,
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.orange.shade900),
               ),
               const SizedBox(height: 10),
-              _buildDuplicateInfoRow('📁 ملف الشحنة:', fileLabel),
-              _buildDuplicateInfoRow('🔖 كود الحجز:', existing.bookingCode),
-              _buildDuplicateInfoRow('📝 رقم تأكيد الحجز:', existing.bookingConfirmationNo ?? 'Draft Pending'),
-              _buildDuplicateInfoRow('🚢 الخط الملاحي:', existing.shippingLineName ?? 'N/A'),
-              _buildDuplicateInfoRow('⚡ الحالة الحالية:', existing.status),
+              _buildDuplicateInfoRow(l.freightBookingDuplicateRowFile, fileLabel),
+              _buildDuplicateInfoRow(l.freightBookingDuplicateRowCode, existing.bookingCode),
+              _buildDuplicateInfoRow(l.freightBookingDuplicateRowConfirmNo, existing.bookingConfirmationNo ?? 'Draft Pending'),
+              _buildDuplicateInfoRow(l.freightBookingDuplicateRowLine, existing.shippingLineName ?? 'N/A'),
+              _buildDuplicateInfoRow(l.freightBookingDuplicateRowStatus, existing.status),
               const Divider(height: 20),
-              const Text(
-                'قواعد النظام تمنع إنشاء أكثر من حجز لنفس الملف الاستيرادي. يمكنك التحويل لتعديل الحجز الحالي فوراً.',
-                style: TextStyle(fontSize: 12, color: AppTheme.charcoal),
+              Text(
+                l.freightBookingDuplicateNotice,
+                style: const TextStyle(fontSize: 12, color: AppTheme.charcoal),
               ),
             ],
           ),
@@ -1251,7 +1257,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                 _selectedImportFileId = null;
               });
             },
-            child: const Text('إلغاء والتراجع', style: TextStyle(color: Colors.grey)),
+            child: Text(l.freightBookingDuplicateBtnCancel, style: const TextStyle(color: Colors.grey)),
           ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
@@ -1261,7 +1267,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             icon: const Icon(Icons.edit_note_rounded, size: 18),
-            label: const Text('🔄 التحويل إلى التعديل', style: TextStyle(fontWeight: FontWeight.bold)),
+            label: Text(l.freightBookingDuplicateBtnSwitch, style: const TextStyle(fontWeight: FontWeight.bold)),
             onPressed: () {
               // Capture overlay entry (root navigator) before any pop
               final rootNav = Navigator.of(ctx, rootNavigator: false);
@@ -1302,6 +1308,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
   }
 
   Widget _buildCostItemRow({
+    required BuildContext context,
     required String title,
     required bool isApplicable,
     required ValueChanged<bool> onToggle,
@@ -1314,6 +1321,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
     double? doubleQty,
     ValueChanged<double>? onDoubleQtyChanged,
   }) {
+    final l = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1334,7 +1342,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             child: TextFormField(
               initialValue: price > 0 ? price.toStringAsFixed(0) : '',
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'سعر البند', isDense: true, border: OutlineInputBorder()),
+              decoration: InputDecoration(labelText: l.freightBookingItemRateLabel, isDense: true, border: const OutlineInputBorder()),
               onChanged: (v) => onPriceChanged(double.tryParse(v) ?? 0.0),
             ),
           ),
@@ -1343,8 +1351,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             width: 100,
             child: SearchableDropdownField<String>(
               value: currency,
-              labelText: 'العملة',
-              searchHintText: 'ابحث...',
+              labelText: l.freightBookingCurrencyLabel,
+              searchHintText: 'USD, EUR...',
               items: const [
                 SearchableDropdownItem(value: 'USD', label: 'USD (\$)'),
                 SearchableDropdownItem(value: 'EUR', label: 'EUR (€)'),
@@ -1364,7 +1372,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               child: TextFormField(
                 initialValue: quantity.toString(),
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الكمية', isDense: true, border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l.freightBookingQuantityLabel, isDense: true, border: const OutlineInputBorder()),
                 onChanged: (v) => onQuantityChanged(int.tryParse(v) ?? 1),
               ),
             ),
@@ -1376,7 +1384,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               child: TextFormField(
                 initialValue: doubleQty.toString(),
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'الحجم CBM', isDense: true, border: OutlineInputBorder()),
+                decoration: InputDecoration(labelText: l.freightBookingCbmVolumeLabel, isDense: true, border: const OutlineInputBorder()),
                 onChanged: (v) => onDoubleQtyChanged(double.tryParse(v) ?? 0.0),
               ),
             ),
@@ -1393,7 +1401,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           SizedBox(
             width: 70,
             child: Text(
-              isApplicable ? 'مطبق' : 'غير مطبق',
+              isApplicable ? l.freightBookingItemActive : l.freightBookingItemInactive,
               style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isApplicable ? AppTheme.emerald : Colors.grey),
             ),
           ),
@@ -1452,6 +1460,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
     final int whDays = int.tryParse(_expectedWhDaysController.text.trim()) ?? 7;
     final DateTime computedWhArrival = _eta.add(Duration(days: (delayDays > 0 ? delayDays : 0) + whDays));
 
+    final l = AppLocalizations.of(context);
+
     return DefaultTabController(
       length: 2,
       child: AlertDialog(
@@ -1463,14 +1473,14 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                 const Icon(Icons.directions_boat, color: AppTheme.cobalt),
                 const SizedBox(width: 8),
                 Text(
-                  widget.bookingToEdit == null ? 'إنشاء حجز شحن ملاحي (New Carrier Booking)' : 'تعديل حجز الشحن: ${widget.bookingToEdit!.bookingCode}',
+                  widget.bookingToEdit == null ? l.freightBookingNewDialogTitle : l.freightBookingEditDialogTitle(widget.bookingToEdit!.bookingCode),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ],
             ),
             IconButton(
               icon: const Icon(Icons.close, color: Colors.grey),
-              tooltip: 'إغلاق النافذة',
+              tooltip: l.freightBookingCloseTooltip,
               onPressed: () => Navigator.of(context).pop(),
             ),
           ],
@@ -1480,13 +1490,13 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
           height: 680,
           child: Column(
             children: [
-              const TabBar(
+              TabBar(
                 labelColor: AppTheme.cobalt,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: AppTheme.cobalt,
                 tabs: [
-                  Tab(icon: Icon(Icons.description), text: '1. تفاصيل الحجز وعروض الشحن'),
-                  Tab(icon: Icon(Icons.attach_money), text: '2. بنود التكلفة والنولون'),
+                  Tab(icon: const Icon(Icons.description), text: l.freightBookingTabBookingDetails),
+                  Tab(icon: const Icon(Icons.attach_money), text: l.freightBookingTabCostBreakdown),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1505,8 +1515,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<int?>(
                                     value: _selectedImportFileId,
-                                    labelText: 'ملف الشحنة الاستيرادية (Import File) *',
-                                    searchHintText: 'ابحث عن ملف الشحنة...',
+                                    labelText: l.freightBookingImportFileLabel,
+                                    searchHintText: l.freightBookingImportFileHint,
                                     items: importFiles
                                         .map((f) => SearchableDropdownItem<int?>(
                                               value: f.importFileId,
@@ -1548,8 +1558,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: TextFormField(
                                     controller: _bookingConfirmNoController,
-                                    decoration: const InputDecoration(labelText: 'رقم تأكيد الحجز (Booking Confirmation No) *', border: OutlineInputBorder()),
-                                    validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل رقم تأكيد الحجز' : null,
+                                    decoration: InputDecoration(labelText: l.freightBookingConfirmNoInputLabel, border: const OutlineInputBorder()),
+                                    validator: (v) => (v == null || v.trim().isEmpty) ? l.freightBookingConfirmNoValidator : null,
                                   ),
                                 ),
                               ],
@@ -1573,9 +1583,9 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                       children: [
                                         const Icon(Icons.local_shipping, color: AppTheme.cobalt, size: 20),
                                         const SizedBox(width: 8),
-                                        const Text(
-                                          'عروض وسيناريوهات الشحن المقيمة للملف (Phase 1 Evaluated Quotes):',
-                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
+                                        Text(
+                                          l.freightBookingEvaluatedQuotesHeader,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                                         ),
                                         const Spacer(),
                                         if (matchingSessions.isNotEmpty)
@@ -1583,7 +1593,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                                             decoration: BoxDecoration(color: AppTheme.cobalt.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
                                             child: Text(
-                                              '${matchingSessions.fold<int>(0, (sum, s) => sum + s.items.length)} عرض متاح',
+                                              l.freightBookingAvailableQuotesBadge(matchingSessions.fold<int>(0, (sum, s) => sum + s.items.length)),
                                               style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold, fontSize: 11),
                                             ),
                                           ),
@@ -1591,17 +1601,17 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                     ),
                                     const SizedBox(height: 6),
                                     if (matchingSessions.isEmpty)
-                                      const Padding(
-                                        padding: EdgeInsets.symmetric(vertical: 4),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(vertical: 4),
                                         child: Text(
-                                          'ℹ️ لم يتم العثور على دراسة سيناريوهات شحن محفوظة لهذا الملف. يمكنك تعبئة بيانات الناقل أدناه يدوياً.',
-                                          style: TextStyle(fontSize: 12, color: Colors.blueGrey),
+                                          l.freightBookingNoEvaluatedQuotes,
+                                          style: const TextStyle(fontSize: 12, color: Colors.blueGrey),
                                         ),
                                       )
                                     else ...[
-                                      const Text(
-                                        'اضغط على زر "اعتماد وتطبيق هذا العرض" لتعبئة بيانات الناقل، الموانئ، السفينة، المواعيد، التكاليف، والحاويات آلياً:',
-                                        style: TextStyle(fontSize: 11, color: Colors.black87),
+                                      Text(
+                                        l.freightBookingApplyQuoteInstruction,
+                                        style: const TextStyle(fontSize: 11, color: Colors.black87),
                                       ),
                                       const SizedBox(height: 8),
                                       ListView.separated(
@@ -1669,11 +1679,11 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                                                   borderRadius: BorderRadius.circular(4),
                                                                   border: Border.all(color: Colors.amber.shade400),
                                                                 ),
-                                                                child: const Row(
+                                                                child: Row(
                                                                   children: [
-                                                                    Icon(Icons.star, color: Colors.amber, size: 12),
-                                                                    SizedBox(width: 2),
-                                                                    Text('الأفضل في الدراسة', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
+                                                                    const Icon(Icons.star, color: Colors.amber, size: 12),
+                                                                    const SizedBox(width: 2),
+                                                                    Text(l.freightBookingBestQuoteBadge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.black87)),
                                                                   ],
                                                                 ),
                                                               ),
@@ -1682,12 +1692,12 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                                         ),
                                                         const SizedBox(height: 2),
                                                         Text(
-                                                          '🚢 سفينة: ${item.vesselName} | رحلة: ${item.voyageNumber ?? "-"} | موانئ: ${item.polName ?? "-"} ➔ ${item.podName ?? "-"}',
+                                                          '🚢 ${l.freightBookingQuoteVesselDetails(item.vesselName, item.voyageNumber ?? "-", item.polName ?? "-", item.podName ?? "-")}',
                                                           style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
                                                         ),
                                                         const SizedBox(height: 2),
                                                         Text(
-                                                          '📅 إبحار: ${item.sailingDate} ➔ وصول متوقع: ${item.estimatedArrivalDate} | فري تايم: ${item.freeTimeDays} يوم',
+                                                          '📅 ${l.freightBookingQuoteScheduleDetails(item.sailingDate, item.estimatedArrivalDate, item.freeTimeDays)}',
                                                           style: TextStyle(fontSize: 11, color: Colors.blueGrey.shade800),
                                                         ),
                                                       ],
@@ -1705,7 +1715,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                                           style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.emerald),
                                                         ),
                                                         Text(
-                                                          'دراسة: ${sess.sessionCode} (${sess.cargoReadyDate})',
+                                                          l.freightBookingQuoteStudyRef(sess.sessionCode, sess.cargoReadyDate),
                                                           style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
                                                         ),
                                                       ],
@@ -1723,7 +1733,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                                       ),
                                                       onPressed: () => _applyScenarioQuote(sess, item),
                                                       icon: const Icon(Icons.check_circle, size: 16),
-                                                      label: const Text('العرض المعتمد ⭐', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                                      label: Text(l.freightBookingSelectedQuoteBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                                     )
                                                   else
                                                     OutlinedButton.icon(
@@ -1734,7 +1744,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                                       ),
                                                       onPressed: () => _applyScenarioQuote(sess, item),
                                                       icon: const Icon(Icons.check, size: 16),
-                                                      label: const Text('اعتماد هذا العرض', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+                                                      label: Text(l.freightBookingApplyQuoteBtn, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
                                                     ),
                                                 ],
                                               ),
@@ -1754,8 +1764,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: shippingLines.any((s) => s.partnerName == _shippingLineName) ? _shippingLineName : (shippingLines.isNotEmpty ? shippingLines.first.partnerName : _shippingLineName),
-                                    labelText: 'الخط الملاحي (Shipping Line) *',
-                                    searchHintText: 'ابحث عن الخط الملاحي...',
+                                    labelText: l.freightBookingShippingLineLabel,
+                                    searchHintText: l.freightBookingShippingLineHint,
                                     items: shippingLines.isNotEmpty
                                         ? shippingLines.map((s) => SearchableDropdownItem<String>(value: s.partnerName, label: s.partnerName, subtitle: s.partnerType)).toList()
                                         : [SearchableDropdownItem<String>(value: _shippingLineName, label: _shippingLineName)],
@@ -1768,8 +1778,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: freightForwarders.any((f) => f.partnerName == _freightForwarderName) ? _freightForwarderName : (freightForwarders.isNotEmpty ? freightForwarders.first.partnerName : _freightForwarderName),
-                                    labelText: 'وكيل الشحن (Freight Forwarder)',
-                                    searchHintText: 'ابحث عن وكيل الشحن...',
+                                    labelText: l.freightBookingForwarderLabel,
+                                    searchHintText: l.freightBookingForwarderHint,
                                     items: freightForwarders.isNotEmpty
                                         ? freightForwarders.map((f) => SearchableDropdownItem<String>(value: f.partnerName, label: f.partnerName, subtitle: f.partnerType)).toList()
                                         : [SearchableDropdownItem<String>(value: _freightForwarderName, label: _freightForwarderName)],
@@ -1786,8 +1796,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: ports.any((p) => p.locationName == _polController.text) ? _polController.text : (ports.isNotEmpty ? ports.first.locationName : _polController.text),
-                                    labelText: 'ميناء التحميل (POL) *',
-                                    searchHintText: 'ابحث عن ميناء التحميل...',
+                                    labelText: l.freightBookingPolLabel,
+                                    searchHintText: l.freightBookingPolHint,
                                     items: ports.isNotEmpty
                                         ? ports.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName, subtitle: p.locationType)).toList()
                                         : [SearchableDropdownItem<String>(value: _polController.text, label: _polController.text)],
@@ -1800,8 +1810,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: ports.any((p) => p.locationName == _podController.text) ? _podController.text : (ports.length > 1 ? ports[1].locationName : _podController.text),
-                                    labelText: 'ميناء الوصول (POD) *',
-                                    searchHintText: 'ابحث عن ميناء الوصول...',
+                                    labelText: l.freightBookingPodLabel,
+                                    searchHintText: l.freightBookingPodHint,
                                     items: ports.isNotEmpty
                                         ? ports.map((p) => SearchableDropdownItem<String>(value: p.locationName, label: p.locationName, subtitle: p.locationType)).toList()
                                         : [SearchableDropdownItem<String>(value: _podController.text, label: _podController.text)],
@@ -1824,7 +1834,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                       if (d != null) setState(() => _etd = d);
                                     },
                                     child: InputDecorator(
-                                      decoration: const InputDecoration(labelText: 'تاريخ المغادرة المتوقع (ETD) *', border: OutlineInputBorder()),
+                                      decoration: InputDecoration(labelText: l.freightBookingEtdLabel, border: const OutlineInputBorder()),
                                       child: Text(_etd.toString().substring(0, 10)),
                                     ),
                                   ),
@@ -1837,7 +1847,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                       if (d != null) setState(() => _eta = d);
                                     },
                                     child: InputDecorator(
-                                      decoration: const InputDecoration(labelText: 'تاريخ الوصول المتوقع (ETA) *', border: OutlineInputBorder()),
+                                      decoration: InputDecoration(labelText: l.freightBookingEtaLabel, border: const OutlineInputBorder()),
                                       child: Text(_eta.toString().substring(0, 10)),
                                     ),
                                   ),
@@ -1851,7 +1861,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                     },
                                     child: InputDecorator(
                                       decoration: InputDecoration(
-                                        labelText: 'تاريخ المغادرة الفعلي (ATD)',
+                                        labelText: l.freightBookingAtdLabel,
                                         border: const OutlineInputBorder(),
                                         suffixIcon: _atd != null
                                             ? IconButton(
@@ -1860,7 +1870,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                               )
                                             : null,
                                       ),
-                                      child: Text(_atd != null ? _atd!.toString().substring(0, 10) : 'لم يحدد بعد'),
+                                      child: Text(_atd != null ? _atd!.toString().substring(0, 10) : l.freightBookingPendingDate),
                                     ),
                                   ),
                                 ),
@@ -1881,12 +1891,12 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                   Icon(delayDays > 0 ? Icons.alarm_off : Icons.check_circle, color: delayDays > 0 ? Colors.red : Colors.green, size: 20),
                                   const SizedBox(width: 8),
                                   Text(
-                                    delayDays > 0 ? '⚠️ تأخير في الإبحار: $delayDays يوم عن الموعد المجدول' : '✅ تم الإبحار في الموعد المجدول (لا توجد تأخيرات)',
+                                    delayDays > 0 ? l.freightBookingDelayBannerDelayed(delayDays) : l.freightBookingDelayBannerOnTime,
                                     style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: delayDays > 0 ? Colors.red.shade900 : Colors.green.shade900),
                                   ),
                                   const Spacer(),
                                   Text(
-                                    'موعد الوصول للمخزن المتوقع: ${computedWhArrival.toString().substring(0, 10)}',
+                                    l.freightBookingExpectedWhArrival(computedWhArrival.toString().substring(0, 10)),
                                     style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.charcoal),
                                   ),
                                 ],
@@ -1900,7 +1910,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                   child: TextFormField(
                                     controller: _freeDemurrageController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'الأيام المجانية (Free Days) *', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingFreeDaysInput, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
@@ -1908,7 +1918,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                   child: TextFormField(
                                     controller: _expectedWhDaysController,
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'أيام الوصول للمخزن (Warehouse Days)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingWarehouseDaysInput, border: const OutlineInputBorder()),
                                     onChanged: (v) => setState(() {}),
                                   ),
                                 ),
@@ -1916,13 +1926,13 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: SearchableDropdownField<String>(
                                     value: _status,
-                                    labelText: 'حالة الحجز (Status) *',
-                                    searchHintText: 'ابحث عن حالة الحجز...',
-                                    items: const [
-                                      SearchableDropdownItem(value: 'Draft', label: 'Draft'),
-                                      SearchableDropdownItem(value: 'Booking Requested', label: 'Booking Requested'),
-                                      SearchableDropdownItem(value: 'Confirmed', label: 'Confirmed'),
-                                      SearchableDropdownItem(value: 'Sailed', label: 'Sailed'),
+                                    labelText: l.freightBookingStatusInputLabel,
+                                    searchHintText: l.freightBookingFilterStatusHint,
+                                    items: [
+                                      SearchableDropdownItem(value: 'Draft', label: l.freightBookingStatusDraft),
+                                      SearchableDropdownItem(value: 'Booking Requested', label: l.freightBookingStatusRequested),
+                                      SearchableDropdownItem(value: 'Confirmed', label: l.freightBookingStatusConfirmed),
+                                      SearchableDropdownItem(value: 'Sailed', label: l.freightBookingStatusSailed),
                                     ],
                                     onChanged: (v) {
                                       if (v != null) setState(() => _status = v);
@@ -1937,21 +1947,21 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 Expanded(
                                   child: TextFormField(
                                     controller: _vesselNameController,
-                                    decoration: const InputDecoration(labelText: 'اسم السفينة (Vessel Name)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingVesselNameInput, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: TextFormField(
                                     controller: _voyageNoController,
-                                    decoration: const InputDecoration(labelText: 'رقم الرحلة (Voyage No)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingVoyageNoInput, border: const OutlineInputBorder()),
                                   ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: TextFormField(
                                     controller: _releaseOrderNoController,
-                                    decoration: const InputDecoration(labelText: 'إذن الإفراج عن الحاويات (Release Order No)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingReleaseOrderInput, border: const OutlineInputBorder()),
                                   ),
                                 ),
                               ],
@@ -1965,8 +1975,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                   flex: 2,
                                   child: SearchableDropdownField<String>(
                                     value: _containers.isNotEmpty ? _containers.first.containerType : '40HC',
-                                    labelText: 'نوع الحاوية المطلوب حجزها (Container Type)',
-                                    searchHintText: 'ابحث عن النوع...',
+                                    labelText: l.freightBookingContainerTypeInput,
+                                    searchHintText: '20GP, 40HC...',
                                     items: const [
                                       SearchableDropdownItem(value: '20GP', label: '20GP Standard'),
                                       SearchableDropdownItem(value: '40GP', label: '40GP Standard'),
@@ -1999,7 +2009,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                   child: TextFormField(
                                     initialValue: _containers.isNotEmpty ? _containers.first.quantity.toString() : '1',
                                     keyboardType: TextInputType.number,
-                                    decoration: const InputDecoration(labelText: 'عدد الحاويات المحجوزة (Qty)', border: OutlineInputBorder()),
+                                    decoration: InputDecoration(labelText: l.freightBookingContainersQtyInput, border: const OutlineInputBorder()),
                                     onChanged: (val) {
                                       final q = int.tryParse(val) ?? 1;
                                       setState(() {
@@ -2027,14 +2037,14 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(color: Colors.blueGrey.shade200),
                               ),
-                              child: const Row(
+                              child: Row(
                                 children: [
-                                  Icon(Icons.info_outline, size: 16, color: AppTheme.cobalt),
-                                  SizedBox(width: 6),
+                                  const Icon(Icons.info_outline, size: 16, color: AppTheme.cobalt),
+                                  const SizedBox(width: 6),
                                   Expanded(
                                     child: Text(
-                                      'ℹ️ ملاحظة: تخصيص الحاويات التفصيلي، أرقام السيل، أوزان VGM، والفحص يتم في مرحلة (متابعة وتجهيز التحميل).',
-                                      style: TextStyle(fontSize: 11, color: AppTheme.charcoal),
+                                      l.freightBookingEquipmentNote,
+                                      style: const TextStyle(fontSize: 11, color: AppTheme.charcoal),
                                     ),
                                   ),
                                 ],
@@ -2051,16 +2061,17 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
                           children: [
                             Row(
                               children: [
-                                const Text('تفاصيل بنود عرض السعر الشاملة (Freight Quote Details 1..17):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
+                                Text(l.freightBookingCostBreakdownTitle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.charcoal)),
                                 const Spacer(),
-                                Text('العملة الأساسية: $_mainQuoteCurrency', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                                Text(l.freightBookingBaseCurrencyLabel(_mainQuoteCurrency), style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                               ],
                             ),
                             const SizedBox(height: 12),
 
                             // 1. Container 40ft
                             _buildCostItemRow(
-                              title: '1. شحن حاوية 40 قدم (Container 40ft)',
+                              context: context,
+                              title: l.freightBookingItem40ft,
                               isApplicable: _container40ftApp,
                               onToggle: (v) => setState(() => _container40ftApp = v),
                               price: _container40ftPrice,
@@ -2073,7 +2084,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 2. Container 20ft
                             _buildCostItemRow(
-                              title: '2. شحن حاوية 20 قدم (Container 20ft)',
+                              context: context,
+                              title: l.freightBookingItem20ft,
                               isApplicable: _container20ftApp,
                               onToggle: (v) => setState(() => _container20ftApp = v),
                               price: _container20ftPrice,
@@ -2086,7 +2098,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 3. LCL CBM Cost
                             _buildCostItemRow(
-                              title: '3. LCL CBM Cost (شحن LCL لشحنة CBM)',
+                              context: context,
+                              title: l.freightBookingItemLcl,
                               isApplicable: _lclCbmApp,
                               onToggle: (v) => setState(() => _lclCbmApp = v),
                               price: _lclCbmPrice,
@@ -2099,7 +2112,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 4. Express Courier
                             _buildCostItemRow(
-                              title: '4. البريد السريع للمستندات (Express Courier)',
+                              context: context,
+                              title: l.freightBookingItemCourier,
                               isApplicable: _expressCourierApp,
                               onToggle: (v) => setState(() => _expressCourierApp = v),
                               price: _expressCourierPrice,
@@ -2110,7 +2124,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 5. EUR.1 / ATR Certificate
                             _buildCostItemRow(
-                              title: '5. شهادة المنشأ (EUR.1 / ATR Certificate)',
+                              context: context,
+                              title: l.freightBookingItemEur1,
                               isApplicable: _eurAtrApp,
                               onToggle: (v) => setState(() => _eurAtrApp = v),
                               price: _eurAtrPrice,
@@ -2121,7 +2136,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 6. SOLAS/VGM Fees
                             _buildCostItemRow(
-                              title: '6. مصاريف التحقق من الوزن (SOLAS/VGM Fees)',
+                              context: context,
+                              title: l.freightBookingItemVgm,
                               isApplicable: _solasVgmApp,
                               onToggle: (v) => setState(() => _solasVgmApp = v),
                               price: _solasVgmPrice,
@@ -2132,7 +2148,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 7. VGM Notification Fee
                             _buildCostItemRow(
-                              title: '7. إخطار إقرار الوزن (VGM Notification Fee)',
+                              context: context,
+                              title: l.freightBookingItemVgmNotif,
                               isApplicable: _vgmNotifApp,
                               onToggle: (v) => setState(() => _vgmNotifApp = v),
                               price: _vgmNotifPrice,
@@ -2143,7 +2160,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 8. Telex Release
                             _buildCostItemRow(
-                              title: '8. إطلاق الفاكس الملاحي (Telex Release)',
+                              context: context,
+                              title: l.freightBookingItemTelex,
                               isApplicable: _telexReleaseApp,
                               onToggle: (v) => setState(() => _telexReleaseApp = v),
                               price: _telexReleasePrice,
@@ -2154,7 +2172,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 9. Marine Insurance
                             _buildCostItemRow(
-                              title: '9. بوليصة التأمين البحري (Insurance)',
+                              context: context,
+                              title: l.freightBookingItemInsurance,
                               isApplicable: _insuranceApp,
                               onToggle: (v) => setState(() => _insuranceApp = v),
                               price: _insurancePrice,
@@ -2165,7 +2184,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 10. Booking Cancellation
                             _buildCostItemRow(
-                              title: '10. غرامة إلغاء الحجز (Booking Cancellation)',
+                              context: context,
+                              title: l.freightBookingItemCancellation,
                               isApplicable: _cancellationApp,
                               onToggle: (v) => setState(() => _cancellationApp = v),
                               price: _cancellationPrice,
@@ -2176,7 +2196,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 11. ICS2 Filing Fee
                             _buildCostItemRow(
-                              title: '11. رسوم إيداع بيان الحمول المسبقة (ICS2 Filing Fee)',
+                              context: context,
+                              title: l.freightBookingItemIcs2,
                               isApplicable: _ics2App,
                               onToggle: (v) => setState(() => _ics2App = v),
                               price: _ics2Price,
@@ -2187,7 +2208,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 12. Other Fees
                             _buildCostItemRow(
-                              title: '12. مصاريف ورسوم أخرى (Other Fees)',
+                              context: context,
+                              title: l.freightBookingItemOther,
                               isApplicable: _otherFeesApp,
                               onToggle: (v) => setState(() => _otherFeesApp = v),
                               price: _otherFeesPrice,
@@ -2198,7 +2220,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 13. Document Fees
                             _buildCostItemRow(
-                              title: '13. مصاريف إصدار وثائق الشحن (Document Fees)',
+                              context: context,
+                              title: l.freightBookingItemDocFees,
                               isApplicable: _docFeesApp,
                               onToggle: (v) => setState(() => _docFeesApp = v),
                               price: _docFeesPrice,
@@ -2209,7 +2232,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 14. Waiver Letter Fee
                             _buildCostItemRow(
-                              title: '14. رسوم خطاب التنازل (Waiver Letter Fee)',
+                              context: context,
+                              title: l.freightBookingItemWaiver,
                               isApplicable: _waiverApp,
                               onToggle: (v) => setState(() => _waiverApp = v),
                               price: _waiverPrice,
@@ -2220,7 +2244,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 15. DTHC
                             _buildCostItemRow(
-                              title: '15. تفريغ ومناولة ميناء الوصول (DTHC)',
+                              context: context,
+                              title: l.freightBookingItemDthc,
                               isApplicable: _dthcApp,
                               onToggle: (v) => setState(() => _dthcApp = v),
                               price: _dthcPrice,
@@ -2231,7 +2256,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 16. Storage per one week
                             _buildCostItemRow(
-                              title: '16. أرضيات / تخزين لأول أسبوع (Storage per one week)',
+                              context: context,
+                              title: l.freightBookingItemStorageWeek,
                               isApplicable: _storagePerWeekApp,
                               onToggle: (v) => setState(() => _storagePerWeekApp = v),
                               price: _storagePerWeekPrice,
@@ -2242,7 +2268,8 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
 
                             // 17. Extra day storage
                             _buildCostItemRow(
-                              title: '17. أرضيات / تخزين لليوم الإضافي (Extra day storage)',
+                              context: context,
+                              title: l.freightBookingItemStorageExtra,
                               isApplicable: _extraDayStorageApp,
                               onToggle: (v) => setState(() => _extraDayStorageApp = v),
                               price: _extraDayStoragePrice,
@@ -2268,7 +2295,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             ),
             onPressed: () => Navigator.of(context).pop(),
             icon: const Icon(Icons.close, size: 16, color: AppTheme.crimson),
-            label: const Text('إغلاق وتراجع ✕', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l.freightBookingBtnCloseDiscard, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
@@ -2281,7 +2308,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               ref.read(importFilesProvider.notifier).fetchImportFiles();
             },
             icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-            label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l.freightBookingBtnLiveReload, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 6),
           OutlinedButton.icon(
@@ -2301,7 +2328,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
               });
             },
             icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-            label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l.freightBookingBtnClearNew, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 6),
           ElevatedButton.icon(
@@ -2313,7 +2340,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             ),
             onPressed: _isSaving ? null : () => _submitWithContainerValidation(activeContainerRec),
             icon: const Icon(Icons.save_outlined, size: 16, color: AppTheme.cobalt),
-            label: const Text('حفظ مؤقت ومتابعة لاحقة 💾', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            label: Text(l.freightBookingBtnSaveDraft, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
           ),
           const SizedBox(width: 6),
           ElevatedButton.icon(
@@ -2325,7 +2352,7 @@ class _FreightBookingFormDialogState extends ConsumerState<_FreightBookingFormDi
             icon: _isSaving
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                 : const Icon(Icons.check, color: Colors.white),
-            label: Text(widget.bookingToEdit != null ? 'تحديث وحفظ الحجز 💾' : 'حفظ وتأكيد حجز الشحن ✅', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            label: Text(widget.bookingToEdit != null ? l.freightBookingBtnUpdate : l.freightBookingBtnSaveConfirm, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -2340,12 +2367,13 @@ class _FreightBookingViewDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AlertDialog(
       title: Row(
         children: [
           const Icon(Icons.visibility, color: AppTheme.cobalt),
           const SizedBox(width: 8),
-          Text('تفاصيل حجز الشحن: ${booking.bookingCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(l.freightBookingViewTitle(booking.bookingCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ],
       ),
       content: SizedBox(
@@ -2361,16 +2389,16 @@ class _FreightBookingViewDialog extends StatelessWidget {
                 decoration: BoxDecoration(color: Colors.blueGrey.shade50, borderRadius: BorderRadius.circular(8)),
                 child: Row(
                   children: [
-                    Text('الخط الملاحي: ${booking.shippingLineName ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text('${l.freightBookingViewShippingLine} ${booking.shippingLineName ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    Text('رقم التأكيد: ${booking.bookingConfirmationNo ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
+                    Text('${l.freightBookingViewConfirmNo} ${booking.bookingConfirmationNo ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.cobalt)),
                   ],
                 ),
               ),
               const SizedBox(height: 12),
 
               // Route & Schedule
-              const Text('المسار والمواعيد:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l.freightBookingViewRouteSection, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const SizedBox(height: 6),
               Card(
                 child: Padding(
@@ -2379,22 +2407,22 @@ class _FreightBookingViewDialog extends StatelessWidget {
                     children: [
                       Row(
                         children: [
-                          Expanded(child: Text('ميناء التحميل: ${booking.polName ?? "-" }')),
-                          Expanded(child: Text('ميناء الوصول: ${booking.podName ?? "-" }')),
+                          Expanded(child: Text('${l.freightBookingViewPol} ${booking.polName ?? "-" }')),
+                          Expanded(child: Text('${l.freightBookingViewPod} ${booking.podName ?? "-" }')),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Expanded(child: Text('السفينة: ${booking.vesselName ?? "-"} (رحلة: ${booking.voyageNumber ?? "-"})')),
-                          Expanded(child: Text('مدة الترانزيت: ${booking.transitTimeDays} يوم')),
+                          Expanded(child: Text(l.freightBookingViewVesselVoyage(booking.vesselName ?? "-", booking.voyageNumber ?? "-"))),
+                          Expanded(child: Text(l.freightBookingViewTransitTime(booking.transitTimeDays))),
                         ],
                       ),
                       const SizedBox(height: 6),
                       Row(
                         children: [
-                          Expanded(child: Text('تاريخ المغادرة ETD: ${booking.etd != null ? booking.etd!.substring(0, 10) : "-" }')),
-                          Expanded(child: Text('تاريخ الوصول ETA: ${booking.eta != null ? booking.eta!.substring(0, 10) : "-" }')),
+                          Expanded(child: Text(l.freightBookingViewEtd(booking.etd != null ? booking.etd!.substring(0, 10) : "-"))),
+                          Expanded(child: Text(l.freightBookingViewEta(booking.eta != null ? booking.eta!.substring(0, 10) : "-"))),
                         ],
                       ),
                       if (booking.atd != null) ...[
@@ -2403,11 +2431,14 @@ class _FreightBookingViewDialog extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                'تاريخ المغادرة الفعلي ATD: ${booking.atd!.substring(0, 10)} (${booking.departureDelayDays > 0 ? "تأخير: +${booking.departureDelayDays}d" : "في الموعد"})',
+                                l.freightBookingViewAtd(
+                                  booking.atd!.substring(0, 10),
+                                  booking.departureDelayDays > 0 ? "+${booking.departureDelayDays}d" : "0d",
+                                ),
                                 style: TextStyle(fontWeight: FontWeight.bold, color: booking.departureDelayDays > 0 ? Colors.red : Colors.green),
                               ),
                             ),
-                            Expanded(child: Text('وصول المخزن المتوقع: ${booking.expectedWarehouseArrivalDate != null ? booking.expectedWarehouseArrivalDate!.substring(0, 10) : "-" }')),
+                            Expanded(child: Text(l.freightBookingViewExpectedWh(booking.expectedWarehouseArrivalDate != null ? booking.expectedWarehouseArrivalDate!.substring(0, 10) : "-"))),
                           ],
                         ),
                       ],
@@ -2418,7 +2449,7 @@ class _FreightBookingViewDialog extends StatelessWidget {
 
               const SizedBox(height: 12),
               // Containers
-              const Text('الحاويات وأرقام السيل المخصصة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l.freightBookingViewContainersSection, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const SizedBox(height: 6),
               ...booking.containersData.map((c) {
                 return Card(
@@ -2428,9 +2459,9 @@ class _FreightBookingViewDialog extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('${c.quantity}x ${c.containerType} (إجمالي الوزن: ${c.vgmWeightKg.toStringAsFixed(0)} kg)', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text('${c.quantity}x ${c.containerType} (${c.vgmWeightKg.toStringAsFixed(0)} kg)', style: const TextStyle(fontWeight: FontWeight.bold)),
                         const SizedBox(height: 4),
-                        ...c.individualContainers.map((indiv) => Text('• حاوية: ${indiv.containerNumber.isEmpty ? "-" : indiv.containerNumber} | سيل: ${indiv.sealNumber.isEmpty ? "-" : indiv.sealNumber}', style: const TextStyle(fontSize: 11))),
+                        ...c.individualContainers.map((indiv) => Text('• ${indiv.containerNumber.isEmpty ? "-" : indiv.containerNumber} | ${indiv.sealNumber.isEmpty ? "-" : indiv.sealNumber}', style: const TextStyle(fontSize: 11))),
                       ],
                     ),
                   ),
@@ -2439,7 +2470,7 @@ class _FreightBookingViewDialog extends StatelessWidget {
 
               const SizedBox(height: 12),
               // Charges Breakdown
-              const Text('بنود التكاليف والنولون المعتمدة:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+              Text(l.freightBookingViewChargesSection, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
               const SizedBox(height: 6),
               ...booking.costChargesData.map((ch) {
                 return Padding(
@@ -2456,7 +2487,7 @@ class _FreightBookingViewDialog extends StatelessWidget {
               const Divider(),
               Row(
                 children: [
-                  const Text('إجمالي النولون التقديري (USD):', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(l.freightBookingViewTotalFreight, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const Spacer(),
                   Text('\$ ${booking.totalFreightCostUsd.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.emerald)),
                 ],
@@ -2466,7 +2497,7 @@ class _FreightBookingViewDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        ElevatedButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        ElevatedButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
       ],
     );
   }
@@ -2479,12 +2510,13 @@ class _FreightBookingPrintDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return AlertDialog(
       title: Row(
         children: [
           const Icon(Icons.print, color: Colors.blueGrey),
           const SizedBox(width: 8),
-          Text('طباعة بطاقة حجز الشحن (Booking Manifest): ${booking.bookingCode}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Text(l.freightBookingPrintTitle(booking.bookingCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         ],
       ),
       content: SizedBox(
@@ -2505,8 +2537,8 @@ class _FreightBookingPrintDialog extends StatelessWidget {
                   child: Column(
                     children: [
                       const Text('IMPORTFLOW ERP - CARRIER BOOKING CONFIRMATION', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, letterSpacing: 1.1)),
-                      Text('سند تأكيد حجز الشحن الملاحي (${booking.bookingCode})', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                      Text('تاريخ الطباعة: ${DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")}', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                      Text(l.freightBookingPrintManifestHeader(booking.bookingCode), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                      Text(l.freightBookingPrintDate(DateTime.now().toIso8601String().substring(0, 16).replaceAll("T", " ")), style: const TextStyle(fontSize: 10, color: Colors.grey)),
                     ],
                   ),
                 ),
@@ -2515,42 +2547,42 @@ class _FreightBookingPrintDialog extends StatelessWidget {
 
                 Row(
                   children: [
-                    Expanded(child: Text('الخط الملاحي: ${booking.shippingLineName ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold))),
-                    Expanded(child: Text('رقم تأكيد الحجز: ${booking.bookingConfirmationNo ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    Expanded(child: Text('${l.freightBookingViewShippingLine} ${booking.shippingLineName ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold))),
+                    Expanded(child: Text('${l.freightBookingViewConfirmNo} ${booking.bookingConfirmationNo ?? "-"}', style: const TextStyle(fontWeight: FontWeight.bold))),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Expanded(child: Text('السفينة / الرحلة: ${booking.vesselName ?? "-"} / ${booking.voyageNumber ?? "-"}')),
-                    Expanded(child: Text('الموانئ: ${booking.polName ?? "-"} ➔ ${booking.podName ?? "-"}')),
+                    Expanded(child: Text('${l.freightBookingColVesselVoyage}: ${booking.vesselName ?? "-"} / ${booking.voyageNumber ?? "-"}')),
+                    Expanded(child: Text('${l.freightBookingColRoute}: ${booking.polName ?? "-"} ➔ ${booking.podName ?? "-"}')),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Row(
                   children: [
-                    Expanded(child: Text('تاريخ المغادرة (ETD): ${booking.etd != null ? booking.etd!.substring(0, 10) : "-"}')),
-                    Expanded(child: Text('تاريخ الوصول (ETA): ${booking.eta != null ? booking.eta!.substring(0, 10) : "-"}')),
+                    Expanded(child: Text(l.freightBookingViewEtd(booking.etd != null ? booking.etd!.substring(0, 10) : "-"))),
+                    Expanded(child: Text(l.freightBookingViewEta(booking.eta != null ? booking.eta!.substring(0, 10) : "-"))),
                   ],
                 ),
                 if (booking.atd != null) ...[
                   const SizedBox(height: 6),
-                  Text('المغادرة الفعلية (ATD): ${booking.atd!.substring(0, 10)} (التأخير: ${booking.departureDelayDays} يوم)'),
+                  Text(l.freightBookingViewAtd(booking.atd!.substring(0, 10), '+${booking.departureDelayDays}d')),
                 ],
 
                 const SizedBox(height: 12),
-                const Text('قائمة الحاويات وأرقام السيل:', style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                Text(l.freightBookingPrintContainersHeader, style: const TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
                 const SizedBox(height: 4),
-                ...booking.containersData.expand((c) => c.individualContainers.map((indiv) => Text('• ${c.containerType} | رقم الحاوية: ${indiv.containerNumber.isEmpty ? "N/A" : indiv.containerNumber} | رقم السيل: ${indiv.sealNumber.isEmpty ? "N/A" : indiv.sealNumber}'))),
+                ...booking.containersData.expand((c) => c.individualContainers.map((indiv) => Text('• ${c.containerType} | ${indiv.containerNumber.isEmpty ? "N/A" : indiv.containerNumber} | ${indiv.sealNumber.isEmpty ? "N/A" : indiv.sealNumber}'))),
 
                 const SizedBox(height: 12),
-                const Text('إجمالي النولون والمصاريف المعتمدة:', style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                Text(l.freightBookingPrintChargesHeader, style: const TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
                 const SizedBox(height: 4),
                 ...booking.costChargesData.map((ch) => Text('• ${ch.chargeType}: ${ch.total.toStringAsFixed(2)} ${ch.currency}')),
                 const Divider(),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text('الإجمالي العام: \$ ${booking.totalFreightCostUsd.toStringAsFixed(2)} USD', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.emerald)),
+                  child: Text(l.freightBookingPrintGrandTotal(booking.totalFreightCostUsd.toStringAsFixed(2)), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.emerald)),
                 ),
               ],
             ),
@@ -2558,15 +2590,15 @@ class _FreightBookingPrintDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('إغلاق')),
+        TextButton(onPressed: () => Navigator.pop(context), child: Text(l.close)),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
           onPressed: () {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('🖨️ تم إرسال سند الحجز للطباعة بنجاح!'), backgroundColor: AppTheme.emerald));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('🖨️ ${l.freightBookingPrintSuccess}'), backgroundColor: AppTheme.emerald));
             Navigator.pop(context);
           },
           icon: const Icon(Icons.print, color: Colors.white),
-          label: const Text('طباعة الآن (Print)', style: TextStyle(color: Colors.white)),
+          label: Text(l.freightBookingPrintNowBtn, style: const TextStyle(color: Colors.white)),
         ),
       ],
     );

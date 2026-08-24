@@ -34,9 +34,9 @@ except Exception:
 # Paths
 ROOT_DIR = Path(__file__).resolve().parent
 DIST_DIR = ROOT_DIR / "dist"
-STANDALONE_DIR = DIST_DIR / "ImportFlow_Standalone"
-DESKTOP_DIR = DIST_DIR / "ImportFlow_Desktop"
-WEB_DIR = DIST_DIR / "ImportFlow_Web"
+STANDALONE_DIR = DIST_DIR / "Sorour_Logistics_Standalone"
+DESKTOP_DIR = DIST_DIR / "Sorour_Logistics_Desktop"
+WEB_DIR = DIST_DIR / "Sorour_Logistics_Web"
 BACKUPS_DIR = ROOT_DIR / "backups"
 
 DEV_DB = ROOT_DIR / "sorour_logistics.db"
@@ -448,9 +448,13 @@ def export_release_zip():
 
 def launch_production_app():
     """Launches the production application silently."""
-    print("\n[LAUNCH] جاري تشغيل نسخة البرودكشن المستقلة (ImportFlow Standalone)...")
-    vbs_launcher = STANDALONE_DIR / "Launch_ImportFlow.vbs"
-    bat_launcher = DIST_DIR / "Start_ImportFlow_Production.bat"
+    print("\n[LAUNCH] جاري تشغيل نسخة البرودكشن المستقلة (Sorour Logistics Standalone)...")
+    vbs_launcher = STANDALONE_DIR / "Launch_Sorour_Logistics.vbs"
+    if not vbs_launcher.exists():
+        vbs_launcher = STANDALONE_DIR / "Launch_ImportFlow.vbs"
+    bat_launcher = DIST_DIR / "Start_Sorour_Logistics_Production.bat"
+    if not bat_launcher.exists():
+        bat_launcher = DIST_DIR / "Start_ImportFlow_Production.bat"
     
     if vbs_launcher.exists():
         subprocess.Popen(["wscript.exe", str(vbs_launcher)], cwd=str(STANDALONE_DIR))

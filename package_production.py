@@ -1,5 +1,5 @@
 """
-ImportFlow ERP — Production Packaging Script
+Sorour Logistics ERP — Production Packaging Script
 Creates standalone portable packages and distribution bundles for Windows and Web.
 """
 import os
@@ -9,9 +9,9 @@ from pathlib import Path
 
 ROOT_DIR = Path(__file__).resolve().parent
 DIST_DIR = ROOT_DIR / "dist"
-STANDALONE_DEST = DIST_DIR / "ImportFlow_Standalone"
-DESKTOP_DEST = DIST_DIR / "ImportFlow_Desktop"
-WEB_DEST = DIST_DIR / "ImportFlow_Web"
+STANDALONE_DEST = DIST_DIR / "Sorour_Logistics_Standalone"
+DESKTOP_DEST = DIST_DIR / "Sorour_Logistics_Desktop"
+WEB_DEST = DIST_DIR / "Sorour_Logistics_Web"
 
 DESKTOP_SRC = ROOT_DIR / "frontend" / "build" / "windows" / "x64" / "runner" / "Release"
 WEB_SRC = ROOT_DIR / "frontend" / "build" / "web"
@@ -132,13 +132,13 @@ End If
 ' 5. When frontend is closed by the user, terminate backend.exe cleanly and silently
 WshShell.Run "taskkill /f /im backend.exe", 0, True
 '''
-    vbs_file = STANDALONE_DEST / "Launch_ImportFlow.vbs"
+    vbs_file = STANDALONE_DEST / "Launch_Sorour_Logistics.vbs"
     with open(vbs_file, "w", encoding="utf-8") as f:
         f.write(vbs_launcher)
 
     # 6. Create Standalone Batch Launcher (Optional Fallback)
     launcher_content = """@echo off
-title ImportFlow ERP
+title Sorour Logistics ERP
 setlocal
 
 :: 1. Free Port 28080 if occupied
@@ -156,9 +156,16 @@ ping 127.0.0.1 -n 2 >nul 2>&1
 start "" "%~dp0frontend.exe"
 exit /b 0
 """
-    standalone_launcher = STANDALONE_DEST / "ImportFlow_App.bat"
+    standalone_launcher = STANDALONE_DEST / "Sorour_Logistics_App.bat"
     with open(standalone_launcher, "w", encoding="utf-8") as f:
         f.write(launcher_content)
+
+    # Backward compatibility alias
+    try:
+        with open(STANDALONE_DEST / "Launch_ImportFlow.vbs", "w", encoding="utf-8") as f:
+            f.write(vbs_launcher)
+    except Exception:
+        pass
 
     print(f"      Created Silent Launcher: {vbs_file}")
     return True
@@ -189,32 +196,42 @@ def create_production_launchers():
 
     # Root Dist Launcher
     root_launcher_content = """@echo off
-title ImportFlow ERP Production
+title Sorour Logistics ERP Production
 setlocal
 
 echo ===============================================================================
-echo                 ImportFlow ERP - Production Standalone Launcher
+echo             Sorour Logistics ERP - Production Standalone Launcher
 echo ===============================================================================
 echo.
 
-if exist "%~dp0ImportFlow_Standalone\\Launch_ImportFlow.vbs" (
-    start "" "%~dp0ImportFlow_Standalone\\Launch_ImportFlow.vbs"
+if exist "%~dp0Sorour_Logistics_Standalone\\Launch_Sorour_Logistics.vbs" (
+    start "" "%~dp0Sorour_Logistics_Standalone\\Launch_Sorour_Logistics.vbs"
     echo Application launched silently!
     exit /b 0
 )
 
-if exist "%~dp0ImportFlow_Standalone\\ImportFlow_App.bat" (
-    start "" "%~dp0ImportFlow_Standalone\\ImportFlow_App.bat"
+if exist "%~dp0Sorour_Logistics_Standalone\\Sorour_Logistics_App.bat" (
+    start "" "%~dp0Sorour_Logistics_Standalone\\Sorour_Logistics_App.bat"
     exit /b 0
 )
 
-echo [ERROR] ImportFlow_Standalone directory or launcher not found!
+if exist "%~dp0ImportFlow_Standalone\\Launch_ImportFlow.vbs" (
+    start "" "%~dp0ImportFlow_Standalone\\Launch_ImportFlow.vbs"
+    exit /b 0
+)
+
+echo [ERROR] Sorour_Logistics_Standalone directory or launcher not found!
 pause
 exit /b 1
 """
-    root_launcher = DIST_DIR / "Start_ImportFlow_Production.bat"
+    root_launcher = DIST_DIR / "Start_Sorour_Logistics_Production.bat"
     with open(root_launcher, "w", encoding="utf-8") as f:
         f.write(root_launcher_content)
+    
+    # Backward compatibility alias
+    with open(DIST_DIR / "Start_ImportFlow_Production.bat", "w", encoding="utf-8") as f:
+        f.write(root_launcher_content)
+
     print(f"      Generated: {root_launcher}")
     return True
 
@@ -232,10 +249,10 @@ def get_current_version() -> str:
         try:
             with open(version_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("version", "1.0.1")
+                return data.get("version", "1.0.3")
         except Exception:
             pass
-    return "1.0.1"
+    return "1.0.3"
 
 
 def compile_installer_and_zip(version: str):
@@ -249,7 +266,7 @@ def compile_installer_and_zip(version: str):
         r"C:\Program Files\Inno Setup 6\ISCC.exe",
     ]
     iscc = next((p for p in iscc_paths if Path(p).exists()), None)
-    setup_name = f"ImportFlow_Setup_v{version}.exe"
+    setup_name = f"Sorour_Logistics_Setup_v{version}.exe"
     if iscc:
         iss_file = ROOT_DIR / "installer" / "importflow_setup.iss"
         print(f"[6/6] Compiling Setup Installer ({setup_name}) with Inno Setup...")
@@ -260,7 +277,7 @@ def compile_installer_and_zip(version: str):
             print(f"      [WARN] ISCC: {res.stderr}")
             
     # 2. Compile Portable ZIP
-    zip_name = f"ImportFlow_v{version}_Windows_Portable.zip"
+    zip_name = f"Sorour_Logistics_v{version}_Windows_Portable.zip"
     zip_dest = releases_dir / zip_name
     print(f"[6/6] Compiling Portable ZIP ({zip_name})...")
     with zipfile.ZipFile(zip_dest, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -277,7 +294,7 @@ def compile_installer_and_zip(version: str):
     release_info = {
         "version": version,
         "release_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "app_name": "ImportFlow ERP",
+        "app_name": "Sorour Logistics ERP",
         "packages": {
             "setup_exe": {
                 "filename": setup_name,
@@ -291,7 +308,7 @@ def compile_installer_and_zip(version: str):
             },
             "standalone_folder": {
                 "path": str(STANDALONE_DEST),
-                "launcher": str(STANDALONE_DEST / "Launch_ImportFlow.vbs")
+                "launcher": str(STANDALONE_DEST / "Launch_Sorour_Logistics.vbs")
             }
         }
     }
@@ -303,7 +320,7 @@ def compile_installer_and_zip(version: str):
 def main():
     version = get_current_version()
     print("================================================================================")
-    print(f"       ImportFlow ERP (v{version}) - Production Standalone Packaging            ")
+    print(f"       Sorour Logistics ERP (v{version}) - Production Standalone Packaging       ")
     print("================================================================================")
     clean_dist()
     s1 = copy_standalone_package()
@@ -325,3 +342,4 @@ def main():
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
+

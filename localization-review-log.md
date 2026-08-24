@@ -56,7 +56,7 @@
 - [x] Screen 11: ACID Operations (`NafezaAcidScreen` / `nafeza_acid_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 16: Bank Form 4 (`BankForm4Screen` / `bank_form4_screen.dart`) — **Reviewed & Fixed**
 - [x] Screen 18: Draft B/L Review (`DraftBLReviewTab` / `draft_bl_review_tab.dart` & `VisualDraftBLSheet` / `visual_draft_bl_sheet.dart`) — **Reviewed & Fixed**
-- [ ] Screen 19: Draft COO / EUR.1 (`DraftCooScreen`)
+- [x] Screen 19: Draft COO / EUR.1 (`COOReviewTab` in `coo_review_tab.dart` & `VisualDraftCOOSheet` in `visual_draft_coo_sheet.dart`) — **Reviewed & Fixed**
 - [ ] Screen 20: Customs Docs Approval (`CustomsApprovalScreen`)
 - [ ] Screen 21: PO & Packing Reconciliation (`PoReconciliationScreen`)
 - [ ] Screen 23: Customs Declaration 46 (`CustomsDeclaration46Screen`)
@@ -93,8 +93,9 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 18: Draft B/L Review (draft_bl_review_tab.dart & visual_draft_bl_sheet.dart)`  
-**Next Screen to Review:** `Screen 19: Draft COO / EUR.1 (DraftCooScreen)`
+**Last Screen Fully Fixed:** `Screen 19: Draft COO / EUR.1 Review (coo_review_tab.dart & visual_draft_coo_sheet.dart)`  
+**Next Screen to Review:** `Screen 20: Customs Docs Approval (CustomsApprovalScreen)`
+
 
 
 

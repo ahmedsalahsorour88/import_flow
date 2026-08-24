@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/import_doc_stepper.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -43,13 +44,6 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   String? _recommendationAlert;
   bool _isManualChoiceRequired = false;
   List<String> _allowedCertTypes = [];
-
-  static const List<ImportDocStep> _steps = [
-    ImportDocStep(label: '1. متطلبات شهادة المنشأ / EUR.1', icon: Icons.description),
-    ImportDocStep(label: '2. إدخال واستخراج الدرافت', icon: Icons.file_upload),
-    ImportDocStep(label: '3. مصفوفة المقارنة والفروق', icon: Icons.fact_check),
-    ImportDocStep(label: '4. سجل مراجعات المنشأ', icon: Icons.history_edu),
-  ];
 
   @override
   void initState() {
@@ -158,7 +152,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   Future<void> _generateOfficialDraft() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً لتوليد المسودة'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: Colors.red),
       );
       return;
     }
@@ -196,7 +190,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 children: [
                   const Icon(Icons.verified, color: AppTheme.cobalt),
                   const SizedBox(width: 8),
-                  Text('المعاينة المصورة لمسودة شهادة المنشأ الرسمية: ${res['certificate_type'] ?? _certType}',
+                  Text(context.l10n.cooVisualPreviewTitle(res['certificate_type'] ?? _certType),
                       style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ],
               ),
@@ -221,12 +215,12 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
-              child: const Text('إلغاء وإغلاق ✕', style: TextStyle(color: Colors.grey)),
+              child: Text(context.l10n.cancel, style: const TextStyle(color: Colors.grey)),
             ),
             ElevatedButton.icon(
               style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
               icon: const Icon(Icons.check, color: Colors.white),
-              label: const Text('اعتماد وتعبئة الحقول تلقائياً', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              label: Text(context.l10n.cooAutoFillFieldsButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
               onPressed: () {
                 Navigator.pop(ctx);
                 setState(() {
@@ -239,7 +233,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   _activeStep = 1;
                 });
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('✔ تم ملء بيانات المسودة الرسمية بنجاح'), backgroundColor: Colors.green),
+                  SnackBar(content: Text(context.l10n.cooDraftFilledSuccess), backgroundColor: Colors.green),
                 );
               },
             ),
@@ -249,7 +243,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء توليد المسودة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooGenerateDraftError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -261,7 +255,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     final rawText = _rawTextCtrl.text.trim();
     if (rawText.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى لصق نص الشهادة أو رفع الملف أولاً'), backgroundColor: Colors.orange),
+        SnackBar(content: Text(context.l10n.cooPasteTextOrUploadWarning), backgroundColor: Colors.orange),
       );
       return;
     }
@@ -295,14 +289,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           );
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('✔ تم استخراج ومطابقة بيانات الشهادة بالذكاء الاصطناعي بنجاح'), backgroundColor: Colors.green),
+            SnackBar(content: Text(context.l10n.cooAiExtractSuccess), backgroundColor: Colors.green),
           );
         }
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء الاستخراج: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooExtractError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -313,7 +307,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
   Future<void> _runComparison() async {
     if (_selectedImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: Colors.red),
+        SnackBar(content: Text(context.l10n.cooSelectFileFirstForComparison), backgroundColor: Colors.red),
       );
       return;
     }
@@ -344,7 +338,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ أثناء المقارنة: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooComparisonError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -361,10 +355,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     if ((hasDisc || hasCritical) && reason.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('⚠️ يجب كتابة سبب ومبرر الموافقة على الاختلافات قبل الاعتماد والحفظ، أو الضغط على [العودة للتعديل ومخاطبة المورد].'),
+        SnackBar(
+          content: Text(context.l10n.cooMustProvideJustificationSnackbar),
           backgroundColor: Colors.orange,
-          duration: Duration(seconds: 5),
+          duration: const Duration(seconds: 5),
         ),
       );
       return;
@@ -411,14 +405,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       await ref.read(cooReviewsProvider.notifier).saveCOOReview(payload);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✔ تم حفظ جلسة مراجعة شهادة المنشأ بنجاح بالسجل'), backgroundColor: Colors.green),
+          SnackBar(content: Text(context.l10n.cooSessionSavedSuccess), backgroundColor: Colors.green),
         );
         setState(() => _activeStep = 3);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('خطأ في الحفظ: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text(context.l10n.cooSaveError(e.toString())), backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -442,11 +436,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
       });
     }
 
+    final steps = [
+      ImportDocStep(label: context.l10n.cooStage1Requirements, icon: Icons.description),
+      ImportDocStep(label: context.l10n.cooStage2DraftInput, icon: Icons.file_upload),
+      ImportDocStep(label: context.l10n.cooStage3DiscrepancyMatrix, icon: Icons.fact_check),
+      ImportDocStep(label: context.l10n.cooStage4Registry, icon: Icons.history_edu),
+    ];
+
     return Column(
       children: [
         // Unified Stepper Navigation
         ImportDocStepper(
-          steps: _steps,
+          steps: steps,
           currentStep: _activeStep,
           onStepTapped: (i) => setState(() => _activeStep = i),
         ),
@@ -517,17 +518,17 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         child: const Icon(Icons.auto_awesome, color: Colors.cyanAccent, size: 22),
                       ),
                       const SizedBox(width: 12),
-                      const Column(
+                      Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'محرك اتخاذ القرار الجمركي لشهادات المنشأ (COO Decision Engine)',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                            context.l10n.cooDecisionEngineTitle,
+                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
-                            'توجيه ذكي لنوع الشهادة تلقائياً بناءً على بلد المنشأ المذكور في الفواتير والاتفاقيات الدولية',
-                            style: TextStyle(fontSize: 11.5, color: Colors.white70),
+                            context.l10n.cooDecisionEngineSub,
+                            style: const TextStyle(fontSize: 11.5, color: Colors.white70),
                           ),
                         ],
                       ),
@@ -541,7 +542,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.refresh, size: 16),
-                      label: const Text('إعادة فحص الاتفاقية', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooRecheckAgreementButton, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       onPressed: () => _fetchAndApplyDraft(_selectedImportFileId!),
                     ),
                 ],
@@ -562,7 +563,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           border: Border.all(color: Colors.white24),
                         ),
                         child: Text(
-                          '🌍 بلد المنشأ بالفاتورة: ${_activeDraftTemplate?['country_of_origin'] ?? _originCountryCtrl.text}',
+                          context.l10n.cooInvoiceOriginBadge(_activeDraftTemplate?['country_of_origin'] ?? _originCountryCtrl.text),
                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
@@ -574,7 +575,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         border: Border.all(color: _isManualChoiceRequired ? Colors.amber : Colors.greenAccent),
                       ),
                       child: Text(
-                        _isManualChoiceRequired ? '⚠️ مطلوب اختيار يدوي (اتفاقيات متعددة)' : '✔ الشهادة المعتمدة: $_certType',
+                        _isManualChoiceRequired ? context.l10n.cooManualChoiceRequiredBadge : context.l10n.cooApprovedCertBadge(_certType),
                         style: TextStyle(
                           color: _isManualChoiceRequired ? Colors.amberAccent : Colors.greenAccent,
                           fontWeight: FontWeight.bold,
@@ -612,25 +613,27 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
-                            'ℹ️ توجد دراسة مسجلة مسبقاً لهذا الملف [كود الجلسة: ${existingReview.cooReviewCode} - الحالة: ${existingReview.status}]. سيتم تحديث وتعديل نفس الدراسة المعتمدة لضمان عدم تكرار السجلات.',
+                            context.l10n.cooExistingReviewBanner(existingReview.cooReviewCode, existingReview.status),
                             style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12.5, color: AppTheme.charcoal),
                           ),
                         ),
                         ElevatedButton.icon(
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8)),
                           icon: const Icon(Icons.history, color: Colors.white, size: 14),
-                          label: const Text('سجل المراجعات', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
+                          label: Text(context.l10n.cooReviewRegistryButton, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 3),
                         ),
                       ],
                     ),
                   ),
                 ],
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.flag, color: AppTheme.cobalt),
-                    SizedBox(width: 10),
-                    Text('توليد واستدعاء مسودة شهادة المنشأ الرسمية (EUR.1 / China CCPIT / General COO)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Icon(Icons.flag, color: AppTheme.cobalt),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(context.l10n.cooGenerateDraftHeader, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    ),
                   ],
                 ),
                 const Divider(height: 24),
@@ -640,8 +643,8 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       flex: 3,
                       child: SearchableDropdownField<int>(
                         value: _selectedImportFileId,
-                        labelText: 'اختر ملف الشحنة *',
-                        searchHintText: 'ابحث برقم الملف...',
+                        labelText: context.l10n.cooSelectImportFileLabel,
+                        searchHintText: context.l10n.cooSearchFileHint,
                         items: importFiles
                             .map((f) => SearchableDropdownItem<int>(
                                   value: f.importFileId,
@@ -661,15 +664,15 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                       flex: 3,
                       child: SearchableDropdownField<String>(
                         value: _certType,
-                        labelText: 'نوع شهادة المنشأ *',
-                        searchHintText: 'اختر نوع الشهادة...',
-                        items: const [
-                          SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية - قواعد معدلة)'),
-                          SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT / China-Egypt)'),
-                          SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin (شهادة منشأ عادية)'),
-                          SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / Generalized System of Preferences'),
-                          SearchableDropdownItem(value: 'Agadir Agreement', label: 'شهادة اتفاقية أغادير'),
-                          SearchableDropdownItem(value: 'GAFTA', label: 'شهادة منطقة التجارة الحرة العربية الكبرى'),
+                        labelText: context.l10n.cooCertTypeLabel,
+                        searchHintText: context.l10n.cooSelectCertTypeHint,
+                        items: [
+                          SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
+                          SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
+                          SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
+                          SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
+                          SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
+                          SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
                         ],
                         onChanged: (v) {
                           if (v != null) {
@@ -685,14 +688,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                       icon: const Icon(Icons.bolt, color: Colors.white),
-                      label: const Text('⚡ فتح المعاينة المصورة والتصدير', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooOpenVisualPreviewButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _generateOfficialDraft,
                     ),
                     const SizedBox(width: 12),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt, padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14)),
                       icon: const Icon(Icons.arrow_forward, color: Colors.white),
-                      label: const Text('التالي: إدخال الدرافت', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooNextDraftInputButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: () => setState(() => _activeStep = 1),
                     ),
                   ],
@@ -732,9 +735,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                             runSpacing: 4,
                             children: _allowedCertTypes.map((type) {
                               final isSelected = _certType == type;
+                              final typeLabel = type == 'Agadir Agreement'
+                                  ? context.l10n.cooCertTypeAgadir
+                                  : (type == 'GAFTA'
+                                      ? context.l10n.cooCertTypeGafta
+                                      : (type == 'EUR.1'
+                                          ? context.l10n.cooCertTypeEur1
+                                          : (type.contains('China')
+                                              ? context.l10n.cooCertTypeChina
+                                              : type)));
                               return ChoiceChip(
                                 label: Text(
-                                  type == 'Agadir Agreement' ? 'شهادة اتفاقية أغادير' : (type == 'GAFTA' ? 'شهادة منطقة التجارة الحرة العربية (GAFTA)' : type),
+                                  typeLabel,
                                   style: TextStyle(
                                     fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                                     color: isSelected ? Colors.white : Colors.black87,
@@ -792,13 +804,13 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('إدخال واستخراج بيانات درافت شهادة المنشأ (COO Draft Input)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                Text(context.l10n.cooDraftInputTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ElevatedButton.icon(
                   style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
                   icon: _isLoading
                       ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.compare_arrows, color: Colors.white),
-                  label: const Text('تشغيل المقارنة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  label: Text(context.l10n.cooRunComparisonButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                   onPressed: (_isLoading || _selectedImportFileId == null) ? null : _runComparison,
                 ),
               ],
@@ -811,8 +823,8 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 4,
                   child: SearchableDropdownField<int>(
                     value: _selectedImportFileId,
-                    labelText: 'اختر ملف الشحنة المربوط *',
-                    searchHintText: 'ابحث برقم الملف أو اسم الشركة...',
+                    labelText: context.l10n.cooLinkedImportFileLabel,
+                    searchHintText: context.l10n.cooSearchFileHint,
                     items: importFiles
                         .map((f) => SearchableDropdownItem<int>(
                               value: f.importFileId,
@@ -832,15 +844,15 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 3,
                   child: SearchableDropdownField<String>(
                     value: _certType,
-                    labelText: 'نوع شهادة المنشأ *',
-                    searchHintText: 'اختر نوع الشهادة...',
-                    items: const [
-                      SearchableDropdownItem(value: 'EUR.1', label: 'EUR.1 (الاتفاقية المصرية الأوروبية)'),
-                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: 'شهادة منشأ الصين (CCPIT)'),
-                      SearchableDropdownItem(value: 'Standard COO', label: 'Standard Certificate of Origin'),
-                      SearchableDropdownItem(value: 'Form A / GSP', label: 'Form A / GSP'),
-                      SearchableDropdownItem(value: 'Agadir Agreement', label: 'اتفاقية أغادير'),
-                      SearchableDropdownItem(value: 'GAFTA', label: 'شهادة التجارة العربية GAFTA'),
+                    labelText: context.l10n.cooCertTypeLabel,
+                    searchHintText: context.l10n.cooSelectCertTypeHint,
+                    items: [
+                      SearchableDropdownItem(value: 'EUR.1', label: context.l10n.cooCertTypeEur1),
+                      SearchableDropdownItem(value: 'China Certificate of Origin (CCPIT)', label: context.l10n.cooCertTypeChina),
+                      SearchableDropdownItem(value: 'Standard COO', label: context.l10n.cooCertTypeStandard),
+                      SearchableDropdownItem(value: 'Form A / GSP', label: context.l10n.cooCertTypeFormA),
+                      SearchableDropdownItem(value: 'Agadir Agreement', label: context.l10n.cooCertTypeAgadir),
+                      SearchableDropdownItem(value: 'GAFTA', label: context.l10n.cooCertTypeGafta),
                     ],
                     onChanged: (v) {
                       if (v != null) {
@@ -860,14 +872,14 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.red.shade300),
                 ),
-                child: const Row(
+                child: Row(
                   children: [
-                    Icon(Icons.warning_amber_rounded, color: Colors.red),
-                    SizedBox(width: 10),
+                    const Icon(Icons.warning_amber_rounded, color: Colors.red),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        '⚠️ يرجى اختيار وتحديد ملف الشحنة أولاً حتى يتم استخراج البيانات ومقارنتها بسجلات النظام.',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
+                        context.l10n.cooSelectFileWarning,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red, fontSize: 12.5),
                       ),
                     ),
                   ],
@@ -880,21 +892,21 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 Expanded(
                   child: TextFormField(
                     controller: _certNumberCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم درافت الشهادة *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooDraftCertNumberLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _originCountryCtrl,
-                    decoration: const InputDecoration(labelText: 'بلد المنشأ (Country of Origin) *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooOriginCountryLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: TextFormField(
                     controller: _destCountryCtrl,
-                    decoration: const InputDecoration(labelText: 'بلد المقصد (Destination) *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooDestinationCountryLabel, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -906,7 +918,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 3,
                   child: TextFormField(
                     controller: _exporterCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم المصدر / الشاحن *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooExporterNameLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -914,10 +926,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 2,
                   child: TextFormField(
                     controller: _exporterRegIdCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'كود المصدر الأجنبي / السجل الضريبي',
-                      border: OutlineInputBorder(),
-                      prefixIcon: Icon(Icons.badge_outlined, size: 20),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.cooExporterRegIdLabel,
+                      border: const OutlineInputBorder(),
+                      prefixIcon: const Icon(Icons.badge_outlined, size: 20),
                     ),
                   ),
                 ),
@@ -926,7 +938,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 3,
                   child: TextFormField(
                     controller: _importerCtrl,
-                    decoration: const InputDecoration(labelText: 'اسم المستورد / المرسل إليه *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooImporterNameLabel, border: const OutlineInputBorder()),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -934,7 +946,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                   flex: 2,
                   child: TextFormField(
                     controller: _invoiceNoCtrl,
-                    decoration: const InputDecoration(labelText: 'رقم الفاتورة المذكورة *', border: OutlineInputBorder()),
+                    decoration: InputDecoration(labelText: context.l10n.cooInvoiceNumberLabel, border: const OutlineInputBorder()),
                   ),
                 ),
               ],
@@ -945,7 +957,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               children: [
                 SmartUploadButton(
                   module: SmartUploadModule.cooCertificate,
-                  label: 'رفع واستخراج شهادة المنشأ الذكي (PDF / Word / Excel)',
+                  label: context.l10n.cooSmartUploadButtonLabel,
                   onDataExtracted: (result) {
                     final fields = result.extractedFields;
                     setState(() {
@@ -993,10 +1005,10 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('النص الخام لدرافت شهادة المنشأ (Raw Text / OCR):', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                Text(context.l10n.cooRawTextSectionTitle, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
                 TextButton.icon(
                   icon: const Icon(Icons.auto_awesome, color: AppTheme.cobalt, size: 18),
-                  label: const Text('⚡ استخراج وتعبئة ذكية من النص (Smart Extract)', style: TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
+                  label: Text(context.l10n.cooSmartExtractFromTextButton, style: const TextStyle(color: AppTheme.cobalt, fontWeight: FontWeight.bold)),
                   onPressed: (_isLoading || _selectedImportFileId == null) ? null : _extractFromOcrText,
                 ),
               ],
@@ -1005,9 +1017,9 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             TextFormField(
               controller: _rawTextCtrl,
               maxLines: 4,
-              decoration: const InputDecoration(
-                hintText: 'الصق النص الكامل للشهادة هنا (مثل نصوص CCPIT أو EUR.1)...',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: context.l10n.cooRawTextHint,
+                border: const OutlineInputBorder(),
               ),
             ),
           ],
@@ -1026,12 +1038,12 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             children: [
               const Icon(Icons.folder_off, size: 48, color: Colors.orange),
               const SizedBox(height: 12),
-              const Text('⚠️ يجب اختيار ملف الشحنة أولاً لعرض مصفوفة المقارنة', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(context.l10n.cooSelectFileToViewMatrix, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: const Text('العودة لاختيار الملف', style: TextStyle(color: Colors.white)),
+                label: Text(context.l10n.cooBackToSelectFile, style: const TextStyle(color: Colors.white)),
                 onPressed: () => setState(() => _activeStep = 1),
               ),
             ],
@@ -1049,12 +1061,12 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             children: [
               const Icon(Icons.compare_arrows, size: 48, color: AppTheme.cobalt),
               const SizedBox(height: 12),
-              const Text('يرجى تشغيل المقارنة في الخطوة السابقة لاستعراض مصفوفة الفروق', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              Text(context.l10n.cooRunComparisonPreviousStep, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                 icon: const Icon(Icons.arrow_back, color: Colors.white),
-                label: const Text('العودة لتشغيل المقارنة', style: TextStyle(color: Colors.white)),
+                label: Text(context.l10n.cooBackToRunComparison, style: const TextStyle(color: Colors.white)),
                 onPressed: () => setState(() => _activeStep = 1),
               ),
             ],
@@ -1083,7 +1095,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     Icon(hasCritical ? Icons.error : (hasDisc ? Icons.warning : Icons.check_circle), color: hasCritical ? Colors.red : (hasDisc ? Colors.orange : Colors.green), size: 24),
                     const SizedBox(width: 10),
                     Text(
-                      hasCritical ? '🚨 توجد اختلافات حرجة في بيانات شهادة المنشأ' : (hasDisc ? '⚠️ توجد فروق طفيفة' : '✔ شهادة المنشأ مطابقة 100%'),
+                      hasCritical ? context.l10n.cooCriticalMismatchAlert : (hasDisc ? context.l10n.cooMinorDiscrepancyAlert : context.l10n.cooPerfectMatchSuccess),
                       style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                     ),
                   ],
@@ -1098,7 +1110,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.picture_as_pdf, size: 16),
-                      label: const Text('تصدير PDF', style: TextStyle(fontSize: 12)),
+                      label: Text(context.l10n.cooExportPdfButton, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
                         if (_selectedImportFileId != null && _activeDraftTemplate != null) {
                           CooExportService.printOrSavePdf(
@@ -1109,7 +1121,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           );
                         } else {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('جارٍ تصدير تقرير مطابقة شهادة المنشأ...')),
+                            SnackBar(content: Text(context.l10n.cooExportingPdfReportSnackbar)),
                           );
                         }
                       },
@@ -1122,7 +1134,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       ),
                       icon: const Icon(Icons.table_chart, size: 16),
-                      label: const Text('Excel', style: TextStyle(fontSize: 12)),
+                      label: Text(context.l10n.cooExportExcelButton, style: const TextStyle(fontSize: 12)),
                       onPressed: () {
                         if (_activeDraftTemplate != null) {
                           final csv = CooExportService.exportCOOCsv(
@@ -1132,7 +1144,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           );
                           Clipboard.setData(ClipboardData(text: csv));
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('📊 تم نسخ وتصدير بيانات المطابقة إلى Excel بنجاح'), backgroundColor: Colors.green),
+                            SnackBar(content: Text(context.l10n.cooExcelCopiedSnackbar), backgroundColor: Colors.green),
                           );
                         }
                       },
@@ -1141,7 +1153,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.save, color: Colors.white),
-                      label: const Text('حفظ بالسجل', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooSaveToRegistryButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: _saveReview,
                     ),
                   ],
@@ -1152,12 +1164,12 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: DataTable(
-                columns: const [
-                  DataColumn(label: Text('الحقل')),
-                  DataColumn(label: Text('القيمة بالنظام')),
-                  DataColumn(label: Text('القيمة بالدرافت')),
-                  DataColumn(label: Text('حالة التطابق')),
-                  DataColumn(label: Text('التفاصيل')),
+                columns: [
+                  DataColumn(label: Text(context.l10n.cooMatrixColField)),
+                  DataColumn(label: Text(context.l10n.cooMatrixColSystemValue)),
+                  DataColumn(label: Text(context.l10n.cooMatrixColDraftValue)),
+                  DataColumn(label: Text(context.l10n.cooMatrixColStatus)),
+                  DataColumn(label: Text(context.l10n.cooMatrixColDetails)),
                 ],
                 rows: matrix.map((m) {
                   return DataRow(cells: [
@@ -1193,7 +1205,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'سبب ومبررات الموافقة على الاختلافات (إلزامي للاعتماد والحفظ):',
+                            context.l10n.cooOverrideReasonTitle,
                             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.amber.shade900),
                           ),
                         ),
@@ -1201,17 +1213,17 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'عند وجود فروق أو اختلافات في شهادة المنشأ، يجب تسجيل سبب الموافقة والاعتماد (مثال: ملحق تفويضي من المصدر / الاسم التجاري موثق بالسجل)، أو الضغط على العودة للتعديل ومخاطبة المورد.',
+                      context.l10n.cooOverrideReasonSub,
                       style: TextStyle(fontSize: 11.5, color: Colors.grey.shade800),
                     ),
                     const SizedBox(height: 10),
                     TextFormField(
                       controller: _overrideReasonCtrl,
                       maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: 'سبب ومبرر الموافقة على الاختلافات (Approval Justification) *',
-                        hintText: 'اكتب مبررات قبول الاختلافات هنا قبل الحفظ...',
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: context.l10n.cooOverrideReasonLabel,
+                        hintText: context.l10n.cooOverrideReasonHint,
+                        border: const OutlineInputBorder(),
                         filled: true,
                         fillColor: Colors.white,
                       ),
@@ -1226,7 +1238,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                           ),
                           icon: const Icon(Icons.check_circle, color: Colors.white, size: 16),
-                          label: const Text('✔ اعتماد وحفظ مع ذكر سبب الموافقة', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                          label: Text(context.l10n.cooSaveWithJustificationButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                           onPressed: _saveReview,
                         ),
                         const SizedBox(width: 12),
@@ -1237,7 +1249,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           ),
                           icon: const Icon(Icons.edit_note, size: 16),
-                          label: const Text('↩ العودة لتعديل المسودة ومخاطبة المورد', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: Text(context.l10n.cooReturnToEditAndNotifySupplierButton, style: const TextStyle(fontWeight: FontWeight.bold)),
                           onPressed: () => setState(() => _activeStep = 1),
                         ),
                       ],
@@ -1257,7 +1269,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
 
     return cooReviews.when(
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Text('خطأ: $e'),
+      error: (e, _) => Text('Error: $e'),
       data: (reviews) {
         return Card(
           elevation: 2,
@@ -1270,30 +1282,30 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('سجل مراجعات شهادات المنشأ واليورو 1 (COO Review Registry)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text(context.l10n.cooRegistryTitle, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.cobalt),
                       icon: const Icon(Icons.add, color: Colors.white, size: 16),
-                      label: const Text('مراجعة درافت جديد', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.cooReviewNewDraftButton, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                       onPressed: () => setState(() => _activeStep = 0),
                     ),
                   ],
                 ),
                 const Divider(height: 20),
                 if (reviews.isEmpty)
-                  const Center(child: Padding(padding: EdgeInsets.all(30), child: Text('لا توجد مراجعات مسجلة')))
+                  Center(child: Padding(padding: const EdgeInsets.all(30), child: Text(context.l10n.cooNoReviewsYet)))
                 else
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
-                      columns: const [
-                        DataColumn(label: Text('كود الجلسة')),
-                        DataColumn(label: Text('النوع')),
-                        DataColumn(label: Text('رقم الشهادة')),
-                        DataColumn(label: Text('المصدر')),
-                        DataColumn(label: Text('الحالة')),
-                        DataColumn(label: Text('تاريخ الإنشاء')),
-                        DataColumn(label: Text('الإجراءات')),
+                      columns: [
+                        DataColumn(label: Text(context.l10n.cooRegistryColCode)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColType)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColNumber)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColExporter)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColStatus)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColDate)),
+                        DataColumn(label: Text(context.l10n.cooRegistryColActions)),
                       ],
                       rows: reviews.map((r) {
                         final expName = r.draftInputData?['exporter_name'] ?? r.draftInputData?['box_1_exporter'] ?? '—';
@@ -1322,8 +1334,8 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                               children: [
                                 // 1. Edit (تعديل)
                                 IconButton(
-                                   icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                                  tooltip: 'تعديل الجلسة',
+                                  icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
+                                  tooltip: context.l10n.cooEditSessionTooltip,
                                   onPressed: () {
                                     setState(() {
                                       _selectedImportFileId = r.importFileId;
@@ -1348,20 +1360,20 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                                       _activeStep = 1;
                                     });
                                     ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('تم تحميل بيانات الجلسة (${r.cooReviewCode}) للتعديل')),
+                                      SnackBar(content: Text(context.l10n.cooLoadedSessionForEditSnackbar(r.cooReviewCode))),
                                     );
                                   },
                                 ),
                                 // 2. View (مشاهدة)
                                 IconButton(
                                   icon: const Icon(Icons.visibility, color: AppTheme.charcoal, size: 18),
-                                  tooltip: 'معاينة التفاصيل',
+                                  tooltip: context.l10n.cooViewDetailsTooltip,
                                   onPressed: () => _showCOOReviewDetailsDialog(r),
                                 ),
                                 // 3. Download PDF (تنزيل PDF)
                                 IconButton(
                                   icon: const Icon(Icons.picture_as_pdf, color: AppTheme.crimson, size: 18),
-                                  tooltip: 'تنزيل PDF',
+                                  tooltip: context.l10n.cooDownloadPdfTooltip,
                                   onPressed: () async {
                                     final tData = {
                                       'certificate_number': r.certificateNumber,
@@ -1381,7 +1393,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                                 // 4. Delete (حذف)
                                 IconButton(
                                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
-                                  tooltip: 'حذف الجلسة',
+                                  tooltip: context.l10n.cooDeleteSessionTooltip,
                                   onPressed: () => _confirmDeleteCOOReview(r),
                                 ),
                               ],
@@ -1413,7 +1425,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
           children: [
             const Icon(Icons.assignment, color: AppTheme.cobalt),
             const SizedBox(width: 8),
-            Text('تفاصيل جلسة مراجعة شهادة المنشأ: ${r.cooReviewCode}'),
+            Text(context.l10n.cooDetailsDialogTitle(r.cooReviewCode)),
           ],
         ),
         content: SizedBox(
@@ -1424,29 +1436,29 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 ListTile(
-                  title: const Text('نوع الشهادة ورقمها'),
-                  subtitle: Text('${r.certificateType} — رقم: ${r.certificateNumber}'),
+                  title: Text(context.l10n.cooDetailsCertTypeAndNumber),
+                  subtitle: Text('${r.certificateType} — #${r.certificateNumber}'),
                   dense: true,
                 ),
                 ListTile(
-                  title: const Text('المصدر والمستورد'),
-                  subtitle: Text('المصدر: $expName\nالمستورد: $impName'),
+                  title: Text(context.l10n.cooDetailsExporterAndImporter),
+                  subtitle: Text('${r.draftInputData?['exporter_name'] != null ? "Exporter" : "المصدر"}: $expName\n${r.draftInputData?['importer_name'] != null ? "Importer" : "المستورد"}: $impName'),
                   dense: true,
                 ),
                 ListTile(
-                  title: const Text('بلد المنشأ والمقصد'),
-                  subtitle: Text('المنشأ: $originCountry ➔ المقصد: $destCountry'),
+                  title: Text(context.l10n.cooDetailsOriginAndDestination),
+                  subtitle: Text('$originCountry ➔ $destCountry'),
                   dense: true,
                 ),
                 if (overrideReason.isNotEmpty)
                   ListTile(
-                    title: const Text('سبب ومبرر الموافقة على الاختلافات'),
+                    title: Text(context.l10n.cooDetailsOverrideReason),
                     subtitle: Text(overrideReason, style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                     dense: true,
                   ),
                 if (r.comparisonMatrix.isNotEmpty) ...[
                   const Divider(),
-                  const Text('مصفوفة الفروق والمطابقة:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(context.l10n.cooDetailsMatrixTitle, style: const TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   ...r.comparisonMatrix.map((m) {
                     final item = m is Map ? m : {};
@@ -1459,7 +1471,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                           const SizedBox(width: 6),
                           Expanded(
                             child: Text(
-                              '${item['field_label_ar'] ?? item['field']}: [درافت: ${item['draft_value']}] vs [نظام: ${item['system_value']}]',
+                              '${item['field_label_ar'] ?? item['field']}: [${item['draft_value']}] vs [${item['system_value']}]',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -1475,7 +1487,7 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إغلاق'),
+            child: Text(context.l10n.close),
           ),
         ],
       ),
@@ -1486,18 +1498,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.warning, color: Colors.red),
-            SizedBox(width: 8),
-            Text('تأكيد حذف جلسة مراجعة المنشأ'),
+            const Icon(Icons.warning, color: Colors.red),
+            const SizedBox(width: 8),
+            Text(context.l10n.cooDeleteDialogTitle),
           ],
         ),
-        content: Text('هل أنت متأكد من حذف جلسة المراجعة رقم (${r.cooReviewCode}) لشهادة (${r.certificateNumber})؟'),
+        content: Text(context.l10n.cooDeleteDialogContent(r.cooReviewCode, r.certificateNumber)),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('إلغاء'),
+            child: Text(context.l10n.cancel),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -1507,18 +1519,18 @@ class _COOReviewTabState extends ConsumerState<COOReviewTab> {
                 await ref.read(cooReviewsProvider.notifier).deleteCOOReview(r.cooReviewId);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('✔ تم حذف جلسة المراجعة بنجاح'), backgroundColor: Colors.green),
+                    SnackBar(content: Text(context.l10n.cooDeleteSuccessSnackbar), backgroundColor: Colors.green),
                   );
                 }
               } catch (e) {
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('خطأ في الحذف: $e'), backgroundColor: Colors.red),
+                    SnackBar(content: Text(context.l10n.cooDeleteErrorSnackbar(e.toString())), backgroundColor: Colors.red),
                   );
                 }
               }
             },
-            child: const Text('حذف', style: TextStyle(color: Colors.white)),
+            child: Text(context.l10n.delete, style: const TextStyle(color: Colors.white)),
           ),
         ],
       ),

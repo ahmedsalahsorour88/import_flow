@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../services/coo_export_service.dart';
 
@@ -64,20 +65,20 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 Icon(isEur1 ? Icons.flag_circle : Icons.verified, color: AppTheme.cobalt, size: 20),
                 const SizedBox(width: 8),
                 Text(
-                  'معاينة مسودة شهادة المنشأ الرسمية: ${widget.certificateType}',
+                  context.l10n.cooVisualPreviewTitle(widget.certificateType),
                   style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal),
                 ),
                 const SizedBox(width: 16),
                 if (widget.onRefresh != null)
                   IconButton(
                     icon: const Icon(Icons.refresh, size: 18, color: AppTheme.cobalt),
-                    tooltip: 'تحديث حي للبيانات المستدعاة',
+                    tooltip: context.l10n.cooVisualRefreshTooltip,
                     onPressed: widget.onRefresh,
                   ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(visualDensity: VisualDensity.compact),
                   icon: const Icon(Icons.copy, size: 14),
-                  label: const Text('نسخ البيانات 📋', style: TextStyle(fontSize: 11)),
+                  label: Text(context.l10n.cooVisualCopyButton, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     final text = CooExportService.exportCOOCsv(
                       templateData: t,
@@ -86,7 +87,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     );
                     Clipboard.setData(ClipboardData(text: text));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📋 تم نسخ بيانات شهادة المنشأ إلى الحافظة'), duration: Duration(seconds: 1)),
+                      SnackBar(content: Text(context.l10n.cooVisualCopiedSnackbar), duration: const Duration(seconds: 1)),
                     );
                   },
                 ),
@@ -98,7 +99,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     side: BorderSide(color: Colors.green.shade600),
                   ),
                   icon: const Icon(Icons.table_chart_outlined, size: 14, color: Colors.green),
-                  label: const Text('حفظ إكسل (Excel / CSV) 📊', style: TextStyle(fontSize: 11)),
+                  label: Text(context.l10n.cooVisualExcelButton, style: const TextStyle(fontSize: 11)),
                   onPressed: () {
                     final csv = CooExportService.exportCOOCsv(
                       templateData: t,
@@ -107,7 +108,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                     );
                     Clipboard.setData(ClipboardData(text: csv));
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('📊 تم توليد وتجهيز بيانات الإكسل لشهادة المنشأ بنجاح'), backgroundColor: Colors.green),
+                      SnackBar(content: Text(context.l10n.cooVisualExcelReadySnackbar), backgroundColor: Colors.green),
                     );
                   },
                 ),
@@ -121,7 +122,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                   icon: _isExporting
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                       : const Icon(Icons.picture_as_pdf, size: 14, color: Colors.white),
-                  label: const Text('حفظ وطباعة PDF 🖨️', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                  label: Text(context.l10n.cooVisualPrintPdfButton, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                   onPressed: _isExporting
                       ? null
                       : () async {
@@ -275,7 +276,7 @@ class _VisualDraftCOOSheetState extends State<VisualDraftCOOSheet> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Country / Region of Origin (بلد المنشأ المعتمد):', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
+                    const Text('Country / Region of Origin:', style: TextStyle(fontSize: 9.5, color: Colors.black54)),
                     const SizedBox(height: 4),
                     Wrap(
                       spacing: 6,

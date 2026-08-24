@@ -752,6 +752,46 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get issuedAndValidStatus => 'صادر وساري';
   @override String get tempDraftStatus => 'مسودة مؤقتة';
   @override String get underReviewStatus => 'قيد المراجعة';
+
+  // ── Screen 16: Bank Form 4 ──────────────────────────────────────────────
+  @override String get bankForm4Title => 'المستندات والتوثيق البنكي ونموذج 4';
+  @override String get form4RequestTab => 'طلب وتوثيق نموذج 4';
+  @override String get bankForm4RegistryTab => 'سجل النماذج البنكية';
+  @override String bankForm4EditingBanner(String code) => 'أنت الآن في وضع تعديل النموذج البنكي المرجعي: $code';
+  @override String get cancelEditNewForm4 => 'إلغاء التعديل والعودة لطلب جديد';
+  @override String get selectImportFileForm4Label => 'اختر ملف الشحنة المرتبط بإصدار نموذج 4';
+  @override String get bankApplicationDetailsSection => 'تفاصيل طلب التوثيق والتحويل البنكي';
+  @override String get issuingBankLabel => 'البنك المصدر / المعتمد';
+  @override String get selectBankHint => 'اختر البنك...';
+  @override String get bankAmountLabel => 'المبلغ المطلوب توثيقه';
+  @override String get transferCurrencyLabel => 'عملة التحويل';
+  @override String get selectCurrencyHint => 'اختر العملة...';
+  @override String get bankRequestDateLabel => 'تاريخ تقديم الطلب للبنك';
+  @override String get bankNotesLabel => 'ملاحظات وتوجيهات خاصة لفرع البنك';
+  @override String get form4ChecklistSectionTitle => 'قائمة المستندات المرفقة بملف نموذج 4 للبنك';
+  @override String get form4ItemProformaInvoice => 'الفاتورة المبدئية المعتمدة (PI)';
+  @override String get form4ItemPackingList => 'قائمة التعبئة والتغليف (P/L)';
+  @override String get form4ItemCertificateOfOrigin => 'شهادة المنشأ الموثقة (COO)';
+  @override String get form4ItemBillOfLading => 'بوليصة الشحن (B/L Draft)';
+  @override String get form4ItemAcidNotice => 'إشعار تسجيل نافذة (ACID Notice)';
+  @override String get form4ItemMarineInsurance => 'وثيقة التأمين البحري (Insurance)';
+  @override String get form4ItemBankApplication => 'طلب تحويل البنك موقع ومختوم';
+  @override String get form4ItemAdminFeeReceipt => 'إيصال سداد المصاريف الإدارية';
+  @override String get saveForm4Button => 'حفظ وتسجيل طلب نموذج 4';
+  @override String get updateForm4Button => 'تحديث نموذج 4';
+  @override String get goToBankRegistryButton => 'الانتقال لسجل النماذج البنكية';
+  @override String get searchBankRegistryHint => 'بحث في سجل النماذج البنكية بالرمز، البنك، رقم الملف...';
+  @override String get newForm4RequestButton => 'طلب نموذج 4 جديد';
+  @override String get documentCodeCol => 'كود المستند';
+  @override String get certifiedBankCol => 'البنك المعتمد';
+  @override String get amountAndCurrencyCol => 'المبلغ والعملة';
+  @override String get requestDateCol => 'تاريخ التقديم';
+  @override String get endorsementStatusCol => 'حالة التوثيق';
+  @override String get endorsedStatusBadge => 'معتمد وموثق';
+  @override String get bankProcessingStatusBadge => 'قيد المعالجة البنكية';
+  @override String get selectImportFileFirstWarning => 'يرجى اختيار ملف الشحنة أولاً';
+  @override String get form4SavedSuccess => 'تم حفظ نموذج 4 البنكي بنجاح';
+  @override String get form4SaveError => 'خطأ في حفظ نموذج 4';
 }
 
 

@@ -752,6 +752,46 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get issuedAndValidStatus => 'Issued & Valid';
   @override String get tempDraftStatus => 'Draft';
   @override String get underReviewStatus => 'Under Review';
+
+  // ── Screen 16: Bank Form 4 ──────────────────────────────────────────────
+  @override String get bankForm4Title => 'Bank Form 4 & Financial Endorsement';
+  @override String get form4RequestTab => 'Form 4 Request & Checklist';
+  @override String get bankForm4RegistryTab => 'Bank Form 4 Registry';
+  @override String bankForm4EditingBanner(String code) => 'You are currently editing banking document: $code';
+  @override String get cancelEditNewForm4 => 'Cancel edit and start new request';
+  @override String get selectImportFileForm4Label => 'Select Import File for Form 4 Issuance';
+  @override String get bankApplicationDetailsSection => 'Bank Application & Endorsement Details';
+  @override String get issuingBankLabel => 'Issuing / Certified Bank';
+  @override String get selectBankHint => 'Select bank...';
+  @override String get bankAmountLabel => 'Endorsement Amount';
+  @override String get transferCurrencyLabel => 'Transfer Currency';
+  @override String get selectCurrencyHint => 'Select currency...';
+  @override String get bankRequestDateLabel => 'Bank Submission Date';
+  @override String get bankNotesLabel => 'Special Instructions & Bank Notes';
+  @override String get form4ChecklistSectionTitle => 'Required Attachments Checklist for Bank';
+  @override String get form4ItemProformaInvoice => 'Proforma Invoice (PI)';
+  @override String get form4ItemPackingList => 'Packing List (P/L)';
+  @override String get form4ItemCertificateOfOrigin => 'Certificate of Origin (COO)';
+  @override String get form4ItemBillOfLading => 'Bill of Lading Draft (B/L)';
+  @override String get form4ItemAcidNotice => 'Nafeza ACID Notice';
+  @override String get form4ItemMarineInsurance => 'Marine Insurance Certificate';
+  @override String get form4ItemBankApplication => 'Signed & Stamped Bank Application';
+  @override String get form4ItemAdminFeeReceipt => 'Admin Fee Payment Receipt';
+  @override String get saveForm4Button => 'Save & Register Form 4 Request';
+  @override String get updateForm4Button => 'Update Form 4';
+  @override String get goToBankRegistryButton => 'Go to Bank Form 4 Registry';
+  @override String get searchBankRegistryHint => 'Search bank registry by code, bank, import file...';
+  @override String get newForm4RequestButton => 'New Form 4 Request';
+  @override String get documentCodeCol => 'Document Code';
+  @override String get certifiedBankCol => 'Certified Bank';
+  @override String get amountAndCurrencyCol => 'Amount & Currency';
+  @override String get requestDateCol => 'Submission Date';
+  @override String get endorsementStatusCol => 'Endorsement Status';
+  @override String get endorsedStatusBadge => 'Endorsed & Certified';
+  @override String get bankProcessingStatusBadge => 'Under Bank Processing';
+  @override String get selectImportFileFirstWarning => 'Please select an import file first';
+  @override String get form4SavedSuccess => 'Bank Form 4 saved successfully';
+  @override String get form4SaveError => 'Error saving Bank Form 4';
 }
 
 

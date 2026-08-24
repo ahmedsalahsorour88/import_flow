@@ -54,7 +54,7 @@
 - [x] Screen 6: Customs Studies & Consultations (`customs_consultation_screen.dart` & sub-widgets `saved_consultations_tab.dart`, `consultation_details_dialog.dart`, `blocking_issues_dialog.dart`, `nafeza_fee_breakdown_card.dart`, `recalculation_variance_comparison_card.dart`, `broker_quote_details_card.dart`, `add_checklist_item_dialog.dart`, `add_custom_expense_dialog.dart`, `add_custom_broker_expense_row_dialog.dart`, `post_save_status_dialog.dart`, `broker_price_lists_tab.dart`) — **Reviewed & Fixed**
 - [x] Screen 8: Financial Approvals (`FinancialApprovalScreen`, `saved_budgets_registry_tab.dart`, `swift_reconciliation_screen.dart`, export dialogs) — **Reviewed & Fixed**
 - [x] Screen 11: ACID Operations (`NafezaAcidScreen` / `nafeza_acid_screen.dart`) — **Reviewed & Fixed**
-- [ ] Screen 16: Bank Form 4 (`BankForm4Screen`)
+- [x] Screen 16: Bank Form 4 (`BankForm4Screen` / `bank_form4_screen.dart`) — **Reviewed & Fixed**
 - [ ] Screen 18: Draft B/L Review (`DraftBlReviewScreen`)
 - [ ] Screen 19: Draft COO / EUR.1 (`DraftCooScreen`)
 - [ ] Screen 20: Customs Docs Approval (`CustomsApprovalScreen`)
@@ -93,8 +93,9 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 11: ACID Operations (nafeza_acid_screen.dart)`  
-**Next Screen to Review:** `Screen 16: Bank Form 4 (BankForm4Screen)`
+**Last Screen Fully Fixed:** `Screen 16: Bank Form 4 (bank_form4_screen.dart)`  
+**Next Screen to Review:** `Screen 18: Draft B/L Review (DraftBlReviewScreen)`
+
 
 
 

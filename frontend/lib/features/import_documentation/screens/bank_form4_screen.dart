@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/error_details_dialog.dart';
 import '../../../core/widgets/searchable_dropdown_field.dart';
@@ -163,7 +164,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات (Refresh)',
+          tooltip: context.l10n.refresh,
           onPressed: _refreshData,
         ),
       ],
@@ -202,14 +203,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'أنت الآن في وضع تعديل النموذج البنكي المرجعي: $_editingBankDocCode',
+                      context.l10n.bankForm4EditingBanner(_editingBankDocCode ?? ''),
                       style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900),
                     ),
                   ),
                   TextButton.icon(
                     onPressed: _resetForm4Form,
                     icon: const Icon(Icons.cancel, size: 16),
-                    label: const Text('إلغاء التعديل والعودة لطلب جديد'),
+                    label: Text(context.l10n.cancelEditNewForm4),
                   ),
                 ],
               ),
@@ -224,8 +225,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
               border: Border.all(color: Colors.grey.shade300),
             ),
             child: SearchableDropdownField<int>(
-              labelText: 'اختر ملف الشحنة المرتبط بإصدار نموذج 4 (Select Import File)',
-              hintText: 'ابحث برقم الملف أو اسم المورد أو الشركة...',
+              labelText: context.l10n.selectImportFileForm4Label,
+              hintText: context.l10n.searchFileOrSupplierHint,
               value: _form4ImportFileId,
               isRequired: true,
               items: importFiles.map((f) => SearchableDropdownItem<int>(
@@ -257,9 +258,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
-                  'تفاصيل طلب التوثيق والتحويل البنكي (Bank Application & Endorsement Details):',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                Text(
+                  context.l10n.bankApplicationDetailsSection,
+                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
                 ),
                 const Divider(height: 24),
                 Row(
@@ -267,8 +268,8 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     Expanded(
                       flex: 2,
                       child: SearchableDropdownField<int>(
-                        labelText: 'البنك المصدر / المعتمد (Issuing Bank)',
-                        hintText: 'اختر البنك...',
+                        labelText: context.l10n.issuingBankLabel,
+                        hintText: context.l10n.selectBankHint,
                         value: _selectedBankId,
                         isRequired: true,
                         items: banksList.map((b) => SearchableDropdownItem<int>(
@@ -288,19 +289,19 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         controller: _bankAmountController,
                         keyboardType: const TextInputType.numberWithOptions(decimal: true),
                         decoration: InputDecoration(
-                          labelText: 'المبلغ المطلوب توثيقه (Amount) *',
+                          labelText: context.l10n.bankAmountLabel,
                           prefixIcon: const Icon(Icons.attach_money),
                           suffixText: _form4Currency,
                           border: const OutlineInputBorder(),
                         ),
-                        validator: (val) => val == null || val.trim().isEmpty ? 'مطلوب' : null,
+                        validator: (val) => val == null || val.trim().isEmpty ? context.l10n.requiredField : null,
                       ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: SearchableDropdownField<String>(
-                        labelText: 'عملة التحويل (Currency)',
-                        hintText: 'اختر العملة...',
+                        labelText: context.l10n.transferCurrencyLabel,
+                        hintText: context.l10n.selectCurrencyHint,
                         value: _form4Currency,
                         isRequired: true,
                         items: (currencies.isNotEmpty ? currencies.map((c) => c.currencyCode).toSet() : ['USD', 'EUR', 'GBP', 'CNY', 'SAR', 'AED', 'EGP'])
@@ -320,10 +321,10 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                     Expanded(
                       child: TextFormField(
                         controller: _form4RequestDateCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'تاريخ تقديم الطلب للبنك (Request Date) *',
-                          prefixIcon: Icon(Icons.calendar_today),
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.bankRequestDateLabel,
+                          prefixIcon: const Icon(Icons.calendar_today),
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -332,9 +333,9 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       flex: 2,
                       child: TextFormField(
                         controller: _form4NotesCtrl,
-                        decoration: const InputDecoration(
-                          labelText: 'ملاحظات وتوجيهات خاصة لفرع البنك',
-                          border: OutlineInputBorder(),
+                        decoration: InputDecoration(
+                          labelText: context.l10n.bankNotesLabel,
+                          border: const OutlineInputBorder(),
                         ),
                       ),
                     ),
@@ -343,23 +344,23 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 const SizedBox(height: 24),
 
                 // Documents Checklist
-                const Text(
-                  'قائمة المستندات المرفقة بملف نموذج 4 للبنك (Required Attachments Checklist):',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
+                Text(
+                  context.l10n.form4ChecklistSectionTitle,
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.cobalt),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 12,
                   runSpacing: 10,
                   children: [
-                    _buildChecklistItem('proforma_invoice', 'الفاتورة المبدئية المعتمدة (PI)', true),
-                    _buildChecklistItem('packing_list', 'قائمة التعبئة والتغليف (P/L)', true),
-                    _buildChecklistItem('certificate_of_origin', 'شهادة المنشأ الموثقة (COO)', true),
-                    _buildChecklistItem('bill_of_lading', 'بوليصة الشحن (B/L Draft)', true),
-                    _buildChecklistItem('acid_notice', 'إشعار تسجيل نافذة (ACID Notice)', true),
-                    _buildChecklistItem('marine_insurance', 'وثيقة التأمين البحري (Insurance)', false),
-                    _buildChecklistItem('bank_application', 'طلب تحويل البنك موقع ومختوم', true),
-                    _buildChecklistItem('admin_fee_receipt', 'إيصال سداد المصاريف الإدارية', false),
+                    _buildChecklistItem('proforma_invoice', context.l10n.form4ItemProformaInvoice, true),
+                    _buildChecklistItem('packing_list', context.l10n.form4ItemPackingList, true),
+                    _buildChecklistItem('certificate_of_origin', context.l10n.form4ItemCertificateOfOrigin, true),
+                    _buildChecklistItem('bill_of_lading', context.l10n.form4ItemBillOfLading, true),
+                    _buildChecklistItem('acid_notice', context.l10n.form4ItemAcidNotice, true),
+                    _buildChecklistItem('marine_insurance', context.l10n.form4ItemMarineInsurance, false),
+                    _buildChecklistItem('bank_application', context.l10n.form4ItemBankApplication, true),
+                    _buildChecklistItem('admin_fee_receipt', context.l10n.form4ItemAdminFeeReceipt, false),
                   ],
                 ),
                 const SizedBox(height: 24),
@@ -379,7 +380,11 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                           ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                           : const Icon(Icons.save),
                       label: Text(
-                        _isSavingForm4 ? 'جارٍ الحفظ...' : _editingBankDocId != null ? 'تحديث نموذج 4' : 'حفظ وتسجيل طلب نموذج 4',
+                        _isSavingForm4
+                            ? context.l10n.loading
+                            : _editingBankDocId != null
+                                ? context.l10n.updateForm4Button
+                                : context.l10n.saveForm4Button,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                       ),
                     ),
@@ -388,7 +393,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                       style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16)),
                       onPressed: () => setState(() => _selectedSubTab = 1),
                       icon: const Icon(Icons.history_edu),
-                      label: const Text('الانتقال لسجل النماذج البنكية'),
+                      label: Text(context.l10n.goToBankRegistryButton),
                     ),
                   ],
                 ),
@@ -448,7 +453,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             Expanded(
               child: TextField(
                 decoration: InputDecoration(
-                  hintText: 'بحث في سجل النماذج البنكية بالرمز، البنك، رقم الملف...',
+                  hintText: context.l10n.searchBankRegistryHint,
                   prefixIcon: const Icon(Icons.search),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   filled: true,
@@ -470,7 +475,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                 setState(() => _selectedSubTab = 0);
               },
               icon: const Icon(Icons.add),
-              label: const Text('طلب نموذج 4 جديد'),
+              label: Text(context.l10n.newForm4RequestButton),
             ),
           ],
         ),
@@ -488,14 +493,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
             scrollDirection: Axis.horizontal,
             child: DataTable(
               headingRowColor: WidgetStateProperty.all(Colors.grey.shade100),
-              columns: const [
-                DataColumn(label: Text('كود المستند', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('رقم الملف', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('البنك المعتمد', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('المبلغ والعملة', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('تاريخ التقديم', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('حالة التوثيق', style: TextStyle(fontWeight: FontWeight.bold))),
-                DataColumn(label: Text('إجراءات', style: TextStyle(fontWeight: FontWeight.bold))),
+              columns: [
+                DataColumn(label: Text(context.l10n.documentCodeCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.importFile, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.certifiedBankCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.amountAndCurrencyCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.requestDateCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.endorsementStatusCol, style: const TextStyle(fontWeight: FontWeight.bold))),
+                DataColumn(label: Text(context.l10n.actionCol, style: const TextStyle(fontWeight: FontWeight.bold))),
               ],
 
             rows: filtered.map((d) {
@@ -515,7 +520,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                         border: Border.all(color: d.status == 'Received' ? Colors.green.shade300 : Colors.amber.shade300),
                       ),
                       child: Text(
-                        d.status == 'Received' ? 'معتمد وموثق' : 'قيد المعالجة البنكية',
+                        d.status == 'Received' ? context.l10n.endorsedStatusBadge : context.l10n.bankProcessingStatusBadge,
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -527,7 +532,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
                   DataCell(
                     IconButton(
                       icon: const Icon(Icons.edit, color: AppTheme.cobalt, size: 18),
-                      tooltip: 'تعديل أو استعراض',
+                      tooltip: context.l10n.edit,
                       onPressed: () => _loadForm4ForEdit(d),
                     ),
                   ),
@@ -546,7 +551,7 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
     if (!_bankFormKey.currentState!.validate()) return;
     if (_form4ImportFileId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('يرجى اختيار ملف الشحنة أولاً'), backgroundColor: AppTheme.crimson),
+        SnackBar(content: Text(context.l10n.selectImportFileFirstWarning), backgroundColor: AppTheme.crimson),
       );
       return;
     }
@@ -572,14 +577,14 @@ class _BankForm4ScreenState extends ConsumerState<BankForm4Screen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم حفظ نموذج 4 البنكي بنجاح'), backgroundColor: AppTheme.emerald),
+          SnackBar(content: Text(context.l10n.form4SavedSuccess), backgroundColor: AppTheme.emerald),
         );
         _resetForm4Form();
         setState(() => _selectedSubTab = 1);
       }
     } catch (e) {
       if (mounted) {
-        showErrorDetailsDialog(context, title: 'خطأ في حفظ نموذج 4', error: e);
+        showErrorDetailsDialog(context, title: context.l10n.form4SaveError, error: e);
       }
     } finally {
       if (mounted) setState(() => _isSavingForm4 = false);

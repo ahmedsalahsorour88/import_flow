@@ -758,6 +758,46 @@ abstract class AppLocalizations {
   String get issuedAndValidStatus;
   String get tempDraftStatus;
   String get underReviewStatus;
+
+  // ── Screen 16: Bank Form 4 ──────────────────────────────────────────────
+  String get bankForm4Title;
+  String get form4RequestTab;
+  String get bankForm4RegistryTab;
+  String bankForm4EditingBanner(String code);
+  String get cancelEditNewForm4;
+  String get selectImportFileForm4Label;
+  String get bankApplicationDetailsSection;
+  String get issuingBankLabel;
+  String get selectBankHint;
+  String get bankAmountLabel;
+  String get transferCurrencyLabel;
+  String get selectCurrencyHint;
+  String get bankRequestDateLabel;
+  String get bankNotesLabel;
+  String get form4ChecklistSectionTitle;
+  String get form4ItemProformaInvoice;
+  String get form4ItemPackingList;
+  String get form4ItemCertificateOfOrigin;
+  String get form4ItemBillOfLading;
+  String get form4ItemAcidNotice;
+  String get form4ItemMarineInsurance;
+  String get form4ItemBankApplication;
+  String get form4ItemAdminFeeReceipt;
+  String get saveForm4Button;
+  String get updateForm4Button;
+  String get goToBankRegistryButton;
+  String get searchBankRegistryHint;
+  String get newForm4RequestButton;
+  String get documentCodeCol;
+  String get certifiedBankCol;
+  String get amountAndCurrencyCol;
+  String get requestDateCol;
+  String get endorsementStatusCol;
+  String get endorsedStatusBadge;
+  String get bankProcessingStatusBadge;
+  String get selectImportFileFirstWarning;
+  String get form4SavedSuccess;
+  String get form4SaveError;
 }
 
 

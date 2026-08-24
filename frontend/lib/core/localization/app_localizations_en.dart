@@ -1939,6 +1939,78 @@ class AppLocalizationsEn extends AppLocalizations {
   @override String get odooJournalExportCsvBtn => '📥 Download Odoo CSV Ready for Direct Import';
   @override String get odooJournalExportExcelBtn => '📊 Download Accounting Excel Workbook';
   @override String odooJournalExportingSnack(String filename, String directUrl) => 'Exporting: $filename\nDirect link: $directUrl';
+
+  // ---------------------------------------------------------------------------
+  // Screen 30: File Closure & Archival
+  // ---------------------------------------------------------------------------
+  @override String get fileClosureStageTitle => 'Import File Final Closure & Archival';
+  @override String get fileClosureTabArchivedRegistry => 'Archived Files Registry';
+  @override String get fileClosureTabCloseFile => 'Close Import File';
+  @override String get fileClosureRefreshTooltip => 'Refresh Data';
+  @override String get fileClosureNewCertificateBtn => 'Issue Final Closure & Archival Certificate';
+  @override String get fileClosureSearchHint => 'Search by CLR code, auditor...';
+  @override String get fileClosureFetchError => 'Error fetching shipment archive data:';
+  @override String get fileClosureEmptyRecords => 'No finalized and archived shipments found currently.';
+  @override String fileClosureClosedFilesBannerTitle(int count) => 'Previously Closed Shipments Registry ($count archived):';
+  @override String get fileClosureClosedBadge => 'Closed';
+  @override String fileClosureStopReason(String reason) => 'Closure Reason: $reason';
+  @override String get fileClosureReopenBtn => 'Reopen & Activate Shipment';
+  @override String fileClosureFileRefLabel(int id) => 'Import File Reference: #$id';
+  @override String fileClosureVaultLabel(String location) => 'Archive Location: $location';
+  @override String get fileClosureStatusBadgeClosed => 'Closed & Archived (100%)';
+  @override String get fileClosureChecklistHeader => 'Completed Closure Verification Conditions:';
+  @override String get fileClosureChecklistDocsOriginals => 'Original Documents & Electronic Transfer';
+  @override String get fileClosureChecklistCustomsCleared => 'Customs Clearance & Form 46';
+  @override String get fileClosureChecklistWarehouseGrn => 'Warehouse Inspection & GRN';
+  @override String get fileClosureChecklistLandedCost => 'Financial Settlement & Landed Cost';
+  @override String get fileClosureChecklistTasksClosed => 'Operational Tasks Closure';
+  @override String fileClosureArchivalNotes(String notes) => 'Archive Notes: $notes';
+  @override String fileClosureAuditorLabel(String auditor) => 'Auditor in Charge: $auditor';
+  @override String fileClosureCertificateDialogTitle(String code) => 'Closure & Archival Certificate: $code';
+  @override String fileClosureCertFileNo(int id) => 'Shipment File No: #$id';
+  @override String fileClosureCertLocation(String loc) => 'Archive Location: $loc';
+  @override String fileClosureCertAuditor(String name) => 'Auditor: $name';
+  @override String fileClosureCertClosedDate(String date) => 'Closure Date: $date';
+  @override String fileClosureCertNotes(String notes) => 'Notes: $notes';
+  @override String fileClosureEditSnack(String code) => 'Editing file closure & archive data: $code';
+  @override String fileClosurePrintSnack(String code, int fileId) => 'Printing official closure and archival certificate: $code (File #$fileId)';
+  @override String get fileClosureDeleteTitle => 'Delete Archive Record';
+  @override String get fileClosureDeleteMessage => 'Are you sure you want to move this closure record to trash?';
+  @override String get fileClosureViewTooltip => 'View Closure Certificate';
+  @override String get fileClosureEditTooltip => 'Edit Archival Record';
+  @override String get fileClosurePrintTooltip => 'Print Closure Certificate';
+  @override String get fileClosureDeleteTooltip => 'Delete Closure Record (Soft Delete)';
+  @override String get fileClosureDialogTitle => 'Issue Final Shipment Closure & Archival Certificate';
+  @override String get fileClosureSelectImportFile => 'Select Import File for Final Closure *';
+  @override String get fileClosureSelectImportFileHint => 'Search import file by code or company name...';
+  @override String get fileClosureSelectImportFileValidator => 'Please select an import file';
+  @override String get fileClosureMandatoryChecklistHeader => 'Mandatory Closure Checklist:';
+  @override String get fileClosureCheck1Docs => '1️⃣ Receipt of Original Documents & Electronic Transfer (CargoX)';
+  @override String get fileClosureCheck2Customs => '2️⃣ Customs Clearance Completion, Duty Payment & Form 46';
+  @override String get fileClosureCheck3Warehouse => '3️⃣ Goods Receipt in Warehouses & GRN Issuance';
+  @override String get fileClosureCheck4LandedCost => '4️⃣ Financial Settlement, Expense Allocation & Landed Cost';
+  @override String get fileClosureCheck5Tasks => '5️⃣ Closure of All Shipment Operational Tasks & Alerts';
+  @override String get fileClosureAuditorNameLabel => 'Auditor in Charge Name *';
+  @override String get fileClosureAuditorNameValidator => 'Auditor name is required';
+  @override String get fileClosureVaultLocationLabel => 'Digital Archive Vault Location *';
+  @override String get fileClosureArchivalNotesLabel => 'Archival & Audit Notes';
+  @override String get fileClosureLiveReloadBtn => 'Live Reload 🔄';
+  @override String get fileClosureResetFormBtn => 'Reset & Start New 🔄';
+  @override String get fileClosureCertifySubmitBtn => 'Certify Final Closure & Archival ✅';
+  @override String get fileClosureChecklistIncompleteWarning => 'Warning: All 5 checklist items must be verified to finalize file closure.';
+  @override String fileClosureSaveError(String error) => 'Error during file closure and archival: $error';
+
+  // Reopen Shipment Dialog
+  @override String reopenShipmentDialogTitle(String code) => 'Reopen & Reactivate Shipment ($code)';
+  @override String reopenShipmentRestoredPhase(String phase) => 'Target Phase for Reactivation: $phase';
+  @override String get reopenShipmentNotice => 'Note: Closure status will be cancelled and shipment status will be set to Active, restoring it with identical data to its previous operational phase.';
+  @override String get reopenShipmentReasonLabel => '* Reactivation Reason & Detailed Notes';
+  @override String get reopenShipmentReasonHint => 'Write the reason for resuming and reopening this closed shipment...';
+  @override String get reopenShipmentReasonValidatorEmpty => 'Please enter the reason for reopening the shipment.';
+  @override String get reopenShipmentReasonValidatorMin => 'Reopening reason must be at least 3 characters.';
+  @override String reopenShipmentSuccessSnack(String code, String phase) => 'Successfully reopened shipment ($code) and restored to ($phase)!';
+  @override String reopenShipmentErrorSnack(String err) => 'Error while reopening shipment: $err';
+  @override String get reopenShipmentConfirmBtn => 'Confirm Reopening & Activation';
 }
 
 

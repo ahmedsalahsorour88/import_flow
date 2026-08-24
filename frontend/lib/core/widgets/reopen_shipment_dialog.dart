@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../localization/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../../features/import_files/models/import_file_model.dart';
 import '../../features/import_files/providers/import_files_provider.dart';
@@ -47,6 +49,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
   Future<void> _handleReopenShipment() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
+    final l10n = context.l10n;
     setState(() => _isSubmitting = true);
     try {
       final reopened = await ref.read(importFilesProvider.notifier).reopenShipment(
@@ -59,7 +62,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
         final phaseName = reopened?.currentModule ?? widget.importFile.closedAtPhase ?? 'Phase 1';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('✅ تم إعادة فتح وتنشيط الشحنة (${widget.importFile.importFileCode}) وإعادتها بنجاح لمرحلة ($phaseName)!'),
+            content: Text(l10n.reopenShipmentSuccessSnack(widget.importFile.importFileCode, phaseName)),
             backgroundColor: AppTheme.emerald,
           ),
         );
@@ -69,7 +72,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('❌ حدث خطأ أثناء إعادة فتح الشحنة: $e'),
+            content: Text(l10n.reopenShipmentErrorSnack('$e')),
             backgroundColor: AppTheme.crimson,
           ),
         );
@@ -102,7 +105,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'إعادة فتح وتنشيط الشحنة (${widget.importFile.importFileCode})',
+                context.l10n.reopenShipmentDialogTitle(widget.importFile.importFileCode),
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -134,7 +137,7 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'المرحلة التي ستعود إليها الشحنة: $restoredPhase',
+                      context.l10n.reopenShipmentRestoredPhase(restoredPhase),
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.emerald,
@@ -142,9 +145,9 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      '- ملاحظة: سيتم إلغاء حالة الإغلاق وتغيير حالة الشحنة إلى نشطة "Active" وإعادتها بنفس البيانات والتفاصيل إلى المرحلة التشغيلية التي تم إيقافها عندها.',
-                      style: TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
+                    Text(
+                      context.l10n.reopenShipmentNotice,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.charcoal, height: 1.4),
                     ),
                   ],
                 ),
@@ -156,17 +159,17 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
                 controller: _reasonController,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  labelText: '* سبب إعادة فتح وتنشيط الشحنة والملاحظات التفصيلية',
-                  hintText: 'اكتب هنا سبب استئناف وإعادة فتح الشحنة المغلقة مسبقاً...',
+                  labelText: context.l10n.reopenShipmentReasonLabel,
+                  hintText: context.l10n.reopenShipmentReasonHint,
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                   alignLabelWithHint: true,
                 ),
                 validator: (val) {
                   if (val == null || val.trim().isEmpty) {
-                    return 'يرجى إدخال سبب إعادة فتح الشحنة.';
+                    return context.l10n.reopenShipmentReasonValidatorEmpty;
                   }
                   if (val.trim().length < 3) {
-                    return 'يجب ألا يقل سبب إعادة الفتح عن 3 حروف.';
+                    return context.l10n.reopenShipmentReasonValidatorMin;
                   }
                   return null;
                 },
@@ -179,14 +182,14 @@ class _ReopenShipmentDialogState extends ConsumerState<ReopenShipmentDialog> {
       actions: [
         TextButton(
           onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
-          child: const Text('إلغاء'),
+          child: Text(context.l10n.cancel),
         ),
         ElevatedButton.icon(
           onPressed: _isSubmitting ? null : _handleReopenShipment,
           icon: _isSubmitting
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : const Icon(Icons.play_arrow, size: 18),
-          label: const Text('تأكيد إعادة الفتح والتنشيط'),
+          label: Text(context.l10n.reopenShipmentConfirmBtn),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppTheme.emerald,
             foregroundColor: Colors.white,

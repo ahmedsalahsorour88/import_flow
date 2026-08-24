@@ -65,8 +65,7 @@
 - [x] Screen 26: Freight Allocations & Cargo Shipping (VGM) (`CargoShippingScreen` in `cargo_shipping_screen.dart`, initialSubTab: 0) — **Reviewed & Fixed**
 - [x] Screen 27: Clearance Follow-up (`CustomsClearanceScreen` in `customs_clearance_screen.dart`, initialSubTab: 1) — **Reviewed & Fixed**
 - [x] Screen 28: Warehouse Receiving GRN (`WarehouseReceivingScreen` in `warehouse_receiving_screen.dart` & sub-dialogs `_WarehouseReceivingFormDialog`, `_DiscrepancyReportDialog`) — **Reviewed & Fixed**
-- [x] Screen 29: Landed Cost Settlement (`FinancialSettlementScreen` in `financial_settlement_screen.dart` & `OdooJournalEntryDialog` in `odoo_journal_entry_dialog.dart`) — **Reviewed & Fixed**
-- [ ] Screen 30: Import File Closure (`FileClosureScreen` in `file_closure_screen.dart`)
+- [x] Screen 30: Import File Closure (`FileClosureScreen` in `file_closure_screen.dart` & `ReopenShipmentDialog` in `reopen_shipment_dialog.dart`) — **Reviewed & Fixed**
 - [ ] Screen 31: Projects & Cost Centers (`ProjectsScreen`)
 - [ ] Screen 32: Import Companies (`ImportCompaniesScreen`)
 - [ ] Screen 33: Foreign Suppliers (`SuppliersScreen`)
@@ -93,8 +92,8 @@
 
 ---
 
-**Last Screen Fully Fixed:** `Screen 29: Landed Cost Settlement (FinancialSettlementScreen & OdooJournalEntryDialog)`  
-**Next Screen to Review:** `Screen 30: Import File Closure (FileClosureScreen in file_closure_screen.dart)`
+**Last Screen Fully Fixed:** `Screen 30: Import File Closure (FileClosureScreen in file_closure_screen.dart & ReopenShipmentDialog in reopen_shipment_dialog.dart)`  
+**Next Screen to Review:** `Screen 31: Projects & Cost Centers (ProjectsScreen in projects_screen.dart)`
 
 
 

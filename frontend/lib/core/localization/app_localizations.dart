@@ -1948,6 +1948,78 @@ abstract class AppLocalizations {
   String get odooJournalExportCsvBtn;
   String get odooJournalExportExcelBtn;
   String odooJournalExportingSnack(String filename, String directUrl);
+
+  // ---------------------------------------------------------------------------
+  // Screen 30: File Closure & Archival
+  // ---------------------------------------------------------------------------
+  String get fileClosureStageTitle;
+  String get fileClosureTabArchivedRegistry;
+  String get fileClosureTabCloseFile;
+  String get fileClosureRefreshTooltip;
+  String get fileClosureNewCertificateBtn;
+  String get fileClosureSearchHint;
+  String get fileClosureFetchError;
+  String get fileClosureEmptyRecords;
+  String fileClosureClosedFilesBannerTitle(int count);
+  String get fileClosureClosedBadge;
+  String fileClosureStopReason(String reason);
+  String get fileClosureReopenBtn;
+  String fileClosureFileRefLabel(int id);
+  String fileClosureVaultLabel(String location);
+  String get fileClosureStatusBadgeClosed;
+  String get fileClosureChecklistHeader;
+  String get fileClosureChecklistDocsOriginals;
+  String get fileClosureChecklistCustomsCleared;
+  String get fileClosureChecklistWarehouseGrn;
+  String get fileClosureChecklistLandedCost;
+  String get fileClosureChecklistTasksClosed;
+  String fileClosureArchivalNotes(String notes);
+  String fileClosureAuditorLabel(String auditor);
+  String fileClosureCertificateDialogTitle(String code);
+  String fileClosureCertFileNo(int id);
+  String fileClosureCertLocation(String loc);
+  String fileClosureCertAuditor(String name);
+  String fileClosureCertClosedDate(String date);
+  String fileClosureCertNotes(String notes);
+  String fileClosureEditSnack(String code);
+  String fileClosurePrintSnack(String code, int fileId);
+  String get fileClosureDeleteTitle;
+  String get fileClosureDeleteMessage;
+  String get fileClosureViewTooltip;
+  String get fileClosureEditTooltip;
+  String get fileClosurePrintTooltip;
+  String get fileClosureDeleteTooltip;
+  String get fileClosureDialogTitle;
+  String get fileClosureSelectImportFile;
+  String get fileClosureSelectImportFileHint;
+  String get fileClosureSelectImportFileValidator;
+  String get fileClosureMandatoryChecklistHeader;
+  String get fileClosureCheck1Docs;
+  String get fileClosureCheck2Customs;
+  String get fileClosureCheck3Warehouse;
+  String get fileClosureCheck4LandedCost;
+  String get fileClosureCheck5Tasks;
+  String get fileClosureAuditorNameLabel;
+  String get fileClosureAuditorNameValidator;
+  String get fileClosureVaultLocationLabel;
+  String get fileClosureArchivalNotesLabel;
+  String get fileClosureLiveReloadBtn;
+  String get fileClosureResetFormBtn;
+  String get fileClosureCertifySubmitBtn;
+  String get fileClosureChecklistIncompleteWarning;
+  String fileClosureSaveError(String error);
+
+  // Reopen Shipment Dialog
+  String reopenShipmentDialogTitle(String code);
+  String reopenShipmentRestoredPhase(String phase);
+  String get reopenShipmentNotice;
+  String get reopenShipmentReasonLabel;
+  String get reopenShipmentReasonHint;
+  String get reopenShipmentReasonValidatorEmpty;
+  String get reopenShipmentReasonValidatorMin;
+  String reopenShipmentSuccessSnack(String code, String phase);
+  String reopenShipmentErrorSnack(String err);
+  String get reopenShipmentConfirmBtn;
 }
 
 

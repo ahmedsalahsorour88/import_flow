@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/master_data_toolbar.dart';
 import '../../../core/widgets/reopen_shipment_dialog.dart';
@@ -61,7 +62,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
     ];
 
     return VerticalStageScaffold(
-      stageCode: '',
+      stageCode: 'CLR-01',
       titleEn: 'Import File Final Closure & Archival',
       titleAr: 'إغلاق الملف والأرشفة التاريخية',
       headerIcon: Icons.archive,
@@ -76,7 +77,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
       headerActions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.white70),
-          tooltip: 'تحديث البيانات',
+          tooltip: context.l10n.fileClosureRefreshTooltip,
           onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
         ),
       ],
@@ -105,18 +106,18 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                       style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14)),
                       onPressed: () => _showCloseFileDialog(),
                       icon: const Icon(Icons.lock_clock, color: Colors.white),
-                      label: const Text('إصدار شهادة إغلاق وأرشفة شحنة نهائياً (Close & Archive)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      label: Text(context.l10n.fileClosureNewCertificateBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     ),
                     const Spacer(),
                     SizedBox(
                       width: 300,
                       child: TextField(
                         controller: _searchController,
-                        decoration: const InputDecoration(
-                          hintText: 'بحث بكود الشهادة CLR، المراجع...',
-                          prefixIcon: Icon(Icons.search),
+                        decoration: InputDecoration(
+                          hintText: context.l10n.fileClosureSearchHint,
+                          prefixIcon: const Icon(Icons.search),
                           isDense: true,
-                          border: OutlineInputBorder(),
+                          border: const OutlineInputBorder(),
                         ),
                         onChanged: (val) {
                           ref.read(fileClosureProvider.notifier).fetchClosures(search: val);
@@ -153,7 +154,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                   children: [
                                     const Icon(Icons.history, color: AppTheme.orange, size: 22),
                                     const SizedBox(width: 8),
-                                    Text('سجل الشحنات المغلقة مسبقاً (${closedFiles.length} شحنة مغلقة بالأرشيف):', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
+                                    Text(context.l10n.fileClosureClosedFilesBannerTitle(closedFiles.length), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.charcoal)),
                                   ],
                                 ),
                                 const SizedBox(height: 10),
@@ -175,13 +176,13 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                               Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                                 decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
-                                                child: Text(cf.closedAtPhase ?? 'Closed', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
+                                                child: Text(cf.closedAtPhase ?? context.l10n.fileClosureClosedBadge, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.crimson)),
                                               ),
                                             ],
                                           ),
                                           if (cf.closureReason != null && cf.closureReason!.isNotEmpty) ...[
                                             const SizedBox(height: 4),
-                                            Text('سبب الإيقاف: ${cf.closureReason}', style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87)),
+                                            Text(context.l10n.fileClosureStopReason(cf.closureReason!), style: const TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.black87)),
                                           ],
                                           const SizedBox(height: 8),
                                           ElevatedButton.icon(
@@ -198,7 +199,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                               );
                                             },
                                             icon: const Icon(Icons.restart_alt, size: 14),
-                                            label: const Text('إعادة فتح وتنشيط الشحنة', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                            label: Text(context.l10n.fileClosureReopenBtn, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
                                           ),
                                         ],
                                       ),
@@ -219,10 +220,10 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
             Expanded(
               child: closuresState.when(
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (err, _) => Center(child: Text('خطأ في جلب بيانات أرشيف الشحنات: $err', style: const TextStyle(color: AppTheme.crimson))),
+                error: (err, _) => Center(child: Text('${context.l10n.fileClosureFetchError} $err', style: const TextStyle(color: AppTheme.crimson))),
                 data: (records) {
                   if (records.isEmpty) {
-                    return const Center(child: Text('لا توجد شحنات مغلقة ومؤرشفة نهائياً حالياً.'));
+                    return Center(child: Text(context.l10n.fileClosureEmptyRecords));
                   }
 
                   return ListView.builder(
@@ -247,31 +248,31 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                     child: Text(r.closureCode, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.emerald)),
                                   ),
                                   const SizedBox(width: 12),
-                                  Text('ملف الشحنة المرجعي: #${r.importFileId}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                  Text(context.l10n.fileClosureFileRefLabel(r.importFileId), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   const SizedBox(width: 12),
-                                  Text('مستودع الأرشيف: ${r.archiveLocation}', style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
+                                  Text(context.l10n.fileClosureVaultLabel(r.archiveLocation), style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
                                   const Spacer(),
                                   Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(color: Colors.grey.shade200, borderRadius: BorderRadius.circular(6)),
-                                    child: const Text('🔒 Closed & Archived (100%)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 12)),
+                                    child: Text(context.l10n.fileClosureStatusBadgeClosed, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.black87, fontSize: 12)),
                                   ),
                                 ],
                               ),
                               const Divider(height: 20),
 
                               // Checklist Verified Badges
-                              const Text('شروط الإغلاق المكتملة (Closure Verification Checklist):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                              Text(context.l10n.fileClosureChecklistHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                               const SizedBox(height: 8),
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
                                 children: [
-                                  _buildChecklistChip('المستندات الأصلية & CargoX', chk.docsVerified),
-                                  _buildChecklistChip('الإفراج الجمركي & نموذج 46', chk.customsCleared),
-                                  _buildChecklistChip('فحص واستلام المخازن GRN', chk.warehouseReceived),
-                                  _buildChecklistChip('التسوية المالية & Landed Cost', chk.landedCostSettled),
-                                  _buildChecklistChip('إغلاق المهام التشغيلية', chk.tasksClosed),
+                                  _buildChecklistChip(context.l10n.fileClosureChecklistDocsOriginals, chk.docsVerified),
+                                  _buildChecklistChip(context.l10n.fileClosureChecklistCustomsCleared, chk.customsCleared),
+                                  _buildChecklistChip(context.l10n.fileClosureChecklistWarehouseGrn, chk.warehouseReceived),
+                                  _buildChecklistChip(context.l10n.fileClosureChecklistLandedCost, chk.landedCostSettled),
+                                  _buildChecklistChip(context.l10n.fileClosureChecklistTasksClosed, chk.tasksClosed),
                                 ],
                               ),
 
@@ -284,7 +285,7 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                     children: [
                                       const Icon(Icons.note, size: 16, color: Colors.grey),
                                       const SizedBox(width: 8),
-                                      Expanded(child: Text('ملاحظات الأرشيف: ${r.archivalNotes}', style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))),
+                                      Expanded(child: Text(context.l10n.fileClosureArchivalNotes(r.archivalNotes!), style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic))),
                                     ],
                                   ),
                                 ),
@@ -294,52 +295,53 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.end,
                                 children: [
-                                  Text('المراجع المسؤول: ${r.auditorName}', style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
+                                  Text(context.l10n.fileClosureAuditorLabel(r.auditorName), style: TextStyle(fontSize: 11, color: Colors.grey.shade600)),
                                   const Spacer(),
                                   RowActionsPill(
                                     onView: () {
                                       showDialog(
                                         context: context,
                                         builder: (c) => AlertDialog(
-                                          title: Text('شهادة الإغلاق والأرشفة: ${r.closureCode}'),
+                                          title: Text(context.l10n.fileClosureCertificateDialogTitle(r.closureCode)),
                                           content: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text('رقم ملف الشحنة: #${r.importFileId}'),
-                                              Text('موقع الأرشيف: ${r.archiveLocation}'),
-                                              Text('المراجع: ${r.auditorName}'),
-                                              Text('تاريخ الإغلاق: ${r.closedAt}'),
-                                              if (r.archivalNotes != null) Text('الملاحظات: ${r.archivalNotes}'),
+                                              Text(context.l10n.fileClosureCertFileNo(r.importFileId)),
+                                              Text(context.l10n.fileClosureCertLocation(r.archiveLocation)),
+                                              Text(context.l10n.fileClosureCertAuditor(r.auditorName)),
+                                              Text(context.l10n.fileClosureCertClosedDate(r.closedAt)),
+                                              if (r.archivalNotes != null) Text(context.l10n.fileClosureCertNotes(r.archivalNotes!)),
                                             ],
                                           ),
-                                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: const Text('إغلاق'))],
+                                          actions: [TextButton(onPressed: () => Navigator.pop(c), child: Text(context.l10n.close))],
                                         ),
                                       );
                                     },
                                     onEdit: () {
                                       ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(content: Text('تعديل بيانات وأرشفة الملف: ${r.closureCode}'), backgroundColor: AppTheme.orange),
+                                        SnackBar(content: Text(context.l10n.fileClosureEditSnack(r.closureCode)), backgroundColor: AppTheme.orange),
                                       );
                                     },
                                     onPrint: () {
                                       ScaffoldMessenger.of(context).showSnackBar(
                                         SnackBar(
-                                          content: Text('طباعة شهادة الإغلاق الرسمي والأرشفة النهائية: ${r.closureCode} (ملف #${r.importFileId})'),
+                                          content: Text(context.l10n.fileClosurePrintSnack(r.closureCode, r.importFileId)),
                                           backgroundColor: AppTheme.charcoal,
                                           duration: const Duration(seconds: 2),
                                         ),
                                       );
                                     },
                                     onDelete: () async {
+                                      final l10n = context.l10n;
                                       final confirm = await showDialog<bool>(
                                         context: context,
                                         builder: (c) => AlertDialog(
-                                          title: const Text('حذف سجل الأرشفة'),
-                                          content: const Text('هل أنت متأكد من نقل سجل الإغلاق للمحذوفات؟'),
+                                          title: Text(l10n.fileClosureDeleteTitle),
+                                          content: Text(l10n.fileClosureDeleteMessage),
                                           actions: [
-                                            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-                                            TextButton(onPressed: () => Navigator.pop(c, true), child: const Text('حذف', style: TextStyle(color: AppTheme.crimson))),
+                                            TextButton(onPressed: () => Navigator.pop(c, false), child: Text(l10n.cancel)),
+                                            TextButton(onPressed: () => Navigator.pop(c, true), child: Text(l10n.delete, style: const TextStyle(color: AppTheme.crimson))),
                                           ],
                                         ),
                                       );
@@ -347,10 +349,10 @@ class _FileClosureScreenState extends ConsumerState<FileClosureScreen> {
                                         ref.read(fileClosureProvider.notifier).softDeleteClosure(r.closureId);
                                       }
                                     },
-                                    viewTooltip: 'عرض شهادة الإغلاق',
-                                    editTooltip: 'تعديل الأرشفة',
-                                    printTooltip: 'طباعة شهادة الإغلاق والأرشفة',
-                                    deleteTooltip: 'حذف سجل الإغلاق (Soft Delete)',
+                                    viewTooltip: context.l10n.fileClosureViewTooltip,
+                                    editTooltip: context.l10n.fileClosureEditTooltip,
+                                    printTooltip: context.l10n.fileClosurePrintTooltip,
+                                    deleteTooltip: context.l10n.fileClosureDeleteTooltip,
                                   ),
                                 ],
                               ),
@@ -418,7 +420,7 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
     final importFiles = ref.watch(importFilesProvider).value ?? [];
 
     return AlertDialog(
-      title: const Text('إصدار شهادة إغلاق وأرشفة شحنة نهائياً (Phase 10)'),
+      title: Text(context.l10n.fileClosureDialogTitle),
       content: SizedBox(
         width: 550,
         child: Form(
@@ -430,8 +432,8 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
               children: [
                 SearchableDropdownField<int?>(
                   value: _selectedImportFileId,
-                  labelText: 'اختر ملف الشحنة للإغلاق النهائي *',
-                  searchHintText: 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...',
+                  labelText: context.l10n.fileClosureSelectImportFile,
+                  searchHintText: context.l10n.fileClosureSelectImportFileHint,
                   items: importFiles
                       .map((f) => SearchableDropdownItem<int?>(
                             value: f.importFileId,
@@ -440,38 +442,38 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
                           ))
                       .toList(),
                   onChanged: (val) => setState(() => _selectedImportFileId = val),
-                  validator: (v) => v == null ? 'يرجى اختيار ملف الشحنة' : null,
+                  validator: (v) => v == null ? context.l10n.fileClosureSelectImportFileValidator : null,
                 ),
                 const SizedBox(height: 14),
 
-                const Text('قائمة التحقق الإلزامية للإغلاق (Mandatory Closure Checklist):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
+                Text(context.l10n.fileClosureMandatoryChecklistHeader, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.cobalt)),
                 const SizedBox(height: 6),
                 CheckboxListTile(
-                  title: const Text('1️⃣ استلام المستندات الأصلية والتبادل الإلكتروني (CargoX)'),
+                  title: Text(context.l10n.fileClosureCheck1Docs),
                   value: _docsVerified,
                   onChanged: (v) => setState(() => _docsVerified = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: const Text('2️⃣ إتمام الإفراج الجمركي وسداد الضرائب والإيقاف الجمركي (Dec 46)'),
+                  title: Text(context.l10n.fileClosureCheck2Customs),
                   value: _customsCleared,
                   onChanged: (v) => setState(() => _customsCleared = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: const Text('3️⃣ استلام البضائع بالمخازن وإصدار إذن الإضافة GRN'),
+                  title: Text(context.l10n.fileClosureCheck3Warehouse),
                   value: _warehouseReceived,
                   onChanged: (v) => setState(() => _warehouseReceived = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: const Text('4️⃣ التسوية المالية وتوزيع المصاريف وحساب Landed Cost'),
+                  title: Text(context.l10n.fileClosureCheck4LandedCost),
                   value: _landedCostSettled,
                   onChanged: (v) => setState(() => _landedCostSettled = v ?? false),
                   dense: true,
                 ),
                 CheckboxListTile(
-                  title: const Text('5️⃣ إغلاق كافة المهام والتنبيهات المرتبطة بالشحنة'),
+                  title: Text(context.l10n.fileClosureCheck5Tasks),
                   value: _tasksClosed,
                   onChanged: (v) => setState(() => _tasksClosed = v ?? false),
                   dense: true,
@@ -480,19 +482,19 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _auditorCtrl,
-                  decoration: const InputDecoration(labelText: 'اسم المراجع المسؤول *', border: OutlineInputBorder()),
-                  validator: (v) => (v == null || v.isEmpty) ? 'يلزم إدخال اسم المراجع' : null,
+                  decoration: InputDecoration(labelText: context.l10n.fileClosureAuditorNameLabel, border: const OutlineInputBorder()),
+                  validator: (v) => (v == null || v.isEmpty) ? context.l10n.fileClosureAuditorNameValidator : null,
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _vaultCtrl,
-                  decoration: const InputDecoration(labelText: 'مستودع الأرشيف الرقمي *', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.fileClosureVaultLocationLabel, border: const OutlineInputBorder()),
                 ),
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _notesCtrl,
                   maxLines: 2,
-                  decoration: const InputDecoration(labelText: 'ملاحظات الأرشفة والتدقيق', border: OutlineInputBorder()),
+                  decoration: InputDecoration(labelText: context.l10n.fileClosureArchivalNotesLabel, border: const OutlineInputBorder()),
                 ),
               ],
             ),
@@ -504,7 +506,7 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
           style: OutlinedButton.styleFrom(foregroundColor: AppTheme.charcoal, side: BorderSide(color: Colors.grey.shade400)),
           onPressed: () => ref.read(fileClosureProvider.notifier).fetchClosures(),
           icon: const Icon(Icons.refresh, size: 16, color: AppTheme.cobalt),
-          label: const Text('إعادة تحميل حية 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(context.l10n.fileClosureLiveReloadBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
         OutlinedButton.icon(
@@ -522,21 +524,22 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
             });
           },
           icon: const Icon(Icons.cleaning_services_outlined, size: 16, color: Colors.blueGrey),
-          label: const Text('تفريغ وبدء تسجيل جديد 🔄', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+          label: Text(context.l10n.fileClosureResetFormBtn, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
         ),
         const SizedBox(width: 6),
-        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: const Text('إلغاء')),
+        TextButton(onPressed: _isLoading ? null : () => Navigator.pop(context), child: Text(context.l10n.cancel)),
         ElevatedButton.icon(
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.emerald),
           icon: _isLoading ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.archive_outlined, color: Colors.white, size: 16),
-          label: const Text('اعتماد الإغلاق والأرشفة النهائية ✅', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          label: Text(context.l10n.fileClosureCertifySubmitBtn, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           onPressed: _isLoading
               ? null
               : () async {
+                  final l10n = context.l10n;
                   if (_formKey.currentState!.validate()) {
                     if (!_docsVerified || !_customsCleared || !_warehouseReceived || !_landedCostSettled || !_tasksClosed) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                        content: Text('تنبيه: يلزم اكتمال جميع البنود الـ 5 في قائمة التحقق لإغلاق الملف نهائياً.'),
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                        content: Text(l10n.fileClosureChecklistIncompleteWarning),
                         backgroundColor: AppTheme.crimson,
                       ));
                       return;
@@ -563,7 +566,7 @@ class _FileClosureFormDialogState extends ConsumerState<_FileClosureFormDialog> 
                       await ref.read(fileClosureProvider.notifier).closeImportFile(payload);
                       nav.pop();
                     } catch (e) {
-                      messenger.showSnackBar(SnackBar(content: Text('خطأ أثناء إغلاق وأرشفة الملف: $e'), backgroundColor: AppTheme.crimson));
+                      messenger.showSnackBar(SnackBar(content: Text(l10n.fileClosureSaveError('$e')), backgroundColor: AppTheme.crimson));
                     } finally {
                       if (mounted) setState(() => _isLoading = false);
                     }

@@ -1939,6 +1939,78 @@ class AppLocalizationsAr extends AppLocalizations {
   @override String get odooJournalExportCsvBtn => '📥 تحميل شيت Odoo CSV الجاهز للاستيراد المباشر';
   @override String get odooJournalExportExcelBtn => '📊 تحميل كشف Excel المحاسبي التفصيلي';
   @override String odooJournalExportingSnack(String filename, String directUrl) => 'جارٍ التصدير: $filename\nالرابط المباشر: $directUrl';
+
+  // ---------------------------------------------------------------------------
+  // Screen 30: File Closure & Archival
+  // ---------------------------------------------------------------------------
+  @override String get fileClosureStageTitle => 'إغلاق الملف والأرشفة التاريخية';
+  @override String get fileClosureTabArchivedRegistry => 'سجل الملفات المغلقة والمؤرشفة';
+  @override String get fileClosureTabCloseFile => 'إغلاق وأرشفة ملف شحنة';
+  @override String get fileClosureRefreshTooltip => 'تحديث البيانات';
+  @override String get fileClosureNewCertificateBtn => 'إصدار شهادة إغلاق وأرشفة شحنة نهائياً';
+  @override String get fileClosureSearchHint => 'بحث بكود الشهادة، المراجع...';
+  @override String get fileClosureFetchError => 'خطأ في جلب بيانات أرشيف الشحنات:';
+  @override String get fileClosureEmptyRecords => 'لا توجد شحنات مغلقة ومؤرشفة نهائياً حالياً.';
+  @override String fileClosureClosedFilesBannerTitle(int count) => 'سجل الشحنات المغلقة مسبقاً ($count شحنة مغلقة بالأرشيف):';
+  @override String get fileClosureClosedBadge => 'مغلق';
+  @override String fileClosureStopReason(String reason) => 'سبب الإيقاف: $reason';
+  @override String get fileClosureReopenBtn => 'إعادة فتح وتنشيط الشحنة';
+  @override String fileClosureFileRefLabel(int id) => 'ملف الشحنة المرجعي: #$id';
+  @override String fileClosureVaultLabel(String location) => 'مستودع الأرشيف: $location';
+  @override String get fileClosureStatusBadgeClosed => 'مغلق ومؤرشف بالكامل (100%)';
+  @override String get fileClosureChecklistHeader => 'شروط الإغلاق المكتملة:';
+  @override String get fileClosureChecklistDocsOriginals => 'المستندات الأصلية والتبادل الرقمي';
+  @override String get fileClosureChecklistCustomsCleared => 'الإفراج الجمركي ونموذج 46';
+  @override String get fileClosureChecklistWarehouseGrn => 'فحص واستلام المخازن';
+  @override String get fileClosureChecklistLandedCost => 'التسوية المالية وتكلفة الوصول';
+  @override String get fileClosureChecklistTasksClosed => 'إغلاق المهام التشغيلية';
+  @override String fileClosureArchivalNotes(String notes) => 'ملاحظات الأرشيف: $notes';
+  @override String fileClosureAuditorLabel(String auditor) => 'المراجع المسؤول: $auditor';
+  @override String fileClosureCertificateDialogTitle(String code) => 'شهادة الإغلاق والأرشفة: $code';
+  @override String fileClosureCertFileNo(int id) => 'رقم ملف الشحنة: #$id';
+  @override String fileClosureCertLocation(String loc) => 'موقع الأرشيف: $loc';
+  @override String fileClosureCertAuditor(String name) => 'المراجع: $name';
+  @override String fileClosureCertClosedDate(String date) => 'تاريخ الإغلاق: $date';
+  @override String fileClosureCertNotes(String notes) => 'الملاحظات: $notes';
+  @override String fileClosureEditSnack(String code) => 'تعديل بيانات وأرشفة الملف: $code';
+  @override String fileClosurePrintSnack(String code, int fileId) => 'طباعة شهادة الإغلاق الرسمي والأرشفة النهائية: $code (ملف #$fileId)';
+  @override String get fileClosureDeleteTitle => 'حذف سجل الأرشفة';
+  @override String get fileClosureDeleteMessage => 'هل أنت متأكد من نقل سجل الإغلاق للمحذوفات؟';
+  @override String get fileClosureViewTooltip => 'عرض شهادة الإغلاق';
+  @override String get fileClosureEditTooltip => 'تعديل الأرشفة';
+  @override String get fileClosurePrintTooltip => 'طباعة شهادة الإغلاق والأرشفة';
+  @override String get fileClosureDeleteTooltip => 'حذف سجل الإغلاق (حذف منطقي)';
+  @override String get fileClosureDialogTitle => 'إصدار شهادة إغلاق وأرشفة شحنة نهائياً';
+  @override String get fileClosureSelectImportFile => 'اختر ملف الشحنة للإغلاق النهائي *';
+  @override String get fileClosureSelectImportFileHint => 'ابحث عن ملف الشحنة بالرقم أو اسم الشركة...';
+  @override String get fileClosureSelectImportFileValidator => 'يرجى اختيار ملف الشحنة';
+  @override String get fileClosureMandatoryChecklistHeader => 'قائمة التحقق الإلزامية للإغلاق:';
+  @override String get fileClosureCheck1Docs => '1️⃣ استلام المستندات الأصلية والتبادل الإلكتروني';
+  @override String get fileClosureCheck2Customs => '2️⃣ إتمام الإفراج الجمركي وسداد الضرائب والإيقاف الجمركي (إقرار 46)';
+  @override String get fileClosureCheck3Warehouse => '3️⃣ استلام البضائع بالمخازن وإصدار إذن الإضافة';
+  @override String get fileClosureCheck4LandedCost => '4️⃣ التسوية المالية وتوزيع المصاريف وحساب تكلفة الوصول';
+  @override String get fileClosureCheck5Tasks => '5️⃣ إغلاق كافة المهام والتنبيهات المرتبطة بالشحنة';
+  @override String get fileClosureAuditorNameLabel => 'اسم المراجع المسؤول *';
+  @override String get fileClosureAuditorNameValidator => 'يلزم إدخال اسم المراجع';
+  @override String get fileClosureVaultLocationLabel => 'مستودع الأرشيف الرقمي *';
+  @override String get fileClosureArchivalNotesLabel => 'ملاحظات الأرشفة والتدقيق';
+  @override String get fileClosureLiveReloadBtn => 'إعادة تحميل حية 🔄';
+  @override String get fileClosureResetFormBtn => 'تفريغ وبدء تسجيل جديد 🔄';
+  @override String get fileClosureCertifySubmitBtn => 'اعتماد الإغلاق والأرشفة النهائية ✅';
+  @override String get fileClosureChecklistIncompleteWarning => 'تنبيه: يلزم اكتمال جميع البنود الـ 5 في قائمة التحقق لإغلاق الملف نهائياً.';
+  @override String fileClosureSaveError(String error) => 'خطأ أثناء إغلاق وأرشفة الملف: $error';
+
+  // Reopen Shipment Dialog
+  @override String reopenShipmentDialogTitle(String code) => 'إعادة فتح وتنشيط الشحنة ($code)';
+  @override String reopenShipmentRestoredPhase(String phase) => 'المرحلة التي ستعود إليها الشحنة: $phase';
+  @override String get reopenShipmentNotice => 'ملاحظة: سيتم إلغاء حالة الإغلاق وتغيير حالة الشحنة إلى نشطة وإعادتها بنفس البيانات والتفاصيل إلى المرحلة التشغيلية التي تم إيقافها عندها.';
+  @override String get reopenShipmentReasonLabel => '* سبب إعادة فتح وتنشيط الشحنة والملاحظات التفصيلية';
+  @override String get reopenShipmentReasonHint => 'اكتب هنا سبب استئناف وإعادة فتح الشحنة المغلقة مسبقاً...';
+  @override String get reopenShipmentReasonValidatorEmpty => 'يرجى إدخال سبب إعادة فتح الشحنة.';
+  @override String get reopenShipmentReasonValidatorMin => 'يجب ألا يقل سبب إعادة الفتح عن 3 حروف.';
+  @override String reopenShipmentSuccessSnack(String code, String phase) => 'تم إعادة فتح وتنشيط الشحنة ($code) وإعادتها بنجاح لمرحلة ($phase)!';
+  @override String reopenShipmentErrorSnack(String err) => 'حدث خطأ أثناء إعادة فتح الشحنة: $err';
+  @override String get reopenShipmentConfirmBtn => 'تأكيد إعادة الفتح والتنشيط';
 }
 
 
